@@ -800,12 +800,12 @@ class Model:
 
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
-            return forms
+            return forms.copy()
 
         if (kids := self.childforms.get(formname)) is None:
             if depth == 0:
                 childforms = [formname]
-                self.childformcache[formname] = childforms
+                self.childformcache[formname] = childforms.copy()
                 return childforms
             return [(depth, formname)]
 
@@ -816,18 +816,18 @@ class Model:
         if depth == 0:
             childforms.sort(reverse=True)
             childforms = [cform[1] for cform in childforms]
-            self.childformcache[formname] = childforms
+            self.childformcache[formname] = childforms.copy()
 
         return childforms
 
     def getChildProps(self, prop, depth=0):
         if depth == 0 and (props := self.childpropcache.get(prop.full)) is not None:
-            return props
+            return props.copy()
 
         if (kids := self.childforms.get(prop.form.name)) is None:
             if depth == 0:
                 childprops = [prop]
-                self.childpropcache[prop.full] = childprops
+                self.childpropcache[prop.full] = childprops.copy()
                 return childprops
             return [(depth, prop)]
 
@@ -843,7 +843,7 @@ class Model:
         if depth == 0:
             childprops.sort(reverse=True, key=lambda x: (x[0], x[1].name))
             childprops = [cprop[1] for cprop in childprops]
-            self.childpropcache[prop.full] = childprops
+            self.childpropcache[prop.full] = childprops.copy()
 
         return childprops
 

@@ -77,6 +77,18 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
             self.isin('Type option foo is not valid', cm.exception.get('mesg'))
 
+            self.len(2, forms := core.model.getChildForms('test:str'))
+            forms.pop(0)
+            self.len(2, forms := core.model.getChildForms('test:str'))
+            forms.pop(0)
+            self.len(2, core.model.getChildForms('test:str'))
+
+            self.len(2, props := core.model.reqPropList('test:str:tick'))
+            props.pop(0)
+            self.len(2, props := core.model.reqPropList('test:str:tick'))
+            props.pop(0)
+            self.len(2, core.model.reqPropList('test:str:tick'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -802,3 +814,21 @@ class DataModelTest(s_t_utils.SynTest):
 
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:ip'))
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:_ip2'))
+
+            # Handling for lift/pivot where children have more restrictive norming
+            await core.nodes('[ meta:rule=* :id={[ meta:id=foo ]} ]')
+
+            self.len(1, await core.nodes('meta:id=foo'))
+            self.len(1, await core.nodes('meta:id=foo -> meta:rule'))
+            self.len(1, await core.nodes('meta:id=foo -> meta:rule:id'))
+            self.len(1, await core.nodes('meta:rule -> *'))
+            self.len(1, await core.nodes('meta:rule :id -> *'))
+            self.len(1, await core.nodes('meta:rule -> meta:id'))
+            self.len(1, await core.nodes('meta:rule :id -> meta:id'))
+
+            core.model.addFormProp('test:str', 'cve', ('it:sec:cve', {}), {})
+            await core.nodes('[ test:str=bar :cve=cve-2020-1234 ]')
+
+            msgs = await core.stormlist('meta:id -> test:str:cve')
+            self.stormHasNoWarnErr(msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
