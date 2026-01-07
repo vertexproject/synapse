@@ -1009,6 +1009,8 @@ class StormTypesTest(s_test.SynTest):
             self.none(view.parent)
             self.none(view.info.get('parent'))
 
+            self.eq(b'VVVV', await core.callStorm('return($lib.bytes.fromints(([0x56, 0x56, 0x56, 0x56])))'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
