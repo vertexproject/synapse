@@ -2859,7 +2859,7 @@ class LibBytes(Lib):
 
                 Convert a list of integers into bytes::
 
-                    $ints = ([ 0x56, 0x49, 0x53, 0x49])
+                    $ints = ([0x56, 0x49, 0x53, 0x49])
                     $byts = $lib.bytes.fromints($ints)
 
             ''',
