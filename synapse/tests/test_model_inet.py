@@ -872,6 +872,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :path="/woot/hehe/"
                 :body=$p.body
                 :headers=((foo, bar),)
+                :header:host=vertex.link
+                :header:referer="https://google.com?s=awesome"
                 :response:code=200
                 :response:reason=OK
                 :response:headers=((baz, faz),)
@@ -893,6 +895,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
             self.eq(node.get('path'), '/woot/hehe/')
             self.eq(node.get('body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('header:host'), 'vertex.link')
+            self.eq(node.get('header:referer'), 'https://google.com?s=awesome')
             self.eq(node.get('response:code'), 200)
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))

@@ -1,0 +1,6 @@
+---
+desc: Updated the allowed versions of the ``cbor2`` library.
+desc:literal: false
+prs: []
+type: feat
+...
