@@ -6,6 +6,61 @@
 Synapse Changelog
 *****************
 
+v2.230.0 - 2026-01-07
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated email addresses with +<tag> user names to properly populate
+  ``:plus`` and ``:base``.
+  (`#4636 <https://github.com/vertexproject/synapse/pull/4636>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``:reporter`` and ``:reporter:name`` properties to ``ou:goal`` to
+  record information about a reporter of the goal.
+  (`#4616 <https://github.com/vertexproject/synapse/pull/4616>`_)
+- Added ``:plus`` and ``:base`` properties to ``inet:email``.
+  (`#4636 <https://github.com/vertexproject/synapse/pull/4636>`_)
+- See :ref:`userguide_model_v2_230_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``vaults`` to the Storm package definition schema, which enables
+  declaring vaults and their associated schemas.
+  (`#4590 <https://github.com/vertexproject/synapse/pull/4590>`_)
+- Added declarations for trigger property permissions.
+  (`#4615 <https://github.com/vertexproject/synapse/pull/4615>`_)
+- Updated Storm package onload/inits to always run directly on the leader even
+  when a Storm query pool is in use.
+  (`#4617 <https://github.com/vertexproject/synapse/pull/4617>`_)
+- Updated the allowed versions of the ``cbor2`` library.
+  (`#4648 <https://github.com/vertexproject/synapse/pull/4648>`_)
+
+Notes
+-----
+- Updated ``synapse.tools.utils.changelog`` tool to replace the ``--prs-from-
+  git`` option with ``--no-prs-from-git``.
+  (`#4613 <https://github.com/vertexproject/synapse/pull/4613>`_)
+- Updated service main function behavior to allow background tasks the
+  opportunity to execute before shutting down.
+  (`#4645 <https://github.com/vertexproject/synapse/pull/4645>`_)
+
+Improved documentation
+----------------------
+- Updated documentation related to the Synapse release process.
+  (`#4613 <https://github.com/vertexproject/synapse/pull/4613>`_)
+
+Deprecations
+------------
+- Deprecated the ``idens()`` method on Storm ``path`` objects. The ``links()``
+  method should be used to retrieve this information instead.
+  (`#4618 <https://github.com/vertexproject/synapse/pull/4618>`_)
+- Deprecated the ``path`` Storm option. The ``links`` option should be used to
+  retrieve this data instead.
+  (`#4618 <https://github.com/vertexproject/synapse/pull/4618>`_)
+
 v2.229.0 - 2025-12-10
 =====================
 
