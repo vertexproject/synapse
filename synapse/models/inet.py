@@ -2395,11 +2395,18 @@ class InetModule(s_module.CoreModule):
                         ('headers', ('array', {'type': 'inet:http:request:header'}), {
                             'doc': 'An array of HTTP headers from the request.'}),
 
+                        ('header:host', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN parsed from the "Host:" header in the request.'}),
+
+                        ('header:referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
                         ('referer', ('inet:url', {}), {
-                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :header:referer.'}),
 
                         ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
