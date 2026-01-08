@@ -1926,6 +1926,8 @@ modeldefs = (
                 'props': (
                     ('banner', ('file:bytes', {}), {
                         'doc': 'A banner or hero image used on the subscriber profile page.'}),
+                    ('profile', ('entity:contact', {}), {
+                        'doc': 'Current detailed contact information for the subscriber.'}),
                 ),
             }),
 

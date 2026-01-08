@@ -2768,6 +2768,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
+            $profile = {[ entity:contact=({"email": "foo@bar.com"}) ]}
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
@@ -2775,8 +2776,12 @@ class InetModelTest(s_t_utils.SynTest):
                     :users=(zeblackout, blackoutalt, zeblackout)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
+                    :profile=$profile
                     :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
-                    :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :tenant={[
+                        inet:service:tenant=({"id": "VS-31337"})
+                            :profile=$profile
+                    ]}
                     :seen=(2022, 2023)
                 )
 
@@ -2809,6 +2814,9 @@ class InetModelTest(s_t_utils.SynTest):
             blckacct, visiacct = accounts
 
             self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
+
+            nodes = await core.nodes('entity:contact:email=foo@bar.com -> (inet:service:account, inet:service:tenant)')
+            self.sorteq(['inet:service:account', 'inet:service:tenant'], [n.ndef[0] for n in nodes])
 
             nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
             self.len(1, nodes)
