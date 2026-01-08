@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.230.0 - 2026-01-07
+v2.230.0 - 2026-01-08
 =====================
 
 Automatic Migrations
@@ -37,6 +37,9 @@ Features and Enhancements
   (`#4617 <https://github.com/vertexproject/synapse/pull/4617>`_)
 - Updated the allowed versions of the ``cbor2`` library.
   (`#4648 <https://github.com/vertexproject/synapse/pull/4648>`_)
+- Added ``$lib.bytes.fromints()`` to convert an array of integers into a bytes
+  instance.
+  (`#4656 <https://github.com/vertexproject/synapse/pull/4656>`_)
 
 Notes
 -----
