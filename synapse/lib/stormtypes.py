@@ -2905,7 +2905,7 @@ class LibBytes(Lib):
         except s_exc.SynErr as e:
             raise s_exc.BadArg(mesg=e.get('mesg'))
         except Exception as e:
-            raise s_exc.BadArg(mesg=f'Failed to convert its to bytes: {str(e)}')
+            raise s_exc.BadArg(mesg=f'Failed to convert ints to bytes: {str(e)}')
         return ret
 
     @stormfunc(readonly=True)
