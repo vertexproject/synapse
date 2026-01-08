@@ -2855,8 +2855,11 @@ class LibBytes(Lib):
         {'name': 'fromints', 'desc': '''
             Convert an iterable source of integers into bytes.
 
-            Examples:
+            Note:
+                The integer values must be in the range 0 to 255. Values outside of this range will raise a
+                StormRuntimeError.
 
+            Examples:
                 Convert a list of integers into bytes::
 
                     $ints = ([0x56, 0x49, 0x53, 0x49])
@@ -2896,8 +2899,16 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesFromInts(self, ints):
-        ints = [await toint(item) async for item in toiter(ints)]
-        return bytes(ints)
+        try:
+            ints = [await toint(item) async for item in toiter(ints)]
+            ret = bytes(ints)
+        except Exception as e:
+            if isinstance(e, s_exc.SynErr):
+                m = e.get('mesg')
+            else:
+                m = str(e)
+            raise s_exc.StormRuntimeError(mesg=f'Failed to convert ints to bytes: {m}') from None
+        return ret
 
     @stormfunc(readonly=True)
     async def _libBytesHas(self, sha256):
