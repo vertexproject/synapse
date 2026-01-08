@@ -4059,7 +4059,7 @@ class StormTypesTest(s_test.SynTest):
 
             for badints in badvals:
                 opts = {'vars': {'ints': badints}}
-                with self.raises(s_exc.StormRuntimeError) as cm:
+                with self.raises(s_exc.BadArg):
                     await core.callStorm('return($lib.bytes.fromints($ints))', opts=opts)
 
     async def test_storm_lib_base64(self):

@@ -2902,12 +2902,10 @@ class LibBytes(Lib):
         try:
             ints = [await toint(item) async for item in toiter(ints)]
             ret = bytes(ints)
+        except s_exc.SynErr as e:
+            raise s_exc.BadArg(mesg=e.get('mesg'))
         except Exception as e:
-            if isinstance(e, s_exc.SynErr):
-                m = e.get('mesg')
-            else:
-                m = str(e)
-            raise s_exc.StormRuntimeError(mesg=f'Failed to convert ints to bytes: {m}') from None
+            raise s_exc.BadArg(mesg=f'Failed to convert its to bytes: {str(e)}')
         return ret
 
     @stormfunc(readonly=True)
