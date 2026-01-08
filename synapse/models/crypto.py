@@ -187,6 +187,13 @@ modeldefs = (
                 ),
                 'doc': 'A DSA public/private key pair.'}),
 
+            ('crypto:key:ecdsa', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                    ('meta:observable', {'template': {'title': 'ECDSA key pair'}}),
+                ),
+                'doc': 'An ECDSA public/private key pair.'}),
+
             ('crypto:key:secret', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
@@ -527,6 +534,44 @@ modeldefs = (
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the DSA key.'}),
+            )),
+
+            ('crypto:key:ecdsa', {}, (
+                ('curve', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The curve standard in use.'}),
+
+                ('public', ('hex', {}), {
+                    'doc': 'The HEX encoded public portion of the ECDSA key.'}),
+
+                ('public:p', ('hex', {}), {
+                    'doc': 'The HEX encoded prime modulus or "p" component of the ECDSA key.'}),
+
+                ('public:a', ('hex', {}), {
+                    'doc': 'The HEX encoded first coefficient or "a" component of the ECDSA key.'}),
+
+                ('public:b', ('hex', {}), {
+                    'doc': 'The HEX encoded second coefficient or "b" component of the ECDSA key.'}),
+
+                ('public:gx', ('hex', {}), {
+                    'doc': 'The HEX encoded x-coordinate of the generator or "Gx" component of the ECDSA key.'}),
+
+                ('public:gy', ('hex', {}), {
+                    'doc': 'The HEX encoded x-coordinate of the generator or "Gy" component of the ECDSA key.'}),
+
+                ('public:n', ('hex', {}), {
+                    'doc': 'The HEX encoded order of the generator or "P" component of the ECDSA key.'}),
+
+                ('public:h', ('hex', {}), {
+                    'doc': 'The HEX encoded cofactor or "h" component of the ECDSA key.'}),
+
+                ('public:x', ('hex', {}), {
+                    'doc': 'The HEX encoded x-coordinate of the public key point or "x" component of the ECDSA key.'}),
+
+                ('public:y', ('hex', {}), {
+                    'doc': 'The HEX encoded y-coordinate of the public key point or "x" component of the ECDSA key.'}),
+
+                ('private', ('hex', {}), {
+                    'doc': 'The HEX encoded private portion of the ECDSA key.'}),
             )),
 
             ('crypto:key:secret', {}, (

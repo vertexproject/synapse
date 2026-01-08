@@ -116,6 +116,37 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
 
+            nodes = await core.nodes('''
+                [ crypto:key:ecdsa=*
+                    :algorithm=ecdsa
+                    :curve=p-256
+                    :private=ffff
+                    :public=aaaa
+                    :public:p=aaab
+                    :public:a=aaac
+                    :public:b=aaad
+                    :public:gx=aaae
+                    :public:gy=aaaf
+                    :public:n=aaba
+                    :public:h=aaca
+                    :public:x=aada
+                    :public:y=aaea
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('algorithm'), 'ecdsa')
+            self.eq(nodes[0].get('private'), 'ffff')
+            self.eq(nodes[0].get('public'), 'aaaa')
+            self.eq(nodes[0].get('public:p'), 'aaab')
+            self.eq(nodes[0].get('public:a'), 'aaac')
+            self.eq(nodes[0].get('public:b'), 'aaad')
+            self.eq(nodes[0].get('public:gx'), 'aaae')
+            self.eq(nodes[0].get('public:gy'), 'aaaf')
+            self.eq(nodes[0].get('public:n'), 'aaba')
+            self.eq(nodes[0].get('public:h'), 'aaca')
+            self.eq(nodes[0].get('public:x'), 'aada')
+            self.eq(nodes[0].get('public:y'), 'aaea')
+
     async def test_model_crypto_currency(self):
 
         async with self.getTestCore() as core:
