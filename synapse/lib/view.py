@@ -975,8 +975,8 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
         except Exception:
-            # logger.exception(f'Error during callStorm execution for {{ {text} }}',
-            #                  extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            logger.exception(f'Error during callStorm execution for {{ {text} }}',
+                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 
         # Any other exceptions will be raised to
