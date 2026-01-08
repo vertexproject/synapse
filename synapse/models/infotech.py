@@ -1608,8 +1608,8 @@ modeldefs = (
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan result.'}),
 
-                ('mitigation', ('risk:mitigation', {}), {
-                    'doc': 'The mitigation used to address this asset vulnerability.'}),
+                ('mitigation', ('meta:technique', {}), {
+                    'doc': 'The technique used to mitigate this asset vulnerability.'}),
 
                 ('mitigated', ('time', {}), {
                     'doc': 'The time that the vulnerability in the asset was mitigated.'}),

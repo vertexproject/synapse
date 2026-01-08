@@ -1809,7 +1809,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :ext:url=https://vertex.link/scans/FOO-10/0
                     :time=2023081808190828
                     :mitigated=2023081808190930
-                    :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
+                    :mitigation={[ meta:technique=* :name="mitigate this" ]}
                     :asset=(inet:server, tcp://1.2.3.4:443)
                     :priority=high
                     :severity=highest
@@ -1826,7 +1826,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
             self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
-            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> meta:technique +:name="mitigate this"'))
 
     async def test_infotech_it_sec_metrics(self):
 

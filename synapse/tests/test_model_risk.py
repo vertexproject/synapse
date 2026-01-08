@@ -405,7 +405,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln={[ risk:vuln=* :name=redtree ]}
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
-                    :mitigations={[ risk:mitigation=* :name=patchstuff ]}
+                    :mitigations={[ meta:technique=* :name=patchstuff ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -415,8 +415,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
-            self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable :mitigations -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -445,34 +445,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
-
-    async def test_model_risk_mitigation(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('''[
-                risk:mitigation=*
-                    :name="  FooBar  "
-                    :names = (Foo, Bar)
-                    :id="  IDa123  "
-                    :type=foo.bar
-                    :desc=BazFaz
-                    :reporter:name=vertex
-                    :reporter = { gen.ou.org vertex }
-                    +(addresses)> {[ risk:vuln=* meta:technique=* ]}
-            ]''')
-            self.eq('foobar', nodes[0].get('name'))
-            self.eq(('bar', 'foo'), nodes[0].get('names'))
-            self.eq('BazFaz', nodes[0].get('desc'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq('foo.bar.', nodes[0].get('type'))
-            self.eq('IDa123', nodes[0].get('id'))
-            self.nn(nodes[0].get('reporter'))
-
-            self.len(2, await core.nodes('risk:mitigation -(addresses)> *'))
-            self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
-
-            nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
-            self.len(1, nodes)
-            self.eq('foo that bars', nodes[0].get('desc'))
 
     async def test_model_risk_tool_software(self):
 
