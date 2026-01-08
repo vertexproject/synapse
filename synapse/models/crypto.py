@@ -556,7 +556,7 @@ modeldefs = (
                     'doc': 'The HEX encoded x-coordinate of the generator or "Gx" component of the ECDSA key.'}),
 
                 ('public:gy', ('hex', {}), {
-                    'doc': 'The HEX encoded x-coordinate of the generator or "Gy" component of the ECDSA key.'}),
+                    'doc': 'The HEX encoded y-coordinate of the generator or "Gy" component of the ECDSA key.'}),
 
                 ('public:n', ('hex', {}), {
                     'doc': 'The HEX encoded order of the generator or "P" component of the ECDSA key.'}),
