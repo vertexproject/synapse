@@ -395,6 +395,25 @@ class Node(NodeBase):
             pode[1]['n1verbs'] = self.getEdgeCounts()
             pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
 
+        if virts:
+            pode[1]['virts'] = vvals = {}
+
+            for sode in self.sodes:
+                if sode.get('antivalu') is not None:
+                    break
+
+                if (valu := sode.get('valu')) is not None:
+                    valu, stortype, vprops = valu
+
+                    if vprops is not None:
+                        for vname, vval in vprops.items():
+                            vvals[vname] = vval[0]
+
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            vvals[vname] = getr(valu)
+                    break
+
         if dorepr:
             self._addPodeRepr(pode)
 
