@@ -568,7 +568,7 @@ modeldefs = (
                     'doc': 'The HEX encoded x-coordinate of the public key point or "x" component of the ECDSA key.'}),
 
                 ('public:y', ('hex', {}), {
-                    'doc': 'The HEX encoded y-coordinate of the public key point or "x" component of the ECDSA key.'}),
+                    'doc': 'The HEX encoded y-coordinate of the public key point or "y" component of the ECDSA key.'}),
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the ECDSA key.'}),
