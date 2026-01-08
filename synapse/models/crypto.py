@@ -162,6 +162,13 @@ modeldefs = (
             ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {
                 'doc': 'A cryptographic key and algorithm.'}),
 
+            ('crypto:key:base', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                    ('meta:observable', {'template': {'title': 'key'}}),
+                ),
+                'doc': 'A generic cryptographic key.'}),
+
             # TODO DH / ECDH / ECDHE
             ('crypto:key:rsa', ('guid', {}), {
                 'interfaces': (
@@ -474,6 +481,8 @@ modeldefs = (
             )),
 
             ('crypto:algorithm', {}, ()),
+
+            ('crypto:key:base', {}, ()),
 
             ('crypto:key:rsa:prime', {}, (
 

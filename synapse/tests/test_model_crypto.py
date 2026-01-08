@@ -39,6 +39,19 @@ class CryptoModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
+                [ crypto:key:base=*
+                    :bits=2048
+                    :algorithm=rsa
+                    :seen=2022
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('bits'), 2048)
+            self.eq(nodes[0].get('algorithm'), 'rsa')
+            self.nn(nodes[0].get('seen'))
+            self.len(1, await core.nodes('crypto:key:base -> crypto:algorithm'))
+
+            nodes = await core.nodes('''
                 [ crypto:key:secret=*
                     :mode=CBC
                     :iv=AAAA
