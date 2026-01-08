@@ -100,7 +100,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
 
-                    :id = {[ it:sec:cve=CVE-2013-0000 ]}
+                    :id = VISI-0000
+                    :cve = CVE-2013-0000
 
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
                     :cvss:v2_0:score=1.0
@@ -135,7 +136,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('vendor:fixed'), 1578960000000000)
             self.eq(nodes[0].get('published'), 1578960000000000)
 
-            self.eq(nodes[0].get('id'), 'CVE-2013-0000')
+            self.eq(nodes[0].get('id'), 'VISI-0000')
 
             self.eq(nodes[0].get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
             cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MS:C/MC:N/MI:N/MA:N'
@@ -156,9 +157,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cvss:v3_1:score:temporal'), 3.2)
             self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
-            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> meta:id +it:sec:cve'))
-            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 :id -> it:sec:cve'))
-            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
+            self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 :cve -> it:sec:cve'))
 
             self.len(1, await core.nodes('risk:attack :actor -> entity:contact'))
 
