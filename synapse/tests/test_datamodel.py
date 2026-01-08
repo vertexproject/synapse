@@ -815,10 +815,10 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:ip'))
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:_ip2'))
 
+            # Handling for lift/pivot where children have more restrictive norming
             core.model.addType('_test:cve', 'meta:id', {'upper': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}, {})
             core.model.addForm('_test:cve', {}, ())
 
-            # Handling for lift/pivot where children have more restrictive norming
             await core.nodes('[ meta:rule=* :id={[ meta:id=foo ]} ]')
 
             self.len(1, await core.nodes('meta:id=foo'))
