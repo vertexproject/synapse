@@ -4030,7 +4030,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
 
-            # lib.bytes.fromints -> convert a iterable of ints to bytes
+            # lib.bytes.fromints -> convert an iterable of ints to bytes
 
             self.eq(b'VVVV', await core.callStorm('return($lib.bytes.fromints(([0x56, 0x56, 0x56, 0x56])))'))
 
