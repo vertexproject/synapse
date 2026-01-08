@@ -489,7 +489,14 @@ modeldefs = (
 
             ('crypto:algorithm', {}, ()),
 
-            ('crypto:key:base', {}, ()),
+            ('crypto:key:base', {}, (
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
+            )),
 
             ('crypto:key:rsa:prime', {}, (
 
