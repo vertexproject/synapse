@@ -1538,13 +1538,6 @@ class LiftOper(Oper):
         self.astinfo = astinfo
         self.reverse = True
 
-    async def safeGenr(self, genr):
-        try:
-            async for node in genr:
-                yield node
-        except Exception:
-            return
-
     def getPivProps(self, runt, name, lookup=False):
 
         if name.find('::') != -1:
@@ -2280,6 +2273,13 @@ class LiftPropVirt(LiftProp):
             yield node
 
 class LiftPropBy(LiftOper):
+
+    async def safeGenr(self, genr):
+        try:
+            async for node in genr:
+                yield node
+        except Exception:
+            return
 
     async def lift(self, runt, path):
         name = await self.kids[0].compute(runt, path)

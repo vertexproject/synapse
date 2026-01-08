@@ -827,8 +827,17 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:rule :id -> meta:id'))
 
             core.model.addFormProp('test:str', 'cve', ('it:sec:cve', {}), {})
-            await core.nodes('[ test:str=bar :cve=cve-2020-1234 ]')
+            core.model.addFormProp('test:str', 'cves', ('array', {'type': 'it:sec:cve'}), {})
+
+            await core.nodes('''[
+                (test:str=bar :cve=cve-2020-1234)
+                (test:str=bararry :cves=(cve-2020-1234, cve-2021-1234))
+            ]''')
 
             msgs = await core.stormlist('meta:id -> test:str:cve')
             self.stormHasNoWarnErr(msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
+
+            msgs = await core.stormlist('meta:id -> test:str:cves')
+            self.stormHasNoWarnErr(msgs)
+            self.len(2, [m for m in msgs if m[0] == 'node'])
