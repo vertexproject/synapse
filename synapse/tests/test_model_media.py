@@ -31,6 +31,7 @@ class MediaModelTest(s_t_utils.SynTest):
                 'publisher:name': 'The Vertex Project, LLC.',
                 'rss:feed': 'http://vertex.link/rss',
                 'topics': ('woot', 'Foo   Bar'),
+                'version': '  0.1.2A2  ',
             }
 
             q = '''[(media:news=$valu
@@ -39,6 +40,7 @@ class MediaModelTest(s_t_utils.SynTest):
                     :org=$p.org :authors=$p.authors
                     :publisher=$p.publisher :publisher:name=$p."publisher:name"
                     :rss:feed=$p."rss:feed" :topics=$p.topics
+                    :version=$p.version
                     )]'''
             opts = {'vars': {'valu': valu, 'p': props}}
             nodes = await core.nodes(q, opts=opts)
@@ -60,6 +62,7 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.get('rss:feed'), 'http://vertex.link/rss')
             self.eq(node.get('authors'), (cont,))
             self.eq(node.get('topics'), ('foo bar', 'woot'))
+            self.eq(node.get('version'), '0.1.2A2')
 
             self.len(2, await core.nodes('media:news -> media:topic'))
 

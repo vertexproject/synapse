@@ -663,3 +663,9 @@ class SnapTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].get('zone'), 'foo.com')
+
+    async def test_snap_path_depr(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('[ test:str=foo ]', opts={'path': True})
+            self.stormIsInWarn("The 'path' option is deprecated", msgs)

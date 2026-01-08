@@ -1572,9 +1572,10 @@ Pivot and Join
 ++++++++++++++
 
 The pivot and join operator ( ``-+>`` ) is the pivot "arrow" with an embedded plus sign ( ``+`` ) to represent joining
-the source and target nodes. The operator can be used anywhere the standard pivot operator ( ``->`` ) is used, including
-the wildcard pivot out. Refer to the syntax examples under :ref:`pivot-out` for the various types of pivot operations (e.g.,
-primary to secondary property, secondary to secondary property, etc.)
+the source and target nodes. The operator can be used anywhere the standard pivot operator ( ``->`` ) is used. Refer to
+the syntax examples under :ref:`pivot-out` for the various types of pivot operations (e.g., primary to secondary property,
+secondary to secondary property, etc.). The pivot and join operation can also be used with the wildcard pivot in
+operator (``<+- *``).
 
 **Examples:**
 

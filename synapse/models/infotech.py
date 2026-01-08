@@ -576,28 +576,6 @@ class ItModule(s_module.CoreModule):
         self.model.prop('it:prod:softver:arch').onSet(self._onPropSoftverArch)
         self.model.prop('it:prod:softver:vers').onSet(self._onPropSoftverVers)
 
-    def bruteVersionStr(self, valu):
-        '''
-        This API is deprecated.
-
-        Brute force the version out of a string.
-
-        Args:
-            valu (str): String to attempt to get version information for.
-
-        Notes:
-            This first attempts to parse strings using the it:semver normalization
-            before attempting to extract version parts out of the string.
-
-        Returns:
-            int, dict: The system normalized version integer and a subs dictionary.
-        '''
-        s_common.deprecated('ItModule.bruteVersionStr')
-
-        valu, info = self.core.model.type('it:semver').norm(valu)
-        subs = info.get('subs')
-        return valu, subs
-
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
 
@@ -631,8 +609,8 @@ class ItModule(s_module.CoreModule):
                 await node.set(f'semver:{k}', v)
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception:
-            logger.exception('Failed to brute force version string [%s]', prop)
+        except s_exc.BadTypeValu:
+            pass
 
     def getModelDefs(self):
         modl = {

@@ -2180,11 +2180,11 @@ class SynTest(unittest.TestCase):
         with self.assertRaises(exc):
             await coro
 
-    def sorteq(self, x, y, msg=None):
+    def sorteq(self, x, y, msg=None, key=None):
         '''
         Assert two sorted sequences are the same.
         '''
-        return self.eq(sorted(x), sorted(y), msg=msg)
+        return self.eq(sorted(x, key=key), sorted(y, key=key), msg=msg)
 
     def isinstance(self, obj, cls, msg=None):
         '''

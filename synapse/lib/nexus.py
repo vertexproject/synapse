@@ -97,6 +97,7 @@ class NexsRoot(s_base.Base):
         self.writeholds = set()
 
         self.applytask = None
+        self.issuewait = False
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
@@ -339,12 +340,20 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        # If this issue came from a downstream mirror, just in case I'm forwarding to upstream mirror,
-        # make my response iden the same as what's coming from downstream
+        # If this issue came from a downstream mirror, just forward the request
+        if 'resp' in meta:
+            if self.issuewait:
+                await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
+            else:
+                await client.issue(nexsiden, event, args, kwargs, meta)
+            return
 
-        with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
+        with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
+            if self.issuewait:
+                await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
+            else:
+                await client.issue(nexsiden, event, args, kwargs, meta)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
@@ -573,7 +582,12 @@ class NexsRoot(s_base.Base):
 
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
-        proxy.onfini(self.miruplink.clear)
+
+        def onfini():
+            self.miruplink.clear()
+            self.issuewait = False
+
+        proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
@@ -584,6 +598,8 @@ class NexsRoot(s_base.Base):
             features = cellinfo.get('features', {})
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
+
+            self.issuewait = bool(features.get('issuewait'))
 
             synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']

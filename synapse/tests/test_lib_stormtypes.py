@@ -2893,6 +2893,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
+            links = (
+                ('3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                ('02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47', {'type': 'prop', 'prop': 'ipv4'})
+            )
+            self.eq(links, await core.callStorm('inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4 return($path.links())'))
+
             opts = {'vars': {'testvar': 'test'}}
             text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.vars.$testkey ]"
             nodes = await core.nodes(text, opts=opts)
@@ -3893,7 +3899,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint("Working", msgs)
 
-    async def test_storm_lib_bytes(self):
+    async def test_storm_lib_bytes_base(self):
 
         async with self.getTestCore() as core:
 
@@ -4023,6 +4029,38 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'chunks': (b'visi', b'kewl')}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+
+            # lib.bytes.fromints -> convert an iterable of ints to bytes
+
+            self.eq(b'VVVV', await core.callStorm('return($lib.bytes.fromints(([0x56, 0x56, 0x56, 0x56])))'))
+
+            goodvals = (
+                ([], b''),
+                ('', b''),
+                ([255, 0], b'\xff\x00'),
+                ('1234', b'\x01\x02\x03\x04'),
+                (['1', '2', '3', '4'], b'\x01\x02\x03\x04'),
+                (b'\x01\x02\x03\x04', b'\x01\x02\x03\x04'),
+                ({'1': 'one', 2: 'two'}, b'\x01\x02'),
+            )
+            for tval, expvalu in goodvals:
+                opts = {'vars': {'ints': tval}}
+                ret = await core.callStorm('return($lib.bytes.fromints($ints))', opts=opts)
+                self.eq(expvalu, ret)
+
+            badvals = (
+                [1, -1],
+                'asdf',
+                [1, 256],
+                ['1', '256'],
+                None,
+                [None,],
+            )
+
+            for badints in badvals:
+                opts = {'vars': {'ints': badints}}
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm('return($lib.bytes.fromints($ints))', opts=opts)
 
     async def test_storm_lib_base64(self):
 
