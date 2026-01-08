@@ -315,7 +315,7 @@ modeldefs = (
                 'doc': 'The action was taken using the target node.'}),
 
             (('entity:action', 'had', 'entity:goal'), {
-                'doc': 'The action was taken in persuit of the goal.'}),
+                'doc': 'The action was taken in pursuit of the goal.'}),
 
             (('entity:contribution', 'had', 'econ:lineitem'), {
                 'doc': 'The contribution includes the line item.'}),

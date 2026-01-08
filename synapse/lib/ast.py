@@ -1544,12 +1544,12 @@ class LiftOper(Oper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-            prop = runt.model.reqProp(name, extra=self.kids[0].addExcInfo)
-            if prop.isform:
+            props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+            if props[-1].isform:
                 pivname = pivs.pop(0)
-                prop = prop.reqProp(pivname, extra=self.kids[0].addExcInfo)
+                prop = props[-1].reqProp(pivname, extra=self.kids[0].addExcInfo)
+                props = runt.model.getChildProps(prop)
 
-            props = runt.model.getChildProps(prop)
             return props, pivs
 
         if lookup:
