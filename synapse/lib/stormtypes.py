@@ -2857,7 +2857,7 @@ class LibBytes(Lib):
 
             Note:
                 The integer values must be in the range 0 to 255. Values outside of this range will raise a
-                StormRuntimeError.
+                BadArg.
 
             Examples:
                 Convert a list of integers into bytes::
