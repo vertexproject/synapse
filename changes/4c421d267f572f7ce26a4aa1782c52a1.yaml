@@ -1,0 +1,6 @@
+---
+desc: Added ``$lib.bytes.fromints()`` to convert an array of integers into a bytes instance.
+desc:literal: false
+prs: []
+type: feat
+...

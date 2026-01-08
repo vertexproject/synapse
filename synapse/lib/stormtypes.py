@@ -2851,7 +2851,28 @@ class LibBytes(Lib):
                       {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
+
+        {'name': 'fromints', 'desc': '''
+            Convert an iterable source of integers into bytes.
+
+            Note:
+                The integer values must be in the range 0 to 255. Values outside of this range will raise a
+                BadArg.
+
+            Examples:
+                Convert a list of integers into bytes::
+
+                    $ints = ([0x56, 0x49, 0x53, 0x49])
+                    $byts = $lib.bytes.fromints($ints)
+
+            ''',
+         'type': {'type': 'function', '_funcname': '_libBytesFromInts',
+                  'args': (
+                      {'name': 'ints', 'type': 'generator', 'desc': 'An iterable source of integers.', },
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The bytes from processing the integers.'}}},
     )
+
     _storm_lib_path = ('bytes',)
     _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.axon`` function.'}
 
@@ -2862,6 +2883,7 @@ class LibBytes(Lib):
             'size': self._libBytesSize,
             'upload': self._libBytesUpload,
             'hashset': self._libBytesHashset,
+            'fromints': self._libBytesFromInts,
         }
 
     async def _libBytesUpload(self, genr):
@@ -2874,6 +2896,17 @@ class LibBytes(Lib):
                 await upload.write(byts)
             size, sha256 = await upload.save()
             return size, s_common.ehex(sha256)
+
+    @stormfunc(readonly=True)
+    async def _libBytesFromInts(self, ints):
+        try:
+            ints = [await toint(item) async for item in toiter(ints)]
+            ret = bytes(ints)
+        except s_exc.SynErr as e:
+            raise s_exc.BadArg(mesg=e.get('mesg'))
+        except Exception as e:
+            raise s_exc.BadArg(mesg=f'Failed to convert ints to bytes: {str(e)}')
+        return ret
 
     @stormfunc(readonly=True)
     async def _libBytesHas(self, sha256):
