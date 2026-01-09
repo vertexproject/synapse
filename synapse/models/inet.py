@@ -3123,6 +3123,9 @@ modeldefs = (
 
                 ('topic', ('base:name', {}), {
                     'doc': 'The visible topic of the channel.'}),
+
+                ('profile', ('entity:contact', {}), {
+                    'doc': 'Current detailed contact information for this channel.'}),
             )),
 
             ('inet:service:thread', {}, (
