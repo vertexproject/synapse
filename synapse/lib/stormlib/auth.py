@@ -1830,13 +1830,8 @@ class LibUser(s_stormtypes.Lib):
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
          'type': 'user:profile:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
-        {'name': 'roles', 'desc': 'Get the roles for the current runtime user.', 'type': 'list'},
     )
     _storm_lib_path = ('user', )
-
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name=name)
-        self.gtors['roles'] = self._getUserRoles
 
     def getObjLocals(self):
         return {
@@ -1865,9 +1860,6 @@ class LibUser(s_stormtypes.Lib):
 
         perm = permname.split('.')
         return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
-
-    async def _getUserRoles(self):
-        return [Role(self.runt, iden) for iden in self.runt.user.roles]
 
 @s_stormtypes.registry.registerLib
 class LibUsers(s_stormtypes.Lib):

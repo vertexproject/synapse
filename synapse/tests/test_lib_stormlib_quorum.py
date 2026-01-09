@@ -56,9 +56,6 @@ class StormLibGenTest(s_test.SynTest):
             self.stormIsInPrint('Nothing to do. Go grab some coffee!', msgs)
 
             msgs = await core.stormlist('quorum.merge.list', opts={'user': whippit.iden})
-            for mesg in msgs:
-                print(mesg)
-
             self.stormIsInPrint('foo visi', msgs, whitespace=False)
             self.stormIsInPrint('bar visi', msgs, whitespace=False)
             self.stormNotInPrint('baz', msgs)
