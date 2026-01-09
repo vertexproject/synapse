@@ -9,6 +9,9 @@ class StormLibGenTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            # for coverage...
+            self.none(core.view.getParentQuorum())
+
             visi = await core.auth.addUser('visi')
             whippit = await core.auth.addUser('whippit')
 
