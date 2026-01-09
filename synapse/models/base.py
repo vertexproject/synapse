@@ -200,7 +200,10 @@ modeldefs = (
 
             ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
-                'template': {'title': 'item'},
+                'template': {
+                    'title': 'item',
+                    'status': '{$self}:status:taxonomy',
+                },
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -234,6 +237,14 @@ modeldefs = (
                     ('reporter:discovered', ('time', {}), {
                         'doc': 'The time when the reporter first discovered the {title}.'}),
 
+                    ('reporter:url', ('inet:url', {}), {
+                        'doc': 'The reporter URL for the {title}.'}),
+
+                    ('reporter:status', ('{status}', {}), {
+                        'doc': 'The status of the {title}, according to the reporter.'}),
+
+                    ('supersedes', ('array', {'type': '$self'}), {
+                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
             }),
 

@@ -362,11 +362,8 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
 
-                ('merged:time', ('time', {}), {
-                    'doc': 'The time that the source merged this threat cluster into another.'}),
-
-                ('merged:isnow', ('risk:threat', {}), {
-                    'doc': 'The threat cluster that the source merged this cluster into.'}),
+                # TODO: We lose merged:time when using :supersedes
+                # TODO: reporter:url/:url conflict with entity:actor?
 
             )),
             ('risk:availability', {}, {}),
@@ -608,9 +605,6 @@ modeldefs = (
 
             ('risk:compromise', {}, (
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the compromise.'}),
-
                 ('type', ('risk:compromise:type:taxonomy', {}), {
                     'ex': 'cno.breach',
                     'doc': 'A type for the compromise, as a taxonomy entry.'}),
@@ -695,8 +689,6 @@ modeldefs = (
                 ('prev', ('risk:attack', {}), {
                     'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the attack.'}),
             )),
 
             ('risk:leak:type:taxonomy', {}, ()),
