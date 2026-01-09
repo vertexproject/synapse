@@ -3,6 +3,9 @@ import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
 class QuorumMergesLib(s_stormtypes.Lib):
+    '''
+    A Storm library for accessing quorum merge requests.
+    '''
 
     _storm_query = '''
     function __voted(votes) {
