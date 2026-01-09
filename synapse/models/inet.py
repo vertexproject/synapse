@@ -2320,7 +2320,6 @@ modeldefs = (
 
             ('inet:http:request', {}, (
 
-
                 ('method', ('str', {}), {
                     'doc': 'The HTTP request method string.'}),
 
@@ -2345,12 +2344,21 @@ modeldefs = (
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
-                ('response:time', ('time', {}), {}),
-                ('response:code', ('int', {}), {}),
-                ('response:reason', ('str', {}), {}),
+                ('response:time', ('time', {}), {
+                    'doc': 'The time a response to the request was received.'}),
+
+                ('response:code', ('int', {}), {
+                    'doc': 'The HTTP response code received.'}),
+
+                ('response:reason', ('str', {}), {
+                    'doc': 'The HTTP response reason phrase received.'}),
+
                 ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the response.'}),
-                ('response:body', ('file:bytes', {}), {}),
+
+                ('response:body', ('file:bytes', {}), {
+                    'doc': 'The HTTP response body received.'}),
+
                 ('session', ('inet:http:session', {}), {
                     'doc': 'The HTTP session this request was part of.'}),
             )),
