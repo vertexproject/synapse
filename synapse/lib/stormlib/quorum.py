@@ -18,7 +18,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
     }
 
     function __canvote(roles) {
-        for $role in $lib.auth.users.get().roles {
+        for $role in $lib.auth.users.get().roles() {
             if $roles.has($role.iden) { return((true)) }
         }
         return((false))
@@ -30,8 +30,9 @@ class QuorumMergesLib(s_stormtypes.Lib):
             if (not $summary) { continue }
             if ($todo) {
                 if ($summary.merging) { continue }
-                if ($summary.merge.creator = $lib.user.iden) {continue }
+                if ($summary.merge.creator = $lib.user.iden) { continue }
                 if ($__voted($summary.votes)) { continue }
+                if (not $__canvote($summary.quorum.roles)) { continue }
             }
             emit ($view, $summary)
         }
@@ -44,7 +45,7 @@ stormcmds = (
         'name': 'quorum.merge.list',
         'descr': 'List all the views which currently have a pending merge request.',
         'cmdargs': (
-            ('--todo', {'help': 'Only return merges which i could approve/deny and have not.',
+            ('--todo', {'help': 'Only return merges which need approval from the current user.',
                        'action': 'store_true'}),
         ),
         'storm': '''
@@ -52,7 +53,6 @@ stormcmds = (
             $rows = ([])
             for ($view, $summary) in $lib.quorum.merge.list(todo=$cmdopts.todo) {
 
-                $lib.pprint($summary)
                 $creator = $lib.auth.users.get($summary.merge.creator).name
                 if (not $creator) { $creator = $summary.merge.creator }
 
