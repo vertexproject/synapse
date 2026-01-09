@@ -17,6 +17,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :social:accounts={[ inet:service:account=({"name": "invisig0th"}) ]}
                     :birth:place:country:code=us
                     :death:place:country:code=zz
+                    :place:address:city="  new York  city "
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'visi')
@@ -26,6 +27,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('websites'), ('https://vertex.link',))
             self.eq(nodes[0].get('birth:place:country:code'), 'us')
             self.eq(nodes[0].get('death:place:country:code'), 'zz')
+            self.eq(nodes[0].get('place:address:city'), 'new york city')
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
 
