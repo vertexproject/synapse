@@ -406,6 +406,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
+                    <(showed)+ {[ inet:flow=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -417,6 +418,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
             self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable <(showed)- inet:flow'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
