@@ -394,7 +394,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :ext:creator={[ entity:contact=* :name=root ]}
                     :ext:assignee={[ entity:contact=* :name=visi ]}
 
-                    <(showed)+ {[ meta:rule=* ]}
+                    <(shows)+ {[ meta:rule=* ]}
                 ]
             ''')
             self.len(1, nodes)
