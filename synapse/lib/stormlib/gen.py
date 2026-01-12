@@ -5,429 +5,135 @@ class LibGen(s_stormtypes.Lib):
     '''
     A Storm Library for secondary property based deconfliction.
     '''
-    _storm_locals = (
-        {'name': 'orgByName', 'desc': 'Returns an ou:org by name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An ou:org node with the given name.'}}},
-        {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN of the org.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An ou:org node with the given FQDN.'}}},
-        {'name': 'industryByName', 'desc': 'Returns an ou:industry by name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the industry.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An ou:industry node with the given name.'}}},
-        {'name': 'newsByUrl', 'desc': 'Returns a media:news node by URL, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'url', 'type': 'inet:url', 'desc': 'The URL where the news is published.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A media:news node with the given URL.'}}},
-        {'name': 'softByName', 'desc': 'Returns it:software node by name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An it:software node with the given name.'}}},
-        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                      {'name': 'reporter', 'type': 'str', 'default': None,
-                       'desc': 'The name of the organization which reported the vulnerability.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
-
-        {'name': 'riskThreat',
-         'desc': 'Returns a risk:threat node based on the threat and reporter names, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The reported name of the threat cluster.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the threat cluster.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A risk:threat node.'}}},
-
-        {'name': 'riskToolSoftware',
-         'desc': 'Returns a risk:tool:software node based on the tool and reporter names, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The reported name of the tool.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the tool.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
-
-        {'name': 'psContactByEmail', 'desc': 'Returns a entity:contact by deconflicting the type and email address.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'type', 'type': 'str', 'desc': 'The entity:contact:type property.'},
-                      {'name': 'email', 'type': 'str', 'desc': 'The entity:contact:email property.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A entity:contact node.'}}},
-
-        {'name': 'polCountryByCode', 'desc': 'Returns a pol:country node by deconflicting the :code property.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'code', 'type': 'str', 'desc': 'The pol:country:code property.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A pol:country node.'}}},
-
-        {'name': 'langByName', 'desc': 'Returns a lang:language node by name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the language.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A lang:language node with the given name.'}}},
-        {'name': 'langByCode', 'desc': 'Returns a lang:language node by language code, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The language code for the language.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
-        {'name': 'campaign',
-         'desc': 'Returns an entity:campaign node based on the campaign and reporter names, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The reported name of the campaign.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the campaign.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An entity:campaign node.'}}},
-        {'name': 'itAvScanResultByTarget',
-         'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'form', 'type': 'str', 'desc': 'The target form.'},
-                      {'name': 'value', 'type': 'str', 'desc': 'The target value.'},
-                      {'name': 'signame', 'type': 'str', 'desc': 'The signature name.'},
-                      {'name': 'scanner', 'type': 'str', 'default': None,
-                       'desc': 'An optional scanner software name to include in deconfliction.'},
-                      {'name': 'time', 'type': 'time', 'default': None,
-                       'desc': 'An optional time when the scan was run to include in the deconfliction.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An it:av:scan:result node.'}}},
-        {'name': 'geoPlaceByName', 'desc': 'Returns a geo:place node by name, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
-        {'name': 'fileBytesBySha256',
-         'desc': 'Returns a file:bytes node by SHA256, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the file:bytes node.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A file:bytes node with the given SHA256.'}}},
-        {'name': 'cryptoX509CertBySha256',
-         'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the certificate.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A crypto:x509:cert node with the given SHA256.'}}},
-        {'name': 'inetTlsServerCertByServerAndSha256',
-         'desc': 'Returns an inet:tls:servercert node by server and SHA256, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'server', 'type': ['str', 'inet:server'], 'desc': 'The server associated with the x509 certificate.'},
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the certificate.'},
-                      {'name': 'try', 'type': 'boolean', 'default': False,
-                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'An inet:tls:servercert node with the given server and SHA256.'}}},
-    )
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
-        function __maybeCast(try, type, valu) {
+        function __tryGutor(form, ctor, try) {
             if $try {
-                return($lib.trycast($type, $valu))
+                return({[ *$form?=$ctor ]})
             }
-            return(($lib.true, $lib.cast($type, $valu)))
+            return({[ *$form=$ctor ]})
         }
 
-        function orgByName(name, try=$lib.false) {
-            if $try {
-                [ ou:org?=({"name": $name}) ]
-            } else {
-                [ ou:org=({"name": $name}) ]
-            }
-            return($node)
+        function _entityCampaignByName(name, reporter, try=(false)) {
+            $ctor = ({
+                "name": $name,
+                "reporter:name": $reporter,
+                "$props": {
+                    "reporter": $_ouOrgByName($reporter, try=$try),
+                },
+            })
+            return($__tryGutor(entity:campaign, $ctor, $try))
         }
 
-        function orgByFqdn(fqdn, try=$lib.false) {
-            ($ok, $fqdn) = $__maybeCast($try, inet:fqdn, $fqdn)
-            if (not $ok) { return() }
-
-            inet:fqdn=$fqdn -> ou:org
-            return($node)
-
-            [ ou:org=(gen, fqdn, $fqdn) :dns:mx+=$fqdn ]
-            return($node)
+        function _geoPlaceByName(name, try=(false)) {
+            $ctor = ({
+                "name": $name,
+            })
+            return($__tryGutor(geo:place, $ctor, $try))
         }
 
-        function industryByName(name) {
-            [ ou:industry=({"name": $name}) ]
-            return($node)
+        function _itSoftwareByName(name, try=(false)) {
+            $ctor = ({
+                "name": $name,
+            })
+            return($__tryGutor(it:software, $ctor, $try))
         }
 
-        function newsByUrl(url, try=$lib.false) {
-            ($ok, $url) = $__maybeCast($try, inet:url, $url)
-            if (not $ok) { return() }
-
-            doc:report:url=$url
-            return($node)
-
-            [ doc:report=(gen, url, $url) :url=$url ]
-            return($node)
+        function _langLanguageByName(name, try=(false)) {
+            $ctor = ({
+                "name": $name,
+            })
+            return($__tryGutor(lang:language, $ctor, $try))
         }
 
-        // FIXME remove?
-        function softByName(name) {
-            [ it:software=({"name": $name}) ]
-            return($node)
+        function _ouIndustryByName(name, reporter, try=(false)) {
+            $ctor = ({
+                "name": $name,
+                "reporter:name": $reporter,
+                "$props": {
+                    "reporter": $_ouOrgByName($reporter, try=$try),
+                },
+            })
+            return($__tryGutor(ou:industry, $ctor, $try))
         }
 
-        // FIXME remove?
-        function vulnByCve(cve, try=$lib.false, reporter=$lib.null) {
-            ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
-            if (not $ok) { return() }
-
-            risk:vuln:id={[ it:sec:cve=$cve ]}
-            if $reporter {
-                +:reporter:name=$reporter
-                { -:reporter [ :reporter=$orgByName($reporter) ] }
-            }
-            return($node)
-
-            $guid = (gen, cve, $cve)
-            if $reporter {
-                $reporter = $lib.cast(meta:name, $reporter)
-                $guid.append($reporter)
-            }
-
-            [ risk:vuln=$guid :id=$cve ]
-            if $reporter {
-                [ :reporter:name=$reporter :reporter=$orgByName($reporter) ]
-            }
-            return($node)
+        function _ouOrgByName(name, try=(false)) {
+            $ctor = ({
+                "name": $name,
+            })
+            return($__tryGutor(ou:org, $ctor, $try))
         }
 
-        function riskThreat(name, reporter) {
-            meta:name=$name -> risk:threat
-            +:reporter:name=$reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
-            return($node)
-
-            $name = $lib.cast(meta:name, $name)
-            $reporter = $lib.cast(meta:name, $reporter)
-
-            [ risk:threat=(gen, name, reporter, $name, $reporter)
-                :name=$name
-                :reporter = { yield $orgByName($reporter) }
-                :reporter:name = $reporter
-            ]
-            return($node)
+        function _polCountryByCode(code, try=(false)) {
+            $ctor = ({
+                "code": $code,
+            })
+            return($__tryGutor(pol:country, $ctor, $try))
         }
 
-        function riskToolSoftware(name, reporter) {
-
-            meta:name = $name
-            -> risk:tool:software
-            +:reporter:name = $reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
-            return($node)
-
-            $name = $lib.cast(meta:name, $name)
-            $reporter = $lib.cast(meta:name, $reporter)
-
-            [ risk:tool:software=(gen, $name, $reporter)
-                :name = $name
-                :reporter:name = $reporter
-                :reporter = { yield $orgByName($reporter) }
-            ]
-
-            return($node)
-        }
-
-        function psContactByEmail(type, email, try=$lib.false) {
-            ($ok, $email) = $__maybeCast($try, inet:email, $email)
-            if (not $ok) { return() }
-
-            ($ok, $type) = $__maybeCast($try, entity:contact:type:taxonomy, $type)
-            if (not $ok) { return() }
-
-            entity:contact:email = $email
-            +:type = $type
-            return($node)
-
-            [ entity:contact=(gen, type, email, $type, $email)
-                :email = $email
-                :type = $type
-            ]
-            return($node)
-        }
-
-        function polCountryByCode(code, try=$lib.false) {
-            if $try {
-                ($ok, $code) = $lib.trycast(iso:3166:alpha2, $code)
-                if (not $ok) { return() }
-            }
-            [ pol:country=({"code": $code}) ]
-            return($node)
-        }
-
-        function polCountryOrgByCode(code, try=$lib.false) {
-
-            yield $lib.gen.polCountryByCode($code, try=$try)
-
-            { -:government [ :government = $lib.gen.orgByName(`{:code} government`) ] }
+        function _polCountryOrgByCode(code, try=(false)) {
+            yield $_polCountryByCode($code, try=$try)
+            [ :government*unset=$_ouOrgByName(`{:code} government`) ]
             :government -> ou:org
             return($node)
         }
 
-        function langByName(name) {
-            [ lang:language=({"name": $name}) ]
-            return($node)
+        function _riskThreatByName(name, reporter, try=(false)) {
+            $ctor = ({
+                "name": $name,
+                "reporter:name": $reporter,
+                "$props": {
+                    "reporter": $_ouOrgByName($reporter, try=$try),
+                },
+            })
+            return($__tryGutor(risk:threat, $ctor, $try))
         }
 
-        function langByCode(code, try=(false)) {
+        function _riskToolSoftByName(name, reporter, try=(false)) {
+            $ctor = ({
+                "name": $name,
+                "reporter:name": $reporter,
+                "$props": {
+                    "reporter": $_ouOrgByName($reporter, try=$try),
+                },
+            })
+            return($__tryGutor(risk:tool:software, $ctor, $try))
+        }
+
+        function _riskVulnByCve(cve, reporter, try=(false)) {
             if $try {
-                [ lang:language?=({"code": $code}) ]
+                $cve = {[ it:sec:cve?=$cve ]}
+                if ($cve = null) { return() }
             } else {
-                [ lang:language=({"code": $code}) ]
-            }
-            return($node)
-        }
-
-        function campaign(name, reporter) {
-            $reporg = {[ ou:org=({"name": $reporter}) ]}
-            [ entity:campaign=({"name": $name, "reporter": ["ou:org", $reporg]}) ]
-            [ :reporter:name*unset=$reporter ]
-            return($node)
-        }
-
-        function itAvScanResultByTarget(form, value, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
-
-            ($ok, $target) = $__maybeCast($try, it:av:scan:result:target, ($form, $value))
-            if (not $ok) { return() }
-
-            ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
-            if (not $ok) { return() }
-
-            $dict = ({"target": $target, "signame": $signame})
-
-            if ($scanner != $lib.null) {
-                ($ok, $scanner) = $__maybeCast($try, meta:name, $scanner)
-                if (not $ok) { return() }
-                $dict."scanner:name" = $scanner
+                $cve = {[ it:sec:cve=$cve ]}
             }
 
-            if ($time != $lib.null) {
-                ($ok, $time) = $__maybeCast($try, time, $time)
-                if (not $ok) { return() }
-                $dict.time = $time
-            }
+            $ctor = ({
+                "id": $cve,
+                "reporter:name": $reporter,
+                "$props": {
+                    "reporter": $_ouOrgByName($reporter, try=$try),
+                }
+            })
 
-            [ it:av:scan:result=$dict ]
-
-            return($node)
-        }
-
-        function geoPlaceByName(name) {
-            $geoname = $lib.cast(meta:name, $name)
-
-            meta:name=$geoname -> geo:place
-            return($node)
-
-            [ geo:place=(gen, name, $geoname) :name=$geoname ]
-            return($node)
-        }
-
-        // FIXME remove?
-        function fileBytesBySha256(sha256, try=$lib.false) {
-            if $try {
-                [ file:bytes?=({"sha256": $sha256}) ]
-            } else {
-                [ file:bytes=({"sha256": $sha256}) ]
-            }
-            return($node)
-        }
-
-        function cryptoX509CertBySha256(sha256, try=$lib.false) {
-
-            ($ok, $sha256) = $lib.trycast(crypto:hash:sha256, $sha256)
-            if (not $ok and $try) { return() }
-
-            $file = {[ file:bytes=({"sha256": $sha256}) ]}
-
-            [ crypto:x509:cert=({"sha256": $sha256, "file": $file}) ]
-
-            return($node)
-        }
-
-        function inetTlsServerCertByServerAndSha256(server, sha256, try=$lib.false) {
-            ($ok, $server) = $__maybeCast($try, inet:server, $server)
-            if (not $ok) { return() }
-
-            $crypto = $cryptoX509CertBySha256($sha256, try=$try)
-            if (not $crypto) { return() }
-
-            [ inet:tls:servercert=($server, $crypto) ]
-            return($node)
+            return($__tryGutor(risk:vuln, $ctor, $try))
         }
     '''
 
+
+_tryarg = ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+          'action': 'store_true'})
 stormcmds = (
 
-    {
-        'name': 'gen.ou.id.number',
-        'descr': 'Lift (or create) an ou:id:number node based on the organization ID type and value.',
-        'cmdargs': (
-            ('type', {'help': 'The type of the organization ID.'}),
-            ('value', {'help': 'The value of the organization ID.'}),
-        ),
-        'storm': 'yield $lib.gen.orgIdNumber($cmdopts.type, $cmdopts.value)',
-    },
-    {
-        'name': 'gen.ou.id.type',
-        'descr': 'Lift (or create) an ou:id:type node based on the name of the type.',
-        'cmdargs': (
-            ('name', {'help': 'The friendly name of the organization ID type.'}),
-        ),
-        'storm': 'yield $lib.gen.orgIdType($cmdopts.name)',
-    },
     {
         'name': 'gen.ou.org',
         'descr': 'Lift (or create) an ou:org node based on the organization name.',
         'cmdargs': (
             ('name', {'help': 'The name of the organization.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.orgByName($cmdopts.name)',
+        'storm': 'yield $lib.gen._ouOrgByName($cmdopts.name, try=$cmdopts.try)',
     },
     {
         'name': 'gen.entity.campaign',
@@ -435,16 +141,18 @@ stormcmds = (
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
             ('reporter', {'help': 'The name of the reporting organization.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.campaign($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen._entityCampaignByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
         'name': 'gen.it.software',
         'descr': 'Lift (or create) an it:software node based on the software name.',
         'cmdargs': (
             ('name', {'help': 'The name of the software.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.softByName($cmdopts.name)',
+        'storm': 'yield $lib.gen._itSoftwareByName($cmdopts.name, try=$cmdopts.try)'
     },
     {
         'name': 'gen.risk.threat',
@@ -459,8 +167,9 @@ stormcmds = (
         'cmdargs': (
             ('name', {'help': 'The name of the threat cluster. For example: APT1'}),
             ('reporter', {'help': 'The name of the reporting organization. For example: Mandiant'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.riskThreat($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen._riskThreatByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
         'name': 'gen.risk.tool.software',
@@ -475,8 +184,9 @@ stormcmds = (
         'cmdargs': (
             ('name', {'help': 'The tool name.'}),
             ('reporter', {'help': 'The name of the reporting organization. For example: "recorded future"'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.riskToolSoftware($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen._riskToolSoftByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
         'name': 'gen.risk.vuln',
@@ -490,11 +200,10 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
-            ('reporter', {'help': 'The name of the reporting organization.', 'nargs': '?'}),
-            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
-                       'action': 'store_true'}),
+            ('reporter', {'help': 'The name of the reporting organization.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try, reporter=$cmdopts.reporter)',
+        'storm': 'yield $lib.gen._riskVulnByCve($cmdopts.cve, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
         'name': 'gen.ou.industry',
@@ -503,8 +212,10 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'help': 'The industry name.'}),
+            ('reporter', {'help': 'The name of the reporting organization.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.industryByName($cmdopts.name)',
+        'storm': 'yield $lib.gen._ouIndustryByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
         'name': 'gen.pol.country',
@@ -518,10 +229,9 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
-            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
-                       'action': 'store_true'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.polCountryByCode($cmdopts.code, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._polCountryByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
         'name': 'gen.pol.country.government',
@@ -535,65 +245,18 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
-            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
-                       'action': 'store_true'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.polCountryOrgByCode($cmdopts.code, try=$cmdopts.try)',
-    },
-    {
-        'name': 'gen.ps.contact.email',
-        'descr': '''
-            Lift (or create) the entity:contact node by deconflicting the email and type.
-
-            Examples:
-
-                // Yield the entity:contact node for the type and email
-                gen.ps.contact.email vertex.employee visi@vertex.link
-        ''',
-        'cmdargs': (
-            ('type', {'help': 'The contact type.'}),
-            ('email', {'help': 'The contact email address.'}),
-            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
-                       'action': 'store_true'}),
-        ),
-        'storm': 'yield $lib.gen.psContactByEmail($cmdopts.type, $cmdopts.email, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._polCountryOrgByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
         'name': 'gen.lang.language',
         'descr': 'Lift (or create) a lang:language node based on the name.',
         'cmdargs': (
             ('name', {'help': 'The name of the language.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.langByName($cmdopts.name)',
-    },
-    {
-        'name': 'gen.it.av.scan.result',
-        'descr': '''
-            Lift (or create) the it:av:scan:result node by deconflicting the target and signature name.
-
-            The scan time and scanner name may also optionally be provided for deconfliction.
-
-            Examples:
-
-                // Yield the it:av:scan:result node for an FQDN and signature name
-                gen.it.av.scan.result inet:fqdn vertex.link foosig
-
-                // Also deconflict by scanner name and scan time
-                gen.it.av.scan.result inet:fqdn fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
-        ''',
-        'cmdargs': (
-            ('form', {'help': 'The target form.'}),
-            ('value', {'help': 'The target value.'}),
-            ('signame', {'help': 'The signature name.'}),
-            ('--scanner-name', {'help': 'An optional scanner software name to include in deconfliction.'}),
-            ('--time', {'help': 'An optional time when the scan was run to include in the deconfliction.'}),
-            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
-                       'action': 'store_true'}),
-        ),
-        'storm': '''
-            yield $lib.gen.itAvScanResultByTarget($cmdopts.form, $cmdopts.value, $cmdopts.signame,
-                                                  scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
-        ''',
+        'storm': 'yield $lib.gen._langLanguageByName($cmdopts.name, try=$cmdopts.try)',
     },
     {
         'name': 'gen.geo.place',
@@ -602,7 +265,8 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'help': 'The name of the place.'}),
+            _tryarg,
         ),
-        'storm': 'yield $lib.gen.geoPlaceByName($cmdopts.name)',
+        'storm': 'yield $lib.gen._geoPlaceByName($cmdopts.name, try=$cmdopts.try)',
     },
 )

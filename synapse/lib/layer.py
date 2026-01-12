@@ -2377,14 +2377,12 @@ class Layer(s_nexus.Pusher):
             mesg = f'invalid tag index autofix strategy "{autofix}"'
             raise s_exc.BadArg(mesg=mesg)
 
-        for (form, name) in self.getTags():
-            if form is None:
-                continue
+        for (form, name) in self.getTagIndexes():
 
             if globs is not None and not globs.get(name):
                 continue
 
-            async for error in self.verifyByTag(name, autofix=autofix):
+            async for error in self.verifyByTag(form, name, autofix=autofix):
                 yield error
 
     async def verifyAllProps(self, scanconf=None):
@@ -2427,7 +2425,7 @@ class Layer(s_nexus.Pusher):
 
         include = scanconf.get('include', None)
 
-        for form, tag, prop in self.getTagProps():
+        for form, tag, prop in self.getTagPropIndexes():
 
             if include is not None and prop not in include:
                 continue
@@ -2435,8 +2433,8 @@ class Layer(s_nexus.Pusher):
             async for error in self.verifyByTagProp(form, tag, prop, autofix=autofix):
                 yield error
 
-    async def verifyByTag(self, tag, autofix=None):
-        tagabrv = self.core.getIndxAbrv(INDX_TAG, None, tag)
+    async def verifyByTag(self, form, tag, autofix=None):
+        tagabrv = self.core.getIndxAbrv(INDX_TAG, form, tag)
 
         async def tryfix(lkey, nid, form):
             if autofix == 'node':
@@ -2450,8 +2448,6 @@ class Layer(s_nexus.Pusher):
         for lkey, nid in self.layrslab.scanByPref(tagabrv, db=self.indxdb):
 
             await asyncio.sleep(0)
-
-            (form, tag) = self.core.getAbrvIndx(lkey[:8])
 
             sode = self._getStorNode(nid)
             if not sode:
@@ -2893,15 +2889,20 @@ class Layer(s_nexus.Pusher):
             if self.indxcounts.get(abrv) > 0:
                 yield s_msgpack.un(byts[2:])
 
-    def getTags(self):
+    def getTagIndexes(self):
         for byts, abrv in self.core.indxabrv.iterByPref(INDX_TAG):
             if self.indxcounts.get(abrv) > 0:
                 yield s_msgpack.un(byts[2:])
 
-    def getTagProps(self):
+    def getTagPropIndexes(self):
         for byts, abrv in self.core.indxabrv.iterByPref(INDX_TAGPROP):
             if self.indxcounts.get(abrv) > 0:
                 yield s_msgpack.un(byts[2:])
+
+    def getTagProps(self):
+        for form, tag, prop in self.getTagPropIndexes():
+            if form is None and tag is not None:
+                yield tag, prop
 
     async def _onLayrSlabCommit(self, mesg):
         await self._saveDirtySodes()
@@ -3262,9 +3263,9 @@ class Layer(s_nexus.Pusher):
 
     async def liftTagProp(self, name):
 
-        for form, tag, prop in self.getTagProps():
+        for tag, prop in self.getTagProps():
 
-            if form is not None or prop != name:
+            if prop != name:
                 continue
 
             try:
@@ -5581,8 +5582,8 @@ class Layer(s_nexus.Pusher):
 
         # tagprops
         if not allow_tags:
-            async for tagprop in s_coro.pause(self.getTagProps()):
-                perm = perm_tags + tuple(tagprop[1].split('.'))
+            async for tag, prop in s_coro.pause(self.getTagProps()):
+                perm = perm_tags + tuple(tag.split('.'))
                 user.confirm(perm, gateiden=gateiden)
 
         # nodedata

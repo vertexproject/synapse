@@ -1009,18 +1009,13 @@ an organization node deconflicted and created based on a name will only have its
 property set). Users can set additional property values as they see fit.
 
 - `gen.geo.place`_
-- `gen.it.av.scan.result`_
 - `gen.it.software`_
 - `gen.lang.language`_
 - `gen.entity.campaign`_
-- `gen.ou.id.number`_
-- `gen.ou.id.type`_
 - `gen.ou.industry`_
 - `gen.ou.org`_
-- `gen.ou.org.hq`_
 - `gen.pol.country`_
 - `gen.pol.country.government`_
-- `gen.ps.contact.email`_
 - `gen.risk.threat`_
 - `gen.risk.tool.software`_
 - `gen.risk.vuln`_
@@ -1047,22 +1042,6 @@ name (``geo:place:name`` and / or ``geo:place:names`` properties).
 **Syntax:**
 
 .. storm-cli:: gen.geo.place --help
-
-
-.. _storm-gen-it-av-scan-result:
-
-gen.it.av.scan.result
-+++++++++++++++++++++
-
-The ``gen.it.av.scan.result`` command locates (lifts) or creates an ``it:av:scan:result`` node based
-on the form and value of the object scanned and the signature name used for the scan.
-
-You can optionally include the name of the scanner / scan engine and/or the time the scan was performed
-for additional deconfliction.
-
-**Syntax:**
-
-.. storm-cli:: gen.it.av.scan.result --help
 
 
 .. _storm-gen-it-software:
@@ -1105,32 +1084,6 @@ organization (``entity:campaign:reporter:name``).
 .. storm-cli:: gen.entity.campaign --help
 
 
-.. _storm-gen-ou-id-number:
-
-gen.ou.id.number
-++++++++++++++++
-
-The ``gen.ou.id.number`` command locates (lifts) or creates an ``ou:id:number`` node based on
-the organization ID type (``ou:id:type``) and organization ID value (``ou:id:value``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.id.number --help
-
-
-.. _storm-gen-ou-id-type:
-
-gen.ou.id.type
-++++++++++++++
-
-The ``gen.ou.id.type`` command locates (lifts) or creates an ``ou:id:type`` node based on
-the friendly name of the organization ID type (``ou:id:type:name``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.id.type --help
-
-
 .. _storm-gen-ou-industry:
 
 gen.ou.industry
@@ -1155,23 +1108,6 @@ name (``ou:org:name`` and / or ``ou:org:names``).
 **Syntax:**
 
 .. storm-cli:: gen.ou.org --help
-
-
-.. _storm-gen-ou-org-hq:
-
-gen.ou.org.hq
-+++++++++++++
-
-The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node for an organization
-(i.e., the contact set for the ``ou:org:hq`` property) or creates the contact node (and sets the
-``ou:org:hq`` property) if it does not exist, based on the organization name (``ou:org:name`` and / or
-``ou:org:names``).
-
-**Syntax:**
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: gen.ou.org.hq --help
 
 
 .. _storm-gen-pol-country:
@@ -1200,19 +1136,6 @@ on the two-letter ISO-3166 country code (``pol:country:iso2``).
 **Syntax:**
 
 .. storm-cli:: gen.pol.country.government --help
-
-
-.. _storm-gen-ps-contact-email:
-
-gen.ps.contact.email
-++++++++++++++++++++
-
-The ``gen.ps.contact.email`` command locates (lifts) or creates a ``ps:contact`` node using
-the contact's primary email address (``ps:contact:email``) and type (``ps:contact:type``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ps.contact.email --help
 
 
 .. _storm-gen-risk-threat:
@@ -1251,7 +1174,7 @@ gen.risk.vuln
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
-(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
+(``risk:vuln:id``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
 
 **Syntax:**
 

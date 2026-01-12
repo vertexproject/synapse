@@ -272,24 +272,45 @@ modeldefs = (
             )),
 
             ('inet:dns:query', {}, (
-                ('client', ('inet:client', {}), {'computed': True, }),
-                ('name', ('inet:dns:name', {}), {'computed': True, }),
+                ('client', ('inet:client', {}), {
+                    'computed': True,
+                    'doc': 'The client that performed the DNS query.'}),
+
+                ('name', ('inet:dns:name', {}), {
+                    'computed': True,
+                    'doc': 'The DNS query name string.'}),
+
                 ('name:ip', ('inet:ip', {}), {
+                    'computed': True,
+                    'doc': 'The IP address in the DNS query name string.',
                     'prevnames': ('name:ipv4', 'name:ipv6')}),
 
-                ('name:fqdn', ('inet:fqdn', {}), {}),
-                ('type', ('int', {}), {'computed': True, }),
+                ('name:fqdn', ('inet:fqdn', {}), {
+                    'computed': True,
+                    'doc': 'The FQDN in the DNS query name string.'}),
+
+                ('type', ('int', {}), {
+                    'computed': True,
+                    'doc': 'The type of record that was queried.'}),
             )),
 
             ('inet:dns:request', {}, (
 
-                ('query', ('inet:dns:query', {}), {}),
-                ('query:name', ('inet:dns:name', {}), {}),
+                ('query', ('inet:dns:query', {}), {
+                    'doc': 'The DNS query contained in the request.'}),
+
+                ('query:name', ('inet:dns:name', {}), {
+                    'doc': 'The DNS query name string in the request.'}),
+
                 ('query:name:ip', ('inet:ip', {}), {
+                    'doc': 'The IP address in the DNS query name string.',
                     'prevnames': ('query:name:ipv4', 'query:name:ipv6')}),
 
-                ('query:name:fqdn', ('inet:fqdn', {}), {}),
-                ('query:type', ('int', {}), {}),
+                ('query:name:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN in the DNS query name string.'}),
+
+                ('query:type', ('int', {}), {
+                    'doc': 'The type of record requested in the query.'}),
 
                 ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
                     'doc': 'The DNS server response code.'}),
@@ -297,8 +318,12 @@ modeldefs = (
 
             ('inet:dns:answer', {}, (
 
-                ('ttl', ('int', {}), {}),
-                ('request', ('inet:dns:request', {}), {}),
+                ('ttl', ('int', {}), {
+                    'doc': 'The time to live value of the DNS record in the response.'}),
+
+                ('request', ('inet:dns:request', {}), {
+                    'doc': 'The DNS request that was answered.'}),
+
                 ('record', ('inet:dns:record', {}), {
                     'doc': 'The DNS record returned by the lookup.',
                     'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),

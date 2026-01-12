@@ -218,6 +218,7 @@ class GeoTest(s_t_utils.SynTest):
                     :desc="The place where Vertex Project hangs out at!"
                     :name="Vertex HQ"
                     :address="208 Datong Road, Pudong District, Shanghai, China"
+                    :address:city="  Shanghai  "
                     :loc=us.hehe.haha
                     :photo=*
                     :latlong=(34.1341, -118.3215)
@@ -238,6 +239,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('altitude:accuracy'), 2000)
             self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
             self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
+            self.eq(node.get('address:city'), 'shanghai')
             self.nn(node.get('photo'))
 
             self.len(1, await core.nodes('geo:place :photo -> file:bytes'))
