@@ -233,6 +233,7 @@ modeldefs = (
                 ),
             }),
             ('file:mime:exe', {
+                'doc': 'Properties common to executable file formats.',
                 'template': {'executable': 'executable'},
                 'props': (
                     ('compiler', ('it:software', {}), {
