@@ -406,6 +406,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
+                    <(showed)+ {[ inet:flow=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -417,6 +418,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
             self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable <(showed)- inet:flow'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -481,8 +483,8 @@ class RiskModelTest(s_t_utils.SynTest):
                 [ risk:tool:software=*
                     :software=*
                     :used=(2012,?)
-                    :software:name=cobaltstrike
-                    :software:names=(beacon,)
+                    :name=cobaltstrike
+                    :names=(beacon,)
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :reporter:discovered=202202
@@ -507,14 +509,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
             self.eq('AAAbbb123', nodes[0].get('id'))
 
-            self.eq('cobaltstrike', nodes[0].get('software:name'))
-            self.eq(('beacon',), nodes[0].get('software:names'))
+            self.eq('cobaltstrike', nodes[0].get('name'))
+            self.eq(('beacon',), nodes[0].get('names'))
 
             self.len(1, await core.nodes('risk:tool:software -> ou:org'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
             self.len(1, await core.nodes('risk:tool:software -> it:software'))
 
-            self.len(1, nodes := await core.nodes('[ risk:tool:software=({"software:name": "beacon"}) ]'))
+            self.len(1, nodes := await core.nodes('[ risk:tool:software=({"name": "beacon"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
     async def test_model_risk_vuln_technique(self):
