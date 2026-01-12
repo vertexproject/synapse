@@ -322,9 +322,9 @@ modeldefs = (
 
             ('file:mime:elf', ('guid', {}), {
                 'interfaces': (
-                    ('file:mime:exe', {'template': {'executable': 'Elf executable'}}),
+                    ('file:mime:exe', {'template': {'executable': 'ELF executable'}}),
                 ),
-                'doc': 'Metadata about an Elf executable file.',
+                'doc': 'Metadata about an ELF executable file.',
             }),
 
             ('file:mime:macho', ('guid', {}), {
