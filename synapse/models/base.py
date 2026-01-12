@@ -168,6 +168,12 @@ modeldefs = (
                     ),
                 }}),
 
+            ('meta:technique:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique statuses.'}),
+
             ('meta:technique:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -243,6 +249,9 @@ modeldefs = (
                     ('reporter:status', ('{status}', {}), {
                         'doc': 'The status of the {title}, according to the reporter.'}),
 
+                    ('superseded:time', ('time', {}), {
+                        'doc': 'The time when the {title} was superseded.'}),
+
                     ('supersedes', ('array', {'type': '$self'}), {
                         'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
@@ -268,7 +277,7 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The depth indexed from 0.'}),
 
-                    ('parent', ('$self', {}), {
+                    ('parent', ('{$self}', {}), {
                         'computed': True,
                         'doc': 'The taxonomy parent.'}),
                 ),

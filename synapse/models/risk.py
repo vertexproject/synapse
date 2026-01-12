@@ -68,6 +68,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of vulnerability types.'}),
 
+            ('risk:vuln:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of vulnerability statuses.'}),
+
             ('risk:vulnerable', ('guid', {}), {
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
@@ -88,6 +94,13 @@ modeldefs = (
                     ),
                 },
             }),
+
+            ('risk:threat:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of threat statuses.'}),
+
             ('risk:attack', ('guid', {}), {
                 'template': {'title': 'attack'},
                 'interfaces': (
@@ -95,6 +108,12 @@ modeldefs = (
                     ('meta:reported', {}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
+
+            ('risk:attack:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -104,6 +123,12 @@ modeldefs = (
 
             ('risk:alert', ('guid', {}), {
                 'doc': 'An alert which indicates the presence of a risk.'}),
+
+            ('risk:compromise:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of compromise statuses.'}),
 
             ('risk:compromise', ('guid', {}), {
                 'template': {'title': 'compromise'},
@@ -127,6 +152,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A taxonomy of mitigation types.'}),
+
+            ('risk:mitigation:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of mitigation statuses.'}),
 
             ('risk:mitigation', ('guid', {}), {
                 'template': {'title': 'mitigation'},
@@ -167,6 +198,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A taxonomy of availability status values.'}),
+
+            ('risk:tool:software:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of tool statuses.'}),
 
             ('risk:tool:software', ('guid', {}), {
                 'template': {'title': 'tool'},
@@ -212,6 +249,12 @@ modeldefs = (
                 },
                 'doc': 'An event where information was disclosed without permission.'}),
 
+            ('risk:leak:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of leak event statuses.'}),
+
             ('risk:leak:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -235,6 +278,12 @@ modeldefs = (
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+            ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of extortion statuses.'}),
+
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -246,6 +295,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'An outage type taxonomy.'}),
+
+            ('risk:outage:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'An outage status taxonomy.'}),
 
             ('risk:outage', ('guid', {}), {
                 'template': {'title': 'outage'},
@@ -361,9 +416,6 @@ modeldefs = (
 
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
-
-                # TODO: We lose merged:time when using :supersedes
-                # TODO: reporter:url/:url conflict with entity:actor?
 
             )),
             ('risk:availability', {}, {}),

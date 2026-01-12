@@ -136,6 +136,12 @@ modeldefs = (
                 },
                 'doc': 'An industry classification type.'}),
 
+            ('ou:industry:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of industry statuses.'}),
+
             ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
