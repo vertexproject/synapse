@@ -326,7 +326,11 @@ modeldefs = (
             ('transport:land:license', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The license ID.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate license IDs.'}),
 
                 # TODO type ( drivers license, commercial trucking, etc? )
                 ('contact', ('entity:actor', {}), {
@@ -347,7 +351,11 @@ modeldefs = (
             ('transport:land:registration', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The vehicle registration ID or license plate.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate vehicle registration IDs.'}),
 
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the registrant.'}),
@@ -527,7 +535,11 @@ modeldefs = (
             ('transport:rail:train', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The ID assigned to the train.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate IDs assigned to the train.'}),
             )),
 
             ('transport:rail:car:type:taxonomy', {}, ()),

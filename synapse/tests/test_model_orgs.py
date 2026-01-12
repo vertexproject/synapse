@@ -347,6 +347,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:asset=*
                     :id=V-31337
+                    :ids=(W-31337,)
                     :name="visi laptop"
                     :type=host.laptop
                     :priority=highest
@@ -362,6 +363,8 @@ class OuModelTest(s_t_utils.SynTest):
                 ]''')
             self.len(1, nodes)
             self.eq((1451606400000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
+            self.eq('V-31337', nodes[0].get('id'))
+            self.eq(('W-31337',), nodes[0].get('ids'))
             self.eq('visi laptop', nodes[0].get('name'))
             self.eq('host.laptop.', nodes[0].get('type'))
             self.eq('deployed.', nodes[0].get('status'))
@@ -375,6 +378,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:asset :org -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('ou:asset :owner -> entity:contact +:name=foo '))
             self.len(1, await core.nodes('ou:asset :operator -> entity:contact +:name=bar '))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[ou:asset=({"id": "W-31337"})]})'))
 
             visi = await core.auth.addUser('visi')
 

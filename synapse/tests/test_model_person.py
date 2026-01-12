@@ -81,6 +81,7 @@ class PsModelTest(s_t_utils.SynTest):
                 edu:course=$course
                 [
                     :id=chem101
+                    :ids=(chem101-lab,)
                     :name="Data Structure Analysis"
                     :desc="A brief description here"
                     :institution={[ entity:contact=* ]}
@@ -90,6 +91,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.len(1, await core.nodes('edu:course=$course :prereqs -> edu:course', opts=opts))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[edu:course=({"id": "chem101-lab"})]})'))
 
             nodes = await core.nodes('''[
                 ps:workhist = *

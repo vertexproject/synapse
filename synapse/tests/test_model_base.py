@@ -221,6 +221,7 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 meta:feed=*
                     :id="feed/THING/my rss feed     "
+                    :ids=(faz,)
                     :name="woot (foo bar baz)"
                     :type=foo.bar.baz
                     :source={[ meta:source=* :name=woot ]}
@@ -236,6 +237,7 @@ class BaseTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('source'))
 
             self.eq(nodes[0].get('id'), 'feed/THING/my rss feed')
+            self.eq(nodes[0].get('ids'), ('faz',))
             self.eq(nodes[0].get('name'), 'woot (foo bar baz)')
             self.eq(nodes[0].get('type'), 'foo.bar.baz.')
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
@@ -248,3 +250,5 @@ class BaseTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('meta:feed -> meta:source +:name=woot'))
             self.len(1, await core.nodes('meta:feed -> meta:feed:type:taxonomy'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[meta:feed=({"id": "faz"})]})'))

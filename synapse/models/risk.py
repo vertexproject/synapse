@@ -591,7 +591,11 @@ modeldefs = (
                     'doc': 'A URL which documents the alert.'}),
 
                 ('id', ('base:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'An external identifier for the alert.'}),
+
+                ('ids', ('array', {'type': 'base:id'}), {
+                    'doc': 'An array of alternate external identifiers for the alert.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host which generated the alert.'}),

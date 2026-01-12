@@ -45,6 +45,8 @@ class ProjModelTest(s_test.SynTest):
 
             nodes = await core.nodes('''
                 [ proj:task=*
+                    :id=foo
+                    :ids=(faz,)
 
                     :name=syn3.0
                     :desc=FooBar
@@ -62,6 +64,8 @@ class ProjModelTest(s_test.SynTest):
                     <(about)+ {[ meta:note=* ]}
                 ]
             ''')
+            self.eq(nodes[0].get('id'), 'foo')
+            self.eq(nodes[0].get('ids'), ('faz',))
             self.eq(nodes[0].get('name'), 'syn3.0')
             self.eq(nodes[0].get('desc'), 'FooBar')
             self.eq(nodes[0].get('type'), 'hehe.haha.')
@@ -74,3 +78,5 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('proj:task :project -> proj:project'))
             self.len(1, await core.nodes('proj:task -(has)> file:attachment'))
             self.len(1, await core.nodes('proj:task <(about)- meta:note'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[proj:task=({"id": "faz"})]})'))

@@ -215,6 +215,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ geo:place=*
                     :id=IAD
+                    :ids=(ABC,)
                     :desc="The place where Vertex Project hangs out at!"
                     :name="Vertex HQ"
                     :address="208 Datong Road, Pudong District, Shanghai, China"
@@ -231,6 +232,7 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('id'), 'IAD')
+            self.eq(node.get('ids'), ('ABC',))
             self.eq(node.get('name'), 'vertex hq')
             self.eq(node.get('loc'), 'us.hehe.haha')
             self.eq(node.get('latlong'), (34.1341, -118.3215))
@@ -248,6 +250,8 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
             self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[geo:place=({"id": "ABC"})]})'))
 
             q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}

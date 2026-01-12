@@ -103,7 +103,11 @@ modeldefs = (
             ('biz:deal', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'An identifier for the deal.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate identifiers for the deal.'}),
 
                 ('title', ('str', {}), {
                     'doc': 'A title for the deal.'}),

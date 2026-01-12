@@ -8,6 +8,8 @@ class EntityModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 entity:contact=*
+                    :id=" 1234 "
+                    :ids=(" 5678 ",)
                     :name=visi
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
@@ -20,6 +22,8 @@ class EntityModelTest(s_t_utils.SynTest):
                     :place:address:city="  new York  city "
             ]''')
             self.len(1, nodes)
+            self.eq(nodes[0].get('id'), '1234')
+            self.eq(nodes[0].get('ids'), ('5678',))
             self.eq(nodes[0].get('name'), 'visi')
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
@@ -30,6 +34,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('place:address:city'), 'new york city')
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:contact=({"id": "5678"})})'))
 
             nodes = await core.nodes('''
                 $item = {[ transport:air:craft=* ]}

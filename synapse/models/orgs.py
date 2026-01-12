@@ -613,7 +613,11 @@ modeldefs = (
                     'doc': 'The organization which owns the asset.'}),
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The ID of the asset.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate IDs for the asset.'}),
 
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the assset.'}),

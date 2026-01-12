@@ -2346,6 +2346,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'text': 'this is  a bunch of \nrecord text 123123',
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-1',
+                'ids': ('ABC',),
                 'name': 'vtx',
                 'parentid': 'NET-10-0-0-0-0',
                 'contacts': (addlcontact, ),
@@ -2355,7 +2356,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
             }
             q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
-                :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
+                :text=$p.text :asn=$p.asn :id=$p.id :ids=$p.ids :name=$p.name :parentid=$p.parentid
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
@@ -2371,6 +2372,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-1')
+            self.eq(node.get('ids'), ('ABC',))
             self.eq(node.get('name'), 'vtx')
             self.eq(node.get('parentid'), 'NET-10-0-0-0-0')
             self.eq(node.get('contacts'), (addlcontact,))
@@ -2378,6 +2380,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('status'), 'validated')
             self.eq(node.get('type'), 'direct allocation')
             self.eq(node.get('links'), ('http://rdap.com/foo', 'http://rdap.net/bar'))
+
+            self.eq(node.ndef[1], await core.callStorm('return({[inet:whois:iprecord=({"id": "ABC"})]})'))
 
             rec_ipv6 = s_common.guid()
             props = {
@@ -2709,6 +2713,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:platform=(slack,)
                 :id=foo
+                :ids=(faz,)
                 :url="https://slack.com"
                 :urls=(https://slacker.com,)
                 :zones=(slack.com, slacker.com)
@@ -2731,6 +2736,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq('foo', nodes[0].get('id'))
+            self.eq(('faz',), nodes[0].get('ids'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq('foofam', nodes[0].get('family'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
@@ -2745,6 +2751,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('provider:name'), provname.lower())
             self.eq(nodes[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             platform = nodes[0]
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[inet:service:platform=({"id": "faz"})]})'))
 
             nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
             self.eq(['salesforce'], [n.get('name') for n in nodes])
@@ -2924,6 +2932,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:channel=(general, channel, vertex, slack)
                 :id=C1234
+                :ids=(C4567,)
                 :name=general
                 :period=(20150101, ?)
                 :creator=$visiiden
@@ -2939,12 +2948,14 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].get('ids'), ('C4567',))
             self.eq(nodes[0].get('name'), 'general')
             self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.len(1, await core.nodes('inet:service:channel:id=C1234 :profile -> entity:contact'))
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[inet:service:channel=({"id": "C4567"})]})'))
             gnrlchan = nodes[0]
 
             q = '''

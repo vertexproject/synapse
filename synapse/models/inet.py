@@ -1878,7 +1878,11 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
+                        'alts': ('ids',),
                         'doc': 'A platform specific ID which identifies the {title}.'}),
+
+                    ('ids', ('array', {'type': 'meta:id'}), {
+                        'doc': 'An array of alternate platform specific IDs which identify the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
                         'doc': 'The platform which defines the {title}.'}),
@@ -1995,7 +1999,11 @@ modeldefs = (
             ('inet:email:message', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The ID parsed from the "message-id" header.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate IDs for the email message.'}),
 
                 ('to', ('inet:email', {}), {
                     'doc': 'The email address of the recipient.'}),
@@ -2674,7 +2682,11 @@ modeldefs = (
                     'doc': 'The associated Autonomous System Number (ASN).'}),
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate registry unique identifiers.'}),
 
                 ('parentid', ('meta:id', {}), {
                     'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
@@ -2851,7 +2863,11 @@ modeldefs = (
             ('inet:service:platform', {}, (
 
                 ('id', ('meta:id', {}), {
+                    'alts': ('ids',),
                     'doc': 'An ID which identifies the platform.'}),
+
+                ('ids', ('array', {'type': 'meta:id'}), {
+                    'doc': 'An array of alternate IDs which identify the platform.'}),
 
                 ('url', ('inet:url', {}), {
                     'ex': 'https://twitter.com',

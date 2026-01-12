@@ -139,6 +139,7 @@ class TransportTest(s_test.SynTest):
                 [ transport:land:registration=$regid
 
                     :id=zeroday
+                    :ids=(faz,)
                     :issued=20150202
                     :expires=20230202
                     :issuer={gen.ou.org "virginia dmv"}
@@ -157,6 +158,7 @@ class TransportTest(s_test.SynTest):
 
                     :license={[ transport:land:license=*
                         :id=V-31337
+                        :ids=(W-31337,)
                         :contact={gen.ps.contact.email us.va.dmv visi@vertex.link}
                         :issued=20221217
                         :expires=20251217
@@ -167,6 +169,7 @@ class TransportTest(s_test.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'zeroday')
+            self.eq(nodes[0].get('ids'), ('faz',))
             self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
             self.eq(nodes[0].get('issued'), 1422835200000000)
             self.eq(nodes[0].get('expires'), 1675296000000000)
@@ -175,6 +178,8 @@ class TransportTest(s_test.SynTest):
             self.nn(nodes[0].get('contact'))
             self.nn(nodes[0].get('license'))
             self.nn(nodes[0].get('vehicle'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[transport:land:registration=({"id": "faz"})]})'))
 
             nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
             self.len(1, nodes)
@@ -189,12 +194,15 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:land:registration:id=zeroday -> transport:land:license')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'V-31337')
+            self.eq(nodes[0].get('ids'), ('W-31337',))
             self.eq(nodes[0].get('issued'), 1671235200000000)
             self.eq(nodes[0].get('expires'), 1765929600000000)
             self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
 
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('contact'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[transport:land:license=({"id": "W-31337"})]})'))
 
             nodes = await core.nodes('''[
                 transport:land:drive=*
@@ -208,6 +216,8 @@ class TransportTest(s_test.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 transport:rail:train=*
+                    :id=foo
+                    :ids=(faz,)
 
                     :status=completed
                     :occupants=1
@@ -252,6 +262,8 @@ class TransportTest(s_test.SynTest):
                     ]}
                     :operator={[ entity:contact=* :name="visi" ]}
             ]''')
+            self.eq('foo', nodes[0].get('id'))
+            self.eq(('faz',), nodes[0].get('ids'))
 
             self.eq(10800000000, nodes[0].get('duration'))
             self.eq(10800000000, nodes[0].get('scheduled:duration'))
@@ -271,6 +283,8 @@ class TransportTest(s_test.SynTest):
             self.eq(1737120600000000, nodes[0].get('scheduled:arrival'))
             self.nn(nodes[0].get('scheduled:arrival:place'))
             self.eq('2c', nodes[0].get('scheduled:arrival:point'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[transport:rail:train=({"id": "faz"})]})'))
 
             nodes = await core.nodes('transport:rail:consist')
             self.eq(2, nodes[0].get('max:occupants'))

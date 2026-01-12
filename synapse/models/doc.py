@@ -10,7 +10,11 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
+                        'alts': ('ids',),
                         'doc': 'The {title} ID.'}),
+
+                    ('ids', ('array', {'type': 'meta:id'}), {
+                        'doc': 'An array of alternate IDs for the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the {title} is available.'}),
@@ -251,6 +255,5 @@ modeldefs = (
                     'doc': 'The date that the contract was terminated.'}),
             )),
         ),
-        'edges': (),
     }),
 )

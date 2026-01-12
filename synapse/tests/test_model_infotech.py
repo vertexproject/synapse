@@ -188,6 +188,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 it:sec:stix:indicator=*
                     :id=zoinks
+                    :ids=(zoom,)
                     :name=woot
                     :confidence=90
                     :revoked=(false)
@@ -202,6 +203,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq('zoinks', nodes[0].get('id'))
+            self.eq(('zoom',), nodes[0].get('ids'))
             self.eq('woot', nodes[0].get('name'))
             self.eq(90, nodes[0].get('confidence'))
             self.eq(False, nodes[0].get('revoked'))
@@ -213,6 +215,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000000, nodes[0].get('updated'))
             self.eq(1723680000000000, nodes[0].get('valid_from'))
             self.eq(1723680000000000, nodes[0].get('valid_until'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:sec:stix:indicator=({"id": "zoom"})]})'))
 
             nodes = await core.nodes('''
                 [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)
@@ -294,6 +298,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 [ it:host=*
 
                     :id=foo123
+                    :ids=(foo456,)
                     :name="Bobs laptop"
                     :desc="Bobs paperweight"
 
@@ -318,6 +323,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.eq(nodes[0].get('id'), 'foo123')
+            self.eq(nodes[0].get('ids'), ('foo456',))
             self.eq(nodes[0].get('name'), 'bobs laptop')
             self.eq(nodes[0].get('desc'), 'Bobs paperweight')
             self.eq(nodes[0].get('ip'), (4, 0x01020304))
@@ -333,6 +339,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:host :org -> ou:org'))
             self.len(1, await core.nodes('it:host :place -> geo:place'))
             self.len(1, await core.nodes('it:host :operator -> entity:contact'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:host=({"id": "foo456"})]})'))
 
             host = node
 
@@ -494,6 +502,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:log:event=*
+                    :id=foo
+                    :ids=(faz,)
                     :mesg=foobar
                     :data=(foo, bar, baz)
                     :severity=debug
@@ -504,6 +514,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :service:account=*
             ]''')
             self.len(1, nodes)
+            self.eq('foo', nodes[0].get('id'))
+            self.eq(('faz',), nodes[0].get('ids'))
             self.eq(10, nodes[0].get('severity'))
             self.eq('foobar', nodes[0].get('mesg'))
             self.eq(('foo', 'bar', 'baz'), nodes[0].get('data'))
@@ -512,6 +524,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:log:event=({"id": "faz"})]})'))
 
             nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
             self.len(1, nodes)
@@ -1230,6 +1244,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             q = '''[
                 it:dev:function=*
                     :id=ZIP10
+                    :ids=(ZIPPY10,)
                     :name=woot_woot
                     :desc="Woot woot"
                     :strings=(foo, bar, foo)
@@ -1240,6 +1255,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'ZIP10')
+            self.eq(nodes[0].get('ids'), ('ZIPPY10',))
             self.eq(nodes[0].get('name'), 'woot_woot')
             self.eq(nodes[0].get('desc'), 'Woot woot')
             self.eq(nodes[0].get('strings'), ('bar', 'foo'))
@@ -1247,6 +1263,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))
             self.len(2, await core.nodes('it:dev:function :strings -> it:dev:str'))
             self.len(2, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:dev:function=({"id": "ZIPPY10"})]})'))
 
             q = '''[
                 it:dev:function:sample=*
@@ -1580,10 +1598,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'parents': (parent,),
                 'mesg': 'a fancy new release',
                 'id': 'r12345',
+                'ids': ('r789',),
                 'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
             }
             q = '''[(it:dev:repo:commit=$valu :repo=$p.repo :branch=$p.branch :parents=$p.parents :mesg=$p.mesg
-                :id=$p.id :url=$p.url)]'''
+                :id=$p.id :ids=$p.ids :url=$p.url)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': commit, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1593,8 +1612,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('parents'), (parent,))
             self.eq(node.get('mesg'), 'a fancy new release')
             self.eq(node.get('id'), 'r12345')
+            self.eq(node.get('ids'), ('r789',))
             self.eq(node.get('url'),
                     'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf')
+
+            self.eq(node.ndef[1], await core.callStorm('return({[it:dev:repo:commit=({"id": "r789"})]})'))
 
             nodes = await core.nodes('''
                 [ it:dev:repo:entry=*
@@ -1632,10 +1654,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'desc': 'Gonna be a big release friday',
                 'updated': 1,
                 'id': '1234',
+                'ids': ('567',),
                 'url': 'https://github.com/vertexproject/synapse/issues/2821',
             }
             q = '''[(it:dev:repo:issue=$valu :repo=$p.repo :title=$p.title :desc=$p.desc
-                :updated=$p.updated :id=$p.id :url=$p.url)]'''
+                :updated=$p.updated :id=$p.id :ids=$p.ids :url=$p.url)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': issue, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1645,21 +1668,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('desc'), 'Gonna be a big release friday')
             self.eq(node.get('updated'), 1)
             self.eq(node.get('id'), '1234')
+            self.eq(node.get('ids'), ('567',))
             self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/issues/2821')
+
+            self.eq(node.ndef[1], await core.callStorm('return({[it:dev:repo:issue=({"id": "567"})]})'))
 
             props = {
                 'id': '123456789',
+                'ids': ('5678',),
                 'title': 'new feature',
                 'desc': 'a super cool new feature'
             }
-            q = '[(it:dev:repo:label=$valu :id=$p.id :title=$p.title :desc=$p.desc)]'
+            q = '[(it:dev:repo:label=$valu :id=$p.id :ids=$p.ids :title=$p.title :desc=$p.desc)]'
             nodes = await core.nodes(q, opts={'vars': {'valu': label, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:repo:label', label))
             self.eq(node.get('id'), '123456789')
+            self.eq(node.get('ids'), ('5678',))
             self.eq(node.get('title'), 'new feature')
             self.eq(node.get('desc'), 'a super cool new feature')
+
+            self.eq(node.ndef[1], await core.callStorm('return({[it:dev:repo:label=({"id": "5678"})]})'))
 
             props = {
                 'issue': issue,
@@ -1780,6 +1810,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :time=202308180819
                     :desc="Woot Woot"
                     :id=FOO-10
+                    :ids=(faz,)
                     :ext:url=https://vertex.link/scans/FOO-10
                     :software:name=nessus
                     :software={[ it:software=* :name=nessus ]}
@@ -1792,6 +1823,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('nessus', nodes[0].get('software:name'))
             self.eq('Woot Woot', nodes[0].get('desc'))
             self.eq('FOO-10', nodes[0].get('id'))
+            self.eq(('faz',), nodes[0].get('ids'))
             self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
 
             self.nn(nodes[0].get('operator'))
@@ -1800,12 +1832,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:vuln:scan -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('it:sec:vuln:scan -> it:software +:name=nessus'))
 
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:sec:vuln:scan=({"id": "faz"})]})'))
+
             nodes = await core.nodes('''
                 [ it:sec:vuln:scan:result=*
                     :scan={it:sec:vuln:scan}
                     :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
                     :desc="Network service is vulnerable to nucsploit9k"
                     :id=FOO-10.0
+                    :ids=(faz,)
                     :ext:url=https://vertex.link/scans/FOO-10/0
                     :time=2023081808190828
                     :mitigated=2023081808190930
@@ -1822,11 +1857,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346749300000, nodes[0].get('mitigated'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
             self.eq('FOO-10.0', nodes[0].get('id'))
+            self.eq(('faz',), nodes[0].get('ids'))
             self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
 
             self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
             self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
             self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:sec:vuln:scan:result=({"id": "faz"})]})'))
 
     async def test_infotech_it_sec_metrics(self):
 

@@ -46,6 +46,7 @@ class BizModelTest(s_t_utils.SynTest):
                 [ biz:deal=*
 
                     :id = " 12345  "
+                    :ids=(" 67890 ",)
                     :title = HeHeHaHa
                     :type = baz.faz
                     :status = foo.bar
@@ -64,6 +65,7 @@ class BizModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), '12345')
+            self.eq(nodes[0].get('ids'), ('67890',))
             self.eq(nodes[0].get('title'), 'HeHeHaHa')
             self.eq(nodes[0].get('type'), 'baz.faz.')
             self.eq(nodes[0].get('status'), 'foo.bar.')
@@ -88,6 +90,8 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('biz:deal :seller -> entity:contact +:name=seller'))
             self.len(1, await core.nodes('biz:deal :type -> biz:deal:type:taxonomy'))
             self.len(1, await core.nodes('biz:deal :status -> biz:deal:status:taxonomy'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({biz:deal=({"id": "67890"})})'))
 
             nodes = await core.nodes('''
                 [ biz:product=*

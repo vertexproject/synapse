@@ -95,6 +95,8 @@ class EconTest(s_utils.SynTest):
 
             text = '''[
                 econ:payment=*
+                    :id=" 1234 "
+                    :ids=(" 5678 ",)
 
                     :payee={[ entity:contact=* :name=payee ]}
                     :payer={[ entity:contact=* :name=payer ]}
@@ -114,6 +116,8 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes(text)
 
             self.eq(nodes[0].get('status'), 'settled')
+            self.eq('1234', nodes[0].get('id'))
+            self.eq(('5678',), nodes[0].get('ids'))
             self.eq('myhouse', nodes[0].get('place:name'))
             self.eq((90, 80), nodes[0].get('place:latlong'))
             self.eq('us.ny.brooklyn', nodes[0].get('place:loc'))
@@ -121,6 +125,8 @@ class EconTest(s_utils.SynTest):
 
             self.len(1, await core.nodes('econ:payment -> geo:place'))
             self.len(2, await core.nodes('econ:payment -> entity:contact | uniq'))
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({econ:payment=({"id": "5678"})})'))
 
             nodes = await core.nodes('''
                 [ econ:fin:exchange=(us,nasdaq) :name=nasdaq :currency=usd :org=* ]
