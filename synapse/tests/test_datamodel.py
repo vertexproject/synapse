@@ -832,3 +832,8 @@ class DataModelTest(s_t_utils.SynTest):
             msgs = await core.stormlist('meta:id -> test:str:cves')
             self.stormHasNoWarnErr(msgs)
             self.len(2, [m for m in msgs if m[0] == 'node'])
+
+            await core.nodes('[ meta:rule=* :id={[ _test:cve=cve-2020-1234 ] }]')
+            msgs = await core.stormlist('meta:rule:id :id -> test:str:cves')
+            self.stormHasNoWarnErr(msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
