@@ -6,6 +6,19 @@ class QuorumMergesLib(s_stormtypes.Lib):
     '''
     A Storm library for accessing quorum merge requests.
     '''
+    _storm_lib_path = ('quorum', 'merge')
+
+    _storm_locals = (
+        {'name': 'list', 'desc': 'List pending merge requests.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'todo', 'type': 'bool',
+                       'desc': 'Only emit merge requests which require input from the current user.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'A tuple of the view and merge summary.'}
+         },
+    )
 
     _storm_query = '''
     function __voted(votes) {
@@ -38,7 +51,6 @@ class QuorumMergesLib(s_stormtypes.Lib):
         }
     }
     '''
-    _storm_lib_path = ('quorum', 'merge')
 
 stormcmds = (
     {
