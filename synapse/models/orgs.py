@@ -599,8 +599,11 @@ modeldefs = (
                     'doc': 'A base tag used to encode assessments made by the organization.'}),
             )),
             ('ou:team', {}, (
-                ('org', ('ou:org', {}), {}),
-                ('name', ('meta:name', {}), {}),
+                ('org', ('ou:org', {}), {
+                    'doc': 'The organization that the team is associated with.'}),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the team.'}),
             )),
 
             ('ou:asset:type:taxonomy', {}, ()),
