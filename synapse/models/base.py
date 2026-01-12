@@ -22,7 +22,7 @@ modeldefs = (
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
 
-            ('base:id', ('str', {'strip': True}), {
+            ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
             ('meta:id', ('base:id', {}), {
@@ -383,7 +383,7 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the feed.'}),
 
-                ('cursor', ('str', {'strip': True}), {
+                ('cursor', ('str', {}), {
                     'doc': 'A cursor used to track ingest offset within the feed.'}),
             )),
 

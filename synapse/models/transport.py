@@ -86,11 +86,11 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of aircraft registration number types.'}),
 
-            ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
+            ('transport:air:tailnum', ('str', {'lower': True, 'regex': '^[a-z0-9-]{2,}$'}), {
                 'doc': 'An aircraft registration number or military aircraft serial number.',
                 'ex': 'ff023'}),
 
-            ('transport:air:flightnum', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^[a-z0-9]{3,6}$'}), {
+            ('transport:air:flightnum', ('str', {'lower': True, 'replace': ((' ', ''),), 'regex': '^[a-z0-9]{3,6}$'}), {
                 'doc': 'A commercial flight designator including airline and serial.',
                 'ex': 'ua2437'}),
 
@@ -130,7 +130,7 @@ modeldefs = (
             ('transport:sea:mmsi', ('str', {'regex': '[0-9]{9}'}), {
                 'doc': 'A Maritime Mobile Service Identifier.'}),
 
-            ('transport:sea:imo', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^imo[0-9]{7}$'}), {
+            ('transport:sea:imo', ('str', {'lower': True, 'replace': ((' ', ''),), 'regex': '^imo[0-9]{7}$'}), {
                 'doc': 'An International Maritime Organization registration number.'}),
 
             ('transport:sea:telem', ('guid', {}), {
@@ -381,7 +381,7 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'doc': 'A description of the vehicle.'}),
 
-                ('serial', ('str', {'strip': True}), {
+                ('serial', ('str', {}), {
                     'doc': 'The serial number or VIN of the vehicle.'}),
 
                 ('registration', ('transport:land:registration', {}), {
@@ -551,7 +551,7 @@ modeldefs = (
                 ('vehicle', ('transport:vehicle', {}), {
                     'doc': 'The vehicle that transported the occupant.'}),
 
-                ('seat', ('str', {'strip': True}), {
+                ('seat', ('str', {}), {
                     'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
                 ('period', ('ival', {}), {

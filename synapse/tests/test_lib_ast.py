@@ -3006,9 +3006,9 @@ class AstTest(s_test.SynTest):
             async for node in origprop(self, name, reverse=reverse, virts=virts):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu, reverse=False):
+        async def checkValu(self, name, cmpr, valu, reverse=False, virts=None):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu, reverse=reverse):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virts=virts):
                 yield node
 
         with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
@@ -3124,6 +3124,23 @@ class AstTest(s_test.SynTest):
                     msgs = await core.stormlist('test:int +:name')
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
+
+                    await core.nodes('[test:int=1 test:int=2 :type=foo]')
+                    self.len(2, await core.nodes('test:int::type=foo'))
+
+                    self.eq(calls, [
+                        ('valu', 'test:int:type', '=', 'foo')
+                    ])
+
+                    await core.nodes('[test:str=foo :somestr=bar]')
+                    calls = []
+
+                    self.len(2, await core.nodes('test:int::type::somestr=bar'))
+                    self.eq(calls, [
+                        ('valu', 'test:str2:somestr', '=', 'bar'),
+                        ('valu', 'test:str:somestr', '=', 'bar'),
+                        ('valu', 'test:int:type', '=', 'foo')
+                    ])
 
     async def test_ast_tag_optimization(self):
         calls = []
@@ -3435,19 +3452,19 @@ class AstTest(s_test.SynTest):
             self.eq('obj.put(foo, bar, baz)', text[off:end])
             self.stormIsInErr('pipe.put()', msgs)
 
-            text = '$lib.gen.campaign(foo, bar, baz)'
+            text = '$lib.lift.byNodeData(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lib.lift.byNodeData(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
-            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            text = '$lft = $lib.lift.byNodeData $lft(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('gen(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lft(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
             async def highlighteq(exp, text):
                 msgs = await core.stormlist(text)

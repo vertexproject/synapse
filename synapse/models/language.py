@@ -19,7 +19,7 @@ modeldefs = (
             ('lang:idiom', ('guid', {}), {
                 'doc': 'An idiomatic use of a phrase.'}),
 
-            ('lang:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
+            ('lang:hashtag', ('str', {'lower': True, 'regex': r'^#[^\p{Z}#]+$'}), {
                 # regex explanation:
                 # - starts with pound
                 # - one or more non-whitespace/non-pound character

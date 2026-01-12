@@ -345,7 +345,7 @@ class Cpe23Str(s_types.Str):
         s_types.Str.postTypeInit(self)
 
         self.cpe22 = self.modl.type('it:sec:cpe:v2_2')
-        self.strtype = self.modl.type('str').clone({'lower': True, 'strip': True})
+        self.strtype = self.modl.type('str').clone({'lower': True})
         self.metatype = self.modl.type('meta:name')
 
     async def _normPyStr(self, valu, view=None):
@@ -634,7 +634,7 @@ modeldefs = (
         ),
         'types': (
 
-            ('it:hostname', ('str', {'strip': True, 'lower': True}), {
+            ('it:hostname', ('str', {'lower': True}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'hostname'}}),
                 ),
@@ -696,7 +696,7 @@ modeldefs = (
                 ),
                 'doc': 'A screenshot of a host.'}),
 
-           ('it:sec:cve', ('meta:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
+           ('it:sec:cve', ('base:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                'ex': 'CVE-2012-0158',
                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
@@ -912,7 +912,7 @@ modeldefs = (
                 ),
                 'doc': 'A memory mapped segment located in a process.'}),
 
-            ('it:cmd', ('str', {'strip': True}), {
+            ('it:cmd', ('str', {}), {
                 'doc': 'A unique command-line string.',
                 'ex': 'foo.exe --dostuff bar'}),
 
@@ -922,7 +922,7 @@ modeldefs = (
             ('it:cmd:history', ('guid', {}), {
                 'doc': 'A single command executed within a session.'}),
 
-            ('it:query', ('str', {'strip': True}), {
+            ('it:query', ('str', {}), {
                 'doc': 'A unique query string.'}),
 
             ('it:exec:query', ('guid', {}), {
@@ -1454,7 +1454,7 @@ modeldefs = (
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
                     'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
 
-                ('part', ('str', {'lower': True, 'strip': True}), {
+                ('part', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
 
@@ -1462,39 +1462,39 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
 
-                ('product', ('str', {'lower': True, 'strip': True}), {
+                ('product', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "product" field from the CPE 2.3 string.'}),
 
-                ('version', ('str', {'lower': True, 'strip': True}), {
+                ('version', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "version" field from the CPE 2.3 string.'}),
 
-                ('update', ('str', {'lower': True, 'strip': True}), {
+                ('update', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "update" field from the CPE 2.3 string.'}),
 
-                ('edition', ('str', {'lower': True, 'strip': True}), {
+                ('edition', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "edition" field from the CPE 2.3 string.'}),
 
-                ('language', ('str', {'lower': True, 'strip': True}), {
+                ('language', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "language" field from the CPE 2.3 string.'}),
 
-                ('sw_edition', ('str', {'lower': True, 'strip': True}), {
+                ('sw_edition', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
 
-                ('target_sw', ('str', {'lower': True, 'strip': True}), {
+                ('target_sw', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
 
-                ('target_hw', ('str', {'lower': True, 'strip': True}), {
+                ('target_hw', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
 
-                ('other', ('str', {'lower': True, 'strip': True}), {
+                ('other', ('str', {'lower': True}), {
                     'computed': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
@@ -1642,7 +1642,7 @@ modeldefs = (
             ('it:dev:repo:type:taxonomy', {}, ()),
             ('it:dev:repo', {}, (
 
-                ('name', ('str', {'lower': True, 'strip': True}), {
+                ('name', ('str', {'lower': True}), {
                     'doc': 'The name of the repository.'}),
 
                 ('desc', ('text', {}), {
@@ -1683,7 +1683,7 @@ modeldefs = (
                 ('start', ('it:dev:repo:commit', {}), {
                     'doc': 'The commit in the parent branch this branch was created at.'}),
 
-                ('name', ('str', {'strip': True}), {
+                ('name', ('str', {}), {
                     'doc': 'The name of the branch.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1746,7 +1746,7 @@ modeldefs = (
                 ('repo', ('it:dev:repo', {}), {
                     'doc': 'The repo where the issue was logged.'}),
 
-                ('title', ('str', {'lower': True, 'strip': True}), {
+                ('title', ('str', {'lower': True}), {
                     'doc': 'The title of the issue.'}),
 
                 ('desc', ('text', {}), {
@@ -1767,7 +1767,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID of the label.'}),
 
-                ('title', ('str', {'lower': True, 'strip': True}), {
+                ('title', ('str', {'lower': True}), {
                     'doc': 'The human friendly name of the label.'}),
 
                 ('desc', ('text', {}), {
@@ -2550,8 +2550,7 @@ modeldefs = (
                 ('pattern', ('str', {}), {
                     'doc': 'The STIX indicator pattern text.'}),
 
-                ('pattern_type', ('str', {'strip': True, 'lower': True,
-                                          'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
+                ('pattern_type', ('str', {'lower': True, 'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
                     'doc': 'The STIX indicator pattern type.'}),
 
                 ('created', ('time', {}), {

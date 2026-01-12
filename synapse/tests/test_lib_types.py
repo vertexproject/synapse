@@ -1045,6 +1045,9 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (3, 'HAHA'))})
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (2, 'beep'))})
 
+        with self.raises(s_exc.BadTypeDef):
+            model.type('int').clone({'ismin': True, 'ismax': True})
+
     async def test_float(self):
         model = s_datamodel.Model()
         t = model.type('float')
@@ -1699,6 +1702,12 @@ class TypesTest(s_t_utils.SynTest):
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', (await lowr.norm('FOO'))[0])
 
+        uppr = model.type('str').clone({'upper': True})
+        self.eq('FOO', (await uppr.norm('foo'))[0])
+
+        with self.raises(s_exc.BadTypeDef):
+            model.type('str').clone({'upper': True, 'lower': True})
+
         self.eq(True, await lowr.cmpr('xxherexx', '~=', 'here'))
         self.eq(False, await lowr.cmpr('xxherexx', '~=', '^here'))
 
@@ -1821,11 +1830,8 @@ class TypesTest(s_t_utils.SynTest):
 
         self.gt(s_common.now(), (await ttime.norm('-1hour'))[0])
 
-        tminmax = ttime.clone({'min': True, 'max': True})
-        # Merge testing with tminmax
-        now = s_common.now()
-        self.eq(now + 1, tminmax.merge(now, now + 1))
-        self.eq(now, tminmax.merge(now + 1, now))
+        with self.raises(s_exc.BadTypeDef):
+            ttime.clone({'ismin': True, 'ismax': True})
 
         async with self.getTestCore() as core:
 

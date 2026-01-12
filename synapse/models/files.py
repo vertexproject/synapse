@@ -693,7 +693,7 @@ modeldefs = (
                 ('working', ('file:path', {}), {
                     'doc': 'The working directory used when activating the link target.'}),
 
-                ('relative', ('str', {'strip': True}), {
+                ('relative', ('str', {}), {
                     'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
 
                 ('arguments', ('it:cmd', {}), {

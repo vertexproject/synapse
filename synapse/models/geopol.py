@@ -62,7 +62,8 @@ modeldefs = (
                     'prevnames': ('isonum',),
                     'doc': 'The ISO 3166 Numeric-3 country code.'}),
 
-                ('tld', ('inet:fqdn', {}), {}),
+                ('tld', ('inet:fqdn', {}), {
+                    'doc': 'The top-level domain for the country.'}),
 
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),

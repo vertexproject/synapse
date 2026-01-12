@@ -110,6 +110,10 @@ class IPAddr(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_IPADDR
 
+    _opt_defs = (
+        ('version', None),   # type: ignore
+    )
+
     def postTypeInit(self):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
@@ -370,6 +374,11 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
+    _opt_defs = (
+        ('defport', None),     # type: ignore
+        ('defproto', 'tcp'),   # type: ignore
+    ) + s_types.Str._opt_defs
+
     protos = ('tcp', 'udp', 'icmp', 'gre')
     noports = ('gre', 'icmp')
 
@@ -383,8 +392,8 @@ class SockAddr(s_types.Str):
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
-        self.defport = self.opts.get('defport', None)
-        self.defproto = self.opts.get('defproto', 'tcp')
+        self.defport = self.opts.get('defport')
+        self.defproto = self.opts.get('defproto')
 
         self.virtindx |= {
             'ip': 'ip',
@@ -736,10 +745,6 @@ class IPRange(s_types.Range):
         self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
         self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
 
-        # Offset size values by 1 so we can store ::/0 in 16 bytes and there is always at least 1 IP in the range
-        self.sizetype.minval += 1
-        self.sizetype.maxval += 1
-
         self.pivs |= {
             'inet:ip': ('range=', None),
         }
@@ -753,35 +758,6 @@ class IPRange(s_types.Range):
             'mask': (self.masktype, self._getMask),
             'size': (self.sizetype, self._getSize),
         }
-
-        self.virtlifts |= {
-            'size': {
-                'in=': self._storLiftSizeIn,
-                'range=': self._storLiftSizeRange
-            },
-        }
-
-        for oper in ('=', '<', '>', '<=', '>='):
-            self.virtlifts['size'][oper] = self._storLiftSize
-
-    async def _storLiftSize(self, cmpr, valu):
-        norm, _ = await self.sizetype.norm(valu)
-        return (
-            (cmpr, norm - 1, self.sizetype.stortype),
-        )
-
-    async def _storLiftSizeIn(self, cmpr, valu):
-        retn = []
-        for realvalu in valu:
-            retn.extend(await self._storLiftSize('=', realvalu))
-        return retn
-
-    async def _storLiftSizeRange(self, cmpr, valu):
-        minx = (await self.sizetype.norm(valu[0]))[0]
-        maxx = (await self.sizetype.norm(valu[1]))[0]
-        return (
-            (cmpr, (minx - 1, maxx - 1), self.sizetype.stortype),
-        )
 
     def _getMask(self, valu):
         if (virts := valu[2]) is None:
@@ -799,7 +775,7 @@ class IPRange(s_types.Range):
         if (valu := virts.get('size')) is None:
             return None
 
-        return valu[0] + 1
+        return valu[0]
 
     def repr(self, norm):
         if (cidr := self._getCidr(norm)) is not None:
@@ -830,7 +806,8 @@ class IPRange(s_types.Range):
 
         if '-' in valu:
             norm, info = await super()._normPyStr(valu)
-            info['virts'] = {'size': (norm[1][1] - norm[0][1], self.sizetype.stortype)}
+            size = (await self.sizetype.norm(norm[1][1] - norm[0][1] + 1))[0]
+            info['virts'] = {'size': (size, self.sizetype.stortype)}
 
             if (cidr := self._getCidr(norm)) is not None:
                 info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
@@ -864,10 +841,12 @@ class IPRange(s_types.Range):
             network, netinfo = await self.subtype.norm((6, int(netw.network_address)))
             broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
 
+        size = (await self.sizetype.norm(broadcast[1] - network[1] + 1))[0]
+
         return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
                                                'max': (self.subtype.typehash, broadcast, binfo)},
                                       'virts': {'mask': (mask_int, self.masktype.stortype),
-                                                'size': (broadcast[1] - network[1], self.sizetype.stortype)}}
+                                                'size': (size, self.sizetype.stortype)}}
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
@@ -881,13 +860,15 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'IP address version mismatch in range "{valu}"')
 
-        if ipaddress.ip_address(minv[1]) > ipaddress.ip_address(maxv[1]):
+        if minv[1] > maxv[1]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
+        size = (await self.sizetype.norm(maxv[1] - minv[1] + 1))[0]
+
         info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
                          'max': (self.subtype.typehash, maxv, maxfo)},
-                'virts': {'size': (maxv[1] - minv[1], self.sizetype.stortype)}}
+                'virts': {'size': (size, self.sizetype.stortype)}}
 
         if (cidr := self._getCidr((minv, maxv))) is not None:
             info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
@@ -1557,7 +1538,7 @@ modeldefs = (
             ('inet:email:message:link', ('guid', {}), {
                 'doc': 'A url/link embedded in an email message.'}),
 
-            ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+            ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JARM fingerprint'}}),
                 ),
@@ -1786,13 +1767,13 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a TLS handshake between a client and server.'}),
 
-            ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+            ('inet:tls:ja4', ('str', {'regex': ja4_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4 fingerprint'}}),
                 ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
-            ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+            ('inet:tls:ja4s', ('str', {'regex': ja4s_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4S fingerprint'}}),
                 ),
@@ -1972,10 +1953,10 @@ modeldefs = (
                     ('rule', ('inet:service:rule', {}), {
                         'doc': 'The rule which allowed or denied the action.'}),
 
-                    ('error:code', ('str', {'strip': True}), {
+                    ('error:code', ('str', {}), {
                         'doc': 'The platform specific error code if the action was unsuccessful.'}),
 
-                    ('error:reason', ('str', {'strip': True}), {
+                    ('error:reason', ('str', {}), {
                         'doc': 'The platform specific friendly error reason if the action was unsuccessful.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -2339,7 +2320,6 @@ modeldefs = (
 
             ('inet:http:request', {}, (
 
-
                 ('method', ('str', {}), {
                     'doc': 'The HTTP request method string.'}),
 
@@ -2364,12 +2344,21 @@ modeldefs = (
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
-                ('response:time', ('time', {}), {}),
-                ('response:code', ('int', {}), {}),
-                ('response:reason', ('str', {}), {}),
+                ('response:time', ('time', {}), {
+                    'doc': 'The time a response to the request was received.'}),
+
+                ('response:code', ('int', {}), {
+                    'doc': 'The HTTP response code received.'}),
+
+                ('response:reason', ('str', {}), {
+                    'doc': 'The HTTP response reason phrase received.'}),
+
                 ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the response.'}),
-                ('response:body', ('file:bytes', {}), {}),
+
+                ('response:body', ('file:bytes', {}), {
+                    'doc': 'The HTTP response body received.'}),
+
                 ('session', ('inet:http:session', {}), {
                     'doc': 'The HTTP session this request was part of.'}),
             )),
@@ -2388,7 +2377,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The guid of the host the interface is associated with.'}),
 
-                ('name', ('str', {'strip': True}), {
+                ('name', ('str', {}), {
                     'ex': 'eth0',
                     'doc': 'The interface name.'}),
 
@@ -2720,7 +2709,7 @@ modeldefs = (
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str', {'lower': True, 'strip': True}), {
+                ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
                 # FIXME ownable interface?
@@ -2731,10 +2720,10 @@ modeldefs = (
             ('inet:wifi:ssid', {}, ()),
 
             ('inet:tls:jarmhash', {}, (
-                ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                ('ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
                     'computed': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
-                ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                ('extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
                     'computed': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
@@ -3095,7 +3084,7 @@ modeldefs = (
 
             ('inet:service:message:link', {}, (
 
-                ('title', ('str', {'strip': True}), {
+                ('title', ('str', {}), {
                     'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                 ('url', ('inet:url', {}), {
@@ -3119,7 +3108,7 @@ modeldefs = (
                 ('about', ('inet:service:object', {}), {
                     'doc': 'The node that the emote is about.'}),
 
-                ('text', ('str', {'strip': True}), {
+                ('text', ('str', {}), {
                     'ex': ':partyparrot:',
                     'doc': 'The unicode or emote text of the reaction.'}),
             )),
@@ -3134,6 +3123,9 @@ modeldefs = (
 
                 ('topic', ('base:name', {}), {
                     'doc': 'The visible topic of the channel.'}),
+
+                ('profile', ('entity:contact', {}), {
+                    'doc': 'Current detailed contact information for this channel.'}),
             )),
 
             ('inet:service:thread', {}, (

@@ -73,7 +73,7 @@ modeldefs = (
             ('econ:invoice', ('guid', {}), {
                 'doc': 'An invoice issued requesting payment.'}),
 
-            ('econ:price', ('hugenum', {'norm': False}), {
+            ('econ:price', ('hugenum', {}), {
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20'}),
 
@@ -432,7 +432,7 @@ modeldefs = (
                 ('exchange', ('econ:fin:exchange', {}), {
                     'doc': 'The exchange on which the security is traded.'}),
 
-                ('ticker', ('str', {'lower': True, 'strip': True}), {
+                ('ticker', ('str', {'lower': True}), {
                     'doc': 'The identifier for this security within the exchange.'}),
 
                 ('type', ('econ:fin:security:type:taxonomy', {}), {

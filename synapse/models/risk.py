@@ -409,6 +409,9 @@ modeldefs = (
 
             ('risk:vuln', {}, (
 
+                ('cve', ('it:sec:cve', {}), {
+                    'doc': 'The CVE ID assigned to the vulnerability.'}),
+
                 ('type', ('risk:vuln:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the vulnerability.'}),
 

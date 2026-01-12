@@ -1538,6 +1538,27 @@ class LiftOper(Oper):
         self.astinfo = astinfo
         self.reverse = True
 
+    def getPivProps(self, runt, name, lookup=False):
+
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
+            props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+            if props[-1].isform:
+                pivname = pivs.pop(0)
+                prop = props[-1].reqProp(pivname, extra=self.kids[0].addExcInfo)
+                props = runt.model.getChildProps(prop)
+
+            return props, pivs
+
+        if lookup:
+            props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        else:
+            props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+
+        return props, None
+
     def getPivLifts(self, runt, props, pivs):
         plist = [prop.full for prop in props]
         virts = []
@@ -1776,16 +1797,11 @@ class LiftByArray(LiftOper):
         cmpr = self.kids[1].value()
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
 
                     pivs.insert(0, relname)
@@ -1848,16 +1864,11 @@ class LiftByArrayVirt(LiftOper):
         cmpr = self.kids[2].value()
         valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
@@ -2269,16 +2280,11 @@ class LiftPropBy(LiftOper):
         valu = await self.kids[2].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
 
                     pivs.insert(0, relname)
@@ -2335,16 +2341,11 @@ class LiftPropVirtBy(LiftOper):
         valu = await self.kids[3].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name, lookup=True)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
@@ -2649,6 +2650,9 @@ class PivotIn(PivotOper):
         async for pivo, link in runt.view.getNdefRefs(node.ndef):
             yield pivo, path.fork(pivo, link)
 
+        async for pivo, link in runt.view.getNodePropRefs(node.ndef):
+            yield pivo, path.fork(pivo, link)
+
         for prop, valu in node.getProps().items():
             pdef = (f'{name}:{prop}', valu)
             async for pivo, link in runt.view.getNodePropRefs(pdef):
@@ -2679,7 +2683,7 @@ class FormPivot(PivotOper):
     def pivogenr(self, runt, prop, virts=None):
 
         # -> baz:ndef
-        if isinstance(prop.type, s_types.Ndef):
+        if isinstance(prop.type, (s_types.Ndef, s_types.NodeProp)):
 
             async def pgenr(node, strict=True):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
@@ -2691,7 +2695,7 @@ class FormPivot(PivotOper):
             # plain old pivot...
             async def pgenr(node, strict=True):
                 if prop.type.isarray:
-                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                    if isinstance(prop.type.arraytype, (s_types.Ndef, s_types.NodeProp)):
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
                     else:
                         norm = prop.arraytypehash is not node.form.typehash
@@ -2784,26 +2788,28 @@ class FormPivot(PivotOper):
                         async for pivo in runt.view.nodesByPropValu(destform.name, '=', refselem, norm=False):
                             yield pivo, link
 
-                for refsname in refs.get('ndef'):
+                for key in ('ndef', 'nodeprop'):
+                    for refsname in refs.get(key):
 
-                    found = True
+                        found = True
 
-                    refsvalu = node.get(refsname)
-                    if refsvalu is not None and refsvalu[0] == destform.name:
-                        pivo = await runt.view.getNodeByNdef(refsvalu)
-                        if pivo is not None:
-                            yield pivo, {'type': 'prop', 'prop': refsname}
+                        refsvalu = node.get(refsname)
+                        if refsvalu is not None and refsvalu[0] == destform.name:
+                            pivo = await runt.view.getNodeByNdef(refsvalu)
+                            if pivo is not None:
+                                yield pivo, {'type': 'prop', 'prop': refsname}
 
-                for refsname in refs.get('ndefarray'):
+                for key in ('ndefarray', 'nodeproparray'):
+                    for refsname in refs.get(key):
 
-                    found = True
+                        found = True
 
-                    if (refsvalu := node.get(refsname)) is not None:
-                        link = {'type': 'prop', 'prop': refsname}
-                        for aval in refsvalu:
-                            if aval[0] == destform.name:
-                                if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
-                                    yield pivo, link
+                        if (refsvalu := node.get(refsname)) is not None:
+                            link = {'type': 'prop', 'prop': refsname}
+                            for aval in refsvalu:
+                                if aval[0] == destform.name:
+                                    if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                                        yield pivo, link
 
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
@@ -2836,23 +2842,25 @@ class FormPivot(PivotOper):
                         yield pivo, link
 
                 # "reverse" ndef references...
-                for refsname in refs.get('ndef'):
+                for key in ('ndef', 'nodeprop'):
+                    for refsname in refs.get(key):
 
-                    found = True
+                        found = True
 
-                    refsprop = destform.props.get(refsname)
-                    link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef, norm=False):
-                        yield pivo, link
+                        refsprop = destform.props.get(refsname)
+                        link = {'type': 'prop', 'prop': refsname, 'reverse': True}
+                        async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef, norm=False):
+                            yield pivo, link
 
-                for refsname in refs.get('ndefarray'):
+                for key in ('ndefarray', 'nodeproparray'):
+                    for refsname in refs.get(key):
 
-                    found = True
+                        found = True
 
-                    refsprop = destform.props.get(refsname)
-                    link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef, norm=False):
-                        yield pivo, link
+                        refsprop = destform.props.get(refsname)
+                        link = {'type': 'prop', 'prop': refsname, 'reverse': True}
+                        async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef, norm=False):
+                            yield pivo, link
 
                 if strict and not found:
                     mesg = f'No pivot found for {node.form.name} -> {destform.name}.'
@@ -3020,7 +3028,7 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
-                if isinstance(srctype.arraytype, s_types.Ndef) and prop.isform:
+                if isinstance(srctype.arraytype, (s_types.Ndef, s_types.NodeProp)) and prop.isform:
                     for aval in valu:
                         if aval[0] != prop.form.name:
                             continue
@@ -3036,7 +3044,7 @@ class PropPivot(PivotOper):
 
                 return
 
-            if isinstance(srctype, s_types.Ndef) and prop.isform:
+            if isinstance(srctype, (s_types.Ndef, s_types.NodeProp)) and prop.isform:
                 if valu[0] != prop.form.name:
                     return
 
