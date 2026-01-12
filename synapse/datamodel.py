@@ -706,10 +706,8 @@ class Model:
             if form.startswith(prefix):
                 forms.update(self.getChildForms(form))
 
-        forms = list(forms)
-        if forms:
-            forms.sort()
-            self.formprefixcache[prefix] = forms
+        forms = tuple(sorted(forms))
+        self.formprefixcache[prefix] = forms
         return forms
 
     def reqProp(self, name, extra=None):
@@ -786,7 +784,7 @@ class Model:
             return tuple(forms)
 
         if name.endswith('*'):
-            return tuple(self.reqFormsByPrefix(name[:-1], extra=extra))
+            return self.reqFormsByPrefix(name[:-1], extra=extra)
 
         mesg = None
         if (prevname := self.formprevnames.get(name)) is not None:
