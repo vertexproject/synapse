@@ -54,7 +54,7 @@ class StormLibQuorumTest(s_test.SynTest):
                 $lib.view.get($iden).setMergeVote()
             ''', opts={'user': whippit.iden, 'vars': {'iden': fork01}})
 
-            # ensure we skip our own reqeusts with --todo
+            # ensure we skip our own requests with --todo
             msgs = await core.stormlist('quorum.merge.list --todo', opts={'user': visi.iden})
             self.stormIsInPrint('Nothing to do. Go grab some coffee!', msgs)
 
