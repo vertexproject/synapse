@@ -252,7 +252,7 @@ modeldefs = (
                     ('superseded:time', ('time', {}), {
                         'doc': 'The time when the {title} was superseded.'}),
 
-                    ('supersedes', ('array', {'type': '$self'}), {
+                    ('supersedes', ('array', {'type': '{$self}'}), {
                         'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
             }),
