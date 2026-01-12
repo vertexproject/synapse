@@ -11,9 +11,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :period=(2022, 2023)
                     :name=visiland
                     :names=(visitopia,)
-                    //FIXME syntax error when prop name part is all numeric?
-                    //:iso:3166:alpha3=vis
-                    //:iso:3166:numeric3=137
+                    :iso:3166:alpha3=vis
+                    :iso:3166:numeric3=137
                     :currencies=(usd, vcoins, PESOS, USD)
                 ]
             ''')
@@ -23,9 +22,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(('visitopia',), nodes[0].get('names'))
             self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('period'))
             self.eq('vi', nodes[0].get('code'))
-            # FIXME
-            # self.eq('vis', nodes[0].get('iso:3166:alpha3'))
-            # self.eq(137, nodes[0].get('iso:3166:alpha3'))
+            self.eq('vis', nodes[0].get('iso:3166:alpha3'))
+            self.eq(137, nodes[0].get('iso:3166:numeric3'))
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
             self.len(2, await core.nodes('pol:country -> meta:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))

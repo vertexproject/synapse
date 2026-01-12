@@ -714,8 +714,6 @@ class AgendaTest(s_t_utils.SynTest):
             opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
             q = '$cron = $lib.cron.get($iden) $cron.user = $lowuser'
             msgs = await core.stormlist(q, opts=opts)
-            # XXX FIXME - This is an odd message since the new user does not implicitly have
-            # access to the cronjob that is running as them.
             self.stormIsInErr('Provided iden does not match any valid authorized cron job.', msgs)
 
             await core.addUserRule(lowuser, (True, ('cron', 'get')))
