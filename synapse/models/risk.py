@@ -340,6 +340,10 @@ modeldefs = (
 
             (('meta:observable', 'resembles', 'meta:observable'), {
                 'doc': 'The source node resembles the target node.'}),
+
+            # TODO we will need more of these...
+            (('inet:proto:link', 'showed', 'risk:vulnerable'), {
+                'doc': 'The network activity showed that the vulnerability was present.'}),
         ),
         'forms': (
 
