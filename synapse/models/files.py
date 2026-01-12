@@ -237,16 +237,16 @@ modeldefs = (
                 'template': {'executable': 'executable'},
                 'props': (
                     ('compiler', ('it:software', {}), {
-                        'doc': 'The softare used to compile the {executable}.'}),
+                        'doc': 'The software used to compile the {executable}.'}),
 
                     ('compiler:name', ('meta:name', {}), {
-                        'doc': 'The name of the softare used to compile the {executable}.'}),
+                        'doc': 'The name of the software used to compile the {executable}.'}),
 
                     ('packer', ('it:software', {}), {
-                        'doc': 'The softare used to pack the {executable}.'}),
+                        'doc': 'The software used to pack the {executable}.'}),
 
                     ('packer:name', ('meta:name', {}), {
-                        'doc': 'The name of the softare used to pack the {executable}.'}),
+                        'doc': 'The name of the software used to pack the {executable}.'}),
                 ),
                 'interfaces': (
                     ('file:mime:meta', {}),
