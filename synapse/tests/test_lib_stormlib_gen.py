@@ -8,305 +8,247 @@ class StormLibGenTest(s_test.SynTest):
     async def test_stormlib_gen(self):
 
         async with self.getTestCore() as core:
-            nodes00 = await core.nodes('yield $lib.gen.orgByName(vertex)')
-            nodes01 = await core.nodes('gen.ou.org vertex')
-            self.eq('vertex', nodes00[0].get('name'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-            vtxguid = nodes00[0].ndef[1]
 
-            # FIXME discuss gen.ou.org.hq as ou:site
+            view2 = await core.callStorm('return($lib.view.add(layers=($lib.layer.add().iden,)).iden)')
+            onview2 = {'view': view2}
 
-            nodes00 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')
-            nodes01 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')
-            self.eq('vertex.link', nodes00[0].get('dns:mx')[0])
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.len(1, nodes := await core.nodes('[ ou:org=({"name": "vtx"}) :names=(vertex,) ]'))
+            vtxguid = nodes[0].ndef[1]
 
-            self.len(0, await core.nodes('yield $lib.gen.orgByFqdn("...", try=$lib.true)'))
+            # gen.entity.campaign
 
-            nodes00 = await core.nodes('yield $lib.gen.industryByName(intelsoftware)')
-            nodes01 = await core.nodes('gen.ou.industry intelsoftware')
-            self.eq('intelsoftware', nodes00[0].get('name'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.len(0, await core.nodes('gen.entity.campaign overlord (null) --try'))
+            self.len(0, await core.nodes('gen.entity.campaign (null) vertex --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.entity.campaign (null) vertex'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.entity.campaign overload (null)'))
 
-            nodes00 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            self.eq('https://vertex.link', nodes00[0].get('url'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
-
-            nodes00 = await core.nodes('yield $lib.gen.softByName(synapse)')
-            nodes01 = await core.nodes('gen.it.software synapse')
-            self.eq('synapse', nodes00[0].get('name'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            nodes00 = await core.nodes('yield $lib.gen.riskThreat(apt1, mandiant)')
-            nodes01 = await core.nodes('gen.risk.threat apt1 mandiant')
-            self.eq('apt1', nodes00[0].get('name'))
-            self.eq('mandiant', nodes00[0].get('reporter:name'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            nodes00 = await core.nodes('yield $lib.gen.riskToolSoftware(redcat, vertex)')
-            nodes01 = await core.nodes('gen.risk.tool.software redcat vertex')
-            self.eq('redcat', nodes00[0].get('name'))
+            self.len(1, nodes00 := await core.nodes('gen.entity.campaign "operation overlord" vertex | [ :names+=overlord ]'))
+            self.len(1, nodes01 := await core.nodes('gen.entity.campaign overlord vertex'))
+            self.eq('operation overlord', nodes00[0].get('name'))
+            self.eq(['overlord'], nodes00[0].get('names'))
             self.eq('vertex', nodes00[0].get('reporter:name'))
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-            nodes00 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001)')
-            nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
+            self.len(1, nodes := await core.nodes('entity:campaign:name="operation overlord" :reporter -> ou:org'))
+            self.eq(vtxguid, nodes[0].ndef[1])
+            self.eq(['vertex'], nodes[0].get('names'))
+
+            self.len(1, nodes := await core.nodes('gen.entity.campaign overlord otherorg'))
+            self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
+            self.eq('overlord', nodes[0].get('name'))
+            self.none(nodes[0].get('names'))
+            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('reporter'))
+
+            self.len(1, nodes := await core.nodes('gen.entity.campaign "operation overlord" vertex', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.geo.place
+
+            self.len(0, await core.nodes('gen.geo.place (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.geo.place (null)'))
+
+            self.len(1, nodes00 := await core.nodes('gen.geo.place zimbabwe | [ :names+=rhodesia ]'))
+            self.len(1, nodes01 := await core.nodes('gen.geo.place rhodesia'))
+            self.eq('zimbabwe', nodes00[0].get('name'))
+            self.eq(['rhodesia'], nodes00[0].get('names'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-            nodes00 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001)')
-            nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
+            self.len(1, nodes := await core.nodes('gen.geo.place zimbabwe', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.it.software
+
+            self.len(0, await core.nodes('gen.it.software (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.it.software (null)'))
+
+            self.len(1, nodes00 := await core.nodes('gen.it.software rar | [ :names+=rarrr ]'))
+            self.len(1, nodes01 := await core.nodes('gen.it.software rarrr'))
+            self.eq('rar', nodes00[0].get('name'))
+            self.eq(['rarrr'], nodes00[0].get('names'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-            self.len(1, await core.nodes('risk:vuln:id=CVE-2022-00001 [ :reporter:name=foo ]'))
-            nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
-            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+            self.len(1, nodes := await core.nodes('gen.it.software rar', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
 
-            nodes03 = await core.nodes('gen.risk.vuln CVE-2022-00001 foo')
-            self.eq(nodes00[0].ndef, nodes03[0].ndef)
-            self.nn(nodes03[0].get('reporter'))
+            # gen.lang.language
 
-            nodes04 = await core.nodes('gen.risk.vuln CVE-2022-00001 bar')
-            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, reporter=bar)')
-            self.eq(nodes04[0].ndef, nodes05[0].ndef)
-            self.ne(nodes00[0].ndef, nodes05[0].ndef)
-            self.eq('bar', nodes05[0].get('reporter:name'))
-            self.nn(nodes05[0].get('reporter'))
+            self.len(0, await core.nodes('gen.lang.language (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.lang.language (null)'))
 
-            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
-
-            nodes00 = await core.nodes('yield $lib.gen.polCountryByCode(UA)')
-            nodes01 = await core.nodes('gen.pol.country ua')
+            self.len(1, nodes00 := await core.nodes('gen.lang.language german | [ :names+=deutsch ]'))
+            self.len(1, nodes01 := await core.nodes('gen.lang.language deutsch'))
+            self.eq('german', nodes00[0].get('name'))
+            self.eq(['deutsch'], nodes00[0].get('names'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
+
+            self.len(1, nodes := await core.nodes('gen.lang.language german', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.ou.industry
+
+            self.len(0, await core.nodes('gen.ou.industry ngo (null) --try'))
+            self.len(0, await core.nodes('gen.ou.industry (null) vertex --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.ou.industry (null) vertex'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.ou.industry ngo (null)'))
+
+            self.len(1, nodes00 := await core.nodes('gen.ou.industry ngo vertex | [ :names+=ngos ]'))
+            self.len(1, nodes01 := await core.nodes('gen.ou.industry ngos vertex'))
+            self.eq('ngo', nodes00[0].get('name'))
+            self.eq(['ngos'], nodes00[0].get('names'))
+            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.nn(nodes00[0].get('reporter'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
+
+            self.len(1, nodes := await core.nodes('ou:industry:name=ngo :reporter -> ou:org'))
+            self.eq(vtxguid, nodes[0].ndef[1])
+
+            self.len(1, nodes := await core.nodes('gen.ou.industry ngo otherorg'))
+            self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
+            self.eq('ngo', nodes[0].get('name'))
+            self.none(nodes[0].get('names'))
+            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('reporter'))
+
+            self.len(1, nodes := await core.nodes('gen.ou.industry ngo vertex', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.ou.org
+
+            self.len(0, await core.nodes('gen.ou.org (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.ou.org (null)'))
+
+            self.len(1, nodes00 := await core.nodes('gen.ou.org intel | [ :names+=intelsoft ]'))
+            self.len(1, nodes01 := await core.nodes('gen.ou.org intelsoft'))
+            self.eq('intel', nodes00[0].get('name'))
+            self.eq(['intelsoft'], nodes00[0].get('names'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
+
+            self.len(1, nodes := await core.nodes('gen.ou.org intel', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.pol.country
 
             self.len(0, await core.nodes('gen.pol.country newp --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country newp'))
 
-            self.len(1, await core.nodes('''
-                gen.pol.country.government ua |
-                +ou:org +:name="ua government"
-                -> pol:country +:code=ua
-            '''))
+            self.len(1, nodes00 := await core.nodes('gen.pol.country us'))
+            self.len(1, nodes01 := await core.nodes('gen.pol.country us'))
+            self.eq('us', nodes00[0].get('code'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
+
+            self.len(1, nodes := await core.nodes('gen.pol.country us', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+
+            # gen.pol.country.government
 
             self.len(0, await core.nodes('gen.pol.country.government newp --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government newp'))
 
-            nodes00 = await core.nodes('gen.ps.contact.email vertex.employee visi@vertex.link')
-            nodes01 = await core.nodes('yield $lib.gen.psContactByEmail(vertex.employee, visi@vertex.link)')
-            self.eq('vertex.employee.', nodes00[0].get('type'))
-            self.eq('visi@vertex.link', nodes00[0].get('email'))
+            self.len(1, nodes00 := await core.nodes('gen.pol.country.government us'))
+            self.len(1, nodes01 := await core.nodes('gen.pol.country.government us'))
+            self.eq('ou:org', nodes00[0].ndef[0])
+            self.eq('us government', nodes00[0].get('name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-            self.len(0, await core.nodes('gen.ps.contact.email vertex.employee newp --try'))
+            self.len(1, pols00 := await core.nodes('ou:org:name="us government" -> pol:country'))
+            self.eq('us', pols00[0].get('code'))
 
-            nodes00 = await core.nodes('gen.lang.language "English (US)" | [ :names+="Murican" ]')
-            nodes01 = await core.nodes('yield $lib.gen.langByName(Murican)')
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.len(1, nodes := await core.nodes('gen.pol.country.government us', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
+            self.len(1, nodes := await core.nodes('ou:org:name="us government" -> pol:country', opts=onview2))
+            self.eq(pols00[0].ndef, nodes[0].ndef)
 
-            nodes00 = await core.nodes('gen.entity.campaign "operation overlord" vertex | [ :names+="d-day" ]')
-            nodes01 = await core.nodes('gen.entity.campaign d-day vertex')
-            nodes02 = await core.nodes('gen.entity.campaign d-day otherorg')
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-            self.ne(nodes01[0].ndef, nodes02[0].ndef)
+            # gen.risk.threat
+
+            self.len(0, await core.nodes('gen.risk.threat apt1 (null) --try'))
+            self.len(0, await core.nodes('gen.risk.threat (null) vertex --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.threat (null) vertex'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.threat apt1 (null)'))
+
+            self.len(1, nodes00 := await core.nodes('gen.risk.threat apt1 vertex | [ :names+=apt-1 ]'))
+            self.len(1, nodes01 := await core.nodes('gen.risk.threat apt-1 vertex'))
+            self.eq('apt1', nodes00[0].get('name'))
+            self.eq(['apt-1'], nodes00[0].get('names'))
+            self.eq('vertex', nodes00[0].get('reporter:name'))
             self.nn(nodes00[0].get('reporter'))
-            self.nn(nodes01[0].get('reporter'))
-            self.nn(nodes02[0].get('reporter'))
-
-            q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
-            nodes00 = await core.nodes(q)
-            self.len(1, nodes00)
-            self.eq(('inet:fqdn', 'vertex.link'), nodes00[0].get('target'))
-            self.eq('foosig', nodes00[0].get('signame'))
-            self.eq('barscn', nodes00[0].get('scanner:name'))
-            self.eq('2022-01-01T00:00:00Z', nodes00[0].repr('time'))
-            nodes01 = await core.nodes(q)
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-            nodes02 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn')
-            self.eq(nodes00[0].ndef, nodes02[0].ndef)
-            self.eq('2022-01-01T00:00:00Z', nodes02[0].repr('time'))
+            self.len(1, nodes := await core.nodes('risk:threat:name=apt1 :reporter -> ou:org'))
+            self.eq(vtxguid, nodes[0].ndef[1])
 
-            nodes03 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name bazscn')
-            self.ne(nodes00[0].ndef, nodes03[0].ndef)
-
-            nodes04 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2022')
-            self.eq(nodes00[0].ndef, nodes04[0].ndef)
-
-            nodes05 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2023')
-            self.ne(nodes00[0].ndef, nodes05[0].ndef)
-
-            opts = {
-                'vars': {
-                    'guid': '28c5902d115f29f1fcb818c0abeaa491',
-                    'ip': '1.2.3.4',
-                    'fqdn': 'vtk.lk',
-                }
-            }
-
-            self.len(1, await core.nodes('gen.it.av.scan.result file:bytes $guid foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result inet:fqdn $fqdn foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result inet:ip $ip  foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result inet:url `http://{$fqdn}` foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result it:exec:proc $guid foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result it:host $guid foosig', opts=opts))
-
-            self.len(6, await core.nodes('''
-                file:bytes=$guid
-                inet:fqdn=$fqdn
-                it:host=$guid
-                inet:ip=$ip
-                it:exec:proc=$guid
-                inet:url=`http://{$fqdn}`
-                +{
-                    ($form, $valu) = $node.ndef()
-                    -> { gen.it.av.scan.result $form $valu foosig }
-                }=1
-                -> it:av:scan:result
-            ''', opts=opts))
-
-            with self.raises(s_exc.NoSuchForm) as cm:
-                await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')
-            self.eq('No form named newp.', cm.exception.errinfo['mesg'])
-
-            with self.raises(s_exc.BadTypeValu) as cm:
-                await core.nodes('gen.it.av.scan.result meta:name nah foosig')
-            self.isin('Ndef of form meta:name is not allowed', cm.exception.errinfo['mesg'])
-
-            self.len(0, await core.nodes('gen.it.av.scan.result file:bytes newp foosig --try'))
-
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, $lib.null, try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, "..", barsig, try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, scanner=$lib.set(), try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, time=newp, try=$lib.true))'))
-
-            # Stable guid test
-            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
-
-            nodes00 = await core.nodes('yield $lib.gen.orgByName(forkOrg)', opts={'view': fork})
-            self.len(1, nodes00)
-            nodes01 = await core.nodes('yield $lib.gen.orgByName(forkOrg)')
-            self.len(1, nodes01)
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            nodes02 = await core.nodes('yield $lib.gen.orgByName(anotherForkOrg)', opts={'view': fork})
-            self.len(1, nodes02)
-            self.len(0, await core.nodes('ou:org:name=anotherforkorg'))
-
-            # Merge the fork down
-            await core.nodes('view.merge --delete $fork', opts={'vars': {'fork': fork}})
-
-            self.len(1, await core.nodes('ou:org:name=forkorg'))
-            self.len(1, await core.nodes('ou:org:name=anotherforkorg'))
-
-            nodes = await core.nodes('geo:place')
-            self.len(0, nodes)
-
-            nodes = await core.nodes('gen.geo.place Zimbabwe')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'zimbabwe')
+            self.len(1, nodes := await core.nodes('gen.risk.threat apt1 otherorg'))
+            self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
+            self.eq('apt1', nodes[0].get('name'))
             self.none(nodes[0].get('names'))
+            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('reporter'))
 
-            iden = nodes[0].iden()
+            self.len(1, nodes := await core.nodes('gen.risk.threat apt1 vertex', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
 
-            msgs = await core.stormlist('geo:place:name=zimbabwe [ :names+=Rhodesia ]')
-            self.stormHasNoWarnErr(msgs)
+            # gen.risk.tool.software
 
-            nodes = await core.nodes('gen.geo.place Rhodesia')
-            self.len(1, nodes)
-            self.eq(nodes[0].iden(), iden)
-            names = nodes[0].get('names')
-            self.len(1, names)
-            self.isin('rhodesia', names)
+            self.len(0, await core.nodes('gen.risk.tool.software blackcat (null) --try'))
+            self.len(0, await core.nodes('gen.risk.tool.software (null) vertex --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.tool.software (null) vertex'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.tool.software blackcat (null)'))
 
-    async def test_stormlib_gen_fileBytes(self):
+            self.len(1, nodes00 := await core.nodes('gen.risk.tool.software blackcat vertex | [ :names+=alphv ]'))
+            self.len(1, nodes01 := await core.nodes('gen.risk.tool.software alphv vertex'))
+            self.eq('blackcat', nodes00[0].get('name'))
+            self.eq(['alphv'], nodes00[0].get('names'))
+            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.nn(nodes00[0].get('reporter'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-        async with self.getTestCore() as core:
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
+            self.len(1, nodes := await core.nodes('risk:tool:software:name=blackcat :reporter -> ou:org'))
+            self.eq(vtxguid, nodes[0].ndef[1])
 
-            nodes = await core.nodes('yield $lib.gen.fileBytesBySha256($sha256)', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('sha256'), sha256)
+            self.len(1, nodes := await core.nodes('gen.risk.tool.software blackcat otherorg'))
+            self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
+            self.eq('blackcat', nodes[0].get('name'))
+            self.none(nodes[0].get('names'))
+            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('reporter'))
 
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
+            self.len(1, nodes := await core.nodes('gen.risk.tool.software blackcat vertex', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)
 
-            q = '''
-                [ file:bytes=(file1,) :sha256=$sha256 ]
-                spin |
-                yield $lib.gen.fileBytesBySha256($sha256)
-            '''
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].repr(), s_common.guid(('file1',)))
+            # gen.risk.vuln
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('$lib.gen.fileBytesBySha256(newp)', opts=opts)
+            self.len(0, await core.nodes('gen.risk.vuln newp (null) --try'))
+            self.len(0, await core.nodes('gen.risk.vuln (null) vertex --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.vuln (null) vertex'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.risk.vuln newp (null)'))
 
-            q = 'return($lib.gen.fileBytesBySha256(newp, try=$lib.true))'
-            self.none(await core.callStorm(q, opts=opts))
+            self.len(1, nodes00 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
+            self.len(1, nodes01 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
+            self.eq('CVE-2024-0123', nodes00[0].get('id'))
+            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.nn(nodes00[0].get('reporter'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
-    async def test_stormlib_gen_inetTlsServerCert(self):
+            self.len(1, nodes := await core.nodes('it:sec:cve=cve-2024-0123 -> risk:vuln:id :reporter -> ou:org'))
+            self.eq(vtxguid, nodes[0].ndef[1])
 
-        async with self.getTestCore() as core:
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
+            self.len(1, nodes := await core.nodes('gen.risk.vuln cve-2024-0123 otherorg'))
+            self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
+            self.eq('CVE-2024-0123', nodes[0].get('id'))
+            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('reporter'))
 
-            q = '''
-                $server = {[ inet:server="1.2.3.4:443" ]}
-                yield $lib.gen.inetTlsServerCertByServerAndSha256($server, $sha256)
-            '''
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
-            cert = nodes[0].get('cert')
-            self.nn(cert)
-
-            nodes = await core.nodes('crypto:x509:cert:sha256=$sha256', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].repr(), cert)
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('$lib.gen.inetTlsServerCertByServerAndSha256(newp, $sha256)', opts=opts)
-
-            q = 'return($lib.gen.inetTlsServerCertByServerAndSha256(newp, $sha256, try=$lib.true))'
-            self.none(await core.callStorm(q, opts=opts))
-
-    async def test_stormlib_gen_cryptoX509Cert(self):
-
-        async with self.getTestCore() as core:
-
-            # Check guid generation
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
-            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('sha256'), sha256)
-
-            # Check invalid values, no try
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('$lib.gen.cryptoX509CertBySha256(newp)')
-
-            # Check invalid values, with try
-            self.none(await core.callStorm('return($lib.gen.cryptoX509CertBySha256(newp, try=$lib.true))'))
-
-            # Check node matching with same sha256 values
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
-            nodes = await core.nodes('[crypto:x509:cert=* :sha256=$sha256]', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('sha256'), sha256)
-            self.ne(nodes[0].repr(), s_common.guid(sha256))
-            crypto = nodes[0].repr()
-
-            # Check node matching, crypto:x509:cert -> file with matching sha256
-            sha256 = s_common.buid().hex()
-            opts = {'vars': {'sha256': sha256}}
-            nodes = await core.nodes('[crypto:x509:cert=* :file={[ file:bytes=({"sha256": $sha256}) ]} ]', opts=opts)
-            self.len(1, nodes)
-            self.none(nodes[0].get('sha256'))
-            crypto = nodes[0].repr()
-
-            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
-            self.len(1, nodes)
+            self.len(1, nodes := await core.nodes('gen.risk.vuln cve-2024-0123 vertex', opts=onview2))
+            self.eq(nodes00[0].ndef, nodes[0].ndef)

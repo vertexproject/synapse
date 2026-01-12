@@ -134,7 +134,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :desc=Hehe
                     :tag=woot.woot
                     :sophistication=high
-                    :reporter=$lib.gen.orgByName(vertex)
+                    :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :parent={[ meta:technique=* :name=metawoot ]}
                 ]

@@ -527,7 +527,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].ndef[1], await core.callStorm('return({[it:log:event=({"id": "faz"})]})'))
 
-            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en.us"}) ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))

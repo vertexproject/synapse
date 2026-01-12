@@ -2521,7 +2521,7 @@ class AstTest(s_test.SynTest):
                 [test:int=12345]
             }
             '''
-            idens = [nodes[0][1]['iden'],]
+            idens = [nodes[0][1]['iden']]
             msgs = await core.stormlist(q, opts={'idens': idens})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
@@ -3452,19 +3452,19 @@ class AstTest(s_test.SynTest):
             self.eq('obj.put(foo, bar, baz)', text[off:end])
             self.stormIsInErr('pipe.put()', msgs)
 
-            text = '$lib.gen.campaign(foo, bar, baz)'
+            text = '$lib.lift.byNodeData(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lib.lift.byNodeData(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
-            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            text = '$lft = $lib.lift.byNodeData $lft(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('gen(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lft(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
             async def highlighteq(exp, text):
                 msgs = await core.stormlist(text)
@@ -3611,7 +3611,7 @@ class AstTest(s_test.SynTest):
             self.len(1, neato)
 
             intnid = s_common.int64un(neato[0].nid)
-            nids = [intnid,]
+            nids = [intnid]
             opts = {
                 'graph': {
                     'degrees': None,
@@ -3655,7 +3655,7 @@ class AstTest(s_test.SynTest):
                 nids.append(node[1]['nid'])
 
             opts['graph']['existing'] = nids
-            opts['nids'] = [s_common.int64un(ipv4s[0].nid),]
+            opts['nids'] = [s_common.int64un(ipv4s[0].nid)]
             ipnids = [s_common.int64un(n.nid) for n in ipv4s]
             ipnids.append(s_common.int64un(neato[0].nid))
             for limit in limits:
@@ -3690,7 +3690,7 @@ class AstTest(s_test.SynTest):
                         self.false(edgedata.get('reverse', False))
 
             opts['graph'].pop('existing', None)
-            opts['nids'] = [s_common.int64un(neato[0].nid),]
+            opts['nids'] = [s_common.int64un(neato[0].nid)]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
@@ -3719,7 +3719,7 @@ class AstTest(s_test.SynTest):
             boop = await core.nodes('[test:str=boop +(refs)> {[inet:ip=5.6.7.0/24]}]')
             await core.nodes('[test:str=boop <(refs)+ {[inet:ip=4.5.6.0/24]}]')
             self.len(1, boop)
-            opts['nids'] = [s_common.int64un(boop[0].nid),]
+            opts['nids'] = [s_common.int64un(boop[0].nid)]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee --join { --> * } { <-- * }', opts=opts)
@@ -4180,8 +4180,6 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
-            q = '''
-            '''
             msgs = await core.stormlist('[ it:exec:query=(test2,) :opts=({"foo": "bar"}) ]')
             self.stormHasNoWarnErr(msgs)
 
@@ -4197,30 +4195,29 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
             # Create node for the lift below
-            # FIXME chosen just for :raw?
-            # q = '''
-            # [ it:app:snort:match=*
-            #     :target={[ inet:flow=* :raw=({"foo": "bar"}) ]}
-            # ]
-            # '''
-            # nodes = await core.nodes(q)
-            # self.len(1, nodes)
+            q = '''
+            [ test:str=foo
+                :gprop={[ test:guid=* :raw=({"foo": "bar"}) ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
 
-            # # Lift node, get prop via implicit pivot, assign data prop to var, update var
-            # nodes = await core.nodes('''
-            #     it:app:snort:match $raw = :target::raw $raw.baz="box" | spin | inet:flow
-            # ''')
-            # self.len(1, nodes)
-            # self.eq(nodes[0].get('raw'), {'foo': 'bar'})
+            # Lift node, get prop via implicit pivot, assign data prop to var, update var
+            nodes = await core.nodes('''
+                test:str $raw = :gprop::raw $raw.baz="box" | spin | test:guid
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('raw'), {'foo': 'bar'})
 
-            # nodes = await core.nodes('''
-            #     it:app:snort:match
-            #     $raw = :target::raw
-            #     $raw.baz="box" | spin |
-            #     inet:flow [ :raw=$raw ]
-            # ''')
-            # self.len(1, nodes)
-            # self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
+            nodes = await core.nodes('''
+                test:str
+                $raw = :gprop::raw
+                $raw.baz="box" | spin |
+                test:guid [ :raw=$raw ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
 
     async def test_ast_subrunt_safety(self):
 

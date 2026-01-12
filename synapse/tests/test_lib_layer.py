@@ -81,16 +81,18 @@ class LayerTest(s_t_utils.SynTest):
 
             config = {'scanall': False, 'scans': {'tagindex': {'include': ('foo',)}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
-            self.len(1, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'NoTagForTagIndex')
 
             config = {'scanall': False, 'scans': {'tagindex': {'include': ('baz',)}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
             self.len(0, errors)
 
             errors = [e async for e in core.getLayer().verifyAllTags()]
-            self.len(1, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'NoTagForTagIndex')
 
             core.getLayer()._testDelPropStor(nid, 'inet:ip', 'asn')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ip', 'asn')]
@@ -98,7 +100,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
 
             core.getLayer()._testDelFormValuStor(nid, 'inet:ip')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ip', None)]
@@ -127,7 +129,8 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(nid, 'inet:ip', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.eq(errors[0][0], 'NoNodeForTagIndex')
-            self.eq(errors[1][0], 'NoNodeForPropIndex')
+            self.eq(errors[1][0], 'NoNodeForTagIndex')
+            self.eq(errors[2][0], 'NoNodeForPropIndex')
 
         # Smash in a bad stortype into a sode.
         async with self.getTestCore() as core:
@@ -241,8 +244,9 @@ class LayerTest(s_t_utils.SynTest):
 
             config = {'scans': {'tagindex': {'autofix': 'index'}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
-            self.len(1, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'NoTagForTagIndex')
             self.len(0, await core.nodes('inet:ip=1.2.3.4 +#foo'))
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
@@ -496,7 +500,6 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
-            # TODO self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 await layr.layrslab.put(key[0], val, db=tmpdb)
@@ -1628,9 +1631,9 @@ class LayerTest(s_t_utils.SynTest):
 
             nid = nodes[0].nid
 
-            # FIXME test via sodes?
-            # self.eq('foo', await layr.getNodeValu(nid))
-            # self.eq((1420070400000, 1451606400000), await layr.getNodeValu(nid, ':seen'))
+            sode = layr.getStorNode(nid)
+            self.eq('foo', sode['valu'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
 
             s_common.gendir(layr.dirn, 'adir')
 
@@ -1641,8 +1644,9 @@ class LayerTest(s_t_utils.SynTest):
             self.isin(f'Layer (Layer): {copylayr.iden}', str(copylayr))
             self.ne(layr.iden, copylayr.iden)
 
-            # self.eq('foo', await copylayr.getNodeValu(nid))
-            # self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(nid, ':seen'))
+            sode = copylayr.getStorNode(nid)
+            self.eq('foo', sode['valu'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
 
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
@@ -1834,8 +1838,6 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_edit_perms(self):
 
-        self.skip('FIXME need to pick new forms for this one')
-
         class Dict(s_spooled.Dict):
             async def __anit__(self, dirn=None, size=1, cell=None):
                 await super().__anit__(dirn=dirn, size=size, cell=cell)
@@ -1854,15 +1856,15 @@ class LayerTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('''
                     [
-                        (meta:name=marty
-                            :given=marty
+                        (meta:topic=marty
+                            :desc=marty
                             +#performance:score=10
                             +#role.protagonist
                         )
-                        (meta:name=emmett :given=emmett)
-                        (meta:name=biff :given=biff)
-                        (meta:name=george :given=george)
-                        (meta:name=loraine :given=loraine)
+                        (meta:topic=emmett :desc=emmett)
+                        (meta:topic=biff :desc=biff)
+                        (meta:topic=george :desc=george)
+                        (meta:topic=loraine :desc=loraine)
                         <(seen)+ {[ meta:source=(movie, "Back to the Future") :name=BTTF :type=movie ]}
                     ]
                     $node.data.set(movie, "Back to the Future")
@@ -1930,12 +1932,12 @@ class LayerTest(s_t_utils.SynTest):
                 ''', opts=opts)
 
                 await core.nodes('''
-                    meta:name:given=biff
+                    meta:topic:desc=biff
                     [ <(seen)- { meta:source:type=movie } ]
                     | delnode |
 
-                    meta:name=emmett [ -:given ]
-                    meta:name=marty [ -#performance:score -#role.protagonist ]
+                    meta:topic=emmett [ -:desc ]
+                    meta:topic=marty [ -#performance:score -#role.protagonist ]
                     $node.data.pop(movie)
                 ''', opts=opts)
 
@@ -1957,10 +1959,10 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'add', 'foo', 'bar'),
 
                     # Node del (tombstone)
-                    ('node', 'del', 'meta:name'),
+                    ('node', 'del', 'meta:topic'),
 
                     # Prop del (tombstone)
-                    ('node', 'prop', 'del', 'meta:name', 'given'),
+                    ('node', 'prop', 'del', 'meta:topic', 'desc'),
 
                     # Tag del (tombstone)
                     ('node', 'tag', 'del', 'role', 'protagonist'),
@@ -1993,10 +1995,10 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'del', 'foo', 'bar'),
 
                     # Node add (restore tombstone)
-                    ('node', 'add', 'meta:name'),
+                    ('node', 'add', 'meta:topic'),
 
                     # Prop set (restore tombstone)
-                    ('node', 'prop', 'set', 'meta:name', 'given'),
+                    ('node', 'prop', 'set', 'meta:topic', 'desc'),
 
                     # Tag/tagprop add (restore tombstone)
                     ('node', 'tag', 'add', 'role', 'protagonist'),

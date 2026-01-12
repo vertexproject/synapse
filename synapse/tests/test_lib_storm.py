@@ -4343,12 +4343,12 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('$str=hehe help $str.split')
             self.stormIsInPrint('Split the string into multiple parts based on a separator.', msgs)
 
-            msgs = await core.stormlist('help $lib.gen.orgByName')
-            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.', msgs)
+            msgs = await core.stormlist('help $lib.lift.byNodeData')
+            self.stormIsInPrint('Lift nodes which have a given nodedata name set on them.', msgs)
 
-            msgs = await core.stormlist('help --verbose $lib.gen.orgByName')
-            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
-                                'Args:\n    name (str): The name of the org.', msgs)
+            msgs = await core.stormlist('help --verbose $lib.lift.byNodeData')
+            self.stormIsInPrint('Lift nodes which have a given nodedata name set on them.\n'
+                                'Args:\n    name (str): The name of the nodedata key to lift by.', msgs)
 
             orig = s_stormtypes.registry.getLibDocs
             def forcedep(cls):
