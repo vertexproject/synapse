@@ -331,7 +331,7 @@ modeldefs = (
                 'interfaces': (
                     ('file:mime:exe', {'template': {'executable': 'Mach-O executable'}}),
                 ),
-                'doc': 'Metadata about a Mach-O exectable file.',
+                'doc': 'Metadata about a Mach-O executable file.',
             }),
 
             ('file:mime:rtf', ('guid', {}), {
