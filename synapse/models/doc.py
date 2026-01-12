@@ -157,6 +157,10 @@ modeldefs = (
         'edges': (
             (('doc:contract', 'has', 'doc:requirement'), {
                 'doc': 'The contract contains the requirement.'}),
+
+            # TODO more... (('meta:usable', 'meets', 'doc:requirement'), {
+            (('meta:technique', 'meets', 'doc:requirement'), {
+                'doc': 'The source node meets the target requirement.'}),
         ),
         'forms': (
 
