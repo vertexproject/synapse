@@ -2324,7 +2324,6 @@ class LiftPropBy(LiftOper):
                     yield node
                 return
 
-            baseprop = props[-1]
             basegenr = runt.view.nodesByPropValu(props[-1].full, cmpr, valu, reverse=self.reverse)
             if len(props) == 1:
                 async for node in basegenr:
