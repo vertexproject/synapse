@@ -2305,11 +2305,11 @@ class LiftPropBy(LiftOper):
                 if not virts:
                     virts = None
 
-                genr = runt.view.nodesByPropValu(plift.pop(-1), cmpr, valu, reverse=self.reverse, virts=virts)
+                genr = runt.view.nodesByPropValu(plift[-1], cmpr, valu, reverse=self.reverse, virts=virts)
 
-                if plift:
+                if len(plift) > 1:
                     genrs = []
-                    for prop in plift:
+                    for prop in plift[:-1]:
                         safegenr = self.safeGenr(runt.view.nodesByPropValu(prop, cmpr, valu, reverse=self.reverse, virts=virts))
                         genrs.append(safegenr)
 
@@ -2324,14 +2324,15 @@ class LiftPropBy(LiftOper):
                     yield node
                 return
 
-            basegenr = runt.view.nodesByPropValu(props.pop(-1).full, cmpr, valu, reverse=self.reverse)
-            if not props:
+            baseprop = props[-1]
+            basegenr = runt.view.nodesByPropValu(props[-1].full, cmpr, valu, reverse=self.reverse)
+            if len(props) == 1:
                 async for node in basegenr:
                     yield node
                 return
 
             genrs = []
-            for prop in props:
+            for prop in props[:-1]:
                 safegenr = self.safeGenr(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
                 genrs.append(safegenr)
 

@@ -731,7 +731,7 @@ class Model:
             return self.getChildProps(prop)
 
         if (props := self.ifaceprops.get(name)) is not None:
-            return [self.props.get(prop) for prop in props]
+            return tuple(self.props.get(prop) for prop in props)
 
         mesg = None
 
@@ -783,10 +783,10 @@ class Model:
             return self.getChildForms(form.name)
 
         if (forms := self.formsbyiface.get(name)) is not None:
-            return forms
+            return tuple(forms)
 
         if name.endswith('*'):
-            return self.reqFormsByPrefix(name[:-1], extra=extra)
+            return tuple(self.reqFormsByPrefix(name[:-1], extra=extra))
 
         mesg = None
         if (prevname := self.formprevnames.get(name)) is not None:
@@ -800,14 +800,14 @@ class Model:
 
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
-            return forms.copy()
+            return forms
 
         if (kids := self.childforms.get(formname)) is None:
             if depth == 0:
-                childforms = [formname]
-                self.childformcache[formname] = childforms.copy()
+                childforms = (formname,)
+                self.childformcache[formname] = childforms
                 return childforms
-            return [(depth, formname)]
+            return ((depth, formname),)
 
         childforms = [(depth, formname)]
         for kid in kids:
@@ -815,21 +815,21 @@ class Model:
 
         if depth == 0:
             childforms.sort(reverse=True)
-            childforms = [cform[1] for cform in childforms]
-            self.childformcache[formname] = childforms.copy()
+            childforms = tuple(cform[1] for cform in childforms)
+            self.childformcache[formname] = childforms
 
         return childforms
 
     def getChildProps(self, prop, depth=0):
         if depth == 0 and (props := self.childpropcache.get(prop.full)) is not None:
-            return props.copy()
+            return props
 
         if (kids := self.childforms.get(prop.form.name)) is None:
             if depth == 0:
-                childprops = [prop]
-                self.childpropcache[prop.full] = childprops.copy()
+                childprops = (prop,)
+                self.childpropcache[prop.full] = childprops
                 return childprops
-            return [(depth, prop)]
+            return ((depth, prop),)
 
         suffix = ''
         if not prop.isform:
@@ -842,8 +842,8 @@ class Model:
 
         if depth == 0:
             childprops.sort(reverse=True, key=lambda x: (x[0], x[1].name))
-            childprops = [cprop[1] for cprop in childprops]
-            self.childpropcache[prop.full] = childprops.copy()
+            childprops = tuple(cprop[1] for cprop in childprops)
+            self.childpropcache[prop.full] = childprops
 
         return childprops
 
@@ -852,14 +852,14 @@ class Model:
             return self.getChildProps(prop)
 
         if (forms := self.formsbyiface.get(name)) is not None:
-            return [self.prop(name) for name in forms]
+            return tuple(self.prop(name) for name in forms)
 
         if (props := self.ifaceprops.get(name)) is not None:
-            return [self.prop(name) for name in props]
+            return tuple(self.prop(name) for name in props)
 
         if name.endswith('*'):
             forms = self.reqFormsByPrefix(name[:-1], extra=extra)
-            return [self.prop(name) for name in forms]
+            return tuple(self.prop(name) for name in forms)
 
         mesg = None
         if (prevname := self.propprevnames.get(name)) is not None:

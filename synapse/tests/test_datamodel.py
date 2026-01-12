@@ -77,18 +77,6 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
             self.isin('Type option foo is not valid', cm.exception.get('mesg'))
 
-            self.len(2, forms := core.model.getChildForms('test:str'))
-            forms.pop(0)
-            self.len(2, forms := core.model.getChildForms('test:str'))
-            forms.pop(0)
-            self.len(2, core.model.getChildForms('test:str'))
-
-            self.len(2, props := core.model.reqPropList('test:str:tick'))
-            props.pop(0)
-            self.len(2, props := core.model.reqPropList('test:str:tick'))
-            props.pop(0)
-            self.len(2, core.model.reqPropList('test:str:tick'))
-
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
