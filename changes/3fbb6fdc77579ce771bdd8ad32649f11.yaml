@@ -1,0 +1,7 @@
+---
+desc: Deprecated ``gen.it.av.scan.result``, ``gen.ps.contact.email``, ``gen.ou.org.hq``,
+  ``gen.ou.id.type``, and ``gen.ou.id.number``.
+desc:literal: false
+prs: []
+type: deprecation
+...
