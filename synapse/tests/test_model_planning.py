@@ -33,6 +33,10 @@ class PlanModelTest(s_t_utils.SynTest):
                     :desc="Do some recon."
                     :index=17
                     :url=https://vertex.link/recon
+                    :id=id001
+                    :created=20240202
+                    :updated=20240203
+                    :version=1.0.0
                 ]
             ''')
 
@@ -41,6 +45,10 @@ class PlanModelTest(s_t_utils.SynTest):
             self.eq('Do some recon.', nodes[0].get('desc'))
             self.eq(17, nodes[0].get('index'))
             self.eq('https://vertex.link/recon', nodes[0].get('url'))
+            self.eq('id001', nodes[0].get('id'))
+            self.eq(1706832000000000, nodes[0].get('created'))
+            self.eq(1706918400000000, nodes[0].get('updated'))
+            self.eq('1.0.0', nodes[0].get('version'))
 
             self.len(1, await core.nodes('plan:phase :system -> plan:system +:name="Woot CNO Planner"'))
 

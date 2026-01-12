@@ -413,6 +413,9 @@ modeldefs = (
                     ('address', ('geo:address', {}), {
                         'doc': 'The postal address where the {title} {happened}.'}),
 
+                    ('address:city', ('base:name', {}), {
+                        'doc': 'The city where the {title} {happened}.'}),
+
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {title} {happened}.'}),
 

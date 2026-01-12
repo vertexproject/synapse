@@ -513,7 +513,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
 
-            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en.us"}) ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))

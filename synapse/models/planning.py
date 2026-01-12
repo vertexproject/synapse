@@ -8,6 +8,11 @@ modeldefs = (
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
             ('plan:phase', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {
+                        'document': 'phase',
+                        'title': 'phase'}}),
+                ),
                 'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
 
             ('plan:procedure', ('guid', {}), {

@@ -439,7 +439,7 @@ simplifies this process.
 
 .. TIP::
   
-  Synapse includes `gen.*`_ (generator) Storm commands and `$lib.gen`_ APIs that can generate many
+  Synapse includes `gen.*`_ (generator) Storm commands that can generate many
   common guid-based forms using secondary property deconfliction.
 
 
@@ -775,6 +775,5 @@ keyword to yield any nodes into the pipeline; use a for loop to iterate over fun
 .. _guid-based: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid
 .. _secondary property deconfliction: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid-best-practices
 .. _gen.*: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#gen
-.. _$lib.gen: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-gen
 .. _privileged modules: https://synapse.docs.vertex.link/en/latest/synapse/devguides/power-ups.html#privileged-modules
 .. _Storm debugging tips: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#storm-debugging-tips

@@ -2929,6 +2929,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :topic=' My Topic   '
+                :profile={[ entity:contact=({"email": "foo@bar.com"}) ]}
             ]
             '''
             opts = {'vars': {
@@ -2943,6 +2944,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.len(1, await core.nodes('inet:service:channel:id=C1234 :profile -> entity:contact'))
             gnrlchan = nodes[0]
 
             q = '''
