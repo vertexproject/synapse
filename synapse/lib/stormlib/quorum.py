@@ -17,7 +17,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A tuple of the view and merge summary.'}
-         },
+         }},
     )
 
     _storm_query = '''
