@@ -417,6 +417,62 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('user'), 'unittest')
 
+            nodes = await core.nodes('[ inet:email=visi+Synapse@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+synapse@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+synapse')
+            self.eq(nodes[0].get('plus'), 'synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi++Synapse@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi++synapse@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi++synapse')
+            self.eq(nodes[0].get('plus'), '+synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi++synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi+Synapse+foo@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+synapse+foo@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+synapse+foo')
+            self.eq(nodes[0].get('plus'), 'synapse+foo')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse+foo@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi+@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+')
+            self.eq(nodes[0].get('plus'), '')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=+@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '+@vertex.link')
+            self.eq(nodes[0].get('user'), '+')
+            self.eq(nodes[0].get('plus'), '')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="+@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
+
+            nodes = await core.nodes('[ inet:email=++@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '++@vertex.link')
+            self.eq(nodes[0].get('user'), '++')
+            self.eq(nodes[0].get('plus'), '+')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
+
+            nodes = await core.nodes('[ inet:email=+++@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '+++@vertex.link')
+            self.eq(nodes[0].get('user'), '+++')
+            self.eq(nodes[0].get('plus'), '++')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="+++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
+
     async def test_flow(self):
         async with self.getTestCore() as core:
             valu = s_common.guid()
@@ -816,6 +872,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :path="/woot/hehe/"
                 :body=$p.body
                 :headers=((foo, bar),)
+                :header:host=vertex.link
+                :header:referer="https://google.com?s=awesome"
                 :response:code=200
                 :response:reason=OK
                 :response:headers=((baz, faz),)
@@ -837,6 +895,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
             self.eq(node.get('path'), '/woot/hehe/')
             self.eq(node.get('body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('header:host'), 'vertex.link')
+            self.eq(node.get('header:referer'), 'https://google.com?s=awesome')
             self.eq(node.get('response:code'), 200)
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
