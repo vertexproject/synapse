@@ -164,7 +164,6 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'type'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 }}),
@@ -320,24 +319,6 @@ modeldefs = (
 
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
-
-            # TODO - meta:technique addresses meta:usable?
-            # TODO - OR meta:technique addresses risk:mitigatable?
-            (('meta:technique', 'addresses', 'meta:technique'), {
-                'doc': 'The technique addresses the technique.'}),
-
-            (('meta:technique', 'addresses', 'risk:vuln'), {
-                'doc': 'The technique addresses the vulnerability.'}),
-
-            # TODO: should meta:rule and it:hardward be usable, and therefore covered
-            (('meta:technique', 'uses', 'meta:rule'), {
-                'doc': 'The technique uses the rule.'}),
-
-            (('meta:technique', 'uses', 'it:software'), {
-                'doc': 'The technique uses the software version.'}),
-
-            (('meta:technique', 'uses', 'it:hardware'), {
-                'doc': 'The technique uses the hardware.'}),
         ),
         'forms': (
 

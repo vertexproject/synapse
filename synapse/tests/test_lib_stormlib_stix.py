@@ -491,7 +491,7 @@ class StormLibStixTest(s_test.SynTest):
 
                     $config.custom.objects."vtx-mitigation" = ({})
 
-                    $config.forms."meta:technique" = ({
+                    $config.forms."risk:mitigation" = ({
                         "default": "vtx-mitigation",
                         "stix": {
                             "vtx-mitigation": {
@@ -508,7 +508,7 @@ class StormLibStixTest(s_test.SynTest):
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
 
-                [ meta:technique=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and do things" ]
+                [ risk:mitigation=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and do things" ]
                 $desc = "scopevar"
                 $bundle.add($node)
 
@@ -574,7 +574,7 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stix_revs(self):
 
         async with self.getTestCore() as core:
-            await core.nodes('[meta:technique=* :name=bar +(addresses)> {[ meta:technique=* :name=foo ]} ]')
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ meta:technique=* :name=foo ]} ]')
 
             with self.raises(s_exc.BadConfValu):
                 bund = await core.callStorm('''

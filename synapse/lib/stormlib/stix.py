@@ -397,13 +397,12 @@ _DefaultConfig = {
                         'description': '+:desc return(:desc)',
                     },
                     'revs': (
-                        ('mitigates', 'course-of-action', '<(addresses)- meta:technique'),
+                        ('mitigates', 'course-of-action', '<(addresses)- risk:mitigation'),
                     ),
                 },
             },
         },
 
-        # FIXME: defaults conflict
         'risk:mitigation': {
             'default': 'course-of-action',
             'stix': {

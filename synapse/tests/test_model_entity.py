@@ -145,7 +145,6 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
             self.len(1, await core.nodes('meta:technique :reporter -> ou:org'))
-            # TODO: edge tests
 
             nodes = await core.nodes('meta:technique :parent -> *')
             self.len(1, nodes)
