@@ -12,7 +12,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
         {'name': 'list', 'desc': 'List pending merge requests.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'todo', 'type': 'bool',
+                      {'name': 'todo', 'type': 'bool', 'default': False,
                        'desc': 'Only emit merge requests which require input from the current user.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
