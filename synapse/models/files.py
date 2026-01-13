@@ -232,6 +232,26 @@ modeldefs = (
                     ('file:mime:meta', {}),
                 ),
             }),
+            ('file:mime:exe', {
+                'doc': 'Properties common to executable file formats.',
+                'template': {'executable': 'executable'},
+                'props': (
+                    ('compiler', ('it:software', {}), {
+                        'doc': 'The software used to compile the {executable}.'}),
+
+                    ('compiler:name', ('meta:name', {}), {
+                        'doc': 'The name of the software used to compile the {executable}.'}),
+
+                    ('packer', ('it:software', {}), {
+                        'doc': 'The software used to pack the {executable}.'}),
+
+                    ('packer:name', ('meta:name', {}), {
+                        'doc': 'The name of the software used to pack the {executable}.'}),
+                ),
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+            }),
             ('file:mime:macho:loadcmd', {
                 'interfaces': (
                     ('file:mime:meta', {}),
@@ -295,9 +315,23 @@ modeldefs = (
 
             ('file:mime:pe', ('guid', {}), {
                 'interfaces': (
-                    ('file:mime:meta', {}),
+                    ('file:mime:exe', {'template': {'executable': 'PE executable'}}),
                 ),
                 'doc': 'Metadata about a Microsoft Portable Executable (PE) file.',
+            }),
+
+            ('file:mime:elf', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:exe', {'template': {'executable': 'ELF executable'}}),
+                ),
+                'doc': 'Metadata about an ELF executable file.',
+            }),
+
+            ('file:mime:macho', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:exe', {'template': {'executable': 'Mach-O executable'}}),
+                ),
+                'doc': 'Metadata about a Mach-O executable file.',
             }),
 
             ('file:mime:rtf', ('guid', {}), {
@@ -483,7 +517,8 @@ modeldefs = (
                 ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval'}), {
                     'doc': 'The VS_VERSIONINFO key/value data from the PE file.'}),
             )),
-
+            ('file:mime:elf', {}, ()),
+            ('file:mime:macho', {}, ()),
             ('file:mime:pe:section', {}, (
 
                 ('name', ('str', {}), {

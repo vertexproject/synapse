@@ -3352,7 +3352,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in list(self.layers.values()):
 
-            for form, tag, tagprop in layr.getTagProps():
+            for form, tag, tagprop in layr.getTagPropIndexes():
+
+                if form is None or tag is None:
+                    continue
 
                 if tagprop != propname: # pragma: no cover
                     await asyncio.sleep(0)

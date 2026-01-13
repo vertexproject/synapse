@@ -38,6 +38,39 @@ class CryptoModelTest(s_t_utils.SynTest):
     async def test_model_crypto_keys(self):
 
         async with self.getTestCore() as core:
+            opts = {
+                'vars': {
+                    'sha1': TEST_SHA1,
+                    'sha256': TEST_SHA256,
+                }
+            }
+            nodes = await core.nodes('''
+                [ crypto:key:base=*
+                    :bits=2048
+                    :algorithm=rsa
+                    :public:hashes=(
+                        {[crypto:hash:sha1=$sha1]},
+                        {[crypto:hash:sha256=$sha256]},
+                        {[crypto:hash:sha1=$sha1]},
+                    )
+                    :private:hashes=(
+                        {[crypto:hash:sha1=$sha1]},
+                    )
+                    :seen=2022
+                ]
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('bits'), 2048)
+            self.eq(nodes[0].get('algorithm'), 'rsa')
+            self.len(2, nodes[0].get('public:hashes'))
+            self.len(1, nodes[0].get('private:hashes'))
+            self.nn(nodes[0].get('seen'))
+
+            self.len(1, await core.nodes('crypto:key:base -> crypto:algorithm'))
+            self.len(1, await core.nodes('crypto:key:base :public:hashes -> crypto:hash:sha1'))
+            self.len(1, await core.nodes('crypto:key:base :public:hashes -> crypto:hash:sha256'))
+            self.len(1, await core.nodes('crypto:key:base :private:hashes -> crypto:hash:sha1'))
+
             nodes = await core.nodes('''
                 [ crypto:key:secret=*
                     :mode=CBC
@@ -102,6 +135,37 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('public:g'), 'eeee')
 
             self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
+
+            nodes = await core.nodes('''
+                [ crypto:key:ecdsa=*
+                    :algorithm=ecdsa
+                    :curve=p-256
+                    :private=ffff
+                    :public=aaaa
+                    :public:p=aaab
+                    :public:a=aaac
+                    :public:b=aaad
+                    :public:gx=aaae
+                    :public:gy=aaaf
+                    :public:n=aaba
+                    :public:h=aaca
+                    :public:x=aada
+                    :public:y=aaea
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('algorithm'), 'ecdsa')
+            self.eq(nodes[0].get('private'), 'ffff')
+            self.eq(nodes[0].get('public'), 'aaaa')
+            self.eq(nodes[0].get('public:p'), 'aaab')
+            self.eq(nodes[0].get('public:a'), 'aaac')
+            self.eq(nodes[0].get('public:b'), 'aaad')
+            self.eq(nodes[0].get('public:gx'), 'aaae')
+            self.eq(nodes[0].get('public:gy'), 'aaaf')
+            self.eq(nodes[0].get('public:n'), 'aaba')
+            self.eq(nodes[0].get('public:h'), 'aaca')
+            self.eq(nodes[0].get('public:x'), 'aada')
+            self.eq(nodes[0].get('public:y'), 'aaea')
 
     async def test_model_crypto_currency(self):
 

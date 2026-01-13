@@ -80,6 +80,10 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllFormProp('_visi:int', '_tick', {})
             self.len(0, await core.nodes('_visi:int:_tick'))
 
+            # Add a tagprop to a node with a long form name so the abrv is indexed after the
+            # form=None abrvs to get _delAllTagProp coverage
+            await core.nodes('[ crypto:smart:effect:edittokensupply=* +#foo:score=99 ]')
+
             self.len(1, await core.nodes('#lol:score'))
             await core._delAllTagProp('score', {})
             self.len(0, await core.nodes('#lol:score'))
@@ -540,9 +544,8 @@ class StormtypesModelextTest(s_test.SynTest):
             self.isin('_test:iface', core.model.formsbyiface['inet:proto:link'])
             self.isin('_test:iface', core.model.formsbyiface['inet:proto:request'])
             self.isin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
-            # FIXME discuss... is this correct behavior?
-            # self.isin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
-            # self.isin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.isin('_test:iface:client:proc', core.model.ifaceprops['test:interface:client:proc'])
+            self.isin('_test:iface:client:proc', core.model.ifaceprops['inet:proto:request:client:proc'])
             self.isin('_test:iface:server', core.model.ifaceprops['inet:proto:link:server'])
 
             q = '$lib.model.ext.delForm(_test:iface)'
