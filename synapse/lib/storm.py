@@ -1,3 +1,4 @@
+import regex
 import types
 import pprint
 import asyncio
@@ -5698,3 +5699,32 @@ class IntersectCmd(Cmd):
                         path = runt.initPath(node)
                         path.vars.update(pathvars.get(buid))
                         yield (node, path)
+
+color_regex = regex.compile('^#[0-9a-f]{6}$')
+class ColorizeCmd(Cmd):
+    '''
+    Add metadata to nodes which can be used to colorize them during display.
+    '''
+    name = 'colorize'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:
+
+            color = self.opts.color
+
+            if color:
+
+                if color_regex.match(color) is None:
+                    mesg = 'Color must be a six digit hex color code prefixed with a #.'
+                    raise s_exc.BadArg(mesg=mesg)
+
+                path.meta('color', color)
+
+            yield (node, path)

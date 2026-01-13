@@ -4672,6 +4672,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.ColorizeCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.ParallelCmd)
         self.addStormCmd(s_storm.TagPruneCmd)
