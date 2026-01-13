@@ -1565,6 +1565,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
         # we inherit from Pusher to make the Cell a Base subclass
+        if (activebase := getattr(self, 'activebase')) is not None:
+            await activebase.fini()
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
@@ -2216,7 +2218,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Initialize a NexsRoot to use for the cell.
         '''
         if self.cellparent:
-            return self.cellparent.nexsroot
+            nexroot = self.cellparent.nexsroot
+            nexroot.incref()
+            return nexroot
         return await s_nexus.NexsRoot.anit(self)
 
     async def getNexsIndx(self):
