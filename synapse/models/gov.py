@@ -78,17 +78,38 @@ modeldefs = (
 
         'forms': (
             ('gov:us:cage', {}, (
-                ('org', ('ou:org', {}), {'doc': 'The organization which was issued the CAGE code.'}),
-                ('name0', ('meta:name', {}), {'doc': 'The name of the organization.'}),
-                ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1.'}),
-                ('street', ('str', {'lower': True}), {}),
-                ('city', ('str', {'lower': True}), {}),
-                ('state', ('str', {'lower': True}), {}),
-                ('zip', ('gov:us:zip', {}), {}),
-                ('cc', ('iso:3166:alpha2', {}), {}),
-                ('country', ('str', {'lower': True}), {}),
-                ('phone0', ('tel:phone', {}), {}),
-                ('phone1', ('tel:phone', {}), {}),
+                ('org', ('ou:org', {}), {
+                    'doc': 'The organization which was issued the CAGE code.'}),
+
+                ('name0', ('meta:name', {}), {
+                    'doc': 'The name of the organization.'}),
+
+                ('name1', ('str', {'lower': True}), {
+                    'doc': 'Name Part 1.'}),
+
+                ('street', ('str', {'lower': True}), {
+                    'doc': 'The street in the CAGE code record.'}),
+
+                ('city', ('str', {'lower': True}), {
+                    'doc': 'The city in the CAGE code record.'}),
+
+                ('state', ('str', {'lower': True}), {
+                    'doc': 'The state in the CAGE code record.'}),
+
+                ('zip', ('gov:us:zip', {}), {
+                    'doc': 'The zip code in the CAGE code record.'}),
+
+                ('cc', ('iso:3166:alpha2', {}), {
+                    'doc': 'The country code in the CAGE code record.'}),
+
+                ('country', ('str', {'lower': True}), {
+                    'doc': 'The country in the CAGE code record.'}),
+
+                ('phone0', ('tel:phone', {}), {
+                    'doc': 'The primary phone number in the CAGE code record.'}),
+
+                ('phone1', ('tel:phone', {}), {
+                    'doc': 'The alternate phone number in the CAGE code record.'}),
             )),
 
             ('gov:us:ssn', {}, []),

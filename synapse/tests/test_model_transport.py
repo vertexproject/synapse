@@ -136,6 +136,13 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('''
                 $regid = $lib.guid()
 
+                $contact = {[
+                    entity:contact=({
+                        "type": "us.va.dmv",
+                        "email": "visi@vertex.link",
+                    })
+                ]}
+
                 [ transport:land:registration=$regid
 
                     :id=zeroday
@@ -144,7 +151,7 @@ class TransportTest(s_test.SynTest):
                     :issuer={gen.ou.org "virginia dmv"}
                     :issuer:name="virginia dmv"
 
-                    :contact={gen.ps.contact.email us.va.dmv visi@vertex.link}
+                    :contact=$contact
 
                     :vehicle={[ transport:land:vehicle=*
                         :serial=V-31337
@@ -152,15 +159,15 @@ class TransportTest(s_test.SynTest):
                         :model=elise
                         :registration=$regid
                         :type=car
-                        :owner={gen.ps.contact.email us.va.dmv visi@vertex.link}
+                        :owner=$contact
                     ]}
 
                     :license={[ transport:land:license=*
                         :id=V-31337
-                        :contact={gen.ps.contact.email us.va.dmv visi@vertex.link}
+                        :contact=$contact
                         :issued=20221217
                         :expires=20251217
-                        :issuer={gen.ou.org "virginia dmv"}
+                        :issuer={[ ou:org=({"name": "virginia dmv"}) ]}
                         :issuer:name="virginia dmv"
                     ]}
                 ]
