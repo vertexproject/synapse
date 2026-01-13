@@ -114,6 +114,7 @@ modeldefs = (
 
             ('meta:rule', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
@@ -319,6 +320,12 @@ modeldefs = (
 
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
+
+            (('meta:technique', 'addresses', 'meta:technique'), {
+                'doc': 'The technique addresses the technique.'}),
+
+            (('meta:technique', 'addresses', 'risk:vuln'), {
+                'doc': 'The technique addresses the vulnerability.'}),
         ),
         'forms': (
 
