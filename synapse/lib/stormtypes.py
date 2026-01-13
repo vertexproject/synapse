@@ -8711,9 +8711,13 @@ class View(Prim):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
+        merge = view.getMergeRequest()
+        if merge is None:
+            return None
+
         retn = {
-            'quorum': view.reqParentQuorum(),
-            'merge': view.getMergeRequest(),
+            'merge': merge,
+            'quorum': view.getParentQuorum(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
             'offset': await view.layers[0].getEditIndx(),
@@ -8725,7 +8729,6 @@ class View(Prim):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        quorum = view.reqParentQuorum()
         return view.getMergeRequest()
 
     async def delMergeRequest(self):
