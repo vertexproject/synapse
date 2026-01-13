@@ -61,52 +61,55 @@ stormcmds = (
                        'action': 'store_true'}),
         ),
         'storm': '''
+            function main(cmdopts) {
+                $rows = ([])
+                for ($view, $summary) in $lib.quorum.merge.list(todo=$cmdopts.todo) {
 
-            $rows = ([])
-            for ($view, $summary) in $lib.quorum.merge.list(todo=$cmdopts.todo) {
+                    $creator = $lib.auth.users.get($summary.merge.creator).name
+                    if (not $creator) { $creator = $summary.merge.creator }
 
-                $creator = $lib.auth.users.get($summary.merge.creator).name
-                if (not $creator) { $creator = $summary.merge.creator }
+                    $created = $lib.repr(time, $summary.merge.created)
 
-                $created = $lib.repr(time, $summary.merge.created)
+                    $updated = ""
+                    if $summary.merge.updated { $updated = $lib.repr(time, $summary.merge.updated) }
 
-                $updated = ""
-                if $summary.merge.updated { $updated = $lib.repr(time, $summary.merge.updated) }
-
-                $rows.append(($view.iden, $view.get(name), $creator, $created, $updated))
-            }
-
-            if (not $rows) {
-                if $cmdopts.todo {
-                    $lib.print("Nothing to do. Go grab some coffee!")
-                } else {
-                    $lib.print("No pending merge requests.")
+                    $rows.append(($view.iden, $view.get(name), $creator, $created, $updated))
                 }
-                $lib.exit()
+
+                if (not $rows) {
+                    if $cmdopts.todo {
+                        $lib.print("Nothing to do. Go grab some coffee!")
+                    } else {
+                        $lib.print("No pending merge requests.")
+                    }
+                    return()
+                }
+
+                $printer = $lib.tabular.printer(({
+                    "columns": [
+                        {"name": "view", "width": 32},
+                        {"name": "name", "width": 40},
+                        {"name": "creator", "width": 18},
+                        {"name": "created", "width": 24},
+                        {"name": "updated", "width": 24},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                }))
+
+                $lib.print($printer.header())
+
+                for $row in $rows {
+                    $lib.print($printer.row($row))
+                }
+                return()
             }
-
-            $printer = $lib.tabular.printer(({
-                "columns": [
-                    {"name": "view", "width": 32},
-                    {"name": "name", "width": 40},
-                    {"name": "creator", "width": 18},
-                    {"name": "created", "width": 24},
-                    {"name": "updated", "width": 24},
-                ],
-                "separators": {
-                    "row:outline": false,
-                    "column:outline": false,
-                    "header:row": "#",
-                    "data:row": "",
-                    "column": "",
-                },
-            }))
-
-            $lib.print($printer.header())
-
-            for $row in $rows {
-                $lib.print($printer.row($row))
-            }
+            $main($cmdopts)
         ''',
     },
 )
