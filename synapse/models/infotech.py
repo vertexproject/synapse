@@ -696,7 +696,7 @@ modeldefs = (
                 ),
                 'doc': 'A screenshot of a host.'}),
 
-           ('it:sec:cve', ('meta:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
+           ('it:sec:cve', ('base:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                'ex': 'CVE-2012-0158',
                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
