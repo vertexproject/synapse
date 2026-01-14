@@ -33,11 +33,11 @@ async def main(argv, outp=s_output.stdout):
     freeze.add_argument('--timeout', type=int, default=120,
                         help='Maximum time to wait for the nexus lock.')
 
-    freeze.add_argument('--svcurl', default='cell:///vertex/storage',
+    freeze.add_argument('--url', default='cell:///vertex/storage',
                         help='The telepath URL of the Synapse service.')
 
     resume = subs.add_parser('resume', help='Resume edits and continue normal operation.')
-    resume.add_argument('--svcurl', default='cell:///vertex/storage',
+    resume.add_argument('--url', default='cell:///vertex/storage',
                         help='The telepath URL of the Synapse service.')
 
     opts = pars.parse_args(argv)
@@ -45,7 +45,7 @@ async def main(argv, outp=s_output.stdout):
     try:
         async with s_telepath.withTeleEnv():
 
-            async with await s_telepath.openurl(opts.svcurl) as proxy:
+            async with await s_telepath.openurl(opts.url) as proxy:
 
                 if opts.cmd == 'freeze':
                     await proxy.freeze(timeout=opts.timeout)

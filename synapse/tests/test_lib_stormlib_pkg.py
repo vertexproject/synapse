@@ -33,7 +33,7 @@ class StormLibPkgTest(s_test.SynTest):
             msgs = await core.stormlist('pkg.list --verbose')
             self.stormIsInPrint('not available', msgs)
 
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000000}}
             await core.addStormPkg(pkg2)
             self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
             msgs = await core.stormlist('pkg.list --verbose')
@@ -205,7 +205,7 @@ class StormLibPkgTest(s_test.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
+            'onload': f'[ entity:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -252,7 +252,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
-            self.len(1, await core.nodes(f'ps:contact={cont}'))
+            self.len(1, await core.nodes(f'entity:contact={cont}'))
 
             evnts = await waiter.wait(timeout=4)
             exp = [

@@ -16,6 +16,7 @@ class StormLibQuorumTest(s_test.SynTest):
             whippit = await core.auth.addUser('whippit')
 
             await core.auth.allrole.addRule((True, ('view', 'add')))
+            await core.auth.allrole.addRule((True, ('view', 'fork')))
             await core.auth.allrole.addRule((True, ('view', 'read')))
 
             vertex = await core.auth.addRole('vertex')

@@ -25,7 +25,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             s = buf.decode()
             self.isin('Base types are defined via Python classes.', s)
-            self.isin('synapse.models.inet.Addr', s)
+            self.isin('synapse.models.inet.SockAddr', s)
             self.isin('Regular types are derived from BaseTypes.', s)
             self.isin(r'inet\:server', s)
 
@@ -35,40 +35,42 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('int valu           ', s)
             self.isin('1   RT_CURSOR      ', s)
 
-            # enusm for str
-            self.isin('``it:mitre:attack:status``', s)
-            self.isin('+----------+', s)
-            self.isin('+valu      +', s)
-            self.isin('+==========+', s)
-            self.isin('+deprecated+', s)
+            self.isin('''This type has the following virtual properties:
 
-            self.isin('''This type implements the following interfaces:
+ * ``min``
+ * ``max``
+ * ``duration``''', s)
 
- * ``inet:service:object``
- * ``phys:object``''', s)
+            self.isin('''This type supports lifting using the following operators:
+
+ * ``=``
+ * ``~=``
+ * ``?=``
+ * ``in=``''', s)
+
+            self.isin('This type implements the following interfaces:', s)
+            self.isin('''('inet:service:object', {''', s)
+            self.isin('''('phys:object', {''', s)
 
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
 
             s = buf.decode()
             self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
-            self.isin(r'inet\:ipv4', s)
-            self.notin(r'file\:bytes:.created', s)
-            self.isin('Universal props are system level properties which may be present on every node.', s)
-            self.isin('.created', s)
-            self.notin('..created\n', s)
+            self.isin(r'inet\:ip', s)
+            self.notin(r'file\:bytes:seen', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
-            # Ipv4 property
+            # IP property
             self.isin('''* - ``:asn``
         - :ref:`dm-type-inet-asn`
-        - The ASN to which the IPv4 address is currently assigned.''', s)
+        - The ASN to which the IP address is currently assigned.''', s)
 
             # Readonly inet:form:password:md5 value
             self.isin('''* - ``:md5``
-        - :ref:`dm-type-hash-md5`
+        - :ref:`dm-type-crypto-hash-md5`
         - The MD5 hash of the password.
-        - Read Only: ``True``''', s)
+        - Computed: ``True``''', s)
 
             # Refs edges def
             self.isin('''      * - ``*``
@@ -87,6 +89,13 @@ class TestAutoDoc(s_t_utils.SynTest):
 
                 s = buf.decode()
                 self.isin('Base types are defined via Python classes.', s)
+
+                # Enums for str
+                self.isin('``test:enums:str``', s)
+                self.isin('+-----+', s)
+                self.isin('+valu +', s)
+                self.isin('+=====+', s)
+                self.isin('+testx+', s)
 
     async def test_tools_autodoc_confdefs(self):
 

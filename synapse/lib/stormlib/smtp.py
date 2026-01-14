@@ -22,7 +22,7 @@ class SmtpLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'smtp',)
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'smtp', 'send'), 'gate': 'cortex',
+        {'perm': ('inet', 'smtp', 'send'), 'gate': 'cortex',
          'desc': 'Controls sending SMTP messages to external servers.'},
     )
 
@@ -96,8 +96,8 @@ class SmtpMessage(s_stormtypes.StormType):
                         'desc': 'Use the STARTTLS directive with the SMTP server.'},
                     {'name': 'timeout', 'type': 'int', 'default': 60,
                         'desc': 'The timeout (in seconds) to wait for message delivery.'},
-                    {'type': 'boolean', 'name': 'ssl_verify', 'default': True,
-                     'desc': 'Perform SSL/TLS verification.'},
+                    {'name': 'ssl', 'type': 'dict', 'default': None,
+                     'desc': 'SSL/TLS options.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.'}}},
 
@@ -151,20 +151,20 @@ class SmtpMessage(s_stormtypes.StormType):
         return self.bodyhtml
 
     async def send(self, host, port=25, user=None, passwd=None, usetls=False, starttls=False, timeout=60,
-                   ssl_verify=True):
+                   ssl=None):
 
-        self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
+        self.runt.confirm(('inet', 'smtp', 'send'))
 
         try:
             if self.bodytext is None and self.bodyhtml is None:
                 mesg = 'The inet:smtp:message has no HTML or text body.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
 
+            ssl = await s_stormtypes.toprim(ssl)
             host = await s_stormtypes.tostr(host)
             port = await s_stormtypes.toint(port)
             usetls = await s_stormtypes.tobool(usetls)
             starttls = await s_stormtypes.tobool(starttls)
-            ssl_verify = await s_stormtypes.tobool(ssl_verify)
 
             if usetls and starttls:
                 raise s_exc.BadArg(mesg='usetls and starttls are mutually exclusive arguments.')
@@ -189,7 +189,7 @@ class SmtpMessage(s_stormtypes.StormType):
 
             ctx = None
             if usetls or starttls:
-                ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+                ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
 
             futu = aiosmtplib.send(message,
                                    port=port,
@@ -203,7 +203,7 @@ class SmtpMessage(s_stormtypes.StormType):
                                    tls_context=ctx,
                                    )
 
-            await s_common.wait_for(futu, timeout=timeout)
+            await asyncio.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise

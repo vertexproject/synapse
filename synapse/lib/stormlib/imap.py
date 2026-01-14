@@ -3,12 +3,12 @@ import asyncio
 import imaplib
 import logging
 
+import ssl
 import lark
 import regex
 
 import synapse.exc as s_exc
 import synapse.data as s_data
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
@@ -189,6 +189,13 @@ class IMAPBase(s_link.Link):
         return ret
 
 class IMAPClient(IMAPBase):
+    async def __anit__(self, reader, writer, info=None, forceclose=False):
+        if info and info.get('ssl'):
+            ctx = info.get('ssl')
+            if isinstance(ctx, ssl.SSLContext) and not ctx.check_hostname:
+                info.pop('hostname', None)
+        await IMAPBase.__anit__(self, reader, writer, info=info, forceclose=forceclose)
+
     async def postAnit(self):
         self._tagval = random.randint(TAGVAL_MIN, TAGVAL_MAX)
         self.readonly = False
@@ -448,7 +455,7 @@ async def run_imap_coro(coro, timeout):
     Raises or returns data.
     '''
     try:
-        status, data = await s_common.wait_for(coro, timeout)
+        status, data = await asyncio.wait_for(coro, timeout)
     except asyncio.TimeoutError:
         raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server response.') from None
 
@@ -466,6 +473,15 @@ async def run_imap_coro(coro, timeout):
 class ImapLib(s_stormtypes.Lib):
     '''
     A Storm library to connect to an IMAP server.
+
+    For APIs that accept an ssl argument, the dictionary may contain the following values::
+
+        ({
+            'verify': <bool> - Perform SSL/TLS verification. Default is True.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+            'ca_cert': <str> - A PEM encoded full chain CA certificate for use when verifying the request.
+        })
     '''
     _storm_locals = (
         {
@@ -473,22 +489,24 @@ class ImapLib(s_stormtypes.Lib):
             'desc': '''
             Open a connection to an IMAP server.
 
+            If the port is 993, SSL/TLS is enabled by default with verification.
+
             This method will wait for a "hello" response from the server
             before returning the ``inet:imap:server`` instance.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'connect',
                 'args': (
-                    {'type': 'str', 'name': 'host',
-                     'desc': 'The IMAP hostname.'},
-                    {'type': 'int', 'name': 'port', 'default': 993,
-                     'desc': 'The IMAP server port.'},
-                    {'type': 'int', 'name': 'timeout', 'default': 30,
-                     'desc': 'The time to wait for all commands on the server to execute.'},
-                    {'type': 'boolean', 'name': 'ssl', 'default': True,
-                     'desc': 'Use SSL to connect to the IMAP server.'},
-                    {'type': 'boolean', 'name': 'ssl_verify', 'default': True,
-                     'desc': 'Perform SSL/TLS verification.'},
+
+                    {'name': 'host', 'type': 'str', 'desc': 'The IMAP hostname.'},
+                    {'name': 'port', 'type': 'int', 'desc': 'The IMAP server port.',
+                     'default': 993},
+                    {'name': 'timeout', 'type': 'int',
+                     'desc': 'The time to wait for all commands on the server to execute.',
+                     'default': 30},
+                    {'name': 'ssl', 'type': 'dict',
+                     'desc': 'Optional SSL/TLS options. See $lib.inet.imap help for additional details.',
+                     'default': None},
                 ),
                 'returns': {
                     'type': 'inet:imap:server',
@@ -499,7 +517,7 @@ class ImapLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'imap', )
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+        {'perm': ('inet', 'imap', 'connect'), 'gate': 'cortex',
          'desc': 'Controls connecting to external servers via imap.'},
     )
 
@@ -508,24 +526,25 @@ class ImapLib(s_stormtypes.Lib):
             'connect': self.connect,
         }
 
-    async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=True, ssl_verify=True):
+    async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=None):
 
-        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('inet', 'imap', 'connect'))
 
-        ssl = await s_stormtypes.tobool(ssl)
+        ssl = await s_stormtypes.toprim(ssl)
         host = await s_stormtypes.tostr(host)
         port = await s_stormtypes.toint(port)
-        ssl_verify = await s_stormtypes.tobool(ssl_verify)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         ctx = None
-        if ssl:
-            ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+        hostname = None
+        if ssl or port == imaplib.IMAP4_SSL_PORT:
+            ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
+            hostname = host
 
-        coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
+        coro = s_link.connect(host=host, port=port, ssl=ctx, hostname=hostname, linkcls=IMAPClient)
 
         try:
-            imap = await s_common.wait_for(coro, timeout)
+            imap = await asyncio.wait_for(coro, timeout)
         except TimeoutError:
             raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
 
@@ -535,7 +554,7 @@ class ImapLib(s_stormtypes.Lib):
                     return
 
                 try:
-                    await s_common.wait_for(imap.logout(), 5)
+                    await asyncio.wait_for(imap.logout(), 5)
                 except TimeoutError:
                     pass # pragma: no cover
 
@@ -543,7 +562,7 @@ class ImapLib(s_stormtypes.Lib):
 
             self.runt.snap.core.schedCoro(imapfini())
 
-        self.runt.snap.onfini(fini)
+        self.runt.onfini(fini)
 
         return ImapServer(self.runt, imap, timeout)
 
@@ -787,8 +806,8 @@ class ImapServer(s_stormtypes.StormType):
         # to prevent retrieving a very large blob of data.
         uid = await s_stormtypes.toint(uid)
 
-        await self.runt.snap.core.getAxon()
-        axon = self.runt.snap.core.axon
+        await self.runt.view.core.getAxon()
+        axon = self.runt.view.core.axon
 
         coro = self.imap_cli.uid_fetch(str(uid), '(RFC822)')
         data = await run_imap_coro(coro, self.timeout)
@@ -802,8 +821,8 @@ class ImapServer(s_stormtypes.StormType):
         props['size'] = size
         props['mime'] = 'message/rfc822'
 
-        filenode = await self.runt.snap.addNode('file:bytes', props['sha256'], props=props)
-        return filenode
+        valu = {'sha256': props['sha256'], '$props': props}
+        return await self.runt.view.addNode('file:bytes', valu)
 
     async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)

@@ -24,19 +24,19 @@ class NodeTest(s_t_utils.SynTest):
 
             iden, info = node.pack()
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
 
             iden, info = node.pack(dorepr=True)
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
             self.eq(info.get('repr'), None)
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-            self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
+            self.eq(reprs, {'tick': '1970-01-01T00:00:00.012345Z'})
             tagpropreprs = info.get('tagpropreprs')
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
@@ -45,9 +45,9 @@ class NodeTest(s_t_utils.SynTest):
             # where one Cortex can have model knowledge and set props
             # that another Cortex (sitting on top of the first one) lifts
             # a node which has props the second cortex doens't know about.
-            node.props['.newp'] = 1
-            node.props['newp'] = (2, 3)
-            node.tagprops['foo']['valu'] = 10
+            node.sodes[0]['props']['.newp'] = (1, 0)
+            node.sodes[0]['props']['newp'] = ((2, 3), 0)
+            node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
             iden, info = node.pack(dorepr=True)
             props, reprs = info.get('props'), info.get('reprs')
             tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
@@ -61,6 +61,84 @@ class NodeTest(s_t_utils.SynTest):
             self.none(reprs.get('.newp'))
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
+            await core.nodes('test:str=cool [ +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nodes = await core.nodes('test:str=cool')
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 1}})
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1, 'test:int': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+
+            # Tombstoned edges are subtracted from verb counts, but cannot go below 0
+            await core.nodes('''[ test:str=subt
+                +(refs)> {[ test:int=4 test:int=5 test:int=6 ]}
+                <(refs)+ {[ test:int=7 test:int=8 test:int=9 ]}
+            ]''')
+
+            nodes = await core.nodes('test:str=subt [ -(refs)> {test:int=4} <(refs)- {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:int': 2}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs', n2=True), {'refs': {'test:int': 2}})
+
+            nodes = await core.nodes('test:str=subt [ <(test)+ {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}, 'test': {'test:int': 1}})
+
+            await core.nodes('test:str=subt [ <(test)- {test:int=7} ]', opts=forkopts)
+            await core.nodes('test:str=subt [ -(refs)> {test:int} <(refs)- {test:int} ]')
+
+            nodes = await core.nodes('test:str=subt', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {})
+
+            nodes = await core.nodes('test:int=2 | delnode', opts=forkopts)
+            nodes = await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            async with core.getLocalProxy() as prox:
+                async for m in prox.storm('test:str=cool'):
+                    if m[0] == 'node':
+                        self.nn(m[1][1].get('n1verbs'))
+                        self.nn(m[1][1].get('n2verbs'))
+
+                async for m in prox.storm('test:str=cool', opts={'node:opts': {'verbs': False}}):
+                    if m[0] == 'node':
+                        self.none(m[1][1].get('n1verbs'))
+                        self.none(m[1][1].get('n2verbs'))
+
     async def test_get_has_pop_repr_set(self):
 
         async with self.getTestCore() as core:
@@ -69,30 +147,31 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.true(node.has('tick'))
-            self.true(node.has('.created'))
             self.false(node.has('nope'))
             self.false(node.has('.nope'))
 
             self.eq(node.get('tick'), 12345)
             self.none(node.get('nope'))
-            self.eq(node.get('#cool'), (1, 2))
+            self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
+            with self.raises(s_exc.NoSuchProp):
+                await node.get('notreal.nope')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await node.get('tick.nope')
+
             self.eq('cool', node.repr())
-            self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
+            self.eq(node.repr('tick'), '1970-01-01T00:00:00.012345Z')
 
             self.false(await node.set('tick', 12345))
             self.true(await node.set('tick', 123456))
             with self.raises(s_exc.NoSuchProp):
                 await node.set('notreal', 12345)
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.set('.created', 12345)
 
             # Pop tests - these are destructive to the node
             with self.raises(s_exc.NoSuchProp):
                 await node.pop('nope')
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.pop('.created')
             self.true(await node.pop('tick'))
             self.false(await node.pop('tick'))
 
@@ -111,13 +190,13 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             await node.addTag('cool', valu=(1, 2))
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 2))  # Add again
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 3))  # Add again with different valu
-            self.eq(node.getTag('cool'), (1, 3))
+            self.eq(node.getTag('cool'), (1, 3, 2))
             await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-            self.eq(node.getTag('cool'), (-5, 3))  # merges...
+            self.eq(node.getTag('cool'), (-5, 3, 8))  # merges...
 
             self.true(node.hasTag('cool'))
             self.true(node.hasTag('#cool'))
@@ -126,8 +205,8 @@ class NodeTest(s_t_utils.SynTest):
 
             # Demonstrate that valu is only applied at the level that addTag is called
             await node.addTag('cool.beans.abc', valu=(1, 8))
-            self.eq(node.getTag('cool.beans.abc'), (1, 8))
-            self.eq(node.getTag('cool.beans'), (None, None))
+            self.eq(node.getTag('cool.beans.abc'), (1, 8, 7))
+            self.eq(node.getTag('cool.beans'), (None, None, None))
 
     async def test_node_helpers(self):
 
@@ -149,7 +228,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(5, s_node.tagsnice(strpode))
             self.len(6, s_node.tags(strpode))
             self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
-            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00Z, 2019-01-01T00:00:00Z)')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
             self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
@@ -159,9 +238,9 @@ class NodeTest(s_t_utils.SynTest):
             self.none(s_node.prop(strpode, 'newp'))
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
-            self.eq(s_node.reprProp(strpode, 'tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, ':tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:00.012345Z')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:00.012345Z')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:00.012345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
@@ -170,7 +249,6 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
 
             props = s_node.props(strpode)
-            self.isin('.created', props)
             self.isin('tick', props)
             self.notin('newp', props)
 
@@ -195,7 +273,7 @@ class NodeTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as prox:
                 telepath_nodes = []
                 async for m in prox.storm('test:str=cool test:int=1234',
-                                          opts={'repr': True}):
+                                          opts={'node:opts': {'repr': True}}):
                     if m[0] == 'node':
                         telepath_nodes.append(m[1])
                 self.len(2, telepath_nodes)
@@ -215,7 +293,7 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq('root', retn['result']['name'])
 
                 body = {'query': 'test:str=cool test:int=1234',
-                        'opts': {'repr': True}}
+                        'opts': {'node:opts': {'repr': True}}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:
@@ -232,100 +310,95 @@ class NodeTest(s_t_utils.SynTest):
     async def test_storm(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                query = await snap.core.getStormQuery('')
-                async with snap.getStormRuntime(query) as runt:
-                    node = await snap.addNode('test:comp', (42, 'lol'))
-                    nodepaths = await alist(node.storm(runt, '-> test:int'))
-                    self.len(1, nodepaths)
-                    self.eq(nodepaths[0][0].ndef, ('test:int', 42))
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as runt:
+                node = await core.view.addNode('test:comp', (42, 'lol'))
+                nodepaths = await alist(node.storm(runt, '-> test:int'))
+                self.len(1, nodepaths)
+                self.eq(nodepaths[0][0].ndef, ('test:int', 42))
 
-                    nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
-                    self.eq(nodepaths[0][0].props.get('loc'), 'us')
+                nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
+                self.eq(nodepaths[0][0].get('loc'), 'us')
 
-                    link = {'type': 'runtime'}
-                    path = nodepaths[0][1].fork(node, link)  # type: s_node.Path
-                    path.vars['zed'] = 'ca'
+                link = {'type': 'runtime'}
+                path = nodepaths[0][1].fork(node, link)  # type: s_node.Path
+                path.vars['zed'] = 'ca'
 
-                    # Path present, opts not present
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'), 'us')
-                    self.len(2, path.links)
-                    self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
-                    self.eq(link, path.links[1][1])
+                # Path present, opts not present
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'), 'us')
+                self.len(2, path.links)
+                self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
+                self.eq(link, path.links[1][1])
 
-                    # Path present, opts present but no opts['vars']
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'))
-                    self.len(2, path.links)
-                    self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
-                    self.eq(link, path.links[1][1])
+                # Path present, opts present but no opts['vars']
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'))
+                self.len(2, path.links)
+                self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
+                self.eq(link, path.links[1][1])
 
-                    # Path present, opts present with vars
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
-                                                   opts={'vars': {'baz': 'ru'}},
-                                                   path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'))
+                # Path present, opts present with vars
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
+                                               opts={'vars': {'baz': 'ru'}},
+                                               path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'))
 
-                    # Path can push / pop vars in frames
-                    self.eq(path.getVar('key'), s_common.novalu)
-                    self.len(0, path.frames)
-                    path.initframe({'key': 'valu'})
-                    self.len(1, path.frames)
-                    self.eq(path.getVar('key'), 'valu')
-                    path.finiframe()
-                    self.len(0, path.frames)
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # Path can push / pop vars in frames
+                self.eq(path.getVar('key'), s_common.novalu)
+                self.len(0, path.frames)
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                self.eq(path.getVar('key'), 'valu')
+                path.finiframe()
+                self.len(0, path.frames)
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Path can push / pop a runt as well
-                    # This example is *just* a test example to show the variable movement,
-                    # not as actual runtime movement..
-                    path.initframe({'key': 'valu'})
-                    self.eq(path.getVar('key'), 'valu')
-                    path.finiframe()
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # Path can push / pop a runt as well
+                # This example is *just* a test example to show the variable movement,
+                # not as actual runtime movement..
+                path.initframe({'key': 'valu'})
+                self.eq(path.getVar('key'), 'valu')
+                path.finiframe()
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Path clone() creates a fully independent Path object
-                    pcln = path.clone()
-                    # Ensure that path vars are independent
-                    await pcln.setVar('bar', 'us')
-                    self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), s_common.novalu)
-                    # Ensure the path nodes are independent
-                    self.eq(len(pcln.nodes), len(path.nodes))
-                    pcln.nodes.pop(-1)
-                    self.ne(len(pcln.nodes), len(path.nodes))
-                    # Ensure the link elements are independent
-                    pcln.links.append({'type': 'edge', 'verb': 'seen'})
-                    self.len(3, pcln.links)
-                    self.len(2, path.links)
+                # Path clone() creates a fully independent Path object
+                pcln = path.clone()
+                # Ensure that path vars are independent
+                await pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), s_common.novalu)
+                # Ensure the link elements are independent
+                pcln.links.append({'type': 'edge', 'verb': 'seen'})
+                self.len(3, pcln.links)
+                self.len(2, path.links)
 
-                    # push a frame and clone it - ensure clone mods do not
-                    # modify the original path
-                    path.initframe({'key': 'valu'})
-                    self.len(1, path.frames)
-                    pcln = path.clone()
-                    self.len(1, pcln.frames)
-                    self.eq(path.getVar('key'), 'valu')
-                    self.eq(pcln.getVar('key'), 'valu')
-                    pcln.finiframe()
-                    path.finiframe()
-                    await pcln.setVar('bar', 'us')
-                    self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), s_common.novalu)
-                    self.eq(pcln.getVar('key'), s_common.novalu)
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # push a frame and clone it - ensure clone mods do not
+                # modify the original path
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                pcln = path.clone()
+                self.len(1, pcln.frames)
+                self.eq(path.getVar('key'), 'valu')
+                self.eq(pcln.getVar('key'), 'valu')
+                pcln.finiframe()
+                path.finiframe()
+                await pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), s_common.novalu)
+                self.eq(pcln.getVar('key'), s_common.novalu)
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Check that finiframe without frames resets vars
-                    path.finiframe()
-                    self.len(0, path.frames)
-                    self.eq(s_common.novalu, path.getVar('bar'))
+                # Check that finiframe without frames resets vars
+                path.finiframe()
+                self.len(0, path.frames)
+                self.eq(s_common.novalu, path.getVar('bar'))
 
         # Ensure that path clone() behavior in storm is as expected
         # with a real-world style test..
@@ -350,14 +423,14 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :place:loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
 
             self.eq('1.2.3.4', nodes[0].repr())
 
-            self.eq('us', node.repr('loc'))
+            self.eq('us', node.repr('place:loc'))
 
             with self.raises(s_exc.NoSuchProp):
                 node.repr('newp')
@@ -366,7 +439,7 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -392,7 +465,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq((4, 5, 6), await node.getData('bar'))
 
             await node.delete()
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             node = nodes[0]
 
             self.none(await node.getData('foo'))
@@ -449,25 +522,23 @@ class NodeTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:int=10 ]')
             node = nodes[0]
 
-            self.eq(node.tagprops, {})
+            self.eq(node._getTagPropsDict(), {})
             await node.setTagProp('foo.test', 'score', 20)
             await node.setTagProp('foo.test', 'limit', 1000)
-            self.eq(node.tagprops, {'foo.test': {'score': 20, 'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'score': 20, 'limit': 1000}})
 
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
 
-            await node.setTagProp('foo.test', 'score', 50)
-            node.tagprops['foo.test'].pop('score')
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
-            node.tagprops['foo.test'].pop('limit')
-            self.eq(node.tagprops, {'foo.test': {}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
+            await node.delTagProp('foo.test', 'limit')
+            self.eq(node._getTagPropsDict(), {})
 
     async def test_node_edges(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5]')
+            nodes = await core.nodes('[inet:ip=1.2.3.4 inet:ip=5.5.5.5]')
             with self.raises(s_exc.BadArg):
                 await nodes[0].addEdge('foo', 'bar')
             with self.raises(s_exc.BadArg):
@@ -476,11 +547,11 @@ class NodeTest(s_t_utils.SynTest):
     async def test_node_delete(self):
         async with self.getTestCore() as core:
 
-            await core.nodes('[ test:str=foo +(baz)> { [test:str=baz] } ]')
+            await core.nodes('[ test:str=foo +(refs)> { [test:str=baz] } ]')
             await core.nodes('test:str=foo | delnode')
             self.len(0, await core.nodes('test:str=foo'))
 
-            await core.nodes('[ test:str=foo <(bar)+ { test:str=foo } ]')
+            await core.nodes('[ test:str=foo <(refs)+ { test:str=foo } ]')
             await core.nodes('test:str=foo | delnode')
             self.len(0, await core.nodes('test:str=foo'))
 
@@ -489,7 +560,7 @@ class NodeTest(s_t_utils.SynTest):
             msgs = await core.stormlist(edgeq)
             self.len(0, [m for m in msgs if m[0] == 'print'])
 
-            await core.nodes('[ test:str=foo <(baz)+ { [test:str=baz] } ]')
+            await core.nodes('[ test:str=foo <(refs)+ { [test:str=baz] } ]')
             await self.asyncraises(s_exc.CantDelNode, core.nodes('test:str=foo | delnode'))
 
             await core.nodes('test:str=foo | delnode --force')
@@ -500,8 +571,8 @@ class NodeTest(s_t_utils.SynTest):
 
             q = '''
             [test:str=delfoo test:str=delbar]
-            { test:str=delfoo [ +(bar)> { test:str=delbar } ] }
-            { test:str=delbar [ +(foo)> { test:str=delfoo } ] }
+            { test:str=delfoo [ +(refs)> { test:str=delbar } ] }
+            { test:str=delbar [ +(refs)> { test:str=delfoo } ] }
             '''
             nodes = await core.nodes(q)
             self.len(2, nodes)
@@ -535,7 +606,7 @@ class NodeTest(s_t_utils.SynTest):
             q = '''
             for $ii in $lib.range(1200) {
                 $valu = `bar{$ii}`
-                [ test:str=$valu +(foo)> { test:str=delfoo } ]
+                [ test:str=$valu +(refs)> { test:str=delfoo } ]
             }
             '''
             msgs = await core.stormlist(q)
@@ -565,8 +636,8 @@ class NodeTest(s_t_utils.SynTest):
 
             othr = await core.nodes('test:str=neato', opts={'view': fork})
             self.len(1, othr)
-            self.isin('foo.two', othr[0].tags)
-            self.notin('foo', othr[0].tags)
+            self.nn(othr[0].getTag('foo.two'))
+            self.none(othr[0].getTag('foo'))
 
             msgs = await core.stormlist('test:str=neato | [ -#foo ]', opts={'view': fork})
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
@@ -584,11 +655,11 @@ class NodeTest(s_t_utils.SynTest):
 
             othr = await core.nodes('test:int=12', opts={'view': fork})
             self.len(1, othr)
-            self.isin('ping', othr[0].tags)
-            self.isin('ping.pong.awesome', othr[0].tags)
-            self.isin('ping.pong.awesome.possum', othr[0].tags)
+            self.nn(othr[0].getTag('ping'))
+            self.nn(othr[0].getTag('ping.pong.awesome'))
+            self.nn(othr[0].getTag('ping.pong.awesome.possum'))
 
-            self.notin('ping.pong', othr[0].tags)
+            self.none(othr[0].getTag('ping.pong'))
 
             msgs = await core.stormlist('test:int=12 | [ -#ping.pong ]', opts={'view': fork})
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
@@ -603,5 +674,5 @@ class NodeTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12 | [ -#p ]')
             self.len(1, nodes)
-            self.len(1, nodes[0].tags)
-            self.isin('ping', nodes[0].tags)
+            self.len(1, nodes[0].getTags())
+            self.nn(nodes[0].getTag('ping'))

@@ -1,7 +1,6 @@
 '''
 A data model focused on material objects.
 '''
-import synapse.lib.module as s_module
 
 massunits = {
     'µg': '0.000001',
@@ -27,119 +26,113 @@ massunits = {
     'stone': '6350.29',
 }
 
-class MatModule(s_module.CoreModule):
+modeldefs = (
+    ('mat', {
 
-    def getModelDefs(self):
-        modl = {
+        'interfaces': (
 
-            'interfaces': (
+            ('phys:object', {
+                'doc': 'Properties common to all physical objects.',
+                'template': {'title': 'object'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('geo:locatable', {}),
+                ),
+                'props': (
 
-                ('phys:object', {
-                    'doc': 'Properties common to all physical objects.',
-                    'template': {'phys:object': 'object'},
-                    'props': (
+                    ('phys:mass', ('mass', {}), {
+                        'doc': 'The physical mass of the {title}.'}),
 
-                        ('phys:mass', ('mass', {}), {
-                            'doc': 'The mass of the {phys:object}.'}),
+                    ('phys:volume', ('geo:dist', {}), {
+                        'doc': 'The physical volume of the {title}.'}),
 
-                        ('phys:volume', ('geo:dist', {}), {
-                            'doc': 'The cubed volume of the {phys:object}.'}),
+                    ('phys:length', ('geo:dist', {}), {
+                        'doc': 'The physical length of the {title}.'}),
 
-                        ('phys:length', ('geo:dist', {}), {
-                            'doc': 'The length of the {phys:object}.'}),
+                    ('phys:width', ('geo:dist', {}), {
+                        'doc': 'The physical width of the {title}.'}),
 
-                        ('phys:width', ('geo:dist', {}), {
-                            'doc': 'The width of the {phys:object}.'}),
+                    ('phys:height', ('geo:dist', {}), {
+                        'doc': 'The physical height of the {title}.'}),
+                ),
+            }),
+        ),
 
-                        ('phys:height', ('geo:dist', {}), {
-                            'doc': 'The height of the {phys:object}.'}),
-                    ),
-                }),
-            ),
+        'types': (
+            ('mat:item:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of material object or specification types.',
+            }),
 
-            'types': (
+            ('phys:object', ('ndef', {'interface': 'phys:object'}), {
+                'doc': 'A node which represents a physical object.'}),
 
-                ('phys:object', ('ndef', {'interface': 'phys:object'}), {
-                    'doc': 'A node which represents a physical object.'}),
+            ('phys:contained:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy for types of contained relationships.'}),
 
-                ('phys:contained:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for types of contained relationships.'}),
+            ('phys:contained', ('guid', {}), {
+                'doc': 'A node which represents a physical object containing another physical object.'}),
 
-                ('phys:contained', ('guid', {}), {
-                    'doc': 'A node which represents a physical object containing another physical object.'}),
+            ('mat:item', ('guid', {}), {
+                'interfaces': (
+                    ('phys:object', {'template': {'title': 'item'}}),
+                ),
+                'doc': 'A GUID assigned to a material object.'}),
 
-                ('mat:item', ('guid', {}), {
-                    'interfaces': ('phys:object', 'geo:locatable'),
-                    'template': {'phys:object': 'item', 'geo:locatable': 'item'},
-                    'doc': 'A GUID assigned to a material object.'}),
+            ('mat:type', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of material item/specification types.'}),
 
-                ('mat:type', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of material item/specification types.',
-                    'interfaces': ('meta:taxonomy',)}),
+            ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
 
-                ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
-                ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
-                ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
+            ('mass', ('hugenum', {'units': massunits}), {
+                'doc': 'A mass which converts to grams as a base unit.'}),
+        ),
 
-                ('mass', ('hugenum', {'units': massunits}), {
-                    'doc': 'A mass which converts to grams as a base unit.'}),
-            ),
+        'forms': (
 
-            'forms': (
+            ('phys:contained:type:taxonomy', {}, ()),
+            ('phys:contained', {}, (
 
-                ('phys:contained:type:taxonomy', {}, ()),
-                ('phys:contained', {}, (
+                ('type', ('phys:contained:type:taxonomy', {}), {
+                    'doc': 'The type of container relationship.'}),
 
-                    ('type', ('phys:contained:type:taxonomy', {}), {
-                        'doc': 'The type of container relationship.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The period where the container held the object.'}),
 
-                    ('period', ('ival', {}), {
-                        'doc': 'The period where the container held the object.'}),
+                ('object', ('phys:object', {}), {
+                    'doc': 'The object held within the container.'}),
 
-                    ('object', ('phys:object', {}), {
-                        'doc': 'The object held within the container.'}),
+                ('container', ('phys:object', {}), {
+                    'doc': 'The container which held the object.'}),
+            )),
+            ('mat:item', {}, (
 
-                    ('container', ('phys:object', {}), {
-                        'doc': 'The container which held the object.'}),
-                )),
-                ('mat:item', {}, (
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the material item.'}),
 
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'The name of the material item.'}),
+                ('type', ('mat:item:type:taxonomy', {}), {
+                    'doc': 'The taxonomy type of the item.'}),
 
-                    ('type', ('mat:type', {}), {
-                        'doc': 'The taxonomy type of the item.'}),
+                ('spec', ('mat:spec', {}), {
+                    'doc': 'The specification which defines this item.'}),
+            )),
 
-                    ('spec', ('mat:spec', {}), {
-                        'doc': 'The specification which defines this item.'}),
+            ('mat:spec', {}, (
 
-                    ('latlong', ('geo:latlong', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :place:latlong.'}),
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the material specification.'}),
 
-                    ('loc', ('loc', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :place:loc.'}),
-                )),
-
-                ('mat:spec', {}, (
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'The name of the material specification.'}),
-                    ('type', ('mat:type', {}), {
-                        'doc': 'The taxonomy type for the specification.'}),
-                )),
-
-                ('mat:itemimage', {}, (
-                    ('item', ('mat:item', {}), {'doc': 'The item contained within the image file.', 'ro': True, }),
-                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the item.', 'ro': True, }),
-                )),
-
-                ('mat:specimage', {}, (
-                    ('spec', ('mat:spec', {}), {'doc': 'The spec contained within the image file.', 'ro': True, }),
-                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the spec.', 'ro': True, }),
-                )),
-            ),
-        }
-        name = 'mat'
-        return ((name, modl), )
+                ('type', ('mat:item:type:taxonomy', {}), {
+                    'doc': 'The taxonomy type for the specification.'}),
+            )),
+        ),
+    }),
+)

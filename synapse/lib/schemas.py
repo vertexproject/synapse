@@ -73,6 +73,8 @@ _LayerPushPullSchema = {
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
+        'soffs': {'type': 'number', 'minval': 0},
+        'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
@@ -90,13 +92,28 @@ reqValidPull = reqValidPush
 _CronJobSchema = {
     'type': 'object',
     'properties': {
-        'storm': {'type': 'string'},
+        'storm': {'type': 'string', 'minlen': 1},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
+        'ver': {'type': 'integer'},
+        'indx': {'type': 'integer'},
+        'errcount': {'type': 'integer'},
+        'startcount': {'type': 'integer'},
+        'lasterrs': {'type': 'array', 'items': {'type': 'string'}},
+        'recs': {'type': 'array'},
+        'recur': {'type': 'boolean'},
+        'enabled': {'type': 'boolean'},
+        'isrunning': {'type': 'boolean'},
+        'nexttime': {'type': ['number', 'null']},
+        'laststarttime': {'type': ['number', 'null']},
+        'lastfinishtime': {'type': ['number', 'null']},
+        'lastresult': {'type': ['string', 'null']},
         'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
             'oneOf': [
@@ -121,7 +138,7 @@ _CronJobSchema = {
         },
     },
     'additionalProperties': False,
-    'required': ['creator', 'storm'],
+    'required': ['creator', 'storm', 'user'],
     'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
@@ -270,7 +287,7 @@ _cellUserApiKeySchema = {
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
 
-reqValidSslCtxOpts = s_config.getJsValidator({
+_sslCtxOptsSchema = {
     'type': 'object',
     'properties': {
         'verify': {'type': 'boolean', 'default': True},
@@ -279,7 +296,8 @@ reqValidSslCtxOpts = s_config.getJsValidator({
         'ca_cert': {'type': ['string', 'null'], 'default': None},
     },
     'additionalProperties': False,
-})
+}
+reqValidSslCtxOpts = s_config.getJsValidator(_sslCtxOptsSchema)
 
 _stormPoolOptsSchema = {
     'type': 'object',
@@ -301,7 +319,8 @@ _authRulesSchema = {
                 'type': 'array',
                 'items': {
                     'type': 'string',
-                    'minLength': 1
+                    'minLength': 1,
+                    'pattern': '^[^.]+$'
                 },
                 'minItems': 1
             },
@@ -659,14 +678,13 @@ datamodel_basetypes = [
     'loc',
     'ndef',
     'array',
-    'edge',
-    'timeedge',
     'data',
     'nodeprop',
     'hugenum',
     'taxon',
     'taxonomy',
     'velocity',
+    'timeprecision',
 ]
 
 _reqValidPkgdefSchema = {
@@ -700,11 +718,6 @@ _reqValidPkgdefSchema = {
                 'cert': {'type': 'string'},
             },
             'required': ['cert', 'sign'],
-        },
-        # TODO: Remove me after Synapse 3.0.0.
-        'synapse_minversion': {
-            'type': ['array', 'null'],
-            'items': {'type': 'number'}
         },
         'synapse_version': {
             'type': 'string',
@@ -833,7 +846,6 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/apidef'},
                 },
-                'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
@@ -1173,7 +1185,7 @@ _reqValidOauth2ProviderSchema = {
         'client_secret': {'type': 'string'},
         'client_assertion': _client_assertion_schema,
         'scope': {'type': 'string'},
-        'ssl_verify': {'type': 'boolean', 'default': True},
+        'ssl': s_msgpack.deepcopy(_sslCtxOptsSchema, use_list=True),
         'auth_uri': {'type': 'string'},
         'token_uri': {'type': 'string'},
         'redirect_uri': {'type': 'string'},
@@ -1205,6 +1217,64 @@ _reqValidOauth2TokenResponseSchema = {
 }
 reqValidOauth2TokenResponse = s_config.getJsValidator(_reqValidOauth2TokenResponseSchema)
 
+tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
+_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proprestr))
+
+TrigSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'form': {'type': 'string', 'pattern': _formre},
+        'n2form': {'type': 'string', 'pattern': _formre},
+        'tag': {'type': 'string', 'pattern': _tagre},
+        'prop': {'type': 'string', 'pattern': _propre},
+        'verb': {'type': 'string', },
+        'name': {'type': 'string', },
+        'doc': {'type': 'string', },
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set', 'edge:add', 'edge:del']},
+        'storm': {'type': 'string'},
+        'async': {'type': 'boolean'},
+        'enabled': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm', 'enabled', 'creator'],
+    'allOf': [
+        {
+            'if': {'properties': {'cond': {'const': 'node:add'}}},
+            'then': {'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'node:del'}}},
+            'then': {'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:add'}}},
+            'then': {'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:del'}}},
+            'then': {'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'prop:set'}}},
+            'then': {'required': ['prop']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:add'}}},
+            'then': {'required': ['verb']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:del'}}},
+            'then': {'required': ['verb']},
+        },
+    ],
+}
+reqValidTriggerDef = s_config.getJsValidator(TrigSchema)
+
 _httpLoginV1Schema = {
     'type': 'object',
     'properties': {
@@ -1215,3 +1285,60 @@ _httpLoginV1Schema = {
     'required': ['user', 'passwd'],
 }
 reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
+
+_exportStormMetaSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string', 'enum': ['meta']},
+        'vers': {'type': 'integer', 'minimum': 1},
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {'type': 'integer', 'minimum': 0}
+            },
+            'description': 'Dictionary mapping form names to their counts in the export.'
+        },
+        'edges': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        }
+                    }
+                }
+            },
+            'description': 'Mapping of source form to verbs to target forms.'
+        },
+        'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
+        'synapse_ver': {
+            'type': 'string',
+            'description': 'Version of Synapse that exported the data.'
+        },
+        'creatorname': {'type': 'string', 'description': 'User who ran the export.'},
+        'creatoriden': {'type': 'string', 'pattern': s_config.re_iden, 'description': 'User iden who ran the export.'},
+        'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
+        'query': {'type': 'string', 'description': 'The Storm query string.'},
+    },
+    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver'],
+    'additionalProperties': False,
+}
+
+reqValidExportStormMeta = s_config.getJsValidator(_exportStormMetaSchema)
+
+_QueueDefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'required': ['name', 'creator'],
+    'additionalProperties': False,
+}
+
+reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)

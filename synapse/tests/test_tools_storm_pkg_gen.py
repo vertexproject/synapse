@@ -120,7 +120,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['name'], 'testpkg')
             self.eq(pdef['version'], '0.0.1')
             self.eq(pdef['modules'][0]['name'], 'testmod')
-            self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
+            self.eq(pdef['modules'][0]['storm'], 'inet:ip\n')
             self.eq(pdef['modules'][1]['name'], 'apimod')
             self.isin('function search', pdef['modules'][1]['storm'])
             self.eq(pdef['modules'][2]['name'], 'testpkg.testext')
@@ -128,7 +128,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][3]['name'], 'testpkg.testextfile')
             self.eq(pdef['modules'][3]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
-            self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
+            self.eq(pdef['commands'][0]['storm'], 'inet:ip\n')
 
             self.eq(pdef['commands'][0]['endpoints'], [
                 {'path': '/v1/test/one'},
@@ -264,13 +264,13 @@ class GenPkgTest(s_test.SynTest):
             pkg = s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
 
             self.eq(pkg.get('name'), 'testpkg')
-            self.eq(pkg.get('modules')[0].get('storm'), 'inet:ipv4\n')
-            self.eq(pkg.get('commands')[0].get('storm'), 'inet:ipv6\n')
+            self.eq(pkg.get('modules')[0].get('storm'), 'inet:ip\n')
+            self.eq(pkg.get('commands')[0].get('storm'), 'inet:ip\n')
 
         # Missing files are still a problem
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod'))
+            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
@@ -278,7 +278,7 @@ class GenPkgTest(s_test.SynTest):
 
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd'))
+            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
@@ -295,53 +295,39 @@ class GenPkgTest(s_test.SynTest):
         self.raises(ValueError, s_files.getAssetPath,
                     '../../../../../../../../../etc/passwd')
 
-    async def test_genpkg_dotstorm(self):
-
-        yamlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml')
-
-        async with self.getTestCore() as core:
-            url = core.getLocalUrl()
-            argv = ('--push', url, yamlpath)
-            await s_genpkg.main(argv)
-            msgs = await core.stormlist('$lib.import(dotstorm.foo)')
-            self.stormIsInPrint('hello foo', msgs)
-            msgs = await core.stormlist('dotstorm.bar')
-            self.stormIsInPrint('hello bar', msgs)
-
 class TestStormPkgTest(s_test.StormPkgTest):
-    assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'testassets')
-    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
+    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml'),)
 
     async def initTestCore(self, core):
-        await core.callStorm('$lib.globals.set(inittestcore, frob)')
+        await core.callStorm('$lib.globals.inittestcore = frob')
 
     async def test_stormpkg_base(self):
         async with self.getTestCore() as core:
-            msgs = await core.stormlist('dotstorm.bar')
+            msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
-            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+            self.eq('frob', await core.callStorm('return($lib.globals.inittestcore)'))
 
     async def stormpkg_preppkghook(self, core):
-        await core.callStorm('$lib.globals.set(stormpkg_preppkghook, boundmethod)')
+        await core.callStorm('$lib.globals.stormpkg_preppkghook = boundmethod')
 
     async def test_stormpkg_preppkghook(self):
 
         # inline example
         async def hook(core):
-            await core.callStorm('$lib.globals.set(inlinehook, haha)')
+            await core.callStorm('$lib.globals.inlinehook = haha')
 
         async with self.getTestCore(prepkghook=hook) as core:
-            msgs = await core.stormlist('dotstorm.bar')
+            msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
-            self.eq('haha', await core.callStorm('return($lib.globals.get(inlinehook))'))
-            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+            self.eq('haha', await core.callStorm('return($lib.globals.inlinehook)'))
+            self.eq('frob', await core.callStorm('return($lib.globals.inittestcore)'))
 
         # bound method example
         async with self.getTestCore(prepkghook=self.stormpkg_preppkghook) as core:
-            msgs = await core.stormlist('dotstorm.bar')
+            msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
-            self.eq('boundmethod', await core.callStorm('return($lib.globals.get(stormpkg_preppkghook))'))
-            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+            self.eq('boundmethod', await core.callStorm('return($lib.globals.stormpkg_preppkghook)'))
+            self.eq('frob', await core.callStorm('return($lib.globals.inittestcore)'))
 
 class TestStormPkgTestNoEvent(s_test.StormPkgTest):
     assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm_noevents', 'testassets')

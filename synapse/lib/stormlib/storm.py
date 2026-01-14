@@ -60,7 +60,7 @@ class StormExecCmd(s_storm.Cmd):
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
 
-            extra = await self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
+            extra = await self.runt.view.core.getLogExtra(text=text, view=self.runt.view.iden)
             stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
             async with runt.getSubRuntime(query) as subr:
@@ -76,7 +76,7 @@ class StormExecCmd(s_storm.Cmd):
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
 
-            extra = await self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
+            extra = await self.runt.view.core.getLogExtra(text=text, view=self.runt.view.iden)
             stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
             async with runt.getSubRuntime(query) as subr:
@@ -91,7 +91,7 @@ class StormExecCmd(s_storm.Cmd):
                     subr.query = query
                     subr._initRuntVars(query)
 
-                    extra = await self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
+                    extra = await self.runt.view.core.getLogExtra(text=text, view=self.runt.view.iden)
                     stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
                     async for subp in subr.execute(genr=s_common.agen(item)):
@@ -141,9 +141,9 @@ class LibStorm(s_stormtypes.Lib):
         if user != self.runt.user.iden:
             self.runt.confirm(('impersonate',))
 
-        opts.setdefault('view', self.runt.snap.view.iden)
+        opts.setdefault('view', self.runt.view.iden)
 
-        async for mesg in self.runt.snap.view.core.storm(query, opts=opts):
+        async for mesg in self.runt.view.core.storm(query, opts=opts):
             yield mesg
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -152,8 +152,8 @@ class LibStorm(s_stormtypes.Lib):
         text = await s_stormtypes.tostr(text)
         cast = await s_stormtypes.tostr(cast, noneok=True)
 
-        if self.runt.snap.core.stormlog:
-            extra = await self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
+        if self.runt.view.core.stormlog:
+            extra = await self.runt.view.core.getLogExtra(text=text, view=self.runt.view.iden)
             stormlogger.info(f'Executing storm query via $lib.storm.eval() {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
         casttype = None
@@ -169,10 +169,10 @@ class LibStorm(s_stormtypes.Lib):
                 mesg = f'No type or property found for name: {cast}'
                 raise s_exc.NoSuchType(mesg=mesg)
 
-        asteval = await self.runt.snap.core._getStormEval(text)
+        asteval = await self.runt.view.core._getStormEval(text)
         valu = await asteval.compute(self.runt, None)
 
         if casttype:
-            valu, _ = casttype.norm(valu)
+            valu, _ = await casttype.norm(valu)
 
         return valu

@@ -712,13 +712,13 @@ the final tally. The associated nodes can optionally be displayed with the ``--y
   Earth Preta:
 
 
-.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ip#rep.trend.earthpreta | count
 
 - Count nodes from a lift and yield the output:
 
-.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count --yield
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ip#rep.trend.earthpreta | count --yield
 
 - Count the number of DNS A records for the domain woot.com where the lift produces no results:
 
@@ -744,21 +744,11 @@ Within Synapse, jobs are Storm queries that execute on a recurring or one-time (
 - `cron.list`_
 - `cron.stat`_
 - `cron.mod`_
-- `cron.move`_
-- `cron.disable`_
-- `cron.enable`_
 - `cron.del`_
 
 Help for individual ``cron.*`` commands can be displayed using:
 
   ``<command> --help``
-
-.. TIP::
-  
-  Cron jobs (including jobs created with ``cron.at``) are added to Synapse as **runtime nodes** ("runt
-  nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. With a few restrictions, these runt nodes
-  can be lifted, filtered, and operated on similar to the way you work with other nodes.
-
 
 .. _storm-cron-add:
 
@@ -777,9 +767,7 @@ The ``cron.add`` command creates an individual cron job within a Cortex.
 cron.at
 +++++++
 
-The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex. Just like standard
-(recurring) cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and
-as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
+The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex.
 
 **Syntax:**
 
@@ -823,8 +811,7 @@ cron.stat
 The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on
 an individual job vs. ``cron.list``, including any errors and the interval at which the job executes.
 To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the
-iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting
-the appropriate ``syn:cron`` node.
+iden that the job can be uniquely identified), which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -836,63 +823,18 @@ the appropriate ``syn:cron`` node.
 cron.mod
 ++++++++
 
-The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job,
+The ``cron.mod`` command modifies properties of an existing cron job. To modify a job,
 you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely
-identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+identified), which can be obtained using ``cron.list``.
 
 .. NOTE::
   
-  Other aspects of the cron job, such as its schedule for execution, cannot be modified once the job has
+  Some aspects of the cron job, such as its schedule for execution, cannot be modified once the job has
   been created. To change these aspects you must delete and re-add the job.
 
 **Syntax:**
 
 .. storm-cli:: cron.mod --help
-
-
-.. _storm-cron-move:
-
-cron.move
-+++++++++
-
-The ``cron.move`` command moves a cron job from one :ref:`gloss-view` to another.
-
-**Syntax:**
-
-.. storm-cli:: cron.move --help
-
-
-.. _storm-cron-disable:
-
-cron.disable
-++++++++++++
-
-The ``cron.disable`` command disables a job and prevents it from executing without removing it from the
-Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden
-that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the
-appropriate ``syn:cron`` node.
-
-**Syntax:**
-
-.. storm-cli:: cron.disable --help
-
-
-.. _storm-cron-enable:
-
-cron.enable
-+++++++++++
-
-The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion
-of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained
-using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
-
-.. NOTE::
-
-  Cron jobs, including non-recurring jobs added with ``cron.at``, are enabled by default upon creation.
-
-**Syntax:**
-
-.. storm-cli:: cron.enable --help
 
 
 .. _storm-cron-del:
@@ -902,7 +844,7 @@ cron.del
 
 The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide
 the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified),
-which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -1022,8 +964,7 @@ edges
 -----
 
 Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also
-see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model`
-below.
+see the ``lift.byverb`` command under :ref:`storm-lift` below.
 
 - `edges.del`_
 
@@ -1043,32 +984,6 @@ The ``edges.del`` command is designed to delete multiple light edges to (or from
 **Syntax:**
 
 .. storm-cli:: edges.del --help
-
-
-.. _storm-feed:
-
-feed
-----
-
-Storm includes ``feed.*`` commands that allow you to work with feeds (see :ref:`gloss-feed`).
-
-- `feed.list`_
-
-Help for individual ``feed.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-
-.. _storm-feed-list:
-
-feed.list
-+++++++++
-
-The ``feed.list`` command displays available feed functions in the Cortex.
-
-**Syntax:**
-
-.. storm-cli:: feed.list --help
 
 
 .. _storm-gen:
@@ -1094,18 +1009,13 @@ an organization node deconflicted and created based on a name will only have its
 property set). Users can set additional property values as they see fit.
 
 - `gen.geo.place`_
-- `gen.it.av.scan.result`_
-- `gen.it.prod.soft`_
+- `gen.it.software`_
 - `gen.lang.language`_
-- `gen.ou.campaign`_
-- `gen.ou.id.number`_
-- `gen.ou.id.type`_
+- `gen.entity.campaign`_
 - `gen.ou.industry`_
 - `gen.ou.org`_
-- `gen.ou.org.hq`_
 - `gen.pol.country`_
 - `gen.pol.country.government`_
-- `gen.ps.contact.email`_
 - `gen.risk.threat`_
 - `gen.risk.tool.software`_
 - `gen.risk.vuln`_
@@ -1134,41 +1044,17 @@ name (``geo:place:name`` and / or ``geo:place:names`` properties).
 .. storm-cli:: gen.geo.place --help
 
 
-.. _storm-gen-it-av-scan-result:
+.. _storm-gen-it-software:
 
-gen.it.av.scan.result
-+++++++++++++++++++++
+gen.it.software
++++++++++++++++
 
-The ``gen.it.av.scan.result`` command locates (lifts) or creates an ``it:av:scan:result`` node based
-on the form and value of the object scanned and the signature name used for the scan.
-
-You can optionally include the name of the scanner / scan engine and/or the time the scan was performed
-for additional deconfliction.
-
-.. NOTE::
-  
-  The command can be used to generate ``it:av:scan:result`` nodes from existing ``it:av:filehit`` nodes.
-  The ``it:av:filehit`` form has been marked as deprecated and will be removed in a future version of Synapse.
-  Some :ref:`synapse_powerups` that previously created ``it:av:filehit`` nodes may include dedicated commands
-  to assist with migration; if a migration tool exists, it will be documented in the Admin Guide section of
-  the Power-Up's Help.
+The ``gen.it.software`` command locates (lifts) or creates an ``it:software`` node based on
+the software name (``it:software:name`` and / or ``it:software:names``).
 
 **Syntax:**
 
-.. storm-cli:: gen.it.av.scan.result --help
-
-
-.. _storm-gen-it-prod-soft:
-
-gen.it.prod.soft
-++++++++++++++++
-
-The ``gen.it.prod.soft`` command locates (lifts) or creates an ``it:prod:soft`` node based on
-the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
-
-**Syntax:**
-
-.. storm-cli:: gen.it.prod.soft --help
+.. storm-cli:: gen.it.software --help
 
 
 .. _storm-gen-lang-language:
@@ -1186,42 +1072,16 @@ the language name (``lang:language:name`` and / or ``lang:language:names``).
 
 .. _storm-gen-ou-campaign:
 
-gen.ou.campaign
+gen.entity.campaign
 +++++++++++++++
 
-The ``gen.ou.campaign`` command locates (lifts) or creates an ``ou:campaign`` node based on the
-campaign name (``ou:campaign:name`` and / or ``ou:campaign:names``) and the name of the reporting
-organization (``ou:campaign:reporter:name``).
+The ``gen.entity.campaign`` command locates (lifts) or creates an ``entity:campaign`` node based on the
+campaign name (``entity:campaign:name`` and / or ``entity:campaign:names``) and the name of the reporting
+organization (``entity:campaign:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.campaign --help
-
-
-.. _storm-gen-ou-id-number:
-
-gen.ou.id.number
-++++++++++++++++
-
-The ``gen.ou.id.number`` command locates (lifts) or creates an ``ou:id:number`` node based on
-the organization ID type (``ou:id:type``) and organization ID value (``ou:id:value``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.id.number --help
-
-
-.. _storm-gen-ou-id-type:
-
-gen.ou.id.type
-++++++++++++++
-
-The ``gen.ou.id.type`` command locates (lifts) or creates an ``ou:id:type`` node based on
-the friendly name of the organization ID type (``ou:id:type:name``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.id.type --help
+.. storm-cli:: gen.entity.campaign --help
 
 
 .. _storm-gen-ou-industry:
@@ -1250,21 +1110,6 @@ name (``ou:org:name`` and / or ``ou:org:names``).
 .. storm-cli:: gen.ou.org --help
 
 
-.. _storm-gen-ou-org-hq:
-
-gen.ou.org.hq
-+++++++++++++
-
-The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node for an organization
-(i.e., the contact set for the ``ou:org:hq`` property) or creates the contact node (and sets the
-``ou:org:hq`` property) if it does not exist, based on the organization name (``ou:org:name`` and / or
-``ou:org:names``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.org.hq --help
-
-
 .. _storm-gen-pol-country:
 
 gen.pol.country
@@ -1291,19 +1136,6 @@ on the two-letter ISO-3166 country code (``pol:country:iso2``).
 **Syntax:**
 
 .. storm-cli:: gen.pol.country.government --help
-
-
-.. _storm-gen-ps-contact-email:
-
-gen.ps.contact.email
-++++++++++++++++++++
-
-The ``gen.ps.contact.email`` command locates (lifts) or creates a ``ps:contact`` node using
-the contact's primary email address (``ps:contact:email``) and type (``ps:contact:type``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ps.contact.email --help
 
 
 .. _storm-gen-risk-threat:
@@ -1342,7 +1174,7 @@ gen.risk.vuln
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
-(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
+(``risk:vuln:id``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
 
 **Syntax:**
 
@@ -1379,7 +1211,7 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
 - Lift the node with node ID 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f:
 
-.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-pre:: [inet:ip=1.2.3.4]
 .. storm-cli:: iden 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f
 
 .. _storm-intersect:
@@ -1578,8 +1410,8 @@ By default, the command lifts the N1 nodes (i.e., the nodes on the left side of 
 edge relationship: ``n1 -(<verb>)> n2``)
 
 .. NOTE::
-  For other commands associated with light edges, see ``edges.del`` and ``model.edge.*`` under
-  :ref:`storm-edges` and :ref:`storm-model` respectively.
+  For other commands associated with light edges, see ``edges.del`` under
+  :ref:`storm-edges`.
 
 **Syntax:**
 
@@ -1603,7 +1435,7 @@ number of nodes.
 
 - Lift a single IP address that FireEye associates with the threat group APT1:
 
-.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | limit 1
+.. storm-cli:: inet:ip#aka.feye.thr.apt1 | limit 1
 
 
 **Usage Notes:**
@@ -1711,16 +1543,18 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the most recent ``.seen`` value:
+- Return the DNS A record for woot.com with the most recent ``:seen`` value:
 
-.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))] 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen
+.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) :seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) :seen=(2013/09/21,2013/09/22))] 
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen
 
 
 - Return the most recent WHOIS record for domain woot.com:
 
-.. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
 
 
 .. _storm-merge:
@@ -1755,14 +1589,16 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the oldest ``.seen`` value:
+- Return the DNS A record for woot.com with the oldest ``:seen`` value:
 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | min .seen
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen
 
 
 - Return the oldest WHOIS record for domain woot.com:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
 
 
 .. _storm-model:
@@ -1777,16 +1613,9 @@ marked as "deprecated", determine whether your Cortex contains deprecated nodes 
 properties, and optionally lock / unlock those properties to prevent (or allow) continued creation of
 deprecated model elements.
 
-``model.edge.*`` commands allow you to work with lightweight (light) edges. (See also the ``edges.del``
-and ``lift.byverb`` commands under :ref:`storm-edges` and :ref:`storm-lift`, respectively.)
-
 - `model.deprecated.check`_
 - `model.deprecated.lock`_
 - `model.deprecated.locks`_
-- `model.edge.list`_
-- `model.edge.set`_
-- `model.edge.get`_
-- `model.edge.del`_
 
 Help for individual ``model.*`` commands can be displayed using:
 
@@ -1828,61 +1657,6 @@ The ``model.deprecated.locks`` command displays the lock status of all deprecate
 **Syntax:**
 
 .. storm-cli:: model.deprecated.locks --help
-
-
-.. _storm-model-edge-list:
-
-model.edge.list
-+++++++++++++++
-
-The ``model.edge.list`` command displays the set of light edges currently defined in the Cortex and any
-``doc`` values set on them.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.list --help
-
-
-.. _storm-model-edge-set:
-
-model.edge.set
-++++++++++++++
-
-The ``model.edge.set`` command allows you to set the value of a given key on a light edge (such as a
-``doc``  value to specify a definition for the light edge). The current list of valid keys include the
-following:
-
-- ``doc``
-
-**Syntax:**
-
-.. storm-cli:: model.edge.set --help
-
-
-.. _storm-model-edge-get:
-
-model.edge.get
-++++++++++++++
-
-The ``model.edge.get`` command allows you to retrieve all of the keys that have been set on a light edge.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.get --help
-
-
-.. _storm-model-edge-del:
-
-model.edge.del
-++++++++++++++
-
-The ``model.edge.del`` command allows you to delete the key from a light edge (such as a ``doc`` property
-to specify a definition for the light edge). Deleting a key from a specific light edge does not delete
-the key from Synapse (e.g., the property can be re-added to the light edge or to other light edges).
-
-**Syntax:**
-
-.. storm-cli:: model.edge.del --help
 
 
 .. _storm-movenodes:
@@ -2159,47 +1933,6 @@ The ``pkg.perms.list`` command lists the permissions declared by a Storm package
 .. storm-cli:: pkg.perms.list --help
 
 
-.. _storm-ps:
-
-ps
---
-
-Storm includes ``ps.*`` commands that allow you to work with Storm tasks/queries.
-
-- `ps.list`_
-- `ps.kill`_
-
-Help for individual ``ps.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-.. _storm-ps-list:
-
-ps.list
-+++++++
-
-The ``ps.list`` command lists the currently executing tasks/queries. By default, the command displays
-the first 120 characters of the executing query. The ``--verbose`` option can be used to display the
-full query regardless of length.
-
-**Syntax:**
-
-.. storm-cli:: ps.list --help
-
-
-.. _storm-ps-kill:
-
-ps.kill
-+++++++
-
-The ``ps.kill`` command can be used to terminate an executing task/query. The command requires the
-:ref:`gloss-iden` of the task to be terminated, which can be obtained with :ref:`storm-ps-list`.
-
-**Syntax:**
-
-.. storm-cli:: ps.kill --help
-
-
 .. _storm-queue:
 
 queue
@@ -2315,7 +2048,9 @@ can be used to return the scraped nodes rather than the input nodes.
 - Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found
   in the text:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
 **Usage Notes:**
@@ -2323,14 +2058,14 @@ can be used to return the scraped nodes rather than the input nodes.
 - If no properties to scrape are specified, ``scrape`` will attempt to scrape **all** properties of the
   inbound nodes by default.
 - ``scrape`` will only scrape node **properties**; it will not scrape files (this includes files that may
-  be referenced by properties, such as ``media:news:file``). In other words, ``scrape`` cannot be used to
+  be referenced by properties, such as ``doc:report:file``). In other words, ``scrape`` cannot be used to
   parse indicators from a file such as a PDF.
 - ``scrape`` extracts the following forms / indicators (note that this list may change as the command is
   updated):
 
   - FQDNs
-  - IPv4s
-  - Servers (IPv4 / port combinations)
+  - IPs
+  - Servers (IP / port combinations)
   - Hashes (MD5, SHA1, SHA256)
   - URLs
   - Email addresses
@@ -2493,6 +2228,43 @@ tags that don't have other tags as children.
 
 .. storm-cli:: tag.prune --help
 
+task
+----
+
+Storm includes ``task.*`` commands that allow you to work with Storm tasks.
+
+- `task.list`_
+- `task.kill`_
+
+Help for individual ``task.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-task-list:
+
+task.list
++++++++++
+
+The ``task.list`` command lists the currently executing tasks on a Cortex and any mirrors. By default,
+the command displays the first 120 characters of the executing query. The ``--verbose`` option can be
+used to display the full query regardless of length.
+
+**Syntax:**
+
+.. storm-cli:: task.list --help
+
+
+.. _storm-task-kill:
+
+task.kill
++++++++++
+
+The ``task.kill`` command can be used to terminate an executing task. The command requires the
+:ref:`gloss-iden` of the task to be terminated, which can be obtained with :ref:`storm-task-list`.
+
+**Syntax:**
+
+.. storm-cli:: task.kill --help
 
 .. _storm-tee:
 
@@ -2512,13 +2284,13 @@ result set.
 - Return the set of domains and IP addresses associated with a set of DNS A records.
 
 .. storm-pre:: [inet:dns:a=(foo.mydomain.com,8.8.8.8) inet:dns:a=(bar.mydomain.com,34.56.78.90) inet:dns:a=(baz.mydomain.com,127.0.0.2)] 
-.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ip }
 
 
 - Return the set of domains and IP addresses associated with a set of DNS A records along with the
   original DNS A records.
 
-.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ip }
 
 
 **Usage Notes:**
@@ -2567,17 +2339,11 @@ Storm includes ``trigger.*`` commands that allow you to create automated event-d
 - `trigger.add`_
 - `trigger.list`_
 - `trigger.mod`_
-- `trigger.disable`_
-- `trigger.enable`_
 - `trigger.del`_
 
 Help for individual ``trigger.*`` commands can be displayed using:
 
   ``<command> --help``
-
-Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`)
-of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes
-in Synapse.
 
 .. _storm-trigger-add:
 
@@ -2605,10 +2371,6 @@ Triggers are displayed in alphanumeric order by iden. Triggers are sorted upon C
 so newly-created triggers will be displayed at the bottom of the list until the list is re-sorted the
 next time the Cortex is restarted.
 
-.. NOTE::
-
-  Triggers can also be viewed in runt node form as ``syn:trigger`` nodes.
-
 **Syntax:**
 
 .. storm-cli:: trigger.list --help
@@ -2621,8 +2383,7 @@ trigger.mod
 
 The ``trigger.mod`` command modifies the Storm query associated with a specific trigger. To modify
 a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that
-the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting
-the appropriate ``syn:trigger`` node.
+the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
 
 .. NOTE::
 
@@ -2635,39 +2396,6 @@ the appropriate ``syn:trigger`` node.
 .. storm-cli:: trigger.mod --help
 
 
-.. _storm-trigger-disable:
-
-trigger.disable
-+++++++++++++++
-
-The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from
-the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough
-of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``
-or by lifting the appropriate ``syn:trigger`` node.
-
-**Syntax:**
-
-.. storm-cli:: trigger.disable --help
-
-
-.. _storm-trigger-enable:
-
-trigger.enable
-++++++++++++++
-
-The ``trigger.enable`` command enables a disabled trigger. To enable a trigger, you must provide the
-first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
-which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
-
-.. NOTE::
-
-  Triggers are enabled by default upon creation.
-
-**Syntax:**
-
-.. storm-cli:: trigger.enable --help
-
-
 .. _storm-trigger-del:
 
 trigger.del
@@ -2675,8 +2403,7 @@ trigger.del
 
 The ``trigger.del`` command permanently removes a trigger from the Cortex. To delete a trigger, you
 must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can
-be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate
-``syn:trigger`` node.
+be uniquely identified), which can be obtained using ``trigger.list``.
 
 **Syntax:**
 
@@ -2707,27 +2434,27 @@ specified value or combination of values.
   resolved to:
 
 .. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn [+#rep.threatconnect.fancybear ]
-.. storm-pre:: inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+.. storm-pre:: inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ::
   
-  inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+  inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 
 
-- Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IPv4 address:
+- Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
 
-.. storm-pre:: [ ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=2.2.2.2 ) ( inet:flow=* :src:ipv4=11.11.11.11 :dst:ipv4=3.3.3.3 ) ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=4.4.4.4 ) ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=4.4.4.4 ) ( inet:flow=* :src:ipv4=121.121.121.121 :dst:ipv4=2.2.2.2 ) ]
-.. storm-pre:: inet:flow | uniq :src:ipv4
+.. storm-pre:: [ ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2 ) ( inet:flow=* :client=tcp://11.11.11.11 :server=tcp://3.3.3.3 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://121.121.121.121 :server=tcp://2.2.2.2 ) ]
+.. storm-pre:: inet:flow | uniq :client.ip
 ::
   
-  inet:flow | uniq :src:ipv4
+  inet:flow | uniq :client.ip
 
 
-- Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IPv4 addresses:
+- Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-.. storm-pre:: inet:flow | uniq (:src:ipv4, :dst:ipv4)
+.. storm-pre:: inet:flow | uniq (:client, :server)
 ::
   
-  inet:flow | uniq (:src:ipv4, :dst:ipv4)
+  inet:flow | uniq (:client, :server)
 
 - Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
   includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.

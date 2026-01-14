@@ -14,6 +14,7 @@ commands:
       - run:
           name: Upload Coverage Results
           command: |
+            if [ -z "${COVERAGE_ARGS}" ]; then exit 0; fi
             # Download and verify the codecov binary
             curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
             curl -Os https://uploader.codecov.io/latest/linux/codecov
@@ -276,6 +277,99 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
+  deploy_to_devpi:
+    description: "Publish wheel + sdist packages to devpi"
+    parameters:
+      devpi_base_url:
+        description: Base URL for the devpi service
+        type: string
+      devpi_index:
+        description: Index to push packages to and install requirements from.
+        type: string
+      python_tag:
+        description: Python tag to use when building wheels
+        type: string
+      tag_verify:
+        description: Check if the git tag matches the package version.
+        type: boolean
+        default: true
+      pip_install_args:
+        description: Additional args to provide to pip install when installing requirements.
+        type: string
+        default: ''
+      python_smoke_code:
+        description: Code used to smoke test the package before publication.
+        type: string
+    steps:
+      - restore_cache:
+          keys:
+            - v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+      - run:
+          name: install python dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install -U -r requirements.txt --index-url="<< parameters.devpi_base_url >><< parameters.devpi_index >>/+simple" << parameters.pip_install_args >>
+            python3 -m pip install -U twine build
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+      - when:
+          condition: << parameters.tag_verify >>
+          steps:
+            - run:
+                name: verify git tag vs. version
+                command: |
+                  . venv/bin/activate
+                  python ./scripts/verify_version.py
+
+      - run:
+          name: create packages
+          command: |
+            . venv/bin/activate
+            python3 scripts/replace_commit.py
+            export DIST_EXTRA_CONFIG=/tmp/build-opts.cfg
+            echo -e "[bdist_wheel]\npython_tag=<< parameters.python_tag >>" > $DIST_EXTRA_CONFIG
+            python -m build --wheel
+            python -m build --sdist
+
+      - run:
+          name: smoke packages
+          command: |
+            python3 -m venv /tmp/sdisttest/venv
+            mkdir -p /tmp/sdisttest
+            cp dist/*.tar.gz /tmp/sdisttest
+
+            mkdir -p /tmp/wheeltest
+            python3 -m venv /tmp/wheeltest/venv
+            cp dist/*.whl /tmp/wheeltest
+
+            cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip twine
+            python3 -m twine check *.whl
+            python3 -m pip install *.whl
+            python3 -c "<< parameters.python_smoke_code >>"
+            deactivate
+
+            cd /tmp/sdisttest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip twine
+            python3 -m twine check *.tar.gz
+            python3 -m pip install *.tar.gz
+            python3 -c "<< parameters.python_smoke_code >>"
+            deactivate
+
+      - run:
+          name: upload to devpi
+          command: |
+            . venv/bin/activate
+            twine upload --repository-url "<< parameters.devpi_base_url >><< parameters.devpi_index >>" dist/*
   
   do_docker_prep:
     description: "Install packages and set commit."
@@ -333,11 +427,11 @@ commands:
       - run:
           name: build images
           command: |
-            docker/build_all.sh << parameters.image-tag >>
+            docker/scripts/build.sh << parameters.image-tag >>
       - run:
           name: smoke test images
           command: |
-            docker/scripts/test_all.sh << parameters.image-tag >>
+            docker/scripts/test.sh << parameters.image-tag >>
 
   push_docker_image:
     description: "Push a docker image up to a registry"
@@ -364,12 +458,12 @@ commands:
             - run:
                 name: retag images
                 command: |
-                  docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+                  docker/scripts/retag.sh << parameters.source-tag >> << parameters.image-tag >>
 
       - run:
           name: push images
           command: |
-            docker/scripts/push_all.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
+            docker/scripts/push.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
 
       - when:
           condition: << parameters.cosign >>
@@ -422,7 +516,7 @@ commands:
           command: |
             if [ -z $DOCKER_FAILOVER ]
             then
-              docker/scripts/copy_all.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
+              docker/scripts/copy.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
             else
               echo "Skipping secondary registry copy."
             fi
@@ -447,34 +541,35 @@ commands:
 
 jobs:
 
-  python311:
+  python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.14.2
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.14
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_ARGS: --cov synapse --cov-append
+          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
     steps:
       - test_steps_python
 
-  python311_replay:
+  python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.14.2
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.14
+          NO_COLOR: 1
           RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
@@ -484,9 +579,9 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.14.2
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.14
 
     working_directory: ~/repo
 
@@ -495,10 +590,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.14.2
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -507,10 +602,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.14.2
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -552,6 +647,26 @@ jobs:
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
+  devpi_synapse_3xx:
+    docker:
+      - image: cimg/python:3.14.2
+    steps:
+      - checkout
+      - run:
+          name: Version bump and date the build.
+          command: |
+            python3 -m pip install bump2version
+            DATE=`date '+%Y%m%d%H%M'`
+            CURRENT_VERSION=`grep "current_version =" .bumpversion.cfg | cut -f 2 -d "=" | tr -d '[:space:]'`
+            # The "patch" value is used here just to fulfill a required argument.
+            python3 -m bumpversion --allow-dirty --no-tag --no-commit --new-version "${CURRENT_VERSION}a${DATE}" patch
+      - deploy_to_devpi:
+          devpi_base_url: ${DEVPI_BASE_URL}
+          devpi_index: vertex/synapse-3xx
+          python_tag: py314
+          tag_verify: false
+          python_smoke_code: import synapse; print(synapse.version)
+
 workflows:
   version: 2
   run_tests:
@@ -563,19 +678,21 @@ workflows:
             branches:
                only: /.*/
 
-      - python311:
+      - python314:
           filters:
             tags:
               only: /.*/
             branches:
               only: /.*/
 
-      - python311_replay:
+      - python314_replay:
           filters:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              only:
+                - master
+                - synapse-3xx
 
       - python_package_smoketest:
           filters:
@@ -588,8 +705,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -599,11 +716,26 @@ workflows:
             branches:
               ignore: /.*/
 
+      - devpi_synapse_3xx:
+          context:
+            - Devpi00Access
+          requires:
+            - doctests
+            - python314
+            - python314_replay
+            - python_package_smoketest
+          filters:
+            tags:
+              ignore: /.*/
+            branches:
+              only:
+                - synapse-3xx
+
       - gh-release/dorelease:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -617,7 +749,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python311
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -626,11 +758,12 @@ workflows:
             branches:
               only:
                 - master
+                - synapse-3xx
 
       - build_docker_tag:
           requires:
             - doctests
-            - python311
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -652,7 +785,7 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python311
+      - python314
 
   weekly:
     triggers:
@@ -663,4 +796,4 @@ workflows:
               only:
                 - master
     jobs:
-      - python311_replay
+      - python314_replay

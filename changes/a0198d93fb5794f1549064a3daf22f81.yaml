@@ -1,7 +1,0 @@
----
-desc: Modified ``$lib.auth.users.get()`` to return the current user if a user ID is not
-  specified.
-desc:literal: false
-prs: []
-type: feat
-...
