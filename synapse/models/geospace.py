@@ -518,11 +518,7 @@ modeldefs = (
             ('geo:place', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'A type specific identifier such as an airport ID.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate type specific identifiers.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),

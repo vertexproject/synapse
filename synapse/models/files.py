@@ -203,12 +203,8 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'alts': ('ids',),
                         'prevnames': ('imageid',),
                         'doc': 'MIME specific unique identifier extracted from metadata.'}),
-
-                    ('ids', ('array', {'type': 'meta:id'}), {
-                        'doc': 'An array of MIME specific unique identifiers extracted from metadata.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'MIME specific description field extracted from metadata.'}),

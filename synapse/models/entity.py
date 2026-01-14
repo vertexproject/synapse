@@ -44,11 +44,7 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'alts': ('ids',),
                         'doc': 'A type or source specific ID for the {title}.'}),
-
-                    ('ids', ('array', {'type': 'meta:id'}), {
-                        'doc': 'An array of alternate type or source specific IDs for the {title}.'}),
 
                     ('bio', ('text', {}), {
                         'doc': 'A tagline or bio provided for the {title}.'}),

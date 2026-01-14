@@ -159,13 +159,9 @@ modeldefs = (
                     'doc': 'A brief course description.'}),
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'ex': 'chem101',
                     'prevnames': ('code',),
                     'doc': 'The course catalog number or ID.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate course catalog numbers or IDs.'}),
 
                 ('institution', ('ou:org', {}), {
                     'doc': 'The org or department which teaches the course.'}),

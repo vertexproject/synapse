@@ -358,11 +358,7 @@ modeldefs = (
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'An identifier for the feed.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate identifiers for the feed.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),

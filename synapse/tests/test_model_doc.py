@@ -9,7 +9,6 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('''
                 [ doc:policy=*
                     :id=V-41
-                    :ids=(W-41,)
                     :title="Rule 41"
                     :body="If you can AAAAAAAA..."
                     :file=*
@@ -23,7 +22,6 @@ class DocModelTest(s_tests.SynTest):
             ''')
             self.len(1, nodes)
             self.eq('V-41', nodes[0].get('id'))
-            self.eq(('W-41',), nodes[0].get('ids'))
             self.eq('Rule 41', nodes[0].get('title'))
             self.eq('If you can AAAAAAAA...', nodes[0].get('body'))
             self.eq(1729209600000000, nodes[0].get('created'))
@@ -40,8 +38,6 @@ class DocModelTest(s_tests.SynTest):
             self.len(2, await core.nodes('doc:policy:id=V-41 :supersedes -> doc:policy'))
             self.len(1, await core.nodes('doc:policy:id=V-41 :author -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('doc:policy:id=V-41 :contributors -> entity:contact +:name=shuka'))
-
-            self.eq(nodes[0].ndef[1], await core.callStorm('return({[doc:policy=({"id": "W-41"})]})'))
 
             nodes = await core.nodes('''
                 [ doc:standard=*

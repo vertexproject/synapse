@@ -190,11 +190,7 @@ modeldefs = (
             ('pol:candidate', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of unique IDs for the candidate issued by an election authority.'}),
 
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the candidate.'}),

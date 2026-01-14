@@ -1213,11 +1213,7 @@ modeldefs = (
                     'doc': 'The org that operates the given host.'}),
 
                 ('id', ('str', {}), {
-                    'alts': ('ids',),
                     'doc': 'An external identifier for the host.'}),
-
-                ('ids', ('array', {'type': 'str'}), {
-                    'doc': 'An array of alternate external identifiers for the host.'}),
 
                 ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The primary keyboard layout configured on the host.'}),
@@ -1262,11 +1258,7 @@ modeldefs = (
             ('it:storage:volume', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The unique volume ID.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate unique volume IDs.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the volume.'}),
@@ -1307,11 +1299,7 @@ modeldefs = (
                     'doc': 'A raw JSON record of the log event.'}),
 
                 ('id', ('str', {}), {
-                    'alts': ('ids',),
                     'doc': 'An external id that uniquely identifies this log entry.'}),
-
-                ('ids', ('array', {'type': 'str'}), {
-                    'doc': 'An array of alternate external ids for the log entry.'}),
 
                 ('product', ('it:software', {}), {
                     'doc': 'The software which produced the log entry.'}),
@@ -1581,11 +1569,7 @@ modeldefs = (
                     'doc': 'Description of the scan and scope.'}),
 
                 ('id', ('str', {}), {
-                    'alts': ('ids',),
                     'doc': 'An externally generated ID for the scan.'}),
-
-                ('ids', ('array', {'type': 'str'}), {
-                    'doc': 'An array of alternate externally generated IDs for the scan.'}),
 
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan.'}),
@@ -1619,11 +1603,7 @@ modeldefs = (
                     'doc': 'The time that the scan result was produced.'}),
 
                 ('id', ('str', {}), {
-                    'alts': ('ids',),
                     'doc': 'An externally generated ID for the scan result.'}),
-
-                ('ids', ('array', {'type': 'str'}), {
-                    'doc': 'An array of alternate externally generated IDs for the scan result.'}),
 
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan result.'}),
@@ -1728,11 +1708,7 @@ modeldefs = (
                     'doc': 'The commit message describing the changes in the commit.'}),
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The version control system specific commit identifier.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate version control system specific commit identifiers.'}),
 
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the commit is hosted.'}),
@@ -1783,21 +1759,13 @@ modeldefs = (
                     'doc': 'The URL where the issue is hosted.'}),
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The ID of the issue in the repository system.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate IDs for the issue.'}),
             )),
 
             ('it:dev:repo:label', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The ID of the label.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate IDs for the label.'}),
 
                 ('title', ('str', {'lower': True}), {
                     'doc': 'The human friendly name of the label.'}),
@@ -2559,21 +2527,13 @@ modeldefs = (
 
             ('it:sec:stix:bundle', {}, (
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The id field from the STIX bundle.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate id fields for the STIX bundle.'}),
             )),
 
             ('it:sec:stix:indicator', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'The STIX id field from the indicator pattern.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate STIX id fields for the indicator pattern.'}),
 
                 ('name', ('str', {}), {
                     'doc': 'The name of the STIX indicator pattern.'}),
@@ -2619,11 +2579,7 @@ modeldefs = (
             ('it:dev:function', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'alts': ('ids',),
                     'doc': 'An identifier for the function.'}),
-
-                ('ids', ('array', {'type': 'meta:id'}), {
-                    'doc': 'An array of alternate identifiers for the function.'}),
 
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the function.'}),

@@ -428,7 +428,6 @@ class FileTest(s_t_utils.SynTest):
                 self.eq('foo bar', n.get('text'))
                 self.eq(1578236238000000, n.get('created'))
                 self.eq('a6b4', n.get('id'))
-                self.eq(('c1d2',), n.get('ids'))
                 self.eq(conguid, n.get('author'))
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
                 self.eq(6371137800, n.get('altitude'))
@@ -449,7 +448,6 @@ class FileTest(s_t_utils.SynTest):
                 :text="  Foo   Bar   "
                 :created="2020-01-05 14:57:18"
                 :id=a6b4
-                :ids=(c1d2,)
                 :author=$conguid
                 :latlong="38.9582839,-77.358946"
                 :altitude="129 meters"'''
@@ -485,7 +483,6 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             testexif(nodes[0])
-            self.eq(nodes[0].ndef[1], await core.callStorm('return({[file:mime:png=({"id": "c1d2"})]})'))
 
     async def test_model_file_archive_entry(self):
 

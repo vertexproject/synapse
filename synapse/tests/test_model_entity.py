@@ -8,8 +8,6 @@ class EntityModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 entity:contact=*
-                    :id=" 1234 "
-                    :ids=(" 5678 ",)
                     :name=visi
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
@@ -22,8 +20,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :place:address:city="  new York  city "
             ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('id'), '1234')
-            self.eq(nodes[0].get('ids'), ('5678',))
             self.eq(nodes[0].get('name'), 'visi')
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
@@ -34,8 +30,6 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('place:address:city'), 'new york city')
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
-
-            self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:contact=({"id": "5678"})})'))
 
             nodes = await core.nodes('''
                 $item = {[ transport:air:craft=* ]}
@@ -92,6 +86,7 @@ class EntityModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ entity:campaign=*
                     :id=Foo
+                    :ids=(Bar,)
                     :type=MyType
                     :name=MyName
                     :names=(Foo, Bar)
@@ -109,6 +104,7 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'Foo')
+            self.eq(nodes[0].get('ids'), ('Bar',))
             self.eq(nodes[0].get('tag'), 'cno.camp.31337')
             self.eq(nodes[0].get('name'), 'myname')
             self.eq(nodes[0].get('names'), ('bar', 'foo'))
@@ -119,6 +115,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.eq(nodes[0].get('reporter:name'), 'vertex')
             self.eq(nodes[0].get('slogan'), 'For The People')
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:campaign=({"id": "Bar"})})'))
 
             # FIXME this seems like it should work...
             # self.len(1, await core.nodes('entity:campaign --> entity:goal'))

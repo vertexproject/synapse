@@ -320,12 +320,8 @@ modeldefs = (
             ('econ:payment', {}, (
 
                 ('id', ('base:id', {}), {
-                    'alts': ('ids',),
                     'prevnames': ('txnid',),
                     'doc': 'A payment processor specific transaction ID.'}),
-
-                ('ids', ('array', {'type': 'base:id'}), {
-                    'doc': 'An array of alternate payment processor specific IDs.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time the payment was made.'}),

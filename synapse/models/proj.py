@@ -25,11 +25,7 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'alts': ('ids',),
                         'doc': 'The ID of the {task}.'}),
-
-                    ('ids', ('array', {'type': 'meta:id'}), {
-                        'doc': 'An array of alternate IDs for the {task}.'}),
 
                     ('parent', ('proj:doable', {}), {
                         'doc': 'The parent task which includes this {task}.'}),

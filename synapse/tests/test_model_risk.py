@@ -180,7 +180,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :ext:assignee = {[ entity:contact=* :email=visi@vertex.link ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :id=WOOT-20
-                    :ids=(WOOT-20-alt,)
                     :engine={[ it:software=* :name=visiware ]}
                     :host=*
                     :priority=high
@@ -198,7 +197,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('BlahBlah', nodes[0].get('desc'))
             self.eq(2554848000000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('id'))
-            self.eq(('WOOT-20-alt',), nodes[0].get('ids'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('assignee'))
             self.nn(nodes[0].get('host'))
@@ -208,8 +206,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert :engine -> it:software'))
             self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
             self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
-
-            self.eq(nodes[0].ndef[1], await core.callStorm('return({[risk:alert=({"id": "WOOT-20-alt"})]})'))
 
             opts = {'vars': {'ndef': nodes[0].ndef[1]}}
             nodes = await core.nodes('risk:alert=$ndef [ :updated=20251003 ]', opts=opts)
