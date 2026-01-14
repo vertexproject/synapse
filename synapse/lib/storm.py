@@ -5700,7 +5700,7 @@ class IntersectCmd(Cmd):
                         path.vars.update(pathvars.get(buid))
                         yield (node, path)
 
-css4_colors = '|'.join((
+css4_colors = {
     'aliceblue',
     'antiquewhite',
     'aqua',
@@ -5849,9 +5849,9 @@ css4_colors = '|'.join((
     'whitesmoke',
     'yellow',
     'yellowgreen',
-))
+}
 
-color_regex = regex.compile(f'^(#[0-9a-f]{{6}}|{css4_colors})$', flags=regex.IGNORECASE)
+hexcolor_regex = regex.compile('^#[0-9a-fA-F]{6}$')
 class ColorizeCmd(Cmd):
     '''
     Add metadata to nodes which can be used to colorize them during display.
@@ -5870,8 +5870,8 @@ class ColorizeCmd(Cmd):
 
             color = await s_stormtypes.tostr(self.opts.color, noneok=True)
             if color:
-                if color_regex.match(color) is None:
-                    mesg = 'Color must be CSS4 color name or a six digit hex color code prefixed with a #.'
+                if color.lower() not in css4_colors and hexcolor_regex.match(color) is None:
+                    mesg = 'Color must be a CSS4 color name or a six digit hex color code prefixed with a #.'
                     raise s_exc.BadArg(mesg=mesg)
 
                 path.display = {'color': color}
