@@ -418,7 +418,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:enacted :scope -> ou:team'))
             self.len(1, await core.nodes('ou:enacted :ext:creator -> entity:contact +:name=root'))
             self.len(1, await core.nodes('ou:enacted :ext:assignee -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('ou:enacted <(showed)- meta:rule'))
+            self.len(1, await core.nodes('ou:enacted <(shows)- meta:rule'))
 
             nodes = await core.nodes('''
                 [ ou:candidate=*

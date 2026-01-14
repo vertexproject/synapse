@@ -158,9 +158,8 @@ modeldefs = (
             (('doc:contract', 'has', 'doc:requirement'), {
                 'doc': 'The contract contains the requirement.'}),
 
-            # TODO more... (('meta:usable', 'meets', 'doc:requirement'), {
             (('meta:technique', 'meets', 'doc:requirement'), {
-                'doc': 'The source node meets the target requirement.'}),
+                'doc': 'Use of the source technique meets the target requirement.'}),
         ),
         'forms': (
 
@@ -255,6 +254,5 @@ modeldefs = (
                     'doc': 'The date that the contract was terminated.'}),
             )),
         ),
-        'edges': (),
     }),
 )
