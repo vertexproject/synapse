@@ -5861,7 +5861,7 @@ class ColorizeCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax.')
+        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax or a CSS color name.')
         return pars
 
     async def execStormCmd(self, runt, genr):
