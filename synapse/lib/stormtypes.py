@@ -2596,7 +2596,7 @@ class LibLift(Lib):
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
-                      {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
+                      {'name': 'name', 'desc': 'The name of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
@@ -6521,13 +6521,9 @@ class Path(Prim):
     _storm_locals = (
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
-        {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methPathIdens',
-                  'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
         {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathLinks',
-                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of (node id, link info) tuples.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6546,14 +6542,9 @@ class Path(Prim):
 
     def getObjLocals(self):
         return {
-            'idens': self._methPathIdens,
             'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
-
-    @stormfunc(readonly=True)
-    async def _methPathIdens(self):
-        return [n.iden() for n in self.valu.nodes]
 
     @stormfunc(readonly=True)
     async def _methPathLinks(self):

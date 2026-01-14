@@ -151,44 +151,15 @@ class BaseTest(s_t_utils.SynTest):
 
     async def test_model_doc_strings(self):
 
-        self.skip('FIXME - do we wanna just mop these up?')
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('syn:type:doc="" -:ctor^="synapse.tests"')
             self.len(0, nodes)
 
-            SYN_6315 = [
-                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ip',
-                'inet:dns:query:name:fqdn', 'inet:dns:query:type',
-                'inet:dns:request:time', 'inet:dns:request:query', 'inet:dns:request:query:name',
-                'inet:dns:request:query:name:ip',
-                'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
-                'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
-                'ou:team:org', 'ou:team:name',
-                'entity:contact:asof', 'pol:country:iso2', 'pol:country:iso3', 'pol:country:isonum',
-                'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
-                'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',
-                'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
-                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ip',
-                'tel:mob:telem:wifi:ap', 'tel:mob:telem:wifi:ap:ssid', 'tel:mob:telem:wifi:ap:bssid',
-                'tel:mob:telem:name', 'tel:mob:telem:email',
-                'tel:mob:telem:app', 'tel:mob:telem:data',
-                'inet:http:request:response:time', 'inet:http:request:response:code',
-                'inet:http:request:response:reason', 'inet:http:request:response:body',
-                'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',
-                'gov:us:cage:cc', 'gov:us:cage:country', 'gov:us:cage:phone0', 'gov:us:cage:phone1',
-                'biz:rfp:requirements',
-            ]
-
             nodes = await core.nodes('syn:prop:doc=""')
             keep = []
-            skip = []
             for node in nodes:
                 name = node.ndef[1]
-
-                if name in SYN_6315:
-                    skip.append(node.form.name)
-                    continue
 
                 if name.startswith('test:'):
                     continue
@@ -196,7 +167,6 @@ class BaseTest(s_t_utils.SynTest):
                 keep.append(node)
 
             self.len(0, keep, msg=[node.ndef[1] for node in keep])
-            self.sorteq(SYN_6315, skip)
 
             for edge in core.model.edges.values():
                 doc = edge.edgeinfo.get('doc')

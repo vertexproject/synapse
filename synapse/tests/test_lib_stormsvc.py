@@ -481,25 +481,6 @@ class StormSvcTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
 
-    async def test_storm_cmd_scope(self):
-        # TODO - Fix me / move me - what is this tests purpose in life?
-        async with self.getTestCore() as core:
-
-            cdef = {
-                'name': 'lulz',
-                'storm': '''
-                    $test=(asdf, qwer)
-
-                    for $t in $test {
-                        $lib.print($test)
-                    }
-                '''
-            }
-
-            await core.setStormCmd(cdef)
-
-            await core.nodes('[ test:str=asdf ] | lulz')
-
     async def test_storm_pkg_persist(self):
 
         pkg = {

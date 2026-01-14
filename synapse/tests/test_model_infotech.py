@@ -199,6 +199,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :labels=(hehe, haha)
                     :valid_from=20240815
                     :valid_until=20240815
+                    +(detects)> {[ entity:campaign=(foo, bar) ]}
             ]''')
             self.len(1, nodes)
             self.eq('zoinks', nodes[0].get('id'))
@@ -213,6 +214,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000000, nodes[0].get('updated'))
             self.eq(1723680000000000, nodes[0].get('valid_from'))
             self.eq(1723680000000000, nodes[0].get('valid_until'))
+            self.len(1, await core.nodes('it:sec:stix:indicator -(detects)> entity:campaign'))
 
             nodes = await core.nodes('''
                 [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)
@@ -396,6 +398,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             # self.eq(node.get('cisa:kev:added'), 1641081600000000)
             # self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
 
+            nodes = await core.nodes('[ it:sec:cve=cve-2010-9998 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
+
+            nodes = await core.nodes('it:sec:cve^=cve-2010')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
+
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)
             node = nodes[0]
@@ -505,7 +515,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
 
-            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en.us"}) ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))

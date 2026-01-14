@@ -62,7 +62,7 @@ modeldefs = (
                 'ex': '0111',
                 'doc': 'The four digit Standard Industrial Classification Code.'}),
 
-            ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$', 'strip': True}), {
+            ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$'}), {
                 'ex': '541715',
                 'doc': 'North American Industry Classification System codes and prefixes.'}),
 
@@ -327,6 +327,10 @@ modeldefs = (
         ),
         'edges': (
 
+            # TODO - we will need more of these based on interfaces
+            (('meta:rule', 'shows', 'ou:enacted'), {
+                'doc': 'The source rule shows the status of the enacted document.'}),
+
         ),
         'forms': (
 
@@ -406,7 +410,7 @@ modeldefs = (
                 ('submitted', ('time', {}), {
                     'doc': 'The time the candidate was submitted for consideration.'}),
 
-                ('intro', ('str', {'strip': True}), {
+                ('intro', ('str', {}), {
                     'doc': 'An introduction or cover letter text submitted by the candidate.'}),
 
                 ('resume', ('doc:resume', {}), {
@@ -599,8 +603,11 @@ modeldefs = (
                     'doc': 'A base tag used to encode assessments made by the organization.'}),
             )),
             ('ou:team', {}, (
-                ('org', ('ou:org', {}), {}),
-                ('name', ('meta:name', {}), {}),
+                ('org', ('ou:org', {}), {
+                    'doc': 'The organization that the team is associated with.'}),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the team.'}),
             )),
 
             ('ou:asset:type:taxonomy', {}, ()),

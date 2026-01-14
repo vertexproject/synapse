@@ -374,10 +374,6 @@ class NodeTest(s_t_utils.SynTest):
                 await pcln.setVar('bar', 'us')
                 self.eq(pcln.getVar('bar'), 'us')
                 self.eq(path.getVar('bar'), s_common.novalu)
-                # Ensure the path nodes are independent
-                self.eq(len(pcln.nodes), len(path.nodes))
-                pcln.nodes.pop(-1)
-                self.ne(len(pcln.nodes), len(path.nodes))
                 # Ensure the link elements are independent
                 pcln.links.append({'type': 'edge', 'verb': 'seen'})
                 self.len(3, pcln.links)

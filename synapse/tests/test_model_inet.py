@@ -1165,7 +1165,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected = (((4, 16909060), (4, 84281096)), {
                 'subs': {'min': minsub, 'max': maxsub},
-                'virts': {'size': (67372036, 19)}
+                'virts': {'size': (67372037, 19)}
             })
 
             self.eq(await t.norm(valu), expected)
@@ -1187,7 +1187,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected = (((4, 0x01020300), (4, 0x010203ff)), {
                 'subs': {'min': minsub, 'max': maxsub},
-                'virts': {'mask': (24, 2), 'size': (255, 19)}
+                'virts': {'mask': (24, 2), 'size': (256, 19)}
             })
             self.eq(await t.norm(valu), expected)
 
@@ -1261,7 +1261,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected = (((6, 0), (6, 0xff)), {
                 'subs': {'min': minsub, 'max': maxsub},
-                'virts': {'mask': (120, 2), 'size': (255, 19)}
+                'virts': {'mask': (120, 2), 'size': (256, 19)}
             })
             self.eq(await t.norm(valu), expected)
 
@@ -1284,7 +1284,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected = ((minv, maxv), {
                 'subs': {'min': minsub, 'max': maxsub},
-                'virts': {'size': (1208925819614629174771711, 19)}
+                'virts': {'size': (1208925819614629174771712, 19)}
             })
             self.eq(await t.norm(valu), expected)
 
@@ -1303,7 +1303,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected = ((minv, maxv), {
                 'subs': {'min': minsub, 'max': maxsub},
-                'virts': {'mask': (101, 2), 'size': (134217727, 19)}
+                'virts': {'mask': (101, 2), 'size': (134217728, 19)}
             })
             self.eq(await t.norm(valu), expected)
 
@@ -1316,13 +1316,6 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await t.norm(((6, 1), (4, 1)))
 
-            valu = '::/0'
-            norm, info = await t.norm(valu)
-            self.eq(norm, ((6, 0), (6, 0xffffffffffffffffffffffffffffffff)))
-            self.eq(t.repr(norm), valu)
-            self.eq(info['subs']['min'][1], (6, 0))
-            self.eq(info['subs']['max'][1], (6, 0xffffffffffffffffffffffffffffffff))
-
             valu = '2001:db8::/59'
             norm, info = await t.norm(valu)
             self.eq(norm, ((6, 0x20010db8000000000000000000000000), (6, 0x20010db80000001fffffffffffffffff)))
@@ -1334,22 +1327,23 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('inet:net=0::10.2.1.1/300')
 
             await core.nodes('''[
-                inet:net="::/0"
+                inet:net=([[6, 0], [6, 0xfffffffffffffffffffffffffffffffe]])
                 inet:net=([[6, 0], [6, 0]])
                 inet:net=([[6, 0], [6, 0xff]])
                 inet:net=([[6, 0], [6, 0xfe]])
             ]''')
 
-            self.len(1, await core.nodes('inet:net -.mask'))
-            self.len(3, await core.nodes('inet:net +.mask'))
+            self.len(2, await core.nodes('inet:net -.mask'))
+            self.len(2, await core.nodes('inet:net +.mask'))
 
-            self.len(1, await core.nodes('inet:net.mask=0'))
             self.len(1, await core.nodes('inet:net.mask=128'))
             self.len(2, await core.nodes('inet:net.mask>18'))
-            self.len(0, await core.nodes('inet:net.size=0xffffffffffffffffffffffffffffffff'))
-            self.len(1, await core.nodes('inet:net.size=0x100000000000000000000000000000000'))
+            self.len(1, await core.nodes('inet:net.size=0xffffffffffffffffffffffffffffffff'))
             self.len(1, await core.nodes('inet:net.size=1'))
             self.len(3, await core.nodes('inet:net.size>254'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:net="::/0" ]')
 
     async def test_port(self):
         tname = 'inet:port'
@@ -2935,6 +2929,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :topic=' My Topic   '
+                :profile={[ entity:contact=({"email": "foo@bar.com"}) ]}
             ]
             '''
             opts = {'vars': {
@@ -2949,6 +2944,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.len(1, await core.nodes('inet:service:channel:id=C1234 :profile -> entity:contact'))
             gnrlchan = nodes[0]
 
             q = '''
