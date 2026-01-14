@@ -2767,6 +2767,13 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:service:platform:type:taxonomy')
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
+            opts = {
+                'vars': {
+                    'rule00': (rule00 := 'a' * 32),
+                    'rule01': (rule01 := 'b' * 32),
+                },
+            }
+
             q = '''
             [
                 (inet:service:account=(blackout, account, vertex, slack)
@@ -2777,6 +2784,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :email=blackout@vertex.link
                     :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :rules=($rule01, $rule00, $rule01)
                     :seen=(2022, 2023)
                 )
 
@@ -2788,7 +2796,7 @@ class InetModelTest(s_t_utils.SynTest):
                 )
             ]
             '''
-            accounts = await core.nodes(q)
+            accounts = await core.nodes(q, opts=opts)
             self.len(2, accounts)
 
             self.nn(accounts[0].get('banner'))
@@ -2801,6 +2809,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].get('users'), ('blackoutalt', 'zeblackout'))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
+            self.eq(accounts[0].get('rules'), (rule01, rule00, rule01))
 
             self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
             self.eq(accounts[1].get('id'), 'U2XK7PUVB')
@@ -2818,13 +2827,15 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:role=(developers, group, vertex, slack)
                 :id=X1234
                 :name="developers, developers, developers"
+                :rules=($rule01, $rule00, $rule01)
             ]
             '''
-            nodes = await core.nodes(q)
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             self.eq(nodes[0].get('id'), 'X1234')
             self.eq(nodes[0].get('name'), 'developers, developers, developers')
+            self.eq(nodes[0].get('rules'), (rule01, rule00, rule01))
             devsgrp = nodes[0]
 
             q = '''

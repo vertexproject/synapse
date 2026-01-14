@@ -2934,6 +2934,9 @@ modeldefs = (
 
                 ('parent', ('inet:service:account', {}), {
                     'doc': 'A parent account which owns this account.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this account.'}),
             )),
 
             ('inet:service:relationship:type:taxonomy', {}, ()),
@@ -2957,6 +2960,9 @@ modeldefs = (
 
                 ('profile', ('entity:contact', {}), {
                     'doc': 'Current detailed contact information for this role.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this role.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
