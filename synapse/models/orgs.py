@@ -327,6 +327,10 @@ modeldefs = (
         ),
         'edges': (
 
+            # TODO - we will need more of these based on interfaces
+            (('meta:rule', 'shows', 'ou:enacted'), {
+                'doc': 'The source rule shows the status of the enacted document.'}),
+
         ),
         'forms': (
 
