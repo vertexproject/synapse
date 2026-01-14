@@ -1178,6 +1178,9 @@ modeldefs = (
 
             (('it:software', 'has', 'it:software'), {
                 'doc': 'The source software directly includes the target software.'}),
+
+            (('it:sec:stix:indicator', 'detects', None), {
+                'doc': 'The STIX indicator can detect evidence of the target node.'}),
         ),
         'forms': (
             ('it:hostname', {}, ()),

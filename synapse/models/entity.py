@@ -52,6 +52,9 @@ modeldefs = (
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The profile picture or avatar for this {title}.'}),
 
+                    ('banner', ('file:bytes', {}), {
+                        'doc': 'A banner or hero image used on the profile page.'}),
+
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
@@ -118,7 +121,6 @@ modeldefs = (
             ('entity:actor', {
                 'interfaces': (
                     ('geo:locatable', {}),
-                    ('entity:contactable', {}),
                 ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
@@ -194,6 +196,7 @@ modeldefs = (
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
 

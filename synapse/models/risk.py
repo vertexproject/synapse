@@ -77,6 +77,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {
@@ -176,8 +177,8 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'software:name'}},
-                        {'type': 'prop', 'opts': {'name': 'software:names'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'names'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
@@ -340,6 +341,10 @@ modeldefs = (
 
             (('meta:observable', 'resembles', 'meta:observable'), {
                 'doc': 'The source node resembles the target node.'}),
+
+            # TODO we will need more of these...
+            (('inet:proto:link', 'shows', 'risk:vulnerable'), {
+                'doc': 'The network activity shows that the vulnerability was present.'}),
         ),
         'forms': (
 
@@ -394,16 +399,6 @@ modeldefs = (
                 ('software', ('it:software', {}), {
                     'prevnames': ('soft',),
                     'doc': 'The authoritative software family for the tool.'}),
-
-                ('software:name', ('meta:name', {}), {
-                    'alts': ('software:names',),
-                    'prevnames': ('soft:name',),
-                    'doc': "The source's name for the tool."}),
-
-                ('software:names', ('array', {'type': 'meta:name'}), {
-                    'prevnames': ('soft:names',),
-                    'doc': "The source's alternate names for the tool."}),
-
             )),
             ('risk:mitigation:type:taxonomy', {}, ()),
             ('risk:mitigation', {}, (
