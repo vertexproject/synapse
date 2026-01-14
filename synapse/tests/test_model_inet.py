@@ -659,13 +659,6 @@ class InetModelTest(s_t_utils.SynTest):
             isneither(n2)  # stays the same
             issuffix(n4)   # stays the same
 
-    async def test_role(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:role="cool Group"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:role', 'cool Group'))
-
     async def test_http_cookie(self):
 
         async with self.getTestCore() as core:

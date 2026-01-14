@@ -1387,9 +1387,6 @@ modeldefs = (
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
 
-            ('inet:role', ('str', {}), {
-                'doc': 'A role name string.'}),
-
             ('inet:http:header:name', ('str', {'lower': True}), {}),
 
             ('inet:http:header', ('comp', {'fields': (('name', 'inet:http:header:name'), ('value', 'str'))}), {
@@ -2279,8 +2276,6 @@ modeldefs = (
                 }),
             )),
 
-            ('inet:role', {}, ()),
-
             ('inet:http:request:header', {}, (
 
                 ('name', ('inet:http:header:name', {}), {'computed': True,
@@ -2955,7 +2950,7 @@ modeldefs = (
 
             ('inet:service:role', {}, (
 
-                ('name', ('inet:role', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the role on this platform.'}),
 
                 ('profile', ('entity:contact', {}), {
