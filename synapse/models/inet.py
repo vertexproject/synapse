@@ -1387,8 +1387,8 @@ modeldefs = (
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
 
-            ('inet:group', ('str', {}), {
-                'doc': 'A group name string.'}),
+            ('inet:role', ('str', {}), {
+                'doc': 'A role name string.'}),
 
             ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1638,13 +1638,13 @@ modeldefs = (
             ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
                 'doc': 'A node which implements the inet:service:joinable interface.'}),
 
-            ('inet:service:group', ('guid', {}), {
-                'template': {'title': 'service group'},
+            ('inet:service:role', ('guid', {}), {
+                'template': {'title': 'service role'},
                 'interfaces': (
                     ('inet:service:object', {}),
                     ('inet:service:joinable', {}),
                 ),
-                'doc': 'A group or role which contains member accounts.'}),
+                'doc': 'A role which contains member accounts.'}),
 
             ('inet:service:channel', ('guid', {}), {
                 'template': {'title': 'channel'},
@@ -2279,7 +2279,7 @@ modeldefs = (
                 }),
             )),
 
-            ('inet:group', {}, ()),
+            ('inet:role', {}, ()),
 
             ('inet:http:request:header', {}, (
 
@@ -2950,13 +2950,13 @@ modeldefs = (
                     'doc': 'The type of relationship between the source and the target.'}),
             )),
 
-            ('inet:service:group', {}, (
+            ('inet:service:role', {}, (
 
-                ('name', ('inet:group', {}), {
-                    'doc': 'The name of the group on this platform.'}),
+                ('name', ('inet:role', {}), {
+                    'doc': 'The name of the role on this platform.'}),
 
                 ('profile', ('entity:contact', {}), {
-                    'doc': 'Current detailed contact information for this group.'}),
+                    'doc': 'Current detailed contact information for this role.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
@@ -2982,7 +2982,7 @@ modeldefs = (
                 ('object', ('ndef', {'interface': 'inet:service:object'}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
+                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:role')}), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3023,8 +3023,8 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the message may be viewed.'}),
 
-                ('group', ('inet:service:group', {}), {
-                    'doc': 'The group that the message was sent to.'}),
+                ('role', ('inet:service:role', {}), {
+                    'doc': 'The role that the message was sent to.'}),
 
                 ('channel', ('inet:service:channel', {}), {
                     'doc': 'The channel that the message was sent to.'}),
@@ -3078,7 +3078,7 @@ modeldefs = (
                     'doc': 'The type of message.'}),
 
                 ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')}}), {
+                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:role')}}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
