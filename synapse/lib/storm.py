@@ -5874,6 +5874,6 @@ class ColorizeCmd(Cmd):
                     mesg = 'Color must be CSS4 color name or a six digit hex color code prefixed with a #.'
                     raise s_exc.BadArg(mesg=mesg)
 
-                path.meta('color', color)
+                path.display = {'color': color}
 
             yield (node, path)

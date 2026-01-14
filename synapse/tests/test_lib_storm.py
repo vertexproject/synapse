@@ -1635,14 +1635,14 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
             nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['color'], '#00a000')
+            self.eq(nodes[0][1]['display']['color'], '#00a000')
 
             msgs = await core.stormlist('[ it:dev:str="#00a000" it:dev:str="Green" ] | colorize $node.repr()')
             self.stormHasNoWarnErr(msgs)
             nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(2, nodes)
-            self.eq(nodes[0][1]['path']['color'], '#00a000')
-            self.eq(nodes[1][1]['path']['color'], 'Green')
+            self.eq(nodes[0][1]['display']['color'], '#00a000')
+            self.eq(nodes[1][1]['display']['color'], 'Green')
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('inet:fqdn=vertex.link | colorize newp')
