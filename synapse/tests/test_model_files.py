@@ -22,7 +22,7 @@ class FileTest(s_t_utils.SynTest):
     #         self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
     #         self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
 
-    async def test_model_filebytes_pe(self):
+    async def test_model_file_mime_exe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
 
@@ -41,6 +41,11 @@ class FileTest(s_t_utils.SynTest):
                 :exports:time=201801010233
                 :exports:libname=ohgood
                 :versioninfo=((foo, bar), (baz, faz))
+
+                :packer = {[ it:software=({"name": "foobar"}) ]}
+                :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                :packer:name = foobar
+                :compiler:name = bazfaz
             ]
             '''
             opts = {'vars': {
@@ -58,6 +63,11 @@ class FileTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('exports:libname'), 'ohgood')
             self.eq(nodes[0].get('versioninfo'), (('baz', 'faz'), ('foo', 'bar')))
             self.len(2, await core.nodes('file:mime:pe -> file:mime:pe:vsvers:keyval'))
+
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:pe :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:pe :compiler -> it:software'))
 
             q = '''
             [ file:mime:pe:resource=*
@@ -116,6 +126,38 @@ class FileTest(s_t_utils.SynTest):
             # invalid langid
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[file:mime:pe:resource=* :langid=0xfffff]')
+
+            nodes = await core.nodes('''
+                [ file:mime:macho=*
+                    :file={ file:bytes | limit 1 }
+                    :packer = {[ it:software=({"name": "foobar"}) ]}
+                    :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                    :packer:name = foobar
+                    :compiler:name = bazfaz
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:macho :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:macho :compiler -> it:software'))
+
+            nodes = await core.nodes('''
+                [ file:mime:elf=*
+                    :file={ file:bytes | limit 1 }
+                    :packer = {[ it:software=({"name": "foobar"}) ]}
+                    :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                    :packer:name = foobar
+                    :compiler:name = bazfaz
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:elf :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:elf :compiler -> it:software'))
 
     async def test_model_filebytes_macho(self):
         async with self.getTestCore() as core:
