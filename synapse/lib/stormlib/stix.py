@@ -302,9 +302,8 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:title return(:title)} return($node.repr())',
                         'is_family': 'return($lib.true)',
-# Should these just be the smallest .min and largest .max values that the tag has on any node?
-#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
-#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
+                        'first_seen': '$tag=$node.repr() -> { #($tag).min } return($lib.stix.export.timestamp(#($tag).min))',
+                        'last_seen': '$tag=$node.repr() -> { reverse(#($tag).max<"*") } return($lib.stix.export.timestamp(#($tag).max))',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'sample_refs': '''
@@ -892,7 +891,7 @@ stixingest = {
         '''},
 
         {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(used)> { yield $n2node } ]'},
-        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(refs)> { yield $n2node } ]'},
+        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(matches)> { yield $n2node } ]'},
 
         # nothing to do... they are the same for us...
         {'type': ('threat-actor', 'attributed-to', 'identity'), 'storm': ''}
