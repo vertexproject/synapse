@@ -1924,24 +1924,12 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('id', ('meta:id', {}), {
-                        'doc': 'A type or source specific ID for the {title}.'}),
                     ('name', ('meta:name', {}), {
-                        'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
-                    ('names', ('array', {'type': 'meta:name'}), {
-                        'doc': 'An array of alternate entity names for the {title}.'}),
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The primary url for the {title}.'}),
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
-                    ('emails', ('array', {'type': 'inet:email'}), {
-                        'doc': 'An array of alternate email addresses for the {title}.'}),
                     ('user', ('inet:user', {}), {
-                        'alts': ('users',),
                         'doc': 'The primary user name for the {title}.'}),
-                    ('users', ('array', {'type': 'inet:user'}), {
-                        'doc': 'An array of alternate user names for the {title}.'}),
                     ('creds', ('array', {'type': 'auth:credential'}), {
                         'doc': 'An array of non-ephemeral credentials.'}),
                     ('profile', ('entity:contact', {}), {
