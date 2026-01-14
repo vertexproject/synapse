@@ -2828,15 +2828,21 @@ class InetModelTest(s_t_utils.SynTest):
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
+            $profile = {[
+                entity:contact=({"email": "foo@bar.com"})
+                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
+            ]}
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
-                    :users=(zeblackout, blackoutalt, zeblackout)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
-                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
-                    :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :profile=$profile
+                    :tenant={[
+                        inet:service:tenant=({"id": "VS-31337"})
+                            :profile=$profile
+                    ]}
                     :seen=(2022, 2023)
                 )
 
@@ -2851,14 +2857,12 @@ class InetModelTest(s_t_utils.SynTest):
             accounts = await core.nodes(q)
             self.len(2, accounts)
 
-            self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
             self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
-            self.eq(accounts[0].get('users'), ('blackoutalt', 'zeblackout'))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
 
@@ -2870,9 +2874,12 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
 
-            nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
+            nodes = await core.nodes('inet:service:account:email=blackout@vertex.link :profile -> entity:contact')
             self.len(1, nodes)
-            self.eq(accounts[0].ndef, nodes[0].ndef)
+            self.nn(nodes[0].get('banner'))
+
+            nodes = await core.nodes('entity:contact:email=foo@bar.com -> (inet:service:account, inet:service:tenant)')
+            self.sorteq(['inet:service:account', 'inet:service:tenant'], [n.ndef[0] for n in nodes])
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)

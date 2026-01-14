@@ -1941,8 +1941,16 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('banner', ('file:bytes', {}), {
-                        'doc': 'A banner or hero image used on the subscriber profile page.'}),
+                    ('name', ('meta:name', {}), {
+                        'doc': 'The primary entity name of the {title}.'}),
+                    ('email', ('inet:email', {}), {
+                        'doc': 'The primary email address for the {title}.'}),
+                    ('user', ('inet:user', {}), {
+                        'doc': 'The primary user name for the {title}.'}),
+                    ('creds', ('array', {'type': 'auth:credential'}), {
+                        'doc': 'An array of non-ephemeral credentials.'}),
+                    ('profile', ('entity:contact', {}), {
+                        'doc': 'Current detailed contact information for the {title}.'}),
                 ),
             }),
 
