@@ -57,6 +57,8 @@ class DocModelTest(s_tests.SynTest):
                     :optional=(false)
                     :desc="Some requirement text."
                     :standard={doc:standard}
+
+                    <(meets)+ {[ meta:technique=* ]}
                 ]
             ''')
             self.eq('V-99', nodes[0].get('id'))
@@ -64,6 +66,7 @@ class DocModelTest(s_tests.SynTest):
             self.eq(20, nodes[0].get('priority'))
             self.false(nodes[0].get('optional'))
             self.nn(nodes[0].get('standard'))
+            self.len(1, await core.nodes('doc:requirement <(meets)- meta:technique'))
             self.len(1, await core.nodes('doc:requirement -> doc:standard'))
 
             nodes = await core.nodes('''
