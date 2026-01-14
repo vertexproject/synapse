@@ -77,6 +77,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {
