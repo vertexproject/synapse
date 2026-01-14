@@ -803,6 +803,26 @@ _reqValidPkgdefSchema = {
                 'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
+        'vaults': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'properties': {
+                        'schemas': {
+                            'type': 'object',
+                            'properties': {
+                                'configs': {'$ref': 'https://json-schema.org/draft-07/schema'},
+                                'secrets': {'$ref': 'https://json-schema.org/draft-07/schema'}
+                            },
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+            },
+            'additionalProperties': False,
+        }
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -1075,7 +1095,7 @@ _reqValidPkgdefSchema = {
             },
             'additionalItems': True,
             'required': ('name',),
-        },
+        }
     }
 }
 reqValidPkgdef = s_config.getJsValidator(_reqValidPkgdefSchema)

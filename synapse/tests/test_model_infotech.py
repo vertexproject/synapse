@@ -199,6 +199,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :labels=(hehe, haha)
                     :valid_from=20240815
                     :valid_until=20240815
+                    +(detects)> {[ entity:campaign=(foo, bar) ]}
             ]''')
             self.len(1, nodes)
             self.eq('zoinks', nodes[0].get('id'))
@@ -213,6 +214,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000000, nodes[0].get('updated'))
             self.eq(1723680000000000, nodes[0].get('valid_from'))
             self.eq(1723680000000000, nodes[0].get('valid_until'))
+            self.len(1, await core.nodes('it:sec:stix:indicator -(detects)> entity:campaign'))
 
             nodes = await core.nodes('''
                 [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)

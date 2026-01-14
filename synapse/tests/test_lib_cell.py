@@ -1560,14 +1560,15 @@ class CellTest(s_t_utils.SynTest):
 
         with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
             with self.getTestDir() as dirn:
-                argv = [dirn, '--https', '0', '--telepath', 'tcp://0.0.0.0:0']
-                async with await s_cell.Cell.initFromArgv(argv) as cell:
-                    await cell.auth.addUser('visi1')
-                    await cell.auth.addUser('visi2')
-                    await cell.auth.addUser('visi3')
-                    with self.raises(s_exc.HitLimit) as exc:
-                        await cell.auth.addUser('visi4')
-                    self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+                async with self.withSetLoggingMock():
+                    argv = [dirn, '--https', '0', '--telepath', 'tcp://0.0.0.0:0']
+                    async with await s_cell.Cell.initFromArgv(argv) as cell:
+                        await cell.auth.addUser('visi1')
+                        await cell.auth.addUser('visi2')
+                        await cell.auth.addUser('visi3')
+                        with self.raises(s_exc.HitLimit) as exc:
+                            await cell.auth.addUser('visi4')
+                        self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
 
         with self.raises(s_exc.BadConfValu) as exc:
             async with self.getTestCell(s_cell.Cell, conf={'max:users': -1}) as cell:
@@ -2067,6 +2068,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_backup_restore_base(self):
 
         async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
+            await axon.enter_context(self.withSetLoggingMock())
             addr, port = await axon.addHttpsPort(0)
             url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
 
@@ -2193,7 +2195,7 @@ class CellTest(s_t_utils.SynTest):
         # backup the mirror
         # restore the backup
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
-
+            await aha.enter_context(self.withSetLoggingMock())
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
                 cdr1 = s_common.genpath(dirn, 'core01')
@@ -2276,7 +2278,7 @@ class CellTest(s_t_utils.SynTest):
         # backup the mirror
         # restore the backup
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
-
+            await aha.enter_context(self.withSetLoggingMock())
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
                 cdr1 = s_common.genpath(dirn, 'core01')

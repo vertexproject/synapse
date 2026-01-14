@@ -75,6 +75,7 @@ modeldefs = (
                 'interfaces': (
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
                 'display': {
@@ -326,6 +327,10 @@ modeldefs = (
                 'doc': 'An organization enacting a document.'}),
         ),
         'edges': (
+
+            # TODO - we will need more of these based on interfaces
+            (('meta:rule', 'shows', 'ou:enacted'), {
+                'doc': 'The source rule shows the status of the enacted document.'}),
 
         ),
         'forms': (
