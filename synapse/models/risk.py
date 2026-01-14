@@ -124,9 +124,6 @@ modeldefs = (
 
             ('risk:mitigation', ('meta:technique', {}), {
                 'template': {'title': 'mitigation'},
-                'interfaces': (
-                    ('meta:reported', {}),
-                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
