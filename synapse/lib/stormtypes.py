@@ -2772,11 +2772,13 @@ class LibAxon(Lib):
 @registry.registerLib
 class LibBytes(Lib):
     '''
-    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
+    A Storm Library for interacting with bytes.
     '''
     _storm_locals = (
         {'name': 'put', 'desc': '''
             Save the given bytes variable to the Axon the Cortex is configured to use.
+
+            This is deprecated; please use ``$lib.axon.put()`` instead.
 
             Examples:
                 Save a base64 encoded buffer to the Axon::
@@ -2785,6 +2787,7 @@ class LibBytes(Lib):
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesPut',
                   'args': (
                       {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
@@ -2792,6 +2795,8 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
         {'name': 'has', 'desc': '''
             Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+            This is deprecated; please use ``$lib.axon.has()`` instead.
 
             Examples:
                 Check if the Axon has a given file::
@@ -2805,6 +2810,7 @@ class LibBytes(Lib):
 
                     Has bytes
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesHas',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
@@ -2813,11 +2819,14 @@ class LibBytes(Lib):
         {'name': 'size', 'desc': '''
             Return the size of the bytes stored in the Axon for the given sha256.
 
+            This is deprecated; please use ``$lib.axon.size()`` instead.
+
             Examples:
                 Get the size for a file given a variable named ``$sha256``::
 
                     $size = $lib.bytes.size($sha256)
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesSize',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
@@ -2827,12 +2836,15 @@ class LibBytes(Lib):
         {'name': 'hashset', 'desc': '''
             Return additional hashes of the bytes stored in the Axon for the given sha256.
 
+            This is deprecated; please use ``$lib.axon.hashset()`` instead.
+
             Examples:
                 Get the md5 hash for a file given a variable named ``$sha256``::
 
                     $hashset = $lib.bytes.hashset($sha256)
                     $md5 = $hashset.md5
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesHashset',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
@@ -2841,11 +2853,14 @@ class LibBytes(Lib):
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
+            This is deprecated; please use ``$lib.axon.upload()`` instead.
+
             Examples:
                 Upload bytes from a generator::
 
                     ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesUpload',
                   'args': (
                       {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
@@ -2874,7 +2889,6 @@ class LibBytes(Lib):
     )
 
     _storm_lib_path = ('bytes',)
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.axon`` function.'}
 
     def getObjLocals(self):
         return {
