@@ -500,7 +500,7 @@ class FileModule(s_module.CoreModule):
                     ('title', ('str', {}), {
                         'doc': 'The "Title" field extracted from PDF metadata.'}),
 
-                    ('author', ('entity:name', {}), {
+                    ('author:name', ('entity:name', {}), {
                         'doc': 'The "Author" field extracted from PDF metadata.'}),
 
                     ('created', ('time', {}), {
