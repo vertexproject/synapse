@@ -715,13 +715,6 @@ class InetModelTest(s_t_utils.SynTest):
             isneither(n2)  # stays the same
             issuffix(n4)   # stays the same
 
-    async def test_group(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:group="cool Group"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:group', 'cool Group'))
-
     async def test_http_cookie(self):
 
         async with self.getTestCore() as core:
@@ -2827,6 +2820,13 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:service:platform:type:taxonomy')
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
+            opts = {
+                'vars': {
+                    'rule00': (rule00 := 'a' * 32),
+                    'rule01': (rule01 := 'b' * 32),
+                },
+            }
+
             q = '''
             $profile = {[
                 entity:contact=({"email": "foo@bar.com"})
@@ -2843,6 +2843,7 @@ class InetModelTest(s_t_utils.SynTest):
                         inet:service:tenant=({"id": "VS-31337"})
                             :profile=$profile
                     ]}
+                    :rules=($rule01, $rule00, $rule01)
                     :seen=(2022, 2023)
                 )
 
@@ -2854,7 +2855,7 @@ class InetModelTest(s_t_utils.SynTest):
                 )
             ]
             '''
-            accounts = await core.nodes(q)
+            accounts = await core.nodes(q, opts=opts)
             self.len(2, accounts)
 
             self.nn(accounts[0].get('tenant'))
@@ -2865,6 +2866,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].get('user'), 'blackout')
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
+            self.eq(accounts[0].get('rules'), (rule01, rule00, rule01))
 
             self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
             self.eq(accounts[1].get('id'), 'U2XK7PUVB')
@@ -2882,24 +2884,26 @@ class InetModelTest(s_t_utils.SynTest):
             self.sorteq(['inet:service:account', 'inet:service:tenant'], [n.ndef[0] for n in nodes])
 
             q = '''
-            [ inet:service:group=(developers, group, vertex, slack)
+            [ inet:service:role=(developers, group, vertex, slack)
                 :id=X1234
                 :name="developers, developers, developers"
+                :rules=($rule01, $rule00, $rule01)
             ]
             '''
-            nodes = await core.nodes(q)
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             self.eq(nodes[0].get('id'), 'X1234')
             self.eq(nodes[0].get('name'), 'developers, developers, developers')
+            self.eq(nodes[0].get('rules'), (rule01, rule00, rule01))
             devsgrp = nodes[0]
 
             q = '''
-            $group = {[ inet:service:group=$devsiden ]}
+            $role = {[ inet:service:role=$devsiden ]}
             [
                 (inet:service:member=(blackout, developers, group, vertex, slack)
                     :account=$blckiden
-                    :of=$group
+                    :of=$role
                     :period=(20230601, ?)
                     :creator=$visiiden
                     :remover=$visiiden
@@ -2907,7 +2911,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 (inet:service:member=(visi, developers, group, vertex, slack)
                     :account=$visiiden
-                    :of=$group
+                    :of=$role
                     :period=(20150101, ?)
                 )
             ]
@@ -3067,11 +3071,11 @@ class InetModelTest(s_t_utils.SynTest):
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
                     :type=chat.group
-                    :group=$devsiden
+                    :role=$devsiden
                     :public=$lib.false
                     :repost=*
                     :mentions=(
-                        (inet:service:group, $devsiden),
+                        (inet:service:role, $devsiden),
                         (inet:service:account, $blckiden),
                         (inet:service:account, $blckiden),
                     )
@@ -3126,12 +3130,12 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('place:name'), 'nyc')
 
             self.nn(nodes[0].get('repost'))
-            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[0].get('role'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
             self.eq(
                 nodes[0].get('mentions'),
-                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:role', devsgrp.ndef[1]))
             )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
