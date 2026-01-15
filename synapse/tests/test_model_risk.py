@@ -338,6 +338,7 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                     risk:compromise=*
                     :vector=*
+                    :tag=foo.bar
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
@@ -364,6 +365,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :econ:currency = usd
             ]''')
 
+            self.eq('foo.bar', nodes[0].get('tag'))
             self.eq('visi wants pizza', nodes[0].get('name'))
             self.eq('Visi wants a pepperoni and mushroom pizza', nodes[0].get('desc'))
             self.eq('when.noms.attack.', nodes[0].get('type'))
@@ -388,6 +390,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('1010', nodes[0].get('response:cost'))
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq(10, nodes[0].get('severity'))
+            self.len(1, await core.nodes('risk:compromise -> syn:tag'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
