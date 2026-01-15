@@ -292,7 +292,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     +(had)> {[ entity:goal=* ]}
                 ]
                 $threat = $node
-                { spin | [ risk:threat=* :supersedes=($node,) ] }
+                $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
             ''')
             self.len(1, nodes)
             node = nodes[0]
@@ -314,8 +314,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
 
-            self.len(1, await core.nodes('risk:threat -(had)> entity:goal'))
-            self.len(1, await core.nodes('risk:threat -> risk:threat:supersedes'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
+
+            nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
+            self.len(1, nodes)
+            self.eq('apt1next', nodes[0].get('name'))
 
             self.len(1, nodes := await core.nodes('[ risk:threat=({"name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
