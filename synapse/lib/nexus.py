@@ -600,7 +600,7 @@ class NexsRoot(s_base.Base):
         self.miruplink.set()
         await self.delWriteHold(mirrordisconnect)
 
-        async def onfini():
+        def onfini():
             self.miruplink.clear()
             self.issuewait = False
 
