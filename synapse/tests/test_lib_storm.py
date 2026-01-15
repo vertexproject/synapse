@@ -4699,7 +4699,12 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.bytes.size`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('$lib.bytes.upload`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('$lib.bytes.hashset`` has been deprecated and will be removed in version v3.0.0', msgs)
-            self.stormIsInPrint('Use the corresponding ``$lib.axon`` function.', msgs)
+
+            msgs = await core.stormlist('help --verbose $lib.ps')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('$lib.ps.kill`` has been deprecated and will be removed in version v3.0.0', msgs)
+            self.stormIsInPrint('$lib.ps.list`` has been deprecated and will be removed in version v3.0.0', msgs)
+            self.stormIsInPrint('Use the corresponding ``$lib.task`` function.', msgs)
 
     async def test_storm_cmd_deprecations(self):
 
