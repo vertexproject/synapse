@@ -684,14 +684,14 @@ class FileTest(s_t_utils.SynTest):
                     :updated=20260115
                     :language:name=Klingon
                     :tool:name="Google Docs Renderer"
-                    :keywords="foo, bar"
+                    :keywords=(foo, bar)
                 ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'Foo-10')
             self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
             self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
-            self.eq(nodes[0].get('keywords'), 'foo, bar')
+            self.eq(nodes[0].get('keywords'), ('bar', 'foo'))
             self.eq(nodes[0].get('tool:name'), 'google docs renderer')
             self.eq(nodes[0].get('author:name'), 'vertex')
             self.eq(nodes[0].get('language:name'), 'klingon')
@@ -701,3 +701,4 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
             self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))
             self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:prod:softname'))
+            self.len(2, await core.nodes('file:mime:pdf :keywords -> media:topic'))

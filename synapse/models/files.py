@@ -521,8 +521,8 @@ class FileModule(s_module.CoreModule):
                     ('subject', ('str', {}), {
                         'doc': 'The "Subject" field extracted from PDF metadata.'}),
 
-                    ('keywords', ('str', {}), {
-                        'doc': 'The "Keywords" field extracted from PDF metadata.'}),
+                    ('keywords', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The "Keywords" field extracted and parsed from PDF metadata.'}),
                 )),
 
                 ('file:mime:msdoc', {}, ()),
