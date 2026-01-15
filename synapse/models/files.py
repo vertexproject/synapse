@@ -310,6 +310,10 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Records one, of potentially multiple, mime types for a given file.',
                 }),
 
+                ('file:mime:pdf', ('guid', {}), {
+                    'interfaces': ('file:mime:meta',),
+                    'doc': 'Metadata extracted from a Portable Document Format (PDF) file.'}),
+
                 ('file:mime:msdoc', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
                     'interfaces': ('file:mime:msoffice',),
@@ -489,6 +493,30 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The mime type of the file.',
                     }),
+                )),
+
+                ('file:mime:pdf', {}, (
+
+                    ('title', ('str', {}), {
+                        'doc': 'The title extracted from PDF metadata.'}),
+
+                    ('author', ('entity:name', {}), {
+                        'doc': 'The "Author" field extracted from PDF metadata.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The "CreatedDate" field extracted from PDF metadata.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The "ModDate" field extracted from PDF metadata.'}),
+
+                    ('producer', ('it:prod:softname', {}), {
+                        'doc': 'The "Producer" field extracted from PDF metadata.'}),
+
+                    ('subject', ('str', {}), {
+                        'doc': 'The "Subject" field extracted from PDF metadata.'}),
+
+                    ('keywords', ('str', {}), {
+                        'doc': 'The "Keywords" field extracted from PDF metadata.'}),
                 )),
 
                 ('file:mime:msdoc', {}, ()),
