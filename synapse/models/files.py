@@ -498,7 +498,7 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:pdf', {}, (
 
                     ('title', ('str', {}), {
-                        'doc': 'The title extracted from PDF metadata.'}),
+                        'doc': 'The "Title" field extracted from PDF metadata.'}),
 
                     ('author', ('entity:name', {}), {
                         'doc': 'The "Author" field extracted from PDF metadata.'}),
