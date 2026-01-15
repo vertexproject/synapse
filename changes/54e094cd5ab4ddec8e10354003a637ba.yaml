@@ -1,0 +1,6 @@
+---
+desc: Added ``file:mime:pdf`` to capture PDF metadata.
+desc:literal: false
+prs: []
+type: model
+...
