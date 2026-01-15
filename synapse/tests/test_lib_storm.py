@@ -1631,6 +1631,22 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq([('baz', (1762214400000, 1762214400001))], nodes[0].getTags())
 
+            msgs = await core.stormlist('inet:fqdn=vertex.link | colorize "#00a000"')
+            self.stormHasNoWarnErr(msgs)
+            nodes = [n[1] for n in msgs if n[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['display']['color'], '#00a000')
+
+            msgs = await core.stormlist('[ it:dev:str="#00a000" it:dev:str="Green" ] | colorize $node.repr()')
+            self.stormHasNoWarnErr(msgs)
+            nodes = [n[1] for n in msgs if n[0] == 'node']
+            self.len(2, nodes)
+            self.eq(nodes[0][1]['display']['color'], '#00a000')
+            self.eq(nodes[1][1]['display']['color'], 'Green')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('inet:fqdn=vertex.link | colorize newp')
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
