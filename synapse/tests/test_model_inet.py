@@ -195,11 +195,12 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} ]')
+            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} :seen=(2020, 2021) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asn', 123))
             self.eq(node.get('owner:name'), 'cool')
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
             self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
             nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')

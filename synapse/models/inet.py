@@ -1351,6 +1351,9 @@ modeldefs = (
                 'doc': 'An IPv4 address.'}),
 
             ('inet:asn', ('int', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'ASN'}}),
+                ),
                 'doc': 'An Autonomous System Number (ASN).'}),
 
             ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
