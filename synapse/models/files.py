@@ -497,6 +497,9 @@ class FileModule(s_module.CoreModule):
 
                 ('file:mime:pdf', {}, (
 
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The "DocumentID" field extracted from PDF metadata.'}),
+
                     ('title', ('str', {}), {
                         'doc': 'The "Title" field extracted from PDF metadata.'}),
 

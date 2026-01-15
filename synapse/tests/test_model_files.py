@@ -675,6 +675,7 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ file:mime:pdf=*
+                    :id=Foo-10
                     :file=*
                     :title="Synapse Sizing Guide"
                     :subject="How to size a Synapse deployment."
@@ -686,6 +687,7 @@ class FileTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'Foo-10')
             self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
             self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
             self.eq(nodes[0].get('keywords'), 'foo, bar')
