@@ -28,7 +28,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :prev=*
                     :actor = {[ entity:contact=* ]}
                     :sophistication=high
-                    :url=https://vertex.link/attacks/CASE-2022-03
+                    :reporter:url=https://vertex.link/attacks/CASE-2022-03
                     :id=CASE-2022-03
                     +(had)> {[ entity:goal=* ]}
             ]''')
@@ -41,7 +41,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('reporter:name'), 'vertex')
             self.eq(nodes[0].get('sophistication'), 40)
             self.eq(nodes[0].get('severity'), 10)
-            self.eq(nodes[0].get('url'), 'https://vertex.link/attacks/CASE-2022-03')
+            self.eq(nodes[0].get('reporter:url'), 'https://vertex.link/attacks/CASE-2022-03')
             self.eq(nodes[0].get('id'), 'CASE-2022-03')
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('reporter'))
@@ -59,11 +59,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :priority=high
                     :severity=high
                     :tag=cno.vuln.woot
+                    :reporter:status=active
             ]''')
 
             self.eq(nodes[0].get('severity'), 40)
             self.eq(nodes[0].get('priority'), 40)
             self.eq(nodes[0].get('tag'), 'cno.vuln.woot')
+            self.eq(nodes[0].get('reporter:status'), 'active.')
             self.none(nodes[0].get('cvss:v2'))
             self.none(nodes[0].get('cvss:v3'))
 
@@ -222,7 +224,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
-                    :url=https://vertex.link/pwned
+                    :reporter:url=https://vertex.link/pwned
                     :id=PWN-00
                     :reporter = {[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name = vertex
@@ -248,7 +250,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('when.noms.attack.', nodes[0].get('type'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('PWN-00', nodes[0].get('id'))
-            self.eq('https://vertex.link/pwned', nodes[0].get('url'))
+            self.eq('https://vertex.link/pwned', nodes[0].get('reporter:url'))
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('campaign'))
@@ -284,14 +286,16 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=mandiant
                     :reporter:discovered=202202
                     :reporter:published=202302
+                    :reporter:status=active
                     :sophistication=high
-                    :merged:time = 20230111
-                    :merged:isnow = {[ risk:threat=* ]}
+                    :superseded = 20230111
                     :place:loc=cn.shanghai
                     :place:country={gen.pol.country cn}
                     :place:country:code=cn
                     +(had)> {[ entity:goal=* ]}
                 ]
+                $threat = $node
+                $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
             ''')
             self.len(1, nodes)
             node = nodes[0]
@@ -304,17 +308,20 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('cn.shanghai', nodes[0].get('place:loc'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
+            self.eq('active.', nodes[0].get('reporter:status'))
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))
-            self.nn(nodes[0].get('merged:isnow'))
             self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
-            self.eq(1673395200000000, nodes[0].get('merged:time'))
+            self.eq(1673395200000000, nodes[0].get('superseded'))
             self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
 
-            self.len(1, await core.nodes('risk:threat -(had)> entity:goal'))
-            self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
+
+            nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
+            self.len(1, nodes)
+            self.eq('apt1next', nodes[0].get('name'))
 
             self.len(1, nodes := await core.nodes('[ risk:threat=({"name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
