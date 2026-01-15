@@ -285,7 +285,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:published=202302
                     :reporter:status=active
                     :sophistication=high
-                    :superseded:time = 20230111
+                    :superseded = 20230111
                     :place:loc=cn.shanghai
                     :place:country={gen.pol.country cn}
                     :place:country:code=cn
@@ -309,9 +309,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))
-            self.nn(nodes[0].get('superseded:time'))
             self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
-            self.eq(1673395200000000, nodes[0].get('superseded:time'))
+            self.eq(1673395200000000, nodes[0].get('superseded'))
             self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
 

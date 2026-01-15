@@ -249,7 +249,7 @@ modeldefs = (
                     ('reporter:status', ('{status}', {}), {
                         'doc': 'The status of the {title}, according to the reporter.'}),
 
-                    ('superseded:time', ('time', {}), {
+                    ('superseded', ('time', {}), {
                         'doc': 'The time when the {title} was superseded.'}),
 
                     ('supersedes', ('array', {'type': '{$self}'}), {
