@@ -681,16 +681,16 @@ class FileTest(s_t_utils.SynTest):
                     :author=Vertex
                     :created=20260115
                     :updated=20260115
-                    :producer="Google Docs Renderer"
+                    :tool:name="Google Docs Renderer"
                 ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('author'), 'vertex')
             self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
             self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
-            self.eq(nodes[0].get('producer'), 'google docs renderer')
+            self.eq(nodes[0].get('tool:name'), 'google docs renderer')
             self.eq(nodes[0].get('created'), 1768435200000)
             self.eq(nodes[0].get('updated'), 1768435200000)
             self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:pdf :author -> entity:name'))
-            self.len(1, await core.nodes('file:mime:pdf :producer -> it:prod:softname'))
+            self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:prod:softname'))
