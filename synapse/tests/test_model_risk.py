@@ -101,6 +101,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vendor:fixed=2020-01-14
 
                     :id = VISI-0000
+                    :ids = (VISI-B-0000,)
                     :cve = CVE-2013-0000
 
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
@@ -137,6 +138,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('published'), 1578960000000000)
 
             self.eq(nodes[0].get('id'), 'VISI-0000')
+            self.eq(nodes[0].get('ids'), ('VISI-B-0000',))
 
             self.eq(nodes[0].get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
             cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MS:C/MC:N/MI:N/MA:N'
@@ -157,13 +159,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cvss:v3_1:score:temporal'), 3.2)
             self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
-            self.len(1, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
+            self.len(2, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 :cve -> it:sec:cve'))
 
             self.len(1, await core.nodes('risk:attack :actor -> entity:contact'))
 
             self.eq(nodes[0].ndef, (await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))[0].ndef)
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({[risk:vuln=({"id": "VISI-B-0000"})]})'))
 
             nodes = await core.nodes('''
                 [ risk:alert=*
@@ -409,7 +412,7 @@ class RiskModelTest(s_t_utils.SynTest):
                         ( risk:mitigation=* :name=patchstuff )
                         ( meta:technique=* :name=dothing )
                     ]}
-                    <(showed)+ {[ inet:flow=* ]}
+                    <(shows)+ {[ inet:flow=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -420,7 +423,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))
-            self.len(1, await core.nodes('risk:vulnerable <(showed)- inet:flow'))
+            self.len(1, await core.nodes('risk:vulnerable <(shows)- inet:flow'))
 
             nodes = await core.nodes('risk:vulnerable :mitigations -> *')
             self.sorteq(['meta:technique', 'risk:mitigation'], [n.ndef[0] for n in nodes])

@@ -77,6 +77,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {
@@ -317,8 +318,8 @@ modeldefs = (
                 'doc': 'The source node resembles the target node.'}),
 
             # TODO we will need more of these...
-            (('inet:proto:link', 'showed', 'risk:vulnerable'), {
-                'doc': 'The network activity showed that the vulnerability was present.'}),
+            (('inet:proto:link', 'shows', 'risk:vulnerable'), {
+                'doc': 'The network activity shows that the vulnerability was present.'}),
         ),
         'forms': (
 
