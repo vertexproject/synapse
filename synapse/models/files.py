@@ -522,7 +522,7 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The "Subject" field extracted from PDF metadata.'}),
 
                     ('keywords', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The "Keywords" field extracted and parsed from PDF metadata.'}),
+                        'doc': 'The "Keywords" field extracted from PDF metadata.'}),
                 )),
 
                 ('file:mime:msdoc', {}, ()),
