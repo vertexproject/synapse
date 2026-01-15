@@ -22,6 +22,11 @@ leaderversion = 'Leader is a higher version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
+# As a mirror, amount of time to wait for a connection to the leader before entering
+# read-only mode and cancelling tasks waiting on responses.
+FOLLOWER_CONNECT_WAIT_S = 60.0
+
+mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
 
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
@@ -354,7 +359,7 @@ class NexsRoot(s_base.Base):
                 await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
             else:
                 await client.issue(nexsiden, event, args, kwargs, meta)
-            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await futu
 
     async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
         '''
@@ -554,6 +559,7 @@ class NexsRoot(s_base.Base):
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
+            self.schedCoro(self.connectTimeout())
 
         self.started = True
 
@@ -580,12 +586,26 @@ class NexsRoot(s_base.Base):
 
         await self.startup()
 
+    async def connectTimeout(self):
+        try:
+            await s_common.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
+
+        except asyncio.TimeoutError:
+            await self.addWriteHold(mirrordisconnect)
+
+            for futu in list(self._futures.values()):
+                futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
+
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
+        await self.delWriteHold(mirrordisconnect)
 
-        def onfini():
+        async def onfini():
             self.miruplink.clear()
             self.issuewait = False
+
+            if not self.isfini:
+                self.schedCoro(self.connectTimeout())
 
         proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
