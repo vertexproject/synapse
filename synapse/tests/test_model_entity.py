@@ -86,6 +86,7 @@ class EntityModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ entity:campaign=*
                     :id=Foo
+                    :ids=(Bar,)
                     :type=MyType
                     :name=MyName
                     :names=(Foo, Bar)
@@ -103,6 +104,7 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'Foo')
+            self.eq(nodes[0].get('ids'), ('Bar',))
             self.eq(nodes[0].get('tag'), 'cno.camp.31337')
             self.eq(nodes[0].get('name'), 'myname')
             self.eq(nodes[0].get('names'), ('bar', 'foo'))
@@ -113,6 +115,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.eq(nodes[0].get('reporter:name'), 'vertex')
             self.eq(nodes[0].get('slogan'), 'For The People')
+
+            self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:campaign=({"id": "Bar"})})'))
 
             # FIXME this seems like it should work...
             # self.len(1, await core.nodes('entity:campaign --> entity:goal'))

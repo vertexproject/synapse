@@ -41,6 +41,7 @@ modeldefs = (
                 'interfaces': (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A person or persona.'}),
 

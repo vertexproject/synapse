@@ -204,7 +204,11 @@ modeldefs = (
                 'props': (
 
                     ('id', ('meta:id', {}), {
+                        'alts': ('ids',),
                         'doc': 'A unique ID given to the {title} by the source.'}),
+
+                    ('ids', ('array', {'type': 'meta:id'}), {
+                        'doc': 'An array of alternate IDs given to the {title} by the source.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
