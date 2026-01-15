@@ -611,16 +611,17 @@ class NexusTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                     await asyncio.sleep(0.1)
 
+                    # We weren't able to connect to the leader within the timeout so we're readonly
                     self.true(core01.nexsroot.readonly)
                     self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
 
                     evnt1 = asyncio.Event()
                     orig = s_nexus.NexsRoot._eat
-                    async def slowEat(self, item, indx=None):
+                    async def hookEat(self, item, indx=None):
                         evnt1.set()
                         return await orig(self, item, indx=indx)
 
-                    with mock.patch('synapse.lib.nexus.NexsRoot._eat', slowEat):
+                    with mock.patch('synapse.lib.nexus.NexsRoot._eat', hookEat):
                         async with self.getTestCore(dirn=path00, conf=conf00) as core00:
 
                             await s_common.wait_for(core01.nexsroot.miruplink.wait(), 1)
@@ -657,5 +658,6 @@ class NexusTest(s_t_utils.SynTest):
 
                         await core01.sync()
 
+                        # Now we're sync'ed and caught back up
                         self.len(2, core00.views)
                         self.len(2, core01.views)
