@@ -5868,7 +5868,7 @@ class ColorizeCmd(Cmd):
 
         async for node, path in genr:
 
-            color = await s_stormtypes.tostr(self.opts.color, noneok=True)
+            color = await s_stormtypes.tostr(self.opts.color)
             if color:
                 if color.lower() not in css4_colors and hexcolor_regex.match(color) is None:
                     mesg = 'Color must be a CSS4 color name or a six digit hex color code prefixed with a #.'
