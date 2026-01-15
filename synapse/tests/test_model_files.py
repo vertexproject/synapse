@@ -682,11 +682,13 @@ class FileTest(s_t_utils.SynTest):
                     :created=20260115
                     :updated=20260115
                     :tool:name="Google Docs Renderer"
+                    :keywords="foo, bar"
                 ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
             self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
+            self.eq(nodes[0].get('keywords'), 'foo, bar')
             self.eq(nodes[0].get('tool:name'), 'google docs renderer')
             self.eq(nodes[0].get('author:name'), 'vertex')
             self.eq(nodes[0].get('created'), 1768435200000)
