@@ -506,6 +506,9 @@ class FileModule(s_module.CoreModule):
                     ('author:name', ('entity:name', {}), {
                         'doc': 'The "Author" field extracted from PDF metadata.'}),
 
+                    ('language:name', ('lang:name', {}), {
+                        'doc': 'The "Language" field extracted from PDF metadata.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The "CreatedDate" field extracted from PDF metadata.'}),
 
