@@ -584,6 +584,8 @@ class NexsRoot(s_base.Base):
             mesg = 'promote() called on non-mirror nexsroot'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        await self.delWriteHold(mirrordisconnect)
+
         await self.startup()
 
     async def connectTimeout(self):
