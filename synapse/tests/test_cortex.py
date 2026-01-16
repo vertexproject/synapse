@@ -2606,10 +2606,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await core.stormlist('test:comp :haha -> test:int')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
-            self.len(1, warns)
-            emesg = "BadTypeValu ['newp'] during pivot: invalid literal for int() with base 0: 'newp'"
-            self.eq(warns[0][1], {'name': 'test:int', 'valu': 'newp',
-                                  'mesg': emesg})
+            self.len(0, warns)
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('test:int', 127))
@@ -2622,10 +2619,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await core.stormlist('test:int*in=(10, 25) -> test:type10:intprop')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
-            self.len(1, warns)
-            emesg = "BadTypeValu [10] during pivot: value is below min=20"
-            self.eq(warns[0][1], {'name': 'int', 'valu': '10',
-                                  'mesg': emesg})
+            self.len(0, warns)
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('test:type10', 'test'))
@@ -2882,12 +2876,13 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(2, await core.nodes('syn:tag=foo.bar -> *'))
 
+            await core.nodes('[ test:str=time :tick=2020 +#2020 ]')
+
             # Attempt a formpivot from a syn:tag node to a secondary property
-            # which is not valid
-            with self.getAsyncLoggerStream('synapse.lib.ast',
-                                           'Unknown time format') as stream:
-                self.len(0, await core.nodes('syn:tag=foo.bar -> test:str:tick'))
-                self.true(await stream.wait(4))
+            # which may not be valid
+            msgs = await core.stormlist('syn:tag -> test:str:tick')
+            self.stormHasNoWarnErr(msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
 
     async def test_storm_tagtags(self):
 

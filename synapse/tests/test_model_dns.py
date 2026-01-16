@@ -195,17 +195,16 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(q))
             q = '[inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1)]'
             self.len(1, await core.nodes(q))
+
             q = 'inet:dns:query=(tcp://1.2.3.4, "", 1) :name -> inet:fqdn'
-            with self.getLoggerStream('synapse.lib.ast',
-                                      'Cannot generate fqdn index bytes for a empty string') as stream:
-                self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+            self.len(0, [m for m in msgs if m[0] == 'node'])
 
             q = 'inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1) :name -> inet:fqdn'
-            with self.getLoggerStream('synapse.lib.ast',
-                                      'Wild card may only appear at the beginning') as stream:
-                self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+            self.len(0, [m for m in msgs if m[0] == 'node'])
 
     async def test_forms_dns_simple(self):
 
