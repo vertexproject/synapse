@@ -53,7 +53,6 @@ class StormLibStixTest(s_test.SynTest):
             self.true(success)
 
     async def test_stormlib_libstix(self, conf=None):
-        self.skip('FIXME - make it go')
 
         async with self.getTestCore(conf=conf) as core:
             visi = await core.auth.addUser('visi')
@@ -75,25 +74,26 @@ class StormLibStixTest(s_test.SynTest):
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(23, await core.nodes('''[
-                (inet:asn=30 :name=woot30)
-                (inet:asn=40 :name=woot40)
+            self.len(22, await core.nodes('''[
+                (inet:asn=30 :owner:name=woot30)
+                (inet:asn=40 :owner:name=woot40)
                 (inet:ip=1.2.3.4 :asn=30)
                 (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (entity:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
-                (ou:org=$attackorg :name=attacker)
-                (entity:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[entity:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={entity:campaign} +(targets)> {ou:org:name=target})
+                (ou:org=$attackorg :name=attacker :place={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
+                (entity:campaign=$campaign :name=woot :actor={ou:org:name=attacker} +(had)> {[entity:goal=$goal :name=pwning]})
+                (risk:attack=$attack :campaign={entity:campaign} +(targeted)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (doc:report=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
-                (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
-                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" :period=2010) //seen=(2010, 2021)
-                (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)
-                (syn:tag=cno.mal.redtree :title="Redtree Malware" //.seen=(2010, 2020))
+                (file:bytes=({'sha256': $sha256}) :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
+                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark"
+                 :period=(2010, *) :seen=(2010, 2021) :creds={[auth:passwd=secret]})
+                (inet:service:account=(twitter, saltpass) :user="salthash pass" :id=saltpass :creds={[crypto:salthash=* :value={[auth:passwd=saltvalu]}]})
+                (syn:tag=cno.mal.redtree :title="Redtree Malware")
                 (it:software=$software :name=rar :version=2.0.1)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
@@ -135,7 +135,7 @@ class StormLibStixTest(s_test.SynTest):
             self.bundeq(self.getTestBundle('basic.json'), bund)
 
             opts = {'vars': {
-                'file': 'guid:64610b9fdc23964d27f5d84f395a76df',
+                'file': '64610b9fdc23964d27f5d84f395a76df',
                 'execurl': 'f248920f711cd2ea2c5bec139d82ce0b',
             }}
 
@@ -144,7 +144,7 @@ class StormLibStixTest(s_test.SynTest):
                     $config = $lib.stix.export.config()
 
                     $config.forms."syn:tag".stix.malware.rels.append(
-                        (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
+                        (communicates-with, url, ${-> file:bytes -> it:exec:fetch:exe -> inet:url})
                     )
 
                     $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
@@ -154,7 +154,7 @@ class StormLibStixTest(s_test.SynTest):
                 [ syn:tag=cno.mal.redtree ]
 
                 {[( file:bytes=$file +#cno.mal.redtree )]}
-                {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
+                {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
 
                 $bundle.add($node, stixtype=malware)
 
@@ -196,7 +196,7 @@ class StormLibStixTest(s_test.SynTest):
                 $config = $lib.stix.export.config()
                 $config.synapse_extension=$lib.false  // Disable synapse extension
                 $config.forms."syn:tag".stix.malware.rels.append(
-                    (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
+                    (communicates-with, url, ${-> file:bytes -> it:exec:fetch:exe -> inet:url})
                 )
                 $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
                 $bundle = $lib.stix.export.bundle(config=$config)
@@ -205,7 +205,7 @@ class StormLibStixTest(s_test.SynTest):
             [ syn:tag=cno.mal.redtree ]
 
             {[( file:bytes=$file +#cno.mal.redtree )]}
-            {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
+            {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
 
             $bundle.add($node, stixtype=malware)
 
@@ -350,7 +350,7 @@ class StormLibStixTest(s_test.SynTest):
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(29, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
+            self.len(34, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
             self.len(3, await core.nodes('it:sec:stix:indicator -(refs)> inet:fqdn', opts={'view': viewiden}))
 
@@ -407,10 +407,9 @@ class StormLibStixTest(s_test.SynTest):
                 yield $lib.stix.import.ingest($stix, config=$config)
             ''', opts={'view': viewiden, 'vars': {'stix': stix}})
 
-            # FIXME WTF is going on here...
-            # nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            # self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
-            # self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
+            self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
 
             msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), newp)')
             self.stormIsInErr('config must be a dictionary', msgs)

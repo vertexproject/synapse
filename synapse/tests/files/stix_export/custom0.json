@@ -31,8 +31,8 @@
       "modified": "2021-04-29T17:34:49.374Z",
       "name": "redtree",
       "sample_refs": [
-        "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
-        "file--91f2d7c9-4247-52a6-a438-840acce2f906"
+        "file--82c308d6-cd7d-556e-a019-cc2761422776",
+        "file--be944512-fb83-5d5c-8920-b362a3f65ef5"
       ],
       "spec_version": "2.1",
       "type": "malware"
@@ -46,14 +46,14 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "file:bytes",
-            "sha256:00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+            "58f81b208f098f9678f1619e3e866317"
           ]
         }
       },
       "hashes": {
         "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
       },
-      "id": "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
+      "id": "file--82c308d6-cd7d-556e-a019-cc2761422776",
       "mime_type": "application/json",
       "name": "woot.json",
       "size": 333,
@@ -183,12 +183,12 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "file:bytes",
-            "guid:64610b9fdc23964d27f5d84f395a76df"
+            "64610b9fdc23964d27f5d84f395a76df"
           ]
         }
       },
-      "id": "file--91f2d7c9-4247-52a6-a438-840acce2f906",
-      "name": "guid:64610b9fdc23964d27f5d84f395a76df",
+      "id": "file--be944512-fb83-5d5c-8920-b362a3f65ef5",
+      "name": "64610b9fdc23964d27f5d84f395a76df",
       "spec_version": "2.1",
       "type": "file"
     },
