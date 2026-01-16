@@ -135,3 +135,22 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
             self.len(1, nodes)
             self.eq(('bar', 'foo'), nodes[0].get('topics'))
+
+            nodes = await core.nodes('''[
+                doc:reference=*
+                    :referrer={[ doc:report=* :title=document ]}
+                    :citation=mycitation
+                    :cites={[ doc:report=* :title=cites ]}
+                    :cites:url=https://vertex.link
+            ]''')
+            self.len(1, nodes) # todo
+
+            nodes = await core.nodes('''[
+                doc:reference=*
+                    :referrer={[ risk:vuln=* :cve=cve-2025-12345 ]}
+                    :cites:url=https://mycveurl.com
+            ]''')
+            self.len(1, nodes) # todo
+
+            nodes = await core.nodes('doc:reference :referrer -> *')
+            self.sorteq(['doc:report', 'risk:vuln'], [n.ndef[0] for n in nodes])
