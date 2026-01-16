@@ -2,6 +2,7 @@ import gc
 import os
 import ssl
 import copy
+import stat
 import time
 import fcntl
 import shutil

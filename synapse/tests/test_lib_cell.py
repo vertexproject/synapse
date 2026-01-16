@@ -56,6 +56,11 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
 def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
+async def migrate_v1(info, versinfo, data, curv):
+    assert curv == 1
+    data['woot'] = 'woot'
+    return data
+
 async def _doEOFBackup(path):
     return
 
@@ -306,28 +311,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(data[1]['stuff'], 1234)
 
                 # This will be done by the cell in a cell storage version migration...
-                async def migrate_v1(info, versinfo, data, curv):
-                    self.eq(curv, 1)
-                    data['woot'] = 'woot'
-                    return data
-
-                # await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
-
-                await cell.drive.setTypeSchema('woot', testDataSchema_v1)
-
-                async for lkey, data in cell.drive.getMigrRows('woot'):
-                    data['woot'] = 'woot'
-                    await cell.drive.setMigrRow(lkey, data)
-
-                # async for (info, versinfo, data) in cell.drive.getItemsByType('woot'):
-                # async for info in cell.drive.getItemsByType('woot'):
-
-                #     async for versinfo in cell.drive.getItemDataVersions(iden):
-                #         vers = versinfo.get('version')
-                #         _, data = await cell.drive.getItemData(iden, vers=vers)
-                #         print(repr(data))
-                #         data['woot'] = 'woot'
-                #         await cell.drive.setItemData(iden, versinfo, data)
+                callback = 'synapse.tests.test_lib_cell.migrate_v1'
+                await cell.drive.setTypeSchema('woot', testDataSchema_v1, callback=callback)
 
                 await cell.setDriveItemProp(iden, versinfo, 'woot', 'woot')
 

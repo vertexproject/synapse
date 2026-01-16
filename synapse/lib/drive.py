@@ -6,6 +6,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.config as s_config
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
@@ -522,12 +523,16 @@ class Drive(s_base.Base):
 
         reqValidName(typename)
 
+        if isinstance(callback, str):
+            callback = s_dyndeps.getDynLocal(callback)
+
         # if we were invoked via telepath, the schmea needs to be mutable...
         schema = s_msgpack.deepcopy(schema, use_list=True)
 
+        curv = await self.getTypeSchemaVersion(typename)
+
         if vers is not None:
             vers = int(vers)
-            curv = await self.getTypeSchemaVersion(typename)
             if curv is not None:
                 if vers == curv:
                     return False
