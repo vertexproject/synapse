@@ -3044,8 +3044,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             modname = mdef.get('name')
             mdef['pkgvers'] = pkgvers
             modconf = mdef.setdefault('modconf', {})
-            modconf['_modname'] = modname
-            modconf['_pkgname'] = name
+            modconf.setdefault('modname', modname)
+            modconf.setdefault('pkgname', name)
             stormmods[modname] = mdef
 
         self.stormmods = stormmods
