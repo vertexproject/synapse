@@ -537,6 +537,24 @@ class SockAddr(s_types.Str):
 
         return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
 
+    async def _normPyDict(self, valu, view=None):
+        ipaddr, ipnorminfo = await self.iptype.norm(valu.get('ip'))
+        ip_repr = self.iptype.repr(ipaddr)
+
+        if 'proto' in valu:
+            proto, protonorminfo = await self.prototype.norm(valu.get('proto'))
+            proto_repr = self.prototype.repr(proto)
+        else:
+            proto_repr = self.defproto
+
+        # todo: similar thing for this
+        port = valu.get('port', self.defport)
+
+        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
+
+
+
 class Email(s_types.Str):
 
     def postTypeInit(self):
