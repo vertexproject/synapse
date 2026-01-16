@@ -4,9 +4,15 @@ modeldefs = (
     ('doc', {
         'interfaces': (
 
+            ('doc:referrer', {
+                'doc': 'An interface for forms which can contain references.'}),
+
             ('doc:authorable', {
                 'doc': 'Properties common to authorable forms.',
                 'template': {'title': 'document'},
+                'interfaces': (
+                    ('doc:referrer', {}),
+                ),
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -153,6 +159,15 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
+            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
+                'doc': 'A node which implements the document interface.'}),
+
+            ('doc:referrer', ('ndef', {'interface': 'doc:referrer'}), {
+                'doc': 'A node which implements the document referrer interface.'}),
+
+            ('doc:reference', ('guid', {}), {
+                'doc': 'A referrence or citation included in a document.'}),
+
         ),
         'edges': (
             (('doc:contract', 'has', 'doc:requirement'), {
@@ -252,6 +267,21 @@ modeldefs = (
 
                 ('terminated', ('time', {}), {
                     'doc': 'The date that the contract was terminated.'}),
+            )),
+
+            ('doc:reference', {}, (
+
+                ('referrer', ('doc:referrer', {}), {
+                    'doc': 'The source which contains the reference.'}),
+
+                ('citation', ('str', {}), {
+                    'doc': 'A citation string included in the document.'}),
+
+                ('cites', ('doc:document', {}), {
+                    'doc': 'The document which the reference refers to.'}),
+
+                ('cites:url', ('inet:url', {}), {
+                    'doc': 'A URL included in the document to locate the referenced document.'}),
             )),
         ),
     }),
