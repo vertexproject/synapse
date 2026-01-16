@@ -1,0 +1,7 @@
+---
+desc: 'Update Storm package loading to embed the module and package names into modconf
+  values. These can be accessed via ``$modconf._modname`` and ``$modconf._pkgname``.'
+desc:literal: false
+prs: []
+type: feat
+...

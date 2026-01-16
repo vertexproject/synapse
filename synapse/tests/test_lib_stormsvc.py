@@ -132,6 +132,14 @@ class RealService(s_stormsvc.StormSvc):
                  ''',
                  'modconf': {'key': 'valu'},
                  },
+                {'name': 'foo.baz',
+                 'storm': '''
+                  function getMetaVars(){
+                     $ret = ({'modname': $modconf._modname, 'pkgname': $modconf._pkgname})
+                     return ($ret)
+                  }
+                 '''
+                },
             ),
             'commands': (
                 {
@@ -545,7 +553,7 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('inet:ipv4=1.2.3.3 | baz | yoyo')
                     self.len(5, {n.ndef for n in nodes})
 
-    async def test_storm_svcs(self):
+    async def test_storm_svcs_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -662,6 +670,13 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
+                    self.stormIsInPrint('_modname=foo.bar', msgs)
+                    self.stormIsInPrint('_pkgname=foo', msgs)
+
+                    # metavars are available
+                    q = '$mod = $lib.import(foo.baz) return ( $mod.getMetaVars() )'
+                    ret = await core.callStorm(q)
+                    self.eq(ret, {'modname': 'foo.baz', 'pkgname': 'foo'})
 
                     # Check some service related permissions
                     user = await core.auth.addUser('user')
