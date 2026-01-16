@@ -1689,10 +1689,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.drive = await spawner(path)
 
-        await self._bumpCellVers('drive:storage', (
-            (1, self._drivePermMigration),
-        ), nexs=False)
-
         self.onfini(self.drive.fini)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
