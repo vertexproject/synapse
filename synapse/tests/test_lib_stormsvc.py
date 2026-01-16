@@ -666,7 +666,6 @@ class StormSvcTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     # modconf data is available to commands
-                    self.maxDiff = None
                     msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
