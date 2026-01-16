@@ -2981,7 +2981,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             modconf = mdef.setdefault('modconf', {})
             if svciden:
                 modconf['svciden'] = svciden
-            modconf.setdefault('pkgmeta', {'modname': mdef['name'], 'pkgname': pkgname})
+            modconf.setdefault('pkgmeta', {'modname': mdef.get('name'), 'pkgname': pkgname})
 
             if validstorm:
                 modtext = mdef.get('storm')
