@@ -135,8 +135,7 @@ class RealService(s_stormsvc.StormSvc):
                 {'name': 'foo.baz',
                  'storm': '''
                   function getMetaVars(){
-                     $ret = ({'modname': $modconf.modname, 'pkgname': $modconf.pkgname})
-                     return ($ret)
+                     return ($modconf.pkgmeta)
                   }
                  '''
                 },
@@ -667,11 +666,11 @@ class StormSvcTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     # modconf data is available to commands
+                    self.maxDiff = None
                     msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
-                    self.stormIsInPrint('modname=foo.bar', msgs)
-                    self.stormIsInPrint('pkgname=foo', msgs)
+                    self.stormIsInPrint("pkgmeta={'modname': 'foo.bar', 'pkgname': 'foo'}", msgs)
 
                     # metavars are available
                     q = '$mod = $lib.import(foo.baz) return ( $mod.getMetaVars() )'
