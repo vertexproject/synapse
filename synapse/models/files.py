@@ -310,6 +310,10 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Records one, of potentially multiple, mime types for a given file.',
                 }),
 
+                ('file:mime:pdf', ('guid', {}), {
+                    'interfaces': ('file:mime:meta',),
+                    'doc': 'Metadata extracted from a Portable Document Format (PDF) file.'}),
+
                 ('file:mime:msdoc', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
                     'interfaces': ('file:mime:msoffice',),
@@ -489,6 +493,39 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The mime type of the file.',
                     }),
+                )),
+
+                ('file:mime:pdf', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The "DocumentID" field extracted from PDF metadata.'}),
+
+                    ('title', ('str', {}), {
+                        'doc': 'The "Title" field extracted from PDF metadata.'}),
+
+                    ('author:name', ('entity:name', {}), {
+                        'doc': 'The "Author" field extracted from PDF metadata.'}),
+
+                    ('language:name', ('lang:name', {}), {
+                        'doc': 'The "Language" field extracted from PDF metadata.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The "CreatedDate" field extracted from PDF metadata.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The "ModifyDate" field extracted from PDF metadata.'}),
+
+                    ('producer:name', ('it:prod:softname', {}), {
+                        'doc': 'The "Producer" field extracted from PDF metadata.'}),
+
+                    ('tool:name', ('it:prod:softname', {}), {
+                        'doc': 'The "CreatorTool" field extracted from PDF metadata.'}),
+
+                    ('subject', ('str', {}), {
+                        'doc': 'The "Subject" field extracted from PDF metadata.'}),
+
+                    ('keywords', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The "Keywords" field extracted from PDF metadata.'}),
                 )),
 
                 ('file:mime:msdoc', {}, ()),

@@ -90,6 +90,7 @@ import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
 import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
+import synapse.lib.stormlib.quorum as s_stormlib_quorum  # NOQA
 import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
@@ -4672,6 +4673,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.ColorizeCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.ParallelCmd)
         self.addStormCmd(s_storm.TagPruneCmd)
@@ -4699,6 +4701,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             s_stormlib_pkg,
             s_stormlib_task,
             s_stormlib_vault,
+            s_stormlib_quorum,
         ]
 
         for cmod in cmdmods:

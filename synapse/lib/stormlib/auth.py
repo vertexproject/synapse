@@ -1889,7 +1889,7 @@ class LibUsers(s_stormtypes.Lib):
         {'name': 'get', 'desc': 'Get a specific User by iden.',
          'type': {'type': 'function', '_funcname': '_methUsersGet',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve. Returns the current user if not specified.', 'default': None},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
                               'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
@@ -1969,7 +1969,9 @@ class LibUsers(s_stormtypes.Lib):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methUsersGet(self, iden):
+    async def _methUsersGet(self, iden=None):
+        if iden is None:
+            iden = self.runt.user.iden
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])

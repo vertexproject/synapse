@@ -1,0 +1,6 @@
+---
+desc: Added ``$lib.quorum.merge.list()`` API and ``quorum.merge.list`` command to enumerate pending merges.
+desc:literal: false
+prs: []
+type: feat
+...

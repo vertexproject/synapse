@@ -954,6 +954,9 @@ class RiskModule(s_module.CoreModule):
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
 
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A tag used to associate nodes with the compromise.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),

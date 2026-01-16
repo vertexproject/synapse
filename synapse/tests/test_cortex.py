@@ -3189,7 +3189,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await view.pack()
             self.eq(info['name'], 'default')
 
-            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'bytes')]
+            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'ps')]
             self.len(1, depr)
             deprinfo = depr[0].get('deprecated')
             self.nn(deprinfo)

@@ -130,6 +130,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.mergetask = None
 
+    def getParentQuorum(self):
+
+        if self.parent is None:
+            return None
+
+        return self.parent.info.get('quorum')
+
     def reqParentQuorum(self):
 
         if self.parent is None:
