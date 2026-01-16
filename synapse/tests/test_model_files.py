@@ -684,6 +684,7 @@ class FileTest(s_t_utils.SynTest):
                     :updated=20260115
                     :language:name=Klingon
                     :tool:name="Google Docs Renderer"
+                    :producer:name="Zip Zop Software"
                     :keywords=(foo, bar)
                 ]
             ''')
@@ -695,10 +696,12 @@ class FileTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tool:name'), 'google docs renderer')
             self.eq(nodes[0].get('author:name'), 'vertex')
             self.eq(nodes[0].get('language:name'), 'klingon')
+            self.eq(nodes[0].get('producer:name'), 'zip zop software')
             self.eq(nodes[0].get('created'), 1768435200000)
             self.eq(nodes[0].get('updated'), 1768435200000)
             self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
             self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))
             self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:prod:softname'))
+            self.len(1, await core.nodes('file:mime:pdf :producer:name -> it:prod:softname'))
             self.len(2, await core.nodes('file:mime:pdf :keywords -> media:topic'))

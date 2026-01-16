@@ -515,8 +515,11 @@ class FileModule(s_module.CoreModule):
                     ('updated', ('time', {}), {
                         'doc': 'The "ModifyDate" field extracted from PDF metadata.'}),
 
+                    ('producer:name', ('it:prod:softname', {}), {
+                        'doc': 'The "Producer" field extracted from PDF metadata.'}),
+
                     ('tool:name', ('it:prod:softname', {}), {
-                        'doc': 'The "Producer" or "CreatorTool" field extracted from PDF metadata.'}),
+                        'doc': 'The "CreatorTool" field extracted from PDF metadata.'}),
 
                     ('subject', ('str', {}), {
                         'doc': 'The "Subject" field extracted from PDF metadata.'}),
