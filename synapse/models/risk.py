@@ -123,17 +123,8 @@ modeldefs = (
                 },
                 'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.'}),
 
-            ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A taxonomy of mitigation types.'}),
-
-            ('risk:mitigation', ('guid', {}), {
+            ('risk:mitigation', ('meta:technique', {}), {
                 'template': {'title': 'mitigation'},
-                'interfaces': (
-                    ('meta:reported', {}),
-                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -299,22 +290,6 @@ modeldefs = (
             (('risk:compromise', 'stole', 'phys:object'), {
                 'doc': 'The target node was stolen as a result of the compromise.'}),
 
-            # TODO - risk:mitigation addresses meta:usable?
-            (('risk:mitigation', 'addresses', 'meta:technique'), {
-                'doc': 'The mitigation addresses the technique.'}),
-
-            (('risk:mitigation', 'addresses', 'risk:vuln'), {
-                'doc': 'The mitigation addresses the vulnerability.'}),
-
-            (('risk:mitigation', 'uses', 'meta:rule'), {
-                'doc': 'The mitigation uses the rule.'}),
-
-            (('risk:mitigation', 'uses', 'it:software'), {
-                'doc': 'The mitigation uses the software version.'}),
-
-            (('risk:mitigation', 'uses', 'it:hardware'), {
-                'doc': 'The mitigation uses the hardware.'}),
-
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
@@ -400,15 +375,7 @@ modeldefs = (
                     'prevnames': ('soft',),
                     'doc': 'The authoritative software family for the tool.'}),
             )),
-            ('risk:mitigation:type:taxonomy', {}, ()),
-            ('risk:mitigation', {}, (
-
-                ('type', ('risk:mitigation:type:taxonomy', {}), {
-                    'doc': 'A taxonomy type entry for the mitigation.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
-            )),
+            ('risk:mitigation', {}, ()),
 
             ('risk:vuln:type:taxonomy', {}, ()),
 
@@ -527,7 +494,7 @@ modeldefs = (
                 ('mitigated', ('bool', {}), {
                     'doc': 'Set to true if the vulnerable node has been mitigated.'}),
 
-                ('mitigations', ('array', {'type': 'risk:mitigation'}), {
+                ('mitigations', ('array', {'type': 'meta:technique'}), {
                     'doc': 'The mitigations which were used to address the vulnerable node.'}),
             )),
 

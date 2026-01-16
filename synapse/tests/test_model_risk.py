@@ -408,7 +408,10 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln={[ risk:vuln=* :name=redtree ]}
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
-                    :mitigations={[ risk:mitigation=* :name=patchstuff ]}
+                    :mitigations={[
+                        ( risk:mitigation=* :name=patchstuff )
+                        ( meta:technique=* :name=dothing )
+                    ]}
                     <(shows)+ {[ inet:flow=* ]}
                 ]
             ''')
@@ -419,9 +422,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
-            self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))
             self.len(1, await core.nodes('risk:vulnerable <(shows)- inet:flow'))
+
+            nodes = await core.nodes('risk:vulnerable :mitigations -> *')
+            self.sorteq(['meta:technique', 'risk:mitigation'], [n.ndef[0] for n in nodes])
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -463,6 +468,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
                     +(addresses)> {[ risk:vuln=* meta:technique=* ]}
+                    +(uses)> {[ meta:rule=* it:hardware=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq(('bar', 'foo'), nodes[0].get('names'))
@@ -473,9 +479,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
 
             self.len(2, await core.nodes('risk:mitigation -(addresses)> *'))
-            self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
+            self.len(2, await core.nodes('risk:mitigation -(uses)> *'))
+            self.len(1, await core.nodes('risk:mitigation -> meta:technique:type:taxonomy'))
 
-            nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
+            nodes = await core.nodes('meta:technique:type:taxonomy=foo.bar [ :desc="foo that bars"]')
             self.len(1, nodes)
             self.eq('foo that bars', nodes[0].get('desc'))
 

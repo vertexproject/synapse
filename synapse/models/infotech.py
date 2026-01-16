@@ -828,6 +828,9 @@ modeldefs = (
 
             ('it:hardware', ('guid', {}), {
                 'prevnames': ('it:prod:hardware',),
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
@@ -1611,7 +1614,7 @@ modeldefs = (
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan result.'}),
 
-                ('mitigation', ('risk:mitigation', {}), {
+                ('mitigation', ('meta:technique', {}), {
                     'doc': 'The mitigation used to address this asset vulnerability.'}),
 
                 ('mitigated', ('time', {}), {
