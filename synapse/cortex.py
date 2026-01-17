@@ -2978,9 +2978,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
-            mdef.setdefault('modconf', {})
+            modconf = mdef.setdefault('modconf', {})
             if svciden:
-                mdef['modconf']['svciden'] = svciden
+                modconf['svciden'] = svciden
+            modconf.setdefault('pkgmeta', {'modname': mdef.get('name'), 'pkgname': pkgname})
 
             if validstorm:
                 modtext = mdef.get('storm')
