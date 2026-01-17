@@ -1,5 +1,5 @@
 ---
-desc: 'Update Storm package loading to embed the module and package names into modconf
+desc: 'Updated Storm package loading to embed the module and package names into modconf
   values. These can be accessed via ``$modconf.pkgmeta.modname`` and ``$modconf.pkgmeta.pkgname``.'
 desc:literal: false
 prs: []
