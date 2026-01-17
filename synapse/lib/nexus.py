@@ -23,6 +23,8 @@ leaderversion = 'Leader is a higher version than we are.'
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
 
+NEXUSROOT_APPLYTASK_WAIT_S = float(os.environ.get('SYN_APPLYTASK_WAIT', 6.0))
+
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
 
@@ -143,6 +145,14 @@ class NexsRoot(s_base.Base):
         self.nexslog.setIndex(maxindx)
 
         async def fini():
+
+            # if self.applytask is not None and not self.applytask.done():
+            #     try:
+            #         logger.warning(f'Awaiting applytask {self.cell.dirn} {self.applytask}')
+            #         await s_common.wait_for(self.applytask, NEXUSROOT_APPLYTASK_WAIT_S)
+            #     except:
+            #         logger.exception(f'Error when awaiting applytask during Nexus shutdown')
+
             for wind in self._linkmirrors:
                 await wind.fini()
 
@@ -365,6 +375,9 @@ class NexsRoot(s_base.Base):
 
         await self.cell.nexslock.acquire()
 
+        if self.isfini:
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
+
         try:
             if (nexus := self._nexskids.get(nexsiden)) is None:
                 mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
@@ -389,6 +402,8 @@ class NexsRoot(s_base.Base):
             return await asyncio.shield(self.applytask)
 
     async def _eat(self, item, indx=None):
+        if self.isfini:
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
 
         try:
             if self.donexslog:
@@ -472,7 +487,7 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Cannot iterate over a fini Nexus')
 
         maxoffs = offs
 
@@ -684,6 +699,12 @@ class NexsRoot(s_base.Base):
 
             except s_exc.LinkShutDown:
                 logger.warning(f'mirror loop: leader closed the connection.')
+            #     await self.waitfini(timeout=1)
+            #
+            # except s_exc.IsFini:
+            #     logger.warning(f'mirror loop: leader is shutdown.')
+            #     import synapse.lib.coro as s_coro
+            #     s_coro.create_task(proxy.fini())
 
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')
