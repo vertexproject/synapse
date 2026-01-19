@@ -33,10 +33,10 @@ modeldefs = (
                 'doc': 'A base type for case insensitive names.'}),
 
             ('meta:name', ('base:name', {}), {
-                'prevnames': ('meta:name', 'ou:name', 'ou:industryname',
+                'prevnames': ('ou:name', 'ou:industryname',
                               'ou:campname', 'ou:goalname', 'lang:name',
-                              'risk:vulnname', 'meta:name', 'it:prod:softname',
-                              'entity:name', 'geo:name'),
+                              'risk:vulnname', 'meta:name', 'entity:name',
+                              'geo:name'),
                 'doc': 'A name used to refer to an entity or event.'}),
 
             ('meta:topic', ('base:name', {}), {
@@ -321,6 +321,9 @@ modeldefs = (
 
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
+
+            (('meta:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The rule is designed to detect the named software.'}),
 
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),

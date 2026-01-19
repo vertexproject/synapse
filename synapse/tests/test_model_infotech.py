@@ -150,10 +150,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('signame'), 'omgwtfbbq')
             self.eq(nodes[0].get('categories'), ('baz faz', 'foo bar'))
 
-            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> meta:name'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:software'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:softwarename'))
 
             nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
             self.len(1, nodes)
@@ -544,7 +544,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('released'), 1522745062000000)
             self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
-            self.len(2, await core.nodes('meta:name="balloon maker" -> it:software -> meta:name'))
+            self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
 
             self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
