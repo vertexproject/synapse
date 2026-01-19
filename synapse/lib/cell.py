@@ -1849,23 +1849,25 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             fdusage = s_thisplat.getOpenFdInfo()
 
             # TODO Handle constant here https://docs.python.org/3/library/resource.html#resource.RLIM_INFINITY
-            # TODO soft_limit vs hard_limit
-            hard_limit = fdusage['hard_limit']
+            limit = fdusage['soft_limit']
             usage = fdusage['usage']
-            free = hard_limit - usage
+            free = limit - usage
 
-            if ( free / hard_limit ) <= self.min_fd_free:
+            # TODO REMOVE ME
+            logger.debug(f'{usage=} {limit=} {free=} {free / limit} <= {self.min_fd_free=} ?')
+
+            if ( free / limit ) <= self.min_fd_free:
 
                 await nexsroot.addWriteHold(openfd_mesg)
 
                 mesg = f'Available file descriptors has dropped below minimum threshold' \
-                       f'(currently {free / hard_limit * 100:.2f}%), setting Cell to read-only.'
+                       f'(currently {free / limit * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg, extra={'synapse': fdusage})
 
             elif nexsroot.readonly and await nexsroot.delWriteHold(openfd_mesg):
 
                 mesg = f'Available file descriptors above minimum threshold' \
-                       f'(currently {free / hard_limit * 100:.2f}%), removing file descriptor write hold.'
+                       f'(currently {free / limit * 100:.2f}%), removing file descriptor write hold.'
                 logger.error(mesg, extra={'synapse': fdusage})
 
             await self._checkopenfd.timewait(timeout=self.OPEN_FD_CHECK_FREQ)
