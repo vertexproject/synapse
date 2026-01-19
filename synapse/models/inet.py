@@ -1468,7 +1468,7 @@ modeldefs = (
 
             ('inet:serverfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'the host server and file'}}),
+                    ('meta:observable', {'template': {'title': 'host server and file'}}),
                 ),
                 'doc': 'A file hosted by a server.'}),
 
