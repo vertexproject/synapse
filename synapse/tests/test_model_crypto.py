@@ -114,7 +114,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('private:exponent'), 'bbbb')
             self.eq(nodes[0].get('private:coefficient'), 'dddd')
             self.eq(nodes[0].get('public:hashes'), [('crypto:hash:sha1', TEST_SHA1)])
-            self.eq(nodes[0].get('private:hashes'), [('crypto:hash:sha256',TEST_SHA256)])
+            self.eq(nodes[0].get('private:hashes'), [('crypto:hash:sha256', TEST_SHA256)])
 
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:algorithm'))
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:key:rsa:prime'))
@@ -128,7 +128,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :public:p=cccc
                     :public:q=dddd
                     :public:g=eeee
-                    
+
                     :public:hashes = { crypto:hash:sha1=$sha1 }
                     :private:hashes = { crypto:hash:sha256=$sha256 }
                 ]
