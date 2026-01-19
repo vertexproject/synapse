@@ -2589,7 +2589,6 @@ class CellTest(s_t_utils.SynTest):
         _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
 
         def full_fds():
-            print(f'IN FULL FDS')
             return {'hard_limit': 256, 'soft_limit': 256, 'usage': 255}
 
         def unlimited_fds():
