@@ -201,9 +201,6 @@ modeldefs = (
             ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
                 'template': {'title': 'item'},
-                'interfaces': (
-                    ('doc:referrer', {}),
-                ),
                 'props': (
 
                     ('id', ('meta:id', {}), {
