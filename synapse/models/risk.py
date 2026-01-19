@@ -381,6 +381,12 @@ modeldefs = (
             # TODO we will need more of these...
             (('inet:proto:link', 'shows', 'risk:vulnerable'), {
                 'doc': 'The network activity shows that the vulnerability was present.'}),
+
+            (('risk:tool:software', 'runson', 'it:software'), {
+                'doc': 'The source tool can be run within the target software.'}),
+
+            (('risk:tool:software', 'runson', 'it:hardware'), {
+                'doc': 'The source tool can be run on the target hardware.'}),
         ),
         'forms': (
 

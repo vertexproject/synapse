@@ -511,6 +511,9 @@ class RiskModelTest(s_t_utils.SynTest):
 
                     :sophistication=high
                     :availability=public
+
+                    +(runson)> {[ it:software=({"name": "linux"}) ]}
+                    +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -535,6 +538,9 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes := await core.nodes('[ risk:tool:software=({"name": "beacon"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
+
+            self.len(1, await core.nodes('risk:tool:software -(runson)> it:software +:name=linux'))
+            self.len(1, await core.nodes('risk:tool:software -(runson)> it:hardware +:name=amd64'))
 
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
