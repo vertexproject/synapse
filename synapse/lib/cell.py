@@ -1236,7 +1236,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.min_fd_free = self.conf.get('limit:fd:free')
         if self.min_fd_free is not None:
             self.min_fd_free = self.min_fd_free / 100
-            # DISCUSS When is it even possible to check this during bootsrapping? postAnit ?
+            # DISCUSS When is it even possible to check this during startup? postAnit ?
 
         self._delTmpFiles()
 
