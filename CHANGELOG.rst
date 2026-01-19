@@ -12,6 +12,64 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.230.0 - 2026-01-08
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated email addresses with +<tag> user names to properly populate
+  ``:plus`` and ``:base``.
+  (`#4636 <https://github.com/vertexproject/synapse/pull/4636>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``:reporter`` and ``:reporter:name`` properties to ``ou:goal`` to
+  record information about a reporter of the goal.
+  (`#4616 <https://github.com/vertexproject/synapse/pull/4616>`_)
+- Added ``:plus`` and ``:base`` properties to ``inet:email``.
+  (`#4636 <https://github.com/vertexproject/synapse/pull/4636>`_)
+- See :ref:`userguide_model_v2_230_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``vaults`` to the Storm package definition schema, which enables
+  declaring vaults and their associated schemas.
+  (`#4590 <https://github.com/vertexproject/synapse/pull/4590>`_)
+- Added declarations for trigger property permissions.
+  (`#4615 <https://github.com/vertexproject/synapse/pull/4615>`_)
+- Updated Storm package onload/inits to always run directly on the leader even
+  when a Storm query pool is in use.
+  (`#4617 <https://github.com/vertexproject/synapse/pull/4617>`_)
+- Updated the allowed versions of the ``cbor2`` library.
+  (`#4648 <https://github.com/vertexproject/synapse/pull/4648>`_)
+- Added ``$lib.bytes.fromints()`` to convert an array of integers into a bytes
+  instance.
+  (`#4656 <https://github.com/vertexproject/synapse/pull/4656>`_)
+
+Notes
+-----
+- Updated ``synapse.tools.utils.changelog`` tool to replace the ``--prs-from-
+  git`` option with ``--no-prs-from-git``.
+  (`#4613 <https://github.com/vertexproject/synapse/pull/4613>`_)
+- Updated service main function behavior to allow background tasks the
+  opportunity to execute before shutting down.
+  (`#4645 <https://github.com/vertexproject/synapse/pull/4645>`_)
+
+Improved documentation
+----------------------
+- Updated documentation related to the Synapse release process.
+  (`#4613 <https://github.com/vertexproject/synapse/pull/4613>`_)
+
+Deprecations
+------------
+- Deprecated the ``idens()`` method on Storm ``path`` objects. The ``links()``
+  method should be used to retrieve this information instead.
+  (`#4618 <https://github.com/vertexproject/synapse/pull/4618>`_)
+- Deprecated the ``path`` Storm option. The ``links`` option should be used to
+  retrieve this data instead.
+  (`#4618 <https://github.com/vertexproject/synapse/pull/4618>`_)
+
 v2.229.0 - 2025-12-10
 =====================
 
@@ -54,7 +112,6 @@ Notes
   ``it:prod:softver:vers`` as a semver string failed. This log message was
   misleading, since this functionality changed in ``v2.128.0``.
   (`#4582 <https://github.com/vertexproject/synapse/pull/4582>`_)
->>>>>>> master
 
 v2.228.0 - 2025-12-02
 =====================
@@ -583,7 +640,6 @@ Improved documentation
 ----------------------
 - Added Storm library documentation for ``$lib.feed.fromAxon``.
   (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
->>>>>>> master
 
 v2.216.0 - 2025-07-15
 =====================
@@ -9075,7 +9131,7 @@ Features and Enhancements
   ``$lib.bytes.hashset()`` API.
   (`#2327 <https://github.com/vertexproject/synapse/pull/2327>`_)
 - Add the ``synapse.servers.stemcell`` server and a new Docker image,
-  ``vertexproject/synaspe-stemcell``. The Stemcell server is similar to the
+  ``vertexproject/synapse-stemcell``. The Stemcell server is similar to the
   ``synapse.servers.cell`` server, except it resolves the Cell ctor from the
   ``cell:ctor`` key from the ``cell.yaml`` file, or from the
   ``SYN_STEM_CELL_CTOR`` environment variable.
