@@ -1466,6 +1466,12 @@ modeldefs = (
                 ),
                 'doc': 'A network protocol banner string presented by a server.'}),
 
+            ('inet:serverfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'the host server and file'}}),
+                ),
+                'doc': 'A file hosted by a server.'}),
+
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
@@ -2159,31 +2165,6 @@ modeldefs = (
                 }),
             )),
 
-            # FIXME - inet:proto:link? Is this really an it:host:fetch?
-            ('inet:download', {}, (
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was downloaded.'
-                }),
-                ('fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN used to resolve the server.'
-                }),
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was downloaded.'
-                }),
-                ('server', ('inet:server', {}), {
-                    'doc': 'The socket address of the server.'
-                }),
-                ('server:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the server.'
-                }),
-                ('client', ('inet:client', {}), {
-                    'doc': 'The socket address of the client.'
-                }),
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the client.'
-                }),
-            )),
-
             ('inet:email', {}, (
 
                 ('user', ('inet:user', {}), {
@@ -2553,6 +2534,16 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The optional username used to access the URL.'}),
 
+            )),
+
+            ('inet:serverfile', {}, (
+                ('server', ('inet:server', {}), {
+                    'computed': True,
+                    'doc': 'The server which hosted the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'computed': True,
+                    'doc': 'The file that was hosted on the server.'}),
             )),
 
             ('inet:urlfile', {}, (
