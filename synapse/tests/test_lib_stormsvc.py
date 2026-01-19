@@ -669,12 +669,12 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
-                    self.stormIsInPrint("pkgmeta={'modname': 'foo.bar', 'pkgname': 'foo'}", msgs)
+                    self.stormIsInPrint(f"pkgmeta={{'modname': 'foo.bar', 'pkgname': 'foo', 'svciden': '{iden}'}}", msgs)
 
                     # metavars are available
                     q = '$mod = $lib.import(foo.baz) return ( $mod.getMetaVars() )'
                     ret = await core.callStorm(q)
-                    self.eq(ret, {'modname': 'foo.baz', 'pkgname': 'foo'})
+                    self.eq(ret, {'modname': 'foo.baz', 'pkgname': 'foo', 'svciden': iden})
 
                     # Check some service related permissions
                     user = await core.auth.addUser('user')
