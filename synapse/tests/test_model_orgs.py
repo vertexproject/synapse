@@ -326,6 +326,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
+                    :url=https://vertex.link/woot
                     :period=(20250101, 20250102)
                     :contest={ou:contest}
                     :participant={[ entity:contact=* ]}
@@ -333,6 +334,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('contest'))
             self.nn(nodes[0].get('participant'))
+            self.eq(nodes[0].get('url'), 'https://vertex.link/woot')
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
             self.eq((1735689600000000, 1735776000000000, 86400000000), nodes[0].get('period'))

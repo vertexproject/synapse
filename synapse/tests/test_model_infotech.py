@@ -534,6 +534,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/products/balloonmaker
                     :version=V1.0.1-beta+exp.sha.5114f85
                     :released="2018-04-03 08:44:22"
+                    +(runson)> {[ it:software=({"name": "linux"}) ]}
+                    +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
             ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -545,6 +547,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
+            self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
+            self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:hardware +:name=amd64'))
 
             self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
