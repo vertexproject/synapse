@@ -153,8 +153,11 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
+            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
+                'doc': 'A node which implements the document interface.'}),
+
             ('doc:reference', ('guid', {}), {
-                'doc': 'A referrence or citation included in a document.'}),
+                'doc': 'A reference or citation included in a document.'}),
 
         ),
         'edges': (
@@ -263,14 +266,14 @@ modeldefs = (
                                                  'entity:campaign', 'meta:technique', 'plan:phase')}), {
                     'doc': 'The source which contains the reference.'}),
 
-                ('citation', ('str', {}), {
-                    'doc': 'A citation string included in the document.'}),
+                ('text', ('str', {}), {
+                    'doc': 'A reference string included in the source.'}),
 
-                ('cites', ('doc:document', {}), {
+                ('doc', ('doc:document', {}), {
                     'doc': 'The document which the reference refers to.'}),
 
-                ('cites:url', ('inet:url', {}), {
-                    'doc': 'A URL included in the document to locate the referenced document.'}),
+                ('url', ('inet:url', {}), {
+                    'doc': 'A URL for the reference.'}),
             )),
         ),
     }),

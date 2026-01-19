@@ -138,19 +138,26 @@ class DocModelTest(s_tests.SynTest):
 
             nodes = await core.nodes('''[
                 doc:reference=*
-                    :referrer={[ doc:report=* :title=document ]}
-                    :citation=mycitation
-                    :cites={[ doc:report=* :title=cites ]}
-                    :cites:url=https://vertex.link
+                    :referrer={[ doc:report=* :title="an article about mars" ]}
+                    :text="(Lee, 2020, para. 15)"
+                    :doc={[ doc:report=* :title="nasa mars report" :author={[ ps:person=* :name="bruce lee" ]} ]}
+                    :url=https://nasa.gov/2020-mars
+                    +#test00
             ]''')
-            self.len(1, nodes) # todo
+            self.len(1, nodes)
+            self.eq('(Lee, 2020, para. 15)', nodes[0].get('text'))
+            self.eq('https://nasa.gov/2020-mars', nodes[0].get('url'))
+            self.len(1, await core.nodes('doc:reference#test00 :referrer -> doc:report'))
+            self.len(1, await core.nodes('doc:reference#test00 :doc -> doc:report'))
 
             nodes = await core.nodes('''[
                 doc:reference=*
                     :referrer={[ risk:vuln=* :cve=cve-2025-12345 ]}
-                    :cites:url=https://mycveurl.com
+                    :text="an exploit example"
+                    :url=https://github.com/foo/bar/exploit.py
+                    +#test01
             ]''')
-            self.len(1, nodes) # todo
-
-            nodes = await core.nodes('doc:reference :referrer -> *')
-            self.sorteq(['doc:report', 'risk:vuln'], [n.ndef[0] for n in nodes])
+            self.len(1, nodes)
+            self.eq('an exploit example', nodes[0].get('text'))
+            self.eq('https://github.com/foo/bar/exploit.py', nodes[0].get('url'))
+            self.len(1, await core.nodes('doc:reference#test01 :referrer -> risk:vuln'))
