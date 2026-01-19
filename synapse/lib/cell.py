@@ -1413,6 +1413,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
+        # End of __anit__ - refire the fd loop in the event that conditions have
+        # changed such that the service would now go into a write only mode.
+        self.checkOpenFd()
+
     async def _storCellHiveMigration(self):
         logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
 

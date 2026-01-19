@@ -1,0 +1,11 @@
+---
+desc: Add a new Cell configuration option, ``limit:fd:free``. This represents the
+  minimum percentage of available file descriptors that a Synapse service that
+  is required in order to start up without entering a read-only state. This value
+  is also monitored every minute and will disable the Cell Nexus if the free 
+  file descriptors drops below the specified value. This value defaults to five
+  percent ( ``5 %`` ) of available file descriptors.
+desc:literal: false
+prs: []
+type: feat
+...
