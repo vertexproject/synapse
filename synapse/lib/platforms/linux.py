@@ -19,6 +19,7 @@ def initHostInfo():
         'platform': 'linux',
         'hasmemlocking': True,  # has mlock, and all the below related functions
         'hassysctls': True,
+        'hasopenfds': True,
     }
 
 def getFileMappedRegion(filename):

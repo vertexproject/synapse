@@ -2561,6 +2561,9 @@ class CellTest(s_t_utils.SynTest):
                 self.false(await root.tryPasswd('root'))
                 self.true(await root.tryPasswd('supersecretpassword'))
 
+    async def test_cell_minfiles(self):
+        pass
+
     async def test_cell_minspace(self):
 
         with self.raises(s_exc.LowSpace):

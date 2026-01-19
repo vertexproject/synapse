@@ -64,3 +64,12 @@ class LinuxTest(s_t_utils.SynTest):
         self.isinstance(ret['vm.dirty_bytes'], int)
         self.isin('vm.dirty_background_bytes', ret)
         self.isinstance(ret['vm.dirty_background_bytes'], int)
+
+    def test_openfds(self):
+        self.thisHostMust(hasopenfds=True)
+        ret = s_thisplat.getOpenFdInfo()
+        self.isinstance(ret, dict)
+        self.isin('hard_limit', ret)
+        self.isin('soft_limit', ret)
+        self.isin('usage', ret)
+        self.true(ret.get('usage') > 0)
