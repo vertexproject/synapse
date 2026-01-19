@@ -1474,7 +1474,7 @@ modeldefs = (
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
+                    ('meta:observable', {'template': {'title': 'hosted file and URL'}}),
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
