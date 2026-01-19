@@ -157,7 +157,7 @@ modeldefs = (
                 'doc': 'A node which implements the document interface.'}),
 
             ('doc:reference', ('guid', {}), {
-                'doc': 'A reference or citation included in a document.'}),
+                'doc': 'A reference included in a source.'}),
 
         ),
         'edges': (
