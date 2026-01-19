@@ -2521,7 +2521,7 @@ class AstTest(s_test.SynTest):
                 [test:int=12345]
             }
             '''
-            idens = [nodes[0][1]['iden'],]
+            idens = [nodes[0][1]['iden']]
             msgs = await core.stormlist(q, opts={'idens': idens})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
@@ -3611,7 +3611,7 @@ class AstTest(s_test.SynTest):
             self.len(1, neato)
 
             intnid = s_common.int64un(neato[0].nid)
-            nids = [intnid,]
+            nids = [intnid]
             opts = {
                 'graph': {
                     'degrees': None,
@@ -3655,7 +3655,7 @@ class AstTest(s_test.SynTest):
                 nids.append(node[1]['nid'])
 
             opts['graph']['existing'] = nids
-            opts['nids'] = [s_common.int64un(ipv4s[0].nid),]
+            opts['nids'] = [s_common.int64un(ipv4s[0].nid)]
             ipnids = [s_common.int64un(n.nid) for n in ipv4s]
             ipnids.append(s_common.int64un(neato[0].nid))
             for limit in limits:
@@ -3690,7 +3690,7 @@ class AstTest(s_test.SynTest):
                         self.false(edgedata.get('reverse', False))
 
             opts['graph'].pop('existing', None)
-            opts['nids'] = [s_common.int64un(neato[0].nid),]
+            opts['nids'] = [s_common.int64un(neato[0].nid)]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
@@ -3719,7 +3719,7 @@ class AstTest(s_test.SynTest):
             boop = await core.nodes('[test:str=boop +(refs)> {[inet:ip=5.6.7.0/24]}]')
             await core.nodes('[test:str=boop <(refs)+ {[inet:ip=4.5.6.0/24]}]')
             self.len(1, boop)
-            opts['nids'] = [s_common.int64un(boop[0].nid),]
+            opts['nids'] = [s_common.int64un(boop[0].nid)]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee --join { --> * } { <-- * }', opts=opts)

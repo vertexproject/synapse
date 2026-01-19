@@ -545,6 +545,7 @@ class Email(s_types.Str):
 
         self.fqdntype = self.modl.type('inet:fqdn')
         self.usertype = self.modl.type('inet:user')
+        self.plustype = self.modl.type('str').clone({'lower': True})
 
     async def _normPyStr(self, valu, view=None):
 
@@ -554,6 +555,11 @@ class Email(s_types.Str):
             mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        plus = None
+        if len(parts := user.split('+', 1)) == 2:
+            baseuser, plus = parts
+            plus = plus.strip().lower()
+
         try:
             fqdnnorm, fqdninfo = await self.fqdntype.norm(fqdn)
             usernorm, userinfo = await self.usertype.norm(user)
@@ -561,12 +567,23 @@ class Email(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = f'{usernorm}@{fqdnnorm}'
+
         info = {
             'subs': {
                 'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
                 'user': (self.usertype.typehash, usernorm, userinfo),
             }
         }
+
+        if plus is not None:
+            info['subs']['plus'] = (self.plustype.typehash, plus, {})
+            info['subs']['base'] = (self.typehash, f'{baseuser}@{fqdnnorm}', {
+                'subs': {
+                    'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
+                    'user': (self.usertype.typehash, baseuser, {}),
+                }
+            })
+
         return norm, info
 
 class Fqdn(s_types.Type):
@@ -1334,6 +1351,9 @@ modeldefs = (
                 'doc': 'An IPv4 address.'}),
 
             ('inet:asn', ('int', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'ASN'}}),
+                ),
                 'doc': 'An Autonomous System Number (ASN).'}),
 
             ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
@@ -1386,9 +1406,6 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'egress client'}}),
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
-
-            ('inet:group', ('str', {}), {
-                'doc': 'A group name string.'}),
 
             ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1638,13 +1655,13 @@ modeldefs = (
             ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
                 'doc': 'A node which implements the inet:service:joinable interface.'}),
 
-            ('inet:service:group', ('guid', {}), {
-                'template': {'title': 'service group'},
+            ('inet:service:role', ('guid', {}), {
+                'template': {'title': 'service role'},
                 'interfaces': (
                     ('inet:service:object', {}),
                     ('inet:service:joinable', {}),
                 ),
-                'doc': 'A group or role which contains member accounts.'}),
+                'doc': 'A role which contains member accounts.'}),
 
             ('inet:service:channel', ('guid', {}), {
                 'template': {'title': 'channel'},
@@ -1924,8 +1941,16 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('banner', ('file:bytes', {}), {
-                        'doc': 'A banner or hero image used on the subscriber profile page.'}),
+                    ('name', ('meta:name', {}), {
+                        'doc': 'The primary entity name of the {title}.'}),
+                    ('email', ('inet:email', {}), {
+                        'doc': 'The primary email address for the {title}.'}),
+                    ('user', ('inet:user', {}), {
+                        'doc': 'The primary user name for the {title}.'}),
+                    ('creds', ('array', {'type': 'auth:credential'}), {
+                        'doc': 'An array of non-ephemeral credentials.'}),
+                    ('profile', ('entity:contact', {}), {
+                        'doc': 'Current detailed contact information for the {title}.'}),
                 ),
             }),
 
@@ -2160,12 +2185,22 @@ modeldefs = (
             )),
 
             ('inet:email', {}, (
+
                 ('user', ('inet:user', {}), {
                     'computed': True,
                     'doc': 'The username of the email address.'}),
+
                 ('fqdn', ('inet:fqdn', {}), {
                     'computed': True,
                     'doc': 'The domain of the email address.'}),
+
+                ('plus', ('str', {'lower': True}), {
+                    'computed': True,
+                    'doc': 'The optional email address "tag".'}),
+
+                ('base', ('inet:email', {}), {
+                    'computed': True,
+                    'doc': 'The base email address which is populated if the email address contains a user with a +<tag>.'}),
             )),
 
             ('inet:flow', {}, (
@@ -2279,8 +2314,6 @@ modeldefs = (
                 }),
             )),
 
-            ('inet:group', {}, ()),
-
             ('inet:http:request:header', {}, (
 
                 ('name', ('inet:http:header:name', {}), {'computed': True,
@@ -2335,11 +2368,14 @@ modeldefs = (
                 ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the request.'}),
 
+                ('header:host', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN parsed from the "Host:" header in the request.'}),
+
+                ('header:referer', ('inet:url', {}), {
+                    'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
                 ('body', ('file:bytes', {}), {
                     'doc': 'The body of the HTTP request.'}),
-
-                ('referer', ('inet:url', {}), {
-                    'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
@@ -2934,6 +2970,9 @@ modeldefs = (
 
                 ('parent', ('inet:service:account', {}), {
                     'doc': 'A parent account which owns this account.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this account.'}),
             )),
 
             ('inet:service:relationship:type:taxonomy', {}, ()),
@@ -2950,13 +2989,16 @@ modeldefs = (
                     'doc': 'The type of relationship between the source and the target.'}),
             )),
 
-            ('inet:service:group', {}, (
+            ('inet:service:role', {}, (
 
-                ('name', ('inet:group', {}), {
-                    'doc': 'The name of the group on this platform.'}),
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the role on this platform.'}),
 
                 ('profile', ('entity:contact', {}), {
-                    'doc': 'Current detailed contact information for this group.'}),
+                    'doc': 'Current detailed contact information for this role.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this role.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
@@ -2982,7 +3024,7 @@ modeldefs = (
                 ('object', ('ndef', {'interface': 'inet:service:object'}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
+                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:role')}), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3023,8 +3065,8 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the message may be viewed.'}),
 
-                ('group', ('inet:service:group', {}), {
-                    'doc': 'The group that the message was sent to.'}),
+                ('role', ('inet:service:role', {}), {
+                    'doc': 'The role that the message was sent to.'}),
 
                 ('channel', ('inet:service:channel', {}), {
                     'doc': 'The channel that the message was sent to.'}),
@@ -3078,7 +3120,7 @@ modeldefs = (
                     'doc': 'The type of message.'}),
 
                 ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')}}), {
+                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:role')}}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 

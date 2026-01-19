@@ -446,6 +446,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     await self.saveNodeEdits(nodeedits, meta, bus=bus)
 
+    def getParentQuorum(self):
+
+        if self.parent is None:
+            return None
+
+        return self.parent.info.get('quorum')
+
     def reqParentQuorum(self):
 
         if self.parent is None:

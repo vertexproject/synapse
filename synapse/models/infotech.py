@@ -828,6 +828,9 @@ modeldefs = (
 
             ('it:hardware', ('guid', {}), {
                 'prevnames': ('it:prod:hardware',),
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
@@ -1401,8 +1404,8 @@ modeldefs = (
                 ('windows:sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
 
-                ('service:group', ('inet:service:group', {}), {
-                    'doc': 'The optional service group which the local group maps to.'}),
+                ('service:role', ('inet:service:role', {}), {
+                    'doc': 'The optional service role which the local group maps to.'}),
 
                 ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that are a member of this group.'}),
@@ -1611,7 +1614,7 @@ modeldefs = (
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan result.'}),
 
-                ('mitigation', ('risk:mitigation', {}), {
+                ('mitigation', ('meta:technique', {}), {
                     'doc': 'The mitigation used to address this asset vulnerability.'}),
 
                 ('mitigated', ('time', {}), {

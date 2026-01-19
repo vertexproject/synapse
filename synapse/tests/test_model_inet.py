@@ -195,11 +195,12 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} ]')
+            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} :seen=(2020, 2021) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asn', 123))
             self.eq(node.get('owner:name'), 'cool')
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
             self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
             nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')
@@ -322,6 +323,62 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:email', 'unittest@vertex.link'))
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('user'), 'unittest')
+
+            nodes = await core.nodes('[ inet:email=visi+Synapse@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+synapse@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+synapse')
+            self.eq(nodes[0].get('plus'), 'synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi++Synapse@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi++synapse@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi++synapse')
+            self.eq(nodes[0].get('plus'), '+synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi++synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi+Synapse+foo@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+synapse+foo@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+synapse+foo')
+            self.eq(nodes[0].get('plus'), 'synapse+foo')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse+foo@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=visi+@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi+@vertex.link')
+            self.eq(nodes[0].get('user'), 'visi+')
+            self.eq(nodes[0].get('plus'), '')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+            nodes = await core.nodes('[ inet:email=+@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '+@vertex.link')
+            self.eq(nodes[0].get('user'), '+')
+            self.eq(nodes[0].get('plus'), '')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="+@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
+
+            nodes = await core.nodes('[ inet:email=++@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '++@vertex.link')
+            self.eq(nodes[0].get('user'), '++')
+            self.eq(nodes[0].get('plus'), '+')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
+
+            nodes = await core.nodes('[ inet:email=+++@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '+++@vertex.link')
+            self.eq(nodes[0].get('user'), '+++')
+            self.eq(nodes[0].get('plus'), '++')
+            self.eq(nodes[0].get('base'), '@vertex.link')
+            self.len(1, await core.nodes('inet:email="+++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
 
     async def test_flow(self):
         async with self.getTestCore() as core:
@@ -659,13 +716,6 @@ class InetModelTest(s_t_utils.SynTest):
             isneither(n2)  # stays the same
             issuffix(n4)   # stays the same
 
-    async def test_group(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:group="cool Group"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:group', 'cool Group'))
-
     async def test_http_cookie(self):
 
         async with self.getTestCore() as core:
@@ -744,6 +794,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :path="/woot/hehe/"
                 :body=$p.body
                 :headers=((foo, bar),)
+                :header:host=vertex.link
+                :header:referer="https://google.com?s=awesome"
                 :response:code=200
                 :response:reason=OK
                 :response:headers=((baz, faz),)
@@ -765,6 +817,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
             self.eq(node.get('path'), '/woot/hehe/')
             self.eq(node.get('body'), body)
+            self.eq(node.get('header:host'), 'vertex.link')
+            self.eq(node.get('header:referer'), 'https://google.com?s=awesome')
             self.eq(node.get('response:code'), 200)
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
@@ -2767,16 +2821,30 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:service:platform:type:taxonomy')
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
+            opts = {
+                'vars': {
+                    'rule00': (rule00 := 'a' * 32),
+                    'rule01': (rule01 := 'b' * 32),
+                },
+            }
+
             q = '''
+            $profile = {[
+                entity:contact=({"email": "foo@bar.com"})
+                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
+            ]}
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
-                    :users=(zeblackout, blackoutalt, zeblackout)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
-                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
-                    :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :profile=$profile
+                    :tenant={[
+                        inet:service:tenant=({"id": "VS-31337"})
+                            :profile=$profile
+                    ]}
+                    :rules=($rule01, $rule00, $rule01)
                     :seen=(2022, 2023)
                 )
 
@@ -2788,19 +2856,18 @@ class InetModelTest(s_t_utils.SynTest):
                 )
             ]
             '''
-            accounts = await core.nodes(q)
+            accounts = await core.nodes(q, opts=opts)
             self.len(2, accounts)
 
-            self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
             self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
-            self.eq(accounts[0].get('users'), ('blackoutalt', 'zeblackout'))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
+            self.eq(accounts[0].get('rules'), (rule01, rule00, rule01))
 
             self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
             self.eq(accounts[1].get('id'), 'U2XK7PUVB')
@@ -2810,29 +2877,34 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
 
-            nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
+            nodes = await core.nodes('inet:service:account:email=blackout@vertex.link :profile -> entity:contact')
             self.len(1, nodes)
-            self.eq(accounts[0].ndef, nodes[0].ndef)
+            self.nn(nodes[0].get('banner'))
+
+            nodes = await core.nodes('entity:contact:email=foo@bar.com -> (inet:service:account, inet:service:tenant)')
+            self.sorteq(['inet:service:account', 'inet:service:tenant'], [n.ndef[0] for n in nodes])
 
             q = '''
-            [ inet:service:group=(developers, group, vertex, slack)
+            [ inet:service:role=(developers, group, vertex, slack)
                 :id=X1234
                 :name="developers, developers, developers"
+                :rules=($rule01, $rule00, $rule01)
             ]
             '''
-            nodes = await core.nodes(q)
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             self.eq(nodes[0].get('id'), 'X1234')
             self.eq(nodes[0].get('name'), 'developers, developers, developers')
+            self.eq(nodes[0].get('rules'), (rule01, rule00, rule01))
             devsgrp = nodes[0]
 
             q = '''
-            $group = {[ inet:service:group=$devsiden ]}
+            $role = {[ inet:service:role=$devsiden ]}
             [
                 (inet:service:member=(blackout, developers, group, vertex, slack)
                     :account=$blckiden
-                    :of=$group
+                    :of=$role
                     :period=(20230601, ?)
                     :creator=$visiiden
                     :remover=$visiiden
@@ -2840,7 +2912,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 (inet:service:member=(visi, developers, group, vertex, slack)
                     :account=$visiiden
-                    :of=$group
+                    :of=$role
                     :period=(20150101, ?)
                 )
             ]
@@ -3000,11 +3072,11 @@ class InetModelTest(s_t_utils.SynTest):
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
                     :type=chat.group
-                    :group=$devsiden
+                    :role=$devsiden
                     :public=$lib.false
                     :repost=*
                     :mentions=(
-                        (inet:service:group, $devsiden),
+                        (inet:service:role, $devsiden),
                         (inet:service:account, $blckiden),
                         (inet:service:account, $blckiden),
                     )
@@ -3059,12 +3131,12 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('place:name'), 'nyc')
 
             self.nn(nodes[0].get('repost'))
-            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[0].get('role'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
             self.eq(
                 nodes[0].get('mentions'),
-                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:role', devsgrp.ndef[1]))
             )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
