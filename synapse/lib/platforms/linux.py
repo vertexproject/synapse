@@ -1,4 +1,5 @@
 import os
+import errno
 import logging
 import resource
 import contextlib
@@ -108,7 +109,15 @@ def getTotalMemory():
 
 def getOpenFdInfo():
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    usage = len(os.listdir(f'/proc/{os.getpid()}/fd'))
+    try:
+        usage = len(os.listdir(f'/proc/{os.getpid()}/fd'))
+    except OSError as err:
+        if err.errno == errno.EMFILE:
+            # We've hit the maximum allowed files and cannot list contents of /proc/;
+            # so we set usage to soft_limit so the caller can know that we're exactly at the limit.
+            usage = soft_limit
+        else:
+            raise
     ret = {'soft_limit': soft_limit, 'hard_limit': hard_limit, 'usage': usage}
     return ret
 
@@ -124,16 +133,20 @@ def getSysctls():
     )
     ret = {}
     for key, fp, func in _sysctls:
-        if os.path.isfile(fp):
-            with open(fp) as f:
-                valu = f.read().strip()
-                try:
-                    ret[key] = func(valu)
-                except Exception:  # pragma: no cover
-                    logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
-                    ret[key] = None
-        else:  # pragma: no cover
-            logger.warning(f'Missing sysctl: {key} @ {fp}')
+        try:
+            if os.path.isfile(fp):
+                with open(fp) as f:
+                    valu = f.read().strip()
+                    try:
+                        ret[key] = func(valu)
+                    except Exception:  # pragma: no cover
+                        logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
+                        ret[key] = None
+            else:  # pragma: no cover
+                logger.warning(f'Missing sysctl: {key} @ {fp}')
+                ret[key] = None
+        except:
+            logger.exception(f'Error while reading sysctl: {key} @ {fp}')
             ret[key] = None
     return ret
 

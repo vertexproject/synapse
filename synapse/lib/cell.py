@@ -1857,6 +1857,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             usage = fdusage['usage']
 
             free = (limit - usage) / limit
+            # TODO remove me
+            # logger.debug(f'{self.dirn=} {usage=} {limit=} {free=} {free / limit} <= {self.min_fd_free=} ?')
 
             # If the soft_limit is not unlimited ( signaled via resource.RLIM_INFINITY ) and the
             # free percentage is < self.min_fd_free, we lock the cell; otherwise we remove our lock

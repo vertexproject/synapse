@@ -1,4 +1,7 @@
+import errno
 import pathlib
+
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 
@@ -73,3 +76,25 @@ class LinuxTest(s_t_utils.SynTest):
         self.isin('soft_limit', ret)
         self.isin('usage', ret)
         self.true(ret.get('usage') > 0)
+
+        def bad_listdir_emfile(path):
+            e = OSError('ruh roh')
+            e.errno = errno.EMFILE
+            raise e
+
+        def bad_listdir_enoent(path):
+            e = OSError('ruh roh')
+            e.errno = errno.ENOENT
+            raise e
+
+        with mock.patch('os.listdir', bad_listdir_emfile):
+            ret = s_thisplat.getOpenFdInfo()
+            self.isinstance(ret, dict)
+            self.isin('hard_limit', ret)
+            self.isin('soft_limit', ret)
+            self.true(ret.get('usage') > 0)
+            self.eq(ret.get('usage'), ret.get('soft_limit'), ret)
+
+        with mock.patch('os.listdir', bad_listdir_enoent):
+            with self.raises(OSError) as cm:
+                s_thisplat.getOpenFdInfo()
