@@ -85,7 +85,8 @@ permnames = {
 
 feat_aha_callpeers_v1 = ('callpeers', 1)
 
-diskspace = "Insufficient free space on disk."
+diskspace_mesg = "Insufficient free space on disk."
+openfd_mesg = "Insufficient open file descriptors available."
 
 def adminapi(log=False):
     '''
@@ -1026,6 +1027,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'minimum': 0,
             'maximum': 100,
         },
+        'limit:fd:free': {
+            'default': 5,
+            'description': 'Minimum amount, as a percentage, of unused file descriptors before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
+        },
         'health:sysctl:checks': {
             'default': True,
             'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
@@ -1156,6 +1164,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     BACKUP_SPAWN_TIMEOUT = 60.0
     FREE_SPACE_CHECK_FREQ = 60.0
+    OPEN_FD_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -1194,6 +1203,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.https_listeners = []
         self.ahaclient = None
         self._checkspace = s_coro.Event()
+        self._checkopenfd = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
 
         self.nexslock = asyncio.Lock()
@@ -1212,15 +1222,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'Booting {self.getCellType()} in safe-mode. Some functionality may be disabled.'
             logger.warning(mesg)
 
-        self.minfree = self.conf.get('limit:disk:free')
-        if self.minfree is not None:
-            self.minfree = self.minfree / 100
+        self.min_disk_free = self.conf.get('limit:disk:free')
+        if self.min_disk_free is not None:
+            self.min_disk_free = self.min_disk_free / 100
 
             disk = shutil.disk_usage(self.dirn)
-            if (disk.free / disk.total) <= self.minfree:
+            if (disk.free / disk.total) <= self.min_disk_free:
                 free = disk.free / disk.total * 100
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
+        self.min_fd_free = self.conf.get('limit:fd:free')
+        if self.min_fd_free is not None:
+            self.min_fd_free = self.min_fd_free / 100
+            # DISCUSS When is it even possible to check this during bootsrapping? postAnit ?
 
         self._delTmpFiles()
 
@@ -1769,6 +1784,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def checkFreeSpace(self):
         self._checkspace.set()
 
+    def checkOpenFD(self):
+        self._checkopenfd.set()
+
     async def _runFreeSpaceLoop(self):
 
         while not self.isfini:
@@ -1779,15 +1797,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             disk = shutil.disk_usage(self.dirn)
 
-            if (disk.free / disk.total) <= self.minfree:
+            if (disk.free / disk.total) <= self.min_disk_free:
 
-                await nexsroot.addWriteHold(diskspace)
+                await nexsroot.addWriteHold(diskspace_mesg)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg)
 
-            elif nexsroot.readonly and await nexsroot.delWriteHold(diskspace):
+            elif nexsroot.readonly and await nexsroot.delWriteHold(diskspace_mesg):
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), removing free space write hold.'
@@ -1818,6 +1836,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning(mesg, extra=extra)
 
             await self.waitfini(self.SYSCTL_CHECK_FREQ)
+
+    async def _runOpenFdLoop(self):
+
+        while not self.isfini:
+
+            nexsroot = self.getCellNexsRoot()
+
+            self._checkopenfd.clear()
+
+            fdusage = s_thisplat.getOpenFdInfo()
+
+            hard_limit = fdusage['hard_limit']
+            usage = fdusage['usage']
+            free = hard_limit - usage
+
+            if ( free / hard_limit ) <= self.min_fd_free:
+
+                await nexsroot.addWriteHold(openfd_mesg)
+
+                mesg = f'Available file descriptors has dropped below minimum threshold' \
+                       f'(currently {free / hard_limit * 100:.2f}%), setting Cell to read-only.'
+                logger.error(mesg, extra={'synapse': fdusage})
+
+            elif nexsroot.readonly and await nexsroot.delWriteHold(openfd_mesg):
+
+                mesg = f'Available file descriptors above minimum threshold' \
+                       f'(currently {free / hard_limit * 100:.2f}%), removing file descriptor write hold.'
+                logger.error(mesg, extra={'synapse': fdusage})
+
+            await self._checkopenfd.timewait(timeout=self.OPEN_FD_CHECK_FREQ)
 
     async def _initAhaRegistry(self):
 
@@ -2081,8 +2129,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
 
-            if self.minfree is not None:
+            if self.min_disk_free is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
+
+            if self.min_fd_free is not None:
+                self.schedCoro(self._runOpenFdLoop())
 
     async def _bindDmonListen(self):
 
@@ -2650,7 +2701,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cellsize, _ = s_common.getDirSize(self.dirn)
 
         if os.stat(self.dirn).st_dev == os.stat(self.backdirn).st_dev:
-            reqspace = self.minfree * disk.total + cellsize
+            reqspace = self.min_fd_free * disk.total + cellsize
         else:
             reqspace = cellsize
 
@@ -4888,6 +4939,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         availmem = s_thisplat.getAvailableMemory()
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
+        fdusage = s_thisplat.getOpenFdInfo()
         sysctls = s_thisplat.getSysctls()
         tmpdir = s_thisplat.getTempDir()
 
@@ -4907,6 +4959,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cpucount': cpucount,              # Number of CPUs on system
             'sysctls': sysctls,                # Performance related sysctls
             'tmpdir': tmpdir,                  # Temporary File / Folder Directory
+            'fdusage': fdusage,                # Soft limits, hard limits, and open fd descriptors for the current process.
         }
 
         return retn

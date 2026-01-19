@@ -105,6 +105,11 @@ def getTotalMemory():
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
 
+def getOpenFdInfo():
+    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    usage = len(os.listdir(f'/proc/{os.getpid()}/fd'))
+    ret = {'soft_limit': soft_limit, 'hard_limit': hard_limit, 'usage': usage}
+    return ret
 
 def getSysctls():
     _sysctls = (
