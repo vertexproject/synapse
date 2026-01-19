@@ -75,6 +75,7 @@ modeldefs = (
                 'interfaces': (
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
+                    ('risk:targetable', {}),
                     ('entity:contactable', {}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',

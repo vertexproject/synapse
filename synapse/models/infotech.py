@@ -1129,6 +1129,21 @@ modeldefs = (
         ),
         'edges': (
 
+            (('it:sec:stix:indicator', 'detects', 'entity:campaign'), {
+                'doc': 'The STIX indicator detects the campaign.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'entity:contact'), {
+                'doc': 'The STIX indicator detects the entity.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'it:software'), {
+                'doc': 'The STIX indicator detects the software.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'meta:technique'), {
+                'doc': 'The STIX indicator detects the technique.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'ou:org'), {
+                'doc': 'The STIX indicator detects the organization.'}),
+
             (('it:software', 'uses', 'meta:technique'), {
                 'doc': 'The software uses the technique.'}),
 
