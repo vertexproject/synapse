@@ -408,7 +408,15 @@ modeldefs = (
             ('risk:tool:software:type:taxonomy', {
                 'prevnames': ('risk:tool:software:taxonomy',)}, ()),
 
+            # FIXME extend it:software form?
             ('risk:tool:software', {}, (
+
+                ('name', ('it:softwarename', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the tool according to the source.'}),
+
+                ('names', ('array', {'type': 'it:softwarename'}), {
+                    'doc': 'A list of alternate names for the tool according to the source.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'ex': 'rep.mandiant.tabcteng',

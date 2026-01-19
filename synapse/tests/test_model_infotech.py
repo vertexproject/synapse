@@ -150,10 +150,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('signame'), 'omgwtfbbq')
             self.eq(nodes[0].get('categories'), ('baz faz', 'foo bar'))
 
-            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> meta:name'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:software'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:softwarename'))
 
             nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
             self.len(1, nodes)
@@ -544,7 +544,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('released'), 1522745062000000)
             self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
-            self.len(2, await core.nodes('meta:name="balloon maker" -> it:software -> meta:name'))
+            self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
 
             self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
@@ -1146,7 +1146,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk
                     :author={[ entity:contact=* ]}
-                    :name=foo :version=1.2.3 ]
+                    :name=foo :version=1.2.3
+                    +(detects)> {[ it:softwarename=woot ]}
+                ]
             ''')
 
             self.len(1, nodes)
@@ -1161,6 +1163,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
@@ -1190,7 +1193,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :created = 20120101
                 :updated = 20220101
                 :enabled=1
-                :version=1.2.3 ]
+                :version=1.2.3
+                +(detects)> {[ it:softwarename=woot ]}
+            ]
             ''')
 
             self.len(1, nodes)
@@ -1203,6 +1208,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('created'), 1325376000000000)
             self.eq(nodes[0].get('updated'), 1640995200000000)
             self.nn(nodes[0].get('author'))
+
+            self.len(1, await core.nodes('it:app:snort:rule -(detects)> it:softwarename'))
 
             rule = nodes[0].ndef[1]
 

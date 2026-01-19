@@ -812,6 +812,10 @@ modeldefs = (
                 ),
                 'doc': 'A software product.'}),
 
+            ('it:softwarename', ('base:name', {}), {
+                'prevnames': ('it:prod:softname',),
+                'doc': 'The name of a software product or tool.'}),
+
             ('it:software:type:taxonomy', ('taxonomy', {}), {
                 'prevnames': ('it:prod:soft:taxonomy',),
                 'interfaces': (
@@ -1155,6 +1159,9 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'meta:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
+            (('it:app:snort:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The snort rule detects the named software.'}),
+
             (('it:app:yara:rule', 'detects', 'it:software'), {
                 'doc': 'The YARA rule detects the software.'}),
 
@@ -1166,6 +1173,9 @@ modeldefs = (
 
             (('it:app:yara:rule', 'detects', 'risk:vuln'), {
                 'doc': 'The YARA rule detects the vulnerability.'}),
+
+            (('it:app:yara:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The YARA rule detects the named software.'}),
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
@@ -1203,7 +1213,7 @@ modeldefs = (
                 ('os', ('it:software', {}), {
                     'doc': 'The operating system of the host.'}),
 
-                ('os:name', ('meta:name', {}), {
+                ('os:name', ('it:softwarename', {}), {
                     'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
 
                 ('hardware', ('it:hardware', {}), {
@@ -1244,7 +1254,7 @@ modeldefs = (
             ('it:software:image:type:taxonomy', {}, ()),
             ('it:software:image', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('it:softwarename', {}), {
                     'doc': 'The name of the image.'}),
 
                 ('type', ('it:software:image:type:taxonomy', {}), {
@@ -1583,7 +1593,7 @@ modeldefs = (
                 ('software', ('it:software', {}), {
                     'doc': 'The scanning software used.'}),
 
-                ('software:name', ('meta:name', {}), {
+                ('software:name', ('it:softwarename', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('operator', ('entity:contact', {}), {
@@ -1892,7 +1902,7 @@ modeldefs = (
                     'prevnames': ('soft',),
                     'doc': 'The software which issued the ID to the host.'}),
 
-                ('software:name', ('meta:name', {}), {
+                ('software:name', ('it:softwarename', {}), {
                     'prevnames': ('soft:name',),
                     'doc': 'The name of the software which issued the ID to the host.'}),
             )),
@@ -1929,6 +1939,7 @@ modeldefs = (
 
             )),
 
+            ('it:softwarename', {}, ()),
             ('it:software:type:taxonomy', {}, ()),
             ('it:software', {}, (
 
@@ -1938,11 +1949,11 @@ modeldefs = (
                 ('parent', ('it:software', {}), {
                     'doc': 'The parent software version or family.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('it:softwarename', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('released', ('time', {}), {
@@ -1978,7 +1989,7 @@ modeldefs = (
                 ('scanner', ('it:software', {}), {
                     'doc': 'The scanner software used to produce the result.'}),
 
-                ('scanner:name', ('meta:name', {}), {
+                ('scanner:name', ('it:softwarename', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('signame', ('it:av:signame', {}), {
@@ -2621,7 +2632,7 @@ modeldefs = (
 
             ('it:sec:c2:config', {}, (
 
-                ('family', ('meta:name', {}), {
+                ('family', ('it:softwarename', {}), {
                     'doc': 'The name of the software family which uses the config.'}),
 
                 ('file', ('file:bytes', {}), {
