@@ -1784,7 +1784,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def checkFreeSpace(self):
         self._checkspace.set()
 
-    def checkOpenFD(self):
+    def checkOpenFd(self):
+        # TODO Insert this call before places where a user may open persistent files ( mainly lmdb slabs ! )
         self._checkopenfd.set()
 
     async def _runFreeSpaceLoop(self):
@@ -1847,6 +1848,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             fdusage = s_thisplat.getOpenFdInfo()
 
+            # TODO Handle constant here https://docs.python.org/3/library/resource.html#resource.RLIM_INFINITY
+            # TODO soft_limit vs hard_limit
             hard_limit = fdusage['hard_limit']
             usage = fdusage['usage']
             free = hard_limit - usage
