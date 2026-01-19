@@ -169,6 +169,12 @@ modeldefs = (
                     ),
                 }}),
 
+            ('meta:technique:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique statuses.'}),
+
             ('meta:technique:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -201,7 +207,10 @@ modeldefs = (
 
             ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
-                'template': {'title': 'item'},
+                'template': {
+                    'title': 'item',
+                    'status': '{$self}:status:taxonomy',
+                },
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -239,6 +248,17 @@ modeldefs = (
                     ('reporter:discovered', ('time', {}), {
                         'doc': 'The time when the reporter first discovered the {title}.'}),
 
+                    ('reporter:url', ('inet:url', {}), {
+                        'doc': 'The reporter URL for the {title}.'}),
+
+                    ('reporter:status', ('{status}', {}), {
+                        'doc': 'The status of the {title}, according to the reporter.'}),
+
+                    ('superseded', ('time', {}), {
+                        'doc': 'The time when the {title} was superseded.'}),
+
+                    ('supersedes', ('array', {'type': '{$self}'}), {
+                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
             }),
 
@@ -262,7 +282,7 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The depth indexed from 0.'}),
 
-                    ('parent', ('$self', {}), {
+                    ('parent', ('{$self}', {}), {
                         'computed': True,
                         'doc': 'The taxonomy parent.'}),
                 ),

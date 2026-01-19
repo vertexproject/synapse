@@ -223,6 +223,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
+            ('entity:relationship:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of entity relationship statuses.'}),
+
             ('entity:relationship', ('guid', {}), {
                 'template': {'title': 'relationship'},
                 'interfaces': (
@@ -254,6 +260,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
 
+            ('entity:goal:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal statuses.'}),
+
             ('entity:goal', ('guid', {}), {
                 'template': {'title': 'goal'},
                 'interfaces': (
@@ -271,6 +283,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
+
+            ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
