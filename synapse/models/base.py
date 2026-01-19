@@ -322,9 +322,6 @@ modeldefs = (
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
-            (('meta:rule', 'detects', 'it:softwarename'), {
-                'doc': 'The rule is designed to detect the named software.'}),
-
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
 

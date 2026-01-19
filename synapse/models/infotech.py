@@ -1159,6 +1159,9 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'meta:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
+            (('it:app:snort:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The snort rule detects the named software.'}),
+
             (('it:app:yara:rule', 'detects', 'it:software'), {
                 'doc': 'The YARA rule detects the software.'}),
 
@@ -1170,6 +1173,9 @@ modeldefs = (
 
             (('it:app:yara:rule', 'detects', 'risk:vuln'), {
                 'doc': 'The YARA rule detects the vulnerability.'}),
+
+            (('it:app:yara:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The YARA rule detects the named software.'}),
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),

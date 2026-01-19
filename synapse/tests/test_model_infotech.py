@@ -1146,7 +1146,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk
                     :author={[ entity:contact=* ]}
-                    :name=foo :version=1.2.3 ]
+                    :name=foo :version=1.2.3
+                    +(detects)> {[ it:softwarename=woot ]}
+                ]
             ''')
 
             self.len(1, nodes)
@@ -1161,6 +1163,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
@@ -1190,7 +1193,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :created = 20120101
                 :updated = 20220101
                 :enabled=1
-                :version=1.2.3 ]
+                :version=1.2.3
+                +(detects)> {[ it:softwarename=woot ]}
+            ]
             ''')
 
             self.len(1, nodes)
@@ -1203,6 +1208,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('created'), 1325376000000000)
             self.eq(nodes[0].get('updated'), 1640995200000000)
             self.nn(nodes[0].get('author'))
+
+            self.len(1, await core.nodes('it:app:snort:rule -(detects)> it:softwarename'))
 
             rule = nodes[0].ndef[1]
 
