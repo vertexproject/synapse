@@ -2629,12 +2629,18 @@ class CellTest(s_t_utils.SynTest):
 
                 await core.nodes(fork_q)
 
-                # Check with a unlimited ulimit
+                # Check with an unlimited ulimit.
+                # First we can set the write hold manually
+                await cell.nexsroot.addWriteHold(s_cell.openfd_mesg)
+                self.true(cell.nexsroot.readonly)
+
                 with mock.patch('synapse.lib.thisplat.getOpenFdInfo', unlimited_fds):
-                    self.true(await asyncio.wait_for(revt.wait(), 6))
+
+                    # Then see it be cleared
+                    self.true(await asyncio.wait_for(revt.wait(), 1))
 
                     msgs = await core.stormlist(fork_q)
-                    self.stormIsInErr(s_cell.openfd_mesg, msgs)
+                    self.stormHasNoWarnErr(msgs)
 
             # Mirrors can be blocked and then recover
             with self.getTestDir() as dirn:

@@ -13,6 +13,7 @@ import tarfile
 import argparse
 import datetime
 import platform
+import resource
 import tempfile
 import functools
 import contextlib
@@ -1848,26 +1849,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             fdusage = s_thisplat.getOpenFdInfo()
 
-            # TODO Handle constant here https://docs.python.org/3/library/resource.html#resource.RLIM_INFINITY
             limit = fdusage['soft_limit']
             usage = fdusage['usage']
-            free = limit - usage
 
-            # TODO REMOVE ME
-            logger.debug(f'{self.dirn=} {usage=} {limit=} {free=} {free / limit} <= {self.min_fd_free=} ?')
+            free = (limit - usage) / limit
 
-            if ( free / limit ) <= self.min_fd_free:
+            # If the soft_limit is not unlimited ( signaled via resource.RLIM_INFINITY ) and the
+            # free percentage is < self.min_fd_free, we lock the cell; otherwise we remove our lock
+            # on the cell.
+
+            if limit != resource.RLIM_INFINITY and free <= self.min_fd_free:
 
                 await nexsroot.addWriteHold(openfd_mesg)
 
                 mesg = f'Available file descriptors has dropped below minimum threshold' \
-                       f'(currently {free / limit * 100:.2f}%), setting Cell to read-only.'
+                       f'(currently {free * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg, extra={'synapse': fdusage})
 
             elif nexsroot.readonly and await nexsroot.delWriteHold(openfd_mesg):
 
                 mesg = f'Available file descriptors above minimum threshold' \
-                       f'(currently {free / limit * 100:.2f}%), removing file descriptor write hold.'
+                       f'(currently {free * 100:.2f}%), removing file descriptor write hold.'
                 logger.error(mesg, extra={'synapse': fdusage})
 
             await self._checkopenfd.timewait(timeout=self.OPEN_FD_CHECK_FREQ)
