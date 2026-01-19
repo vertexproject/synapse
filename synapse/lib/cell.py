@@ -1854,7 +1854,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             free = limit - usage
 
             # TODO REMOVE ME
-            logger.debug(f'{usage=} {limit=} {free=} {free / limit} <= {self.min_fd_free=} ?')
+            logger.debug(f'{self.dirn=} {usage=} {limit=} {free=} {free / limit} <= {self.min_fd_free=} ?')
 
             if ( free / limit ) <= self.min_fd_free:
 

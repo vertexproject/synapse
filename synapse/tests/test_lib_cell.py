@@ -2562,7 +2562,123 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await root.tryPasswd('supersecretpassword'))
 
     async def test_cell_minfiles(self):
-        pass
+        self.thisHostMust(hasopenfds=True)
+
+        with self.raises(s_exc.IsReadOnly) as cm:
+            conf = {'limit:fd:free': 100}
+            async with self.getTestCell(conf=conf) as cell:
+                await asyncio.sleep(0.1)
+                cell.checkOpenFd()
+                await cell.sync()
+        self.isin('Insufficient open file descriptors available.', cm.exception.get('mesg'))
+
+        revt = asyncio.Event()
+        addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
+
+        async def wrapAddWriteHold(root, reason):
+            retn = await addWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+        def full_fds():
+            print(f'IN FULL FDS')
+            return {'hard_limit': 256, 'soft_limit': 256, 'usage': 255}
+
+        def unlimited_fds():
+            return {'hard_limit': -1, 'soft_limit': -1, 'usage': 255}
+
+        revt = asyncio.Event()
+        addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
+
+        async def wrapAddWriteHold(root, reason):
+            retn = await addWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        with mock.patch.object(s_cell.Cell, 'OPEN_FD_CHECK_FREQ', 0.1), \
+                mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
+                mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
+            async with self.getTestCore() as core:
+
+                fork_q = 'view.fork --name somefork $lib.view.get().iden'
+
+                await core.nodes(fork_q)
+
+                with mock.patch('synapse.lib.thisplat.getOpenFdInfo', full_fds):
+                    self.true(await asyncio.wait_for(revt.wait(), 6))
+
+                    msgs = await core.stormlist(fork_q)
+                    self.stormIsInErr(s_cell.openfd_mesg, msgs)
+
+                revt.clear()
+                self.true(await asyncio.wait_for(revt.wait(), 6))
+
+                await core.nodes(fork_q)
+
+                # Check with a unlimited ulimit
+                with mock.patch('synapse.lib.thisplat.getOpenFdInfo', unlimited_fds):
+                    self.true(await asyncio.wait_for(revt.wait(), 6))
+
+                    msgs = await core.stormlist(fork_q)
+                    self.stormIsInErr(s_cell.openfd_mesg, msgs)
+
+            # Mirrors can be blocked and then recover
+            with self.getTestDir() as dirn:
+
+                path00 = s_common.gendir(dirn, 'core00')
+                path01 = s_common.gendir(dirn, 'core01')
+
+                conf = {'limit:fd:free': 0}
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                    core01conf = {'mirror': core00.getLocalUrl()}
+
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                        await core01.sync()
+
+                        revt.clear()
+                        with mock.patch('synapse.lib.thisplat.getOpenFdInfo', full_fds):
+                            self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr(s_cell.openfd_mesg, msgs)
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr(s_cell.openfd_mesg, msgs)
+                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+
+                            offs = await core00.getNexsIndx()
+                            self.false(await core01.waitNexsOffs(offs, 1))
+
+                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            revt.clear()
+
+                        revt.clear()
+                        self.true(await asyncio.wait_for(revt.wait(), 1))
+                        await core01.sync()
+
+                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
 
     async def test_cell_minspace(self):
 
@@ -2589,8 +2705,6 @@ class CellTest(s_t_utils.SynTest):
             revt.set()
             return retn
 
-        errmsg = 'Insufficient free space on disk.'
-
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
              mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
              mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
@@ -2615,7 +2729,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await asyncio.wait_for(revt.wait(), 1))
 
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
-                    self.stormIsInErr(errmsg, msgs)
+                    self.stormIsInErr(s_cell.diskspace_mesg, msgs)
 
                 revt.clear()
                 self.true(await asyncio.wait_for(revt.wait(), 1))
@@ -2646,9 +2760,9 @@ class CellTest(s_t_utils.SynTest):
                             self.true(await asyncio.wait_for(revt.wait(), 1))
 
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr(errmsg, msgs)
+                            self.stormIsInErr(s_cell.diskspace_mesg, msgs)
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr(errmsg, msgs)
+                            self.stormIsInErr(s_cell.diskspace_mesg, msgs)
                             self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
 
                             offs = await core00.getNexsIndx()
@@ -2678,7 +2792,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch('shutil.disk_usage', full_disk):
                         opts = {'view': viewiden}
                         msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
-                        self.stormIsInErr(errmsg, msgs)
+                        self.stormIsInErr(s_cell.diskspace_mesg, msgs)
                         nodes = await core.nodes('inet:ipv4', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
