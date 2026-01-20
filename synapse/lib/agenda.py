@@ -923,7 +923,7 @@ class Agenda(s_base.Base):
                     'lasterrs': list(appt.lasterrs[-5:]),
                 }
 
-                if self.core.isactive and not self.core.isfini:
+                if self.core.isactive:
                     await self.core.addCronEdits(appt.iden, edits)
 
             took = finishtime - starttime
