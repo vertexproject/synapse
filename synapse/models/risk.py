@@ -327,6 +327,13 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
+                ('name', ('entity:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the threat according to the source.'}),
+
+                ('names', ('array', {'type': 'entity:name'}), {
+                    'doc': 'A list of alternate names for the threat according to the source.'}),
+
                 ('type', ('risk:threat:type:taxonomy', {}), {
                     'doc': 'A type for the threat, as a taxonomy entry.'}),
 
@@ -410,7 +417,7 @@ modeldefs = (
                 ('vendor', ('entity:actor', {}), {
                     'doc': 'The vendor whose product contains the vulnerability.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor whose product contains the vulnerability.'}),
 
                 ('vendor:fixed', ('time', {}), {
@@ -721,7 +728,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which experienced the outage event.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which experienced the outage event.'}),
             )),
 

@@ -346,7 +346,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The name of the organization as listed in the opening.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -460,7 +460,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The resolved org.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The org name as reported by the source of the vitals.'}),
 
@@ -549,7 +549,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The organization which issued the ID.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the issuer.'}),
 
                 ('recipient', ('entity:actor', {}), {

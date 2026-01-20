@@ -1525,7 +1525,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization whose security program is being measured.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The organization name. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -1853,7 +1853,7 @@ modeldefs = (
                 ('manufacturer', ('entity:actor', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
 
-                ('manufacturer:name', ('meta:name', {}), {
+                ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
 
                 ('model', ('base:name', {}), {

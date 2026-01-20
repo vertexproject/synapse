@@ -180,7 +180,7 @@ modeldefs = (
                 ('provider', ('entity:actor', {}), {
                     'doc': 'The entity which performs the service.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which performs the service.'}),
 
                 ('desc', ('text', {}), {
@@ -210,7 +210,7 @@ modeldefs = (
                     'prevnames': ('maker',),
                     'doc': 'A contact for the manufacturer of the product.'}),
 
-                ('manufacturer:name', ('meta:name', {}), {
+                ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the manufacturer of the product.'}),
 
                 ('price:retail', ('econ:price', {}), {

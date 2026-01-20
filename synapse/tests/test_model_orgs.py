@@ -557,7 +557,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('contact'))
 
             self.len(1, await core.nodes('ou:opening -> ou:org'))
-            self.len(1, await core.nodes('ou:opening -> meta:name'))
+            self.len(1, await core.nodes('ou:opening -> entity:name'))
             self.len(1, await core.nodes('ou:opening -> inet:url'))
             self.len(1, await core.nodes('ou:opening -> inet:fqdn'))
             self.len(1, await core.nodes('ou:opening -> entity:title'))
@@ -608,6 +608,6 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ou:vitals -> ou:org'))
             self.len(1, await core.nodes('ou:vitals -> inet:fqdn'))
-            self.len(1, await core.nodes('ou:vitals -> meta:name'))
+            self.len(1, await core.nodes('ou:vitals -> entity:name'))
 
             self.len(1, await core.nodes('ou:org [ :vitals=* ] :vitals -> ou:vitals'))
