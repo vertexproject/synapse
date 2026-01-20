@@ -1345,7 +1345,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('...cell API (https): 0', buf)
 
                 conf = {
-                    'dmon:listen': None,
+                    'dmon:listen': 'tcp://0.0.0.0:0',
                     'https:port': None,
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
@@ -1355,18 +1355,18 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin(f'...cell API (telepath): tcp://0.0.0.0:27492', buf)
+                self.isin('...cell API (telepath): tcp://0.0.0.0:0', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_initargv_conf(self):
         async with self.withSetLoggingMock():
             with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true',
-                                   SYN_CELL_DMON_LISTEN='null',
+                                   SYN_CELL_DMON_LISTEN='tcp://0.0.0.0:0',
                                    SYN_CELL_HTTPS_PORT='null',
                                    SYN_CELL_AUTH_PASSWD='notsecret',
                                    ):
                 with self.getTestDir() as dirn:
-                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
+                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:12345/',
                                        'aha:name': 'some:cell'},
                                       dirn, 'cell.yaml')
                     s_common.yamlsave({'nexslog:async': True},
@@ -1379,7 +1379,7 @@ class CellTest(s_t_utils.SynTest):
                         # 3) cell.yaml
                         self.true(cell.conf.req('nexslog:en'))
                         self.true(cell.conf.req('nexslog:async'))
-                        self.none(cell.conf.req('dmon:listen'))
+                        self.eq(cell.conf.req('dmon:listen'), 'tcp://0.0.0.0:0')
                         self.none(cell.conf.req('https:port'))
                         self.eq(cell.conf.req('aha:name'), 'some:cell')
                         root = cell.auth.rootuser
