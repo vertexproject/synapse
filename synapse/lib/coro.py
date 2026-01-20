@@ -19,6 +19,8 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.logging as s_logging
+
 def iscoro(item):
     return inspect.iscoroutine(item)
 
@@ -234,7 +236,7 @@ def genrhelp(f):
 
 def _exectodo(que, todo, logconf):
     # This is a new process: configure logging
-    s_logging.setup(logger, **logconf)
+    s_logging.setup(**logconf)
     func, args, kwargs = todo
     try:
         ret = func(*args, **kwargs)
