@@ -157,12 +157,11 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addIface('depr:iface', {'deprecated': True})
 
-        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+        with self.getLoggerStream('synapse.datamodel') as stream:
             modl.addType('foo:bar', 'int', {}, {'interfaces': ('depr:iface',)})
             modl.addForm('foo:bar', {}, ())
 
-        dstream.seek(0)
-        self.isin('Form foo:bar depends on deprecated interface depr:iface', dstream.read())
+        self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.getvalue())
 
     async def test_datamodel_del_prop(self):
 
@@ -226,38 +225,35 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
-                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            with self.getLoggerStream('synapse.lib.types') as tstream, \
+                 self.getLoggerStream('synapse.datamodel') as dstream:
+
                 core = await s_cortex.Cortex.anit(dirn, conf)
 
-            dstream.expect('universal property .udep is using a deprecated type')
-            dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
-            dstream.noexpect('type test:dep:comp field str uses a deprecated type test:dep:easy')
-            tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                await dstream.expect('universal property .udep is using a deprecated type')
+                await dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
+                await tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                self.notin('type test:dep:comp field str uses a deprecated type test:dep:easy', dstream.getvalue())
 
-            # Using deprecated forms and props is warned to the user
-            msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
-            self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
-            self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
+                # Using deprecated forms and props is warned to the user
+                msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+                self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
+                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
 
-            msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
-            self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+                msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
+                self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
 
-            # Extended props, custom universals and tagprops can all trigger deprecation notices
-            mesg = 'tag property depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+                # Extended props, custom universals and tagprops can all trigger deprecation notices
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect('tag property depr is using a deprecated type test:dep:easy', timeout=6)
 
-            mesg = 'universal property ._test is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
                 await core.addUnivProp('_test', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect('universal property ._test is using a deprecated type test:dep:easy', timeout=6)
 
             mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex') as cstream:
                 await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-                self.true(await cstream.wait(6))
+                await cstream.expect(mesg, timeout=6)
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -268,9 +264,9 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Restarting the cortex warns again for various items that it loads from the hive
             # with deprecated types in them. This is a coverage test for extended properties.
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
-                    self.true(await cstream.wait(6))
+                    await cstream.expect(mesg, timeout=6)
 
     async def test_datamodel_getmodeldefs(self):
         '''
@@ -430,7 +426,8 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.noexpect('Comp types with mutable fields')
+
+        self.notin('Comp types iwth mutable fields', stream.getvalue())
 
         # Comp type not extended does not gen deprecated warning
         badmodel = ('badmodel', {
@@ -451,7 +448,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.noexpect('uses a deprecated type')
+        self.notin('uses a deprecated type', stream.getvalue())
 
     async def test_datamodel_edges(self):
 
