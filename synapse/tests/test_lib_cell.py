@@ -3615,7 +3615,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_fini_order(self):
 
-        with (self.getTestDir() as dirn):
+        with self.getTestDir() as dirn:
 
             data = []
             conf = {'nexslog:en': True}
