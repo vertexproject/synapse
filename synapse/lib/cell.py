@@ -3487,8 +3487,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if headers:
             enfo['headers'] = headers
 
-        extra = {'synapse': enfo}
-
         # It is possible that a Cell implementor may register handlers which
         # do not derive from our Handler class, so we have to handle that.
         if hasattr(handler, 'web_useriden') and handler.web_useriden:
@@ -3497,6 +3495,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if hasattr(handler, 'web_username') and handler.web_username:
             username = handler.web_username
             enfo['username'] = username
+
+        # TODO - use self.getLogExtra() once de-asyncified
+        extra = s_logging.getLogExtra(**enfo)
 
         if user:
             mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'

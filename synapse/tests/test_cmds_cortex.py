@@ -332,10 +332,9 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --nodes-only')
                 cmdr.locs['log:fmt'] = 'newp'
-                with self.getAsyncLoggerStream('synapse.cmds.cortex',
-                                               'Unknown encoding format: newp') as stream:
+                with self.getLoggerStream('synapse.cmds.cortex') as stream:
                     await cmdr.runCmdLine('storm test:str')
-                    self.true(await stream.wait(2))
+                    await stream.expect('Unknown encoding format: newp', timeout=2)
 
                 await cmdr.fini()
 

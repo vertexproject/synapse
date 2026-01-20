@@ -40,6 +40,7 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
@@ -859,13 +860,13 @@ def config(conf, confdefs):
 @functools.lru_cache(maxsize=1024)
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
-    logger.warning(mesg, extra={'synapse': {'curv': curv, 'eolv': eolv}})
+    logger.warning(mesg, extra=s_logging.getLogExtra(curv=curv, eolv=eolv))
     return mesg
 
 @functools.lru_cache(maxsize=1024)
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
-    logger.warning(mesg, extra={'synapse': {'eold': date}})
+    logger.warning(mesg, extra=s_logging.getLogExtra(eold=date))
     return mesg
 
 def jsonsafe_nodeedits(nodeedits):
