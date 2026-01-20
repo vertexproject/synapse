@@ -949,6 +949,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
+        self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
         self.axoninfo = {}
 
@@ -4287,6 +4288,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
+        if self.jsonstor:
+            await self.jsonstor.fini()
+
         [await wind.fini() for wind in tuple(self.nodeeditwindows)]
 
     async def syncLayerNodeEdits(self, iden, offs, wait=True):
@@ -4540,10 +4544,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
-            # TODO DANGER FINI
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
-
-        self.onfini(self.jsonstor)
 
     async def getJsonObj(self, path):
         if self.jsonurl is not None:
@@ -4628,7 +4629,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cadir is not None:
                 conf['tls:ca:dir'] = cadir
 
-            # TODO DANGER FINI
             self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
