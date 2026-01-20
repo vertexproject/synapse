@@ -3621,8 +3621,11 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCell(dirn=dirn, conf={'nexslog:en': True}) as cell:
 
+                event00 = asyncio.Event()
+
                 async def coro():
                     try:
+                        event00.set()
                         await asyncio.sleep(100000)
                     except asyncio.CancelledError:
                         # nexus txn can run in a activeTask handler
@@ -3636,6 +3639,7 @@ class CellTest(s_t_utils.SynTest):
 
                 bg_task = s_coro.create_task(bg_coro())
                 cell.runActiveTask(coro())
+                self.true(await asyncio.wait_for(event00.wait(), timeout=6))
 
                 # Perform a non-sync nexus txn then teardown the cell via __aexit__
                 self.nn(await cell.addUser('someuser'))
