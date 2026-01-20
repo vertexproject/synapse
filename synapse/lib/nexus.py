@@ -547,6 +547,7 @@ class NexsRoot(s_base.Base):
 
         if self.client is not None:
             await self.client.fini()
+            await self.delWriteHold(mirrordisconnect)
 
         self._mirready.clear()
 
@@ -559,7 +560,7 @@ class NexsRoot(s_base.Base):
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
-            self.schedCoro(self.connectTimeout())
+            self.client.schedCoro(self.connectTimeout())
 
         self.started = True
 
@@ -584,8 +585,6 @@ class NexsRoot(s_base.Base):
             mesg = 'promote() called on non-mirror nexsroot'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        await self.delWriteHold(mirrordisconnect)
-
         await self.startup()
 
     async def connectTimeout(self):
@@ -607,7 +606,7 @@ class NexsRoot(s_base.Base):
             self.issuewait = False
 
             if not self.isfini:
-                self.schedCoro(self.connectTimeout())
+                self.client.schedCoro(self.connectTimeout())
 
         proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
