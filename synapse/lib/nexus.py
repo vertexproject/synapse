@@ -477,7 +477,7 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini(mesg='Cannot iterate over a fini Nexus')
+            raise s_exc.IsFini(mesg='Nexus has been shutdown, cannot iterate changes.')
 
         maxoffs = offs
 

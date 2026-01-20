@@ -127,6 +127,41 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq(offs, nexsindx)
                     self.eq(item[1], 'thing:doathing')
 
+    async def test_nexus_fini(self):
+
+        conf = {'nexslog:en': True}
+        async with self.getTestCell(conf=conf) as cell:
+            await cell.sync()
+
+        # Cannot issue new items to the nexusroot after fini
+        with self.raises(s_exc.IsFini) as cm:
+            await cell.sync()
+        self.isin('Nexus has been shutdown, cannot propose', cm.exception.get('mesg'))
+
+        # Cannot iterate over the log after fini
+        with self.raises(s_exc.IsFini) as cm:
+            async for item in cell.getNexusChanges(0, wait=False):
+                pass
+        self.isin('Nexus has been shutdown, cannot iterate changes.', cm.exception.get('mesg'))
+
+        # Patch to delay the execution _eat so we can fini the service
+        # AFTER the lock has been obtained and BEFORE the apply task
+        # has started to execute.
+
+        async with self.getTestCell(conf=conf) as cell:
+            await cell.sync()
+
+            orig_eat = cell.nexsroot._eat
+            async def func(item, indx=None):
+                await cell.fini()
+                await orig_eat(item, indx=indx)
+
+            with mock.patch('synapse.lib.nexus.NexsRoot._eat', func):
+                with self.assertRaises(s_exc.IsFini) as cm:
+                    await cell.sync()
+                self.isin('Nexus has been shutdown, cannot apply', cm.exception.get('mesg'))
+            self.true(cell.isfini)
+
     async def test_nexus_modroot(self):
 
         async with self.getTestCell() as cell:
