@@ -8151,7 +8151,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                 vault['scope'] = None
                 vault['owner'] = visi1.iden
                 await core.addVault(vault)
-            self.eq('Vault global1 already exists.', exc.exception.get('mesg'))
+            self.eq('A config already exists with the name global1.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.DupName) as exc:
+                # name collision
+                vault = s_msgpack.deepcopy(gvault)
+                vault['scope'] = 'global'
+                vault['owner'] = visi1.iden
+                vault['type'] = 'vtest2'
+                await core.addVault(vault)
+            self.eq('A global config already exists with the name global1.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Non-existent vault name
