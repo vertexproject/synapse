@@ -2218,9 +2218,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Initialize a NexsRoot to use for the cell.
         '''
         if self.cellparent:
-            nexroot = self.cellparent.nexsroot
-            nexroot.incref()
-            return nexroot
+            return self.cellparent.nexsroot
         return await s_nexus.NexsRoot.anit(self)
 
     async def getNexsIndx(self):

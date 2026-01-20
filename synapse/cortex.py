@@ -4540,6 +4540,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
+            # TODO DANGER FINI
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
         self.onfini(self.jsonstor)
@@ -4627,6 +4628,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cadir is not None:
                 conf['tls:ca:dir'] = cadir
 
+            # TODO DANGER FINI
             self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
