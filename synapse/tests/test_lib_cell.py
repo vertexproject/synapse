@@ -3651,7 +3651,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCell(dirn=dirn, conf={'nexslog:en': True}) as cell:
                 offs = await cell.getNexsIndx()
                 items = []
-                async for offs, item in cell.getNexusChanges(offs-1, wait=False):
+                async for offs, item in cell.getNexusChanges(offs - 1, wait=False):
                     items.append(item)
                 self.len(1, items)
                 self.eq('sync', items[0][1])
