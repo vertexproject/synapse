@@ -296,14 +296,18 @@ class BaseTest(s_t_utils.SynTest):
 
     async def test_base_refcount(self):
         base = await s_base.Base.anit()
+        self.true(base._wouldfini())
 
         self.eq(base.incref(), 2)
+        self.false(base._wouldfini())
 
         self.eq(await base.fini(), 1)
         self.false(base.isfini)
+        self.true(base._wouldfini())
 
         self.eq(await base.fini(), 0)
         self.true(base.isfini)
+        self.true(base._wouldfini())
 
     async def test_baseref_gen(self):
 

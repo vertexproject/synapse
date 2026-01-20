@@ -1566,7 +1566,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # First we teardown our activebase if it is set. This allows those tasks to be
         # cancelled and do any cleanup that they may need to perform.
-        if self.activebase:
+        if self._wouldfini() and self.activebase:
             await self.activebase.fini()
 
         # we inherit from Pusher to make the Cell a Base subclass, so we tear it down through that.
