@@ -85,10 +85,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 .seen=now +#foo:score=10 ]')
 
             conf = {'modules': [('NewpModule', {})]}
-            warn = '''"'modules' Cortex config value" is deprecated'''
-            with self.getAsyncLoggerStream('synapse.common', warn) as stream:
+            warn = ''''modules' Cortex config value is deprecated'''
+            with self.getLoggerStream('synapse.common') as stream:
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect(warn, timeout=12)
 
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
@@ -312,12 +312,11 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 await core.callStorm('$lib.jsonstor.set((path,), hehe)')
 
-            with self.getAsyncLoggerStream('synapse.lib.nexus') as stream:
+            with self.getLoggerStream('synapse.lib.nexus') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     q = 'return( $lib.jsonstor.get((path,)) )'
                     self.eq('hehe', await core.callStorm(q))
-            stream.seek(0)
-            self.notin('Exception while replaying log', stream.read())
+            self.notin('Exception while replaying log', stream.getvalue())
 
     async def test_cortex_layer_mirror(self):
 
@@ -1168,7 +1167,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('mesg'),
                         'Generator control statement "stop" used outside of a generator function.')
 
-            with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
+            with self.getLoggerStream('synapse.lib.view') as stream:
                 async with core.getLocalProxy() as proxy:
 
                     # async cancellation test
@@ -1178,7 +1177,7 @@ class CortexTest(s_t_utils.SynTest):
                     except asyncio.TimeoutError:
                         logger.exception('Woohoo!')
 
-                self.true(await stream.wait(6))
+                await stream.expect('callStorm cancelled', timeout=6)
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
@@ -1232,8 +1231,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
-                                                     'Running dmon') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 iden = await core.callStorm('''
                     $que = $lib.queue.add(foo)
 
@@ -1249,11 +1247,11 @@ class CortexTest(s_t_utils.SynTest):
                     $que.get()
                     return($ddef.iden)
                 ''')
-                self.true(await stream.wait(6))
+                await stream.expect('Running dmon', timeout=6)
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
-            self.eq(mesg.get('iden'), iden)
+            self.eq(mesg['params'].get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
@@ -2952,10 +2950,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # Attempt a formpivot from a syn:tag node to a secondary property
             # which is not valid
-            with self.getAsyncLoggerStream('synapse.lib.ast',
-                                           'Unknown time format') as stream:
+            with self.getLoggerStream('synapse.lib.ast') as stream:
                 self.len(0, await core.nodes('syn:tag=foo.bar -> test:str:tick'))
-                self.true(await stream.wait(4))
+                await stream.expect('Unknown time format', timeout=4)
 
     async def test_storm_tagtags(self):
 
@@ -3520,22 +3517,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(view)
 
             # Storm logging
-            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
-                    as stream:
+            with self.getLoggerStream('synapse.storm') as stream:
                 await alist(core.storm('help ask'))
-                self.true(await stream.wait(4))
+                await stream.expect('Executing storm query {help ask} as [root]', timeout=4)
 
             mesg = 'Executing storm query {help foo} as [root]'
-            with self.getAsyncLoggerStream('synapse.storm', mesg) as stream:
+            with self.getLoggerStream('synapse.storm') as stream:
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
-                self.true(await stream.wait(4))
-
-            with self.getStructuredAsyncLoggerStream('synapse.storm', mesg) as stream:
-                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
-                self.true(await stream.wait(4))
+                await stream.expect(mesg, timeout=4)
 
             mesg = stream.jsonlines()[0]
-            self.eq(mesg.get('view'), view)
+            self.eq(mesg['params'].get('view'), view)
 
     async def test_strict(self):
 
@@ -5939,9 +5931,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
+                    with self.getLoggerStream('synapse.lib.nexus') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
-                            self.true(await stream.wait(6))
+                            await stream.expect('offset is out of sync', timeout=6)
                             self.true(core02.nexsroot.isfini)
 
                 # restore mirror
@@ -6330,10 +6322,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await asyncio.sleep(0)
 
                 q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
-                with self.getAsyncLoggerStream('synapse.lib.storm',
-                                               "made ('test:int', 5)") as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.nodes(q)
-                    self.true(await stream.wait(6))
+                    await stream.expect("made ('test:int', 5)", timeout=6)
 
                 nodes = await core.nodes('test:int', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6360,10 +6351,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormDmon(ddef)
 
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
-                with self.getAsyncLoggerStream('synapse.lib.storm',
-                                               "made ('test:str', '5')") as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.nodes(q)
-                    self.true(await stream.wait(6))
+                    await stream.expect("made ('test:str', '5')", timeout=6)
 
                 nodes = await core.nodes('test:str', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6377,10 +6367,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchView):
                     await core.nodes('test:int', opts={'view': view2_iden})
 
-            with self.getAsyncLoggerStream('synapse.lib.storm',
-                                           'Dmon View is invalid. Stopping Dmon') as stream:
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
-                    self.true(await stream.wait(6))
+                    await stream.expect('Dmon View is invalid. Stopping Dmon', timeout=6)
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 
@@ -7900,24 +7889,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.callStorm('model.deprecated.lock ".pdep"')
 
                 # Check that we saw the warnings
-                stream.seek(0)
-                data = stream.read()
-
+                data = stream.getvalue()
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin('deprecated properties unlocked and not in use', data)
 
-                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
+                match = regex.search(r'Detected (?P<count>\d+) deprecated properties', data)
                 count = int(match.groupdict().get('count'))
 
-                here = stream.tell()
+                stream.clear()
 
                 async with self.getTestCore(conf=conf, dirn=dirn) as core:
                     pass
 
                 # Check that the warnings are gone now
-                stream.seek(here)
-                data = stream.read()
-
+                data = stream.getvalue()
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin(f'Detected {count - 4} deprecated properties', data)
 
@@ -8380,7 +8365,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
 
-                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
 
                     q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
                     (whoami, udef) = await prox.callStorm(q, opts=opts)
@@ -8391,9 +8376,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
-                self.eq('lowuser', mesg.get('target_username'))
+                self.eq('lowuser', mesg['params'].get('target_username'))
 
-                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
 
                     q = 'auth.user.mod lowuser --admin $lib.true'
                     msgs = []
@@ -8405,7 +8390,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
-                self.eq('lowuser', mesg.get('target_username'))
+                self.eq('lowuser', mesg['params'].get('target_username'))
 
     async def test_cortex_ext_httpapi(self):
         # Cortex API tests for Extended HttpAPI
@@ -8603,7 +8588,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # storm()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm(q))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
@@ -8613,17 +8598,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['params'].get('hash'), qhash)
+                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['params'].get('hash'), qhash)
+                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # callStorm()
                     q = 'inet:asn=0 return($lib.true)'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm(q))
 
                     data = stream.getvalue()
@@ -8632,17 +8617,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['params'].get('hash'), qhash)
+                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['params'].get('hash'), qhash)
+                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # exportStorm()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm(q)))
 
                     data = stream.getvalue()
@@ -8651,17 +8636,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['params'].get('hash'), qhash)
+                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['params'].get('hash'), qhash)
+                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # count()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count(q))
 
                     data = stream.getvalue()
@@ -8670,20 +8655,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['params'].get('hash'), qhash)
+                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['params'].get('hash'), qhash)
+                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     with self.getLoggerStream('synapse') as stream:
                         core01.boss.is_shutdown = True
                         self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
                         core01.boss.is_shutdown = False
 
-                    stream.seek(0)
-                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.read())
+                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.getvalue())
 
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
@@ -8691,8 +8675,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             msgs = await alist(core00.storm('inet:asn=0'))
                             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                        stream.seek(0)
-                        data = stream.read()
+                        data = stream.getvalue()
                         self.notin('Offloading Storm query', data)
                         self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
                         self.notin('Timeout waiting for query mirror', data)
@@ -8705,8 +8688,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             msgs = await alist(core00.storm('inet:asn=0'))
                             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                        stream.seek(0)
-                        data = stream.read()
+                        data = stream.getvalue()
                         self.notin('Offloading Storm query', data)
                         self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
                         self.notin('Timeout waiting for query mirror', data)
@@ -8717,8 +8699,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for pool mirror', data)
                     self.notin('Timeout waiting for query mirror', data)
@@ -8734,8 +8715,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             msgs = await alist(core00.storm('inet:asn=0'))
                             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
 
                     msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
@@ -8753,8 +8733,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             msgs = await alist(core00.storm('inet:asn=0'))
                             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                        stream.seek(0)
-                        data = stream.read()
+                        data = stream.getvalue()
                         explog = ('Pool mirror [01.core.synapse] is too far out of sync. Skipping.')
                         self.isin(explog, data)
                         self.notin('Offloading Storm query', data)
@@ -8763,32 +8742,28 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm('inet:asn=0')))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count('inet:asn=0'))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
@@ -8811,8 +8786,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Timeout waiting for pool mirror proxy.', data)
                     self.isin('Pool members exhausted. Running query locally.', data)
 
@@ -8822,29 +8796,25 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm('inet:asn=0')))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count('inet:asn=0'))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
@@ -8859,8 +8829,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     # test that it reverts to local when referencing self
                     self.notin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
@@ -8876,16 +8845,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs = await alist(core01.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.isin('Storm query mirror pool is empty', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     self.notin('Storm query mirror pool is empty', data)
 
                     msgs = await core00.stormlist('cortex.storm.pool.get')
@@ -8927,15 +8894,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 core.auth.stor.set('gate:cortex:user:newp', {'iden': 'newp'})
                 core.auth.stor.set('gate:cortex:role:newp', {'iden': 'newp'})
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
                     # The cortex authgate still does nothing
                     with self.raises(s_exc.AuthDeny) as cm:
                         await core.nodes('[test:str=hello]', opts=aslow)
-            stream.seek(0)
-            buf = stream.read()
-            self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
-            self.isin('(all) has a rule on the "cortex" authgate', buf)
+
+            buf = stream.getvalue()
+            self.isin(r'(lowuser) has a rule on the \"cortex\" authgate', buf)
+            self.isin(r'(all) has a rule on the \"cortex\" authgate', buf)
 
     async def test_cortex_check_nexus_init(self):
         # This test is a simple safety net for making sure no nexus events
@@ -8982,10 +8949,10 @@ class CortexBasicTest(s_t_utils.SynTest):
         # - storm pools
 
         # Make sure we're logging the message
-        with self.getStructuredAsyncLoggerStream('synapse.lib.cell', 'Booting cortex in safe-mode.') as stream:
+        with self.getLoggerStream('synapse.lib.cell') as stream:
             async with self.getTestCore(conf=safemode) as core:
                 self.true(core.safemode)
-                self.true(await stream.wait(10))
+                await stream.expect('Booting cortex in safe-mode.', timeout=10)
         msgs = stream.jsonlines()
         self.len(1, msgs)
         self.eq(msgs[0].get('message'), 'Booting cortex in safe-mode. Some functionality may be disabled.')
@@ -9138,10 +9105,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, events)
                 self.eq(events, (('core:pkg:onload:skipped', {'pkg': 'foopkg', 'reason': 'safemode'}),))
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'foopkg onload output: foopkg onload') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn, conf=nosafe) as core:
                     self.false(core.safemode)
-                    await stream.wait(timeout=10)
+                    await stream.expect('foopkg onload output: foopkg onload', timeout=10)
 
         # Check merge tasks are not executed
         with self.getTestDir() as dirn:

@@ -859,7 +859,7 @@ def config(conf, confdefs):
 
 @functools.lru_cache(maxsize=1024)
 def deprecated(name, curv='2.x', eolv='3.0.0'):
-    mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
+    mesg = f'{name} is deprecated in {curv} and will be removed in {eolv}'
     logger.warning(mesg, extra=s_logging.getLogExtra(curv=curv, eolv=eolv))
     return mesg
 

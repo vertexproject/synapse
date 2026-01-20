@@ -3108,7 +3108,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             await self.setStormPkgVar(name, verskey, vers)
                             continue
 
-                        logextra['synapse']['initvers'] = vers
+                        logextra['params']['initvers'] = vers
 
                         logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
 
@@ -6420,7 +6420,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
         except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+            extra = await self.getLogExtra(text=text)
+            logger.exception(f'Fatal error while parsing [{text}]', extra=extra)
             await self.fini()
             raise
         astvalu.init(self)
@@ -6430,7 +6431,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+            extra = await self.getLogExtra(text=args[0])
+            logger.exception(f'Fatal error while parsing [{args}]', extra=extra)
             await self.fini()
             raise
         query.init(self)
@@ -6483,8 +6485,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['username'] = user.name
             info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
+            extra = s_logging.getLogExtra(**info)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+                            extra=extra)
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

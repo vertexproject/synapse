@@ -814,6 +814,8 @@ class StreamEvent(io.StringIO):
 
     def clear(self):
         self._lines.clear()
+        self.seek(0)
+        self.truncate()
 
     def write(self, s):
         retn = io.StringIO.write(self, s)

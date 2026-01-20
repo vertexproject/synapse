@@ -14,6 +14,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.logging as s_logging
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -867,7 +868,7 @@ class Agenda(s_base.Base):
         starttime = self._getNowTick()
 
         success = False
-        loglevel = s_common.normLogLevel(appt.loglevel)
+        loglevel = s_logging.normLogLevel(appt.loglevel)
 
         try:
             opts = {
