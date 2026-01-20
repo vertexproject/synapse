@@ -117,7 +117,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that this work history orgname refers to.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The reported name of the org the contact worked for.'}),
 

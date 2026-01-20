@@ -200,7 +200,7 @@ modeldefs = (
                     ('owner', ('entity:actor', {}), {
                         'doc': 'The current owner of the {title}.'}),
 
-                    ('owner:name', ('meta:name', {}), {
+                    ('owner:name', ('entity:name', {}), {
                         'doc': 'The name of the current owner of the {title}.'}),
                 ),
             }),
@@ -233,7 +233,7 @@ modeldefs = (
                     ('reporter', ('entity:actor', {}), {
                         'doc': 'The entity which reported on the {title}.'}),
 
-                    ('reporter:name', ('meta:name', {}), {
+                    ('reporter:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which reported on the {title}.'}),
 
                     ('reporter:created', ('time', {}), {

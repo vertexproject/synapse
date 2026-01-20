@@ -414,7 +414,7 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> meta:name }', opts={'readonly': True})
+            nodes = await core.nodes('ou:org | intersect { -> entity:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
@@ -1368,7 +1368,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('haha'))
 
             self.len(2, await core.nodes('ou:org'))
-            self.len(1, await core.nodes('meta:name=haha'))
+            self.len(1, await core.nodes('entity:name=haha'))
             self.len(1, await core.nodes('ou:org:name=haha'))
 
             self.len(0, await core.nodes('#haha'))

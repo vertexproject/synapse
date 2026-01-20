@@ -221,7 +221,7 @@ modeldefs = (
                 ('publisher', ('entity:actor', {}), {
                     'doc': 'The entity which published the report.'}),
 
-                ('publisher:name', ('meta:name', {}), {
+                ('publisher:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
 
                 ('topics', ('array', {'type': 'meta:topic'}), {

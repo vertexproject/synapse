@@ -1382,7 +1382,7 @@ class AstTest(s_test.SynTest):
                 # There should be no adds for ou:industry nodes
                 self.len(2, adds)
                 self.eq(adds[0][0], 'ou:org')
-                self.eq(adds[1], ('meta:name', 'visiacme'))
+                self.eq(adds[1], ('entity:name', 'visiacme'))
 
                 adds.clear()
                 nodes = await core.nodes('[entity:campaign=* :actor={[entity:contact=* :name=paperclip ]} ]')
@@ -1392,7 +1392,7 @@ class AstTest(s_test.SynTest):
                 self.len(3, adds)
                 self.eq(adds[0][0], 'entity:campaign')
                 self.eq(adds[1][0], 'entity:contact')
-                self.eq(adds[2], ('meta:name', 'paperclip'))
+                self.eq(adds[2], ('entity:name', 'paperclip'))
 
                 # Make sure we're not accidentally adding extra nodes
                 self.len(1, await core.nodes('entity:contact +:name=paperclip'))

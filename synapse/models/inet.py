@@ -1947,7 +1947,7 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('name', ('meta:name', {}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The primary entity name of the {title}.'}),
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
@@ -2100,7 +2100,7 @@ modeldefs = (
                 ('owner', ('entity:actor', {}), {
                     'doc': 'The entity which registered the ASN.'}),
 
-                ('owner:name', ('meta:name', {}), {
+                ('owner:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
@@ -2455,12 +2455,12 @@ modeldefs = (
                 ('vendor', ('ou:org', {}), {
                     'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
             ('inet:rfc2822:addr', {}, (
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'computed': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
@@ -2634,10 +2634,10 @@ modeldefs = (
                 ('expires', ('time', {}), {
                     'doc': 'The "expires" time from the whois record.'}),
 
-                ('registrar', ('meta:name', {}), {
+                ('registrar', ('entity:name', {}), {
                     'doc': 'The registrar name from the whois record.'}),
 
-                ('registrant', ('meta:name', {}), {
+                ('registrant', ('entity:name', {}), {
                     'doc': 'The registrant name from the whois record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact'}), {
@@ -2739,7 +2739,7 @@ modeldefs = (
                 ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
-                # FIXME ownable interface?
+                # FIXME ownable interface? currently has :owner via meta:havable
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that owns/operates the access point.'}),
             )),
@@ -2930,7 +2930,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
 
                 ('software', ('it:software', {}), {
