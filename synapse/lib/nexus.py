@@ -143,7 +143,6 @@ class NexsRoot(s_base.Base):
         self.nexslog.setIndex(maxindx)
 
         async def fini():
-
             for wind in self._linkmirrors:
                 await wind.fini()
 
