@@ -48,6 +48,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
@@ -104,8 +105,8 @@ def adminapi(log=False):
                 raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
                                      user=self.user.iden, username=self.user.name)
             if log:
-                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
-                            extra={'synapse': {'wrapped_func': func.__qualname__}})
+                extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
+                logger.info(f'Admin API invoked', extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -183,14 +184,11 @@ async def _iterBackupWork(path, linkinfo):
 
     logger.info(f'Backup streaming for [{path}] completed.')
 
-def _iterBackupProc(path, linkinfo):
+def _iterBackupProc(path, linkinfo, logconf):
     '''
     Multiprocessing target for streaming a backup.
     '''
-    # This logging call is okay to run since we're executing in
-    # our own process space and no logging has been configured.
-    s_common.setlogging(logger, **linkinfo.get('logconf'))
-
+    s_logging.setup(**logconf)
     logger.info(f'Backup streaming process for [{path}] starting.')
     asyncio.run(_iterBackupWork(path, linkinfo))
 
@@ -2759,8 +2757,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
-        logconf = await self._getSpawnLogConf()
+
         proc = None
+        logconf = self.getLogConf()
 
         try:
 
@@ -2818,7 +2817,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_common.setlogging(logger, **logconf)
+        s_logging.setup(**logconf)
         try:
 
             with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
@@ -2876,15 +2875,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Link not found in scope. This API must be called via a CellApi.'
             raise s_exc.SynErr(mesg=mesg)
 
+        logconf = self.getLogConf()
         linkinfo = await link.getSpawnInfo()
-        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, logconf))
             proc.start()
             return proc
 
@@ -3873,25 +3872,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A dictionary
         '''
-        extra = {**kwargs}
-        sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_auth.User
-        if user:
-            extra['user'] = user.iden
-            extra['username'] = user.name
-        elif sess and sess.user:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        return {'synapse': extra}
+        extra = s_logging.getLogExtra(**kwargs)
+        if self.ahasvcname:
+            extra['loginfo']['service'] = self.ahasvcname
+        return extra
 
-    async def _getSpawnLogConf(self):
-        conf = self.conf.get('_log_conf')
-        if conf:
-            conf = conf.copy()
-        else:
-            conf = s_common._getLogConfFromEnv()
-        conf['log_setup'] = False
-        return conf
+    def getLogConf(self):
+        logconf = s_logging.getLogConf()
+        if self.ahasvcname is not None:
+            logconf['loginfo']['service'] = self.ahasvcname
+        return logconf
 
     def modCellConf(self, conf):
         '''
@@ -4279,7 +4269,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         # replace our runtime config with the updated config with provconf data
         new_conf = self.initCellConf(self.conf)
-        new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         # Load any opts we have and environment variables.
         new_conf.setConfFromOpts()
@@ -4440,9 +4429,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        logconf = s_common.setlogging(logger, defval=opts.log_level,
-                                      structlog=opts.structured_logging)
-
         logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
                     extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
                                        'synapse_version': s_version.verstring}})
@@ -4450,7 +4436,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await cls._initBootRestore(opts.dirn)
 
         try:
-            conf.setdefault('_log_conf', logconf)
             conf.setConfFromOpts(opts)
             conf.setConfFromEnvs()
             conf.setConfFromFile(path)
@@ -4458,8 +4443,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except:
             logger.exception(f'Error while bootstrapping cell config.')
             raise
-
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
