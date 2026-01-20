@@ -3618,8 +3618,9 @@ class CellTest(s_t_utils.SynTest):
         with (self.getTestDir() as dirn):
 
             data = []
+            conf = {'nexslog:en': True}
 
-            async with self.getTestCell(dirn=dirn, conf={'nexslog:en': True}) as cell:
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
 
                 event00 = asyncio.Event()
 
@@ -3648,7 +3649,7 @@ class CellTest(s_t_utils.SynTest):
 
             self.eq(data, ['activetask_cancelled', 'cell_fini'])
 
-            async with self.getTestCell(dirn=dirn, conf={'nexslog:en': True}) as cell:
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
                 offs = await cell.getNexsIndx()
                 items = []
                 async for offs, item in cell.getNexusChanges(offs - 1, wait=False):
