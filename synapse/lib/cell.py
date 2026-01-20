@@ -1236,7 +1236,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.min_fd_free = self.conf.get('limit:fd:free')
         if self.min_fd_free is not None:
             self.min_fd_free = self.min_fd_free / 100
-            # DISCUSS When is it even possible to check this during startup? postAnit ?
 
         self._delTmpFiles()
 
@@ -1413,7 +1412,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-        # End of __anit__ - refire the fd loop in the event that conditions have
+        # End of __anit__ - wake up the fd loop in the event that the cell has
         # changed such that the service would now go into a write only mode.
         self.checkOpenFd()
 
