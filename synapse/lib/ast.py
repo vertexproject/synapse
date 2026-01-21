@@ -2274,6 +2274,13 @@ class LiftPropVirt(LiftProp):
 
 class LiftPropBy(LiftOper):
 
+    async def safeGenr(self, genr):
+        try:
+            async for node in genr:
+                yield node
+        except Exception:
+            return
+
     async def lift(self, runt, path):
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
@@ -2298,27 +2305,37 @@ class LiftPropBy(LiftOper):
                 if not virts:
                     virts = None
 
-                genrs = []
-                for prop in plift:
-                    genrs.append(runt.view.nodesByPropValu(prop, cmpr, valu, reverse=self.reverse, virts=virts))
+                genr = runt.view.nodesByPropValu(plift[-1], cmpr, valu, reverse=self.reverse, virts=virts)
 
-                def cmprkey(node):
-                    return node.get(relname)
+                if len(plift) > 1:
+                    genrs = []
+                    for prop in plift[:-1]:
+                        safegenr = self.safeGenr(runt.view.nodesByPropValu(prop, cmpr, valu, reverse=self.reverse, virts=virts))
+                        genrs.append(safegenr)
 
-                genr = s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse)
+                    genrs.append(genr)
+
+                    def cmprkey(node):
+                        return node.get(relname)
+
+                    genr = s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse)
 
                 async for node in self.pivlift(runt, pivlifts, genr):
                     yield node
                 return
 
-            genrs = []
-            for prop in props:
-                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
-
-            if len(genrs) == 1:
-                async for node in genrs[0]:
+            basegenr = runt.view.nodesByPropValu(props[-1].full, cmpr, valu, reverse=self.reverse)
+            if len(props) == 1:
+                async for node in basegenr:
                     yield node
                 return
+
+            genrs = []
+            for prop in props[:-1]:
+                safegenr = self.safeGenr(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
+                genrs.append(safegenr)
+
+            genrs.append(basegenr)
 
             def cmprkey(node):
                 return node.get(relname)
@@ -2698,16 +2715,19 @@ class FormPivot(PivotOper):
                     if isinstance(prop.type.arraytype, (s_types.Ndef, s_types.NodeProp)):
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
                     else:
-                        norm = prop.arraytypehash is not node.form.typehash
-                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm, virts=virts)
+                        if prop.arraytypehash is not node.form.typehash:
+                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], norm=True, virts=virts)
+                        else:
+                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=False, virts=virts)
                 else:
                     cmpr = '='
+                    norm = False
                     valu = node.ndef[1]
                     ptyp = prop.type
                     if virts is not None:
                         ptyp = ptyp.getVirtType(virts)
 
-                    if (pivs := node.form.type.pivs) is not None:
+                    if (pivs := node.form.type.pivs):
                         for tname in ptyp.types:
                             if (tpiv := pivs.get(tname)) is not None:
                                 cmpr, func = tpiv
@@ -2715,7 +2735,9 @@ class FormPivot(PivotOper):
                                     valu = await func(valu)
                                 break
 
-                    norm = ptyp.typehash is not node.form.typehash
+                    elif (norm := ptyp.typehash is not node.form.typehash):
+                        cmpr = '?='
+
                     ngenr = runt.view.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts)
 
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
@@ -2899,17 +2921,8 @@ class FormPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            try:
-                async for pivo, link in pgenr(node):
-                    yield pivo, path.fork(pivo, link)
-            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
-                if not warned:
-                    logger.warning(f'Caught error during pivot: {e.items()}')
-                    warned = True
-                items = e.items()
-                mesg = items.pop('mesg', '')
-                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                await runt.warn(mesg, log=False, **items)
+            async for pivo, link in pgenr(node):
+                yield pivo, path.fork(pivo, link)
 
 class PropPivotOut(PivotOper):
     '''
@@ -3037,9 +3050,12 @@ class PropPivot(PivotOper):
                             yield pivo, link
                     return
 
-                norm = srctype.arraytype.typehash is not ptyp.typehash
+                cmpr = '='
+                if (norm := srctype.arraytype.typehash is not ptyp.typehash):
+                    cmpr = '?='
+
                 for arrayval in valu:
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval, norm=norm, virts=virts):
+                    async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, arrayval, norm=norm, virts=virts):
                         yield pivo, link
 
                 return
@@ -3057,11 +3073,15 @@ class PropPivot(PivotOper):
                 return
 
             if prop.type.isarray and not srctype.isarray:
-                norm = ptyp.arraytypehash is not srctype.typehash
-                genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm, virts=virts)
+                if ptyp.arraytypehash is not srctype.typehash:
+                    genr = runt.view.nodesByPropArray(prop.full, '?=', valu, norm=True, virts=virts)
+                else:
+                    genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=False, virts=virts)
             else:
-                norm = ptyp.typehash is not srctype.typehash
-                genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm, virts=virts)
+                if ptyp.typehash is not srctype.typehash:
+                    genr = runt.view.nodesByPropValu(prop.full, '?=', valu, norm=True, virts=virts)
+                else:
+                    genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=False, virts=virts)
 
             async for pivo in genr:
                 yield pivo, link
@@ -3105,18 +3125,8 @@ class PropPivot(PivotOper):
                 await asyncio.sleep(0)
                 continue
 
-            try:
-                async for pivo, link in pgenr(node, srcname, srctype, valu):
-                    yield pivo, path.fork(pivo, link)
-
-            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
-                if not warned:
-                    logger.warning(f'Caught error during pivot: {e.items()}')
-                    warned = True
-                items = e.items()
-                mesg = items.pop('mesg', '')
-                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await runt.warn(mesg, log=False, **items)
+            async for pivo, link in pgenr(node, srcname, srctype, valu):
+                yield pivo, path.fork(pivo, link)
 
 class Value(AstNode):
     '''
