@@ -366,6 +366,7 @@ class NexsRoot(s_base.Base):
         await self.cell.nexslock.acquire()
 
         if self.isfini:
+            self.cell.nexslock.release()
             raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
 
         try:
@@ -392,10 +393,11 @@ class NexsRoot(s_base.Base):
             return await asyncio.shield(self.applytask)
 
     async def _eat(self, item, indx=None):
-        if self.isfini:
-            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
 
         try:
+            if self.isfini:
+                raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 

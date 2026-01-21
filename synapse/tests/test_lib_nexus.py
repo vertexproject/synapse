@@ -137,6 +137,7 @@ class NexusTest(s_t_utils.SynTest):
         with self.raises(s_exc.IsFini) as cm:
             await cell.sync()
         self.isin('Nexus has been shutdown, cannot propose', cm.exception.get('mesg'))
+        self.false(cell.nexslock.locked())
 
         # Cannot iterate over the log after fini
         with self.raises(s_exc.IsFini) as cm:
@@ -161,6 +162,7 @@ class NexusTest(s_t_utils.SynTest):
                     await cell.sync()
                 self.isin('Nexus has been shutdown, cannot apply', cm.exception.get('mesg'))
             self.true(cell.isfini)
+            self.false(cell.nexslock.locked())
 
     async def test_nexus_modroot(self):
 
