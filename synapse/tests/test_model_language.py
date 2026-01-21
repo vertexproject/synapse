@@ -11,7 +11,7 @@ class LangModuleTest(s_t_utils.SynTest):
                     :input=(lang:phrase, Hola)
                     :input:lang={[ lang:language=({"code": "es"}) ]}
                     :output=Hi
-                    :output:lang={[ lang:language=({"code": "en.us"}) ]}
+                    :output:lang={[ lang:language=({"code": "en.us"}) :name=english :names=(merican,) ]}
                     :desc=Greetings
                     :engine=*
                 lang:phrase=Hola
@@ -33,6 +33,9 @@ class LangModuleTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('lang:translation -> it:software'))
             self.len(2, await core.nodes('lang:translation -> lang:language'))
+
+            nodes = await core.nodes('lang:language:code=en.us -> lang:name')
+            self.sorteq(['english', 'merican'], [n.repr() for n in nodes])
 
             nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
             self.len(1, nodes)

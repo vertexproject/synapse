@@ -29,6 +29,9 @@ modeldefs = (
                 ),
                 'doc': 'A hashtag used in written text.'}),
 
+            ('lang:name', ('base:name', {}), {
+                'doc': 'A name used to refer to a language.'}),
+
             ('lang:translation', ('guid', {}), {
                 'doc': 'A translation of text from one language to another.'}),
 
@@ -47,6 +50,7 @@ modeldefs = (
         ),
         'forms': (
 
+            ('lang:name', {}, ()),
             ('lang:phrase', {}, ()),
             ('lang:hashtag', {}, ()),
 
@@ -94,11 +98,11 @@ modeldefs = (
                 ('code', ('lang:code', {}), {
                     'doc': 'The language code for this language.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('lang:name', {}), {
                     'alts': ('names',),
                     'doc': 'The primary name of the language.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'lang:name'}), {
                     'doc': 'An array of alternative names for the language.'}),
             )),
 
