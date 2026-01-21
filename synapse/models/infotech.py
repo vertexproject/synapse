@@ -1144,6 +1144,12 @@ modeldefs = (
             (('it:sec:stix:indicator', 'detects', 'ou:org'), {
                 'doc': 'The STIX indicator detects the organization.'}),
 
+            (('it:software', 'runson', 'it:software'), {
+                'doc': 'The source software can be run within the target software.'}),
+
+            (('it:software', 'runson', 'it:hardware'), {
+                'doc': 'The source software can be run on the target hardware.'}),
+
             (('it:software', 'uses', 'meta:technique'), {
                 'doc': 'The software uses the technique.'}),
 

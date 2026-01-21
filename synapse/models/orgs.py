@@ -761,6 +761,9 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the participant competed in the contest.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': "A URL which documents the participant's results."}),
             )),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (
