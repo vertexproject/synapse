@@ -65,11 +65,11 @@ modeldefs = (
                 ('tld', ('inet:fqdn', {}), {
                     'doc': 'The top-level domain for the country.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'geo:name'}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
@@ -215,7 +215,7 @@ modeldefs = (
                 ('election', ('pol:election', {}), {
                     'doc': 'The election that the polling place is designated for.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'doc': 'The name of the polling place at the time of the election. This may differ from the official place name.'}),
 
                 ('place', ('geo:place', {}), {

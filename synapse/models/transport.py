@@ -511,7 +511,7 @@ modeldefs = (
                 ('destination', ('geo:place', {}), {
                     'doc': 'The fully resolved destination that the vessel has declared.'}),
 
-                ('destination:name', ('meta:name', {}), {
+                ('destination:name', ('geo:name', {}), {
                     'doc': 'The name of the destination that the vessel has declared.'}),
 
                 ('destination:eta', ('time', {}), {

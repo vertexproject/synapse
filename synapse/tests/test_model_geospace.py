@@ -254,7 +254,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('latlong'), (11.38, 20.01))
-            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> meta:name')
+            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
 
             nodes = await core.nodes('geo:place=(hehe, haha)')
