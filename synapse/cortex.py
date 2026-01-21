@@ -4288,7 +4288,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-        if self.jsonstor:
+        if self.jsonstor is not None:
             await self.jsonstor.fini()
 
         [await wind.fini() for wind in tuple(self.nodeeditwindows)]
