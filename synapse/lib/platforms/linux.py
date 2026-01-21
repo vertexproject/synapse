@@ -110,7 +110,7 @@ def getTotalMemory():
 def getOpenFdInfo():
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
     try:
-        usage = len(os.listdir(f'/proc/{os.getpid()}/fd'))
+        usage = len(os.listdir(f'/proc/self/fd'))
     except OSError as err:
         if err.errno == errno.EMFILE:
             # We've hit the maximum allowed files and cannot list contents of /proc/;
