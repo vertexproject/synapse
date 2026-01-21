@@ -25,7 +25,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('vis', nodes[0].get('iso:3166:alpha3'))
             self.eq(137, nodes[0].get('iso:3166:numeric3'))
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
-            self.len(2, await core.nodes('pol:country -> meta:name'))
+            self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
 
             self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
@@ -160,7 +160,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(1730682000000000, nodes[0].get('closed'))
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
-            self.len(1, await core.nodes('pol:pollingplace -> meta:name +meta:name=pollingplace00'))
+            self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))
 
     async def test_model_geopol_immigration(self):
 
