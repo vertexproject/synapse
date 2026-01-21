@@ -133,20 +133,16 @@ def getSysctls():
     )
     ret = {}
     for key, fp, func in _sysctls:
-        try:
-            if os.path.isfile(fp):
-                with open(fp) as f:
-                    valu = f.read().strip()
-                    try:
-                        ret[key] = func(valu)
-                    except Exception:  # pragma: no cover
-                        logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
-                        ret[key] = None
-            else:  # pragma: no cover
-                logger.warning(f'Missing sysctl: {key} @ {fp}')
-                ret[key] = None
-        except:
-            logger.exception(f'Error while reading sysctl: {key} @ {fp}')
+        if os.path.isfile(fp):
+            with open(fp) as f:
+                valu = f.read().strip()
+                try:
+                    ret[key] = func(valu)
+                except Exception:  # pragma: no cover
+                    logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
+                    ret[key] = None
+        else:  # pragma: no cover
+            logger.warning(f'Missing sysctl: {key} @ {fp}')
             ret[key] = None
     return ret
 
