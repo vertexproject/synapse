@@ -3621,6 +3621,12 @@ class CellTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.tests.test_lib_cell') as stream:
                 # confirm last-one-wins "service" key is always initialized
-                logger.warning('oh hi there!')
+                logger.warning('oh hai there!')
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['service'], '00.cell.synapse')
+
+            async with cell00.getLocalProxy() as proxy:
+
+                logs = await proxy.logs()
+                self.eq(logs[-1]['message'], 'oh hai there!')
+                self.eq(logs[-1]['service'], '00.cell.synapse')

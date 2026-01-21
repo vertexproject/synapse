@@ -36,7 +36,9 @@ class LoggingTest(s_test.SynTest):
 
         self.none(s_logging.StreamHandler._pump_task)
         self.none(s_logging.StreamHandler._pump_event)
-        self.len(0, s_logging.StreamHandler._pump_fifo)
+        self.len(0, s_logging.StreamHandler._logs_fifo)
+        self.len(0, s_logging.StreamHandler._text_todo)
+        self.len(0, s_logging.StreamHandler._logs_todo)
 
         with self.getLoggerStream('synapse.tests.test_lib_logging') as stream:
 

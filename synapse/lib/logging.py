@@ -18,13 +18,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-logtodo = []
-logbase = None
-loglock = asyncio.Lock()
-logevnt = asyncio.Event()
-logwindows = weakref.WeakSet()
-
-logfifo = collections.deque(maxlen=1000)
+_log_wins = weakref.WeakSet()
 
 def excinfo(e, _seen=None):
 
@@ -61,29 +55,6 @@ def excinfo(e, _seen=None):
         ret['mesg'] = str(e)
 
     return ret
-
-def _addLogInfo(info):
-    logfifo.append(info)
-    if logbase is not None:
-        logtodo.append(info)
-        logevnt.set()
-
-async def _feedLogTask():
-
-    while not logbase.isfini:
-
-        await logevnt.wait()
-
-        if logbase.isfini:
-            return
-
-        todo = list(logtodo)
-
-        logevnt.clear()
-        logtodo.clear()
-
-        for wind in logwindows:
-            await wind.puts(todo)
 
 _glob_loginfo = {}
 def setLogInfo(name, valu):
@@ -140,7 +111,9 @@ class Formatter(logging.Formatter):
 
         loginfo['params'] = record.params
 
-        _addLogInfo(loginfo)
+        # the subsequent emit() will set the event
+        StreamHandler._logs_fifo.append(loginfo)
+        StreamHandler._logs_todo.append(loginfo)
 
         return loginfo
 
@@ -155,6 +128,7 @@ class TextFormatter(Formatter):
         return super().__init__(*args, **kwargs)
 
     def format(self, record):
+        # this is required to send the structured data
         loginfo = self.genLogInfo(record)
         return logging.Formatter.format(self, record)
 
@@ -162,7 +136,10 @@ class StreamHandler(logging.StreamHandler):
 
     _pump_task = None
     _pump_event = None
-    _pump_fifo = collections.deque(maxlen=10000)
+
+    _logs_fifo = collections.deque(maxlen=1000)
+    _logs_todo = collections.deque(maxlen=1000)
+    _text_todo = collections.deque(maxlen=1000)
 
     def emit(self, record):
 
@@ -171,7 +148,7 @@ class StreamHandler(logging.StreamHandler):
 
         try:
             text = self.format(record)
-            self._pump_fifo.append(text)
+            self._text_todo.append(text)
             self._pump_event.set()
 
         # emulating behavior of parent class
@@ -189,26 +166,38 @@ async def _pumpLogStream():
 
     while True:
 
-        await StreamHandler._pump_event.wait()
+        try:
+            await StreamHandler._pump_event.wait()
 
-        StreamHandler._pump_event.clear()
+            if not StreamHandler._text_todo:
+                StreamHandler._pump_event.clear()
+                continue
 
-        if not StreamHandler._pump_fifo:
-            continue
+            logstodo = tuple(StreamHandler._logs_todo)
+            texttodo = tuple(StreamHandler._text_todo)
 
-        todo = list(StreamHandler._pump_fifo)
-        text = '\n'.join(todo) + '\n'
+            StreamHandler._logs_todo.clear()
+            StreamHandler._text_todo.clear()
+            StreamHandler._pump_event.clear()
 
-        StreamHandler._pump_fifo.clear()
-        await s_coro.executor(_writestderr, text)
+            fulltext = '\n'.join(todo) + '\n'
+
+            for wind in _log_wins:
+                await wind.puts(logstodo)
+
+            await s_coro.executor(_writestderr, fulltext)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
 def logs(last=100):
-    return logfifo[-last:]
+    return tuple(StreamHandler._logs_fifo)[-last:]
 
 async def watch(last=100):
     async with await s_queue.Window.anit(maxsize=10000) as window:
-        window.puts(logs(last=last))
-        logwindows.add(window)
+        await window.puts(logs(last=last))
+        _log_wins.add(window)
         async for item in window:
             yield item
 
@@ -228,7 +217,7 @@ def setup(**conf):
         conf['level'] = logging.INFO
 
     if conf.get('structlog') is None:
-        conf['structlog'] = s_version.version >= (3, 0, 0)
+        conf['structlog'] = False
 
     fmtclass = Formatter
     if not conf.get('structlog'):
@@ -244,13 +233,13 @@ def setup(**conf):
     if loginfo is not None:
         _glob_loginfo.update(loginfo)
 
+    _glob_logconf.clear()
+    _glob_logconf.update(conf)
+
     handler = StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
 
     level = normLogLevel(conf.get('level'))
-
-    _glob_logconf.clear()
-    _glob_logconf.update(conf)
 
     logging.basicConfig(level=level, handlers=(handler,))
 
@@ -264,9 +253,11 @@ def reset():
     if StreamHandler._pump_task is not None:
         StreamHandler._pump_task.cancel()
 
-    StreamHandler._pump_event = None
     StreamHandler._pump_task = None
-    StreamHandler._pump_fifo.clear()
+    StreamHandler._pump_event = None
+    StreamHandler._text_todo.clear()
+    StreamHandler._logs_fifo.clear()
+    StreamHandler._logs_todo.clear()
 
     _glob_logconf.clear()
     _glob_loginfo.clear()
