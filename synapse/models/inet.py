@@ -423,24 +423,6 @@ class SockAddr(s_types.Str):
 
         return valu[0]
 
-    async def _normPort(self, valu):
-        parts = valu.split(':', 1)
-        if len(parts) == 2:
-            valu, port = parts
-            port = (await self.porttype.norm(port))[0]
-            return valu, port, f':{port}'
-
-        if self.defport:
-            return valu, self.defport, f':{self.defport}'
-
-        return valu, None, ''
-
-    def _reqProto(self, proto):
-        if proto not in self.protos:
-            protostr = ','.join(self.protos)
-            mesg = f'inet:sockaddr protocol must be one of: {protostr}'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
-
     async def _normPyStr(self, valu, view=None):
         # todo: exceptions in _normPyDict wont have original str context
         orig = valu
