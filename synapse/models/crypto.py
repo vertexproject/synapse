@@ -523,6 +523,12 @@ modeldefs = (
 
                 ('private:coefficient', ('hex', {}), {
                     'doc': 'The private coefficient of the RSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:dsa', {}, (
@@ -541,6 +547,12 @@ modeldefs = (
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the DSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:ecdsa', {}, (
@@ -579,6 +591,12 @@ modeldefs = (
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the ECDSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:secret', {}, (

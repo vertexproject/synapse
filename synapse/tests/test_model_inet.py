@@ -8,6 +8,16 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_mode_inet_basics(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:serverfile=(1.2.3.4:22, *) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
+            self.len(1, await core.nodes('inet:serverfile -> file:bytes'))
+            self.len(1, await core.nodes('inet:serverfile -> inet:server'))
+
     async def test_inet_handshakes(self):
 
         async with self.getTestCore() as core:
@@ -258,29 +268,6 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:client', expected_valu))
                 for p, v in expected_props.items():
                     self.eq(node.get(p), v)
-
-    async def test_download(self):
-        async with self.getTestCore() as core:
-
-            valu = s_common.guid()
-            file = s_common.guid()
-            props = {
-                'time': 0,
-                'file': file,
-                'fqdn': 'vertex.link',
-                'client': 'tcp://127.0.0.1:45654',
-                'server': 'tcp://1.2.3.4:80'
-            }
-            q = '[(inet:download=$valu :time=$p.time :file=$p.file :fqdn=$p.fqdn :client=$p.client :server=$p.server)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:download', valu))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('file'), file)
-            self.eq(node.get('fqdn'), 'vertex.link')
-            self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('server'), 'tcp://1.2.3.4:80')
 
     async def test_email(self):
         formname = 'inet:email'

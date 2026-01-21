@@ -33,7 +33,7 @@ modeldefs = (
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
 
-                    ('supersedes', ('array', {'type': '$self'}), {
+                    ('supersedes', ('array', {'type': '{$self}'}), {
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
@@ -221,7 +221,7 @@ modeldefs = (
                 ('publisher', ('entity:actor', {}), {
                     'doc': 'The entity which published the report.'}),
 
-                ('publisher:name', ('meta:name', {}), {
+                ('publisher:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
 
                 ('topics', ('array', {'type': 'meta:topic'}), {

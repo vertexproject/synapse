@@ -14,7 +14,7 @@ modeldefs = (
                     ('actor', ('entity:actor', {}), {
                         'doc': 'The actor who carried out the {title}.'}),
 
-                    ('actor:name', ('meta:name', {}), {
+                    ('actor:name', ('entity:name', {}), {
                         'doc': 'The name of the actor who carried out the {title}.'}),
                 ),
             }),
@@ -55,11 +55,11 @@ modeldefs = (
                     ('banner', ('file:bytes', {}), {
                         'doc': 'A banner or hero image used on the profile page.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('entity:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -133,7 +133,7 @@ modeldefs = (
                     ('org', ('ou:org', {}), {
                         'doc': 'An associated organization listed as part of the contact information.'}),
 
-                    ('org:name', ('meta:name', {}), {
+                    ('org:name', ('entity:name', {}), {
                         'doc': 'The name of an associated organization listed as part of the contact information.'}),
 
                     ('title', ('entity:title', {}), {
@@ -174,6 +174,9 @@ modeldefs = (
 
             ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
                 'doc': 'A node which inherits the entity:identifier interface.'}),
+
+            ('entity:name', ('base:name', {}), {
+                'doc': 'A name used to refer to an entity.'}),
 
             # FIXME syn:user is an actor...
             ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
@@ -223,6 +226,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
+            ('entity:relationship:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of entity relationship statuses.'}),
+
             ('entity:relationship', ('guid', {}), {
                 'template': {'title': 'relationship'},
                 'interfaces': (
@@ -254,6 +263,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
 
+            ('entity:goal:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal statuses.'}),
+
             ('entity:goal', ('guid', {}), {
                 'template': {'title': 'goal'},
                 'interfaces': (
@@ -271,6 +286,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
+
+            ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
@@ -330,6 +351,8 @@ modeldefs = (
         'forms': (
 
             ('entity:title', {}, ()),
+
+            ('entity:name', {}, ()),
 
             ('entity:contact:type:taxonomy', {}, ()),
             ('entity:contact', {}, (

@@ -559,7 +559,7 @@ an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does 
 itself, such as its name, location, or URL. This means that even though Synapse deconflicts guid values, it is still
 possible for users or processes to inadvertently create multiple guid nodes that represent the same thing:
 
-.. storm-pre:: meta:name=vertex -> ou:org | delnode
+.. storm-pre:: entity:name=vertex -> ou:org | delnode
 
 .. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :url=https://vertex.link/ ]
 

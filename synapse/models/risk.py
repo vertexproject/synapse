@@ -68,6 +68,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of vulnerability types.'}),
 
+            ('risk:vuln:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of vulnerability statuses.'}),
+
             ('risk:vulnerable', ('guid', {}), {
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
@@ -89,6 +95,13 @@ modeldefs = (
                     ),
                 },
             }),
+
+            ('risk:threat:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of threat statuses.'}),
+
             ('risk:attack', ('guid', {}), {
                 'template': {'title': 'attack'},
                 'interfaces': (
@@ -96,6 +109,12 @@ modeldefs = (
                     ('meta:reported', {}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
+
+            ('risk:attack:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -105,6 +124,12 @@ modeldefs = (
 
             ('risk:alert', ('guid', {}), {
                 'doc': 'An alert which indicates the presence of a risk.'}),
+
+            ('risk:compromise:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of compromise statuses.'}),
 
             ('risk:compromise', ('guid', {}), {
                 'template': {'title': 'compromise'},
@@ -129,11 +154,14 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of mitigation types.'}),
 
-            ('risk:mitigation', ('guid', {}), {
-                'template': {'title': 'mitigation'},
+            ('risk:mitigation:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
-                    ('meta:reported', {}),
+                    ('meta:taxonomy', {}),
                 ),
+                'doc': 'A taxonomy of mitigation statuses.'}),
+
+            ('risk:mitigation', ('meta:technique', {}), {
+                'template': {'title': 'mitigation'},
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -168,6 +196,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A taxonomy of availability status values.'}),
+
+            ('risk:tool:software:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of tool statuses.'}),
 
             ('risk:tool:software', ('guid', {}), {
                 'template': {'title': 'tool'},
@@ -213,6 +247,12 @@ modeldefs = (
                 },
                 'doc': 'An event where information was disclosed without permission.'}),
 
+            ('risk:leak:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of leak event statuses.'}),
+
             ('risk:leak:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -236,6 +276,12 @@ modeldefs = (
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+            ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of extortion statuses.'}),
+
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -247,6 +293,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'An outage type taxonomy.'}),
+
+            ('risk:outage:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'An outage status taxonomy.'}),
 
             ('risk:outage', ('guid', {}), {
                 'template': {'title': 'outage'},
@@ -299,22 +351,6 @@ modeldefs = (
             (('risk:compromise', 'stole', 'phys:object'), {
                 'doc': 'The target node was stolen as a result of the compromise.'}),
 
-            # TODO - risk:mitigation addresses meta:usable?
-            (('risk:mitigation', 'addresses', 'meta:technique'), {
-                'doc': 'The mitigation addresses the technique.'}),
-
-            (('risk:mitigation', 'addresses', 'risk:vuln'), {
-                'doc': 'The mitigation addresses the vulnerability.'}),
-
-            (('risk:mitigation', 'uses', 'meta:rule'), {
-                'doc': 'The mitigation uses the rule.'}),
-
-            (('risk:mitigation', 'uses', 'it:software'), {
-                'doc': 'The mitigation uses the software version.'}),
-
-            (('risk:mitigation', 'uses', 'it:hardware'), {
-                'doc': 'The mitigation uses the hardware.'}),
-
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
@@ -352,6 +388,13 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
+                ('name', ('entity:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the threat according to the source.'}),
+
+                ('names', ('array', {'type': 'entity:name'}), {
+                    'doc': 'A list of alternate names for the threat according to the source.'}),
+
                 ('type', ('risk:threat:type:taxonomy', {}), {
                     'doc': 'A type for the threat, as a taxonomy entry.'}),
 
@@ -367,18 +410,20 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
 
-                ('merged:time', ('time', {}), {
-                    'doc': 'The time that the source merged this threat cluster into another.'}),
-
-                ('merged:isnow', ('risk:threat', {}), {
-                    'doc': 'The threat cluster that the source merged this cluster into.'}),
-
             )),
             ('risk:availability', {}, {}),
             ('risk:tool:software:type:taxonomy', {
                 'prevnames': ('risk:tool:software:taxonomy',)}, ()),
 
+            # FIXME extend it:software form?
             ('risk:tool:software', {}, (
+
+                ('name', ('it:softwarename', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the tool according to the source.'}),
+
+                ('names', ('array', {'type': 'it:softwarename'}), {
+                    'doc': 'A list of alternate names for the tool according to the source.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'ex': 'rep.mandiant.tabcteng',
@@ -400,15 +445,7 @@ modeldefs = (
                     'prevnames': ('soft',),
                     'doc': 'The authoritative software family for the tool.'}),
             )),
-            ('risk:mitigation:type:taxonomy', {}, ()),
-            ('risk:mitigation', {}, (
-
-                ('type', ('risk:mitigation:type:taxonomy', {}), {
-                    'doc': 'A taxonomy type entry for the mitigation.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
-            )),
+            ('risk:mitigation', {}, ()),
 
             ('risk:vuln:type:taxonomy', {}, ()),
 
@@ -443,7 +480,7 @@ modeldefs = (
                 ('vendor', ('entity:actor', {}), {
                     'doc': 'The vendor whose product contains the vulnerability.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor whose product contains the vulnerability.'}),
 
                 ('vendor:fixed', ('time', {}), {
@@ -527,7 +564,7 @@ modeldefs = (
                 ('mitigated', ('bool', {}), {
                     'doc': 'Set to true if the vulnerable node has been mitigated.'}),
 
-                ('mitigations', ('array', {'type': 'risk:mitigation'}), {
+                ('mitigations', ('array', {'type': 'meta:technique'}), {
                     'doc': 'The mitigations which were used to address the vulnerable node.'}),
             )),
 
@@ -602,9 +639,6 @@ modeldefs = (
                 'prevnames': ('risk:compromisetype',)}, ()),
 
             ('risk:compromise', {}, (
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the compromise.'}),
 
                 ('type', ('risk:compromise:type:taxonomy', {}), {
                     'ex': 'cno.breach',
@@ -690,8 +724,6 @@ modeldefs = (
                 ('prev', ('risk:attack', {}), {
                     'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the attack.'}),
             )),
 
             ('risk:leak:type:taxonomy', {}, ()),
@@ -754,7 +786,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which experienced the outage event.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which experienced the outage event.'}),
             )),
 

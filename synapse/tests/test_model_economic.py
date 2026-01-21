@@ -227,7 +227,7 @@ class EconTest(s_utils.SynTest):
             self.eq('checking.', nodes[0].get('type'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:aba:account -> ou:org'))
-            self.len(1, await core.nodes('econ:bank:aba:account -> meta:name'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> entity:name'))
             self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:rtn'))
             self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:account:type:taxonomy'))
 
@@ -268,7 +268,7 @@ class EconTest(s_utils.SynTest):
                     :bank:name="deutsche bank"
             ]''')
             self.len(1, nodes)
-            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> meta:name'))
+            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> entity:name'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
 
             nodes = await core.nodes('''[

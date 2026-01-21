@@ -27,7 +27,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('names'), ('billy bob',))
             self.eq(nodes[0].get('lifespan'), (31536000000000, 2554848000000000, 2523312000000000))
 
-            self.len(2, await core.nodes('ps:person -> meta:name'))
+            self.len(2, await core.nodes('ps:person -> entity:name'))
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
 
             nodes = await core.nodes('''[

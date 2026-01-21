@@ -33,10 +33,10 @@ modeldefs = (
                 'doc': 'A base type for case insensitive names.'}),
 
             ('meta:name', ('base:name', {}), {
-                'prevnames': ('meta:name', 'ou:name', 'ou:industryname',
+                'prevnames': ('ou:name', 'ou:industryname',
                               'ou:campname', 'ou:goalname', 'lang:name',
-                              'risk:vulnname', 'meta:name', 'it:prod:softname',
-                              'entity:name', 'geo:name'),
+                              'risk:vulnname', 'meta:name', 'entity:name',
+                              'geo:name'),
                 'doc': 'A name used to refer to an entity or event.'}),
 
             ('meta:topic', ('base:name', {}), {
@@ -114,6 +114,7 @@ modeldefs = (
 
             ('meta:rule', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
@@ -168,6 +169,12 @@ modeldefs = (
                     ),
                 }}),
 
+            ('meta:technique:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique statuses.'}),
+
             ('meta:technique:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -193,14 +200,17 @@ modeldefs = (
                     ('owner', ('entity:actor', {}), {
                         'doc': 'The current owner of the {title}.'}),
 
-                    ('owner:name', ('meta:name', {}), {
+                    ('owner:name', ('entity:name', {}), {
                         'doc': 'The name of the current owner of the {title}.'}),
                 ),
             }),
 
             ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
-                'template': {'title': 'item'},
+                'template': {
+                    'title': 'item',
+                    'status': '{$self}:status:taxonomy',
+                },
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -223,7 +233,7 @@ modeldefs = (
                     ('reporter', ('entity:actor', {}), {
                         'doc': 'The entity which reported on the {title}.'}),
 
-                    ('reporter:name', ('meta:name', {}), {
+                    ('reporter:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which reported on the {title}.'}),
 
                     ('reporter:created', ('time', {}), {
@@ -238,6 +248,17 @@ modeldefs = (
                     ('reporter:discovered', ('time', {}), {
                         'doc': 'The time when the reporter first discovered the {title}.'}),
 
+                    ('reporter:url', ('inet:url', {}), {
+                        'doc': 'The reporter URL for the {title}.'}),
+
+                    ('reporter:status', ('{status}', {}), {
+                        'doc': 'The status of the {title}, according to the reporter.'}),
+
+                    ('superseded', ('time', {}), {
+                        'doc': 'The time when the {title} was superseded.'}),
+
+                    ('supersedes', ('array', {'type': '{$self}'}), {
+                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
             }),
 
@@ -261,7 +282,7 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The depth indexed from 0.'}),
 
-                    ('parent', ('$self', {}), {
+                    ('parent', ('{$self}', {}), {
                         'computed': True,
                         'doc': 'The taxonomy parent.'}),
                 ),
@@ -323,6 +344,12 @@ modeldefs = (
 
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
+
+            (('meta:technique', 'addresses', 'meta:technique'), {
+                'doc': 'The technique addresses the technique.'}),
+
+            (('meta:technique', 'addresses', 'risk:vuln'), {
+                'doc': 'The technique addresses the vulnerability.'}),
         ),
         'forms': (
 

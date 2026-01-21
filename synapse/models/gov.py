@@ -81,7 +81,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which was issued the CAGE code.'}),
 
-                ('name0', ('meta:name', {}), {
+                ('name0', ('entity:name', {}), {
                     'doc': 'The name of the organization.'}),
 
                 ('name1', ('str', {'lower': True}), {

@@ -1484,9 +1484,15 @@ modeldefs = (
                 ),
                 'doc': 'A network protocol banner string presented by a server.'}),
 
+            ('inet:serverfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'host server and file'}}),
+                ),
+                'doc': 'A file hosted by a server.'}),
+
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
+                    ('meta:observable', {'template': {'title': 'hosted file and URL'}}),
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
@@ -1959,7 +1965,7 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('name', ('meta:name', {}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The primary entity name of the {title}.'}),
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
@@ -2112,7 +2118,7 @@ modeldefs = (
                 ('owner', ('entity:actor', {}), {
                     'doc': 'The entity which registered the ASN.'}),
 
-                ('owner:name', ('meta:name', {}), {
+                ('owner:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
@@ -2174,31 +2180,6 @@ modeldefs = (
 
                 ('port', ('inet:port', {}), {
                     'doc': 'The client tcp/udp port.'
-                }),
-            )),
-
-            # FIXME - inet:proto:link? Is this really an it:host:fetch?
-            ('inet:download', {}, (
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was downloaded.'
-                }),
-                ('fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN used to resolve the server.'
-                }),
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was downloaded.'
-                }),
-                ('server', ('inet:server', {}), {
-                    'doc': 'The socket address of the server.'
-                }),
-                ('server:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the server.'
-                }),
-                ('client', ('inet:client', {}), {
-                    'doc': 'The socket address of the client.'
-                }),
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the client.'
                 }),
             )),
 
@@ -2492,12 +2473,12 @@ modeldefs = (
                 ('vendor', ('ou:org', {}), {
                     'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
             ('inet:rfc2822:addr', {}, (
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'computed': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
@@ -2571,6 +2552,16 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The optional username used to access the URL.'}),
 
+            )),
+
+            ('inet:serverfile', {}, (
+                ('server', ('inet:server', {}), {
+                    'computed': True,
+                    'doc': 'The server which hosted the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'computed': True,
+                    'doc': 'The file that was hosted on the server.'}),
             )),
 
             ('inet:urlfile', {}, (
@@ -2661,10 +2652,10 @@ modeldefs = (
                 ('expires', ('time', {}), {
                     'doc': 'The "expires" time from the whois record.'}),
 
-                ('registrar', ('meta:name', {}), {
+                ('registrar', ('entity:name', {}), {
                     'doc': 'The registrar name from the whois record.'}),
 
-                ('registrant', ('meta:name', {}), {
+                ('registrant', ('entity:name', {}), {
                     'doc': 'The registrant name from the whois record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact'}), {
@@ -2766,7 +2757,7 @@ modeldefs = (
                 ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
-                # FIXME ownable interface?
+                # FIXME ownable interface? currently has :owner via meta:havable
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that owns/operates the access point.'}),
             )),
@@ -2957,7 +2948,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
 
                 ('software', ('it:software', {}), {
