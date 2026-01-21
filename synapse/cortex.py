@@ -2978,9 +2978,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
-            mdef.setdefault('modconf', {})
+            modconf = mdef.setdefault('modconf', {})
+            pkgmeta = {'modname': mdef.get('name'), 'pkgname': pkgname}
+            actual_pkgmeta = modconf.setdefault('pkgmeta', pkgmeta)
             if svciden:
-                mdef['modconf']['svciden'] = svciden
+                modconf['svciden'] = svciden
+                if pkgmeta is actual_pkgmeta:
+                    pkgmeta['svciden'] = svciden
 
             if validstorm:
                 modtext = mdef.get('storm')
@@ -7385,7 +7389,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # Make sure the requested name is unique
         if self.getVaultByName(name) is not None:
-            raise s_exc.DupName(mesg=f'Vault {name} already exists.')
+            if scope is None:
+                mesg = f'A config already exists with the name {name}.'
+            else:
+                mesg = f'A {scope} config already exists with the name {name}.'
+            raise s_exc.DupName(mesg=mesg, name=name)
 
         secrets = vault.get('secrets')
         configs = vault.get('configs')
@@ -7393,12 +7401,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_msgpack.en(secrets)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault secrets must be msgpack safe.') from None
 
         try:
             s_msgpack.en(configs)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault configs must be msgpack safe.') from None
 
         if scope == 'global':
             # everyone gets read access
