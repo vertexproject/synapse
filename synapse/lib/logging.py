@@ -29,11 +29,17 @@ def excinfo(e):
 
     ret = {
         'code': e.__class__.__name__,
-        'traceback': []
+        'traceback': tuple(traceback.extract_tb(e.__traceback__)),
     }
 
-    for path, line, func, sorc in traceback.extract_tb(e.__traceback__):
-        ret['traceback'].append({'path': path, 'line': line, 'func': func})
+    if notes := getattr(e, '__notes__', None):
+        ret['notes'] = tuple(notes)
+
+    if cause := getattr(e, '__cause__', None) is not None:
+        ret['cause'] = excinfo(cause)
+
+    if context := getattr(e, '__context__', None) is not None:
+        ret['context'] = excinfo(context)
 
     if isinstance(e, s_exc.SynErr):
         ret['mesg'] = e.errinfo.pop('mesg', None)
