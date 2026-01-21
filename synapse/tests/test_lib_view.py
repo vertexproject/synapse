@@ -649,11 +649,9 @@ class ViewTest(s_t_utils.SynTest):
                     await prox.saveNodeEdits(edits, {})
                 self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
 
-                with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     await prox.saveNodeEdits(edits, {'time': s_common.now(), 'user': guid})
-                    self.true(await stream.wait(6))
-                valu = stream.getvalue().strip()
-                self.isin(f'u={guid}', valu)
+                    await stream.expect(f'u={guid}', timeout=6)
 
             self.len(1, await core.nodes('test:guid#foo', opts={'view': view}))
             self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
