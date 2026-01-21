@@ -7,6 +7,7 @@ import base64
 import signal
 import socket
 import asyncio
+import logging
 import tarfile
 import collections
 import multiprocessing
@@ -32,6 +33,7 @@ import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -41,6 +43,8 @@ import synapse.lib.platforms.linux as s_linux
 import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -3604,3 +3608,19 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+    async def test_cell_logging(self):
+
+        s_logging.setup()
+
+        async with self.getTestAha() as aha:
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('00.cell')
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+
+            with self.getLoggerStream('synapse.tests.test_lib_cell') as stream:
+                # confirm last-one-wins "service" key is always initialized
+                logger.warning('oh hi there!')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], '00.cell.synapse')

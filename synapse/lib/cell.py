@@ -1242,6 +1242,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahanetw = self.conf.get('aha:network')
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
+            s_logging.setLogInfo('service', self.ahasvcname)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -4439,9 +4440,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
-                    extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
-                                       'synapse_version': s_version.verstring}})
+        s_logging.setup()
+
+        svcvers = cls.VERSTING
+        svctype = cls.getCellType()
+        synvers = s_version.verstring
+
+        extra = s_logging.getLogExtra(svctype=svctype, svcvers=svcvers, synvers=synvers)
+        logger.info(f'Starting {svctype} version {svcvers}, Synapse version: {synvers}', extra=extra)
 
         await cls._initBootRestore(opts.dirn)
 

@@ -26,21 +26,32 @@ logwindows = weakref.WeakSet()
 
 logfifo = collections.deque(maxlen=1000)
 
-def excinfo(e):
+def excinfo(e, _seen=None):
+
+    if _seen is None:
+        _seen = set()
+
+    _seen.add(e)
+
+    tb = []
+    for path, line, func, sorc in traceback.extract_tb(e.__traceback__):
+        tb.append((path, line, func, sorc))
 
     ret = {
         'code': e.__class__.__name__,
-        'traceback': tuple(traceback.extract_tb(e.__traceback__)),
+        'traceback': tb,
     }
 
     if notes := getattr(e, '__notes__', None):
         ret['notes'] = tuple(notes)
 
-    if cause := getattr(e, '__cause__', None) is not None:
-        ret['cause'] = excinfo(cause)
+    if (cause := getattr(e, '__cause__', None)) is not None:
+        if isinstance(cause, Exception) and cause not in _seen:
+            ret['cause'] = excinfo(cause, _seen=_seen)
 
-    if context := getattr(e, '__context__', None) is not None:
-        ret['context'] = excinfo(context)
+    if (context := getattr(e, '__context__', None)) is not None:
+        if isinstance(context, Exception) and context not in _seen:
+            ret['context'] = excinfo(context, _seen=_seen)
 
     if isinstance(e, s_exc.SynErr):
         ret['mesg'] = e.errinfo.pop('mesg', None)
@@ -214,7 +225,7 @@ def setup(**conf):
     conf.update(getLogConfFromEnv())
 
     if conf.get('level') is None:
-        conf['level'] = logging.WARNING
+        conf['level'] = logging.INFO
 
     if conf.get('structlog') is None:
         conf['structlog'] = s_version.version >= (3, 0, 0)
@@ -252,9 +263,13 @@ def reset():
     # ( it does not need to be called by in general by service fini )
     if StreamHandler._pump_task is not None:
         StreamHandler._pump_task.cancel()
-        StreamHandler._pump_event = None
-        StreamHandler._pump_task = None
-        StreamHandler._pump_fifo.clear()
+
+    StreamHandler._pump_event = None
+    StreamHandler._pump_task = None
+    StreamHandler._pump_fifo.clear()
+
+    _glob_logconf.clear()
+    _glob_loginfo.clear()
 
 def getLogConf():
     logconf = _glob_logconf.copy()
