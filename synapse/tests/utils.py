@@ -803,9 +803,9 @@ class CmdGenerator:
 
         return retn
 
-class StreamEvent(io.StringIO):
+class LoggerStream(io.StringIO):
     '''
-    A combination of a io.StringIO object and a threading.Event object.
+    A stream of log output.
     '''
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
@@ -1719,7 +1719,7 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getLoggerStream(self, name, struct=True):
 
-        stream = StreamEvent()
+        stream = LoggerStream()
         logger = logging.getLogger(name)
         handler = logging.StreamHandler(stream)
 
