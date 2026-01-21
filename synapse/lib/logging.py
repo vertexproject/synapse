@@ -247,7 +247,7 @@ def setup(**conf):
 
     return conf
 
-async def reset():
+def reset():
     # This may be called by tests to cleanup loop specific objects
     # ( it does not need to be called by in general by service fini )
     if StreamHandler._pump_task is not None:

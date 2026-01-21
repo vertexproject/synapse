@@ -69,6 +69,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.logging as s_logging
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -1041,6 +1042,10 @@ class SynTest(unittest.TestCase):
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
+
+    def tearDown(self):
+        s_logging.reset()
+        return super().tearDown()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

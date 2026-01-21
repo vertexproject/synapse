@@ -30,3 +30,9 @@ class LoggingTest(s_test.SynTest):
 
         with self.raises(s_exc.BadArg):
             s_logging.normLogLevel({'key': 'newp'})
+
+        s_logging.reset()
+
+        self.none(s_logging.StreamHandler._pump_task)
+        self.none(s_logging.StreamHandler._pump_event)
+        self.len(0, s_logging.StreamHandler._pump_fifo)
