@@ -318,7 +318,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+            await stream.expect(mutmesg, timeout=1)
 
         # Comp type with an indirect data field (and out of order definitions)
         badmodel = ('badmodel', {
@@ -339,7 +339,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+            await stream.expect(mutmesg, timeout=1)
 
         # Comp type with double indirect data field
         badmodel = ('badmodel', {
@@ -361,7 +361,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+            await stream.expect(mutmesg, timeout=1)
 
         # API direct
         typeopts = {
@@ -373,7 +373,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
-        stream.expect(mutmesg)
+            await stream.expect(mutmesg, timeout=1)
 
         # Non-existent types
         typeopts = {
@@ -385,7 +385,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
-        stream.expect('The _bad:comp field hehe is declared as a type (newp) that does not exist.')
+            await stream.expect('The _bad:comp field hehe is declared as a type (newp) that does not exist.', timeout=1)
 
         # deprecated types
         badmodel = ('badmodel', {
@@ -406,7 +406,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.datamodel') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type.')
+            await stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type.', timeout=1)
 
         # Comp type not extended does not gen mutable warning
         badmodel = ('badmodel', {
