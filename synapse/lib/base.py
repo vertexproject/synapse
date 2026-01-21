@@ -455,7 +455,7 @@ class Base:
 
     def _wouldfini(self):
         '''Check if a Base would be fini() if fini() was called on it.'''
-        return bool(self._syn_refs <= 1)
+        return self._syn_refs == 1
 
     async def waitfini(self, timeout=None):
         '''

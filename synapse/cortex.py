@@ -4285,7 +4285,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Generic fini handler for cortex components which may change or vary at runtime.
         '''
-        if self.axon:
+        if self.axon is not None:
             await self.axon.fini()
 
         if self.jsonstor is not None:

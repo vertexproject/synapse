@@ -307,7 +307,7 @@ class BaseTest(s_t_utils.SynTest):
 
         self.eq(await base.fini(), 0)
         self.true(base.isfini)
-        self.true(base._wouldfini())
+        self.false(base._wouldfini())
 
     async def test_baseref_gen(self):
 
