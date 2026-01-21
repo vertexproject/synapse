@@ -464,22 +464,7 @@ class SockAddr(s_types.Str):
         return await self._normPyDict(ctor, view=view)
 
     async def _normPyTuple(self, valu, view=None):
-        ipaddr, norminfo = await self.iptype.norm(valu)
-
-        ip_repr = self.iptype.repr(ipaddr)
-        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
-        virts = {'ip': (ipaddr, self.iptype.stortype)}
-        proto = self.defproto
-
-        if self.defport:
-            subs['port'] = (self.porttype.typehash, self.defport, {})
-            virts['port'] = (self.defport, self.porttype.stortype)
-            if ipaddr[0] == 6:
-                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
-            else:
-                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
-
-        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
+        return await self._normPyDict({'ip': valu}, view=view)
 
     async def _normPyDict(self, valu, view=None):
         subs = {}
