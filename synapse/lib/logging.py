@@ -12,6 +12,7 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.version as s_version
 
@@ -143,8 +144,8 @@ class TextFormatter(Formatter):
 class StreamHandler(logging.StreamHandler):
 
     _pump_task = None
+    _pump_event = None
     _pump_fifo = collections.deque(maxlen=10000)
-    _pump_event = asyncio.Event()
 
     def emit(self, record):
 
@@ -184,6 +185,16 @@ async def _pumpLogStream():
         StreamHandler._pump_fifo.clear()
         await s_coro.executor(_writestderr, text)
 
+def logs(last=100):
+    return logfifo[-last:]
+
+async def watch(last=100):
+    async with await s_queue.Window.anit(maxsize=10000) as window:
+        window.puts(logs(last=last))
+        logwindows.add(window)
+        async for item in window:
+            yield item
+
 _glob_logconf = {}
 def setup(**conf):
     '''
@@ -207,6 +218,7 @@ def setup(**conf):
         fmtclass = TextFormatter
 
     if s_coro.has_running_loop() and StreamHandler._pump_task is None:
+        StreamHandler._pump_event = asyncio.Event()
         StreamHandler._pump_task = s_coro.create_task(_pumpLogStream())
 
     # this is used to pass things like service name
@@ -228,6 +240,15 @@ def setup(**conf):
     logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
 
     return conf
+
+async def reset():
+    # This may be called by tests to cleanup loop specific objects
+    # ( it does not need to be called by in general by service fini )
+    if StreamHandler._pump_task is not None:
+        StreamHandler._pump_task.cancel()
+        StreamHandler._pump_event = None
+        StreamHandler._pump_task = None
+        StreamHandler._pump_fifo.clear()
 
 def getLogConf():
     logconf = _glob_logconf.copy()

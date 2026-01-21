@@ -219,6 +219,15 @@ class CellApi(s_base.Base):
     async def resume(self):
         return await self.cell.resume()
 
+    @adminapi()
+    async def logs(self, last=100):
+        return await self.cell.logs(last=last)
+
+    @adminapi()
+    async def watch(self, last=100):
+        async for item in self.cell.watch(last=last):
+            yield item
+
     async def allowed(self, perm, default=None):
         '''
         Check if the user has the requested permission.
@@ -5347,3 +5356,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.paused = False
         self.nexslock.release()
+
+    async def logs(self, last=100):
+        return s_logging.logs(last=last)
+
+    async def watch(self, last=100):
+        async for item in s_logging.watch(last=last):
+            yield item
