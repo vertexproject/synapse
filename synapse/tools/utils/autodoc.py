@@ -887,8 +887,6 @@ async def docStormpkg(pkgpath):
     if ':' in pkgname:
         hname = pkgname.replace(':', raw_back_slash_colon)
 
-    reqvers = pkgdef.get('synapse_version')
-
     rst.addHead(f'Storm Package\\: {hname}')
     lines = [
         'The following Commands are available from this package.',
