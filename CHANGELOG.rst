@@ -6,6 +6,32 @@
 Synapse Changelog
 *****************
 
+v2.231.0 - 2026-01-21
+=====================
+
+Model Changes
+-------------
+- Added ``file:mime:pdf`` to capture PDF metadata.
+  (`#4675 <https://github.com/vertexproject/synapse/pull/4675>`_)
+- See :ref:`userguide_model_v2_231_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.quorum.merge.list()`` API and ``quorum.merge.list`` command to
+  enumerate pending merges.
+  (`#4663 <https://github.com/vertexproject/synapse/pull/4663>`_)
+- Modified ``$lib.auth.users.get()`` to return the current user if a user ID is
+  not specified.
+  (`#4663 <https://github.com/vertexproject/synapse/pull/4663>`_)
+- Added ``colorize`` command to set color values on nodes output by Storm.
+  (`#4668 <https://github.com/vertexproject/synapse/pull/4668>`_)
+- Updated Storm package loading to embed the module and package names into
+  modconf values. These can be accessed via ``$modconf.pkgmeta.modname`` and
+  ``$modconf.pkgmeta.pkgname``.
+  (`#4678 <https://github.com/vertexproject/synapse/pull/4678>`_)
+- Updated vault error messages to be clearer and more informative.
+  (`#4688 <https://github.com/vertexproject/synapse/pull/4688>`_)
+
 v2.230.0 - 2026-01-08
 =====================
 
