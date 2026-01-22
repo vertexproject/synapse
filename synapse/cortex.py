@@ -949,6 +949,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
+        self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
         self.axoninfo = {}
 
@@ -4284,8 +4285,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Generic fini handler for cortex components which may change or vary at runtime.
         '''
-        if self.axon:
+        if self.axon is not None:
             await self.axon.fini()
+
+        if self.jsonstor is not None:
+            await self.jsonstor.fini()
 
         [await wind.fini() for wind in tuple(self.nodeeditwindows)]
 
@@ -4541,8 +4545,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
-
-        self.onfini(self.jsonstor)
 
     async def getJsonObj(self, path):
         if self.jsonurl is not None:
@@ -7389,7 +7391,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # Make sure the requested name is unique
         if self.getVaultByName(name) is not None:
-            raise s_exc.DupName(mesg=f'Vault {name} already exists.')
+            if scope is None:
+                mesg = f'A config already exists with the name {name}.'
+            else:
+                mesg = f'A {scope} config already exists with the name {name}.'
+            raise s_exc.DupName(mesg=mesg, name=name)
 
         secrets = vault.get('secrets')
         configs = vault.get('configs')
@@ -7397,12 +7403,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_msgpack.en(secrets)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault secrets must be msgpack safe.') from None
 
         try:
             s_msgpack.en(configs)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault configs must be msgpack safe.') from None
 
         if scope == 'global':
             # everyone gets read access

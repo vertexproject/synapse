@@ -1563,7 +1563,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
-        # we inherit from Pusher to make the Cell a Base subclass
+
+        # First we teardown our activebase if it is set. This allows those tasks to be
+        # cancelled and do any cleanup that they may need to perform.
+        if self._wouldfini() and self.activebase:
+            await self.activebase.fini()
+
+        # we inherit from Pusher to make the Cell a Base subclass, so we tear it down through that.
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
