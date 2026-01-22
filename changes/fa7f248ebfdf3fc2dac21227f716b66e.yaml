@@ -1,6 +1,6 @@
 ---
 desc: 'Added a ``generated`` edge between ``meta:rule`` and the following forms: ``risk:alert``,
-  and ``ou:campaign``.'
+  and ``it:log:event``.'
 desc:literal: false
 prs: []
 type: model

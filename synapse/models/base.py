@@ -217,8 +217,8 @@ class BaseModule(s_module.CoreModule):
                 (('meta:rule', 'generated', 'risk:alert'), {
                     'doc': 'The meta:rule generated the risk:alert node.'}),
 
-                (('meta:rule', 'generated', 'ou:campaign'), {
-                    'doc': 'The meta:rule generated the ou:campaign node.'}),
+                (('meta:rule', 'generated', 'it:log:event'), {
+                    'doc': 'The meta:rule generated the it:log:event node.'}),
 
             ),
             'forms': (
