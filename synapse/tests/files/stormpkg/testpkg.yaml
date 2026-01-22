@@ -1,5 +1,6 @@
 name: testpkg
 version: 0.0.1
+synapse_version: ">=2.200.0,<3.0.0"
 
 logo:
     mime: image/svg

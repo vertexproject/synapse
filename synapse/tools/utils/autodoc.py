@@ -887,11 +887,21 @@ async def docStormpkg(pkgpath):
     if ':' in pkgname:
         hname = pkgname.replace(':', raw_back_slash_colon)
 
+    reqvers = pkgdef.get('synapse_version')
+
     rst.addHead(f'Storm Package\\: {hname}')
-    lines = ['The following Commands are available from this package.',
-             f'This documentation is generated for version '
-             f'{s_version.fmtVersion(pkgdef.get("version"))} of the package.',
-             ]
+    lines = [
+        'The following Commands are available from this package.',
+        f'This documentation is generated for version '
+            f'``{s_version.fmtVersion(pkgdef.get("version"))}`` of the package.',
+    ]
+
+    if (reqvers := pkgdef.get('synapse_version')) is not None:
+        lines.extend((
+            '',
+            f'This version of {hname} requires Synapse version: ``{reqvers}``.',
+        ))
+
     rst.addLines(*lines)
 
     commands = pkgdef.get('commands')

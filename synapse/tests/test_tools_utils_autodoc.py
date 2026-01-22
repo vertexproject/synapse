@@ -151,6 +151,22 @@ class TestAutoDoc(s_t_utils.SynTest):
 
         with self.getTestDir() as path:
 
+            ymlpath = s_t_files.getAssetPath('stormpkg/nosynvers.yaml')
+
+            argv = ['--savedir', path, '--doc-stormpkg', ymlpath]
+
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+            with s_common.genfile(path, 'stormpkg_testpkg.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+
+            self.isin('Storm Package\\: testpkg', s)
+            self.isin('This documentation is generated for version ``0.0.1`` of the package.', s)
+
+            self.notin('requires Synapse version', s)
+
             ymlpath = s_t_files.getAssetPath('stormpkg/testpkg.yaml')
 
             argv = ['--savedir', path, '--doc-stormpkg', ymlpath]
@@ -163,7 +179,9 @@ class TestAutoDoc(s_t_utils.SynTest):
             s = buf.decode()
 
             self.isin('Storm Package\\: testpkg', s)
-            self.isin('This documentation is generated for version 0.0.1 of the package.', s)
+            self.isin('This documentation is generated for version ``0.0.1`` of the package.', s)
+
+            self.isin('This version of testpkg requires Synapse version: ``>=2.200.0,<3.0.0``.', s)
 
             self.isin('This package implements the following Storm Commands.', s)
             self.isin('.. _stormcmd-testpkg-testpkgcmd', s)
