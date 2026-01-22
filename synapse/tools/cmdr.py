@@ -45,12 +45,10 @@ async def main(argv):  # pragma: no cover
         print('usage: python -m synapse.tools.cmdr <url> [<single quoted command>]')
         return 1
 
-    s_common.setlogging(logger, 'WARNING')
-
     async with s_telepath.withTeleEnv():
         await _main(argv)
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
     warnings.filterwarnings("default", category=PendingDeprecationWarning)
-    s_cmd.exitmain(main)
+    s_cmd.exitmain(main, logconf={'level': 'WARNING'})

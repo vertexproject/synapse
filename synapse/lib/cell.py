@@ -4440,7 +4440,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        s_logging.setup()
+        logconf = s_logging.setup()
+
+        levelrepr = s_const.LOG_LEVEL_INVERSE_CHOICES.get(logconf.get('level'))
+        logger.info(f'log level set to {levelrepr}')
 
         svcvers = cls.VERSTRING
         svctype = cls.getCellType()

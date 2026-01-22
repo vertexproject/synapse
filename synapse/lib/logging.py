@@ -240,11 +240,9 @@ def setup(**conf):
     handler = StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
 
-    level = normLogLevel(conf.get('level'))
+    level = conf['level'] = normLogLevel(conf.get('level'))
 
     logging.basicConfig(level=level, handlers=(handler,))
-
-    logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
 
     return conf
 
