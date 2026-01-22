@@ -12,7 +12,6 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
-import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.version as s_version
 
@@ -195,6 +194,8 @@ def logs(last=100):
     return tuple(StreamHandler._logs_fifo)[-last:]
 
 async def watch(last=100):
+    # avoid a circular import...
+    import synapse.lib.queue as s_queue
     async with await s_queue.Window.anit(maxsize=10000) as window:
         await window.puts(logs(last=last))
         _log_wins.add(window)

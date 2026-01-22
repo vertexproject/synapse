@@ -419,12 +419,12 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await visi.setLocked(True)
 
-                with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
+                with self.getLoggerStream('synapse.lib.agenda') as stream:
                     unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
 
                     # pump the ioloop via sleep(0) until the log message appears
-                    while not stream.wait(0.1):
-                        await asyncio.sleep(0)
+                    while 'locked' not in stream.getvalue():
+                        await asyncio.sleep(0.01)
 
                     await core.nexsroot.waitOffs(strt + 4)
 

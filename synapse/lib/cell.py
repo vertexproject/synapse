@@ -4442,7 +4442,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         s_logging.setup()
 
-        svcvers = cls.VERSTING
+        svcvers = cls.VERSTRING
         svctype = cls.getCellType()
         synvers = s_version.verstring
 
