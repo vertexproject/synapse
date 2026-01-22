@@ -180,7 +180,7 @@ async def _pumpLogStream():
             StreamHandler._text_todo.clear()
             StreamHandler._pump_event.clear()
 
-            fulltext = '\n'.join(todo) + '\n'
+            fulltext = '\n'.join(texttodo) + '\n'
 
             for wind in _log_wins:
                 await wind.puts(logstodo)
