@@ -9334,3 +9334,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 if gate.type == 'cronjob':
                     gates.append(gate)
             self.len(1, gates)
+
+            # Allow the cortex to perform a txn and close down cleanly.
+            await core.sync()

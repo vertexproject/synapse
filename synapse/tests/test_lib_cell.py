@@ -3609,6 +3609,50 @@ class CellTest(s_t_utils.SynTest):
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
 
+    async def test_cell_fini_order(self):
+
+        with self.getTestDir() as dirn:
+
+            data = []
+            conf = {'nexslog:en': True}
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+
+                event00 = asyncio.Event()
+
+                async def coro():
+                    try:
+                        event00.set()
+                        await asyncio.sleep(100000)
+                    except asyncio.CancelledError:
+                        # nexus txn can run in a activeTask handler
+                        await cell.sync()
+                        data.append('activetask_cancelled')
+
+                async def bg_coro():
+                    self.true(await cell.waitfini(timeout=12))
+                    data.append('cell_fini')
+                    return True
+
+                bg_task = s_coro.create_task(bg_coro())
+                cell.runActiveTask(coro())
+                self.true(await asyncio.wait_for(event00.wait(), timeout=6))
+
+                # Perform a non-sync nexus txn then teardown the cell via __aexit__
+                self.nn(await cell.addUser('someuser'))
+
+            self.true(await asyncio.wait_for(bg_task, timeout=6))
+
+            self.eq(data, ['activetask_cancelled', 'cell_fini'])
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+                offs = await cell.getNexsIndx()
+                items = []
+                async for offs, item in cell.getNexusChanges(offs - 1, wait=False):
+                    items.append(item)
+                self.len(1, items)
+                self.eq('sync', items[0][1])
+
     async def test_cell_logging(self):
 
         s_logging.setup()
