@@ -1,0 +1,7 @@
+---
+desc: Resolved a race condition when shutting down the Cortex when using an embedded
+  JSONStor.
+desc:literal: false
+prs: []
+type: bug
+...

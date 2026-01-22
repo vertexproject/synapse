@@ -1,0 +1,8 @@
+---
+desc: Added checks to the Nexus system to prevent proposing changes or starting to
+  execute changes if the Nexus system has been shut down. This scenario will now cause
+  ``IsFini`` errors to be raised.
+desc:literal: false
+prs: []
+type: note
+...
