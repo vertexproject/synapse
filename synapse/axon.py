@@ -1067,7 +1067,7 @@ class Axon(s_cell.Cell):
         fsize = await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
-        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+        logger.debug(f'Getting blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
 
         if offs is not None or size is not None:
 
@@ -1203,7 +1203,7 @@ class Axon(s_cell.Cell):
         await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
-        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+        logger.debug(f'Getting blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
 
         hashset = s_hashset.HashSet()
 
@@ -1251,7 +1251,7 @@ class Axon(s_cell.Cell):
                 return int.from_bytes(byts, 'big')
 
             fhash = s_common.ehex(sha256)
-            logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+            logger.debug(f'Saving blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
 
             size = await self._saveFileGenr(sha256, genr, size)
 
@@ -1378,7 +1378,7 @@ class Axon(s_cell.Cell):
                 return False
 
             fhash = s_common.ehex(sha256)
-            logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+            logger.debug(f'Deleting blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
 
             size = int.from_bytes(byts, 'big')
             self.axonmetrics.inc('file:count', valu=-1)
@@ -1817,7 +1817,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
+        logger.debug(f'Wget called for [{url}].', extra=self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
         ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 

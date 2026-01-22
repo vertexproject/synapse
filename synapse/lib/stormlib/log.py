@@ -145,7 +145,7 @@ class LoggerLib(s_stormtypes.Lib):
                    f'instead.'
             raise s_exc.BadArg(mesg=mesg, arg='extra')
 
-        return await self.runt.snap.core.getLogExtra(**extra)
+        return self.runt.snap.core.getLogExtra(**extra)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logDebug(self, mesg, extra=None):

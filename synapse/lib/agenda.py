@@ -425,7 +425,7 @@ class _Appt:
     async def edits(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
-                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                extra = self.stor.core.getLogExtra(name=name, valu=valu)
                 logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
 
@@ -891,7 +891,7 @@ class Agenda(s_base.Base):
 
                 elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                     text = mesg[1].get('mesg', '<missing message>')
-                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                    extra = self.core.getLogExtra(cron=appt.iden, **mesg[1])
                     logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
                 elif mesg[0] == 'err':

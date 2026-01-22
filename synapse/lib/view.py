@@ -968,7 +968,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
-            extra = await self.core.getLogExtra(text=text)
+            extra = self.core.getLogExtra(text=text)
             logger.warning(f'callStorm cancelled', extra=extra)
             raise
 
@@ -978,12 +978,12 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
             logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-            extra = await self.core.getLogExtra(text=text)
+            extra = self.core.getLogExtra(text=text)
             logger.exception(logmesg, extra=extra)
             raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
         except Exception:
-            extra = await self.core.getLogExtra(text=text)
+            extra = self.core.getLogExtra(text=text)
             logger.exception(f'Error during callStorm execution for {{ {text} }}', extra=extra)
             raise
 
@@ -1082,7 +1082,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 pass
 
             except asyncio.CancelledError:
-                extra = await self.core.getLogExtra(text=text)
+                extra = self.core.getLogExtra(text=text)
                 logger.warning('Storm runtime cancelled.', extra=extra)
                 cancelled = True
                 raise
@@ -1099,7 +1099,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
 
-                extra = await self.core.getLogExtra(text=text)
+                extra = self.core.getLogExtra(text=text)
                 logger.exception(logmesg, extra=extra)
 
                 enfo = s_common.err(e)

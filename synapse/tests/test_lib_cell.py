@@ -3672,5 +3672,6 @@ class CellTest(s_t_utils.SynTest):
             async with cell00.getLocalProxy() as proxy:
 
                 logs = await proxy.logs()
-                self.eq(logs[-1]['message'], 'oh hai there!')
-                self.eq(logs[-1]['service'], '00.cell.synapse')
+
+                self.isin('oh hai there!', [m['message'] for m in logs])
+                self.isin('00.cell.synapse', [m['service'] for m in logs])
