@@ -3675,3 +3675,25 @@ class CellTest(s_t_utils.SynTest):
 
                 self.isin('oh hai there!', [m['message'] for m in logs])
                 self.isin('00.cell.synapse', [m.get('service') for m in logs])
+
+                event = asyncio.Event()
+                async def sendlogs():
+                    await event.wait()
+                    for i in range(4):
+                        extra = cell00.getLogExtra(indx=i)
+                        logger.warning('stream of logs', extra=extra)
+                        await asyncio.sleep(0.01)
+
+                task = cell00.schedCoro(sendlogs())
+
+                logs = []
+                async for log in proxy.watch():
+
+                    event.set()
+                    if log['message'] == 'stream of logs':
+                        logs.append(log)
+
+                    if len(logs) == 4:
+                        break
+
+                await task

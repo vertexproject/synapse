@@ -98,6 +98,7 @@ class Formatter(logging.Formatter):
             loginfo['username'] = user.name
 
         elif (sess := s_scope.get('sess')) is not None:
+            loginfo['sess'] = sess.iden
             if sess.user is not None:
                 loginfo['user'] = sess.user.iden
                 loginfo['username'] = sess.user.name
@@ -135,6 +136,7 @@ class StreamHandler(logging.StreamHandler):
 
     _pump_task = None
     _pump_event = None
+    _glob_handler = None
 
     _logs_fifo = collections.deque(maxlen=1000)
     _logs_todo = collections.deque(maxlen=1000)
@@ -168,12 +170,12 @@ async def _pumpLogStream():
         try:
             await StreamHandler._pump_event.wait()
 
-            if not StreamHandler._text_todo:
-                StreamHandler._pump_event.clear()
-                continue
-
             logstodo = tuple(StreamHandler._logs_todo)
             texttodo = tuple(StreamHandler._text_todo)
+
+            if not logstodo and not texttodo:
+                StreamHandler._pump_event.clear()
+                continue
 
             StreamHandler._logs_todo.clear()
             StreamHandler._text_todo.clear()
@@ -187,7 +189,6 @@ async def _pumpLogStream():
             await s_coro.executor(_writestderr, fulltext)
 
         except Exception as e:
-            import traceback
             traceback.print_exc()
 
 def logs(last=100):
@@ -203,6 +204,7 @@ async def watch(last=100):
             yield item
 
 _glob_logconf = {}
+
 def setup(**conf):
     '''
     Configure synapse logging.
@@ -237,23 +239,33 @@ def setup(**conf):
     _glob_logconf.clear()
     _glob_logconf.update(conf)
 
-    handler = StreamHandler()
-    handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
+    rootlogger = logging.getLogger()
 
-    level = conf['level'] = normLogLevel(conf.get('level'))
+    level = normLogLevel(conf.get('level'))
+    rootlogger.setLevel(level)
 
-    logging.basicConfig(level=level, handlers=(handler,))
+    if StreamHandler._glob_handler is None:
+        handler = StreamHandler()
+        handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
+        StreamHandler._glob_handler = handler
+        rootlogger.handlers.append(handler)
 
     return conf
 
 def reset():
     # This may be called by tests to cleanup loop specific objects
     # ( it does not need to be called by in general by service fini )
+
+    if StreamHandler._glob_handler is not None:
+        rootlogger = logging.getLogger()
+        rootlogger.handlers.remove(StreamHandler._glob_handler)
+
     if StreamHandler._pump_task is not None:
         StreamHandler._pump_task.cancel()
 
     StreamHandler._pump_task = None
     StreamHandler._pump_event = None
+    StreamHandler._glob_handler = None
     StreamHandler._text_todo.clear()
     StreamHandler._logs_fifo.clear()
     StreamHandler._logs_todo.clear()
