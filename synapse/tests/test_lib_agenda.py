@@ -402,10 +402,10 @@ class AgendaTest(s_t_utils.SynTest):
                 core.stormlog = False
 
                 msgs = stream.jsonlines()
-                msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
+                msgs = [m for m in msgs if m['params']['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
-                    self.eq(m.get('cron'), appt.iden)
+                    self.eq(m['params'].get('cron'), appt.iden)
 
                 self.eq(1, appt.startcount)
 
@@ -424,9 +424,10 @@ class AgendaTest(s_t_utils.SynTest):
 
                     # pump the ioloop via sleep(0) until the log message appears
                     while 'locked' not in stream.getvalue():
-                        await asyncio.sleep(0.01)
+                        await asyncio.sleep(0)
 
-                    await core.nexsroot.waitOffs(strt + 4)
+                    while not await core.nexsroot.waitOffs(strt + 4):
+                        await asyncio.sleep(0)
 
                     self.eq(2, appt.startcount)
 
@@ -917,16 +918,16 @@ class AgendaTest(s_t_utils.SynTest):
                     tasks01 = await core01.callStorm('return($lib.ps.list())')
                     self.len(0, tasks01)
 
-                    with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
+                    with self.getLoggerStream('synapse.lib.agenda') as stream:
                         # Promote and inspect cortex status
                         await core01.promote(graceful=True)
                         self.false(core00.isactive)
                         self.true(core01.isactive)
+                        await stream.expect('name=CRON99', timeout=6)
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     for ii in range(NUMJOBS):
-                        self.isin(f' name=CRON{ii} with result "cancelled" took ', data)
+                        self.isin(f' name=CRON{ii} with result \\"cancelled\\" took ', data)
 
                     # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
                     await core00.sync()

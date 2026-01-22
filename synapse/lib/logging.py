@@ -47,8 +47,8 @@ def excinfo(e, _seen=None):
             ret['context'] = excinfo(context, _seen=_seen)
 
     if isinstance(e, s_exc.SynErr):
-        ret['mesg'] = e.errinfo.pop('mesg', None)
-        ret['info'] = e.errinfo
+        ret['info'] = e.errinfo.copy()
+        ret['mesg'] = ret['info'].pop('mesg', None)
 
     if ret.get('mesg') is None:
         ret['mesg'] = str(e)
