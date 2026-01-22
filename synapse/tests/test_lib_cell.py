@@ -3674,4 +3674,4 @@ class CellTest(s_t_utils.SynTest):
                 logs = await proxy.logs()
 
                 self.isin('oh hai there!', [m['message'] for m in logs])
-                self.isin('00.cell.synapse', [m['service'] for m in logs])
+                self.isin('00.cell.synapse', [m.get('service') for m in logs])
