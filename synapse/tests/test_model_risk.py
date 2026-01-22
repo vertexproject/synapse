@@ -335,6 +335,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, fnode := await core.nodes('risk:alert=({"name": "bazfaz"}) -(about)> file:bytes'))
             self.eq(fnode[0].get('name'), 'alert.txt')
 
+            self.len(1, await core.nodes('[ meta:rule=({"name": "bar"}) +(generated)> {[ risk:alert=({"name": "foo"}) ]} ]'))
+            self.len(1, nodes := await core.nodes('meta:rule=({"name": "bar"}) -(generated)> risk:alert'))
+            self.eq(nodes[0].get('name'), 'foo')
+
+            self.len(1, await core.nodes('[ meta:rule=({"name": "baz"}) +(generated)> {[ it:log:event=({"mesg": "faz"}) ]} ]'))
+            self.len(1, nodes := await core.nodes('meta:rule=({"name": "baz"}) -(generated)> it:log:event'))
+            self.eq(nodes[0].get('mesg'), 'faz')
+
             nodes = await core.nodes('''[
                     risk:compromise=*
                     :vector=*
