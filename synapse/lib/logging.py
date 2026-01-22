@@ -153,10 +153,10 @@ class StreamHandler(logging.StreamHandler):
             self._pump_event.set()
 
         # emulating behavior of parent class
-        except RecursionError:
+        except RecursionError: # pragma: no cover
             raise
 
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             self.handleError(record)
 
 def _writestderr(text):

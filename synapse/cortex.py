@@ -6421,7 +6421,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormEval(self, text):
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
-        except s_exc.FatalErr:
+        except s_exc.FatalErr: # pragma: no cover
             extra = self.getLogExtra(text=text)
             logger.exception(f'Fatal error while parsing [{text}]', extra=extra)
             await self.fini()
@@ -6432,7 +6432,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
-        except s_exc.FatalErr:
+        except s_exc.FatalErr: # pragma: no cover
             extra = self.getLogExtra(text=args[0])
             logger.exception(f'Fatal error while parsing [{args}]', extra=extra)
             await self.fini()
