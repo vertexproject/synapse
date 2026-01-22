@@ -1,6 +1,0 @@
----
-desc: Added ``colorize`` command to set color values on nodes output by Storm.
-desc:literal: false
-prs: []
-type: feat
-...
