@@ -370,6 +370,10 @@ class NexsRoot(s_base.Base):
 
         await self.cell.nexslock.acquire()
 
+        if self.isfini:
+            self.cell.nexslock.release()
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
+
         try:
             if (nexus := self._nexskids.get(nexsiden)) is None:
                 mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
@@ -396,6 +400,9 @@ class NexsRoot(s_base.Base):
     async def _eat(self, item, indx=None):
 
         try:
+            if self.isfini:
+                raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
@@ -477,7 +484,7 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Nexus has been shutdown, cannot iterate changes.')
 
         maxoffs = offs
 
