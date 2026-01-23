@@ -3512,7 +3512,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             username = handler.web_username
             enfo['username'] = username
 
-        # TODO - use self.getLogExtra() once de-asyncified
         extra = s_logging.getLogExtra(**enfo)
 
         if user:

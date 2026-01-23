@@ -65,14 +65,11 @@ def setLogInfo(name, valu):
 def getLogExtra(**kwargs):
     '''
     Construct a properly enveloped log extra dictionary.
-
-    NOTE: If the key "exc" is specified, it will be used as
-          an exception to generate standardized error info.
     '''
     extra = {'params': kwargs, 'loginfo': {}}
     return extra
 
-class Formatter(logging.Formatter):
+class JsonFormatter(logging.Formatter):
 
     def genLogInfo(self, record):
 
@@ -121,7 +118,7 @@ class Formatter(logging.Formatter):
         loginfo = self.genLogInfo(record)
         return s_json.dumps(loginfo, default=str).decode()
 
-class TextFormatter(Formatter):
+class TextFormatter(JsonFormatter):
 
     def __init__(self, *args, **kwargs):
         kwargs['fmt'] = s_const.LOG_FORMAT
@@ -222,7 +219,7 @@ def setup(**conf):
     if conf.get('structlog') is None:
         conf['structlog'] = False
 
-    fmtclass = Formatter
+    fmtclass = JsonFormatter
     if not conf.get('structlog'):
         fmtclass = TextFormatter
 

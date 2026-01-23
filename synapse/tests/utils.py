@@ -1730,7 +1730,7 @@ class SynTest(unittest.TestCase):
 
         oldlevel = logger.level
 
-        fmtclass = s_logging.Formatter
+        fmtclass = s_logging.JsonFormatter
         if not struct:
             fmtclass = s_logging.TextFormatter
 
