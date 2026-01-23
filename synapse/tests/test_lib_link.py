@@ -121,9 +121,9 @@ class LinkTest(s_test.SynTest):
         self.eq(msg0, ('what', {'k': 1}))
         evt.set()
         await asyncio.sleep(0)
-        with self.getAsyncLoggerStream('synapse.lib.link', 'rx closed unexpectedly') as stream:
+        with self.getLoggerStream('synapse.lib.link') as stream:
             msg1 = await link.rx()
-            self.true(await stream.wait(6))
+            await stream.expect('rx closed unexpectedly', timeout=6)
         self.none(msg1)
 
     async def test_link_file(self):

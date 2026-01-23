@@ -339,10 +339,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             shutil.rmtree(slab0dirn)
             s_json.jssave('{}', slab0dirn)
 
-            with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'non-directory') as stream:
+            with self.getLoggerStream('synapse.lib.multislabseqn') as stream:
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(15, msqn.iter(0))
-                await stream.wait(timeout=1)
+                await stream.expect('non-directory', timeout=1)
 
             # Switcheroo
 
@@ -367,10 +367,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             slab10dirn = s_common.genpath(baddirn, f'seqn{"0" * 14}0a.lmdb')
             shutil.rmtree(slab10dirn)
 
-            with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'gap in indices') as stream:
+            with self.getLoggerStream('synapse.lib.multislabseqn') as stream:
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(15, msqn.iter(0))
-                await stream.wait(timeout=1)
+                await stream.expect('gap in indices', timeout=1)
 
             # Wipe a seqn clean
             baddirn = s_common.genpath(dirn, 'bad4')
