@@ -28,6 +28,9 @@ echo "Spinning up images"
 docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
 dstatus00=$?
 if [ $dstatus00 != "0" ]; then exit 1; fi
+
+# FIXME - Add tests for the synapse-ci images
+
 docker run --rm -d --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" vertexproject/synapse-aha:${TAG}
 docker run --rm -d --name test-axon vertexproject/synapse-axon:${TAG}
 docker run --rm -d --name test-cortex vertexproject/synapse-cortex:${TAG}

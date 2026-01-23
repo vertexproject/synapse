@@ -32,3 +32,5 @@ cosign copy ${REGISTRY}vertexproject/synapse-aha:${TAG} ${DESTREG}vertexproject/
 cosign copy ${REGISTRY}vertexproject/synapse-axon:${TAG} ${DESTREG}vertexproject/synapse-axon:${TAG}
 cosign copy ${REGISTRY}vertexproject/synapse-cortex:${TAG} ${DESTREG}vertexproject/synapse-cortex:${TAG}
 cosign copy ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} ${DESTREG}vertexproject/synapse-jsonstor:${TAG}
+cosign copy ${REGISTRY}vertexproject/synapse-ci:${TAG} ${DESTREG}vertexproject/synapse-ci:${TAG}
+cosign copy ${REGISTRY}vertexproject/synapse-ci:${TAG}-browsers ${DESTREG}vertexproject/synapse-ci:${TAG}-browsers
