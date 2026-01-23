@@ -94,7 +94,7 @@ include-package-data = true
 ]
 
 [tool.setuptools.packages.find]
-include = ["synapse*"]
+include = ["synapse*", "for_lexicon*"]
 
 [tool.ruff]
 include = [
