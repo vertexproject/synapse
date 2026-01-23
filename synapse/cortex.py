@@ -769,6 +769,12 @@ class CoreApi(s_cell.CellApi):
     async def getHttpExtApiByPath(self, path):
         return await self.cell.getHttpExtApiByPath(path)
 
+    async def getViewDef(self, iden):
+        '''
+        Get a view definition by iden.
+        '''
+        return await self.cell.getViewDef(iden, user=self.user)
+
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -5423,8 +5429,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def listViews(self):
         return list(self.views.values())
 
-    async def getViewDef(self, iden):
-        view = self.getView(iden=iden)
+    async def getViewDef(self, iden, user=None):
+        view = self.getView(iden=iden, user=user)
         if view is not None:
             return await view.pack()
 

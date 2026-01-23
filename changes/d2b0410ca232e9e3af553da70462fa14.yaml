@@ -1,0 +1,7 @@
+---
+desc: Updated mirror writeback behavior to timeout requests due to being disconnected
+  from the leader rather than due to execution time.
+desc:literal: false
+prs: []
+type: feat
+...
