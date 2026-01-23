@@ -1,6 +1,7 @@
 # vim:set ft=dockerfile:
 ARG CI_BASE_IMAGE
 
+# FIXME add a default argument value here.
 FROM ${CI_BASE_IMAGE}
 
 ENV DISPLAY=":99"
