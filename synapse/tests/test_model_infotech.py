@@ -430,6 +430,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :host=$host
                         :user=visi
                         :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :period=(2024, *)
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
@@ -444,6 +445,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq('visi', nodes[0].get('user'))
             self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('period'), (1704067200000000, 9223372036854775806, 18446744073709551614))
             # FIXME :domain
             # self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('contact'))

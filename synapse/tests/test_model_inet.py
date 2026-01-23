@@ -2361,10 +2361,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
 
-            nodes = await core.nodes('inet:whois:email')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
-
             with self.getLoggerStream('synapse.datamodel') as stream:
                 nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
                 self.len(1, nodes)

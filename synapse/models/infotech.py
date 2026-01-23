@@ -1383,6 +1383,9 @@ modeldefs = (
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
 
+                ('period', ('ival', {}), {
+                    'doc': 'The period where the account existed.'}),
+
                 ('contact', ('entity:contact', {}), {
                     'doc': 'Additional contact information associated with this account.'}),
 
