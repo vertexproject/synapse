@@ -99,6 +99,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :published=2020-01-14
                     :exploited=2020-01-14
                     :discovered=2020-01-14
+                    :discoverer={[ entity:contact=({"name": "visi"}) ]}
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
 
@@ -162,6 +163,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
             self.len(2, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
+            self.len(1, await core.nodes('risk:vuln:id=VISI-0000 :discoverer -> entity:contact'))
+
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 :cve -> it:sec:cve'))
 
@@ -284,7 +287,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :activity=high
                     :reporter={[ ou:org=({"name": "mandiant"}) ]}
                     :reporter:name=mandiant
-                    :reporter:discovered=202202
+                    :discovered=202202
                     :reporter:published=202302
                     :reporter:status=active
                     :sophistication=high
@@ -314,7 +317,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('place:country'))
             self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
             self.eq(1673395200000000, nodes[0].get('superseded'))
-            self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
+            self.eq(1643673600000000, nodes[0].get('discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
 
             self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
@@ -493,52 +496,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('foo that bars', nodes[0].get('desc'))
 
-    async def test_model_risk_tool_software(self):
-
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('''
-                [ risk:tool:software=*
-                    :software=*
-                    :used=(2012,?)
-                    :name=cobaltstrike
-                    :names=(beacon,)
-                    :reporter={[ ou:org=({"name": "vertex"}) ]}
-                    :reporter:name=vertex
-                    :reporter:discovered=202202
-                    :reporter:published=202302
-                    :tag=cno.mal.cobaltstrike
-                    :id=" AAAbbb123  "
-
-                    :sophistication=high
-                    :availability=public
-                ]
-            ''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.nn(nodes[0].get('software'))
-
-            self.nn(nodes[0].get('reporter'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq(40, nodes[0].get('sophistication'))
-            self.eq('public.', nodes[0].get('availability'))
-            self.eq((1325376000000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('used'))
-            self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
-            self.eq(1675209600000000, nodes[0].get('reporter:published'))
-            self.eq('AAAbbb123', nodes[0].get('id'))
-
-            self.eq('cobaltstrike', nodes[0].get('name'))
-            self.eq(('beacon',), nodes[0].get('names'))
-
-            self.len(1, await core.nodes('risk:tool:software -> ou:org'))
-            self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
-            self.len(1, await core.nodes('risk:tool:software -> it:software'))
-
-            self.len(1, nodes := await core.nodes('[ risk:tool:software=({"name": "beacon"}) ]'))
-            self.eq(node.ndef, nodes[0].ndef)
-
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ risk:vuln=* :name=foo <(uses)+ { [ meta:technique=* :name=bar ] } ]
             ''')
+
             self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- meta:technique:name=bar'))

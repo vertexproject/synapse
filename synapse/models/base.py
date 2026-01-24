@@ -86,7 +86,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
-                'doc': 'An analytically relevant event in a curated timeline.'}),
+                'doc': 'An analytically relevant event.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -150,6 +150,9 @@ modeldefs = (
             ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
                 'doc': 'An item which may be possessed by an entity.'}),
 
+            ('meta:discoverable', ('ndef', {'interface': 'meta:discoverable'}), {
+                'doc': 'FIXME polyprop place holder'}),
+
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
 
@@ -205,6 +208,20 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:discoverable', {
+                'template': {'title': 'item'},
+                'props': (
+
+                    ('discoverer', ('entity:actor', {}), {
+                        'doc': 'The earliest known actor which discoverted the {title}.'}),
+
+                    ('discovered', ('time', {}), {
+                        'doc': 'The earliest known time when the {title} was discovered.'}),
+                ),
+                'doc': 'An interface for items which can be discovered by an actor.',
+            }),
+
+
             ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
                 'template': {
@@ -244,9 +261,6 @@ modeldefs = (
 
                     ('reporter:published', ('time', {}), {
                         'doc': 'The time when the reporter published the {title}.'}),
-
-                    ('reporter:discovered', ('time', {}), {
-                        'doc': 'The time when the reporter first discovered the {title}.'}),
 
                     ('reporter:url', ('inet:url', {}), {
                         'doc': 'The reporter URL for the {title}.'}),
@@ -289,6 +303,10 @@ modeldefs = (
             }),
 
             ('meta:usable', {
+                'props': (
+                    ('used', ('ival', {}), {
+                        'doc': 'The time interval when the {title} was being used.'}),
+                ),
                 'doc': 'An interface for forms which can be used by an actor.'}),
 
             ('meta:matchish', {
@@ -329,6 +347,12 @@ modeldefs = (
 
             (('meta:note', 'has', 'file:attachment'), {
                 'doc': 'The note includes the file attachment.'}),
+
+            (('meta:event', 'about', None), {
+                'doc': 'The event is about the target node.'}),
+
+            (('meta:timeline', 'has', 'meta:event'), {
+                'doc': 'The timeline includes the event.'}),
 
             (('meta:ruleset', 'has', 'meta:rule'), {
                'doc': 'The ruleset includes the rule.'}),
@@ -465,17 +489,11 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period over which the event occurred.'}),
 
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'The timeline containing the event.'}),
-
                 ('title', ('str', {}), {
                     'doc': 'A title for the event.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the event.'}),
-
-                ('index', ('int', {}), {
-                    'doc': 'The index of this event in a timeline without exact times.'}),
 
                 ('type', ('meta:event:type:taxonomy', {}), {
                     'doc': 'Type of event.'}),
