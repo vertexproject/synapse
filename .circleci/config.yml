@@ -626,6 +626,7 @@ workflows:
             branches:
               only:
                 - master
+                - visi-logging-epiphyte-fbg
 
       - build_docker_tag:
           requires:
