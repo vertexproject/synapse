@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 _log_wins = weakref.WeakSet()
 
+# TODO - Handle exception groups
 def excinfo(e, _seen=None):
 
     if _seen is None:
@@ -269,6 +270,12 @@ def reset():
 
     _glob_logconf.clear()
     _glob_loginfo.clear()
+
+# TODO like reset; but reinstall a streamhandler to rootlogger
+# so logger.log() calls continue to produce formatted content
+# until interpreter shutdown.
+def shutdown():
+    pass
 
 def getLogConf():
     logconf = _glob_logconf.copy()
