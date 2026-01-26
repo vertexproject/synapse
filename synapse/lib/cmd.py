@@ -63,6 +63,9 @@ async def wrapmain(func, logconf=None): # pragma: no cover
         return 1
 
     finally:
+        # Shutdown logging so that we aren't awaiting the pumptask
+        s_logging.reset()
+
         await s_coro.await_bg_tasks(timeout=10)
 
 def exitmain(func, logconf=None): # pragma: no cover
