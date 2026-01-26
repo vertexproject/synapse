@@ -287,18 +287,16 @@ modeldefs = (
             # ('file:system:ntfs:entry', ('file:system:entry', {}), {}),
 
             ('file:subfile:entry', ('file:entry', {}), {
-                'template': {'parent file': 'parent file'},
-                'doc': 'A file entry extracted from a parent file.'}),
+                'template': {'title': 'subfile entry'},
+                'doc': 'A file entry by a parent file.'}),
 
             ('file:archive:entry', ('file:subfile:entry', {}), {
-                'template': {'parent file': 'archive file'},
-                'doc': 'An file entry extracted from an archive file.'}),
+                'template': {'title': 'archive file entry'},
+                'doc': 'An file entry contained by an archive file.'}),
 
-            # the file:mime:zip:entry can contain ZIP mime specific fields
-            # without the either/or confusion or cluttering up the general
-            # use namespace!
             ('file:mime:zip:entry', ('file:archive:entry', {}), {
-                'doc': 'An file entry contained in an ZIP archive file.'}),
+                'template': {'title': 'ZIP archive file entry'},
+                'doc': 'An file entry contained by a ZIP archive file.'}),
 
             ('file:attachment', ('guid', {}), {
                 'display': {
@@ -587,13 +585,13 @@ modeldefs = (
             ('file:entry', {}, (
 
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The {file} contained by the {title}.'}),
+                    'doc': 'The file contained by the {title}.'}),
 
                 ('path', ('file:path', {}), {
                     'doc': 'The path to the file in the {title}.'}),
 
                 ('added', ('time', {}), {
-                    'doc': 'The time that the file was added to the {title}.'}),
+                    'doc': 'The time that the file entry was added.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The created time of the file.'}),
@@ -608,6 +606,7 @@ modeldefs = (
             ('file:exemplar:entry', {}, ()),
 
             ('file:system:entry', {}, (
+
                 ('host', ('it:host', {}), {
                     'doc': 'The host which contains the filesystem.'}),
 
@@ -616,9 +615,10 @@ modeldefs = (
 
                 ('creator', ('it:host:account', {}), {
                     'doc': 'The host account which created the file.'}),
+
+                # TODO: volume=<it:host:volume>
             )),
 
-            # TODO file:attachment(<file:named>)
             ('file:attachment', {}, (
 
                 ('file', ('file:bytes', {}), {
@@ -629,13 +629,6 @@ modeldefs = (
 
                 ('text', ('str', {}), {
                     'doc': 'Any text associated with the file such as alt-text for images.'}),
-
-                # FIXME this was already a bit borked... need to fix
-                # ('creator', ('syn:user', {}), {
-                    # 'doc': 'The synapse user who added the attachment.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the attachment was added.'}),
             )),
 
             ('file:subfile:entry', {}, (
