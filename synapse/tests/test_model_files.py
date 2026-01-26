@@ -512,19 +512,21 @@ class FileTest(s_t_utils.SynTest):
                     :parent=*
                     :file=*
                     :path=foo/bar.exe
-                    :created=20230630
-                    :file:created=20230629
-                    :file:modified=20230629
-                    :storage:size=999
+                    :added=20230630
+                    :created=20230629
+                    :accessed=20230629
+                    :modified=20230629
+                    :archived:size=999
                 ]
             ''')
 
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
 
-            self.eq(nodes[0].get('created'), 1688083200000000)
-            self.eq(nodes[0].get('file:created'), 1687996800000000)
-            self.eq(nodes[0].get('file:modified'), 1687996800000000)
+            self.eq(nodes[0].get('added'), 1688083200000000)
+            self.eq(nodes[0].get('created'), 1687996800000000)
+            self.eq(nodes[0].get('accessed'), 1687996800000000)
+            self.eq(nodes[0].get('modified'), 1687996800000000)
 
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))

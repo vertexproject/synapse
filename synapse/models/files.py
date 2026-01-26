@@ -592,17 +592,17 @@ modeldefs = (
                 ('path', ('file:path', {}), {
                     'doc': 'The path to the file in the {title}.'}),
 
-                ('created', ('time', {}), {
+                ('added', ('time', {}), {
                     'doc': 'The time that the file was added to the {title}.'}),
 
-                ('file:created', ('time', {}), {
-                    'doc': 'The created time of the {file}.'}),
+                ('created', ('time', {}), {
+                    'doc': 'The created time of the file.'}),
 
-                ('file:modified', ('time', {}), {
-                    'doc': 'The modified time of the {file}.'}),
+                ('modified', ('time', {}), {
+                    'doc': 'The last known modified time of the file.'}),
 
-                ('file:accessed', ('time', {}), {
-                    'doc': 'The accessed time of the {file}.'}),
+                ('accessed', ('time', {}), {
+                    'doc': 'The last known accessed time of the file.'}),
             )),
 
             ('file:exemplar:entry', {}, ()),

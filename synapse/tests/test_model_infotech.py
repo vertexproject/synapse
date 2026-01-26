@@ -1059,20 +1059,20 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :host={ it:host | limit 1 }
                     :path=c:/temp/yourfiles.rar
                     :file=*
+                    :added=20200202
                     :created=20200202
-                    :file:created=20200202
-                    :file:modified=20200203
-                    :file:accessed=20200204
+                    :modified=20200203
+                    :accessed=20200204
             ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('host'))
             self.nn(node.get('file'))
 
+            self.eq(node.get('added'), 1580601600000000)
             self.eq(node.get('created'), 1580601600000000)
-            self.eq(node.get('file:created'), 1580601600000000)
-            self.eq(node.get('file:modified'), 1580688000000000)
-            self.eq(node.get('file:accessed'), 1580774400000000)
+            self.eq(node.get('modified'), 1580688000000000)
+            self.eq(node.get('accessed'), 1580774400000000)
             self.eq(node.get('path'), 'c:/temp/yourfiles.rar')
 
             self.len(1, await core.nodes('file:system:entry:path.dir=c:/temp'))
