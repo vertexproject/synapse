@@ -282,6 +282,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=apt1
                     :names=(comment crew,)
                     :desc=VTX-APT1
+                    :resolved={[ risk:threat=(foo, bar) :name="foo bar"]}
                     :tag=cno.threat.apt1
                     :active=(2012,2023)
                     :activity=high
@@ -319,8 +320,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1673395200000000, nodes[0].get('superseded'))
             self.eq(1643673600000000, nodes[0].get('discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
+            self.nn(nodes[0].get('resolved'))
 
             self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
 
             nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
             self.len(1, nodes)

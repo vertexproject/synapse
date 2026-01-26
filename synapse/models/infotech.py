@@ -808,6 +808,7 @@ modeldefs = (
                 'prevnames': ('it:prod:soft', 'it:prod:softver'),
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
                 'doc': 'A software product.'}),

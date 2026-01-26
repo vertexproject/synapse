@@ -268,6 +268,9 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}, according to the source.'}),
 
+                    ('resolved', ('{$self}', {}), {
+                        'doc': 'The authoritative {title} which this reporting is about.'}),
+
                     ('reporter', ('entity:actor', {}), {
                         'doc': 'The entity which reported on the {title}.'}),
 
