@@ -1,8 +1,7 @@
 # vim:set ft=dockerfile:
 ARG CI_BASE_IMAGE
 
-# FIXME add a default argument value here.
-FROM ${CI_BASE_IMAGE}
+FROM ${CI_BASE_IMAGE:-vertexproject/synapse-ci:3.x.x-dev}
 
 ENV DISPLAY=":99"
 
