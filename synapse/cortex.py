@@ -6430,8 +6430,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
         except s_exc.FatalErr: # pragma: no cover
-            extra = self.getLogExtra(text=text)
-            logger.exception(f'Fatal error while parsing [{text}]', extra=extra)
+            logger.exception(f'Fatal error while parsing [{text}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         astvalu.init(self)
@@ -6441,8 +6440,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover
-            extra = self.getLogExtra(text=args[0])
-            logger.exception(f'Fatal error while parsing [{args}]', extra=extra)
+            logger.exception(f'Fatal error while parsing [{args}]', extra = self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
@@ -6495,6 +6493,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['username'] = user.name
             info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
+            # TODO Understand why this is using s_logging.getLogExtra instead of self.getLogExtra
             extra = s_logging.getLogExtra(**info)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra=extra)
