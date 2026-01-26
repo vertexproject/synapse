@@ -301,7 +301,7 @@ modeldefs = (
                 'template': {'title': 'ZIP archive file entry'},
                 'doc': 'An file entry contained by a ZIP archive file.'}),
 
-            ('file:attachment', ('guid', {}), {
+            ('file:attachment', ('file:entry', {}), {
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'path'}},
