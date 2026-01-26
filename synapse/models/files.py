@@ -286,14 +286,17 @@ modeldefs = (
             # ('file:system:ext3:entry', ('file:system:entry', {}), {}),
             # ('file:system:ntfs:entry', ('file:system:entry', {}), {}),
 
-            ('file:parsed:entry', ('file:entry', {}), {
+            ('file:subfile:entry', ('file:entry', {}), {
                 'template': {'parent file': 'parent file'},
                 'doc': 'A file entry extracted from a parent file.'}),
 
-            ('file:archive:entry', ('file:parsed:entry', {}), {
+            ('file:archive:entry', ('file:subfile:entry', {}), {
                 'template': {'parent file': 'archive file'},
                 'doc': 'An file entry extracted from an archive file.'}),
 
+            # the file:mime:zip:entry can contain ZIP mime specific fields
+            # without the either/or confusion or cluttering up the general
+            # use namespace!
             ('file:mime:zip:entry', ('file:archive:entry', {}), {
                 'doc': 'An file entry contained in an ZIP archive file.'}),
 
@@ -600,10 +603,6 @@ modeldefs = (
 
                 ('file:accessed', ('time', {}), {
                     'doc': 'The accessed time of the {file}.'}),
-
-                ('storage:size', ('int', {'min': 0}), {
-                    # TODO only on file:archive:entry
-                    'doc': 'The storage size of the {file} within the {filesystem}.'}),
             )),
 
             ('file:exemplar:entry', {}, ()),
@@ -639,7 +638,7 @@ modeldefs = (
                     'doc': 'The time the attachment was added.'}),
             )),
 
-            ('file:parsed:entry', {}, (
+            ('file:subfile:entry', {}, (
 
                 ('parent', ('file:bytes', {}), {
                     'doc': 'The {parent file} which contains the file entry.'}),
@@ -649,8 +648,8 @@ modeldefs = (
             )),
 
             ('file:archive:entry', {}, (
-                # FIXME specify just the prevnames override...
-                # ('storage:size', None, {'prevnames': ('archived:size',)}),
+                ('archived:size', ('int', {'min': 0}), {
+                    'doc': 'The storage size of the file within the archive.'}),
             )),
 
             ('file:mime:zip:entry', {}, (
