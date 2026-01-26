@@ -6440,7 +6440,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover
-            logger.exception(f'Fatal error while parsing [{args}]', extra = self.getLogExtra(text=args[0]))
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
