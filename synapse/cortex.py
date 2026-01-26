@@ -1640,6 +1640,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initServiceRuntime(self):
 
+        self.stray_base = await s_base.Base.anit()
+
         # do any post-nexus initialization here...
         if self.isactive:
             await self._checkNexsIndx()
