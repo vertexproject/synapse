@@ -917,6 +917,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo.get('type'), 'cortex')
                 self.isin('nexsindx', cnfo)
                 self.ge(cnfo.get('nexsindx'), 0)
+                self.false(cnfo.get('nexsreadonly'))
+                self.eq(cnfo.get('nexsholds'), [])
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
                 self.none(cnfo.get('mirror', True))
@@ -937,6 +939,23 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+                # Write hold information is reflected through cell info
+                await cell.nexsroot.addWriteHold('boop')
+                await cell.nexsroot.addWriteHold('beep')
+                info = await prox.getCellInfo()
+                # Cell information
+                cnfo = info.get('cell')
+                self.true(cnfo.get('nexsreadonly'))
+                self.eq(cnfo.get('nexsholds'), ['beep', 'boop'])
+
+                await cell.nexsroot.delWriteHold('boop')
+                await cell.nexsroot.delWriteHold('beep')
+                info = await prox.getCellInfo()
+                # Cell information
+                cnfo = info.get('cell')
+                self.false(cnfo.get('nexsreadonly'))
+                self.eq(cnfo.get('nexsholds'), [])
 
         # Mirrors & ready flags
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell

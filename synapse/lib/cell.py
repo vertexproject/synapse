@@ -4841,6 +4841,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
+                'nexsreadonly': self.nexsroot.readonly,
+                'nexsholds': sorted(self.nexsroot.writeholds),
                 'uplink': self.nexsroot.miruplink.is_set(),
                 'mirror': mirror,
                 'aha': {

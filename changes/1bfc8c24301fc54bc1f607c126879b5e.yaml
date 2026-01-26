@@ -1,0 +1,7 @@
+---
+desc: Updated the ``getCellInfo()`` APIs to include information about whether a Cell
+  has entered into readonly mode and why has gone readonly.
+desc:literal: false
+prs: []
+type: feat
+...
