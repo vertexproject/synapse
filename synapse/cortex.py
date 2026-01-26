@@ -5131,6 +5131,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_schemas.reqValidView(vdef)
 
         if nexs:
+            self.checkOpenFd()
             return await self._push('view:add', vdef)
         else:
             return await self._addView(vdef)
@@ -5471,6 +5472,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_layer.reqValidLdef(ldef)
 
         if nexs:
+            self.checkOpenFd()
             return await self._push('layer:add', ldef)
         else:
             return await self._addLayer(ldef, (None, None))
