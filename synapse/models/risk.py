@@ -406,7 +406,7 @@ modeldefs = (
                 ('active', ('ival', {}), {
                     'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
-                ('activity', ('meta:activity', {}), {
+                ('activity', ('meta:priority', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {

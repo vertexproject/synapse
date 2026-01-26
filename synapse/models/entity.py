@@ -320,8 +320,8 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
-            ('entity:discovery', ('guid', {}), {
-                'doc': 'Captures independent instances of discovering an item.'}),
+            ('entity:discovery', ('meta:instant', {}), {
+                'doc': 'A discovery made by an actor.'}),
 
         ),
 
@@ -511,6 +511,7 @@ modeldefs = (
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
+                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 

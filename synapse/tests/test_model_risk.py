@@ -501,5 +501,4 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:vuln=* :name=foo <(uses)+ { [ meta:technique=* :name=bar ] } ]
             ''')
-
             self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- meta:technique:name=bar'))
