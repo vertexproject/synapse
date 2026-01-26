@@ -384,8 +384,8 @@ whose ``:exe`` property (for example) matches the inbound files, you need to use
 *Pivot from a set of usernames (inet:user nodes) to any file paths (file:path nodes) where the username is an element of the path (a :base value - for example, where a username might appear in a PDB path):*
 
 .. storm-pre:: [ inet:user=swanson file:path='c:\users\swanson\dev\projects\getthesnacks\release\getthesnacks.pdb' ]
-.. storm-pre:: inet:user=swanson -> file:path:base
-.. storm-pre:: inet:user=swanson -> file:path:base tree { -> file:path:dir }
+.. storm-pre:: inet:user=swanson -> file:path.base
+.. storm-pre:: inet:user=swanson -> file:path.base tree { -> file:path.dir }
 
 ::
   
