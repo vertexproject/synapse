@@ -14,7 +14,8 @@ apt-get install -y \
 # Additional packages in stalled in cimg:base that have been assumed to be present
 apt-get install -y \
   build-essential \
-  libarchive
+  libarchive \
+  libarchive-dev
 
 # These items are installed as part of the cimg/python:3.x builds
 apt-get install -y \
