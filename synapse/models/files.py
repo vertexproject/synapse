@@ -279,14 +279,17 @@ modeldefs = (
             ('file:exemplar:entry', ('file:entry', {}), {
                 'doc': 'A exemplar file entry used model behavior.'}),
 
-            ('file:system:entry', ('file:entry', {}), {
+            ('file:stored:entry', ('file:entry', {}), {
+                'doc': 'A stored file entry.'}),
+
+            ('file:system:entry', ('file:stored:entry', {}), {
                 'doc': 'A file entry contained by a host filesystem.'}),
 
             # we can now extend types of filesystem entries to capture details!
             # ('file:system:ext3:entry', ('file:system:entry', {}), {}),
             # ('file:system:ntfs:entry', ('file:system:entry', {}), {}),
 
-            ('file:subfile:entry', ('file:entry', {}), {
+            ('file:subfile:entry', ('file:stored:entry', {}), {
                 'template': {'title': 'subfile entry'},
                 'doc': 'A file entry by a parent file.'}),
 
@@ -589,7 +592,11 @@ modeldefs = (
 
                 ('path', ('file:path', {}), {
                     'doc': 'The path to the file in the {title}.'}),
+            )),
 
+            ('file:exemplar:entry', {}, ()),
+
+            ('file:stored:entry', {}, (
                 ('added', ('time', {}), {
                     'doc': 'The time that the file entry was added.'}),
 
@@ -603,8 +610,6 @@ modeldefs = (
                     'doc': 'The last known accessed time of the file.'}),
             )),
 
-            ('file:exemplar:entry', {}, ()),
-
             ('file:system:entry', {}, (
 
                 ('host', ('it:host', {}), {
@@ -616,7 +621,7 @@ modeldefs = (
                 ('creator', ('it:host:account', {}), {
                     'doc': 'The host account which created the file.'}),
 
-                # TODO: volume=<it:host:volume>
+                # TODO: volume=<it:host:volume>?
             )),
 
             ('file:attachment', {}, (
