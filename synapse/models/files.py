@@ -634,10 +634,10 @@ modeldefs = (
             ('file:subfile:entry', {}, (
 
                 ('parent', ('file:bytes', {}), {
-                    'doc': 'The {parent file} which contains the file entry.'}),
+                    'doc': 'The parent file which contains the {title}.'}),
 
                 ('offset', ('int', {'min': 0}), {
-                    'doc': 'The offset to the beginning of the file within the {parent file}.'}),
+                    'doc': 'The offset to the beginning of the file within the parent file.'}),
             )),
 
             ('file:archive:entry', {}, (
