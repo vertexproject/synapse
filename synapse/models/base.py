@@ -213,7 +213,7 @@ modeldefs = (
                 'props': (
 
                     ('discoverer', ('entity:actor', {}), {
-                        'doc': 'The earliest known actor which discoverted the {title}.'}),
+                        'doc': 'The earliest known actor which discovered the {title}.'}),
 
                     ('discovered', ('time', {}), {
                         'doc': 'The earliest known time when the {title} was discovered.'}),
