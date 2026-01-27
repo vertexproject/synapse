@@ -220,6 +220,9 @@ modeldefs = (
                 ),
                 'doc': 'Historical contact information about another contact.'}),
 
+            ('entity:contactlist', ('guid', {}), {
+                'doc': 'A list of contacts.'}),
+
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -332,6 +335,9 @@ modeldefs = (
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
 
+            (('entity:contactlist', 'has', 'entity:contact'), {
+                'doc': 'The contact list contains the contact.'}),
+
             (('entity:action', 'used', 'meta:usable'), {
                 'doc': 'The action was taken using the target node.'}),
 
@@ -366,6 +372,15 @@ modeldefs = (
 
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
+            )),
+
+            ('entity:contactlist', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the contact list.'}),
+
+                ('source', ('ndef', {'forms': ('it:host', 'inet:service:account', 'file:bytes')}), {
+                    'doc': 'The source that the contact list was extracted from.'}),
             )),
 
             ('entity:had:type:taxonomy', {}, ()),
