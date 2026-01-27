@@ -85,17 +85,8 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
-            ('meta:instant', ('guid', {}), {
-                'interfaces': (
-                    ('meta:event', {}),
-                ),
-                'doc': 'An event which occurred at a specific time.'}),
-
-            ('meta:activity', ('guid', {}), {
-                'interfaces': (
-                    ('meta:event', {}),
-                ),
-                'doc': 'An event with occurs over a period of time.'}),
+            ('meta:event', ('guid', {}), {
+                'doc': 'An analytically relevant event in a curated timeline.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -127,6 +118,9 @@ modeldefs = (
                     ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
+
+            ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
+                'doc': 'A generic activity level enumeration.'}),
 
             ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                 'doc': 'A generic priority enumeration.'}),
@@ -191,21 +185,6 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of technique types.'}),
         ),
         'interfaces': (
-
-            ('meta:event', {
-                'template': {'title': 'event'},
-                'props': (
-                    ('name', ('base:name', {}), {
-                        'doc': 'The name of the {title}.'}),
-
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
-
-                    ('type', ('meta:event:type:taxonomy', {}), {
-                        'doc': 'Type of event.'}),
-                ),
-                'doc': 'Properties common to forms which represent events and activity.'
-            }),
 
             ('meta:observable', {
                 'doc': 'Properties common to forms which can be observed.',
@@ -288,9 +267,6 @@ modeldefs = (
 
                     ('reporter:url', ('inet:url', {}), {
                         'doc': 'The reporter URL for the {title}.'}),
-
-                    ('reporter:status', ('{status}', {}), {
-                        'doc': 'The status of the {title}, according to the reporter.'}),
 
                     ('superseded', ('time', {}), {
                         'doc': 'The time when the {title} was superseded.'}),
@@ -495,9 +471,9 @@ modeldefs = (
 
             ('meta:timeline', {}, (
 
-                ('name', ('base:name', {}), {
+                ('title', ('str', {}), {
                     'ex': 'The history of the Vertex Project',
-                    'doc': 'The name of the timeline.'}),
+                    'doc': 'The title of the timeline.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the timeline.'}),
@@ -509,14 +485,19 @@ modeldefs = (
             ('meta:timeline:type:taxonomy', {
                 'prevnames': ('meta:timeline:taxonomy',)}, ()),
 
-            ('meta:instant', {}, (
-                ('time', ('time', {}), {
-                    'doc': 'The time that the {title} occurred.'}),
-            )),
+            ('meta:event', {}, (
 
-            ('meta:activity', {}, (
                 ('period', ('ival', {}), {
                     'doc': 'The period over which the {title} occurred.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'A title for the event.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the event.'}),
+
+                ('type', ('meta:event:type:taxonomy', {}), {
+                    'doc': 'Type of event.'}),
             )),
 
             ('meta:event:type:taxonomy', {

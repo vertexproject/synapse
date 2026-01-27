@@ -59,13 +59,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :priority=high
                     :severity=high
                     :tag=cno.vuln.woot
-                    :reporter:status=active
             ]''')
 
             self.eq(nodes[0].get('severity'), 40)
             self.eq(nodes[0].get('priority'), 40)
             self.eq(nodes[0].get('tag'), 'cno.vuln.woot')
-            self.eq(nodes[0].get('reporter:status'), 'active.')
             self.none(nodes[0].get('cvss:v2'))
             self.none(nodes[0].get('cvss:v3'))
 
@@ -290,7 +288,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=mandiant
                     :discovered=202202
                     :reporter:published=202302
-                    :reporter:status=active
                     :sophistication=high
                     :superseded = 20230111
                     :place:loc=cn.shanghai
@@ -312,7 +309,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('cn.shanghai', nodes[0].get('place:loc'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
-            self.eq('active.', nodes[0].get('reporter:status'))
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))

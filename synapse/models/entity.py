@@ -320,7 +320,7 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
-            ('entity:discovery', ('meta:instant', {}), {
+            ('entity:discovery', ('guid', {}), {
                 'doc': 'A discovery made by an actor.'}),
 
         ),
