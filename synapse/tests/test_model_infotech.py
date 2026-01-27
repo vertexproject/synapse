@@ -810,7 +810,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             [( it:cmd:session=(202405170900, 202405171000, bash, $host)
                 :host=$host
                 :period=(202405170900, 202405171000)
-                :host:account={ it:host:account | limit 1 }
+                :account={ it:host:account | limit 1 }
             )]
             '''
             nodes = await core.nodes(q)
@@ -820,7 +820,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.eq(nodes[1].get('host'), hostguid)
             self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000, 3600000000))
-            self.nn(nodes[1].get('host:account'))
+            self.nn(nodes[1].get('account'))
 
             cmdsess = nodes[1]
 
