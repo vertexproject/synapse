@@ -11,11 +11,12 @@ apt-get install -y \
   gzip \
   ca-certificates
 
-# Additional packages in stalled in cimg:base that have been assumed to be present
+# Additional packages installed in cimg:base that have been assumed to be present
 apt-get install -y \
   gpg \
   build-essential \
-  libarchive-dev
+  libarchive-dev \
+  jq
 
 # These items are installed as part of the cimg/python:3.x builds
 apt-get install -y \
