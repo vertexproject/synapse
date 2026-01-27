@@ -291,7 +291,7 @@ modeldefs = (
 
             ('file:subfile:entry', ('file:stored:entry', {}), {
                 'template': {'title': 'subfile entry'},
-                'doc': 'A file entry by a parent file.'}),
+                'doc': 'A file entry contained by a parent file.'}),
 
             ('file:archive:entry', ('file:subfile:entry', {}), {
                 'template': {'title': 'archive file entry'},
