@@ -232,7 +232,7 @@ class NexsRoot(s_base.Base):
 
     async def getNexsInfo(self):
         ret = {
-            'indx':  await self.index(),
+            'indx': await self.index(),
             'ready': self.ready.is_set(),
             'uplink': self.miruplink.is_set(),
             'readonly': self.readonly,
