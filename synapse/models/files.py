@@ -140,10 +140,16 @@ modeldefs = (
         'ctors': (
 
             ('file:base', 'synapse.models.files.FileBase', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file name'}}),
+                ),
                 'doc': 'A file name with no path.',
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file path'}}),
+                ),
                 'virts': (
                     ('ext', ('str', {}), {
                         'computed': True,
@@ -289,6 +295,9 @@ modeldefs = (
                 'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
 
             ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file and path association'}}),
+                ),
                 'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.'}),
 
             ('file:mime', ('str', {'lower': True}), {

@@ -291,12 +291,13 @@ class FileTest(s_t_utils.SynTest):
             self.none(subs.get('dir'))
             self.eq(subs.get('base')[1], 'foo')
 
-            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
+            nodes = await core.nodes('[file:path=$valu :seen=2022]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('base'), 'baz.exe')
             self.eq(node.get('base:ext'), 'exe')
             self.eq(node.get('dir'), '/foo/bar')
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('file:path="/foo/bar"'))
             self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
             self.len(1, await core.nodes('file:base^=baz'))
@@ -350,11 +351,12 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('path'), 'foo/embed.bin')
 
             fp = 'C:\\www\\woah\\really\\sup.exe'
-            nodes = await core.nodes('[file:filepath=$valu]', opts={'vars': {'valu': (node0.ndef[1], fp)}})
+            nodes = await core.nodes('[file:filepath=$valu :seen=2022]', opts={'vars': {'valu': (node0.ndef[1], fp)}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('file'), node0.ndef[1])
             self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('file:filepath:path.dir=c:/www/woah/really'))
             self.len(1, await core.nodes('file:filepath:path.base=sup.exe'))
             self.len(1, await core.nodes('file:filepath:path.ext=exe'))
@@ -362,7 +364,7 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
             self.len(1, await core.nodes('file:path="c:/www"'))
             self.len(1, await core.nodes('file:path=""'))
-            self.len(1, await core.nodes('file:base="sup.exe"'))
+            self.len(1, await core.nodes('file:base="sup.exe" [:seen=2022]'))
 
     async def test_model_file_mime_msoffice(self):
 

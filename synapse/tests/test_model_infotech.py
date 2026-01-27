@@ -1151,7 +1151,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :enabled=true :text=gronk
                     :author={[ entity:contact=* ]}
                     :name=foo :version=1.2.3
-                    +(detects)> {[ it:softwarename=woot ]}
+                    +(detects)> {[ it:softwarename=woot :seen=2022 ]}
                 ]
             ''')
 
@@ -1167,7 +1167,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
-            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename +:seen'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}

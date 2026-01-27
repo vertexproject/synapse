@@ -213,7 +213,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
             self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
-            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')
+            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) :seen=2022 ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
@@ -221,6 +221,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('net'), ((4, 0x01020304), (4, 0x05060708)))
             self.eq(node.get('net:min'), (4, 0x01020304))
             self.eq(node.get('net:max'), (4, 0x05060708))
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4'))
             self.len(1, await core.nodes('inet:ip=5.6.7.8'))
 
@@ -728,12 +729,13 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_http_request_header(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:http:request:header=(Cool, Cooler)]')
+            nodes = await core.nodes('[inet:http:request:header=(Cool, Cooler) :seen=2022]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:http:request:header', ('cool', 'Cooler')))
             self.eq(node.get('name'), 'cool')
             self.eq(node.get('value'), 'Cooler')
+            self.nn(node.get('seen'))
 
     async def test_http_response_header(self):
         async with self.getTestCore() as core:
@@ -2351,6 +2353,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :text="YELLING AT pennywise@vertex.link LOUDLY"
                     :registrar=' cool REGISTRAR'
                     :registrant=' cool REGISTRANT'
+                    :seen=2022
                 ]
             ''')
             self.len(1, nodes)
@@ -2360,6 +2363,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
+            self.nn(node.get('seen'))
 
             nodes = await core.nodes('inet:whois:email')
             self.len(1, nodes)
@@ -2398,7 +2402,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
-                :links=$p.links)]'''
+                :links=$p.links :seen=2022)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2419,6 +2423,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('status'), 'validated')
             self.eq(node.get('type'), 'direct allocation')
             self.eq(node.get('links'), ('http://rdap.com/foo', 'http://rdap.net/bar'))
+            self.nn(node.get('seen'))
 
             rec_ipv6 = s_common.guid()
             props = {
@@ -2620,6 +2625,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
             self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
             self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
+
+            self.len(1, await core.nodes('inet:email:header limit 1 | [:seen=2022]'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:
@@ -3047,12 +3054,14 @@ class InetModelTest(s_t_utils.SynTest):
                 :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
                 :name=pbjtime.gif
                 :text="peanut butter jelly time"
+                :seen=2022
             ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'pbjtime.gif')
             self.eq(nodes[0].get('text'), 'peanut butter jelly time')
             self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
+            self.nn(nodes[0].get('seen'))
             attachment = nodes[0]
 
             q = '''

@@ -1367,6 +1367,9 @@ modeldefs = (
                 'doc': 'A historical record of an IP address being assigned to an AS.'}),
 
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'address range'}}),
+                ),
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
@@ -1413,6 +1416,9 @@ modeldefs = (
                 'doc': 'An HTTP protocol header key/value.'}),
 
             ('inet:http:request:header', ('inet:http:header', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'HTTP request header'}}),
+                ),
                 'doc': 'An HTTP request header.'}),
 
             ('inet:http:response:header', ('inet:http:header', {}), {
@@ -1513,6 +1519,9 @@ modeldefs = (
                 'doc': 'A single result from a web search.'}),
 
             ('inet:whois:record', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'prevnames': ('inet:whois:rec',),
                 'doc': 'An FQDN whois registration record.'}),
 
@@ -1526,6 +1535,9 @@ modeldefs = (
                 'doc': 'Query details used to retrieve an IP record.'}),
 
             ('inet:whois:iprecord', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
@@ -1553,6 +1565,9 @@ modeldefs = (
                 'doc': 'An email header name.'}),
 
             ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'email header'}}),
+                ),
                 'doc': 'A unique email message header.'}),
 
             ('inet:email:message:attachment', ('guid', {}), {
@@ -1701,6 +1716,9 @@ modeldefs = (
                 'doc': 'A URL link included within a message.'}),
 
             ('inet:service:message:attachment', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file attachment'}}),
+                ),
                 'doc': 'A file attachment included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
