@@ -759,6 +759,7 @@ workflows:
               only:
                 - master
                 - synapse-3xx
+                - synapse-3xx-dev-docker-ci-image
 
       - build_docker_tag:
           requires:
