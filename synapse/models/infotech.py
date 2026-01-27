@@ -964,10 +964,6 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
 
-             ('it:host:filepath', ('guid', {}), {
-                'prevnames': ('it:fs:file',),
-                 'doc': 'A file on a host.'}),
-
             ('it:exec:file:add', ('guid', {}), {
                 'interfaces': (
                     ('it:host:activity', {}),
@@ -1157,8 +1153,8 @@ modeldefs = (
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
+            (('it:software', 'creates', 'file:exemplar:entry'), {
+                'doc': 'The software creates the file entry.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
                 'doc': 'The software creates the Microsoft Windows registry entry.'}),
@@ -2365,35 +2361,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:host:filepath', {}, (
 
-                ('host', ('it:host', {}), {
-                    'doc': 'The host containing the file.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path for the file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file on the host.'}),
-
-                ('created', ('time', {}), {
-                    'prevnames': ('ctime',),
-                    'doc': 'The file creation time.'}),
-
-                ('modified', ('time', {}), {
-                    'prevnames': ('mtime',),
-                    'doc': 'The file modification time.'}),
-
-                ('accessed', ('time', {}), {
-                    'prevnames': ('atime',),
-                    'doc': 'The file access time.'}),
-
-                ('user', ('it:host:account', {}), {
-                    'doc': 'The owner of the file.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group owner of the file.'}),
-            )),
             ('it:exec:file:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {

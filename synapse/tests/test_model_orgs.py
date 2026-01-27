@@ -433,7 +433,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :opening=*
                     :agent={[ entity:contact=* :name=agent ]}
                     :recruiter={[ entity:contact=* :name=recruiter ]}
-                    :attachments={[ file:attachment=* :name=questions.pdf ]}
+                    :attachments={[ file:attachment=* :path=questions.pdf ]}
                 ]
             ''')
             self.len(1, nodes)

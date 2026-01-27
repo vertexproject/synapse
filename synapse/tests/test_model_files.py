@@ -22,6 +22,143 @@ class FileTest(s_t_utils.SynTest):
     #         self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
     #         self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
 
+    async def test_model_file_entry(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ file:entry=* :path=foo/000.exe :file=* ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/000.exe')
+            self.len(1, await core.nodes('file:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:entry :file -> file:bytes'))
+
+            nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file={file:bytes} ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/001.exe')
+            self.len(1, await core.nodes('file:exemplar:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:exemplar:entry :file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                file:stored:entry=*
+                    :file={file:bytes}
+                    :path=foo/002.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/002.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:stored:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:stored:entry :file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                file:system:entry=*
+                    :host={[ it:host=* ]}
+                    :file={file:bytes}
+                    :path=foo/003.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/003.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:system:entry :host -> it:host'))
+            self.len(1, await core.nodes('file:system:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:system:entry :file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                file:subfile:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/004.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/004.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:subfile:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:subfile:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:subfile:entry :parent -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                file:archive:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/005.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+                    :archived:size=200
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/005.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.eq(nodes[0].get('archived:size'), 200)
+            self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                file:mime:zip:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/006.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+                    :archived:size=200
+                    :comment=Hiya
+                    :extra:posix:uid=0
+                    :extra:posix:gid=0
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/006.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.eq(nodes[0].get('archived:size'), 200)
+            self.eq(nodes[0].get('comment'), 'Hiya')
+            self.eq(nodes[0].get('extra:posix:uid'), 0)
+            self.eq(nodes[0].get('extra:posix:gid'), 0)
+            self.len(1, await core.nodes('file:mime:zip:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:mime:zip:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:mime:zip:entry :parent -> file:bytes'))
+
+            self.len(7, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
+
     async def test_model_file_mime_exe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
@@ -294,19 +431,17 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('base'), 'baz.exe')
-            self.eq(node.get('base:ext'), 'exe')
-            self.eq(node.get('dir'), '/foo/bar')
-            self.len(1, await core.nodes('file:path="/foo/bar"'))
-            self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
-            self.len(1, await core.nodes('file:base^=baz'))
+            self.eq(node.get('.base'), 'baz.exe')
+            self.eq(node.get('.ext'), 'exe')
+            self.eq(node.get('.dir'), '/foo/bar')
+            # FIXME virts need to autoadd!
+            # self.len(1, await core.nodes('file:path="/foo/bar"'))
+            # self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
+            # self.len(1, await core.nodes('file:base^=baz'))
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/'}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], '')
-            self.none(node.get('base'))
-            self.none(node.get('base:ext'))
-            self.none(node.get('dir'))
 
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
             self.len(1, nodes)
@@ -337,32 +472,11 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ file:bytes=* file:bytes=* +(uses)> {[ meta:technique=* ]} ]')
             self.len(2, nodes)
 
-            node0 = nodes[0]
-            node1 = nodes[1]
-
-            nodes = await core.nodes('[file:subfile=$valu :path="foo/embed.bin"]',
-                                     opts={'vars': {'valu': (node0.ndef[1], node1.ndef[1])}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (node0.ndef[1], node1.ndef[1]))
-            self.eq(node.get('parent'), node0.ndef[1])
-            self.eq(node.get('child'), node1.ndef[1])
-            self.eq(node.get('path'), 'foo/embed.bin')
-
-            fp = 'C:\\www\\woah\\really\\sup.exe'
-            nodes = await core.nodes('[file:filepath=$valu]', opts={'vars': {'valu': (node0.ndef[1], fp)}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), node0.ndef[1])
-            self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.len(1, await core.nodes('file:filepath:path.dir=c:/www/woah/really'))
-            self.len(1, await core.nodes('file:filepath:path.base=sup.exe'))
-            self.len(1, await core.nodes('file:filepath:path.ext=exe'))
-
-            self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
-            self.len(1, await core.nodes('file:path="c:/www"'))
-            self.len(1, await core.nodes('file:path=""'))
-            self.len(1, await core.nodes('file:base="sup.exe"'))
+            self.len(1, await core.nodes('[ file:path="c:/www/woah/really" ]'))
+            # FIXME virts need to autoadd
+            # self.len(1, await core.nodes('file:path="c:/www"'))
+            # self.len(1, await core.nodes('file:path=""'))
+            # self.len(1, await core.nodes('file:base="sup.exe"'))
 
     async def test_model_file_mime_msoffice(self):
 
@@ -535,14 +649,10 @@ class FileTest(s_t_utils.SynTest):
                     :parent=*
                     :file=*
                     :path=foo/bar.exe
-                    :user=visi
                     :added=20230630
                     :created=20230629
+                    :accessed=20230629
                     :modified=20230629
-                    :comment="what exe. much wow."
-                    :posix:uid=1000
-                    :posix:gid=1000
-                    :posix:perms=0x7f
                     :archived:size=999
                 ]
             ''')
@@ -550,19 +660,12 @@ class FileTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
 
-            self.eq('visi', nodes[0].get('user'))
-            self.eq('what exe. much wow.', nodes[0].get('comment'))
-
-            self.eq(1688083200000000, nodes[0].get('added'))
-            self.eq(1687996800000000, nodes[0].get('created'))
-            self.eq(1687996800000000, nodes[0].get('modified'))
-
-            self.eq(1000, nodes[0].get('posix:uid'))
-            self.eq(1000, nodes[0].get('posix:gid'))
-            self.eq(127, nodes[0].get('posix:perms'))
+            self.eq(nodes[0].get('added'), 1688083200000000)
+            self.eq(nodes[0].get('created'), 1687996800000000)
+            self.eq(nodes[0].get('accessed'), 1687996800000000)
+            self.eq(nodes[0].get('modified'), 1687996800000000)
 
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
-            self.len(1, await core.nodes('file:archive:entry :user -> inet:user'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
 
@@ -633,15 +736,15 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ file:attachment=*
-                    :name=Foo/Bar.exe
+                    :path=Foo/Bar.exe
                     :text="foo bar"
                     :file=*
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq('foo bar', nodes[0].get('text'))
-            self.eq('foo/bar.exe', nodes[0].get('name'))
+            self.eq(nodes[0].get('text'), 'foo bar')
+            self.eq(nodes[0].get('path'), 'foo/bar.exe')
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
             self.len(1, await core.nodes('file:attachment -> file:path'))

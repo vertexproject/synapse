@@ -1057,11 +1057,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'group': 'domainadmin'
             }
             nodes = await core.nodes('''[
-                it:host:filepath=*
+                file:system:entry=*
                     :host={ it:host | limit 1 }
                     :path=c:/temp/yourfiles.rar
                     :file=*
-                    :group={[ it:host:group=({"name": "domainadmin"}) ]}
+                    :added=20200202
                     :created=20200202
                     :modified=20200203
                     :accessed=20200204
@@ -1070,16 +1070,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.nn(node.get('host'))
             self.nn(node.get('file'))
-            self.nn(node.get('group'))
 
+            self.eq(node.get('added'), 1580601600000000)
             self.eq(node.get('created'), 1580601600000000)
             self.eq(node.get('modified'), 1580688000000000)
             self.eq(node.get('accessed'), 1580774400000000)
             self.eq(node.get('path'), 'c:/temp/yourfiles.rar')
 
-            self.len(1, await core.nodes('it:host:filepath:path.dir=c:/temp'))
-            self.len(1, await core.nodes('it:host:filepath:path.base=yourfiles.rar'))
-            self.len(1, await core.nodes('it:host:filepath:path.ext=rar'))
+            self.len(1, await core.nodes('file:system:entry:path.dir=c:/temp'))
+            self.len(1, await core.nodes('file:system:entry:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('file:system:entry:path.ext=rar'))
 
             rprops = {
                 'host': host,
@@ -1111,7 +1111,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             forms = [
-                'it:host:filepath',
+                'file:system:entry',
                 'it:exec:file:add',
                 'it:exec:file:del',
                 'it:exec:file:read',

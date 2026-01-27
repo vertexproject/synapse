@@ -186,6 +186,18 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
             self.len(1, await core.nodes('entity:campaign:names*[="pacific campaign"]'))
 
+            nodes = await core.nodes('''[
+                entity:contactlist=*
+                    :name="Foo  Bar"
+                    :source={[ it:host=* ]}
+                    +(has)> {[ entity:contact=* entity:contact=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'foo bar')
+            self.eq(nodes[0].get('source')[0], 'it:host')
+            self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
+            self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
+
     async def test_entity_relationship(self):
 
         async with self.getTestCore() as core:
