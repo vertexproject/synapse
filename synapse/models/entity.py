@@ -323,6 +323,9 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
+            ('entity:discovery', ('guid', {}), {
+                'doc': 'A discovery made by an actor.'}),
+
         ),
 
         'edges': (
@@ -474,10 +477,6 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
-                # FIXME meta:timeline interface...
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the campaign.'}),
-
                 ('type', ('entity:campaign:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
@@ -521,15 +520,13 @@ modeldefs = (
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),
-
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('entity:contribution', {}, (
 
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
+                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 
@@ -538,6 +535,18 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
+            )),
+
+            ('entity:discovery', {}, (
+
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The actor who made the discovery.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time when the discovery was made.'}),
+
+                ('item', ('meta:discoverable', {}), {
+                    'doc': 'The item which was discovered.'}),
             )),
 
         ),
