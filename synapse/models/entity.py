@@ -528,7 +528,7 @@ modeldefs = (
                     'doc': 'The actor who made the discovery.'}),
 
                 ('time', ('time', {}), {
-                    'doc': 'The time when the actor made the discovery.'}),
+                    'doc': 'The time when the discovery was made.'}),
 
                 ('item', ('meta:discoverable', {}), {
                     'doc': 'The item which was discovered.'}),
