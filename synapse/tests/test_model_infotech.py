@@ -1919,3 +1919,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
             self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
+
+            nodes = await core.nodes('''[
+                it:os:windows:registry:entry=*
+                    :key=foo/bar/baz
+                    :name=faz
+                    :value={[ it:dev:int=0xf0 ]}
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('key'), 'foo/bar/baz')
+            self.eq(nodes[0].get('name'), 'faz')
+            self.eq(nodes[0].get('value'), ('it:dev:int', 0xf0))
+            self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
