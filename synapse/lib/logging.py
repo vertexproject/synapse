@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 _log_wins = weakref.WeakSet()
 
+LOG_PUMP_TASK_TIMEOUT = int(os.environ.get('SYNDEV_LOG_TASK_SHUTDOWN_TIMEOUT', 1))
+
 # TODO - Handle exception groups
 def excinfo(e, _seen=None):
 
@@ -137,6 +139,7 @@ class StreamHandler(logging.StreamHandler):
 
     _pump_task = None
     _pump_event = None
+    _pump_exit_flag = False
     _glob_handler = None
 
     _logs_fifo = collections.deque(maxlen=1000)
@@ -176,6 +179,8 @@ async def _pumpLogStream():
 
             if not logstodo and not texttodo:
                 StreamHandler._pump_event.clear()
+                if StreamHandler._pump_exit_flag is True:
+                    return
                 continue
 
             StreamHandler._logs_todo.clear()
@@ -188,6 +193,9 @@ async def _pumpLogStream():
                 await wind.puts(logstodo)
 
             await s_coro.executor(_writestderr, fulltext)
+
+            if StreamHandler._pump_exit_flag is True:
+                return
 
         except Exception as e:
             traceback.print_exc()
@@ -253,7 +261,7 @@ def setup(**conf):
 
     return conf
 
-def reset():
+def reset(clear_globconf=True):
     # This may be called by tests to cleanup loop specific objects
     # ( it does not need to be called by in general by service fini )
 
@@ -266,19 +274,45 @@ def reset():
 
     StreamHandler._pump_task = None
     StreamHandler._pump_event = None
+    StreamHandler._pump_exit_flag = False
     StreamHandler._glob_handler = None
     StreamHandler._text_todo.clear()
     StreamHandler._logs_fifo.clear()
     StreamHandler._logs_todo.clear()
 
-    _glob_logconf.clear()
-    _glob_loginfo.clear()
+    if clear_globconf:
+        _glob_logconf.clear()
+        _glob_loginfo.clear()
 
-# TODO like reset; but reinstall a streamhandler to rootlogger
-# so logger.log() calls continue to produce formatted content
-# until interpreter shutdown.
-def shutdown():
-    pass
+async def shutdown():
+    '''
+    Inverse of setup. Gives the pump task the opportunity to exit
+    before removing it and resetting log attributes. A StreamHandler
+    is then re-installed on the root logger to allow for messages
+    from sources like atexit handlers to be logged.
+    '''
+    # Give the pump task a small opportunity to drain its
+    # queue of items and exit cleanly.
+    if StreamHandler._pump_task is not None:
+        StreamHandler._pump_exit_flag = True  # Set the task to exit
+        StreamHandler._pump_event.set()  # Wake the task
+        try:
+            await asyncio.wait_for(StreamHandler._pump_task, timeout=LOG_PUMP_TASK_TIMEOUT)
+        except asyncio.TimeoutError:
+            pass
+
+    # Reset all logging configs except globals since we may need those.
+    reset(clear_globconf=False)
+
+    fmtclass = JsonFormatter
+    if not _glob_logconf.get('structlog'):
+        fmtclass = TextFormatter
+
+    # Reinstall a StreamHandler and the formatter on the root logger
+    rootlogger = logging.getLogger()
+    stream = logging.StreamHandler()
+    stream.setFormatter(fmtclass(datefmt=_glob_logconf.get('datefmt')))
+    rootlogger.addHandler(stream)
 
 def getLogConf():
     logconf = _glob_logconf.copy()

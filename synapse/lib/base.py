@@ -40,17 +40,13 @@ def _fini_atexit():  # pragma: no cover
         if not item._fini_atexit and not OMIT_FINI_WARNS:
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
-                # FIXME - These logs are not emitted during the atexit call??
-                print(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
                     logger.debug(f'{depth+1:3}: {call.strip()}')
-                    print(f'{depth+1:3}: {call.strip()}')
             continue
 
         try:
             if __debug__:
                 logger.debug('At exit: Calling fini for %r', item)
-                print('At exit: Calling fini for %r', item)
             rv = item.fini()
             if s_coro.iscoro(rv):
                 # Try to run the fini on its loop
@@ -605,7 +601,7 @@ class Base:
         import synapse.lib.logging as s_logging
         # Reset logging to stop the pump task so we're not awaiting
         # it when shutting down a service.
-        s_logging.reset()
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):
