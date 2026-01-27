@@ -29,6 +29,9 @@ def excinfo(e, _seen=None):
 
     tb = []
     for path, line, func, sorc in traceback.extract_tb(e.__traceback__):
+        # sorc may not be available; enusre that all output is a str
+        if sorc is None:
+            sorc = '<none>'
         tb.append((path, line, func, sorc))
 
     ret = {
