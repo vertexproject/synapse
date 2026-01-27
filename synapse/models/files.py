@@ -632,7 +632,7 @@ modeldefs = (
                 ('path', ('file:path', {}), {
                     'doc': 'The name of the attached file.'}),
 
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'doc': 'Any text associated with the file such as alt-text for images.'}),
             )),
 
