@@ -220,7 +220,7 @@ modeldefs = (
                 ),
                 'doc': 'Historical contact information about another contact.'}),
 
-            ('entity:contact:list', ('guid', {}), {
+            ('entity:contactlist', ('guid', {}), {
                 'doc': 'A list of contacts.'}),
 
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
@@ -335,7 +335,7 @@ modeldefs = (
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
 
-            (('entity:contact:list', 'has', 'entity:contact'), {
+            (('entity:contactlist', 'has', 'entity:contact'), {
                 'doc': 'The contact list contains the contact.'}),
 
             (('entity:action', 'used', 'meta:usable'), {
@@ -374,7 +374,7 @@ modeldefs = (
                     'doc': 'The current version of this historical contact.'}),
             )),
 
-            ('entity:contact:list', {}, (
+            ('entity:contactlist', {}, (
 
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the contact list.'}),
