@@ -1089,7 +1089,11 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
+                    [ meta:note=*
+                        :text=$text
+                        :creator=(syn:user, $lib.user.iden)
+                        :created=.created
+                        :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }

@@ -453,11 +453,8 @@ modeldefs = (
                     'display': {'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact information of the author.'}),
-
-                ('creator', ('syn:user', {}), {
-                    'doc': 'The synapse user who authored the note.'}),
+                ('creator', ('entity:actor', {}), {
+                    'doc': 'The actor user who authored the note.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The time the note was created.'}),

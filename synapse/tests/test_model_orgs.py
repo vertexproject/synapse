@@ -378,11 +378,9 @@ class OuModelTest(s_t_utils.SynTest):
                     :updated=20241018
                     :due=20241018
                     :completed=20241018
-                    :creator=root
-                    :assignee=visi
+                    :creator={[ syn:user=root ]}
+                    :assignee={[ syn:user=visi ]}
                     :scope=(ou:team, *)
-                    :ext:creator={[ entity:contact=* :name=root ]}
-                    :ext:assignee={[ entity:contact=* :name=visi ]}
 
                     <(shows)+ {[ meta:rule=* ]}
                 ]
@@ -397,17 +395,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1729209600000000, nodes[0].get('updated'))
             self.eq(1729209600000000, nodes[0].get('completed'))
 
-            self.eq(visi.iden, nodes[0].get('assignee'))
-            self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
+            self.eq(nodes[0].get('creator'), ('syn:user', core.auth.rootuser.iden))
+            self.eq(nodes[0].get('assignee'), ('syn:user', visi.iden))
 
             self.nn(nodes[0].get('scope'))
-            self.nn(nodes[0].get('ext:creator'))
-            self.nn(nodes[0].get('ext:assignee'))
 
             self.len(1, await core.nodes('ou:enacted -> proj:project'))
             self.len(1, await core.nodes('ou:enacted :scope -> ou:team'))
-            self.len(1, await core.nodes('ou:enacted :ext:creator -> entity:contact +:name=root'))
-            self.len(1, await core.nodes('ou:enacted :ext:assignee -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('ou:enacted <(shows)- meta:rule'))
 
             nodes = await core.nodes('''

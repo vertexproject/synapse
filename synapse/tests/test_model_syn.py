@@ -117,7 +117,7 @@ class SynModelTest(s_t_utils.SynTest):
             visi = await core.addUser('visi')
             view = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            q = '[proj:project=(p1,) :creator=visi ]'
+            q = '[proj:project=(p1,) :creator={[ syn:user=visi ]} ]'
             msgs = await core.stormlist(q, opts={'view': view})
             self.stormHasNoWarnErr(msgs)
 
