@@ -1933,3 +1933,4 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
