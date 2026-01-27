@@ -50,13 +50,11 @@ class OuModelTest(s_t_utils.SynTest):
             contact = s_common.guid()
             position = s_common.guid()
             subpos = s_common.guid()
-            suborg = s_common.guid()
 
             opts = {'vars': {
                 'orgiden': orgiden,
                 'position': position,
                 'subpos': subpos,
-                'suborg': suborg,
             }}
 
             nodes = await core.nodes('''
@@ -79,76 +77,66 @@ class OuModelTest(s_t_utils.SynTest):
             ''', opts=opts)
             self.eq(('ou:position', subpos), nodes[0].ndef)
 
-            # nodes = await core.nodes('''
-            #     ou:org=$orgiden
-            #     [ :subs+=$suborg ]
-            #     -> ou:org
-            # ''', opts=opts)
-            # self.eq(('ou:org', suborg), nodes[0].ndef)
-
-            guid0 = s_common.guid()
-            name = '\u21f1\u21f2 Inc.'
-            normname = '\u21f1\u21f2 inc.'
-            altnames = ('altarrowname', 'otheraltarrow',)
-            props = {
-                'loc': 'US.CA',
-                'name': name,
-                'type': 'corp',
-                'names': altnames,
-                'logo': '*',
-                'phone': '+15555555555',
-                'url': 'http://arrowinc.link',
-                'founded': '2015',
-                'dissolved': '2019',
-            }
-            q = '''[(ou:org=$valu :place:loc=$p.loc :name=$p.name :type=$p.type :names=$p.names
-                :logo=$p.logo :phone=$p.phone :url=$p.url
-                :lifespan=($p.founded, $p.dissolved)
-                :id=Foo :motto="DONT BE EVIL"
-            )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': guid0, 'p': props}})
+            nodes = await core.nodes('''[
+                ou:org=*
+                    :id=VTX-0000
+                    :name="The Vertex Project, LLC."
+                    :names+="vertex"
+                    :type=corp.llc
+                    :logo=*
+                    :phone="+15555555555"
+                    :url=https://vertex.link
+                    :lifespan=(2016, *)
+                    :motto="Synapse or it didn't happen!"
+                    :parent=*
+                    :place={[ geo:place=* ]}
+                    :place:loc=US.DE
+                    :place:country={[ pol:country=* ]}
+                    :place:country:code=us
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('ou:org', guid0))
-            self.eq(node.get('place:loc'), 'us.ca')
-            self.eq(node.get('type'), 'corp.')
-            self.eq(node.get('name'), normname)
-            self.eq(node.get('names'), altnames)
-            self.eq(node.get('phone'), '15555555555')
-            self.eq(node.get('url'), 'http://arrowinc.link')
-            self.eq(node.get('lifespan'), (1420070400000000, 1546300800000000, 126230400000000))
-            self.eq(node.get('id'), 'Foo')
-            self.nn(node.get('logo'))
-            self.eq('DONT BE EVIL', node.get('motto'))
+            self.eq(nodes[0].ndef[0], 'ou:org')
+            self.eq(nodes[0].get('id'), 'VTX-0000')
+            self.eq(nodes[0].get('name'), 'the vertex project, llc.')
+            self.eq(nodes[0].get('names'), ('vertex',))
+            self.eq(nodes[0].get('type'), 'corp.llc.')
+            self.eq(nodes[0].get('phone'), '15555555555')
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('lifespan'), (1451606400000000, 9223372036854775806, 18446744073709551614))
+            self.nn(nodes[0].get('logo'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('motto'), "Synapse or it didn't happen!")
 
-            await core.nodes('ou:org:url=http://arrowinc.link [ :place:country={ gen.pol.country ua } :place:country:code=ua ]')
-            self.len(1, await core.nodes('ou:org:place:country:code=ua'))
-            self.len(1, await core.nodes('pol:country:code=ua -> ou:org'))
+            self.nn(nodes[0].get('place'))
+            self.nn(nodes[0].get('place:country'))
+            self.eq(nodes[0].get('place:loc'), 'us.de')
+
+            self.len(1, await core.nodes('pol:country -> ou:org'))
             self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
             self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
+            # confirm ou:org is meta:havable...
+            self.len(1, await core.nodes('[ entity:had=* :item={ou:org:id=VTX-0000} ]'))
 
-            nodes = await core.nodes('ou:org:names*[=otheraltarrow]')
+            nodes = await core.nodes('ou:org:names*[=vertex]')
             self.len(1, nodes)
 
-            opts = {'vars': {'name': name}}
-            nodes = await core.nodes('ou:org:names*[=$name]', opts=opts)
-            self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
-
-            opts = {'vars': {'org': guid0, 'net': ('192.168.1.1', '192.168.1.127')}}
-            nodes = await core.nodes('[ou:orgnet=({"org": $org, "net": $net})]', opts=opts)
+            nodes = await core.nodes('''[
+                ou:orgnet=({"org": {"id": "VTX-0000"},
+                            "net": ["192.168.1.1", "192.168.1.127"]})
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('org'), guid0)
-            self.eq(node.get('net'), ((4, 3232235777), (4, 3232235903)))
+            self.nn(nodes[0].get('org'))
+            self.eq(nodes[0].get('net'), ((4, 3232235777), (4, 3232235903)))
 
-            opts = {'vars': {'org': guid0, 'net': ('fd00::1', 'fd00::127')}}
-            nodes = await core.nodes('[ou:orgnet=({"org": $org, "net": $net})]', opts=opts)
+            nodes = await core.nodes('''[
+                ou:orgnet=({"org": {"id": "VTX-0000"},
+                            "net": ["fd00::1", "fd00::127"]})
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
             minv = (6, 0xfd000000000000000000000000000001)
             maxv = (6, 0xfd000000000000000000000000000127)
-            self.eq(node.get('net'), (minv, maxv))
-            self.eq(node.get('org'), guid0)
+            self.nn(nodes[0].get('org'))
+            self.eq(nodes[0].get('net'), (minv, maxv))
 
             # ou:meeting
             nodes = await core.nodes('''[

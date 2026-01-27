@@ -73,6 +73,7 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'template': {'title': 'organization'},
                 'interfaces': (
+                    ('meta:havable', {}),
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
                     ('risk:targetable', {}),
@@ -598,8 +599,8 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry'}), {
                     'doc': 'The industries associated with the org.'}),
 
-                ('subs', ('array', {'type': 'ou:org'}), {
-                    'doc': 'An set of sub-organizations.'}),
+                ('parent', ('ou:org', {}), {
+                    'doc': 'The parent organization.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
