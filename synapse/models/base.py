@@ -488,7 +488,7 @@ modeldefs = (
             ('meta:event', {}, (
 
                 ('period', ('ival', {}), {
-                    'doc': 'The period over which the {title} occurred.'}),
+                    'doc': 'The period over which the event occurred.'}),
 
                 ('title', ('str', {}), {
                     'doc': 'A title for the event.'}),
