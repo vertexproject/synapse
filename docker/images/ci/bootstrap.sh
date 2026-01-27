@@ -45,6 +45,10 @@ apt-get install -y \
   nano \
   net-tools
 
+# Additional python libraries
+python3 -m pip install \
+  wheel
+
 # Cleanup apt cache data; downstream users that need to install
 # packages are expected to run apt-get update on their own.
 apt-get purge
