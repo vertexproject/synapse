@@ -2058,8 +2058,8 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('host:account', ('it:host:account', {}), {
-                    'doc': 'The host account which executed the commands in the session.'}),
+                ('account', ('ndef', {'forms': ('it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
 
