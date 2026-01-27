@@ -910,6 +910,7 @@ class CellTest(s_t_utils.SynTest):
                 info = await prox.getCellInfo()
                 # Cell information
                 cnfo = info.get('cell')
+                nxfo = cnfo.get('nexus')
                 snfo = info.get('synapse')
                 self.eq(cnfo.get('commit'), 'mycommit')
                 self.eq(cnfo.get('version'), (1, 2, 3))
@@ -917,11 +918,17 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo.get('type'), 'cortex')
                 self.isin('nexsindx', cnfo)
                 self.ge(cnfo.get('nexsindx'), 0)
-                self.false(cnfo.get('nexsreadonly'))
-                self.eq(cnfo.get('nexsholds'), [])
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
+                self.true(cnfo.get('ready'))
                 self.none(cnfo.get('mirror', True))
+                # Nexus info
+                self.ge(nxfo.get('indx'), 0)
+                self.false(nxfo.get('uplink'))
+                self.true(nxfo.get('ready'))
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
+
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -944,18 +951,16 @@ class CellTest(s_t_utils.SynTest):
                 await cell.nexsroot.addWriteHold('boop')
                 await cell.nexsroot.addWriteHold('beep')
                 info = await prox.getCellInfo()
-                # Cell information
-                cnfo = info.get('cell')
-                self.true(cnfo.get('nexsreadonly'))
-                self.eq(cnfo.get('nexsholds'), ['beep', 'boop'])
+                nxfo = info.get('cell').get('nexus')
+                self.true(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [{'reason': 'beep'}, {'reason': 'boop'}])
 
                 await cell.nexsroot.delWriteHold('boop')
                 await cell.nexsroot.delWriteHold('beep')
                 info = await prox.getCellInfo()
-                # Cell information
-                cnfo = info.get('cell')
-                self.false(cnfo.get('nexsreadonly'))
-                self.eq(cnfo.get('nexsholds'), [])
+                nxfo = info.get('cell').get('nexus')
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
 
         # Mirrors & ready flags
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
@@ -975,18 +980,26 @@ class CellTest(s_t_utils.SynTest):
                 await cell01.sync()
 
                 cnfo0 = await cell00.getCellInfo()
+                nxfo0 = cnfo0['cell']['nexus']
                 cnfo1 = await cell01.getCellInfo()
+                nxfo1 = cnfo1['cell']['nexus']
                 self.true(cnfo0['cell']['ready'])
                 self.false(cnfo0['cell']['uplink'])
                 self.none(cnfo0['cell']['mirror'])
                 self.eq(cnfo0['cell']['version'], (1, 2, 3))
+                self.false(nxfo0.get('uplink'))
+                self.true(nxfo0.get('ready'))
 
                 self.true(cnfo1['cell']['ready'])
                 self.true(cnfo1['cell']['uplink'])
                 self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
                 self.eq(cnfo1['cell']['version'], (1, 2, 3))
 
+                self.true(nxfo1.get('uplink'))
+                self.true(nxfo1.get('ready'))
+
                 self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
+                self.eq(nxfo0['indx'], nxfo1['indx'])
 
     async def test_cell_dyncall(self):
 
