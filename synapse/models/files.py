@@ -277,7 +277,7 @@ modeldefs = (
                 'doc': 'A file entry containing a file and metadata.'}),
 
             ('file:exemplar:entry', ('file:entry', {}), {
-                'doc': 'A exemplar file entry used model behavior.'}),
+                'doc': 'An exemplar file entry used model behavior.'}),
 
             ('file:stored:entry', ('file:entry', {}), {
                 'doc': 'A stored file entry.'}),
@@ -295,11 +295,11 @@ modeldefs = (
 
             ('file:archive:entry', ('file:subfile:entry', {}), {
                 'template': {'title': 'archive file entry'},
-                'doc': 'An file entry contained by an archive file.'}),
+                'doc': 'A file entry contained by an archive file.'}),
 
             ('file:mime:zip:entry', ('file:archive:entry', {}), {
                 'template': {'title': 'ZIP archive file entry'},
-                'doc': 'An file entry contained by a ZIP archive file.'}),
+                'doc': 'A file entry contained by a ZIP archive file.'}),
 
             ('file:attachment', ('file:entry', {}), {
                 'display': {
