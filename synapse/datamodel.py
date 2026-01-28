@@ -1177,11 +1177,16 @@ class Model:
         return tuple(virts)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
-        assert formname not in self.forms, f'{formname} form already present in model'
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
+
+        if self.forms.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing form: {formname}')
+
+        if self.ifaces.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing interface: {formname}')
 
         if (_type := self.types.get(formname)) is None:
             raise s_exc.NoSuchType(name=formname)
@@ -1355,7 +1360,12 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
-        assert name not in self.ifaces, f'{name} interface already present in model'
+        if self.forms.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing form: {name}')
+
+        if self.ifaces.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
+
         self.ifaces[name] = info
 
     def reqTypeNotInUse(self, typename):

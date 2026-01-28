@@ -1936,3 +1936,43 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
+
+    async def test_infotech_mitre(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ it:mitre:attack:group:id=G0100 ]')
+            self.len(1, nodes)
+            self.eq('G0100', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=G0100'))
+
+            nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
+            self.len(1, nodes)
+            self.eq('TA0040', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=TA0040'))
+
+            nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
+            self.len(1, nodes)
+            self.eq('T1548.123', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=T1548.123'))
+
+            nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
+            self.len(1, nodes)
+            self.eq('M1036', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=M1036'))
+
+            nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
+            self.len(1, nodes)
+            self.eq('S0154', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=S0154'))
+
+            nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
+            self.len(1, nodes)
+            self.eq('C0028', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=C0028'))
