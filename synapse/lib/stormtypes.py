@@ -940,8 +940,6 @@ class LibService(Lib):
             'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
         {'perm': ('service', 'get'), 'gate': 'cortex',
             'desc': 'Controls the ability to get the Service object for any Storm Service.'},
-        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
          'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
     )
@@ -1413,6 +1411,26 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'prim',
                               'desc': 'A deep copy of the primitive object.', }}},
+    )
+
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'del'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'del', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
     )
 
     def __init__(self, runt, name=()):
@@ -4219,8 +4237,6 @@ class LibTelepath(Lib):
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
          'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
-        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
     )
 
     def getObjLocals(self):
