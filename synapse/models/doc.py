@@ -272,7 +272,7 @@ modeldefs = (
                 ('doc', ('doc:document', {}), {
                     'doc': 'The document which the reference refers to.'}),
 
-                ('url', ('inet:url', {}), {
+                ('doc:url', ('inet:url', {}), {
                     'doc': 'A URL for the reference.'}),
             )),
         ),
