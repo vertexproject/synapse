@@ -1602,15 +1602,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls read access to view.'},
 
             {'perm': ('view', 'set', 'name'), 'gate': 'view',
-             'desc': "Controls access to set a view's name."},
+             'desc': "Controls access to set a view name."},
             {'perm': ('view', 'set', 'desc'), 'gate': 'view',
-             'desc': "Controls access to set a view's description."},
+             'desc': "Controls access to set a view description."},
             {'perm': ('view', 'set', 'quorum'), 'gate': 'view',
-             'desc': "Controls access to set a view's quorum status."},
+             'desc': "Controls access to set a view quorum status."},
             {'perm': ('view', 'set', 'parent'), 'gate': 'view',
-             'desc': "Controls access to set a view's parent view."},
+             'desc': "Controls access to set a view parent view."},
             {'perm': ('view', 'set', 'protected'), 'gate': 'view',
-             'desc': "Controls access to set a view's protected status."},
+             'desc': "Controls access to set a view protected status."},
         ))
         for pdef in self._cortex_permdefs:
             s_schemas.reqValidPermDef(pdef)
