@@ -234,7 +234,7 @@ class NexsRoot(s_base.Base):
         ret = {
             'indx': await self.index(),
             'ready': self.ready.is_set(),
-            'uplink': self.miruplink.is_set(),
+            'uplink:ready': self.miruplink.is_set(),
             'readonly': self.readonly,
             # This is a list of dictionaries so that we can populate metadata
             # in the future if we want to do so.
