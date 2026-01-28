@@ -2210,14 +2210,11 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('synuser', ('syn:user', {}), {
-                    'doc': 'The synapse user who executed the query.'}),
+                ('account', ('ndef', {'forms': ('syn:user', 'it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the query.'}),
 
-                ('service:platform', ('inet:service:platform', {}), {
+                ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which ran the query.'}),
             )),
             ('it:exec:thread', {}, (
 

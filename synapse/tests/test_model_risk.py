@@ -179,8 +179,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :detected=20501217
                     :vuln=*
                     :status=todo
-                    :assignee=$lib.user.iden
-                    :ext:assignee = {[ entity:contact=* :email=visi@vertex.link ]}
+                    :assignee={[ syn:user=root ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :id=WOOT-20
                     :engine={[ it:software=* :name=visiware ]}
@@ -201,9 +200,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
-            self.eq(core.auth.rootuser.iden, nodes[0].get('assignee'))
+            self.eq(nodes[0].get('assignee'), ('syn:user', core.auth.rootuser.iden))
             self.nn(nodes[0].get('host'))
-            self.nn(nodes[0].get('ext:assignee'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert :engine -> it:software'))
