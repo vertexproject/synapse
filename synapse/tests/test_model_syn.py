@@ -68,7 +68,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('name'), 'syn:user')
 
             with self.raises(s_exc.BadTypeValu) as exc:
-                await core.callStorm('[ it:exec:query=* :synuser=* ]')
+                await core.callStorm('$lib.cast(syn:user, *)')
+
             self.isin('syn:user values must be a valid username or a guid.', exc.exception.get('mesg'))
             self.eq(exc.exception.get('valu'), '*')
             self.eq(exc.exception.get('name'), 'syn:user')

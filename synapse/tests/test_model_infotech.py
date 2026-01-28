@@ -1499,10 +1499,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
                     :offset=99
-                    :synuser=$root
-                    // we can assume the rest of the interface props work
-                    :service:platform = *
-                    :service:account = *
+                    :account={[ syn:user=root ]}
+                    :platform = *
                 ]
             ''', opts=opts)
             self.eq(1658275200000000, nodes[0].get('time'))
@@ -1510,11 +1508,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
-            self.eq(core.auth.rootuser.iden, nodes[0].get('synuser'))
+            self.eq(nodes[0].get('account'), ('syn:user', core.auth.rootuser.iden))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
 
-            self.len(1, await core.nodes('it:exec:query :service:account -> inet:service:account'))
-            self.len(1, await core.nodes('it:exec:query :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('it:exec:query :account -> syn:user'))
+            self.len(1, await core.nodes('it:exec:query :platform -> inet:service:platform'))
 
     async def test_infotech_softid(self):
 
