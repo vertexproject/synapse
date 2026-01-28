@@ -11,6 +11,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.auth as s_auth
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
@@ -2845,25 +2846,36 @@ class LayerTest(s_t_utils.SynTest):
                     $lib.layer.del($lib.layer.get().iden)
                     ''', opts=opts3)
 
-            async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+            # attempt to edit a node on the mirror in a layer that has been deleted on the leader.
+            # It is important that we patch out the mirror loop to delay its startup, so that the
+            # loop on the follower does not race against the storm query execution on the mirror.
+            evnt = asyncio.Event()
+            original_loop = s_nexus.NexsRoot.runMirrorLoop
+            async def delayedMirrorLoop(nexsroot, proxy):
+                await asyncio.wait_for(evnt.wait(), timeout=12)
+                return await original_loop(nexsroot, proxy)
 
-                indx = await core01.getNexsIndx()
+            with mock.patch('synapse.lib.nexus.NexsRoot.runMirrorLoop', delayedMirrorLoop):
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
-                # attempt to edit a node on the mirror in a layer that has been deleted on the leader
-                async def doEdit():
-                    with self.raises(s_exc.NoSuchLayer):
-                        await core01.nodes('test:str=bar [ :seen=2020 ]', opts=opts3)
+                    indx = await core01.getNexsIndx()
 
-                task = core01.schedCoro(doEdit())
+                    async def doEdit():
+                        with self.raises(s_exc.NoSuchLayer) as cm:
+                            await core01.nodes('test:str=bar [ :seen=2020 ]', opts=opts3)
+                        evnt.set()
 
-                async with self.getTestCore(dirn=path00) as core00:
+                    task = core01.schedCoro(doEdit())
 
-                    await asyncio.wait_for(task, timeout=6)
+                    async with self.getTestCore(dirn=path00) as core00:
 
-                    await core01.sync()
+                        await asyncio.wait_for(task, timeout=6)
 
-                    evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
-                    self.eq(['view:del', 'layer:del', 'sync'], evnts)
+                        await core01.sync()
+
+                        # Ensure that the mirror eventually catches up and does not have the failed edits.
+                        evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
+                        self.eq(['view:del', 'layer:del', 'sync'], evnts)
 
     async def test_layer_migrate_props_fork(self):
 
