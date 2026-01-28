@@ -232,20 +232,23 @@ modeldefs = (
 
                     ('id', ('meta:id', {}), {
                         'alts': ('ids',),
-                        'doc': 'A unique ID given to the {title} by the source.'}),
+                        'doc': 'A unique ID given to the {title}.'}),
 
                     ('ids', ('array', {'type': 'meta:id'}), {
-                        'doc': 'An array of alternate IDs given to the {title} by the source.'}),
+                        'doc': 'An array of alternate IDs given to the {title}.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL for the {title}.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {title} according to the source.'}),
+                        'doc': 'The primary name of the {title}.'}),
 
                     ('names', ('array', {'type': 'meta:name'}), {
-                        'doc': 'A list of alternate names for the {title} according to the source.'}),
+                        'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}, according to the source.'}),
+                        'doc': 'A description of the {title}.'}),
 
                     ('resolved', ('{$self}', {}), {
                         'doc': 'The authoritative {title} which this reporting is about.'}),
@@ -256,17 +259,14 @@ modeldefs = (
                     ('reporter:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which reported on the {title}.'}),
 
-                    ('reporter:created', ('time', {}), {
-                        'doc': 'The time when the reporter first created the {title}.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time when the {title} was created.'}),
 
-                    ('reporter:updated', ('time', {}), {
-                        'doc': 'The time when the reporter last updated the {title}.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time when the {title} was last updated.'}),
 
-                    ('reporter:published', ('time', {}), {
+                    ('published', ('time', {}), {
                         'doc': 'The time when the reporter published the {title}.'}),
-
-                    ('reporter:url', ('inet:url', {}), {
-                        'doc': 'The reporter URL for the {title}.'}),
 
                     ('superseded', ('time', {}), {
                         'doc': 'The time when the {title} was superseded.'}),

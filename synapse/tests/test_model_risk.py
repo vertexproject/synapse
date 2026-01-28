@@ -28,7 +28,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :prev=*
                     :actor = {[ entity:contact=* ]}
                     :sophistication=high
-                    :reporter:url=https://vertex.link/attacks/CASE-2022-03
+                    :url=https://vertex.link/attacks/CASE-2022-03
                     :id=CASE-2022-03
                     +(had)> {[ entity:goal=* ]}
             ]''')
@@ -41,7 +41,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('reporter:name'), 'vertex')
             self.eq(nodes[0].get('sophistication'), 40)
             self.eq(nodes[0].get('severity'), 10)
-            self.eq(nodes[0].get('reporter:url'), 'https://vertex.link/attacks/CASE-2022-03')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/attacks/CASE-2022-03')
             self.eq(nodes[0].get('id'), 'CASE-2022-03')
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('reporter'))
@@ -223,7 +223,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
-                    :reporter:url=https://vertex.link/pwned
+                    :url=https://vertex.link/pwned
                     :id=PWN-00
                     :reporter = {[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name = vertex
@@ -249,7 +249,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('when.noms.attack.', nodes[0].get('type'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('PWN-00', nodes[0].get('id'))
-            self.eq('https://vertex.link/pwned', nodes[0].get('reporter:url'))
+            self.eq('https://vertex.link/pwned', nodes[0].get('url'))
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('campaign'))
@@ -285,7 +285,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "mandiant"}) ]}
                     :reporter:name=mandiant
                     :discovered=202202
-                    :reporter:published=202302
+                    :published=202302
                     :sophistication=high
                     :superseded = 20230111
                     :place:loc=cn.shanghai
@@ -313,7 +313,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
             self.eq(1673395200000000, nodes[0].get('superseded'))
             self.eq(1643673600000000, nodes[0].get('discovered'))
-            self.eq(1675209600000000, nodes[0].get('reporter:published'))
+            self.eq(1675209600000000, nodes[0].get('published'))
             self.nn(nodes[0].get('resolved'))
 
             self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
