@@ -841,7 +841,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
-                'doc': 'A software product or tool.'}),
+                'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
                 'prevnames': ('it:prod:softname',),
