@@ -2847,8 +2847,8 @@ class LayerTest(s_t_utils.SynTest):
                     ''', opts=opts3)
 
             # attempt to edit a node on the mirror in a layer that has been deleted on the leader.
-            # It is important that we patch out the mirror loop, so that the Mirror loop on the
-            # following does not race against the storm query execution on the mirror.
+            # It is important that we patch out the mirror loop to delay its startup, so that the
+            # loop on the follower does not race against the storm query execution on the mirror.
             evnt = asyncio.Event()
             original_loop = s_nexus.NexsRoot.runMirrorLoop
             async def delayedMirrorLoop(nexsroot, proxy):
