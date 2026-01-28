@@ -1091,7 +1091,7 @@ stormcmds = (
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                     [ meta:note=*
                         :text=$text
-                        :creator=(syn:user, $lib.user.iden)
+                        :creator={[ syn:user=$lib.user.iden ]}
                         :created=.created
                         :updated=.created ]
                     if $type {[ :type=$type ]}
