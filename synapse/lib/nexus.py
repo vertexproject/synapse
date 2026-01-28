@@ -465,13 +465,13 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Nexusroot is fini, cannot iter()')
 
         maxoffs = offs
 
         async for item in self.nexslog.iter(offs):
             if self.isfini:  # pragma: no cover
-                raise s_exc.IsFini()
+                raise s_exc.IsFini(mesg='Nexusroot is reallllly fini, cannot iter()')
             maxoffs = item[0] + 1
             yield item
 

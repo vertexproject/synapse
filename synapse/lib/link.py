@@ -243,7 +243,7 @@ class Link(s_base.Base):
         Async transmit routine which will wait for writer drain().
         '''
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='link is fini, cannot tx()')
 
         byts = await self.pack(mesg)
         await self.send(byts)

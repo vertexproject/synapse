@@ -356,7 +356,7 @@ class UpLoad(s_base.Base):
             while True:
 
                 if self.isfini:
-                    raise s_exc.IsFini()
+                    raise s_exc.IsFini(mesg='Upload share is fini')
 
                 byts = self.fd.read(CHUNK_SIZE)
                 if not byts:
