@@ -713,19 +713,19 @@ modeldefs = (
                 ('presenters', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
-                ('deck:url', ('inet:url', ()), {
+                ('deck:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
 
-                ('deck:file', ('file:bytes', ()), {
+                ('deck:file', ('file:bytes', {}), {
                     'doc': 'A file containing the presentation materials.'}),
 
-                ('attendee:url', ('inet:url', ()), {
+                ('attendee:url', ('inet:url', {}), {
                     'doc': 'The URL visited by live attendees of the presentation.'}),
 
-                ('recording:url', ('inet:url', ()), {
+                ('recording:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a recording of the presentation.'}),
 
-                ('recording:file', ('file:bytes', ()), {
+                ('recording:file', ('file:bytes', {}), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
             ('ou:meeting', {}, (

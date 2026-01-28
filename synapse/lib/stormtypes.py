@@ -6050,6 +6050,59 @@ class NodeData(Prim):
             self.path.setData(self.valu.nid, name, valu)
 
 @registry.registerType
+class Ndef(Prim):
+    '''
+    A form and value tuple representing a node.
+    '''
+    _storm_locals = (
+        {'name': 'form', 'desc': 'Get the form of the tuple.',
+         'type': {'type': 'str'}},
+        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+         'type': {'type': 'str'}},
+        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
+         'type': {'type': 'function', '_funcname': '_methNdefIsForm',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                  ),
+                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
+
+    )
+    _storm_typename = 'ndef'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def getObjLocals(self):
+        return {
+            'form': self.valu[0],
+            'ndef': self.valu,
+            'isform': self._methNdefIsForm,
+        }
+
+    def value(self):
+        return self.valu[1]
+
+    @stormfunc(readonly=True)
+    async def _methNdefIsForm(self, name):
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        form = self.runt.core.model.reqForm(self.valu[0])
+        for name in names:
+            if name in form.formtypes:
+                return True
+
+        return False
+
+@registry.registerType
 class Node(Prim):
     '''
     Implements the Storm api for a node instance.
@@ -9775,7 +9828,7 @@ def fromprim(valu, path=None, basetypes=True):
 async def tostor(valu, packsafe=False):
 
     if not packsafe:
-        if isinstance(valu, s_node.Node):
+        if isinstance(valu, (s_node.Node, Ndef)):
             return valu
 
         if isinstance(valu, Node):

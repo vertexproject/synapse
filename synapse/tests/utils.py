@@ -292,6 +292,7 @@ testmodel = (
                 'doc': 'A fake type.'}),
 
             ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lowstr', ('str', {'lower': True}), {}),
 
             ('test:time', ('time', {}), {}),
 
@@ -363,7 +364,7 @@ testmodel = (
             ('test:protocol', ('int', {}), {}),
         ),
         'forms': (
-
+            ('test:lowstr', {}, ()),
             ('test:arrayprop', {}, (
                 ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
@@ -460,6 +461,14 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface'), {
+                    'default_forms': ('test:int', 'test:str')}), {}),
+                ('polyarry', ('array', {
+                    'type': 'polyprop',
+                    'typeopts': {
+                        'default_forms': ('test:int', 'test:str'),
+                        'forms': ('test:str', 'test:int', 'test:lowstr'),
+                        'interfaces': ('test:interface',)}}), {}),
             )),
 
             ('test:str2', {}, ()),

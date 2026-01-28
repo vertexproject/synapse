@@ -728,6 +728,11 @@ class Oper(AstNode):
                     yield node
             return
 
+        if isinstance(valu, s_stormtypes.Ndef):
+            if (node := await runt.view.getNodeByNdef(valu.valu)) is not None:
+                yield node
+            return
+
         if isinstance(valu, s_stormtypes.Node):
             valu = valu.valu
             if valu.view.iden != viewiden:
@@ -2937,6 +2942,7 @@ class PropPivotOut(PivotOper):
                 yield node, path
 
             srctype, valu, srcname = await self.kids[0].getTypeValuProp(runt, path, strict=False)
+            print(srctype, valu, srcname)
             if valu is None:
                 # all filters must sleep
                 await asyncio.sleep(0)
@@ -4017,7 +4023,7 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def getTypeValuProp(self, runt, path, strict=True):
+    async def getTypeValuProp(self, runt, path, strict=True, resolvepoly=True):
         if not path:
             return None, None, None
 
@@ -4049,10 +4055,14 @@ class PropValue(Value):
         if (valu := node.get(realprop, virts=getr)) is None:
             return None, None, None
 
+        if resolvepoly and isinstance(ptyp, s_types.PolyProp):
+            ptyp = runt.model.form(valu[0]).type
+            valu = valu[1]
+
         return ptyp, valu, fullname
 
     async def compute(self, runt, path):
-        ptyp, valu, fullname = await self.getTypeValuProp(runt, path)
+        ptyp, valu, fullname = await self.getTypeValuProp(runt, path, resolvepoly=False)
 
         if ptyp:
             valu = await ptyp.tostorm(valu)

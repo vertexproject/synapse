@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 
 PREFIX_CACHE_SIZE = 1000
+TYPESET_CACHE_SIZE = 1000
 CHILDFORM_CACHE_SIZE = 1000
 CHILDPROP_CACHE_SIZE = 1000
 
@@ -268,11 +269,12 @@ class Form:
             mesg = 'Forms may not be array types.'
             raise s_exc.BadFormDef(mesg=mesg, form=self.name)
 
+        # TODO: also ban ival forms?
+
         self.form = self
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
-        self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
 
@@ -300,7 +302,7 @@ class Form:
             modl.core.addRuntLift(name, func)
 
     def implements(self, ifname):
-        return bool(self._full_ifaces.get(ifname))
+        return ifname in self.ifaces
 
     def reqProtoDef(self, name, propname=None):
 
@@ -513,6 +515,7 @@ class Model:
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
+        self.formnames = set()
         self.formprevnames = {}
         self.propprevnames = {}
 
@@ -526,6 +529,8 @@ class Model:
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(set)
         self.edgesbyn2 = collections.defaultdict(set)
+
+        self.typesetcache = s_cache.LruDict(TYPESET_CACHE_SIZE)
 
         self.childforms = collections.defaultdict(list)
         self.childformcache = s_cache.LruDict(CHILDFORM_CACHE_SIZE)
@@ -633,6 +638,17 @@ class Model:
             'doc': 'The node definition type for a (form,valu) compound field.',
         }
         item = s_types.Ndef(self, 'ndef', info, {})
+        self.addBaseType(item)
+
+        info = {
+            'virts': (
+                ('form', ('syn:form', {}), {
+                    'computed': True,
+                    'doc': 'The form of node which is referenced.'}),
+            ),
+            'doc': 'A prop which is also a form.',
+        }
+        item = s_types.PolyProp(self, 'polyprop', info, {})
         self.addBaseType(item)
 
         info = {
@@ -795,6 +811,34 @@ class Model:
             exc = extra(exc)
 
         raise exc
+
+    def getTypeSet(self, forms=None, interfaces=None):
+        key = (forms, interfaces)
+        if (types := self.typesetcache.get(key)) is not None:
+            return types
+
+        types = []
+        thashes = set()
+
+        if forms:
+            for form in forms:
+                for cform in self.getChildForms(form):
+                    ftyp = self.form(cform).type
+                    if ftyp.typehash not in thashes:
+                        types.append(ftyp)
+                        thashes.add(ftyp.typehash)
+
+        if interfaces:
+            for iface in interfaces:
+                for form in self.formsbyiface.get(iface):
+                    ftyp = self.form(form).type
+                    if ftyp.typehash not in thashes:
+                        types.append(ftyp)
+                        thashes.add(ftyp.typehash)
+
+        types = tuple(types)
+        self.typesetcache[key] = types
+        return types
 
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
@@ -996,15 +1040,14 @@ class Model:
                 self.addTagProp(tpname, typedef, tpinfo)
 
         formchildren = collections.defaultdict(list)
-        formnames = set()
         childforms = set()
 
         for _, mdef in mods:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-                formnames.add(formname)
+                self.formnames.add(formname)
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-                if (ftyp := self.types.get(formname)) is not None and ftyp.subof in formnames:
+                if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames:
                     formchildren[ftyp.subof].append((formname, forminfo, propdefs))
                     childforms.add(formname)
 
@@ -1179,6 +1222,8 @@ class Model:
     def addForm(self, formname, forminfo, propdefs, checks=True):
         assert formname not in self.forms, f'{formname} form already present in model'
 
+        self.formnames.add(formname)
+
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
@@ -1267,6 +1312,7 @@ class Model:
         if checks:
             self._checkFormDisplay(form)
 
+        self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
 
@@ -1301,7 +1347,7 @@ class Model:
                                f' but {curf.full} has no property named {partname}.')
                         raise s_exc.BadFormDef(mesg=mesg)
 
-                    if isinstance(prop.type, s_types.Ndef):
+                    if isinstance(prop.type, (s_types.Ndef, s_types.PolyProp)):
                         break
 
                     curf = self.form(prop.type.name)
@@ -1315,6 +1361,8 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             return
+
+        self.formnames.remove(formname)
 
         ifaceprops = set()
         for iface in form.ifaces.values():
@@ -1347,6 +1395,7 @@ class Model:
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
 
+        self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
 
@@ -1400,9 +1449,20 @@ class Model:
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
 
-        _type = self.types.get(tdef[0])
+        (typename, typeinfo) = tdef
+
+        if typename in self.formnames:
+            typename = (typename,)
+
+        if isinstance(typename, tuple):
+            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
+            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+            typename = 'polyprop'
+            tdef = (typename, typeinfo)
+            
+        _type = self.types.get(typename)
         if _type is None:
-            mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
+            mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=name)
 
         virts = []
@@ -1515,8 +1575,6 @@ class Model:
 
         iface = self._reqIface(name)
 
-        form._full_ifaces[name] += 1
-
         if iface.get('deprecated'):
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
@@ -1556,7 +1614,6 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
-        form._full_ifaces[name] -= 1
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):

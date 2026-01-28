@@ -837,3 +837,102 @@ class DataModelTest(s_t_utils.SynTest):
             msgs = await core.stormlist('meta:rule:id :id -> test:str:cves')
             self.stormHasNoWarnErr(msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
+
+    async def test_datamodel_polyprop(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                (test:str=foo :poly={[ test:str=p1 ]})
+                (test:str=bar :poly={[ test:int=3 ]})
+                (test:str=baz :poly={[ test:hasiface=p2 ]})
+                (test:str=faz :poly={[ test:lowstr=p1 ]})
+            ]''')
+
+            nodes = await core.nodes('test:str:poly>2')
+            for n in nodes:
+                print(n)
+
+            nodes = await core.nodes('test:str:poly=3')
+            for n in nodes:
+                print(n)
+
+            nodes = await core.nodes('test:str:poly=p2')
+            for n in nodes:
+                print(n)
+
+            nodes = await core.nodes('test:str:poly=p1')
+            for n in nodes:
+                print(n)
+
+            print('ast')
+            nodes = await core.nodes('test:str:poly^=p')
+            for n in nodes:
+                print(n)
+
+            print('low')
+            nodes = await core.nodes('test:str:poly^=P')
+            for n in nodes:
+                print(n)
+
+#            print('regx')
+#            nodes = await core.nodes('test:str:poly~=P')
+#            for n in nodes:
+#                print(n)
+
+            print('piv')
+            nodes = await core.nodes('test:str:poly^=P :poly -> *')
+            for n in nodes:
+                print(n)
+
+            print('piv2')
+            nodes = await core.nodes('test:str:poly^=P :poly -> test:str')
+            for n in nodes:
+                print(n)
+
+            print('print')
+            nodes = await core.stormlist('test:str:poly^=P $lib.print(:poly)')
+            for n in nodes:
+                if n[0] == 'print':
+                    print(n[1]['mesg'])
+
+            print('print2')
+            nodes = await core.stormlist('test:str:poly^=P $foo=:poly $lib.print($foo.form) $lib.print($foo.ndef) yield $foo')
+            for n in nodes:
+                if n[0] in ('print', 'node'):
+                    print(n[1])
+
+            print('filt')
+            nodes = await core.nodes('test:str:poly^=P +:poly=p2')
+            for n in nodes:
+                print(n)
+
+            print('pivin')
+            nodes = await core.nodes('test:hasiface=p2 <- *')
+            for n in nodes:
+                print(n)
+
+            print('defadd')
+            nodes = await core.nodes('''[
+                (test:str=def1 :poly=p3)
+                (test:str=def2 :poly=4)
+            ]''')
+            for n in nodes:
+                print(n)
+
+            print('ezadd')
+            nodes = await core.nodes('''
+                test:str=bar
+                $valu = :poly
+                [(test:str=ez1 :poly=$valu)]
+            ''')
+            for n in nodes:
+                print(n)
+
+            nodes = await core.nodes('''[
+                (test:str=a1 :polyarry={[ test:str=p10 test:int=5 test:hasiface=p11 test:lowstr=p10 ]})
+                (test:str=a2 :polyarry=(p10, 5, p11, p10))
+            ]''')
+
+            for x in await core.nodes('test:str:polyarry*[=p10]'):
+                print(x)

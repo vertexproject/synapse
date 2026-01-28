@@ -155,6 +155,9 @@ class Type:
     async def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
+    def getStorType(self, valu):
+        return self.stortype
+
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
         lifts = self.storlifts
@@ -675,11 +678,10 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        norminfo = {'adds': adds}
+        realvirts = {}
+        norminfo = {'adds': adds, 'virts': realvirts}
 
         if virts:
-            realvirts = {}
-
             for norm in norms:
                 if (virt := virts.get(norm)) is not None:
                     for vkey, (vval, vtyp) in virt.items():
@@ -687,8 +689,6 @@ class Array(Type):
                             curv[0].append(vval)
                         else:
                             realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
-
-            norminfo['virts'] = realvirts
 
         return tuple(norms), norminfo
 
@@ -2144,6 +2144,172 @@ class Ndef(Type):
 
         repv = form.type.repr(formvalu)
         return (formname, repv)
+
+class PolyProp(Type):
+
+    stortype = s_layer.STOR_TYPE_POLYPROP
+
+    _opt_defs = (
+        ('default_forms', None),    # type: ignore
+        ('forms', None),            # type: ignore
+        ('interfaces', None),       # type: ignore
+    )
+
+    def postTypeInit(self):
+        self.storlifts |= {
+            'form=': self._storLiftForm
+        }
+
+        self.formtype = self.modl.type('syn:form')
+        self.virts |= {
+            'form': (self.formtype, self._getForm),
+        }
+
+        self.virtindx |= {
+            'form': None,
+        }
+
+        self.forms = self.opts.get('forms')
+        self.ifaces = self.opts.get('interfaces')
+
+        if self.forms is not None:
+            forms = set(self.forms)
+
+        if self.ifaces is not None:
+            ifaces = set(self.ifaces)
+
+        def filtfunc(form):
+
+            if self.forms is not None and any(f in forms for f in form.formtypes):
+                return
+
+            if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
+                return
+
+            mesg = f'Value of form {form.name} is not allowed for {self.name}'
+            if self.forms is not None:
+                mesg += f' forms={self.forms}'
+
+            if self.ifaces is not None:
+                mesg += f' interfaces={self.ifaces}'
+
+            raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
+
+        self.formfilter = filtfunc
+
+        self.defaultforms = self.opts.get('default_forms')
+        if self.defaultforms is None:
+            if (self.forms and len(self.forms) == 1 and not self.ifaces):
+                self.defaultforms = self.forms
+        else:
+            for form in self.defaultforms:
+                if form not in self.forms:
+                    mesg = 'Default forms must be all be allowed {self.name}.'
+                    raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
+
+    async def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.form(valu) is None:
+            raise s_exc.NoSuchForm.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
+    def _getForm(self, valu):
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return tuple(v[0] for v in valu)
+
+    def getStorType(self, valu):
+
+        formname = valu[0]
+
+        if (form := self.modl.form(formname)) is None:
+            raise s_exc.NoSuchForm.init(formname)
+
+        return s_layer.STOR_FLAG_POLYPROP | self.modl.form(formname).type.stortype
+
+    async def getStorCmprs(self, cmpr, valu, virts=None):
+
+        cmprs = set()
+        badtype = False
+
+        for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
+            try:
+                cmprs.update(await ntyp.getStorCmprs(cmpr, valu, virts=virts))
+            except s_exc.NoSuchCmpr:
+                pass
+            except s_exc.BadTypeValu:
+                badtype = True
+
+        if not cmprs:
+            if not badtype:
+                mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+                raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+            mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)
+
+        return tuple((cmpr, cval, stortype | s_layer.STOR_FLAG_POLYPROP) for (cmpr, cval, stortype) in cmprs)
+
+    async def norm(self, valu, view=None):
+        vtyp = type(valu)
+
+        if vtyp == s_node.Node:
+            return await self._normStormNode(valu, view=view)
+
+        if vtyp == s_stormtypes.Ndef:
+            return await self._normStormNdef(valu, view=view)
+
+        elif self.defaultforms is not None:
+            for formname in self.defaultforms:
+                form = self.modl.form(formname)
+                if form.locked:
+                    continue
+
+                try:
+                    norm, info = await form.type.norm(valu, view=view)
+                    return (form.name, norm), {'subs': {'form': (self.formtype.typehash, form.name, {})}}
+                except s_exc.BadTypeValu:
+                    continue
+
+        raise s_exc.BadTypeValu(name=self.name, mesg=f'no norm for type: {vtyp}.')
+
+    async def _normStormNode(self, valu, view=None):
+
+        self.formfilter(valu.form)
+
+        if valu.form.locked:
+            formname = valu.form.name
+            raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+
+        return valu.ndef, {'skipadd': True}
+
+    async def _normStormNdef(self, valu, view=None):
+
+        formname = valu.valu[0]
+        form = self.modl.form(formname)
+        self.formfilter(form)
+
+        if form.locked:
+            raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+
+        # TODO: check skipadd behv. check for exist in view, create if necesssary and include info on ndef to shortcut later checks
+        return valu.valu, {'skipadd': True}
+
+    def repr(self, norm):
+        formname, formvalu = norm
+
+        if (form := self.modl.form(formname)) is None:
+            raise s_exc.NoSuchForm.init(formname)
+
+        return form.type.repr(formvalu)
+
+    async def tostorm(self, valu):
+        return s_stormtypes.Ndef(valu)
 
 class Data(Type):
 

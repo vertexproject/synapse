@@ -126,11 +126,15 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_META_SET, (name, valu, self.model.metatypes[name].stortype)))
 
         for name, valu in self.props.items():
-            prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], prop.type.stortype, valu[1])))
+            ptyp = self.form.props.get(name).type
+
+            if (stortype := ptyp.getStorType(valu[0])) == s_layer.STOR_TYPE_POLYARRAY:
+                ptyp = ptyp.arraytype
+                valu[1]['_stortypes'] = tuple(ptyp.getStorType(vval) for vval in valu[0])
+
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], stortype, valu[1])))
 
         for name in self.propdels:
-            prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_DEL, (name,)))
 
         for name in self.proptombs:
@@ -158,11 +162,10 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
 
         for (tag, name), valu in self.tagprops.items():
-            prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], prop.type.stortype, valu[1])))
+            stortype = self.model.getTagProp(name).type.getStorType(valu[0])
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], stortype, valu[1])))
 
         for (tag, name) in self.tagpropdels:
-            prop = self.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
         for (tag, name) in self.tagproptombs:
