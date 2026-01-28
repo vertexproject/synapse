@@ -50,6 +50,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('risk:targetable', {}),
                     ('risk:mitigatable', {}),
+                    ('meta:discoverable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -81,6 +82,7 @@ modeldefs = (
                 'template': {'title': 'threat'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:discoverable', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
                     ('entity:contactable', {}),
@@ -468,10 +470,6 @@ modeldefs = (
 
                 ('exploited', ('bool', {}), {
                     'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
-
-                ('discovered', ('time', {}), {
-                    'prevnames': ('timeline:discovered',),
-                    'doc': 'The earliest known discovery time for the vulnerability.'}),
 
                 ('published', ('time', {}), {
                     'prevnames': ('timeline:published',),

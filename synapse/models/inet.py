@@ -1247,17 +1247,6 @@ async def _onSetFqdnZone(node):
 
                 todo.append(child.ndef[1])
 
-async def _onSetWhoisText(node):
-
-    text = node.get('text')
-    if (fqdn := node.get('fqdn')) is None:
-        return
-
-    for form, valu in s_scrape.scrape(text):
-
-        if form == 'inet:email':
-            await node.view.addNode('inet:whois:email', (fqdn, valu))
-
 modeldefs = (
     ('inet', {
         'ctors': (
@@ -1524,12 +1513,6 @@ modeldefs = (
                 ),
                 'prevnames': ('inet:whois:rec',),
                 'doc': 'An FQDN whois registration record.'}),
-
-            ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'whois email address'}}),
-                ),
-                'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
                 'doc': 'Query details used to retrieve an IP record.'}),
@@ -2666,15 +2649,6 @@ modeldefs = (
 
             )),
 
-            ('inet:whois:email', {}, (
-
-                ('fqdn', ('inet:fqdn', {}), {'computed': True,
-                    'doc': 'The domain with a whois record containing the email address.'}),
-
-                ('email', ('inet:email', {}), {'computed': True,
-                    'doc': 'The email address associated with the domain whois record.'}),
-            )),
-
             ('inet:whois:ipquery', {}, (
 
                 ('time', ('time', {}), {
@@ -3274,7 +3248,6 @@ modeldefs = (
                     ('inet:fqdn:zone', _onSetFqdnZone),
                     ('inet:fqdn:iszone', _onSetFqdnIsZone),
                     ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                    ('inet:whois:record:text', _onSetWhoisText),
                 )
             }
         },

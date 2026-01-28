@@ -278,27 +278,47 @@ modeldefs = (
                 ),
                 'doc': 'A file.'}),
 
-            ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
-                'doc': 'A parent file that fully contains the specified child file.'}),
+            ('file:entry', ('guid', {}), {
+                'template': {'title': 'file entry'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
+                'doc': 'A file entry containing a file and metadata.'}),
 
-            ('file:attachment', ('guid', {}), {
+            ('file:exemplar:entry', ('file:entry', {}), {
+                'doc': 'An exemplar file entry used model behavior.'}),
+
+            ('file:stored:entry', ('file:entry', {}), {
+                'doc': 'A stored file entry.'}),
+
+            ('file:system:entry', ('file:stored:entry', {}), {
+                'doc': 'A file entry contained by a host filesystem.'}),
+
+            # we can now extend types of filesystem entries to capture details!
+            # ('file:system:ext3:entry', ('file:system:entry', {}), {}),
+            # ('file:system:ntfs:entry', ('file:system:entry', {}), {}),
+
+            ('file:subfile:entry', ('file:stored:entry', {}), {
+                'template': {'title': 'subfile entry'},
+                'doc': 'A file entry contained by a parent file.'}),
+
+            ('file:archive:entry', ('file:subfile:entry', {}), {
+                'template': {'title': 'archive file entry'},
+                'doc': 'A file entry contained by an archive file.'}),
+
+            ('file:mime:zip:entry', ('file:archive:entry', {}), {
+                'template': {'title': 'ZIP archive file entry'},
+                'doc': 'A file entry contained by a ZIP archive file.'}),
+
+            ('file:attachment', ('file:entry', {}), {
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
                         {'type': 'prop', 'opts': {'name': 'file'}},
                         {'type': 'prop', 'opts': {'name': 'text'}},
                     ),
                 },
                 'doc': 'A file attachment.'}),
-
-            ('file:archive:entry', ('guid', {}), {
-                'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
-
-            ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'file and path association'}}),
-                ),
-                'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.'}),
 
             ('file:mime', ('str', {'lower': True}), {
                 'ex': 'text/plain',
@@ -574,98 +594,84 @@ modeldefs = (
                     'doc': 'The file extension (if any).'}),
             )),
 
-            ('file:filepath', {}, (
+            ('file:entry', {}, (
 
                 ('file', ('file:bytes', {}), {
-                    'computed': True,
-                    'doc': 'The file seen at a path.'}),
+                    'doc': 'The file contained by the {title}.'}),
 
                 ('path', ('file:path', {}), {
-                    'computed': True,
-                    'doc': 'The path a file was seen at.'}),
+                    'doc': 'The path to the file in the {title}.'}),
+            )),
 
+            ('file:exemplar:entry', {}, ()),
+
+            ('file:stored:entry', {}, (
+                ('added', ('time', {}), {
+                    'doc': 'The time that the file entry was added.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The created time of the file.'}),
+
+                ('modified', ('time', {}), {
+                    'doc': 'The last known modified time of the file.'}),
+
+                ('accessed', ('time', {}), {
+                    'doc': 'The last known accessed time of the file.'}),
+            )),
+
+            ('file:system:entry', {}, (
+
+                ('host', ('it:host', {}), {
+                    'doc': 'The host which contains the filesystem.'}),
+
+                ('owner', ('it:host:account', {}), {
+                    'doc': 'The host account which owns the file.'}),
+
+                ('creator', ('it:host:account', {}), {
+                    'doc': 'The host account which created the file.'}),
+
+                # TODO: volume=<it:host:volume>?
             )),
 
             ('file:attachment', {}, (
 
-                ('name', ('file:path', {}), {
-                    'doc': 'The name of the attached file.'}),
-
-                ('text', ('str', {}), {
-                    'doc': 'Any text associated with the file such as alt-text for images.'}),
-
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file which was attached.'}),
 
-                ('creator', ('syn:user', {}), {
-                    'doc': 'The synapse user who added the attachment.'}),
+                ('path', ('file:path', {}), {
+                    'doc': 'The name of the attached file.'}),
 
-                ('created', ('time', {}), {
-                    'doc': 'The time the attachment was added.'}),
+                ('text', ('text', {}), {
+                    'doc': 'Any text associated with the file such as alt-text for images.'}),
+            )),
+
+            ('file:subfile:entry', {}, (
+
+                ('parent', ('file:bytes', {}), {
+                    'doc': 'The parent file which contains the {title}.'}),
+
+                ('offset', ('int', {'min': 0}), {
+                    'doc': 'The offset to the beginning of the file within the parent file.'}),
             )),
 
             ('file:archive:entry', {}, (
+                ('archived:size', ('int', {'min': 0}), {
+                    'doc': 'The storage size of the file within the archive.'}),
+            )),
 
-                ('parent', ('file:bytes', {}), {
-                    'doc': 'The parent archive file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file contained within the archive.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The file path of the archived file.'}),
-
-                ('user', ('inet:user', {}), {
-                    'doc': 'The name of the user who owns the archived file.'}),
-
-                ('added', ('time', {}), {
-                    'doc': 'The time that the file was added to the archive.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The created time of the archived file.'}),
-
-                ('modified', ('time', {}), {
-                    'doc': 'The modified time of the archived file.'}),
+            ('file:mime:zip:entry', {}, (
 
                 ('comment', ('str', {}), {
-                    'doc': 'The comment field for the file entry within the archive.'}),
+                    'doc': 'The comment field from the CDFH in the ZIP archive.'}),
 
-                ('posix:uid', ('int', {}), {
-                    'doc': 'The POSIX UID of the user who owns the archived file.'}),
+                ('extra:posix:uid', ('int', {}), {
+                    'doc': 'A POSIX UID extracted from a ZIP Extra Field.'}),
 
-                ('posix:gid', ('int', {}), {
-                    'doc': 'The POSIX GID of the group who owns the archived file.'}),
-
-                ('posix:perms', ('int', {}), {
-                    'doc': 'The POSIX permissions mask of the archived file.'}),
-
-                ('archived:size', ('int', {}), {
-                    'doc': 'The encoded or compressed size of the archived file within the parent.'}),
+                ('extra:posix:gid', ('int', {}), {
+                    'doc': 'A POSIX GID extracted from a ZIP Extra Field.'}),
             )),
 
-            ('file:subfile', {}, (
-                ('parent', ('file:bytes', {}), {
-                    'computed': True,
-                    'doc': 'The parent file containing the child file.'}),
-
-                ('child', ('file:bytes', {}), {
-                    'computed': True,
-                    'doc': 'The child file contained in the parent file.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path that the parent uses to refer to the child file.'}),
-            )),
-
-            ('file:path', {}, (
-                ('dir', ('file:path', {}), {'computed': True,
-                    'doc': 'The parent directory.'}),
-
-                ('base', ('file:base', {}), {'computed': True,
-                    'doc': 'The file base name.'}),
-
-                ('base:ext', ('str', {}), {'computed': True,
-                    'doc': 'The file extension.'}),
-            )),
+            ('file:path', {}, ()),
 
             ('file:mime:macho:loadcmd', {}, ()),
             ('file:mime:macho:version', {}, (

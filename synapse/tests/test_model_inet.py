@@ -382,7 +382,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:txcount=33
                     :server:txbytes=2
                     :server:handshake="OHai!"
-                    :server:txfiles={[ file:attachment=* :name=bar.exe ]}
+                    :server:txfiles={[ file:attachment=* :path=bar.exe ]}
                     :server:softnames=(FooBar, bazfaz)
                     :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -392,7 +392,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :client:txcount=30
                     :client:txbytes=1
                     :client:handshake="Hello There"
-                    :client:txfiles={[ file:attachment=* :name=foo.exe ]}
+                    :client:txfiles={[ file:attachment=* :path=foo.exe ]}
                     :client:softnames=(HeHe, haha)
                     :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -432,8 +432,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:flow :client:proc -> it:exec:proc'))
             self.len(1, await core.nodes('inet:flow :server:proc -> it:exec:proc'))
 
-            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:name=foo.exe'))
-            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:name=bar.exe'))
+            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:path=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:path=bar.exe'))
 
             self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
             self.len(1, await core.nodes('inet:flow :sandbox:file -> file:bytes'))
@@ -2364,10 +2364,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
             self.nn(node.get('seen'))
-
-            nodes = await core.nodes('inet:whois:email')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
             with self.getLoggerStream('synapse.datamodel') as stream:
                 nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
