@@ -3878,6 +3878,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
+    # Epiphyte - service to aha:service or servicename?
     def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
@@ -3890,13 +3891,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         extra = s_logging.getLogExtra(**kwargs)
         if self.ahasvcname:
-            extra['loginfo']['service'] = self.ahasvcname
+            # extra['loginfo']['service'] = self.ahasvcname
+            extra['loginfo']['aha:service'] = self.ahasvcname
+            extra['loginfo']['aha_service'] = self.ahasvcname
         return extra
 
     def getLogConf(self):
         logconf = s_logging.getLogConf()
         if self.ahasvcname is not None:
-            logconf['loginfo']['service'] = self.ahasvcname
+            # logconf['loginfo']['service'] = self.ahasvcname
+            logconf['loginfo']['aha:service'] = self.ahasvcname
+            logconf['loginfo']['aha_service'] = self.ahasvcname
         return logconf
 
     def modCellConf(self, conf):
