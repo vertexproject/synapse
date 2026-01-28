@@ -430,6 +430,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :host=$host
                         :user=visi
                         :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :period=(2024, *)
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
@@ -444,6 +445,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq('visi', nodes[0].get('user'))
             self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('period'), (1704067200000000, 9223372036854775806, 18446744073709551614))
             # FIXME :domain
             # self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('contact'))
@@ -808,7 +810,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             [( it:cmd:session=(202405170900, 202405171000, bash, $host)
                 :host=$host
                 :period=(202405170900, 202405171000)
-                :host:account={ it:host:account | limit 1 }
+                :account={ it:host:account | limit 1 }
             )]
             '''
             nodes = await core.nodes(q)
@@ -818,7 +820,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.eq(nodes[1].get('host'), hostguid)
             self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000, 3600000000))
-            self.nn(nodes[1].get('host:account'))
+            self.nn(nodes[1].get('account'))
 
             cmdsess = nodes[1]
 
@@ -1055,11 +1057,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'group': 'domainadmin'
             }
             nodes = await core.nodes('''[
-                it:host:filepath=*
+                file:system:entry=*
                     :host={ it:host | limit 1 }
                     :path=c:/temp/yourfiles.rar
                     :file=*
-                    :group={[ it:host:group=({"name": "domainadmin"}) ]}
+                    :added=20200202
                     :created=20200202
                     :modified=20200203
                     :accessed=20200204
@@ -1068,16 +1070,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.nn(node.get('host'))
             self.nn(node.get('file'))
-            self.nn(node.get('group'))
 
+            self.eq(node.get('added'), 1580601600000000)
             self.eq(node.get('created'), 1580601600000000)
             self.eq(node.get('modified'), 1580688000000000)
             self.eq(node.get('accessed'), 1580774400000000)
             self.eq(node.get('path'), 'c:/temp/yourfiles.rar')
 
-            self.len(1, await core.nodes('it:host:filepath:path.dir=c:/temp'))
-            self.len(1, await core.nodes('it:host:filepath:path.base=yourfiles.rar'))
-            self.len(1, await core.nodes('it:host:filepath:path.ext=rar'))
+            self.len(1, await core.nodes('file:system:entry:path.dir=c:/temp'))
+            self.len(1, await core.nodes('file:system:entry:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('file:system:entry:path.ext=rar'))
 
             rprops = {
                 'host': host,
@@ -1109,7 +1111,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             forms = [
-                'it:host:filepath',
+                'file:system:entry',
                 'it:exec:file:add',
                 'it:exec:file:del',
                 'it:exec:file:read',
@@ -1919,3 +1921,58 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
             self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
+
+            nodes = await core.nodes('''[
+                it:os:windows:registry:entry=*
+                    :key=foo/bar/baz
+                    :name=faz
+                    :value={[ it:dev:int=0xf0 ]}
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('key'), 'foo/bar/baz')
+            self.eq(nodes[0].get('name'), 'faz')
+            self.eq(nodes[0].get('value'), ('it:dev:int', 0xf0))
+            self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
+
+    async def test_infotech_mitre(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ it:mitre:attack:group:id=G0100 ]')
+            self.len(1, nodes)
+            self.eq('G0100', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=G0100'))
+
+            nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
+            self.len(1, nodes)
+            self.eq('TA0040', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=TA0040'))
+
+            nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
+            self.len(1, nodes)
+            self.eq('T1548.123', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=T1548.123'))
+
+            nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
+            self.len(1, nodes)
+            self.eq('M1036', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=M1036'))
+
+            nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
+            self.len(1, nodes)
+            self.eq('S0154', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=S0154'))
+
+            nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
+            self.len(1, nodes)
+            self.eq('C0028', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
+            self.len(1, await core.nodes('meta:id=C0028'))

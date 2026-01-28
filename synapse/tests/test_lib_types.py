@@ -647,18 +647,6 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('sha256'), opts['vars']['sha256'])
 
-            opts = {'vars': {
-                        'phash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d86',
-                        'chash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d87'
-            }}
-            nodes = await core.nodes('''[ file:subfile=(({"sha256": $phash}), ({"sha256": $chash})) ]''', opts=opts)
-            self.len(1, nodes)
-
-            nodes = await core.nodes('file:subfile -> file:bytes')
-            self.len(2, nodes)
-            for node in nodes:
-                self.nn(node.get('sha256'))
-
             nodes = await core.nodes('$chan = {[inet:service:channel=*]} [ inet:service:rule=({"id":"foo", "object": $chan}) ]')
             self.len(1, nodes)
             node = nodes[0]

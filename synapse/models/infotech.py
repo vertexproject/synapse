@@ -719,6 +719,36 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
+            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Group ID.',
+                'ex': 'G0100',
+            }),
+
+            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Tactic ID.',
+                'ex': 'TA0040',
+            }),
+
+            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+                'doc': 'A MITRE ATT&CK Technique ID.',
+                'ex': 'T1548',
+            }),
+
+            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Mitigation ID.',
+                'ex': 'M1036',
+            }),
+
+            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Software ID.',
+                'ex': 'S0154',
+            }),
+
+            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Campaign ID.',
+                'ex': 'C0028',
+            }),
+
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'string'}}),
@@ -808,6 +838,7 @@ modeldefs = (
                 'prevnames': ('it:prod:soft', 'it:prod:softver'),
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
                 'doc': 'A software product.'}),
@@ -962,10 +993,6 @@ modeldefs = (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
-
-             ('it:host:filepath', ('guid', {}), {
-                'prevnames': ('it:fs:file',),
-                 'doc': 'A file on a host.'}),
 
             ('it:exec:file:add', ('guid', {}), {
                 'interfaces': (
@@ -1156,8 +1183,8 @@ modeldefs = (
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
+            (('it:software', 'creates', 'file:exemplar:entry'), {
+                'doc': 'The software creates the file entry.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
                 'doc': 'The software creates the Microsoft Windows registry entry.'}),
@@ -1382,6 +1409,9 @@ modeldefs = (
 
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period where the account existed.'}),
 
                 ('contact', ('entity:contact', {}), {
                     'doc': 'Additional contact information associated with this account.'}),
@@ -1658,6 +1688,13 @@ modeldefs = (
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
 
+            ('it:mitre:attack:group:id', {}, ()),
+            ('it:mitre:attack:tactic:id', {}, ()),
+            ('it:mitre:attack:technique:id', {}, ()),
+            ('it:mitre:attack:mitigation:id', {}, ()),
+            ('it:mitre:attack:software:id', {}, ()),
+            ('it:mitre:attack:campaign:id', {}, ()),
+
             ('it:dev:int', {}, ()),
             ('it:os:windows:registry:key', {}, (
                 ('parent', ('it:os:windows:registry:key', {}), {
@@ -1671,7 +1708,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', ('str', {}), {
+                ('value', ('ndef', {'forms': ('file:bytes', 'it:dev:int', 'it:dev:str')}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),
@@ -2058,8 +2095,8 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('host:account', ('it:host:account', {}), {
-                    'doc': 'The host account which executed the commands in the session.'}),
+                ('account', ('ndef', {'forms': ('it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
 
@@ -2361,35 +2398,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:host:filepath', {}, (
 
-                ('host', ('it:host', {}), {
-                    'doc': 'The host containing the file.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path for the file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file on the host.'}),
-
-                ('created', ('time', {}), {
-                    'prevnames': ('ctime',),
-                    'doc': 'The file creation time.'}),
-
-                ('modified', ('time', {}), {
-                    'prevnames': ('mtime',),
-                    'doc': 'The file modification time.'}),
-
-                ('accessed', ('time', {}), {
-                    'prevnames': ('atime',),
-                    'doc': 'The file access time.'}),
-
-                ('user', ('it:host:account', {}), {
-                    'doc': 'The owner of the file.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group owner of the file.'}),
-            )),
             ('it:exec:file:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
