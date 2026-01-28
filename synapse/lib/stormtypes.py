@@ -4236,7 +4236,7 @@ class LibTelepath(Lib):
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
+         'desc': 'Controls the ability to open a telepath URL. USE WITH CAUTION.'},
     )
 
     def getObjLocals(self):
