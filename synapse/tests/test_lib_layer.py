@@ -2858,12 +2858,16 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path00) as core00:
 
-                    await asyncio.wait_for(task, timeout=30)
+                    await asyncio.wait_for(task, timeout=6)
 
                     await core01.sync()
 
                     evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
                     self.eq(['view:del', 'layer:del', 'sync'], evnts)
+
+                await core00.waitfini()
+
+            await core01.waitfini()
 
     async def test_layer_migrate_props_fork(self):
 
