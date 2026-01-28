@@ -255,6 +255,13 @@ EDIT_META_SET = 24           # (<etyp>, (<prop>, <valu>, <type>))
 
 EDIT_PROGRESS = 100   # (used by syncNodeEdits) (<etyp>, ())
 
+EDIT_NODE = {EDIT_NODE_ADD, EDIT_NODE_DEL, EDIT_NODE_TOMB, EDIT_NODE_TOMB_DEL}
+EDIT_PROP = {EDIT_PROP_SET, EDIT_PROP_DEL, EDIT_PROP_TOMB, EDIT_PROP_TOMB_DEL}
+EDIT_TAG = {EDIT_TAG_SET, EDIT_TAG_DEL, EDIT_TAG_TOMB, EDIT_TAG_TOMB_DEL}
+EDIT_TAGPROP = {EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL, EDIT_TAGPROP_TOMB, EDIT_TAGPROP_TOMB_DEL}
+EDIT_EDGE = {EDIT_EDGE_ADD, EDIT_EDGE_DEL, EDIT_EDGE_TOMB, EDIT_EDGE_TOMB_DEL}
+EDIT_NODEDATA = {EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_NODEDATA_TOMB, EDIT_NODEDATA_TOMB_DEL}
+
 INDX_PROP = b'\x00\x00'
 INDX_TAGPROP = b'\x00\x01'
 
@@ -5831,54 +5838,8 @@ class Layer(s_nexus.Pusher):
         return collections.defaultdict(dict)
 
     async def syncNodeEdits(self, offs, wait=True, compat=False, withmeta=False):
-
-        layriden = self.iden
-
-        async def getNexusEdits(strt):
-            async for nexsoffs, item in self.core.getNexusChanges(strt, wait=False):
-                if item[0] != layriden or item[1] != 'edits':
-                    continue
-
-                edits = item[2][0]
-                if compat:
-                    edits = await self.core.localToRemoteEdits(edits)
-
-                if withmeta:
-                    yield (nexsoffs, edits, item[2][1])
-                else:
-                    yield (nexsoffs, edits)
-
-        lastoffs = -1
-        async for item in getNexusEdits(offs):
-            lastoffs = item[0]
+        async for item in self.core.syncLayerNodeEdits(self, offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
-
-        if not wait:
-            return
-
-        async with self.getNodeEditWindow() as wind:
-
-            # Ensure we are caught up after grabbing a window
-            sync = True
-            maxoffs = max(offs, lastoffs + 1)
-
-            async for item in getNexusEdits(maxoffs):
-                maxoffs = item[0]
-                yield item
-
-            async for editoffs, edits, meta in wind:
-                if sync:
-                    if editoffs <= maxoffs:
-                        continue
-                    sync = False
-
-                if compat:
-                    edits = await self.core.localToRemoteEdits(edits)
-
-                if withmeta:
-                    yield (editoffs, edits, meta)
-                else:
-                    yield (editoffs, edits)
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
