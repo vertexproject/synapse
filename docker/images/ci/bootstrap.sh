@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 apt-get update
 
 # Install services that CircleCI requires in order to run.
