@@ -835,13 +835,13 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
-                'prevnames': ('it:prod:soft', 'it:prod:softver'),
+                'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
                 'interfaces': (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
-                'doc': 'A software product.'}),
+                'doc': 'A software product or tool.'}),
 
             ('it:softwarename', ('base:name', {}), {
                 'prevnames': ('it:prod:softname',),
@@ -2019,6 +2019,9 @@ modeldefs = (
 
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
+
+                ('risk:score', ('meta:priority', {}), {
+                    'doc': 'The risk posed by the software.'}),
 
             )),
 
