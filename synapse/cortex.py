@@ -5513,7 +5513,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         A simple non-streaming way to return a list of nodes.
         '''
         if self.isfini:  # pragma: no cover
-            raise s_exc.IsFini(mesg='Cortex is fini, cannot call nodes() helper.')
+            raise s_exc.IsFini()
 
         opts = self._initStormOpts(opts)
 

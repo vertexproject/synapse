@@ -1034,7 +1034,7 @@ class ClientV2(s_base.Base):
                 await self.ready.wait()
 
                 if self.isfini:  # pragma: no cover
-                    raise s_exc.IsFini(mesg='ClientV2 is fini, cannot obtain a proxy.')
+                    raise s_exc.IsFini()
 
                 if not self.deque:
                     self.deque.extend(self.proxies)

@@ -2278,7 +2278,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             This will re-fire the coroutine if it exits and the Cell is still active.
         '''
         if base and base.isfini:
-            raise s_exc.IsFini(mesg=f'Cannot add a activecoro to a fini base {base=}')
+            raise s_exc.IsFini()
 
         if iden is None:
             iden = s_common.guid()

@@ -1063,7 +1063,7 @@ class Slab(s_base.Base):
 
     def _acqXactForReading(self):
         if self.isfini:  # pragma: no cover
-            raise s_exc.IsFini(mesg=f'slab is fini, cannot acquire xact {self.path}')
+            raise s_exc.IsFini()
         if not self.readonly:
             return self.xact
         if not self.txnrefcount:
@@ -1848,7 +1848,7 @@ class Scan:
                 if self.bumped:
 
                     if self.slab.isfini:
-                        raise s_exc.IsFini(mesg='slab is fini, cannot call scan.iternext()')
+                        raise s_exc.IsFini()
 
                     self.bumped = False
 
