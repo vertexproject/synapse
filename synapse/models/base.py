@@ -454,7 +454,7 @@ modeldefs = (
                     'doc': 'The analyst authored note text.'}),
 
                 ('creator', ('entity:actor', {}), {
-                    'doc': 'The actor user who authored the note.'}),
+                    'doc': 'The actor who authored the note.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The time the note was created.'}),
