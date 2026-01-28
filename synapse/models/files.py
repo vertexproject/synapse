@@ -413,26 +413,17 @@ modeldefs = (
 
             ('file:mime:macho:loadcmd', ('guid', {}), {
                 'interfaces': (
-                    ('file:mime:macho:loadcmd', {}),
+                    ('file:mime:meta', {}),
                 ),
                 'doc': 'A generic load command pulled from the Mach-O headers.'}),
 
-            ('file:mime:macho:version', ('guid', {}), {
-                'interfaces': (
-                    ('file:mime:macho:loadcmd', {}),
-                ),
+            ('file:mime:macho:version', ('file:mime:macho:loadcmd', {}), {
                 'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.'}),
 
-            ('file:mime:macho:uuid', ('guid', {}), {
-                'interfaces': (
-                    ('file:mime:macho:loadcmd', {}),
-                ),
+            ('file:mime:macho:uuid', ('file:mime:macho:loadcmd', {}), {
                 'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.'}),
 
-            ('file:mime:macho:segment', ('guid', {}), {
-                'interfaces': (
-                    ('file:mime:macho:loadcmd', {}),
-                ),
+            ('file:mime:macho:segment', ('file:mime:macho:loadcmd', {}), {
                 'doc': 'A named region of bytes inside a Mach-O binary.'}),
 
             ('file:mime:macho:section', ('guid', {}), {
@@ -664,7 +655,11 @@ modeldefs = (
 
             ('file:path', {}, ()),
 
-            ('file:mime:macho:loadcmd', {}, ()),
+            ('file:mime:macho:loadcmd', {}, (
+                ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                    'doc': 'The type of the load command.'}),
+            )),
+
             ('file:mime:macho:version', {}, (
                 ('version', ('str', {}), {
                     'doc': 'The version of the Mach-O file encoded in an LC_VERSION load command.'}),
