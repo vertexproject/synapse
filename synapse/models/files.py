@@ -252,16 +252,6 @@ modeldefs = (
                     ('file:mime:meta', {}),
                 ),
             }),
-            ('file:mime:macho:loadcmd', {
-                'interfaces': (
-                    ('file:mime:meta', {}),
-                ),
-                'props': (
-                    ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
-                        'doc': 'The type of the load command.'}),
-                ),
-                'doc': 'Properties common to all Mach-O load commands.',
-            })
         ),
 
         'types': (
