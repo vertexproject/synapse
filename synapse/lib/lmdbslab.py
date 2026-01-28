@@ -1063,7 +1063,7 @@ class Slab(s_base.Base):
 
     def _acqXactForReading(self):
         if self.isfini:  # pragma: no cover
-            raise s_exc.IsFini(mesg='slab is fini, cannot acquire xact')
+            raise s_exc.IsFini(mesg=f'slab is fini, cannot acquire xact {self.path}')
         if not self.readonly:
             return self.xact
         if not self.txnrefcount:
