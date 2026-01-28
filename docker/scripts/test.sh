@@ -29,11 +29,11 @@ docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.
 dstatus00=$?
 if [ $dstatus00 != "0" ]; then exit 1; fi
 
-docker run --rm -it --entrypoint /usr/bin/xvfb-run vertexproject/synapse-ci:${TAG} --help
+docker run --rm -it --entrypoint /usr/bin/git vertexproject/synapse-ci:${TAG} --help
 dstatus01=$?
 if [ $dstatus01 != "0" ]; then exit 1; fi
 
-docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
+docker run --rm -it --entrypoint /usr/bin/xvfb-run vertexproject/synapse-ci:${TAG}-browsers --help
 dstatus02=$?
 if [ $dstatus02 != "0" ]; then exit 1; fi
 
