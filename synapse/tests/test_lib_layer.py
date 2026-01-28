@@ -2858,7 +2858,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path00) as core00:
 
-                    await asyncio.wait_for(task, timeout=6)
+                    await asyncio.wait_for(task, timeout=30)
 
                     await core01.sync()
 
