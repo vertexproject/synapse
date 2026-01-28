@@ -4843,7 +4843,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': nxfo['indx'],  # TODO: Remove in 3.x.x
-                'uplink': nxfo['uplink'],  # TODO: Remove in 3.x.x
+                'uplink': nxfo['uplink:ready'],  # TODO: Remove in 3.x.x
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),

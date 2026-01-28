@@ -924,7 +924,7 @@ class CellTest(s_t_utils.SynTest):
                 self.none(cnfo.get('mirror', True))
                 # Nexus info
                 self.ge(nxfo.get('indx'), 0)
-                self.false(nxfo.get('uplink'))
+                self.false(nxfo.get('uplink:ready'))
                 self.true(nxfo.get('ready'))
                 self.false(nxfo.get('readonly'))
                 self.eq(nxfo.get('holds'), [])
@@ -987,7 +987,7 @@ class CellTest(s_t_utils.SynTest):
                 self.false(cnfo0['cell']['uplink'])
                 self.none(cnfo0['cell']['mirror'])
                 self.eq(cnfo0['cell']['version'], (1, 2, 3))
-                self.false(nxfo0.get('uplink'))
+                self.false(nxfo0.get('uplink:ready'))
                 self.true(nxfo0.get('ready'))
 
                 self.true(cnfo1['cell']['ready'])
@@ -995,7 +995,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
                 self.eq(cnfo1['cell']['version'], (1, 2, 3))
 
-                self.true(nxfo1.get('uplink'))
+                self.true(nxfo1.get('uplink:ready'))
                 self.true(nxfo1.get('ready'))
 
                 self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
