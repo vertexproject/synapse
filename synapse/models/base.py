@@ -1,12 +1,4 @@
-sophenums = (
-    (10, 'very low'),
-    (20, 'low'),
-    (30, 'medium'),
-    (40, 'high'),
-    (50, 'very high'),
-)
-
-prioenums = (
+scoreenums = (
     (0, 'none'),
     (10, 'lowest'),
     (20, 'low'),
@@ -119,17 +111,20 @@ modeldefs = (
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
-            ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
+            ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
+                'doc': 'A generic score enumeration.'}),
+
+            ('meta:activity', ('meta:score', {}), {
                 'doc': 'A generic activity level enumeration.'}),
 
-            ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
+            ('meta:priority', ('meta:score', {}), {
                 'doc': 'A generic priority enumeration.'}),
 
-            ('meta:severity', ('int', {'enums': prioenums, 'enums:strict': False}), {
+            ('meta:severity', ('meta:score', {}), {
                 'doc': 'A generic severity enumeration.'}),
 
-            ('meta:sophistication', ('int', {'enums': sophenums}), {
-                'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
+            ('meta:sophistication', ('meta:score', {}), {
+                'doc': 'A generic sophistication enumeration.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
