@@ -4765,9 +4765,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Ensure each ctor's permdefs are valid
             for pdef in ctor._storm_lib_perms:
                 s_schemas.reqValidPermDef(pdef)
-            # Skip libbase which is registered as a default ctor in the storm Runtime
-            if path:
-                self.addStormLib(path, ctor)
+
+            self.addStormLib(path, ctor)
 
     def _initFeedFuncs(self):
         '''
@@ -6018,6 +6017,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def addStormLib(self, path, ctor):
 
         self.stormlibs.append((path, ctor))
+
+        # Skip libbase which is registered as a default ctor in the storm Runtime
+        if not path:
+            return
 
         root = self.libroot
         # (name, {kids}, {funcs})
