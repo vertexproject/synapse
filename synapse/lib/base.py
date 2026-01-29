@@ -597,10 +597,9 @@ class Base:
         '''
         await self.addSignalHandlers()
         await self.waitfini()
-        # TODO Fix this deferred import?
-        import synapse.lib.logging as s_logging
         # Reset logging to stop the pump task so we're not awaiting
         # it when shutting down a service.
+        import synapse.lib.logging as s_logging
         await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout)
 
