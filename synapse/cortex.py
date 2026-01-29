@@ -1429,13 +1429,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to remove Layers from the cortex.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
-            {'perm': ('layer', 'read', '<iden>'), 'gate': 'cortex',
+            {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to read/lift from a specific Layer.'},
-            {'perm': ('layer', 'set', '<name>'), 'gate': 'layer',
-             'desc': 'Controls the ability to configure properties of a Layer.'},
+
+            {'perm': ('layer', 'set', 'name'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer name.'},
+            {'perm': ('layer', 'set', 'desc'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer description.'},
+            {'perm': ('layer', 'set', 'readonly'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer readonly.'},
+
             {'perm': ('layer', 'write'), 'gate': 'layer',
              'desc': 'Controls the ability to write to a Layer.'},
-            {'perm': ('layer', 'write', '<iden>'), 'gate': 'cortex',
+            {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to write to a specific Layer.'},
 
             {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
@@ -1516,10 +1522,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
              'desc': 'Controls removing any tag on any node in a layer.'},
 
-            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+            {'perm': ('node', 'tag', 'add', '<tag>'), 'gate': 'layer',
              'ex': 'node.tag.add.cno.mal.redtree',
              'desc': 'Controls adding a specific tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+            {'perm': ('node', 'tag', 'del', '<tag>'), 'gate': 'layer',
              'ex': 'node.tag.del.cno.mal.redtree',
              'desc': 'Controls removing a specific tag on any node in a layer.'},
 
@@ -1546,12 +1552,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('node', 'data', 'set'), 'gate': 'layer',
              'desc': 'Permits a user to set node data in a given layer.'},
-            {'perm': ('node', 'data', 'set', '<key>'), 'gate': 'layer',
+            {'perm': ('node', 'data', 'set', '<varname>'), 'gate': 'layer',
               'ex': 'node.data.set.hehe',
              'desc': 'Permits a user to set node data in a given layer for a specific key.'},
             {'perm': ('node', 'data', 'pop'), 'gate': 'layer',
              'desc': 'Permits a user to remove node data in a given layer.'},
-            {'perm': ('node', 'data', 'pop', '<key>'), 'gate': 'layer',
+            {'perm': ('node', 'data', 'pop', '<varname>'), 'gate': 'layer',
              'ex': 'node.data.pop.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
@@ -1594,9 +1600,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to fork a view.'},
             {'perm': ('view', 'read'), 'gate': 'view',
              'desc': 'Controls read access to view.'},
-            {'perm': ('view', 'set', '<setting>'), 'gate': 'view',
-             'desc': 'Controls access to change view settings.',
-             'ex': 'view.set.name'},
+
+            {'perm': ('view', 'set', 'name'), 'gate': 'view',
+             'desc': 'Controls access to set a view name.'},
+            {'perm': ('view', 'set', 'desc'), 'gate': 'view',
+             'desc': 'Controls access to set a view description.'},
+            {'perm': ('view', 'set', 'quorum'), 'gate': 'view',
+             'desc': 'Controls access to set a view quorum status.'},
+            {'perm': ('view', 'set', 'parent'), 'gate': 'view',
+             'desc': 'Controls access to set a view parent view.'},
+            {'perm': ('view', 'set', 'protected'), 'gate': 'view',
+             'desc': 'Controls access to set a view protected status.'},
         ))
         for pdef in self._cortex_permdefs:
             s_schemas.reqValidPermDef(pdef)
