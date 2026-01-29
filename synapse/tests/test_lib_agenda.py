@@ -1661,6 +1661,26 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(appt.recs[0].reqdict[s_tu.HOUR], 14)
             self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 0)
 
+            # modify period for weekly (uses default day of the week)
+            msgs = await core.stormlist('cron.mod $guid --period weekly', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '$lib.print(both)')
+            incvals = [rec[2] for rec in cron['recs']]
+            self.eq(cron['recs'][0][1], 'dayofweek')
+            self.eq(set(incvals), {0})
+
+            # modify period for monthly at 10:00 (uses default day of month)
+            msgs = await core.stormlist('cron.mod $guid --period monthly@10:00', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '$lib.print(both)')
+            incvals = [rec[2] for rec in cron['recs']]
+            self.eq(cron['recs'][0][1], 'month')
+            self.eq(set(incvals), {1})
+
             # sad
 
             # modify non-existent cron job
