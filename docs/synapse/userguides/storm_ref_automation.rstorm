@@ -364,11 +364,11 @@ The output of ``cron.list`` includes the following columns:
 You want to create a cron job that will run every hour to download the latest MISP data using the ``misp.sync`` command.
 
 .. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'misp.sync', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: cron.add --hour +1 { misp.sync }
+.. storm-pre:: cron.add --period hourly { misp.sync }
 
 ::
   
-  cron.add --hour +1 { misp.sync }
+  cron.add --period hourly { misp.sync }
 
 .. TIP::
   
@@ -382,10 +382,10 @@ that make DNS queries (``inet:dns:request``) for "known bad" FQDNs (e.g., tagged
 have not yet been tagged. You want to run the job three times a week (every Tuesday, Thursday, and Saturday at
 2000 UTC) and tag the files for review (``#int.review.malware``).
 
-.. storm-pre:: cron.add --day Tue,Thu,Sat --hour 20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
+.. storm-pre:: cron.add --period weekly/tue,thu,sat@20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 ::
   
-  cron.add --day Tue,Thu,Sat --hour 20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
+  cron.add --period weekly/tue,thu,sat@20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 
 
 .. _auto-triggers:
