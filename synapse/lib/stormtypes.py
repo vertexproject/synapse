@@ -9943,7 +9943,7 @@ class LibCron(Lib):
 
         else:
             if any(kwargs.get(k) for k in ('year', 'month', 'day', 'hour', 'minute', 'hourly', 'daily', 'monthly', 'yearly')):
-                 raise s_exc.StormRuntimeError(mesg='Cannot mix --period with legacy time arguments', kwargs=kwargs)
+                raise s_exc.StormRuntimeError(mesg='Cannot mix --period with legacy time arguments', kwargs=kwargs)
 
             try:
                 reqdict, incunit, incval = self._parsePeriod(period)
