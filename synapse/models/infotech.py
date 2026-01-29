@@ -2020,7 +2020,7 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
 
-                ('risk:score', ('meta:priority', {}), {
+                ('risk:score', ('meta:score', {}), {
                     'doc': 'The risk posed by the software.'}),
 
             )),
