@@ -331,8 +331,8 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormNotInPrint('node.add.<form>', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find url')
-            self.stormIsInPrint('storm.lib.telepath.open.<scheme>', msgs)
-            self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
+            self.stormIsInPrint('storm.lib.telepath.open', msgs)
+            self.stormIsInPrint('Controls the ability to open a telepath URL.', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
     async def test_stormlib_auth_default_allow(self):
