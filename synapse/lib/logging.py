@@ -7,13 +7,11 @@ import traceback
 import collections
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
-import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
