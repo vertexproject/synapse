@@ -13,10 +13,10 @@ def woot(x, y=30):
 
 class DynDepsTest(s_t_utils.SynTest):
 
-    def test_dyndeps_dynmod(self):
-        with self.getLoggerStream('synapse.lib.dyndeps', 'Failed to import "- -"') as stream:
+    async def test_dyndeps_dynmod(self):
+        with self.getLoggerStream('synapse.lib.dyndeps') as stream:
             self.none(s_dyndeps.getDynMod('- -'))
-            self.true(stream.wait(1))
+            await stream.expect('Failed to import \\"- -\\"', timeout=1)
         self.nn(s_dyndeps.getDynMod('sys'))
 
     def test_dyndeps_dynloc(self):
