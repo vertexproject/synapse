@@ -687,7 +687,7 @@ class AgendaTest(s_t_utils.SynTest):
             lowuser = lowuser.get('iden')
 
             msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
-            self.stormHasNoWarnErr(msgs)
+            self.stormHasNoErr(msgs) # --hourly is deprecated, but should not be an error
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.false(cdef['pool'])
@@ -729,7 +729,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             q = '$lib.log.info(`I am a cron job run by {$lib.user.name()} in {$lib.view.get().iden}`)'
             msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
-            self.stormHasNoWarnErr(msgs)
+            self.stormHasNoErr(msgs) # --minute is deprecated, but should not be an error
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $user)) }',
                                         opts={'vars': {'user': user}})
@@ -1380,3 +1380,309 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.len(0, core00.agenda.apptheap)
                 self.len(0, core01.agenda.apptheap)
+
+    async def test_agenda_period_mod_api(self):
+
+        async with self.getTestCore() as core:
+            agenda = core.agenda
+
+            cdef = {'creator': core.auth.rootuser.iden,
+                    'storm': '$lib.print(valid)',
+                    'reqs': {'hour': 9, 'minute': 0},
+                    'incunit': 'day',
+                    'incvals': 1}
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+
+            # modify query only
+            await core.updateCronJob(guid, '#modified')
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '#modified')
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'day')
+
+            # modify period only (fixed time)
+            await core.updateCronJob(guid, reqs={'minute': 30},
+                                  incunit='hour', incvals=2)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '#modified')
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'hour')
+            self.eq(incval, 2)
+            appt = agenda.appts[guid]
+            self.notin(s_tu.HOUR, appt.recs[0].reqdict)
+            self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 30)
+
+            # modify period only (no fixed time)
+            await core.updateCronJob(guid, incunit='hour', incvals=1)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '#modified')
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'hour')
+            self.eq(incval, 1)
+
+            # modify both query and period
+            await core.updateCronJob(guid, '#both',
+                                  reqs={'hour': 12, 'minute': 0},
+                                  incunit='dayofweek',
+                                  incvals=(0, 6))
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '#both')
+            incvals = [rec[2] for rec in cron['recs']]
+            self.eq(cron['recs'][0][1], 'dayofweek')
+            self.eq(set(incvals), {0, 6})
+            appt = agenda.appts[guid]
+            self.eq(appt.recs[0].reqdict[s_tu.HOUR], 12)
+            self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 0)
+
+            # sad
+
+            # modify period with 'now' and recurring
+            await self.asyncraises(s_exc.BadConfValu, core.updateCronJob(
+                guid, reqs={'now': True},
+                incunit='day', incvals=1))
+
+            # modify period for a non-recurring job
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'iden': s_common.guid(),
+                'storm': '$lib.print(one-shot)',
+                'reqs': {'now': True}
+            }
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+            await self.asyncraises(s_exc.BadConfValu,
+                core.updateCronJob(guid, reqs={'hour': 10}, incunit='day', incvals=1)
+            )
+
+            # modify with no arguments
+            await self.asyncraises(s_exc.BadArg, core.updateCronJob(guid))
+
+            # modify with an invalid iden
+            await self.asyncraises(s_exc.NoSuchIden, agenda.mod(
+                'nonexistent', query='#test'))
+
+            # modify a recurring period that's in the past
+            cdef = {'creator': core.auth.rootuser.iden,
+                    'iden': s_common.guid(),
+                    'storm': '$lib.print(valid)',
+                    'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 0},
+                    'incunit': s_agenda.TimeUnit.DAY,
+                    'incvals': 1}
+            adef = await agenda.add(cdef)
+            guid = adef.get('iden')
+            past_year = datetime.datetime.now(tz.utc).year - 1
+            await self.asyncraises(s_exc.BadTime, agenda.mod(guid,
+                reqs={s_tu.YEAR: past_year, s_tu.MONTH: 1, s_tu.DAYOFMONTH: 1,
+                     s_tu.HOUR: 0, s_tu.MINUTE: 0},
+                incunit=s_agenda.TimeUnit.YEAR,
+                incvals=1))
+
+            # modify with empty increment values
+            cdef = {'creator': core.auth.rootuser.iden,
+                    'iden': s_common.guid(),
+                    'storm': '$lib.print(valid)',
+                    'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 0},
+                    'incunit': s_agenda.TimeUnit.DAY,
+                    'incvals': 1}
+            adef = await agenda.add(cdef)
+            guid = adef.get('iden')
+            await self.asyncraises(s_exc.BadTime, agenda.mod(guid,
+                reqs={s_tu.HOUR: 11, s_tu.MINUTE: 0},
+                incunit=s_agenda.TimeUnit.DAY,
+                incvals=[]))
+
+    async def test_agenda_period_add_storm(self):
+
+        async with self.getTestCore() as core:
+
+            # test daily period
+            msgs = await core.stormlist('cron.add --period daily { $lib.print(daily) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(1, crons)
+            self.eq(crons[0]['query'], '$lib.print(daily)')
+            reqdict, incunit, incval = crons[0]['recs'][0]
+            self.eq(incunit, 'day')
+            self.eq(incval, 1)
+
+            # test hourly period with increment
+            msgs = await core.stormlist('cron.add --period hourly/2 { $lib.print(every2hours) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(2, crons)
+            hourly_cron = [c for c in crons if c['query'] == '$lib.print(every2hours)'][0]
+            reqdict, incunit, incval = hourly_cron['recs'][0]
+            self.eq(incunit, 'hour')
+            self.eq(incval, 2)
+
+            # test weekly period with specific days
+            msgs = await core.stormlist('cron.add --period weekly/mon,wed,fri@10:00 { $lib.print(weekdays) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(3, crons)
+            weekly_cron = [c for c in crons if c['query'] == '$lib.print(weekdays)'][0]
+            incvals = [rec[2] for rec in weekly_cron['recs']]
+            self.eq(weekly_cron['recs'][0][1], 'dayofweek')
+            self.isin(0, incvals) # mon
+            self.isin(2, incvals) # wed
+            self.isin(4, incvals) # fri
+            self.eq(weekly_cron['recs'][0][0]['hour'], 10)
+            self.eq(weekly_cron['recs'][0][0]['minute'], 0)
+
+            # test monthly period with specific day
+            msgs = await core.stormlist('cron.add --period monthly/15@09:30 { $lib.print(monthly) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(4, crons)
+            monthly_cron = [c for c in crons if c['query'] == '$lib.print(monthly)'][0]
+            reqdict, incunit, incval = monthly_cron['recs'][0]
+            self.eq(incunit, 'month')
+            self.eq(incval, 1)
+            self.eq(reqdict['dayofmonth'], 15)
+            self.eq(reqdict['hour'], 9)
+            self.eq(reqdict['minute'], 30)
+
+            # test yearly period
+            msgs = await core.stormlist('cron.add --period yearly { $lib.print(yearly) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(5, crons)
+            yearly_cron = [c for c in crons if c['query'] == '$lib.print(yearly)'][0]
+            reqdict, incunit, incval = yearly_cron['recs'][0]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+
+            # test period with only minutes
+            msgs = await core.stormlist('cron.add --period daily@:30 { $lib.print(minutes_only) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(6, crons)
+            min_cron = [c for c in crons if c['query'] == '$lib.print(minutes_only)'][0]
+            reqdict, incunit, incval = min_cron['recs'][0]
+            self.eq(reqdict['minute'], 30)
+
+            # test period with only hour
+            msgs = await core.stormlist('cron.add --period daily@14 { $lib.print(hour_only) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(7, crons)
+            hour_cron = [c for c in crons if c['query'] == '$lib.print(hour_only)'][0]
+            reqdict, incunit, incval = hour_cron['recs'][0]
+            self.eq(reqdict['hour'], 14)
+
+            # test monthly period with multiple days
+            msgs = await core.stormlist('cron.add --period monthly/1,15,30@09:00 { $lib.print(multi_day) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            self.len(8, crons)
+            multi_cron = [c for c in crons if c['query'] == '$lib.print(multi_day)'][0]
+            self.len(3, multi_cron['recs'])
+            dayofmonths = [rec[0]['dayofmonth'] for rec in multi_cron['recs']]
+            self.eq(set(dayofmonths), {1, 15, 30})
+            for reqdict, incunit, incval in multi_cron['recs']:
+                self.eq(reqdict['hour'], 9)
+                self.eq(reqdict['minute'], 0)
+                self.eq(incunit, 'month')
+                self.eq(incval, 1)
+
+            # test hourly@00:MM period is equivalent to hourly@:MM
+            msgs = await core.stormlist('cron.add --period hourly@00:25 { $lib.print(ok) }')
+            self.stormHasNoWarnErr(msgs)
+
+            # sad
+
+            sadpaths = [
+                ('cron.add --period invalid { $lib.print(err) }', 'Unknown period'),
+                ('cron.add --period weekly/invalidday { $lib.print(err) }', 'Invalid weekday'),
+                ('cron.add --period daily@25:99 { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add --period daily@newp { $lib.print(err) }', 'Invalid hour value: newp'),
+                ('cron.add --period "bad//format" { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add --period daily@newp:00 { $lib.print(err) }', 'Invalid hour value: newp'),
+                ('cron.add --period daily@10:newp { $lib.print(err) }', 'Invalid minute value: newp'),
+                ('cron.add --period hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
+                ('cron.add --period hourly/newp { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
+                ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
+                ('cron.add --period monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),
+            ]
+
+            for cmd, err in sadpaths:
+                msgs = await core.stormlist(cmd)
+                self.stormIsInErr(err, msgs)
+
+    async def test_agenda_period_mod_storm(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {'creator': core.auth.rootuser.iden,
+                    'storm': '$lib.print(valid)',
+                    'reqs': {'hour': 10, 'minute': 15},
+                    'incunit': 'day',
+                    'incvals': 1}
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+            opts = {'vars': {'guid': guid}}
+
+            # modify query only
+            msgs = await core.stormlist('cron.mod $guid { $lib.print(modified) }', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '$lib.print(modified)')
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'day')
+
+            # modify period only
+            msgs = await core.stormlist('cron.mod $guid --period hourly/2', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '$lib.print(modified)')
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'hour')
+            self.eq(incval, 2)
+
+            # modify both query and period
+            msgs = await core.stormlist('cron.mod $guid { $lib.print(both) } --period weekly/mon,wed@14:00', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['query'], '$lib.print(both)')
+            incvals = [rec[2] for rec in cron['recs']]
+            self.eq(cron['recs'][0][1], 'dayofweek')
+            self.isin(0, incvals) # mon
+            self.isin(2, incvals) # wed
+            appt = core.agenda.appts[guid]
+            self.eq(appt.recs[0].reqdict[s_tu.HOUR], 14)
+            self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 0)
+
+            # sad
+
+            # modify non-existent cron job
+            msgs = await core.stormlist('cron.mod nonexistent { $lib.print(modified) }')
+            self.stormIsInErr('does not match any valid', msgs)
+
+            # modify non-existent cron
+            msgs = await core.stormlist('cron.mod nonexistent --period daily')
+            self.stormIsInErr('does not match any valid', msgs)
+
+            # modify with invalid period
+            cdef = {'creator': core.auth.rootuser.iden,
+                    'storm': '$lib.print(test)',
+                    'reqs': {'hour': 10},
+                    'incunit': 'day',
+                    'incvals': 1}
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+            opts = {'vars': {'guid': guid}}
+            msgs = await core.stormlist('cron.mod $guid --period invalid', opts=opts)
+            self.stormIsInErr('Unknown period', msgs)
+
+            # modify with invalid weekday
+            msgs = await core.stormlist('cron.mod $guid --period weekly/badday', opts=opts)
+            self.stormIsInErr('Invalid weekday', msgs)

@@ -6922,15 +6922,37 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
-    async def updateCronJob(self, iden, query):
+    async def updateCronJob(self, iden, query=None, reqs=None, incunit=None, incvals=None):
         '''
-        Change an existing cron job's query
+        Change an existing cron job's query or period
 
         Args:
             iden (str):  The iden of the cron job to be changed
+            query (str):  The new query for the cron job (optional)
+            reqs (dict):  The new period for the cron job (optional)
+            incunit (str):  The unit of time for the period (optional)
+            incvals (int/list):  The values for the period (optional)
         '''
-        await self.agenda.mod(iden, query)
-        await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
+
+        if (all(param is None for param in (query, reqs, incunit, incvals))):
+            mesg = 'One of the argument <query> or --period option is required.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if incunit is not None:
+            incunit = s_agenda.TimeUnit.fromString(incunit)
+
+        if reqs is not None:
+            reqs = self._convert_reqdict(reqs)
+            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                mesg = "Recurring jobs may not be scheduled to run 'now'"
+                raise s_exc.BadConfValu(mesg)
+
+        cdef = await self.agenda.mod(iden, query=query, reqs=reqs, incunit=incunit, incvals=incvals)
+        if query is not None:
+            await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
+
+        if reqs is not None or incunit is not None or incvals is not None:
+            await self.feedBeholder('cron:edit:period', cdef, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
