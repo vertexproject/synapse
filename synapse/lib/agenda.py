@@ -807,7 +807,7 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.creator)
         if user is None:
             logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra = self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator))
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator))
             await self._markfailed(appt, 'unknown user')
             return
 
@@ -908,7 +908,7 @@ class Agenda(s_base.Base):
         except Exception as e:
             result = f'raised exception {e}'
             logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                             extra = self.core.getLogInfo(iden=appt.iden, name=appt.name),
+                             extra=self.core.getLogInfo(iden=appt.iden, name=appt.name),
                              )
         else:
             success = True
