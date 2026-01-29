@@ -1045,9 +1045,6 @@ class SynTest(unittest.TestCase):
 
     def tearDown(self):
         s_logging.reset()
-        # We should not need to call super here; unittest.TestCase does not have a tearDown().
-        # Implementers have the burden of calling super().teardown()
-        # return super().tearDown()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
