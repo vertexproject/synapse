@@ -44,8 +44,9 @@ def loads(s: str | bytes) -> Any:
         return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
 
     except (ValueError, TypeError) as exc:
-        extra = {'synapse': {'fn': 'loads', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.', extra=extra)
+        import synapse.lib.logging as s_logging
+        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.',
+                       extra=s_logging.getLogExtra(fn='loads', reason=(str(exc))))
         return _fallback_loads(s)
 
 def load(fp: BinaryIO) -> Any:
@@ -125,8 +126,9 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     try:
         return _dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
     except UnicodeEncodeError as exc:
-        extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
+        import synapse.lib.logging as s_logging
+        logger.warning('Using fallback JSON serialization. Please report this to Vertex.',
+                       extra=s_logging.getLogExtra(fn='dumps', reason=(str(exc))))
 
         ret = _fallback_dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
 

@@ -936,9 +936,15 @@ class Model:
         self._modeldef['types'].append(newtype.getTypeDef())
 
     def _checkTypeDef(self, typ):
+        if self.core is not None:
+            efunc = self.core.getLogExtra
+        else:
+            import synapse.lib.logging as s_logging
+            efunc = s_logging.getLogExtra
+
         if 'comp' in typ.info.get('bases', ()):
             for fname, ftypename in typ.opts.get('fields', ()):
-                extra = {'synapse': {'type': typ.name, 'field': fname}}
+                extra = efunc(type=typ.name, field=fname)
 
                 if isinstance(ftypename, (list, tuple)):
                     ftypename = ftypename[0]
