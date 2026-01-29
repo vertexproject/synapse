@@ -6490,8 +6490,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
+            # username and user here are logged twice.
+            # info['username'] = user.name
+            # info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
             # TODO Understand why this is using s_logging.getLogExtra instead of self.getLogExtra
             extra = s_logging.getLogExtra(**info)
