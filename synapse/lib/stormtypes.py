@@ -5884,25 +5884,6 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
-    _storm_lib_perms = (
-        {'perm': ('globals',), 'gate': 'cortex',
-            'desc': 'Used to control all operations for global variables.'},
-
-        {'perm': ('globals', 'get'), 'gate': 'cortex',
-            'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control read access to a specific global variable.'},
-
-        {'perm': ('globals', 'set'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to a specific global variable.'},
-
-        {'perm': ('globals', 'pop'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to a specific global variable.'},
-    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
