@@ -3667,14 +3667,14 @@ class CellTest(s_t_utils.SynTest):
                 # confirm last-one-wins "service" key is always initialized
                 logger.warning('oh hai there!')
                 mesg = stream.jsonlines()[0]
-                self.eq(mesg['aha:service'], '00.cell.synapse')
+                self.eq(mesg['ahaservice'], '00.cell.synapse')
 
             async with cell00.getLocalProxy() as proxy:
 
                 logs = await proxy.logs()
 
                 self.isin('oh hai there!', [m['message'] for m in logs])
-                self.isin('00.cell.synapse', [m.get('aha:service') for m in logs])
+                self.isin('00.cell.synapse', [m.get('ahaservice') for m in logs])
 
                 event = asyncio.Event()
                 async def sendlogs():
