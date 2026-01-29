@@ -783,8 +783,7 @@ class Agenda(s_base.Base):
                 if appt.isrunning:  # pragma: no cover
                     mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
                            f' to run. Skipping.'
-                    logger.warning(mesg,
-                                   extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
+                    logger.warning(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
                 else:
                     try:
                         await self._execute(appt)
@@ -798,7 +797,7 @@ class Agenda(s_base.Base):
                         else:  # pragma: no cover
                             mesg = str(e)
                         logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
-                                         extra={'synapse': extra})
+                                         extra=self.core.getLogExtra(**extra))
                         await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
@@ -808,23 +807,23 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.creator)
         if user is None:
             logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
+                           extra = self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator))
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
             logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator,
+                                                       username=user.name))
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name, 'view': appt.view}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator,
+                                                       username=user.name, view=appt.view))
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -863,8 +862,8 @@ class Agenda(s_base.Base):
         await self.core.addCronEdits(appt.iden, edits)
 
         logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                       'username': user.name, 'view': appt.view}})
+                    extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator, text=appt.query,
+                                                username=user.name, view=appt.iden))
         starttime = self._getNowTick()
 
         success = False
@@ -891,6 +890,7 @@ class Agenda(s_base.Base):
 
                 elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                     text = mesg[1].get('mesg', '<missing message>')
+                    # FIXME This pattern of mixing known and unkonwn values in a kwargs function can throw a TypeError
                     extra = self.core.getLogExtra(cron=appt.iden, **mesg[1])
                     logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
@@ -908,7 +908,7 @@ class Agenda(s_base.Base):
         except Exception as e:
             result = f'raised exception {e}'
             logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             extra = self.core.getLogInfo(iden=appt.iden, name=appt.name),
                              )
         else:
             success = True
@@ -932,8 +932,8 @@ class Agenda(s_base.Base):
                    f'took {took:.3f}s'
             if not self.core.isactive:
                 mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
-            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                 'result': result, 'username': user.name, 'took': took}})
+            logger.info(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=user.iden,
+                                                          result=result, username=user.name, took=took))
             edits = {
                 'lastfinishtime': finishtime,
                 'isrunning': False,
