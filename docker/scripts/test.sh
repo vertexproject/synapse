@@ -28,6 +28,15 @@ echo "Spinning up images"
 docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
 dstatus00=$?
 if [ $dstatus00 != "0" ]; then exit 1; fi
+
+docker run --rm -it --entrypoint /usr/bin/git vertexproject/synapse-ci:${TAG} --help
+dstatus01=$?
+if [ $dstatus01 != "0" ]; then exit 1; fi
+
+docker run --rm -it --entrypoint /usr/bin/xvfb-run vertexproject/synapse-ci:${TAG}-browsers --help
+dstatus02=$?
+if [ $dstatus02 != "0" ]; then exit 1; fi
+
 docker run --rm -d --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" vertexproject/synapse-aha:${TAG}
 docker run --rm -d --name test-axon vertexproject/synapse-axon:${TAG}
 docker run --rm -d --name test-cortex vertexproject/synapse-cortex:${TAG}
