@@ -1,0 +1,4 @@
+function woot(text) {
+    $lib.print($text)
+    return($lib.null)
+}

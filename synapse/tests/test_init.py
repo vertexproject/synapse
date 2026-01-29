@@ -1,7 +1,4 @@
-import os
-import imp
 
-import synapse
 import synapse.tests.utils as s_t_utils
 
 class InitTest(s_t_utils.SynTest):

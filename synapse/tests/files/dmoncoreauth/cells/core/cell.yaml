@@ -1,5 +1,0 @@
-modules:
-    - synapse.tests.utils.TestModule
-storm:log: true
-# 1 GiByte map size default
-layer:lmdb:mapsize: 1073741824

@@ -1,0 +1,648 @@
+// Grammar for the Storm Query Language (and miscellaneous bits)
+
+%import common.ESCAPED_STRING
+%ignore CCOMMENT
+%ignore CPPCOMMENT
+%ignore WS
+
+WS.-1: /[\s]/+
+
+// C comment: /* */
+// From https://stackoverflow.com/a/36328890/6518334
+CCOMMENT.2: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
+
+// C++ comment: //
+CPPCOMMENT.2: /\/\/[^\n]*/
+
+// Lark Grammar Notes:
+// Lark uses standard EBNF notation with a few extra bells and whistles:
+// * Rules and terminals that start with an underscore are not presented in the final parse tree.  The underscored
+//   terminals are skipped entirely, and the underscored rule nodes are replaced by their children.
+// * Rules ending with a .<num> are higher priority than other rules.
+// * Rules starting with a ? have their parse tree node replaced by their children if they have exactly 1 child.
+
+// Style Note:
+// All string constants with length > 1 should have an explicit terminal name.  Lark already has a
+// name defined for all 1-character strings.  Lark makes __ANON tokens for unnamed terminals.  We don't want those
+// because it makes storm syntax errors harder to decipher.
+
+// Entry point for an unadorned storm query
+query: "|"? _querystart?
+lookup: looklist [ "|" query ]
+search: looklist [ "|" query ]
+
+_querystart: _querystart "|"? (stormcmd | _oper | _editblock)
+    | stormcmd | _oper | _editblock
+
+// Edit block: zero or more edit operations inside a single set of square brackets
+_editblock: "[" _editoper* "]"
+
+// A single edit operation
+_editoper: editnodeadd
+            | editpropset | editunivset | edittagpropset | edittagadd | editcondpropset
+            | editpropsetmulti | editpropdel | editunivdel | edittagpropdel | edittagdel
+            | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
+
+// Parenthesis in an edit block don't have incoming nodes
+editparens: "(" editnodeadd _editoper* ")"
+edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu]
+editunivdel: EXPRMINUS univprop
+edittagdel: EXPRMINUS tagname
+editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editcondpropset: relprop condsetoper _valu
+editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
+editpropdel: EXPRMINUS relprop
+editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+edittagpropdel: EXPRMINUS tagprop
+
+EQSPACE: /((?<=\s)=|=(?=\s))/
+MODSET.4: "+=" | "-="
+TRYMODSET.1: "?+=" | "?-="
+MODSETMULTI.4: "++=" | "--="
+TRYMODSETMULTI.1: "?++=" | "?--="
+TRYSET.1: "?="
+SETTAGOPER: "?"
+
+condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
+    | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
+UNSET: "unset"
+_condvarvaluatom: condvarvalue | condvarderef | condfunccall
+condvarvalue: VARTOKN -> varvalue
+
+!condvarderef: _condvarvaluatom "." (VARTOKN | "$" VARTOKN | _condderefexpr) -> varderef
+_condderefexpr: "$"? conddollarexpr
+conddollarexpr: "(" expror ")" -> dollarexpr
+
+condfunccall: _condvarvaluatom _condcallargs -> funccall
+_condcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
+
+// The set of non-edit non-commands in storm
+
+_oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
+     | formpivotin | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
+     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1join | n2join | n1walknpivo | n2walknpivo | n1walknjoin | n2walknjoin | rawpivot
+
+BREAK.4: /break(?=[\s\}])/
+CONTINUE.4: /continue(?=[\s\}])/
+
+catchblock: "catch" _valu "as" VARTOKN "{" query "}"
+trycatch: "try" "{" query "}" catchblock*
+
+_STOP.4: /stop(?=($|[\s\}]))/
+stop: _STOP
+_RETURN.4: /return(?=[\s\(])/
+return: _RETURN "("[ _valu ] ")"
+_EMIT.4: /emit(?=[\s])/
+emit: _EMIT _valu
+
+// A bare variable reference, useful for a function call
+vareval: _varvalu
+
+// A variable assignment
+setvar: "$" VARTOKN "=" _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | _derefexpr) (EQSPACE | EQNOSPACE) _valu
+
+forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
+whileloop: "while" _valu baresubquery
+subquery: [YIELD] baresubquery
+argvquery: "{" query "}"
+baresubquery: "{" query "}"
+YIELD.1: /yield(?=[\s\{])/
+
+// Split out case subqueries to prevent invalid state merging
+casesubquery: "{" query "}" -> baresubquery
+_caseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE
+_mcaseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | MCASEBARE
+caseentry: (DEFAULTCASE | _caseentry | "(" _mcaseentry ("," _mcaseentry)+ ")") ":" casesubquery
+switchcase: "switch" _varvalu "{" caseentry* "}"
+DEFAULTCASE.2: "*"
+CASEBARE.2: /
+    (?<=[\s{])          # can follow whitespace or the opening curly brace of the switch statement
+    (?!\*)              # should not include the DEFAULTCASE bare asterisk
+    ([^:\s"'()]+)       # can be anything except these characters
+    (?=[\s]*:[\s]*\{)   # must precede a colon and the open brace of the subquery (with any whitespace in between)
+/x
+MCASEBARE.2: /
+    (?<=[\s(,])         # can follow whitespace, open parens, or comma
+    ([^:\s"'(),]+)      # can be anything except these characters
+    (?=\s*(?:,|\)\s*:)) # must precede a comma or a close parens with colon (with any whitespace in between)
+/x
+
+
+yieldvalu: YIELD _argvalu
+
+_INIT.2: /init(?=[\s\{])/
+initblock: _INIT "{" query "}"
+
+_EMPTY.2: /empty(?=[\s\{])/
+emptyblock: _EMPTY "{" query "}"
+
+_FINI.2: /fini(?=[\s\{])/
+finiblock: _FINI "{" query "}"
+
+_ELSE.2: /else(?=[\s\{])/
+
+ifstmt: "if" ifclause ("elif" ifclause)* [_ELSE baresubquery]
+// The stuff inside an if or elif
+ifclause: _valu baresubquery
+
+// A bare variable list
+varlist: "(" ["$" VARTOKN ("," "$" VARTOKN)*] ","? ")"
+
+// A variable list assignment
+opervarlist: varlist "=" _valu
+
+// Pivots
+_formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
+formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | tagmatch)
+formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagmatch)
+// The special symbol that indicates to pivot to syn:tag nodes
+ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
+
+formpivot_pivotout:    _RIGHTPIVOT "*"
+formpivot_:            _RIGHTPIVOT (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu)
+
+formjoin: _RIGHTJOIN "*"     -> formjoin_pivotout
+        | _RIGHTJOIN (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu) -> formjoin_formpivot
+
+formpivotin: _LEFTPIVOT "*" -> formpivotin_
+           | _LEFTPIVOT (PROPS | UNIVNAME) -> formpivotin_pivotinfrom
+
+formjoinin: _LEFTJOIN "*" -> formjoinin_pivotin
+          | _LEFTJOIN (PROPS | UNIVNAME) -> formjoinin_pivotinfrom
+
+operrelprop: relprop _RIGHTPIVOT ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_pivot
+           | relprop _RIGHTJOIN ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_join
+
+rawpivot: _RIGHTPIVOT "{" query "}"
+
+_RIGHTJOIN.4:  "-+>"
+_LEFTJOIN.4:   "<+-"
+_RIGHTPIVOT.4: "->"
+_LEFTPIVOT.4:  /<\-[^0-9]/
+
+_liftprop: liftformtag | liftpropby | liftprop | liftbyarray
+            | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
+            | liftreverse
+
+WILDCARD: "*"
+
+// A wild card, full prop, list, or $varvalu
+_wildprops: WILDCARD | PROPS | WILDPROPS | valulist | _varvalu
+
+n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | PROPS) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+
+n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
+n1join: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | PROPS) _EDGEN1JOINFINI _wildprops [ _cmpr _valu ]
+
+n2join: _EDGEN2JOININIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
+walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | PROPS) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | PROPS))+ ","?) ")") -> valulist
+
+_WALKNJOINN1.4: "--+>"
+_WALKNJOINN2.4: "<+--"
+
+_WALKNPIVON1.4: "-->"
+_WALKNPIVON2.4: "<--"
+
+n1walknpivo: _WALKNPIVON1 "*"
+n2walknpivo: _WALKNPIVON2 "*"
+
+n1walknjoin: _WALKNJOINN1 "*"
+n2walknjoin: _WALKNJOINN2 "*"
+
+_EDGEADDN1INIT.2: "+("
+_EDGEN1INIT.2: "-("
+_EDGEN1FINI: ")>"
+_EDGEADDN2FINI: ")+"
+_EDGEN2FINI: ")-"
+
+_EDGEN1JOINFINI: ")+>"
+_EDGEN2JOININIT: "<+("
+
+// Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
+// comparisons to an expression like '<(2)'
+_EDGEN2INIT: /\<\((?=(?>(?<EDGEN2INITRECUR>\(((?>[^()"'`]+|(?&EDGEN2INITRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
+
+edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI (baresubquery | _varvalu)
+edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI (baresubquery | _varvalu)
+edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI (baresubquery | _varvalu)
+edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI (baresubquery | _varvalu)
+
+_REVERSE: /reverse(?=[\s\(])/
+liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop) ")"
+
+_DEREF.3:  /\*(?=\$)/
+
+liftformtag: (PROPS | UNIVNAME | WILDPROPS | derefprops) tagname [_cmpr _valu]
+liftpropby: (PROPS | EMBEDPROPS | UNIVNAME | derefprops) _cmpr _valu
+liftprop: (PROPS | UNIVNAME | WILDPROPS | derefprops)
+liftbyarray: (PROPS | EMBEDPROPS | UNIVNAME | derefprops) "*[" _safe_cmpr _valu "]"
+lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
+liftbytag: (tagname | tagnamewithspace) [_cmpr _valu]
+liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
+liftbyformtagprop: formtagprop [_cmpr _valu]
+
+tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
+tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
+formtagprop: (PROPS | UNIVNAME | WILDPROPS | derefprops) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+_COLONNOSPACE.2: /(?<!\s):/
+
+_funcarg: (VARTOKN [EQNOSPACE _valu])
+funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
+stormfunc: "function" VARTOKN funcargs "{" query "}"
+
+stormcmd: CMDNAME stormcmdargs?
+stormcmdargs: _stormcmdarg
+_stormcmdarg: _stormcmdarg? ((CMDOPT (EQNOSPACE (argvquery | _argvalu | wordtokn))?) | argvquery | _argvalu | wordtokn)
+
+// The name of a storm command
+CMDNAME.2: /(?!(init|empty|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
+
+CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
+
+// An unquoted string within a storm command argument list
+!wordtokn: wordtokn (COMMANOSPACE | EQNOSPACE | RSQBNOSPACE) (NONQUOTEWORD | PROPS | CMDNAME | (EXPRPLUS | EXPRMINUS | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | COMMASPACE)?)
+    | (EXPRPLUS | EXPRMINUS | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | COMMASPACE)?
+    | NONQUOTEWORD COMMASPACE? | CMDNAME | PROPS
+
+COMMASPACE: ", "
+COMMANOSPACE: /(?<!\s),(?!\s)/
+RSQBNOSPACE: /(?<!\s)\](?!\s)/
+EQNOSPACE: /(?<!\s)=(?!\s)/
+
+// an argv parser for cmdr commands which may contain embedded queries
+cmdrargs: _cmdrargv (EQNOSPACE? _cmdrargv)*
+_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQNOSPACE (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
+
+// A tag with either a variable reference or tag name segments without asterisks
+tagname: _HASH (_varvalu | _tagsegs)
+tagnamewithspace: _HASHSPACE (_varvalu | _tagsegs) -> tagname
+_HASH.2: /(?<!\s)#/
+_HASHSPACE.2: /(?<=\s)#/
+_tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
+TAGSEGNOVAR: /[\w]+/
+
+// A tag name with asterisks or $var as segment after the first segment
+tagmatch: _MATCHHASH (_varvalu | _tagsegs)
+    | _MATCHHASHWILD _wildtagsegs
+
+_MATCHHASH.3: /#/
+
+// A tagmatch with wildcards cannot be followed by a cmpr
+_MATCHHASHWILD.3: /\#
+(?=
+    (?:[\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*       # match tag parts
+    \*                                               # match a *
+    (?!                                              # negative lookahead for cmpr
+        (?:[\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
+        \s*                                          # match any whitespace before cmpr
+        (?!                                          # avoid matching EDGEN2INIT as a cmpr
+            <\(
+            (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
+            )
+            | <(\+|-[^0-9])                          # avoid matching joins or pivots
+        )
+        [@?!<>^~=]+                                  # match any cmprs (regex fail)
+    )
+)
+/x
+
+_wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
+WILDTAGSEGNOVAR: /[\w*]+/
+
+// A comparison operator
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+BYNAME.2: /\w+[@?!<>^~=]*[<>=]/
+
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+
+CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
+CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
+
+_rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _dollarexprs
+
+// Common subset + stuff allowable in command arguments
+_argvalu: _rootvalu | valulist | embedquery
+
+// Used for most instances of values
+_basevalu: _argvalu | baresubquery
+
+_valu: _basevalu | NONQUOTEWORD
+
+evalvalu: _valu
+exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
+exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
+// Just like _valu, but doesn't allow valu lists or unquoted strings
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
+    | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs | embedquery
+
+// Expr versions of rules to avoid invalid state merges
+_innerdollarexprs: "$"? innerdollaroper
+?!innerdollaroper: innerdollarexpr
+    | innerdollaroper _exprcallargs -> funccall
+    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerderefexpr) -> varderef
+_innerderefexpr: "$"? innerdollarexpr
+innerdollarexpr: "(" expror ")" -> dollarexpr
+
+exprrelpropvalu: EXPRRELNAME -> relpropvalu
+    | _COLONDOLLAR _exprvarvaluatom -> relpropvalu
+EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+
+exprunivpropvalu: EXPRUNIVNAME -> univpropvalu
+    | "." _exprvarvalu -> univpropvalu
+EXPRUNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
+
+exprtagvalu: exprtagname -> tagvalu
+    | exprtagnamewithspace -> tagvalu
+
+exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
+exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
+_exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
+EXPRTAGSEGNOVAR: /[\w]+/
+
+exprtagpropvalu: exprtagprop -> tagpropvalu
+    | exprtagpropwithspace -> tagpropvalu
+exprtagprop: exprtagname _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+_EXPRCOLONNOSPACE.2: /(?<!\s):/
+
+_exprvarvalu: "$" _exprvarvaluatom
+_exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
+exprvarvalue: EXPRVARTOKN -> varvalue
+EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
+
+!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+
+exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
+_exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
+
+?listvalu: LISTTOKN | _exprvarvalu | exprrelpropvalu
+    | exprunivpropvalu | exprtagvalu | exprtagpropvalu
+    | baresubquery | valulist | embedquery | TRIPLEQUOTEDSTRING
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
+
+LISTTOKN.1: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
+
+_lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
+looklist: _lookvalu*
+
+valulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")"
+tagvalu: tagname | tagnamewithspace
+tagpropvalu: tagprop | tagpropwithspace
+
+_COLONDOLLAR: /(?<!\w|\'|\"):\$/
+relpropvalu: RELNAME | _COLONDOLLAR _varvaluatom
+univpropvalu: univprop
+embedquery: _EMBEDQUERYSTART query "}"
+_EMBEDQUERYSTART: "${"
+
+// An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s(),=\]}|$]*(?=$|[\s(),\]}|=$])/
+
+// A white-space *only* delimited string immediate for use in legacy cmdr parser
+CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
+
+WHITETOKN.-1: /[^\s|]+/
+
+// A value consisting of a name then 0 or more derefs and function calls
+_varvalu: "$" _varvaluatom
+
+_varvaluatom: varvalue | varderef | funccall
+varvalue: VARTOKN
+VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
+!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
+
+funccall: _varvaluatom _callargs
+_callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
+_LPARNOSPACE.2: /(?<!\s)\(/
+
+filtoper: (EXPRPLUS | EXPRMINUS) _cond
+    | _EDGEADDN1INIT _condexpr ")" -> filtopermust
+    | _EDGEN1INIT _condexpr ")" -> filtopernot
+
+// Condition used for filters
+// TODO:  unify cond and dollarexpr
+_cond: notcond | "(" _condexpr ")"
+    | hasrelpropcond | relpropcond
+    | abspropcond | hasabspropcond
+    | tagpropcond | hastagpropcond
+    | tagcond | tagvalucond
+    | condsubq | arraycond
+    | _varvalu | _reqdollarexprs
+
+_NOT: "not"
+notcond: _NOT _cond
+
+hasrelpropcond: relprop | univprop
+relpropcond: relpropvalue _cmpr _valu
+relpropvalue: relprop | univprop
+
+abspropcond: PROPS _cmpr _valu
+hasabspropcond: (PROPS | WILDPROPS)
+
+tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
+
+tagvalucond: tagmatch _cmpr _valu
+tagcond: tagmatch
+
+condsubq: "{" query "}" [ _cmpr _valu]
+arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
+_ARRAYCONDSTART.3: "*["
+
+// Filter boolean conditions
+_condexpr: _cond | orexpr | andexpr
+orexpr: _condexpr "or" _cond
+andexpr: _condexpr "and" _cond
+
+TRIPLEQUOTEDSTRING: /'''.*?'''/s
+DOUBLEQUOTEDSTRING: ESCAPED_STRING
+SINGLEQUOTEDSTRING: /'[^']*'(?!')/
+
+FORMATTEXT.-1: /((?<!\\)(\\\\)*\\[`{]|[^`{])+/s
+_formatexpr: "{" expror "}"
+formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
+
+// Must be kept consistent with same regexes in synapse/lib/grammar.py
+// A full property.  Must contain at least 1 colon
+PROPS.3: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
+
+// A full property containing a wildcard
+WILDPROPS.3: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
+
+// A full property with embed properties
+EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:|\.)[a-z0-9_]+)*(?![:.a-z0-9_\-])/
+
+// A universal property
+UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
+univprop:  UNIVNAME | "." _varvalu
+// A full property or a universal property
+formname: PROPS | derefprops
+// A relative property
+relprop: RELNAME | _COLONDOLLAR _varvaluatom
+
+// Similar to PROPS, but starts with a colon and allows :: as separator
+RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+
+// Similar to PROPS but does not require a colon
+BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+
+// Derefed variable for prop names
+derefprops: _DEREF _varvalu
+
+// The entry point for a $(...) expression.  The initial dollar sign is now optional
+_dollarexprs: "$"? dollaroper
+
+?!dollaroper: dollarexpr
+    | dollaroper _callargs -> funccall
+    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+_derefexpr: "$"? dollarexpr
+dollarexpr: "(" expror ")"
+
+// A dollar expression with a required dollar
+_reqdollarexprs: "$" dollaroper
+EXPRPLUS.2: "+"
+EXPRMINUS.2: /(?<!-)-/
+EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
+EXPRTIMES.2: "*"
+EXPRDIVIDE.2: "/"
+EXPRMODULO.2: "%"
+EXPRPOW.2: "**"
+
+// Each of NUMBER, HEXNUMBER, and OCTNUMBER below have some very gnarly regular expressions. To make
+// them a little more palatable, they've been broken out and commented. All of these regex patterns
+// have a type specific section at the top for matching on their respective number patterns. The
+// negative lookahead is common to all three types. Basically all of this recursive nastiness is
+// following along to figure out if there is eventually a comma that turns it into an unquoted string
+// rather than a number. This is because storm allows for unquoted strings in its syntax. So, we need
+// to make sure we are only matching on number patterns that are not part of an unquoted string.
+// The atomic grouping stuff there makes sure that we are only matching entire levels of nesting at
+// a time, otherwise in something like this example:
+//
+//    if ($foo = 123 or $lib.str.concat('foo),b"ar', 'baz')) { }
+//
+// It will end up closing that level of parenthesis after "foo". This all means we need to have
+// these really funky regex patterns.
+
+NUMBER.1: /
+    -?                                          # optional sign
+    (                                           # start capture group
+        0+\d*(?=\.)                         |   # match zero, zero-leading numbers, and zero-leading numbers ending with . (e.g. "42.")
+        (?<!\d)[1-9]\d*                     |   # match non-zero-leading numbers 
+        0+(?![1-9\.])                           # match one or more zeroes
+    )                                           # end capture group
+    (\.\d*)?                                    # also capture decimal point and any following decimal digits
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
+    (?!                                         # start negative lookahead
+        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
+        (?>                                     # atomic group
+            (?<NUMBERRECUR>                     # start of named capture group NUMBERRECUR
+                \((                             # literal open parens and start of capture group
+                    (?>                         # atomic group
+                        [^()"'`]+           |   # match anything except these characters
+                        (?&NUMBERRECUR)     |   # matches another level of nested parentheses
+                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
+                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
+                        '''.*?'''           |   # matches triple-tick strings
+                        '[^']*'(?!')            # matches single-quote strings
+                    )*                          # match capture groups zero or more times
+                )\)                             # literal close parens and end of capture group
+            )                               |   # end of named capture group NUMBERRECUR
+            '''.*?'''                       |   # matches triple-tick strings
+            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
+            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
+            '[^']*'(?!')                    |   # matches single-quote strings
+            [^,)}]                              # matches anything except these characters
+        )*,                                     # end of atomic group and literal comma
+    )                                           # end negative lookahead
+/x
+
+HEXNUMBER.1: /
+    -?                                          # optional sign
+    0x[0-9a-fA-F]+                              # hex number pattern
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
+    (?!
+        [^\s})*\/%+\-=><!~]                 |
+        (?>
+            (?<HEXNUMBERRECUR>
+                \((
+                    (?>
+                        [^()"'`]+           |
+                        (?&HEXNUMBERRECUR)  |
+                        `(?:[^`\\]|\\.)*`   |
+                        "(?:[^"\\]|\\.)*"   |
+                        '''.*?'''           |
+                        '[^']*'(?!')
+                    )*
+                )\)
+            )                               |
+            '''.*?'''                       |
+            `(?:[^`\\]|\\.)*`               |
+            "(?:[^"\\]|\\.)*"               |
+            '[^']*'(?!')                    |
+            [^,)}]
+        )*,
+    )
+/x
+
+
+OCTNUMBER.1: /
+    -?                                          # optional sign
+    0o[0-7]+                                    # octal number pattern
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
+    (?!
+        [^\s})*\/%+\-=><!~]                 |
+        (?>
+            (?<OCTNUMBERRECUR>
+                \((
+                    (?>
+                        [^()"'`]+           |
+                        (?&OCTNUMBERRECUR)  |
+                        `(?:[^`\\]|\\.)*`   |
+                        "(?:[^"\\]|\\.)*"   |
+                        '''.*?'''           |
+                        '[^']*'(?!')
+                    )*
+                )\)
+            )                               |
+            '''.*?'''                       |
+            `(?:[^`\\]|\\.)*`               |
+            "(?:[^"\\]|\\.)*"               |
+            '[^']*'(?!')                    |
+            [^,)}]
+        )*,
+    )
+/x
+
+BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
+NULL.2: /null(?=$|[\s\),\]}\|\=])/
+NOTOP.2: /not(?=[\s($])/
+OR.2: "or"
+AND.2: "and"
+
+// $ expression rules in increasing order of precedence (modeled on Python's order)
+?expror: exprand | expror OR exprand
+?exprand: exprnot | exprand AND exprnot
+?exprnot: exprcmp | NOTOP exprcmp
+?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
+?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
+?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE | EXPRMODULO) exprunary
+?exprunary: exprpow | EXPRNEG exprunary
+?exprpow: _expratom | exprpow EXPRPOW _expratom
+_expratom: _exprvalu

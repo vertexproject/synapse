@@ -11,7 +11,6 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +157,7 @@ class PubKey:
                              c_ec.ECDSA(c_utils.Prehashed(chosen_hash))
                              )
             return True
-        except InvalidSignature as e:
+        except InvalidSignature:
             logger.exception('Error in publ.verify')
             return False
 

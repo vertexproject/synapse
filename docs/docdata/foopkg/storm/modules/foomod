@@ -1,0 +1,11 @@
+function onload() {
+    [ meta:source=$modconf.srcguid
+          :name="foomod"
+          :type="foo"
+    ]
+    fini { return($lib.null) }
+}
+
+function bar(x, y) {
+    return ($($x + $y))
+}

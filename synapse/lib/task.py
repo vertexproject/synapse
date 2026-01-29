@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class Task(s_base.Base):
     The synapse Task object implements concepts similar to process trees
     for asyncio.Task instances.
     '''
-    async def __anit__(self, boss, task, name, user, info=None, root=None):
+    async def __anit__(self, boss, task, name, user, info=None, root=None, iden=None):
 
         await s_base.Base.__anit__(self)
 
@@ -21,26 +22,40 @@ class Task(s_base.Base):
             info = {}
 
         self.boss = boss
+        self.background = False
 
         task._syn_task = self
 
+        if iden is not None:
+            if not isinstance(iden, str):
+                mesg = 'The task iden specified must be a string.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not s_common.isguid(iden):
+                mesg = 'The task iden specified must match the regular expression: ^[a-f0-9]{32}$'
+                raise s_exc.BadArg(mesg=mesg)
+
+        self.iden = iden
+        if self.iden is None:
+            self.iden = s_common.guid()
+
         self.task = task                # the real task...
-        self.iden = s_common.guid()
         self.tick = s_common.now()
+        self.name = name
+        self.user = user
+        self.root = root
+        self.info = info
+        self.kids = {}
+
+        if self.boss.tasks.get(self.iden) is not None:
+            mesg = 'Specified task iden already exists!'
+            raise s_exc.BadArg(mesg=mesg, iden=iden)
 
         self.boss.tasks[self.iden] = self
         if root is not None:
             root.kids[self.iden] = self
 
         self.task.add_done_callback(self._onTaskDone)
-
-        self.name = name
-        self.user = user
-        self.root = root
-        self.info = info
-
-        self.kids = {}
-
         self.onfini(self._onTaskFini)
 
     def __repr__(self):
@@ -53,7 +68,7 @@ class Task(s_base.Base):
 
     def _onTaskDone(self, t):
         if not self.isfini:
-            self.boss.schedCoro(self.fini())
+            self.boss.schedCoroSafe(self.fini())
 
     async def _onTaskFini(self):
 
@@ -64,8 +79,10 @@ class Task(s_base.Base):
 
         try:
             await self.task
-        except Exception as e:
+        except asyncio.CancelledError:
             pass
+        except Exception:  # pragma:  no cover
+            logger.exception(f'Task {self.name} completed with exception')
 
         if self.root is not None:
             self.root.kids.pop(self.iden)
@@ -88,7 +105,7 @@ class Task(s_base.Base):
         pask = {
             'iden': self.iden,
             'name': self.name,
-            'info': self.info,
+            'info': s_msgpack.deepcopy(self.info),
             'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},
@@ -99,20 +116,35 @@ class Task(s_base.Base):
 
         return pask
 
+    def packv2(self):
+        return {
+            'iden': self.iden,
+            'name': self.name,
+            'info': s_msgpack.deepcopy(self.info),
+            'tick': self.tick,
+            'user': self.user.iden,
+            'username': self.user.name,
+            'kids': {i: k.packv2() for i, k in self.kids.items()},
+        }
+
 def loop():
     try:
         return asyncio.get_running_loop()
-    except Exception as e:
+    except Exception:
         return None
 
-#def fork(coro, name, user=None, info=None):
+def syntask(task):
+    '''
+    Return the synapse task associated with the provided asyncio task.
+    '''
+    return getattr(task, '_syn_task', None)
 
 def current():
     '''
     Return the current synapse task.
     '''
     task = asyncio.current_task()
-    return getattr(task, '_syn_task', None)
+    return syntask(task)
 
 def user():
     '''
@@ -142,3 +174,77 @@ async def executor(func, *args, **kwargs):
 
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, syncfunc)
+
+# Task vars:  task-local variables
+
+_TaskDictCtors = {}  # type: ignore
+
+def varinit(task=None):
+    '''
+    Initializes (or re-initializes for testing purposes) all of a task's task-local variables
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    if task is None:
+        task = asyncio.current_task()
+    taskvars = {}
+    task._syn_taskvars = taskvars
+    return taskvars
+
+def _taskdict(task):
+    '''
+    Note: No locking is provided.  Under normal circumstances, like the other task is not running (e.g. this is running
+    from the same event loop as the task) or task is the current task, this is fine.
+    '''
+    if task is None:
+        task = asyncio.current_task()
+
+    assert task
+    taskvars = getattr(task, '_syn_taskvars', None)
+
+    if taskvars is None:
+        taskvars = varinit(task)
+
+    return taskvars
+
+def varget(name, defval=None, task=None):
+    '''
+    Access a task local variable by name
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    taskdict = _taskdict(task)
+    retn = taskdict.get(name, s_common.NoValu)
+    if retn is not s_common.NoValu:
+        return retn
+
+    func = _TaskDictCtors.get(name)
+    if func is None:
+        return defval
+
+    item = func()
+    taskdict[name] = item
+
+    return item
+
+def varset(name, valu, task=None):
+    '''
+    Set a task-local variable
+
+    Args:
+        task: If task is None, uses current task
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    _taskdict(task)[name] = valu
+
+def vardefault(name, func):
+    '''
+    Add a default constructor for a particular task-local variable
+
+    All future calls to taskVarGet with the same name will return the result of calling func
+    '''
+    _TaskDictCtors[name] = func

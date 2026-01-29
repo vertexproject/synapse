@@ -1,0 +1,198 @@
+name: testpkg
+version: 0.0.1
+
+logo:
+    mime: image/svg
+    path: docs/foobar.svg
+
+modules:
+    - name: testmod
+    - name: apimod
+      apidefs:
+        - name: search
+          desc: |
+            Execute a search
+            
+            This API will foo the bar.
+          type:
+            type: function
+            args:
+              - { name: text, type: str, desc: "The text." }
+              - { name: mintime, type: [str, int], desc: "The mintime.", default: "-30days" }
+            returns:
+              name: yields
+              type: node
+              desc: Yields it:dev:str nodes.
+        - name: status
+          desc: Get the status of the foo.
+          type:
+            type: function
+            returns:
+              type: dict
+              desc: A status dictionary.
+        - name: newp
+          desc: Some nonexistent function.
+          deprecated:
+            eolvers: v2.300.4
+            mesg: Newp is no longer maintained. Use bar() instead.
+          type:
+            type: function
+            returns:
+              type: 'null'
+              desc: '``newp()`` does not return data.'
+
+onload: |
+  $lib.time.sleep($lib.globals.get(onload_sleep, 0))
+  $lib.globals.set(testpkg, testpkg-done)
+
+inits:
+  key: testpkg:version
+  versions:
+    - name: first
+      version: 0
+      inaugural: true
+      query: "$lib.globals.set(testpkg-first, (true))"
+    - name: second
+      desc: Another init
+      version: 2
+      query: "$lib.globals.set(testpkg-second, (true))"
+
+external_modules:
+    - name: testext
+      package: synapse.tests.files
+      package_path: stormmod/common
+
+    - name: testextfile
+      # This can be either an absolute path or relative path from where
+      # the genpkg tool is executed from.
+      file_path: synapse/tests/files/stormmod/common
+
+graphs:
+    - name: testgraph
+      degrees: 2
+      pivots: ["<- meta:seen <- meta:source"]
+      filters: ["-#nope"]
+      forms:
+        inet:fqdn:
+          pivots: ['<- *', '-> *']
+          filters: ['-inet:fqdn:issuffix=1']
+
+        syn:tag:
+          pivots: ['-> *']
+
+        "*":
+          pivots: ['-> #']
+
+docs:
+    - title: Foo Bar
+      path: docs/foobar.md
+
+perms:
+    - perm: [ power-ups, testpkg, user ]
+      gate: cortex
+      desc: Controls user access to testpkg.
+      workflowconfig: true
+
+configvars:
+    - name: API key
+      varname: testpkg:apikey
+      desc: API key to use for querying the testpkg API.
+      scopes: [ global, self ]
+      workflowconfig: true
+      type: hugenum
+
+    - name: Tag Prefix
+      varname: testpkg:tag:prefix
+      desc: Tag prefix to use when recording tags.
+      scopes: [ global, self ]
+      default: rep.testpkg
+      workflowconfig: true
+      type: [inet:fqdn, [str, inet:url]]
+
+vaults:
+  testpkg:
+    schemas:
+      configs:
+        type: object
+        properties:
+          foo:
+            type: string
+            default: hehe haha
+          bar:
+            oneOf:
+              - { type: boolean }
+              - { type: string }
+          baz:
+            type: boolean
+        additionalProperties: false
+        required:
+          - bar
+          - baz
+      secrets:
+        type: object
+        properties:
+          quux:
+            type: string
+            minLength: 2
+        additionalProperties: false
+        required:
+          - quux
+
+commands:
+    - name: testpkgcmd
+      descr: |
+        testpkgcmd does some stuff.
+      cmdinputs:
+        - form: test:str
+        - form: test:int
+          help: Some integer input
+      cmdargs:
+        - - foo
+          - help: Help on foo opt
+        - - --bar
+          - help: Help on bar opt
+      storm: |
+        test:str
+      endpoints:
+        - path: /v1/test/one
+        - path: /v1/test/two
+          host: vertex.link
+        - path: /v1/test/three
+          desc: endpoint three
+      perms:
+        - [ power-ups, testpkg, user ]
+        - [ power-ups, testpkg, admin ]
+
+    - name: testpkg.baz
+      descr: |
+        testpkgcmd does some stuff.
+      cmdargs:
+        - - foo
+          - help: Help on foo opt
+        - - --baz
+          - help: Help on baz opt
+            time: ival
+            default: ["-7days", "now"]
+
+optic:
+    title: woot
+
+    actions:
+
+        - name: hehe
+          storm: dofoo
+
+        - name: barbar
+          callback: dobar
+
+    workflows:
+
+      # testpkg-foo will get inserted from the workflows/testpkg-foo.yaml file
+
+      testpkg-bar:
+        name: bar
+        desc: this is an inline workflow
+
+      testpkg-baz:
+        name: baz
+        desc: this workflow gets overwritten by the workflows/testpkg-baz.yaml file

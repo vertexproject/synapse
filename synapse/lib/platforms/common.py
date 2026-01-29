@@ -2,6 +2,7 @@ import os
 import socket
 import ctypes
 import logging
+import tempfile
 
 import ctypes.util as c_util
 
@@ -51,7 +52,10 @@ def getLibC():
     '''
     Return a ctypes reference to libc
     '''
-    return ctypes.CDLL(c_util.find_library('c'))
+    return ctypes.CDLL(c_util.find_library('c'), use_errno=True)
 
 def initHostInfo():
     return {}
+
+def getTempDir():
+    return tempfile.gettempdir()

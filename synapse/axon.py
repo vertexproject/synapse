@@ -1,1255 +1,1917 @@
-import enum
+import csv
 import struct
-import random
 import asyncio
 import hashlib
 import logging
-import binascii
 import tempfile
-import concurrent
 import contextlib
 
-import lmdb  # type: ignore
+import aiohttp
+import aiohttp_socks
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.json as s_json
+import synapse.lib.link as s_link
 import synapse.lib.const as s_const
-import synapse.lib.queue as s_queue
+import synapse.lib.nexus as s_nexus
 import synapse.lib.share as s_share
+import synapse.lib.config as s_config
+import synapse.lib.hashset as s_hashset
+import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slabseqn as s_slabseqn
 
 logger = logging.getLogger(__name__)
 
-# File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
-
-# N.B. BlobStor does *not* use lmdb Slab.  It has its own incremental transaction.
-
-# TODO: port to use Slab
-
 CHUNK_SIZE = 16 * s_const.mebibyte
+MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
+MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
-def _path_sanitize(blobstorpath):
-    '''
-    The path might contain username/password, so just return the last part
-    '''
-    return '.../' + blobstorpath.rsplit('/', 1)[-1]
+class AxonHandlerMixin:
+    def getAxon(self):
+        '''
+        Get a reference to the Axon interface used by the handler.
+        '''
+        return self.cell
 
-async def to_aiter(it):
-    '''
-    Take either a sync or async iteratable and yields as an async generator
-    '''
-    if hasattr(it, '__aiter__'):
-        async for i in it:
-            yield i
-    else:
-        for i in it:
-            yield i
+class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
 
-def _find_hash(curs, key):
-    '''
-    Set a LMDB cursor to the first key that starts with \a key
+    async def prepare(self):
+        self.upfd = None
 
-    Returns:
-        False if key not present, else True and positions cursor at first chunk of value
-    '''
-    if not curs.set_range(key):
-        return False
-    return curs.key()[:len(key)] == key
+        if not await self.allowed(('axon', 'upload')):
+            await self.finish()
 
-class IncrementalTransaction(s_eventbus.EventBus):
-    '''
-    An lmdb write transaction that commits if the number of outstanding bytes to be commits grows too large.
+        # max_body_size defaults to 100MB and requires a value
+        self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-    Naturally, this breaks transaction atomicity.
-    '''
-    MAX_OUTSTANDING = s_const.gibibyte
+        self.upfd = await self.getAxon().upload()
+        self.hashset = s_hashset.HashSet()
 
-    def __init__(self, lenv):
-        s_eventbus.EventBus.__init__(self)
-        self.lenv = lenv
-        self.txn = None
-        self._bytecount = 0
+    async def data_received(self, chunk):
+        if chunk is not None:
+            await self.upfd.write(chunk)
+            self.hashset.update(chunk)
+            await asyncio.sleep(0)
 
-        def fini():
-            self.commit()
-            # lmdb workaround:  close environment from here to avoid lmdb crash
-            self.lenv.close()
+    def on_finish(self):
+        if self.upfd is not None and not self.upfd.isfini:
+            self.getAxon().schedCoroSafe(self.upfd.fini())
 
-        self.onfini(fini)
+    def on_connection_close(self):
+        self.on_finish()
 
-    def commit(self):
-        if self.txn is None:
+    async def _save(self):
+        size, sha256b = await self.upfd.save()
+
+        fhashes = {htyp: hasher.hexdigest() for htyp, hasher in self.hashset.hashes}
+
+        assert sha256b == s_common.uhex(fhashes.get('sha256'))
+        assert size == self.hashset.size
+
+        fhashes['size'] = size
+
+        return self.sendRestRetn(fhashes)
+
+    async def post(self):
+        '''
+        Called after all data has been read.
+        '''
+        await self._save()
+        return
+
+    async def put(self):
+        await self._save()
+        return
+
+class AxonHttpHasV1(AxonHandlerMixin, s_httpapi.Handler):
+
+    async def get(self, sha256):
+        if not await self.allowed(('axon', 'has')):
             return
-        self.txn.commit()
-        self.txn = None
-        self._bytecount = 0
+        resp = await self.getAxon().has(s_common.uhex(sha256))
+        return self.sendRestRetn(resp)
 
-    def guarantee(self):
-        '''
-        Make an LMDB transaction if we don't already have kone, and return it
-        '''
-        if self.txn is None:
-            self.txn = self.lenv.begin(write=True, buffers=True)
-        return self.txn
+reqValidAxonDel = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'sha256s': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': '(?i)^[0-9a-f]{64}$'}
+        },
+    },
+    'additionalProperties': False,
+    'required': ['sha256s'],
+})
 
-    def cursor(self, db=None):
-        self.guarantee()
-        return self.txn.cursor(db)
+class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
-    def put(self, key, value, db):
-        '''
-        Write data to the database, committing if too many bytes are uncommitted
-        '''
-        vallen = len(value)
-        if vallen + self._bytecount > self.MAX_OUTSTANDING:
-            self.commit()
-        self.guarantee()
-        self._bytecount += vallen
-        rv = self.txn.put(key, value, db=db)
-        return rv
+    async def post(self):
 
-class Uploader(s_share.Share):
-    '''
-    A remotely shareable object used for streaming uploads to a blobstor
-    '''
-    typename = 'uploader'
-
-    async def __anit__(self, link, item):
-        await s_share.Share.__anit__(self, link, item)
-        self.doneevent = asyncio.Event(loop=self.loop)
-        self.exitok = False
-        self.chunknum = 0
-        self.wcid = s_common.guid()
-        self._needfinish = True
-
-        async def fini():
-            if self._needfinish:
-                await self.finish()
-            self.doneevent.set()
-
-        self.onfini(fini)
-
-    async def write(self, bytz):
-        '''
-        Upload some data
-
-        Args:
-            bytz (bytes):  a chunk of data.   It does not have to be an entire blob.
-        '''
-        await self.item._partialsubmit(self.wcid, ((self.chunknum, bytz), ))
-        self.chunknum += 1
-
-    async def _runShareLoop(self):
-        '''
-        This keeps the object alive until we're fini'd.
-        '''
-        await self.doneevent.wait()
-
-    async def finish(self):
-        '''
-        Conclude an uploading session
-        '''
-        self._needfinish = False
-        rv = await self.item._complete(self.wcid, wait_for_result=True)
-        return rv
-
-    async def cancelFile(self):
-        '''
-        Cancel the current blob.  Will still listen for new blobs.
-        '''
-        await self.item._cancel(self.wcid)
-        self.chunknum = 0
-
-    async def finishFile(self):
-        '''
-        Finish and commit the existing file, keeping the uploader active for more files.
-        '''
-        self.chunknum = 0
-
-class _BlobStorWriter(s_base.Base):
-    '''
-    An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
-    '''
-
-    class Command(enum.Enum):
-        '''
-        The types of commands a blobstorwriter client can issue
-        '''
-        WRITE_BLOB = enum.auto()
-        CANCEL_BLOB = enum.auto()
-        FINISH = enum.auto()
-        UPDATE_OFFSET = enum.auto()
-
-    class ClientInfo:
-        '''
-        The session information for a single active client to a blobstor
-        '''
-        BUF_SIZE = 16 * s_const.mebibyte
-
-        def __init__(self):
-            self.starttime = s_common.now()
-            self.newhashes = []
-            self.totalsize = 0
-            self.nextfile()
-
-        def nextfile(self):
-            self.nextchunknum = 0
-            self.tmpfh = tempfile.SpooledTemporaryFile(buffering=self.BUF_SIZE)
-            self.hashing = hashlib.sha256()
-            self.anything_written = False
-
-    async def __anit__(self, blobstor):
-        await s_base.Base.__anit__(self)
-        self.xact = IncrementalTransaction(blobstor.lenv)
-        self.lenv = blobstor.lenv
-        self.blobstor = blobstor
-        self._workq = await s_queue.AsyncQueue.anit(50)
-        self._worker = self._workloop()
-        self._worker.name = 'BlobStorWriter'
-        self.clients = {}
-
-        async def _onfini():
-            await self._workq.fini()
-            self._worker.join()
-            self.xact.fini()
-        self.onfini(_onfini)
-
-    def _finish_file(self, client):
-        '''
-        Read from the temporary file and write to one or more database rows.
-        '''
-        if not client.anything_written:
+        if not await self.allowed(('axon', 'del')):
             return
-        hashval = client.hashing.digest()
-        # Check if already present
-        if hashval == self.blobstor._partial_hash:
-            return  # We're currently writing this one
-        with self.xact.cursor(db=self.blobstor._blob_bytes) as curs:
-            if _find_hash(curs, hashval):
-                return
-        MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
-        with contextlib.closing(client.tmpfh):
-            client.tmpfh.seek(0)
-            total_sz = 0
-            segment = 0
-            self.blobstor._partial_hash = hashval
-            self.xact.put(b'blobstor:partial', hashval, db=self.blobstor._blob_info)
-            while True:
-                chunk = client.tmpfh.read(MAX_SEGMENT_SIZE)
-                sz = len(chunk)
-                total_sz += sz
-                # We want to write *something* if data is empty
-                if segment and not sz:
-                    break
-                segment_enc = segment.to_bytes(4, 'big')
-                self.xact.put(hashval + segment_enc, chunk, db=self.blobstor._blob_bytes)
-                segment += 1
 
-        self.xact.txn.delete(b'blobstor:partial', db=self.blobstor._blob_info)
-        self.blobstor._partial_hash = None
-
-        client.totalsize += total_sz
-        client.newhashes.append(hashval)
-
-    def _cancel_blob(self, wcid):
-        '''
-        Args:
-            wcid (str): A value unique to a particular client session
-        Returns:
-            None
-        '''
-        client = self.clients.get(wcid)
-        if client is None:
+        body = self.getJsonBody(validator=reqValidAxonDel)
+        if body is None:
             return
-        client.tmpfh.close()
-        client.nextfile()
 
-    def _write_blob(self, wcid, chunknum, bytz):
-        '''
-        Write data
+        sha256s = body.get('sha256s')
+        hashes = [s_common.uhex(s) for s in sha256s]
+        resp = await self.getAxon().dels(hashes)
+        return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
-        Args:
-            wcid (str): A value unique to a particular client session
-            chunknum (int):  the index of this particular chunk in blob.  A chunknum of 0 completes any previous
-            blob and starts a new one.  chunknums must be consecutive for each blob.
-            bytz (bytes):  the actual payload
+class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
-        Returns:
-            None
-        '''
-        client = self.clients.get(wcid)
-        if not chunknum:
-            if client is None:
-                self.clients[wcid] = client = self.ClientInfo()
-            else:
-                self._finish_file(client)
-                client.nextfile()
-        elif client is None:
-            raise s_exc.AxonBadChunk('BlobStorWriter missing first chunk')
+    async def getAxonInfo(self):
+        return await self.getAxon().getCellInfo()
 
-        client.tmpfh.write(bytz)
-        client.hashing.update(bytz)
-        client.anything_written = True
+    async def _setSha256Headers(self, sha256b):
 
-    def _save_update_stats(self, client):
-        took = s_common.now() - client.starttime
-        self.xact.guarantee()
-        self.blobstor._clone_seqn.save(self.xact.txn, client.newhashes)
-        self.blobstor._metrics.inc(self.xact.txn, 'bytes', client.totalsize)
-        self.blobstor._metrics.inc(self.xact.txn, 'blobs', len(client.newhashes))
-        self.blobstor._metrics.record(self.xact.txn, {'time': client.starttime, 'size': client.totalsize, 'took': took})
+        self.ranges = []
 
-    def _complete_session(self, wcid):
-        client = self.clients.get(wcid)
-        if client is None:
-            logger.debug('BlobStorWriter got session completion on unknown client')
-            return 0, None
-        self._finish_file(client)
-        self._save_update_stats(client)
-        self.xact.commit()
-        hashcount = len(client.newhashes)
-        last_hashval = client.newhashes[-1] if hashcount else None
-        del self.clients[wcid]
-        return hashcount, last_hashval
+        self.blobsize = await self.getAxon().size(sha256b)
+        if self.blobsize is None:
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
+            return False
 
-    def _updateCloneProgress(self, offset):
-        self.xact.guarantee()
-        self.xact.txn.put(b'clone:progress', struct.pack('>Q', offset), db=self.blobstor._blob_info)
-        self.xact.commit()
+        status = 200
+        info = await self.getAxonInfo()
+        if info.get('features', {}).get('byterange'):
+            self.set_header('Accept-Ranges', 'bytes')
+            self._chopRangeHeader()
 
-    @s_common.firethread
-    def _workloop(self):
-        '''
-        Main loop for _BlobStorWriter
-        '''
-        try:
-            while not self.isfini:
-                msg = self._workq.get()
-                if msg is None:
-                    break
-                cmd = msg[0]
-                if cmd == self.Command.WRITE_BLOB:
-                    _, wcid, chunknum, bytz = msg
-                    self._write_blob(wcid, chunknum, bytz)
-                elif cmd == self.Command.CANCEL_BLOB:
-                    _, wcid = msg
-                    self._cancel_blob(wcid)
-                elif cmd == self.Command.FINISH:
-                    _, wcid, fut = msg
-                    result = self._complete_session(wcid)
-                    if fut is not None:
-                        self.schedCallSafe(fut.set_result, result)
+        if len(self.ranges):
+            status = 206
+            soff, eoff = self.ranges[0]
 
-                elif cmd == self.Command.UPDATE_OFFSET:
-                    _, offset = msg
-                    self._updateCloneProgress(offset)
-        finally:
-            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact)
-            self.xact.fini()
+            # Negative lengths are invalid
+            cont_len = eoff - soff
+            if cont_len < 1:
+                self.set_status(416)
+                return False
 
-    # Client methods
+            # Reading past the blobsize is invalid
+            if soff >= self.blobsize:
+                self.set_status(416)
+                return False
 
-    async def partialsubmit(self, wcid, blocs):
-        ran_at_all = False
-        async for b in to_aiter(blocs):
-            chunknum, bytz = b
-            ran_at_all = True
-            await self._workq.put((self.Command.WRITE_BLOB, wcid, chunknum, bytz))
-        return ran_at_all
+            if soff + cont_len > self.blobsize:
+                self.set_status(416)
+                return False
 
-    async def cancel(self, wcid):
-        await self._workq.put((self.Command.CANCEL_BLOB, wcid))
-
-    async def complete(self, wcid, wait_for_result=False):
-        rv = None
-        if wait_for_result:
-            fut = asyncio.Future(loop=self.loop)
-            await self._workq.put((self.Command.FINISH, wcid, fut))
-            await fut
-            rv = fut.result()
+            # ranges are *inclusive*...
+            self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
+            self.set_header('Content-Length', str(cont_len))
+            # TODO eventually support multi-range returns
         else:
-            await self._workq.put((self.Command.FINISH, wcid, None))
-        self.blobstor._newdataevent.set()
-        return rv
+            self.set_header('Content-Length', str(self.blobsize))
 
-    async def updateCloneProgress(self, offset):
-        logger.debug('updateCloneProgress {offset}')
-        await self._workq.put((self.Command.UPDATE_OFFSET, offset))
+        self.set_status(status)
+        return True
 
-    async def submit(self, blocs, wait_for_result=False):
-        '''
-        Returns:
-             Count of hashes processed, last hash value processed
-        '''
-        wcid = s_common.guid()
-        ran_at_all = await self.partialsubmit(wcid, blocs)
-        if not ran_at_all:
-            return 0, None if wait_for_result else None
-        rv = await self.complete(wcid, wait_for_result)
-        return rv
+    def _chopRangeHeader(self):
 
-class BlobStorApi(s_cell.PassThroughApi):
-
-    allowed_methods = ['clone', 'stat', 'metrics', 'offset', 'bulkput', 'putone', 'putmany', 'get',
-                       '_complete', '_cancel', '_partialsubmit', 'getCloneProgress']
-
-    async def startput(self):
-        upld = await Uploader.anit(self.link, self)
-        self.onfini(upld)
-        return upld
-
-class BlobStor(s_cell.Cell):
-    '''
-    The blob store maps sha256 values to sequences of bytes stored in a LMDB database.
-    '''
-    cellapi = BlobStorApi
-
-    confdefs = (  # type: ignore
-        ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
-        ('cloneof', {'type': 'str', 'doc': 'The telepath of a blob cell to clone from', 'defval': None}),
-    )
-
-    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
-        await s_cell.Cell.__anit__(self, dirn)
-
-        self.clonetask = None
-
-        if conf is not None:
-            self.conf.update(conf)
-
-        path = s_common.gendir(self.dirn, 'blobs.lmdb')
-
-        mapsize = self.conf.get('mapsize')
-        self.lenv = lmdb.open(path, writemap=True, max_dbs=128, map_size=mapsize)
-        self._blob_info = self.lenv.open_db(b'info')
-        self._blob_bytes = self.lenv.open_db(b'bytes') # <sha256>=<byts>
-
-        self._clone_seqn = s_lmdb.Seqn(self.lenv, b'clone')
-        self._metrics = s_lmdb.Metrics(self.lenv)
-        self._newdataevent = asyncio.Event(loop=self.loop)
-
-        def delevent():
-            del self._newdataevent
-
-        self.onfini(delevent)
-
-        self._recover_partial()
-        self._partial_hash = None  # hash currently being written
-
-        self.writer = await _BlobStorWriter.anit(self)
-
-        self.cloneof = self.conf.get('cloneof')
-
-        if self.cloneof is not None:
-            self.clonetask = self.schedCoro(self._cloneeLoop(self.cloneof))
-
-        self.onfini(self.writer.fini)
-
-    def _recover_partial(self):
-        '''
-        Check if we died in the middle of writing a big blob.  If so delete it.
-        '''
-        with self.lenv.begin(buffers=True, write=True) as xact:
-
-            partial_hash = xact.get(b'blobstor:partial', db=self._blob_info)
-            if partial_hash is None:
-                return
-            logger.info('Found partially written blob.  Deleting')
-            with xact.cursor(db=self._blob_bytes) as curs:
-                if not _find_hash(curs, partial_hash):
-                    return None
-                while True:
-                    curkey = curs.key()
-                    if curkey is None or curkey[:len(partial_hash)] != partial_hash:
-                        break
-                    curs.delete()
-
-    async def _partialsubmit(self, wcid, blocs):
-        ''' For Uploader's sake '''
-        return await self.writer.partialsubmit(wcid, blocs)
-
-    async def _complete(self, wcid, wait_for_result=False):
-        ''' For Uploader's sake '''
-        return await self.writer.complete(wcid, wait_for_result)
-
-    async def _cancel(self, wcid):
-        ''' For Uploader's sake '''
-        return await self.writer.cancel(wcid)
-
-    async def _cloneeLoop(self, cloneepath):
-        '''
-        Act to clone another blobstor, the clonee, by repeatedly asking long-poll-style for its new data
-        '''
-        CLONE_TIMEOUT = 30.0
-        clonee = await s_telepath.openurl(cloneepath)
-        cur_offset = self.getCloneProgress()
-        while not self.isfini:
-            try:
-                if clonee.isfini:
-                    clonee = await s_telepath.openurl(cloneepath)
-
-                genr = await clonee.clone(cur_offset, timeout=CLONE_TIMEOUT)
-                last_offset = await self._consume_clone_data(genr)
-                if last_offset is not None:
-                    cur_offset = last_offset + 1
-                    await self.writer.updateCloneProgress(cur_offset)
-
-            except Exception:
-                if not self.isfini:
-                    logger.exception('BlobStor.cloneeLoop error')
-
-    async def bulkput(self, blocs):
-        '''
-        Save items from an iterator of (sha256, chunk #, <bytes>).
-
-        Args:
-            blocs: An iterator of (sha256, chunk #, <bytes>).  Every 0 chunk # represents a new file.
-            The sha256 must be None, except if the chunk # is 0, in which it may optionally be a sha256 hash.  If
-            present and the blobstor contains a value with a matching hash, all bytes will be skipped until the next
-            bloc with a chunk # of 0 is encountered.
-
-        Returns:
-            None
-        '''
-        async def filter_out_known_hashes(self, blocs):
-            skipping = False
-            with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact, xact.cursor(db=self._blob_bytes) as curs:
-                async for hashval, chunknum, bytz in to_aiter(blocs):
-                    if not chunknum:
-                        skipping = hashval is not None and _find_hash(curs, hashval)
-                    if skipping:
-                        continue
-                    yield chunknum, bytz
-
-        hashcount, _ = await self.writer.submit(filter_out_known_hashes(self, blocs), wait_for_result=True)
-        if hashcount:
-            self._newdataevent.set()
-        return hashcount
-
-    async def putone(self, item):
-        return await self.writer.submit(((0, item), ), wait_for_result=True)
-
-    async def putmany(self, items):
-        return await self.writer.submit(((0, i) for i in items), wait_for_result=True)
-
-    async def get(self, hashval):
-        '''
-        Load and yield the bytes blocks for a given hash.
-
-        Args:
-            hashval (bytes): Hash to retrieve bytes for.
-
-        '''
-        if hashval == self._partial_hash:
+        header = self.request.headers.get('range', '').strip().lower()
+        if not header.startswith('bytes='):
             return
-        with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
-            for chunk in self._get(hashval, xact):
-                yield chunk
 
-    def _get(self, hashval, xact):
-        with xact.cursor(db=self._blob_bytes) as curs:
-            if not _find_hash(curs, hashval):
-                return None
-            for k, v in curs:
-                if not k[:len(hashval)] == hashval:
-                    return None
-                yield from s_common.chunks(v, CHUNK_SIZE)
+        for part in header.split('=', 1)[1].split(','):
 
-    async def clone(self, offset: int, include_contents=True, timeout=0):
-        '''
-        Yield (offset, (sha256, chunknum, bytes)) tuples to clone this BlobStor.
-
-        Args:
-            offset (int): Offset to start yielding rows from.
-            include_contents (bool):  Whether to include the blob value in the results stream
-
-        Yields:
-            ((bytes, (bytes, int, bytes))): tuples of (index, (sha256,chunknum,bytes)) data.
-        '''
-        MAX_ITERS = 1024  # just a rough number so we don't have genrs that last forever
-        iter_count = 0
-        cur_offset = self._clone_seqn.indx  # actually, the next offset at which we'll write
-        if cur_offset <= offset:
-            if timeout == 0:
-                return
-            self._newdataevent.clear()
-            try:
-                await asyncio.wait_for(self._newdataevent.wait(), timeout)
-            except asyncio.TimeoutError:
-                return
-        with self.lenv.begin(buffers=True) as xact:
-            for off, hashval in self._clone_seqn.iter(xact, offset):
-                iter_count += 1
-                if include_contents:
-                    for chunknum, chunk in enumerate(self._get(hashval, xact)):
-                        yield off, (None if chunknum else hashval, chunknum, bytes(chunk))
-                        iter_count += 1
-                else:
-                    yield off, (hashval, None, None)
-                if iter_count >= MAX_ITERS:
-                    break
-
-    async def _consume_clone_data(self, items):
-        '''
-        Add rows obtained from a BlobStor.clone() method.
-
-        Args:
-            items (Iterable): A list of tuples containing (offset, (sha256,chunknum,bytes)) data.
-
-        Returns:
-            int: The the last offset processed from the list of items, or None if nothing was processed
-        '''
-        last_offset = None
-
-        async def yielder(i):
-            '''
-            Drop the offset and keep track of the last one encountered
-            '''
-            nonlocal last_offset
-            async for offset, (hashval, chunknum, bytz) in to_aiter(i):
-                yield hashval, chunknum, bytz
-                last_offset = offset
-
-        await self.bulkput(yielder(items))
-
-        # Update how far we've cloned
-        if last_offset is not None:
-            logger.debug(f'_consume_clone_data returning {last_offset}')
-            return last_offset
-        logger.debug(f'_consume_clone_data returning None')
-        return None
-
-    async def stat(self):
-        '''
-        Get storage stats for the BlobStor.
-
-        Returns:
-            dict: A dictionary containing the total bytes and blocks store in the BlobStor.
-        '''
-        return self._metrics.stat()
-
-    async def metrics(self, offs=0):
-        '''
-        Get metrics for the BlobStor. These can be aggregated to compute the storage stats.
-
-        Args:
-            offs (int): Offset to start collecting stats from.
-
-        Yields:
-            ((int, dict)): Yields index, sample data from the metrics sequence.
-        '''
-        with self.lenv.begin(buffers=True) as xact:
-            for item in self._metrics.iter(xact, offs):
-                yield item
-
-    def getCloneProgress(self):
-        '''
-        Get the next offset to retrieve for the clone:index of the BlobStor.
-
-        Returns:
-            int: The offset value
-        '''
-        with self.lenv.begin(buffers=True) as xact:
-
-            lval = xact.get(b'clone:progress', db=self._blob_info)
-            if lval is None:
-                return 0
-
-            return struct.unpack('>Q', lval)[0]
-
-class _ProxyKeeper(s_base.Base):
-    '''
-    A container for active blobstor proxy objects.
-    '''
-
-    # All the proxy keepers share a common bsid -> path map
-    bsidpathmap = {}  # type: ignore
-
-    async def __anit__(self):
-        await s_base.Base.__anit__(self)
-        self._proxymap = {}  # bsid -> proxy
-
-        async def fini():
-            for proxy in self._proxymap.values():
-                if proxy is not None:
-                    await proxy.fini()
-            self._proxymap = {}
-
-        self.onfini(fini)
-
-    def get_all(self):
-        '''
-        Returns:
-            (Dict[str, proxy]) A map of path -> proxy for all known blobstors.
-        '''
-        retn = {}
-        for bsid, proxy in self._proxymap.items():
-            path = self.bsidpathmap.get(bsid)
-            if path is not None:
-                retn[path] = proxy
-        return retn
-
-    async def _addproxy(self, proxy, path):
-        bsid = binascii.unhexlify(await proxy.getCellIden())
-        self.bsidpathmap[bsid] = path
-        self._proxymap[bsid] = proxy
-        return bsid
-
-    async def connect(self, path):
-        '''
-        Connect to a proxy.
-
-        Returns:
-            (bytes, s_telepath.Proxy) the bsid and the proxy object
-        '''
-        try:
-            proxy = await s_telepath.openurl(path)
-        except Exception:
-            logger.exception('Failed to connect to telepath %s', _path_sanitize(path))
-            raise
-
-        newbsid = await self._addproxy(proxy, path)
-        return newbsid, proxy
-
-    async def randoproxy(self, bsids=None):
-        '''
-        Returns a random (bsid, blobstor) pair from the bsids parameter, or from all know bsids if parameter is None
-        '''
-        if bsids is None:
-            bsids = list(self.bsidpathmap.keys())
-        if not bsids:
-            raise s_exc.AxonNoBlobStors()
-        rot = random.randrange(len(bsids))
-        bsidsrot = bsids[rot:] + bsids[:rot]
-        for bsid in bsidsrot:
-            try:
-                blobstor = await self.get(bsid)
-            except Exception:
-                logger.warning('Trouble connecting to BSID %r', bsid)
+            part = part.strip()
+            if not part:
                 continue
 
-            return bsid, blobstor
-        raise s_exc.AxonNoBlobStors()
+            soff, eoff = part.split('-', 1)
 
-    async def get(self, bsid: bytes) -> s_telepath.Proxy:
-        '''
-        Retrieve a proxy object by bsid, connecting if not already connected
-        '''
-        proxy = self._proxymap.get(bsid)
-        if proxy:
-            if proxy.isfini:
-                del self._proxymap[bsid]
+            soff = int(soff.strip())
+            eoff = eoff.strip()
+
+            if not eoff:
+                eoff = self.blobsize
             else:
-                return proxy
-        path = self.bsidpathmap.get(bsid)
-        if path is None:
-            raise s_exc.AxonUnknownBsid()
-        newbsid, proxy = await self.connect(path)
-        if newbsid != bsid:
-            raise s_exc.AxonBlobStorBsidChanged()
-        return proxy
+                eoff = int(eoff) + 1
 
-class AxonApi(s_cell.PassThroughApi):
-    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
-                       'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
+            self.ranges.append((soff, eoff))
 
-    async def __anit__(self, cell, link):
-        await s_cell.PassThroughApi.__anit__(self, cell, link)
+    async def _sendSha256Byts(self, sha256b):
 
-        # The Axon makes new connections to each blobstor for each client.
-        self._proxykeeper = await _ProxyKeeper.anit()
-
-        async def fini():
-            await self._proxykeeper.fini()
-
-        self.onfini(fini)
-
-    async def get(self, hashval):
-        return await self.cell.get(hashval, self._proxykeeper)
-
-    async def startput(self):
-        bsid, blobstor = await self._proxykeeper.randoproxy()
-        rv = await UploaderProxy.anit(self.link, self.cell, blobstor, bsid)
-        return rv
-
-class UploaderProxy(s_share.Share):
-    ''' A proxy to a blobstor uploader living with the axon '''
-    typename = 'uploaderproxy'
-
-    async def __anit__(self, link, axon, blobstorproxy, bsid):
-        await s_share.Share.__anit__(self, link, axon)
-        self.doneevent = asyncio.Event(loop=self.loop)
-        self.blobstor = blobstorproxy
-        self.bsid = bsid
-        self.uploader = None
-        self.hashing = None
-        self.finished = False
-
-        async def fini():
-            if self.uploader is not None:
-                try:
-                    await self.finish()
-                except lmdb.Error:
-                    # We're shutting down.  Too late to commit.
-                    pass
-                await self.uploader.fini()
-            self.doneevent.set()
-
-        self.onfini(fini)
-
-    async def write(self, bytz):
-        if self.finished:
-            raise s_exc.AxonUploaderFinished
-        if self.uploader is None:
-            self.uploader = await self.blobstor.startput()
-        if self.hashing is None:
-            self.hashing = hashlib.sha256()
-        self.hashing.update(bytz)
-        await self.uploader.write(bytz)
-
-    async def _runShareLoop(self):
-        '''
-        This keeps the object alive until we're fini'd.
-        '''
-        await self.doneevent.wait()
-
-    async def finish(self):
-        return await self._finish(False)
-
-    async def finishFile(self):
-        return await self._finish(True)
-
-    async def _finish(self, keep_going):
-        if self.hashing is None:
-            # Ignore inocuous calls to finish or finishFile if there weren't any writes.
-            return
-        if self.finished:
-            raise s_exc.AxonUploaderFinished
-        if self.uploader is None:
-            return
-        hashval = self.hashing.digest()
-        self.hashing = None
-        if await self.item.wants([hashval]) == []:
-            await self.uploader.cancelFile()
+        # a single range is simple...
+        if self.ranges:
+            # TODO eventually support multi-range returns
+            soff, eoff = self.ranges[0]
+            size = eoff - soff
+            async for byts in self.getAxon().get(sha256b, soff, size):
+                self.write(byts)
+                await self.flush()
+                await asyncio.sleep(0)
             return
 
-        if keep_going:
-            retn = await self.uploader.finishFile()
-            await self.item._executor_nowait(self.item._addloc, self.bsid, hashval)
+        # standard file return
+        async for byts in self.getAxon().get(sha256b):
+            self.write(byts)
+            await self.flush()
+            await asyncio.sleep(0)
+
+class AxonHttpBySha256V1(AxonFileHandler):
+
+    async def head(self, sha256):
+
+        if not await self.allowed(('axon', 'get')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+
+        if not await self._setSha256Headers(sha256b):
+            return
+
+        self.set_header('Content-Disposition', 'attachment')
+        self.set_header('Content-Type', 'application/octet-stream')
+
+        return self.finish()
+
+    async def get(self, sha256):
+
+        if not await self.allowed(('axon', 'get')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+        if not await self._setSha256Headers(sha256b):
+            return
+
+        self.set_header('Content-Disposition', 'attachment')
+        self.set_header('Content-Type', 'application/octet-stream')
+
+        await self._sendSha256Byts(sha256b)
+
+        return self.finish()
+
+    async def delete(self, sha256):
+
+        if not await self.allowed(('axon', 'del')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+        if not await self.getAxon().has(sha256b):
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
+            return
+
+        resp = await self.getAxon().del_(sha256b)
+        return self.sendRestRetn(resp)
+
+class AxonHttpBySha256InvalidV1(AxonFileHandler):
+
+    async def _handle_err(self, sha256, send_err=True):
+        if not await self.reqAuthUser():
+            return
+
+        self.set_status(404)
+        if send_err:
+            self.sendRestErr('BadArg', f'Hash is not a SHA-256: {sha256}')
+
+    async def delete(self, sha256):
+        return await self._handle_err(sha256)
+
+    async def get(self, sha256):
+        return await self._handle_err(sha256)
+
+    async def head(self, sha256):
+        return await self._handle_err(sha256, send_err=False)
+
+class UpLoad(s_base.Base):
+    '''
+    An object used to manage uploads to the Axon.
+    '''
+    async def __anit__(self, axon):  # type: ignore
+
+        await s_base.Base.__anit__(self)
+
+        self.axon = axon
+        dirn = s_common.gendir(axon.dirn, 'tmp')
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
+        self.size = 0
+        self.sha256 = hashlib.sha256()
+        self.onfini(self._uploadFini)
+
+    def _uploadFini(self):
+        self.fd.close()
+
+    def _reset(self):
+        if self.fd._rolled or self.fd.closed:
+            self.fd.close()
+            dirn = s_common.gendir(self.axon.dirn, 'tmp')
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
         else:
-            self.finished = True
-            retn = await self.uploader.finish()
-            if retn[1] is not None and retn[1] != hashval:
-                # The BlobStor and the Axon don't agree on the hash?!
-                raise s_exc.AxonBlobStorDisagree
-            await self.item._executor(self.item._addloc, self.bsid, hashval, commit=True)
-        return retn
+            # If we haven't rolled over, this skips allocating new objects
+            self.fd.truncate(0)
+            self.fd.seek(0)
+        self.size = 0
+        self.sha256 = hashlib.sha256()
+
+    async def write(self, byts):
+        '''
+        Write bytes to the Upload object.
+
+        Args:
+            byts (bytes): Bytes to write to the current Upload object.
+
+        Returns:
+            (None): Returns None.
+        '''
+        self.size += len(byts)
+        self.sha256.update(byts)
+        self.fd.write(byts)
+
+    async def save(self):
+        '''
+        Save the currently uploaded bytes to the Axon.
+
+        Notes:
+            This resets the Upload object, so it can be reused.
+
+        Returns:
+            tuple(int, bytes): A tuple of sizes in bytes and the sha256 hash of the saved files.
+        '''
+
+        sha256 = self.sha256.digest()
+        rsize = self.size
+
+        if await self.axon.has(sha256):
+            self._reset()
+            return rsize, sha256
+
+        def genr():
+
+            self.fd.seek(0)
+
+            while True:
+
+                if self.isfini:
+                    raise s_exc.IsFini()
+
+                byts = self.fd.read(CHUNK_SIZE)
+                if not byts:
+                    return
+
+                yield byts
+
+        await self.axon.save(sha256, genr(), rsize)
+
+        self._reset()
+        return rsize, sha256
+
+class UpLoadShare(UpLoad, s_share.Share):  # type: ignore
+    typename = 'upload'
+
+    async def __anit__(self, axon, link):
+        await UpLoad.__anit__(self, axon)
+        await s_share.Share.__anit__(self, link, None)
+
+class UpLoadProxy(s_share.Share):
+
+    async def __anit__(self, link, upload):
+        await s_share.Share.__anit__(self, link, upload)
+        self.onfini(upload)
+
+    async def write(self, byts):
+        return await self.item.write(byts)
+
+    async def save(self):
+        return await self.item.save()
+
+class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
+
+    async def __anit__(self, cell, link, user):
+        await s_cell.CellApi.__anit__(self, cell, link, user)
+        await s_share.Share.__anit__(self, link, None)
+
+    async def get(self, sha256, offs=None, size=None):
+        '''
+        Get bytes of a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            offs (int): The offset to start reading from.
+            size (int): The total number of bytes to read.
+
+        Examples:
+
+            Get the bytes from an Axon and process them::
+
+                buf = b''
+                async for bytz in axon.get(sha256):
+                    buf += bytz
+
+                await dostuff(buf)
+
+        Yields:
+            bytes: Chunks of the file bytes.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for byts in self.cell.get(sha256, offs=offs, size=size):
+            yield byts
+
+    async def has(self, sha256):
+        '''
+        Check if the Axon has a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            boolean: True if the Axon has the file; false otherwise.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.has(sha256)
+
+    async def size(self, sha256):
+        '''
+        Get the size of a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            int: The size of the file, in bytes. If not present, None is returned.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.size(sha256)
+
+    async def hashset(self, sha256):
+        '''
+        Calculate additional hashes for a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            dict: A dictionary containing hashes of the file.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.hashset(sha256)
+
+    async def hashes(self, offs, wait=False, timeout=None):
+        '''
+        Yield hash rows for files that exist in the Axon in added order starting at an offset.
+
+        Args:
+            offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
+
+        Yields:
+            (int, (bytes, int)): An index offset and the file SHA-256 and size.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        async for item in self.cell.hashes(offs, wait=wait, timeout=timeout):
+            yield item
+
+    async def history(self, tick, tock=None):
+        '''
+        Yield hash rows for files that existing in the Axon after a given point in time.
+
+        Args:
+            tick (int): The starting time (in epoch milliseconds).
+            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+
+        Yields:
+            (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        async for item in self.cell.history(tick, tock=tock):
+            yield item
+
+    async def wants(self, sha256s):
+        '''
+        Get a list of sha256 values the axon does not have from an input list.
+
+        Args:
+            sha256s (list): A list of sha256 values as bytes.
+
+        Returns:
+            list: A list of bytes containing the sha256 hashes the Axon does not have.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.wants(sha256s)
+
+    async def put(self, byts):
+        '''
+        Store bytes in the Axon.
+
+        Args:
+            byts (bytes): The bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for files greater than 128 MiB in size.
+
+        Returns:
+            tuple(int, bytes): A tuple with the file size and sha256 hash of the bytes.
+        '''
+        await self._reqUserAllowed(('axon', 'upload'))
+        return await self.cell.put(byts)
+
+    async def puts(self, files):
+        '''
+        Store a set of bytes in the Axon.
+
+        Args:
+            files (list): A list of bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for storing more than 128 MiB of bytes at once.
+
+        Returns:
+            list(tuple(int, bytes)): A list containing tuples of file size and sha256 hash of the saved bytes.
+        '''
+        await self._reqUserAllowed(('axon', 'upload'))
+        return await self.cell.puts(files)
+
+    async def upload(self):
+        '''
+        Get an Upload object.
+
+        Notes:
+            The UpLoad object should be used to manage uploads greater than 128 MiB in size.
+
+        Examples:
+            Use an UpLoad object to upload a file to the Axon::
+
+                async with axonProxy.upload() as upfd:
+                    # Assumes bytesGenerator yields bytes
+                    async for byts in bytsgenerator():
+                        upfd.write(byts)
+                    upfd.save()
+
+            Use a single UpLoad object to save multiple files::
+
+                async with axonProxy.upload() as upfd:
+                    for fp in file_paths:
+                        # Assumes bytesGenerator yields bytes
+                        async for byts in bytsgenerator(fp):
+                            upfd.write(byts)
+                        upfd.save()
+
+        Returns:
+            UpLoadShare: An Upload manager object.
+        '''
+        await self._reqUserAllowed(('axon', 'upload'))
+        return await UpLoadShare.anit(self.cell, self.link)
+
+    async def del_(self, sha256):
+        '''
+        Remove the given bytes from the Axon by sha256.
+
+        Args:
+            sha256 (bytes): The sha256, in bytes, to remove from the Axon.
+
+        Returns:
+            boolean: True if the file is removed; false if the file is not present.
+        '''
+        await self._reqUserAllowed(('axon', 'del'))
+        return await self.cell.del_(sha256)
+
+    async def dels(self, sha256s):
+        '''
+        Given a list of sha256 hashes, delete the files from the Axon.
+
+        Args:
+            sha256s (list): A list of sha256 hashes in bytes form.
+
+        Returns:
+            list: A list of booleans, indicating if the file was deleted or not.
+        '''
+        await self._reqUserAllowed(('axon', 'del'))
+        return await self.cell.dels(sha256s)
+
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+        '''
+        Stream a file download directly into the Axon.
+
+        Args:
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            json: A JSON body which is included with the request.
+            body: The body to be included in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+            proxy (str|bool): The proxy value.
+            ssl_opts (dict): Additional SSL/TLS options.
+
+        Notes:
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
+            reflect that a status code, such as a 404, was encountered when retrieving the URL.
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
+
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
+                    'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
+                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
+                    'headers': <dict> - The response headers as a dictionary.
+                    'size': <int> - The size in bytes of the response body.
+                    'hashes': {
+                        'md5': <str> - The MD5 hash of the response body.
+                        'sha1': <str> - The SHA1 hash of the response body.
+                        'sha256': <str> - The SHA256 hash of the response body.
+                        'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
+                    }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
+                }
+
+        Returns:
+            dict: An information dictionary containing the results of the request.
+        '''
+        await self._reqUserAllowed(('axon', 'wget'))
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method,
+                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+        await self._reqUserAllowed(('axon', 'wput'))
+        return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
+                                         ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT',
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+        await self._reqUserAllowed(('axon', 'wput'))
+        return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
+                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+
+    async def metrics(self):
+        '''
+        Get the runtime metrics of the Axon.
+
+        Returns:
+            dict: A dictionary of runtime data about the Axon.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.metrics()
+
+    async def iterMpkFile(self, sha256):
+        '''
+        Yield items from a MsgPack (.mpk) file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Yields:
+            Unpacked items from the bytes.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.iterMpkFile(sha256):
+            yield item
+
+    async def readlines(self, sha256, errors='ignore'):
+        '''
+        Yield lines from a multi-line text file in the axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
+
+        Yields:
+            str: Lines of text
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.readlines(sha256, errors=errors):
+            yield item
+
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
+        '''
+        Yield CSV rows from a CSV file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+            dialect (str): The CSV dialect to use.
+            errors (str): Specify how encoding errors should handled.
+            **fmtparams: The CSV dialect format parameters.
+
+        Notes:
+            The dialect and fmtparams expose the Python csv.reader() parameters.
+
+        Examples:
+
+            Get the rows from a CSV file and process them::
+
+                async for row in axon.csvrows(sha256):
+                    await dostuff(row)
+
+            Get the rows from a tab separated file and process them::
+
+                async for row in axon.csvrows(sha256, delimiter='\t'):
+                    await dostuff(row)
+
+        Yields:
+            list: Decoded CSV rows.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
+            yield item
+
+    async def jsonlines(self, sha256, errors='ignore'):
+        '''
+        Yield JSON objects from JSONL (JSON lines) file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
+
+        Yields:
+            object: Decoded JSON objects.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.jsonlines(sha256, errors=errors):
+            yield item
+
+    async def unpack(self, sha256, fmt, offs=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            fmt (str): The struct format string.
+            offs (int): The offset to start reading from.
+
+        Returns:
+            tuple: The unpacked values.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+            synapse.exc.BadArg: If the struct format is invalid or reads too much data.
+            synapse.exc.BadDataValu: If the file does not contain the expected number of bytes.
+            synapse.exc.FeatureNotSupported: Feature is not supported.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        return await self.cell.unpack(sha256, fmt, offs=offs)
 
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
-    confdefs = (  # type: ignore
-        ('mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE, 'doc': 'The size of the LMDB memory map'}),
-    )
+    byterange = False
 
-    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
-        await s_cell.Cell.__anit__(self, dirn)
+    confdefs = {
+        'max:bytes': {
+            'description': 'The maximum number of bytes that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
+        'max:count': {
+            'description': 'The maximum number of files that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
+        'http:proxy': {
+            'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
+            'type': 'string',
+        },
+        'tls:ca:dir': {
+            'description': 'An optional directory of CAs which are added to the TLS CA chain for wget and wput APIs.',
+            'type': 'string',
+        },
+    }
+
+    async def initServiceStorage(self):  # type: ignore
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
-        mapsize = self.conf.get('mapsize')
-        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
-        self.lenv.set_mapsize(mapsize)
+        self.axonslab = await s_lmdbslab.Slab.anit(path)
+        self.sizes = self.axonslab.initdb('sizes')
+        self.onfini(self.axonslab.fini)
 
-        self.bloblocs = self.lenv.open_db(b'axon:blob:locs', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
-        self.offsets = self.lenv.open_db(b'axon:blob:offsets') # <sha256>=blobstor_bsid
+        self.hashlocks = {}
 
-        # Persistent settings
-        self.settings = self.lenv.open_db(b'axon:settings', dupsort=True)
+        self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
+        self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
-        self._metrics = s_lmdb.Metrics(self.lenv)
-        self._proxykeeper = await _ProxyKeeper.anit()
+        self.axonmetrics = await self.axonslab.getHotCount('metrics')
 
-        # Clear the global proxykeeper bsid->telepath path map (really just for unit tests)
-        _ProxyKeeper.bsidpathmap = {}
+        if self.inaugural:
+            self.axonmetrics.set('size:bytes', 0)
+            self.axonmetrics.set('file:count', 0)
 
-        paths = self._get_stored_blobstorpaths()
-        self.blobstorwatchers = {}  # type: ignore
+        await self._bumpCellVers('axon:metrics', (
+            (1, self._migrateAxonMetrics),
+        ), nexs=False)
 
-        async def _connect_to_blobstors():
-            # Wait a few seconds for the daemon to register all of its shared objects
-            DAEMON_DELAY = 3
-            await asyncio.sleep(DAEMON_DELAY)
-            for path in paths:
-                try:
-                    await self._start_watching_blobstor(path)
-                except Exception:
-                    logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
+        self.maxbytes = self.conf.get('max:bytes')
+        self.maxcount = self.conf.get('max:count')
 
-        conn_future = self.schedCoro(_connect_to_blobstors())
+        # modularize blob storage
+        await self._initBlobStor()
 
-        self._workq = await s_queue.AsyncQueue.anit(50)
-        self.xact = IncrementalTransaction(self.lenv)
-        self._worker = self._workloop()
-        self._worker.name = 'Axon Writer'
+        # Set the byterange flag as an integer AFTER we've called
+        # _initBlobStor which may set it to true. That will allow
+        # downstream implementations to continue working as expected
+        # out of the gate.
+        self.features.update({
+            'byterange': int(self.byterange),
+            'unpack': 1,
+        })
 
-        async def fini():
-            conn_future.cancel()
-            for stop_event in self.blobstorwatchers.values():
-                stop_event.set()
-            await self._workq.fini()
-            await self._proxykeeper.fini()
-            self._worker.join()
+    async def initServiceRuntime(self):
 
-        self.onfini(fini)
+        # share ourself via the cell dmon as "axon"
+        # for potential default remote use
+        self.dmon.share('axon', self)
 
-    def _get_stored_blobstorpaths(self):
-        paths = []
-        with self.lenv.begin(buffers=True) as xact, xact.cursor(db=self.settings) as curs:
-            if not curs.set_key(b'blobstorpaths'):
-                return []
-            for path in curs.iternext_dup():
-                paths.append(bytes(path).decode())
-        return paths
+        self._initAxonHttpApi()
+        self.addHealthFunc(self._axonHealth)
 
-    async def _start_watching_blobstor(self, blobstorpath: str):
+    @contextlib.asynccontextmanager
+    async def holdHashLock(self, hashbyts):
         '''
-        Raises:
-            telepath openurl exceptions
+        A context manager that synchronizes edit access to a blob.
+
+        Args:
+            hashbyts (bytes): The blob to hold the lock for.
         '''
-        bsid, blobstor = await self._proxykeeper.connect(blobstorpath)
-        stop_watching_event = asyncio.Event(loop=self.loop)
-        self.blobstorwatchers[blobstorpath] = stop_watching_event
 
-        self.schedCoro(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        item = self.hashlocks.get(hashbyts)
+        if item is None:
+            self.hashlocks[hashbyts] = item = [0, asyncio.Lock()]
 
-    async def addBlobStor(self, blobstorpath):
-        '''
-        Causes an axon to start using a particular blobstor.  This is persistently stored; on Axon restart, it will
-        automatically reconnect to the blobstor at the specified path.
-        '''
-        def _store_blobstorpath(path):
-            txn = self.xact.guarantee()
-            txn.put(b'blobstorpaths', path.encode(), dupdata=True, db=self.settings)
-            self.xact.commit()
-
-        if blobstorpath in self.blobstorwatchers:
-            return
-
-        await self._start_watching_blobstor(blobstorpath)
-        await self._executor(_store_blobstorpath, blobstorpath)
-
-    async def getBlobStors(self):
-        '''
-        Returns:
-            A list of all the watched blobstors
-        '''
-        return list(self.blobstorwatchers.keys())
-
-    async def unwatchBlobStor(self, blobstorpath):
-        '''
-        Cause an axon to stop using a particular blobstor by path.  This is persistently stored.
-        '''
-        def _del_blobstorpath(path):
-            txn = self.xact.guarantee()
-            txn.delete(b'blobstorpaths', path.encode(), db=self.settings)
-            self.xact.commit()
-
-        stop_event = self.blobstorwatchers.pop(blobstorpath, None)
-        if stop_event is not None:
-            stop_event.set()
-        await self._executor(_del_blobstorpath, blobstorpath)
-
-    async def _watch_blobstor(self, blobstor, bsid, blobstorpath, stop_event):
-        '''
-        As Axon, Monitor a blobstor, by repeatedly asking long-poll-style for its new data
-        '''
-        logger.info('Watching BlobStor %s', _path_sanitize(blobstorpath))
-
-        CLONE_TIMEOUT = 60.0
-        cur_offset = self._getSyncProgress(bsid)
-        while not self.isfini and not stop_event.is_set():
-            try:
-                if blobstor.isfini:
-                    blobstor = await s_telepath.openurl(blobstorpath)
-
-                async def clone_and_next():
-                    ''' Get the async generator and the first item of that generator '''
-                    genr = await blobstor.clone(cur_offset, timeout=CLONE_TIMEOUT, include_contents=False)
-                    try:
-                        if genr is None:
-                            # This shouldn't be possible...
-                            return None, None
-                        it = genr.__aiter__()
-                        first_item = await it.__anext__()
-                        return it, first_item
-                    except (StopAsyncIteration, s_exc.SynErr):
-                        return None, None
-
-                # Wait on either the clone completing, or a signal to stop watching (or the blobstor throwing isfini)
-                stop_coro = stop_event.wait()
-                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro],
-                                                           return_when=concurrent.futures.FIRST_COMPLETED)
-                for task in notdonelist:
-                    task.cancel()
-                if stop_event.is_set():
-                    # avoid asyncio debug warnings by retrieving any done task exceptions
-                    for f in donelist:
-                        try:
-                            f.result()
-                        except Exception:
-                            pass
-                    break
-                genr, first_item = donelist.pop().result()
-                if genr is None:
-                    continue
-
-                logger.debug('Got clone data for %s', _path_sanitize(blobstorpath))
-                cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
-                await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
-
-            except s_exc.IsFini:
-                continue
-
-            except asyncio.CancelledError:
-                break
-
-            except ConnectionRefusedError:
-                logger.warning('Trouble connecting to blobstor %s.  Will retry in %ss.', _path_sanitize(blobstorpath),
-                               CLONE_TIMEOUT)
-                await asyncio.sleep(CLONE_TIMEOUT)
-            except Exception:
-                logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
-                if not self.isfini:
-                    logger.error(f'_watch_blobstor - asyncio.sleep({CLONE_TIMEOUT})')
-                    await asyncio.sleep(CLONE_TIMEOUT)
-
-    def _updateSyncProgress(self, bsid, new_offset):
-        '''
-        Persistently record how far we've gotten in retrieving the set of hash values a particular blobstor has
-
-        Records the next offset to retrieve
-        '''
-        self.xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
-
-        self.xact.commit()
-
-    def _getSyncProgress(self, bsid):
-        '''
-        Get the current offset for one blobstor of the Axon
-
-        Returns:
-            int: The offset value.
-        '''
-        with self.lenv.begin(buffers=True) as xact:
-
-            lval = xact.get(b'offset:' + bsid, db=self.offsets)
-            if lval is None:
-                rv = 0
-            else:
-                rv = struct.unpack('>Q', lval)[0]
-        return rv
-
-    @s_common.firethread
-    def _workloop(self):
-        '''
-        Axon:  A worker for running stuff that requires a write lock
-        '''
+        item[0] += 1
         try:
-            while not self.isfini:
-                msg = self._workq.get()
-                if msg is None:
-                    break
-                func, done_event = msg
-                func()
-                if done_event is not None:
-                    self.schedCallSafe(done_event.set)
+            async with item[1]:
+                yield
+
         finally:
-            self.xact.fini()
+            item[0] -= 1
 
-    async def _executor_nowait(self, func, *args, **kwargs):
+            if item[0] == 0:
+                self.hashlocks.pop(hashbyts, None)
+
+    def _reqBelowLimit(self):
+
+        if (self.maxbytes is not None and
+            self.maxbytes <= self.axonmetrics.get('size:bytes')):
+            mesg = f'Axon is at size:bytes limit: {self.maxbytes}'
+            raise s_exc.HitLimit(mesg=mesg)
+
+        if (self.maxcount is not None and
+            self.maxcount <= self.axonmetrics.get('file:count')):
+            mesg = f'Axon is at file:count limit: {self.maxcount}'
+            raise s_exc.HitLimit(mesg=mesg)
+
+    async def _axonHealth(self, health):
+        health.update('axon', 'nominal', '', data=await self.metrics())
+
+    async def _migrateAxonMetrics(self):
+        logger.warning('migrating Axon metrics data out of hive')
+
+        async with await self.hive.open(('axon', 'metrics')) as hivenode:
+            axonmetrics = await hivenode.dict()
+            self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
+            self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
+
+        logger.warning('...Axon metrics migration complete!')
+
+    async def _initBlobStor(self):
+
+        self.byterange = True
+
+        path = s_common.gendir(self.dirn, 'blob.lmdb')
+
+        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobs = self.blobslab.initdb('blobs')
+        self.offsets = self.blobslab.initdb('offsets')
+        self.metadata = self.blobslab.initdb('metadata')
+        self.onfini(self.blobslab.fini)
+
+        if self.inaugural:
+            self._setStorVers(1)
+
+        storvers = self._getStorVers()
+        if storvers < 1:
+            storvers = await self._setStorVers01()
+
+    async def _setStorVers01(self):
+
+        logger.warning('Updating Axon storage version (adding offset index). This may take a while.')
+
+        offs = 0
+        cursha = b''
+
+        # TODO: need LMDB to support getting value size without getting value
+        for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
+
+            await asyncio.sleep(0)
+
+            blobsha = lkey[:32]
+
+            if blobsha != cursha:
+                offs = 0
+                cursha = blobsha
+
+            offs += len(byts)
+
+            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+
+        return self._setStorVers(1)
+
+    def _getStorVers(self):
+        byts = self.blobslab.get(b'version', db=self.metadata)
+        if not byts:
+            return 0
+        return int.from_bytes(byts, 'big')
+
+    def _setStorVers(self, version):
+        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        return version
+
+    def _initAxonHttpApi(self):
+        self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', AxonHttpBySha256InvalidV1, {'cell': self})
+
+    def _addSyncItem(self, item, tick=None):
+        self.axonhist.add(item, tick=tick)
+        self.axonseqn.add(item)
+
+    async def _resolveProxyUrl(self, valu):
+        match valu:
+            case None:
+                s_common.deprecated('Setting the Axon HTTP proxy argument to None', curv='2.192.0')
+                return await self.getConfOpt('http:proxy')
+
+            case True:
+                return await self.getConfOpt('http:proxy')
+
+            case False:
+                return None
+
+            case str():
+                return valu
+
+            case _:
+                raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
+
+    async def _reqHas(self, sha256):
         '''
-        Run a function on the Axon's work thread without waiting for a result
-        '''
-        def syncfunc():
-            func(*args, **kwargs)
-
-        await self._workq.put((syncfunc, None))
-
-    async def _executor(self, func, *args, **kwargs):
-        '''
-        Run a function on the Axon's work thread
-        '''
-        done_event = asyncio.Event(loop=self.loop)
-        retn = None
-
-        def syncfunc():
-            nonlocal retn
-            retn = func(*args, **kwargs)
-
-        await self._workq.put((syncfunc, done_event))
-        await done_event.wait()
-        return retn
-
-    def _addloc(self, bsid, hashval, commit=False):
-        '''
-        Record blobstor's bsid has a particular hashval.  Should be run in my executor.
-        '''
-        xact = self.xact.guarantee()
-
-        tick = s_common.now()
-
-        written = xact.put(hashval, bsid, db=self.bloblocs, dupdata=False)
-
-        if written:
-            self._metrics.inc(xact, 'files', 1)
-
-            # metrics contains everything we need to clone
-            self._metrics.record(xact, {'time': tick, 'bsid': bsid, 'sha256': hashval})
-
-            if commit:
-                self.xact.commit()
-
-    async def _consume_clone_data(self, first_item, items, frombsid):
-        '''
-        Add rows obtained from a BlobStor.clone() method.
+        Ensure a file exists; and return its size if so.
 
         Args:
-            items (Iterable): A list of tuples containing (offset, (sha256,chunknum,bytes)) data.
+            sha256 (bytes): The sha256 to check.
 
         Returns:
-            int: The last index value processed from the list of items, or None if nothing was processed
+            int: Size of the file in bytes.
+
+        Raises:
+            NoSuchFile: If the file does not exist.
         '''
-        last_offset, (hashval, _, _) = first_item
-        await self._executor_nowait(self._addloc, frombsid, hashval)
+        fsize = await self.size(sha256)
+        if fsize is None:
+            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+        return fsize
 
-        async for last_offset, (hashval, _, _) in to_aiter(items):
-            await self._executor_nowait(self._addloc, frombsid, hashval)
-
-        await self._executor_nowait(self.xact.commit)
-
-        return last_offset
-
-    async def stat(self):
-        bsstats = {}
-        proxymap = self._proxykeeper.get_all()
-        for path, blobstor in proxymap.items():
-            if not blobstor.isfini:
-                bsstats[_path_sanitize(path)] = await blobstor.stat()
-        my_stats = self._metrics.stat()
-        my_stats['blobstors'] = bsstats
-        return my_stats
-
-    async def wants(self, hashvals):
+    async def history(self, tick, tock=None):
         '''
-        Given a list of hashvals, returns a list of the hashes *not* available
-        '''
-        wants = []
-        with self.lenv.begin(db=self.bloblocs) as xact:
-            curs = xact.cursor()
-            for hashval in hashvals:
-                if not curs.set_key(hashval):
-                    wants.append(hashval)
-        return wants
-
-    async def locs(self, hashval):
-        '''
-        Get the blobstor bsids for a given sha256 value
+        Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            hashval (bytes): The sha256 digest to look up
-
-        Returns:
-            list: A list of BlobStor IDs
-        '''
-        with self.lenv.begin() as xact, xact.cursor(db=self.bloblocs) as curs:
-            if not curs.set_key(hashval):
-                return []
-            blobstorbsids = []
-            for bsid in curs.iternext_dup():
-                blobstorbsids.append(bsid)
-            return blobstorbsids
-
-    async def bulkput(self, files, proxykeeper=None):
-        '''
-        Save a list of files to the axon.
-
-        Args:
-            files ([bytes]): A list of files as bytes blobs.
-
-        Returns:
-            int: The number of files saved.
-        '''
-        if proxykeeper is None:
-            proxykeeper = self._proxykeeper
-        bsid, blobstor = await proxykeeper.randoproxy()
-        count = 0
-        async with await blobstor.startput() as uploader:
-            for bytz in files:
-                hashval = hashlib.sha256(bytz).digest()
-                if await self.wants([hashval]) == []:
-                    continue
-                for chunk in s_common.chunks(bytz, CHUNK_SIZE):
-                    await uploader.write(chunk)
-                await uploader.finishFile()
-            count, hashval = await uploader.finish()
-            if count:
-                await self._executor_nowait(self._addloc, bsid, hashval)
-
-        await self._executor(self.xact.commit)
-
-        return count
-
-    async def putone(self, bytz, hashval=None, proxykeeper=None):
-        '''
-        If hashval is None and or not None and not already in the axon, stores bytz as a single blob
-
-        Returns:
-            bytes:  The hash of bytz
-        '''
-
-        if hashval is not None:
-            if await self.wants([hashval]) == []:
-                return hashval
-
-        if proxykeeper is None:
-            proxykeeper = self._proxykeeper
-
-        bsid, blobstor = await proxykeeper.randoproxy()
-
-        _, hashval = await blobstor.putone(bytz)
-        await self._executor(self._addloc, bsid, hashval, commit=True)
-        return hashval
-
-    async def get(self, hashval, proxykeeper=None):
-        '''
-        Yield bytes for the given SHA256.
-
-        Args:
-            hashval (str): The SHA256 hash bytes.
+            tick (int): The starting time (in epoch milliseconds).
+            tock (int): The ending time to stop iterating at (in epoch milliseconds).
 
         Yields:
-            bytes: Bytes of the file requested.
+            (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
+        '''
+        for item in self.axonhist.carve(tick, tock=tock):
+            yield item
+            await asyncio.sleep(0)
+
+    async def hashes(self, offs, wait=False, timeout=None):
+        '''
+        Yield hash rows for files that exist in the Axon in added order starting at an offset.
+
+        Args:
+            offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
+
+        Yields:
+            (int, (bytes, int)): An index offset and the file SHA-256 and size.
+
+        Note:
+            If the same hash was deleted and then added back, the same hash will be yielded twice.
+        '''
+        async for item in self.axonseqn.aiter(offs, wait=wait, timeout=timeout):
+            if self.axonslab.has(item[1][0], db=self.sizes):
+                yield item
+            await asyncio.sleep(0)
+
+    async def get(self, sha256, offs=None, size=None):
+        '''
+        Get bytes of a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            offs (int): The offset to start reading from.
+            size (int): The total number of bytes to read.
+
+        Examples:
+
+            Get the bytes from an Axon and process them::
+
+                buf = b''
+                async for bytz in axon.get(sha256):
+                    buf =+ bytz
+
+                await dostuff(buf)
+
+        Yields:
+            bytes: Chunks of the file bytes.
 
         Raises:
-            RetnErr: If the file requested does not exist.
+            synapse.exc.NoSuchFile: If the file does not exist.
         '''
-        if proxykeeper is None:
-            proxykeeper = self._proxykeeper
-        locs = await self.locs(hashval)
-        if not locs:
-            raise s_exc.NoSuchFile(f'{hashval} not present')
-        _, blobstor = await proxykeeper.randoproxy(locs)
+        fsize = await self._reqHas(sha256)
 
-        # that await is due to the current async generator telepath asymmetry
-        async for bloc in await blobstor.get(hashval):
-            yield bloc
+        fhash = s_common.ehex(sha256)
+        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-    async def metrics(self, offs=0):
-        with self.lenv.begin(buffers=True) as xact:
-            for item in self._metrics.iter(xact, offs):
+        if offs is not None or size is not None:
+
+            if not self.byterange:  # pragma: no cover
+                mesg = 'This axon does not support byte ranges.'
+                raise s_exc.FeatureNotSupported(mesg=mesg)
+
+            if offs < 0:
+                raise s_exc.BadArg(mesg='Offs must be >= 0', offs=offs)
+            if size < 1:
+                raise s_exc.BadArg(mesg='Size must be >= 1', size=size)
+
+            if offs >= fsize:
+                # If we try to read past the file, yield empty bytes and return.
+                yield b''
+                return
+
+            async for byts in self._getBytsOffsSize(sha256, offs, size):
+                yield byts
+                await asyncio.sleep(0)
+
+        else:
+            async for byts in self._get(sha256):
+                yield byts
+                await asyncio.sleep(0)
+
+    async def _get(self, sha256):
+
+        for _, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
+            yield byts
+
+    async def put(self, byts):
+        '''
+        Store bytes in the Axon.
+
+        Args:
+            byts (bytes): The bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for files greater than 128 MiB in size.
+
+        Returns:
+            tuple(int, bytes): A tuple with the file size and sha256 hash of the bytes.
+        '''
+        # Use a UpLoad context manager so that we can
+        # ensure that a one-shot set of bytes is chunked
+        # in a consistent fashion.
+        async with await self.upload() as fd:
+            await fd.write(byts)
+            return await fd.save()
+
+    async def puts(self, files):
+        '''
+        Store a set of bytes in the Axon.
+
+        Args:
+            files (list): A list of bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for storing more than 128 MiB of bytes at once.
+
+        Returns:
+            list(tuple(int, bytes)): A list containing tuples of file size and sha256 hash of the saved bytes.
+        '''
+        return [await self.put(b) for b in files]
+
+    async def upload(self):
+        '''
+        Get an Upload object.
+
+        Notes:
+            The UpLoad object should be used to manage uploads greater than 128 MiB in size.
+
+        Examples:
+            Use an UpLoad object to upload a file to the Axon::
+
+                async with await axon.upload() as upfd:
+                    # Assumes bytesGenerator yields bytes
+                    async for byts in bytsgenerator():
+                        await upfd.write(byts)
+                    await upfd.save()
+
+            Use a single UpLoad object to save multiple files::
+
+                async with await axon.upload() as upfd:
+                    for fp in file_paths:
+                        # Assumes bytesGenerator yields bytes
+                        async for byts in bytsgenerator(fp):
+                            await upfd.write(byts)
+                        await upfd.save()
+
+        Returns:
+            UpLoad: An Upload manager object.
+        '''
+        return await UpLoad.anit(self)
+
+    async def has(self, sha256):
+        '''
+        Check if the Axon has a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            boolean: True if the Axon has the file; false otherwise.
+        '''
+        return self.axonslab.get(sha256, db=self.sizes) is not None
+
+    async def size(self, sha256):
+        '''
+        Get the size of a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            int: The size of the file, in bytes. If not present, None is returned.
+        '''
+        byts = self.axonslab.get(sha256, db=self.sizes)
+        if byts is not None:
+            return int.from_bytes(byts, 'big')
+
+    async def hashset(self, sha256):
+        '''
+        Calculate additional hashes for a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            dict: A dictionary containing hashes of the file.
+        '''
+        await self._reqHas(sha256)
+
+        fhash = s_common.ehex(sha256)
+        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
+        hashset = s_hashset.HashSet()
+
+        async for byts in self._get(sha256):
+            hashset.update(byts)
+            await asyncio.sleep(0)
+
+        return dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+
+    async def metrics(self):
+        '''
+        Get the runtime metrics of the Axon.
+
+        Returns:
+            dict: A dictionary of runtime data about the Axon.
+        '''
+        return self.axonmetrics.pack()
+
+    async def save(self, sha256, genr, size):
+        '''
+        Save a generator of bytes to the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            genr: The bytes generator function.
+
+        Returns:
+            int: The size of the bytes saved.
+        '''
+        assert genr is not None and isinstance(size, int)
+        return await self._populate(sha256, genr, size)
+
+    async def _populate(self, sha256, genr, size):
+        '''
+        Populates the metadata and save the data itself if genr is not None
+        '''
+        assert genr is not None and isinstance(size, int)
+
+        self._reqBelowLimit()
+
+        async with self.holdHashLock(sha256):
+
+            byts = self.axonslab.get(sha256, db=self.sizes)
+            if byts is not None:
+                return int.from_bytes(byts, 'big')
+
+            fhash = s_common.ehex(sha256)
+            logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
+            size = await self._saveFileGenr(sha256, genr, size)
+
+            await self._axonFileAdd(sha256, size, {'tick': s_common.now()})
+
+            return size
+
+    @s_nexus.Pusher.onPushAuto('axon:file:add')
+    async def _axonFileAdd(self, sha256, size, info):
+
+        byts = self.axonslab.get(sha256, db=self.sizes)
+        if byts is not None:
+            return False
+
+        tick = info.get('tick')
+        self._addSyncItem((sha256, size), tick=tick)
+
+        self.axonmetrics.inc('file:count')
+        self.axonmetrics.inc('size:bytes', valu=size)
+
+        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        return True
+
+    async def _saveFileGenr(self, sha256, genr, size):
+
+        size = 0
+
+        for i, byts in enumerate(genr):
+
+            size += len(byts)
+            await self._axonBytsSave(sha256, i, size, byts)
+
+            await asyncio.sleep(0)
+
+        return size
+
+    # a nexusified way to save local bytes
+    @s_nexus.Pusher.onPushAuto('axon:bytes:add')
+    async def _axonBytsSave(self, sha256, indx, offs, byts):
+        ikey = indx.to_bytes(8, 'big')
+        okey = offs.to_bytes(8, 'big')
+
+        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+
+    def _offsToIndx(self, sha256, offs):
+        lkey = sha256 + offs.to_bytes(8, 'big')
+        for offskey, indxbyts in self.blobslab.scanByRange(lkey, db=self.offsets):
+            return int.from_bytes(offskey[32:], 'big'), indxbyts
+
+    async def _getBytsOffs(self, sha256, offs):
+
+        first = True
+
+        boff, indxbyts = self._offsToIndx(sha256, offs)
+
+        for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
+
+            await asyncio.sleep(0)
+
+            if bkey[:32] != sha256:
+                return
+
+            if first:
+                first = False
+                delt = boff - offs
+                yield byts[-delt:]
+                continue
+
+            yield byts
+
+    async def _getBytsOffsSize(self, sha256, offs, size):
+        '''
+        Implementation dependent method to stream size # of bytes from the Axon,
+        starting a given offset.
+        '''
+        # This implementation assumes that the offs provided is < the maximum
+        # size of the sha256 value being asked for.
+        remain = size
+        async for byts in self._getBytsOffs(sha256, offs):
+
+            blen = len(byts)
+            if blen >= remain:
+                yield byts[:remain]
+                return
+
+            remain -= blen
+
+            yield byts
+
+    async def dels(self, sha256s):
+        '''
+        Given a list of sha256 hashes, delete the files from the Axon.
+
+        Args:
+            sha256s (list): A list of sha256 hashes in bytes form.
+
+        Returns:
+            list: A list of booleans, indicating if the file was deleted or not.
+        '''
+        return [await self.del_(s) for s in sha256s]
+
+    async def del_(self, sha256):
+        '''
+        Remove the given bytes from the Axon by sha256.
+
+        Args:
+            sha256 (bytes): The sha256, in bytes, to remove from the Axon.
+
+        Returns:
+            boolean: True if the file is removed; false if the file is not present.
+        '''
+        if not await self.has(sha256):
+            return False
+
+        return await self._axonFileDel(sha256)
+
+    @s_nexus.Pusher.onPushAuto('axon:file:del')
+    async def _axonFileDel(self, sha256):
+        async with self.holdHashLock(sha256):
+
+            byts = self.axonslab.pop(sha256, db=self.sizes)
+            if not byts:
+                return False
+
+            fhash = s_common.ehex(sha256)
+            logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
+            size = int.from_bytes(byts, 'big')
+            self.axonmetrics.inc('file:count', valu=-1)
+            self.axonmetrics.inc('size:bytes', valu=-size)
+
+            await self._delBlobByts(sha256)
+            return True
+
+    async def _delBlobByts(self, sha256):
+
+        # remove the offset indexes...
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
+            self.blobslab.delete(lkey, db=self.offsets)
+            await asyncio.sleep(0)
+
+        # remove the actual blobs...
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
+            self.blobslab.delete(lkey, db=self.blobs)
+            await asyncio.sleep(0)
+
+    async def wants(self, sha256s):
+        '''
+        Get a list of sha256 values the axon does not have from a input list.
+
+        Args:
+            sha256s (list): A list of sha256 values as bytes.
+
+        Returns:
+            list: A list of bytes containing the sha256 hashes the Axon does not have.
+        '''
+        return [s for s in sha256s if not await self.has(s)]
+
+    async def iterMpkFile(self, sha256):
+        '''
+        Yield items from a MsgPack (.mpk) file in the Axon.
+
+        Args:
+            sha256 (str): The sha256 hash of the file as a string.
+
+        Yields:
+            Unpacked items from the bytes.
+        '''
+        unpk = s_msgpack.Unpk()
+        async for byts in self.get(s_common.uhex(sha256)):
+            for _, item in unpk.feed(byts):
                 yield item
+
+    async def _sha256ToLink(self, sha256, link):
+        try:
+            async for byts in self.get(sha256):
+                await link.send(byts)
+                await asyncio.sleep(0)
+        finally:
+            link.txfini()
+
+    async def readlines(self, sha256, errors='ignore'):
+
+        sha256 = s_common.uhex(sha256)
+        await self._reqHas(sha256)
+
+        link00, sock00 = await s_link.linksock(forceclose=True)
+
+        feedtask = None
+
+        try:
+            todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
+            async with await s_base.Base.anit() as scope:
+
+                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
+
+                while not self.isfini:
+
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
+
+                    line = s_common.result(mesg)
+                    if line is None:
+                        return
+
+                    yield line.rstrip('\n')
+
+        finally:
+            sock00.close()
+            await link00.fini()
+            if feedtask is not None:
+                await feedtask
+
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
+        await self._reqHas(sha256)
+        if dialect not in csv.list_dialects():
+            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
+
+        link00, sock00 = await s_link.linksock(forceclose=True)
+
+        feedtask = None
+
+        try:
+            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
+            async with await s_base.Base.anit() as scope:
+
+                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
+
+                while not self.isfini:
+
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
+
+                    row = s_common.result(mesg)
+                    if row is None:
+                        return
+
+                    yield row
+
+        finally:
+            sock00.close()
+            await link00.fini()
+            if feedtask is not None:
+                await feedtask
+
+    async def jsonlines(self, sha256, errors='ignore'):
+        async for line in self.readlines(sha256, errors=errors):
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                yield s_json.loads(line)
+            except s_exc.BadJsonText as e:
+                logger.exception(f'Bad json line encountered for {sha256}')
+                raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
+                                        sha256=sha256) from None
+
+    async def unpack(self, sha256, fmt, offs=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            fmt (str): The struct format string.
+            offs (int): The offset to start reading from.
+
+        Returns:
+            tuple: The unpacked values.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+            synapse.exc.BadArg: If the struct format is invalid.
+            synapse.exc.BadDataValu: If the expected number of bytes is not received.
+            synapse.exc.FeatureNotSupported: Feature is not supported.
+        '''
+
+        if not isinstance(fmt, str):
+            raise s_exc.BadArg(mesg='Format string must be a string', fmt=fmt)
+
+        try:
+            size = struct.calcsize(fmt)
+
+            if size > s_const.mebibyte:
+                raise s_exc.BadArg(mesg=f'Struct format would read too much data: {size} bytes', size=size)
+
+            byts = b''
+            async for chunk in self.get(sha256, offs=offs, size=size):
+                byts += chunk
+
+            if len(byts) != size:
+                mesg = f'Expected {size} bytes but got {len(byts)} bytes'
+                raise s_exc.BadDataValu(mesg=mesg, expected=size, received=len(byts))
+
+            return struct.unpack(fmt, byts)
+
+        except struct.error as e:
+            mesg = f'Failed to unpack bytes with format {fmt}: {str(e)}'
+            raise s_exc.BadArg(mesg=mesg) from None
+
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+        '''
+        Send files from the axon as fields in a multipart/form-data HTTP request.
+
+        Args:
+            fields (list): List of dicts containing the fields to add to the request as form-data.
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+            proxy (str|bool): The proxy value.
+            ssl_opts (dict): Additional SSL/TLS options.
+
+        Notes:
+            The dictionaries in the fields list may contain the following values::
+
+                {
+                    'name': <str> - Name of the field.
+                    'sha256': <str> - SHA256 hash of the file to submit for this field.
+                    'value': <str> - Value for the field. Ignored if a sha256 has been specified.
+                    'filename': <str> - Optional filename for the field.
+                    'content_type': <str> - Optional content type for the field.
+                    'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
+                }
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
+
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'err': <tuple> - Tuple of the error type and information if an exception occurred.
+                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'code': <int> - The response code.
+                    'body': <bytes> - The response body.
+                    'reason': <str> - The reason phrase for the HTTP status code.
+                    'headers': <dict> - The response headers as a dictionary.
+                }
+
+        Returns:
+            dict: An information dictionary containing the results of the request.
+        '''
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+
+        connector = None
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+            try:
+                data = aiohttp.FormData()
+                data._is_multipart = True
+
+                for field in fields:
+
+                    name = field.get('name')
+                    if not isinstance(name, str):
+                        mesg = f'Each field requires a "name" key with a string value: {name}'
+                        raise s_exc.BadArg(mesg=mesg, name=name)
+
+                    sha256 = field.get('sha256')
+                    if sha256:
+                        sha256b = s_common.uhex(sha256)
+                        await self._reqHas(sha256b)
+                        valu = self.get(sha256b)
+                    else:
+                        valu = field.get('value')
+                        if not isinstance(valu, (bytes, str)):
+                            valu = s_json.dumps(valu).decode()
+
+                    data.add_field(name,
+                                   valu,
+                                   content_type=field.get('content_type'),
+                                   filename=field.get('filename'),
+                                   content_transfer_encoding=field.get('content_transfer_encoding'))
+
+                async with sess.request(method, url, headers=headers, params=params, data=data, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
+                    info = {
+                        'ok': True,
+                        'url': str(resp.url),
+                        'code': resp.status,
+                        'body': await resp.read(),
+                        'reason': s_common.httpcodereason(resp.status),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
+                    }
+                    return info
+
+            except Exception as e:
+                logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    reason = f'Exception occurred during request: {err[0]}'
+
+                return {
+                    'ok': False,
+                    'err': err,
+                    'url': url,
+                    'body': b'',
+                    'code': -1,
+                    'reason': reason,
+                    'headers': dict(),
+                }
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
+                   filename=None, filemime=None, proxy=True, ssl_opts=None):
+        '''
+        Stream a blob from the axon as the body of an HTTP request.
+        '''
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+
+        connector = None
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+            try:
+                await self._reqHas(sha256)
+                async with sess.request(method, url, headers=headers, params=params, ssl=ssl,
+                                        data=self.get(sha256),
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
+
+                    info = {
+                        'ok': True,
+                        'url': str(resp.url),
+                        'code': resp.status,
+                        'reason': s_common.httpcodereason(resp.status),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
+                    }
+                    return info
+
+            except Exception as e:
+                logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
+
+                return {
+                    'ok': False,
+                    'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
+                }
+
+    def _flatten_clientresponse(self,
+                                resp: aiohttp.ClientResponse,
+                                ) -> dict:
+        info = {
+            'ok': True,
+            'url': str(resp.real_url),
+            'code': resp.status,
+            'headers': {str(k): v for k, v in resp.headers.items()},
+            'reason': s_common.httpcodereason(resp.status),
+            'request': {
+                'url': str(resp.request_info.real_url),
+                'headers': {str(k): v for k, v in resp.request_info.headers.items()},
+                'method': str(resp.request_info.method),
+            }
+        }
+
+        if resp.history:
+            info['history'] = [self._flatten_clientresponse(hist) for hist in resp.history]
+
+        return info
+
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+        '''
+        Stream a file download directly into the Axon.
+
+        Args:
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            json: A JSON body which is included with the request.
+            body: The body to be included in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+            proxy (str|bool): The proxy value.
+            ssl_opts (dict): Additional SSL/TLS options.
+
+        Notes:
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
+            reflect that a status code, such as a 404, was encountered when retrieving the URL.
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
+
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
+                    'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
+                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
+                    'headers': <dict> - The response headers as a dictionary.
+                    'size': <int> - The size in bytes of the response body.
+                    'hashes': {
+                        'md5': <str> - The MD5 hash of the response body.
+                        'sha1': <str> - The SHA1 hash of the response body.
+                        'sha256': <str> - The SHA256 hash of the response body.
+                        'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
+                    }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
+                }
+
+        Returns:
+            dict: An information dictionary containing the results of the request.
+        '''
+        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
+
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+
+        connector = None
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+
+            try:
+                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
+
+                    info = self._flatten_clientresponse(resp)
+
+                    hashset = s_hashset.HashSet()
+
+                    async with await self.upload() as upload:
+                        async for byts in resp.content.iter_chunked(CHUNK_SIZE):
+                            await upload.write(byts)
+                            hashset.update(byts)
+
+                        size, _ = await upload.save()
+
+                    info['size'] = size
+                    info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+                    return info
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
+
+                return {
+                    'ok': False,
+                    'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
+                }
+
+def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
+    try:
+        with sock.makefile('r', errors=errors) as fd:
+
+            try:
+
+                for line in fd:
+                    sock.sendall(s_msgpack.en((True, line)))
+
+                sock.sendall(s_msgpack.en((True, None)))
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
+    try:
+
+        # Assume utf8 encoding and ignore errors.
+        with sock.makefile('r', errors=errors) as fd:
+
+            try:
+
+                for row in csv.reader(fd, dialect, **fmtparams):
+                    sock.sendall(s_msgpack.en((True, row)))
+
+                sock.sendall(s_msgpack.en((True, None)))
+
+            except TypeError as e:
+                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}')
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+            except csv.Error as e:
+                mesg = f'CSV error: {str(e)}'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))

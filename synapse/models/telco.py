@@ -20,8 +20,11 @@ def chop_imei(imei):
     cd = int(imei[14:15])
     return valu, {'subs': {'tac': tac, 'serial': snr, 'cd': cd}}
 
-class Phone(s_types.Type):
+class Phone(s_types.Str):
+
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.opts['globsuffix'] = True
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -35,7 +38,7 @@ class Phone(s_types.Type):
             info = s_l_phone.getPhoneInfo(int(digs))
         except Exception as e:  # pragma: no cover
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to get phone info')
+                                    mesg='Failed to get phone info') from None
         cc = info.get('cc')
         if cc is not None:
             subs['loc'] = cc
@@ -48,30 +51,10 @@ class Phone(s_types.Type):
                                     mesg='phone int must be greater than 0')
         return self._normPyStr(str(valu))
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (str): Value to encode
-
-        Returns:
-            bytes: Encoded value
-        '''
-        return valu.encode('utf8')
-
-    def indxByEq(self, valu):
-        if isinstance(valu, str) and valu.endswith('*'):
-            norm, _ = self._normPyStr(valu)
-            return (
-                ('pref', self.indx(norm)),
-            )
-        return s_types.Type.indxByEq(self, valu)
-
-    def repr(self, valu, defval=None):
-        # FIXME implement more geo aware reprs
+    def repr(self, valu):
         # XXX geo-aware reprs are practically a function of cc which
         # XXX the raw value may only have after doing a s_l_phone lookup
-        if valu[0] == '1':  # FIXME Length check
+        if valu[0] == '1' and len(valu) == 11:
             area = valu[1:4]
             pref = valu[4:7]
             numb = valu[7:11]
@@ -100,17 +83,12 @@ def imeicsum(text):
 
     return str(chek)
 
-class Imsi(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imsi(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imsi = str(valu)
@@ -123,29 +101,13 @@ class Imsi(s_types.Type):
         # TODO full imsi analysis tree
         return valu, {'subs': {'mcc': mcc}}
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(8, byteorder='big')
-
 # TODO: support pre 2004 "old" imei format
-class Imei(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imei(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imei = str(valu)
@@ -167,17 +129,6 @@ class Imei(s_types.Type):
         raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(7, byteorder='big')
-
 class TelcoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -185,11 +136,11 @@ class TelcoModule(s_module.CoreModule):
 
                 ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
                     'ex': '490154203237518',
-                    'doc': 'An International Mobile Equipment Id'}),
+                    'doc': 'An International Mobile Equipment Id.'}),
 
                 ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
                     'ex': '310150123456789',
-                    'doc': 'An International Mobile Subscriber Id'}),
+                    'doc': 'An International Mobile Subscriber Id.'}),
 
                 ('tel:phone', 'synapse.models.telco.Phone', {}, {
                     'ex': '+15558675309',
@@ -199,9 +150,19 @@ class TelcoModule(s_module.CoreModule):
 
             'types': (
 
+                ('tel:call', ('guid', {}), {
+                    'doc': 'A guid for a telephone call record.'}),
+
+                ('tel:phone:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of phone number types.'}),
+
+                ('tel:txtmesg', ('guid', {}), {
+                    'doc': 'A guid for an individual text message.'}),
+
                 ('tel:mob:tac', ('int', {}), {
                     'ex': '49015420',
-                    'doc': 'A mobile Type Allocation Code'}),
+                    'doc': 'A mobile Type Allocation Code.'}),
 
                 ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
                     'ex': '(490154203237518, 310150123456789)',
@@ -215,11 +176,11 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'A single mobile telemetry measurement.'}),
 
                 ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Country Code',
+                    'doc': 'ITU Mobile Country Code.',
                 }),
 
                 ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Network Code',
+                    'doc': 'ITU Mobile Network Code.',
                 }),
 
                 ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
@@ -232,64 +193,121 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'A mobile cell site which a phone may connect to.'
                 }),
 
+                # TODO - eventually break out ISO-3 country code into a sub
+                # https://en.wikipedia.org/wiki/TADIG_code
+                ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': True}), {
+                    'doc': 'A Transferred Account Data Interchange Group number issued to a GSM carrier.'}),
+
             ),
 
             'forms': (
+
+                ('tel:phone:type:taxonomy', {}, ()),
                 ('tel:phone', {}, (
+
+                    ('type', ('tel:phone:type:taxonomy', {}), {
+                        'doc': 'The type of phone number.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The location associated with the number.',
-                        'defval': '??',
+                        'doc': 'The location associated with the number.'}),
+
+                )),
+
+                ('tel:call', {}, (
+                    ('src', ('tel:phone', {}), {
+                        'doc': 'The source phone number for a call.'
+                    }),
+                    ('dst', ('tel:phone', {}), {
+                        'doc': 'The destination phone number for a call.'
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the call was initiated.'
+                    }),
+                    ('duration', ('int', {}), {
+                        'doc': 'The duration of the call in seconds.'
+                    }),
+                    ('connected', ('bool', {}), {
+                        'doc': 'Indicator of whether the call was connected.',
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text transcription of the call.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
+                    }),
+                )),
+                ('tel:txtmesg', {}, (
+                    ('from', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the sender.'
+                    }),
+                    ('to', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the primary recipient.'
+                    }),
+                    ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of phone numbers for additional recipients of the message.',
+                    }),
+                    ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {
+                        'doc': 'The message service type (sms, mms, rcs).',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the message was sent.'
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text of the message.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
                     }),
                 )),
                 ('tel:mob:tac', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org guid for the manufacturer',
+                        'doc': 'The org guid for the manufacturer.',
                     }),
                     ('manu', ('str', {'lower': 1}), {
-                        'doc': 'The TAC manufacturer name',
-                        'defval': '??',
+                        'doc': 'The TAC manufacturer name.',
                     }),
                     ('model', ('str', {'lower': 1}), {
-                        'doc': 'The TAC model name',
-                        'defval': '??',
+                        'doc': 'The TAC model name.',
                     }),
                     ('internal', ('str', {'lower': 1}), {
-                        'doc': 'The TAC internal model name',
-                        'defval': '??',
+                        'doc': 'The TAC internal model name.',
                     }),
                 )),
                 ('tel:mob:imei', {}, (
                     ('tac', ('tel:mob:tac', {}), {
-                        'ro': 1,
-                        'doc': 'The Type Allocate Code within the IMEI'
+                        'ro': True,
+                        'doc': 'The Type Allocate Code within the IMEI.'
                     }),
                     ('serial', ('int', {}), {
-                        'ro': 1,
-                        'doc': 'The serial number within the IMEI',
+                        'ro': True,
+                        'doc': 'The serial number within the IMEI.',
                     })
                 )),
                 ('tel:mob:imsi', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The Mobile Country Code.',
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {
+                        'ro': True,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI for the phone subscriber.'
                     }),
                 )),
                 ('tel:mob:imsiphone', {}, (
                     ('phone', ('tel:phone', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The phone number assigned to the IMSI.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
@@ -298,10 +316,10 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:carrier', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('mnc', ('tel:mob:mnc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'Organization operating the carrier.'
@@ -309,24 +327,51 @@ class TelcoModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'Location the carrier operates from.'
                     }),
+
+                    ('tadig', ('tel:mob:tadig', {}), {
+                        'doc': 'The TADIG code issued to the carrier.'}),
                 )),
                 ('tel:mob:cell', {}, (
-                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier'}),
-                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code'}),
-                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code'}),
-                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
-                    ('cid', ('int', {}), {'doc': 'Cell ID'}),
+                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
+                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
+                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.', 'ro': True, }),
+                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
+                                          'ro': True, }),
+                    ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'Location the cell is operated at.'
-                    }),
+                        'doc': 'Location at which the cell is operated.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place associated with the latlong property.'}),
                 )),
+
+                ('tel:mob:tadig', {}, ()),
 
                 ('tel:mob:telem', {}, (
 
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
+
+                    ('http:request', ('inet:http:request', {}), {
+                        'doc': 'The HTTP request that the telemetry was extracted from.',
+                    }),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that generated the mobile telemetry data.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place representing the location of the mobile telemetry sample.'}),
+
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location of the mobile telemetry sample.',
+                    }),
+
+                    ('accuracy', ('geo:dist', {}), {
+                        'doc': 'The reported accuracy of the latlong telemetry reading.',
+                    }),
 
                     # telco specific data
                     ('cell', ('tel:mob:cell', {}), {}),
@@ -340,17 +385,31 @@ class TelcoModule(s_module.CoreModule):
                     ('ipv4', ('inet:ipv4', {}), {}),
                     ('ipv6', ('inet:ipv6', {}), {}),
 
+                    ('wifi', ('inet:wifi:ap', {}), {}),
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
-                    ('aaid', ('it:os:android:aaid', {}), {}),
-                    ('idfa', ('it:os:ios:idfa', {}), {}),
+                    ('adid', ('it:adid', {}), {
+                        'doc': 'The advertising ID of the mobile telemetry sample.'}),
+
+                    ('aaid', ('it:os:android:aaid', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
+
+                    ('idfa', ('it:os:ios:idfa', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
 
                     # User related data
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
-                    ('acct', ('inet:web:acct', {}), {}),
+                    ('acct', ('inet:web:acct', {}), {
+                        'doc': 'Deprecated, use :account.',
+                        'deprecated': True}),
+
+                    ('account', ('inet:service:account', {}), {
+                        'doc': 'The service account which is associated with the tracked device.'}),
 
                     # reporting related data
                     ('app', ('it:prod:softver', {}), {}),
@@ -363,23 +422,3 @@ class TelcoModule(s_module.CoreModule):
         }
         name = 'tel'
         return ((name, modl),)
-
-class TelMod(s_module.CoreModule):
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                # TODO: mcc, meid
-            ),
-
-            'forms': (
-
-                ('tel:prefix', {'ptype': 'tel:phone'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('tag', {'ptype': 'syn:tag'}),
-                ]),
-            ),
-        }
-        name = 'tel'
-        return ((name, modl), )

@@ -12,7 +12,7 @@ ratios = {
     'km': 1000000.0,
 }
 
-km = 1000000.0 # using mm as base units
+km = 1000000.0  # using mm as base units
 gchq = (51.8994, -2.0783)
 
 class GisTest(s_t_utils.SynTest):

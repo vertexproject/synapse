@@ -1,45 +1,36 @@
-import json
-import time
-import shlex
+import os
 import signal
 import asyncio
-import threading
+import logging
 import traceback
 import collections
 
+import regex
+
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.patch_stdout import patch_stdout
+
 import synapse.exc as s_exc
-import synapse.glob as s_glob
-import synapse.eventbus as s_eventbus
+import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.mixins as s_mixins
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
-import synapse.lib.syntax as s_syntax
-import synapse.lib.reflect as s_reflect
+import synapse.lib.parser as s_parser
+import synapse.lib.grammar as s_grammar
+import synapse.lib.version as s_version
 
+logger = logging.getLogger(__name__)
 
-def get_input(text):  # pragma: no cover
-    '''
-    Get input from a user via stdin.
-
-    Notes:
-        This is just a wrapper for input() so mocking does not have to replace builtin functions for testing runCmdLoop.
-
-    Args:
-        text (str): Text displayed prior to the input prompt.
-
-    Returns:
-        str: String of text from the user.
-    '''
-    return input(text)
 
 class Cmd:
     '''
     Base class for modular commands in the synapse CLI.
-
-    FIXME: document the _cmd_syntax definitions.
     '''
-    _cmd_name = 'FIXME'
+    _cmd_name = 'fixme'
     _cmd_syntax = ()
 
     def __init__(self, cli, **opts):
@@ -85,16 +76,15 @@ class Cmd:
         '''
         off = 0
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
-        name, off = s_syntax.meh(text, off, s_syntax.whites)
+        name, off = s_grammar.meh(text, off, s_grammar.whites)
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
         opts = {}
 
         args = collections.deque([synt for synt in self._cmd_syntax if not synt[0].startswith('-')])
-
         switches = {synt[0]: synt for synt in self._cmd_syntax if synt[0].startswith('-')}
 
         # populate defaults and lists
@@ -105,7 +95,7 @@ class Cmd:
             if defval is not None:
                 opts[snam] = defval
 
-            if synt[1].get('type') in ('list', 'kwlist'):
+            if synt[1].get('type') == 'list':
                 opts[snam] = []
 
         def atswitch(t, o):
@@ -114,7 +104,7 @@ class Cmd:
             if not text.startswith('-', o):
                 return None, o
 
-            name, x = s_syntax.meh(t, o, s_syntax.whites)
+            name, x = s_grammar.meh(t, o, s_grammar.whites)
             swit = switches.get(name)
             if swit is None:
                 return None, o
@@ -123,7 +113,7 @@ class Cmd:
 
         while off < len(text):
 
-            _, off = s_syntax.nom(text, off, s_syntax.whites)
+            _, off = s_grammar.nom(text, off, s_grammar.whites)
 
             swit, off = atswitch(text, off)
             if swit is not None:
@@ -132,20 +122,20 @@ class Cmd:
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if not isinstance(valu, list):
                         valu = valu.split(',')
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = swit[1].get('enum:vals')
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
+                        raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
 
                     opts[snam] = valu
@@ -156,7 +146,7 @@ class Cmd:
                 continue
 
             if not args:
-                raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
+                raise s_exc.BadSyntax(mesg='trailing text: [%s]' % (text[off:],),
                                            text=text)
 
             synt = args.popleft()
@@ -172,18 +162,13 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item, off = s_syntax.parse_cmd_string(text, off)
+                    item, off = s_parser.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
-            if styp == 'kwlist':
-                kwlist, off = s_syntax.parse_cmd_kwlist(text, off)
-                opts[snam] = kwlist
-                break
-
-            valu, off = s_syntax.parse_cmd_string(text, off)
+            valu, off = s_parser.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
@@ -205,8 +190,8 @@ class Cmd:
             return ''
         return self.__doc__
 
-    def printf(self, mesg, addnl=True):
-        return self._cmd_cli.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        return self._cmd_cli.printf(mesg, addnl=addnl, color=color)
 
     async def runCmdOpts(self, opts):
         '''
@@ -219,54 +204,102 @@ class Cmd:
         raise s_exc.NoSuchImpl(mesg='runCmdOpts must be implemented by subclasses.',
                                name='runCmdOpts')
 
+_setre = regex.compile(r'\s*set\s+editing-mode\s+vi\s*')
 
-class Cli(s_eventbus.EventBus):
+def _inputrc_enables_vi_mode():
+    '''
+    Emulate a small bit of readline behavior.
+
+    Returns:
+        (bool) True if current user enabled vi mode ("set editing-mode vi") in .inputrc
+    '''
+    for filepath in (os.path.expanduser('~/.inputrc'), '/etc/inputrc'):
+        try:
+            with open(filepath) as f:
+                for line in f:
+                    if _setre.fullmatch(line):
+                        return True
+        except IOError:
+            continue
+    return False
+
+class Cli(s_base.Base):
     '''
     A modular / event-driven CLI base object.
     '''
-    def __init__(self, item, outp=None, **locs):
-        s_eventbus.EventBus.__init__(self)
+    histfile = 'cmdr_history'
+
+    async def __anit__(self, item, outp=None, **locs):
+
+        await s_base.Base.__anit__(self)
 
         if outp is None:
             outp = s_output.OutPut()
 
         self.outp = outp
         self.locs = locs
+        self.cmdtask = None  # type: asyncio.Task
+
+        self.sess = None
+        self.vi_mode = _inputrc_enables_vi_mode()
+
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
-        self.finikill = False
-        self.loopthread = None
+        self.colorsenabled = False
 
-        if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
+        self.completer = None
+
+        if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
+
+        self.locs['syn:local:version'] = s_version.verstring
+
+        if isinstance(self.item, s_telepath.Proxy):
+            version = self.item._getSynVers()
+            if version is None:  # pragma: no cover
+                self.locs['syn:remote:version'] = 'Remote Synapse version unavailable'
+            else:
+                self.locs['syn:remote:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
 
+        self.initCmdClasses()
+
+    def initCmdClasses(self):
         self.addCmdClass(CmdHelp)
         self.addCmdClass(CmdQuit)
         self.addCmdClass(CmdLocals)
 
-    def _onItemFini(self):
+    async def _onItemFini(self):
+
         if self.isfini:
             return
 
         self.printf('connection closed...')
 
-        self.fini()
+        await self.fini()
 
-        if self.loopthread is not None and self.finikill:
-            signal.pthread_kill(self.loopthread, signal.SIGINT)
+    async def addSignalHandlers(self):  # pragma: no cover
+        '''
+        Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
+        Removes the handler when the cli is fini'd.
+        '''
+        def sigint():
+            if self.cmdtask is not None:
+                self.cmdtask.cancel()
 
-    def reflectItem(self):
-        refl = s_reflect.getItemInfo(self.item)
-        if refl is None:
-            return
+        self.loop.add_signal_handler(signal.SIGINT, sigint)
 
-        for name in refl.get('inherits', ()):
-            for mixi in s_mixins.getSynMixins('cmdr', name):
-                self.addCmdClass(mixi)
+        def onfini():
+            # N.B. This is reaches into some loop / handle internals but
+            # prevents us from removing a handler that overwrote our own.
+            hndl = self.loop._signal_handlers.get(signal.SIGINT, None)  # type: asyncio.Handle
+            if hndl is not None and hndl._callback is sigint:
+                self.loop.remove_signal_handler(signal.SIGINT)
+
+        self.onfini(onfini)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -274,24 +307,49 @@ class Cli(s_eventbus.EventBus):
     def set(self, name, valu):
         self.locs[name] = valu
 
-    def get_input(self, prompt=None):
+    async def prompt(self, text=None):
         '''
-        Get the input string to parse.
-
-        Args:
-            prompt (str): Optional string to use as the prompt. Otherwise self.cmdprompt is used.
-
-        Returns:
-            str: A string to process.
+        Prompt for user input from stdin.
         '''
-        if not prompt:
-            prompt = self.cmdprompt
+        if self.sess is None:
+            history = None
+            histfp = s_common.getSynPath(self.histfile)
+            # Ensure the file is read/writeable
+            try:
+                with s_common.genfile(histfp):
+                    pass
+                history = FileHistory(histfp)
+            except OSError:  # pragma: no cover
+                logger.warning(f'Unable to create file at {histfp}, cli history will not be stored.')
 
-        self.fire('cli:getinput')
-        return get_input(prompt)
+            self.sess = PromptSession(
+                history=history,
+                completer=self.completer,
+                complete_while_typing=False,
+                reserve_space_for_menu=5,
+            )
 
-    def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg, addnl=addnl)
+        if text is None:
+            text = self.cmdprompt
+
+        with patch_stdout():  # pragma: no cover
+            retn = await self.sess.prompt_async(text,
+                vi_mode=self.vi_mode,
+                enable_open_in_editor=True,
+                handle_sigint=False # We handle sigint in the loop
+            )
+            return retn
+
+    def printf(self, mesg, addnl=True, color=None):
+        if not self.colorsenabled:
+            return self.outp.printf(mesg, addnl=addnl)
+
+        # print_formatted_text can't handle \r
+        mesg = mesg.replace('\r', '')
+
+        if color is not None:
+            mesg = FormattedText([(color, mesg)])
+        return print_formatted_text(mesg, end='\n' if addnl else '')
 
     def addCmdClass(self, ctor, **opts):
         '''
@@ -322,32 +380,17 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    def runCmdLoop(self):
+    async def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
-        self.loopthread = threading.currentThread().ident
-
-        import readline
-
-        try:
-            readline.read_init_file()
-        except OSError:
-            # from cpython 3.6 site.py:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
-            pass
-
         while not self.isfini:
 
-            # FIXME history / completion
+            self.cmdtask = None
 
             try:
-                task = None
 
-                line = self.get_input()
+                line = await self.prompt()
                 if not line:
                     continue
 
@@ -356,33 +399,29 @@ class Cli(s_eventbus.EventBus):
                     continue
 
                 coro = self.runCmdLine(line)
-                task = s_glob.coroToTask(coro)
+                self.cmdtask = self.schedCoro(coro)
+                await self.cmdtask
 
-                task.result()
-
-            except KeyboardInterrupt as e:
+            except (KeyboardInterrupt, asyncio.CancelledError):
 
                 if self.isfini:
                     return
 
                 self.printf('<ctrl-c>')
 
-            except (s_exc.CliFini, EOFError) as e:
-                self.fini()
+            except (s_exc.CliFini, EOFError):
+                await self.fini()
 
-            except Exception as e:
+            except Exception:
                 s = traceback.format_exc()
                 self.printf(s)
 
             finally:
-                if task is not None:
-                    task.cancel()
+                if self.cmdtask is not None:
+                    self.cmdtask.cancel()
                     try:
-                        task.result(2)
-                    except asyncio.CancelledError:
-                        # Wait a beat to let any remaining nodes to print out before we print the prompt
-                        time.sleep(1)
-                    except Exception:
+                        await asyncio.wait_for(self.cmdtask, timeout=0.1)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
                         pass
 
     async def runCmdLine(self, line):
@@ -412,17 +451,18 @@ class Cli(s_eventbus.EventBus):
             self.printf('cmd not found: %s' % (name,))
             return
 
-        self.fire('cli:cmd:run', line=line)
-
         try:
 
             ret = await cmdo.runCmdLine(line)
 
-        except s_exc.CliFini as e:
-            self.fini()
+        except s_exc.CliFini:
+            await self.fini()
 
         except asyncio.CancelledError:
             self.printf('Cmd cancelled')
+
+        except s_exc.ParserExit as e:
+            pass  # avoid duplicate print
 
         except Exception as e:
             exctxt = traceback.format_exc()
@@ -456,9 +496,9 @@ class CmdHelp(Cmd):
 
     '''
     _cmd_name = 'help'
-    _cmd_syntax = [
-        ('cmds', {'type': 'list'})
-    ]
+    _cmd_syntax = (
+        ('cmds', {'type': 'list'}),  # type: ignore
+    )
 
     async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')
@@ -498,6 +538,9 @@ class CmdLocals(Cmd):
     async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
-            ret[k] = repr(v)
-        mesg = json.dumps(ret, indent=2, sort_keys=True)
+            if isinstance(v, (int, str)):
+                ret[k] = v
+            else:
+                ret[k] = repr(v)
+        mesg = s_json.dumps(ret, indent=True, sort_keys=True).decode()
         self.printf(mesg)

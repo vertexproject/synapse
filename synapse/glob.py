@@ -1,8 +1,11 @@
 import os
 import signal
 import asyncio
+import logging
 import threading
 import faulthandler
+
+logger = logging.getLogger(__name__)
 
 _glob_loop = None
 _glob_thrd = None
@@ -46,25 +49,29 @@ def initloop():
         try:
             _glob_loop = asyncio.get_running_loop()
             # if we get here, it's us!
-            _glob_thrd = threading.currentThread()
+            _glob_thrd = threading.current_thread()
+            # Enable debug and greedy coro collection
+            setGreedCoro(_glob_loop)
 
-        except RuntimeError as e:
-
-            # otherwise, lets fire one...
+        except RuntimeError:
             _glob_loop = asyncio.new_event_loop()
-            greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
-            if greedy_threshold is not None:
-                _glob_loop.slow_callback_duration = float(greedy_threshold)
+            setGreedCoro(_glob_loop)
 
-            _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
-            _glob_thrd.setDaemon(True)
+            _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop', daemon=True)
             _glob_thrd.start()
 
     return _glob_loop
 
+def setGreedCoro(loop: asyncio.AbstractEventLoop):
+    greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
+    if greedy_threshold is not None:  # pragma: no cover
+        logger.info(f'Setting ioloop.slow_callback_duration to {greedy_threshold}')
+        loop.set_debug(True)
+        loop.slow_callback_duration = float(greedy_threshold)
+
 def iAmLoop():
     initloop()
-    return threading.currentThread() == _glob_thrd
+    return threading.current_thread() == _glob_thrd
 
 def sync(coro, timeout=None):
     '''
@@ -79,41 +86,29 @@ def sync(coro, timeout=None):
     loop = initloop()
     return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
 
-def coroToTask(coro):
-    '''
-    Schedule a coro to run on the global loop and return a task.
-
-    Args:
-        coro (coroutine): The coroutine instance.
-
-    Notes:
-        This API is thread safe.
-
-    Returns:
-        concurrent.futures.Future: A Future to wait on.
-    '''
-    loop = initloop()
-    return asyncio.run_coroutine_threadsafe(coro, loop)
-
 def synchelp(f):
     '''
     The synchelp decorator allows the transparent execution of
     a coroutine using the global loop from a thread other than
-    the event loop:
+    the event loop.  In both use cases, the actual work is done
+    by the global event loop.
 
-    @s_glob.synchelp
-    async def stuff(x, y):
-        ...
+    Examples:
 
-    # From within the global event loop, the standard await:
+        Use as a decorator::
 
-    valu = await stuff(x, y)
+            @s_glob.synchelp
+            async def stuff(x, y):
+                await dostuff()
 
-    # From a worker thread, outside the event loop:
+        Calling the stuff function as regular async code using the standard await syntax::
 
-    valu = stuff(x, y)
+            valu = await stuff(x, y)
 
-    # In both cases, the actual work is done by the global loop.
+        Calling the stuff function as regular sync code outside of the event loop thread::
+
+            valu = stuff(x, y)
+
     '''
     def wrap(*args, **kwargs):
 

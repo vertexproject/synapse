@@ -1,0 +1,13 @@
+name: testpkg
+version: 0.0.1
+
+modules:
+  - name: apimod
+    apidefs:
+      - name: status
+        desc: Get the status of the foo.
+        type:
+          type: function
+          returns:
+            type: 42
+            desc: A status dictionary.

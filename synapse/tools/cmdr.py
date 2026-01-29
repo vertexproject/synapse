@@ -1,25 +1,56 @@
-import synapse.glob as s_glob
+import logging
+import warnings
+
+import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.version as s_version
 
-def main(argv):  # pragma: no cover
+logger = logging.getLogger(__name__)
 
-    if len(argv) != 2:
-        print('usage: python -m synapse.tools.cmdr <url>')
-        return -1
+reqver = '>=0.2.0,<3.0.0'
 
-    with s_telepath.openurl(argv[1]) as item:
+async def runcmdr(argv, item):  # pragma: no cover
+    cmdr = await s_cmdr.getItemCmdr(item)
+    await cmdr.addSignalHandlers()
+    # Enable colors for users
+    cmdr.colorsenabled = True
 
-        cmdr = s_glob.sync(s_cmdr.getItemCmdr(item))
-        # This causes a dropped connection to the cmdr'd item to
-        # cause cmdr to exit. We can't safely test this in CI since
-        # the fini handler sends a SIGINT to mainthread; which can
-        # be problematic for test runners.
-        cmdr.finikill = True
-        cmdr.runCmdLoop()
-        cmdr.finikill = False
+    if len(argv) == 2:
+        await cmdr.runCmdLine(argv[1])
+        return
+
+    await cmdr.runCmdLoop()
+
+async def _main(argv):  # pragma: no cover
+    # Ensure that SYN_DIR is available
+    _ = s_common.getSynDir()
+
+    async with await s_telepath.openurl(argv[0]) as item:
+        try:
+            s_version.reqVersion(item._getSynVers(), reqver)
+        except s_exc.BadVersion as e:
+            valu = s_version.fmtVersion(*e.get('valu'))
+            print(f'Proxy version {valu} is outside of the cmdr supported range ({reqver}).')
+            print(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+            return 1
+        await runcmdr(argv, item)
+
+async def main(argv):  # pragma: no cover
+
+    if len(argv) not in (1, 2):
+        print('usage: python -m synapse.tools.cmdr <url> [<single quoted command>]')
+        return 1
+
+    s_common.setlogging(logger, 'WARNING')
+
+    async with s_telepath.withTeleEnv():
+        await _main(argv)
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
-    import sys
-    sys.exit(main(sys.argv))
+    warnings.filterwarnings("default", category=PendingDeprecationWarning)
+    s_cmd.exitmain(main)

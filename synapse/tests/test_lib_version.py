@@ -9,6 +9,45 @@ import synapse.lib.version as s_version
 
 class VersionTest(s_t_utils.SynTest):
 
+    def _runreqtest(self, valu, reqver, exp):
+        if exp is None:
+            self.none(s_version.reqVersion(valu, reqver))
+        else:
+            with self.raises(exp):
+                s_version.reqVersion(valu, reqver)
+
+    def test_req_version(self):
+
+        # Test vectors are laid out in the order:
+        #   Vers, reqver, result
+        tsts = [
+            ((0, 1, 98), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
+            ((0, 1, 99), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 100), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 101), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 102), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
+
+            ((0, 1, 0), '>=0.1.0,<0.2.0', None),
+            ((0, 1, 100), '>=0.1.0,<0.2.0', None),
+            ((0, 2, 0), '>=0.1.0,<0.2.0', s_exc.BadVersion),
+
+            ((0, 2, 0), '>=0.2.0,<0.3.0', None),
+            ((0, 1, 51), '>=0.2.0,<0.3.0', s_exc.BadVersion),
+            ((0, 2, 51), '>=0.2.0,<0.3.0', None),
+            ((0, 2, 51), '>=0.2.0,<0.3.0,!=0.2.51', s_exc.BadVersion),
+
+            ((0, 1, 56), '>=0.2.0,<3.0.0', s_exc.BadVersion),
+            ((0, 2, 0), '>=0.2.0,<3.0.0', None),
+            ((2, 0, 0), '>=0.2.0,<3.0.0', None),
+            ((2, 0, 1), '>=2.0.0,<3.0.0', None),
+            ((2, 1, 0), '>=0.2.0,<3.0.0', None),
+            ((3, 0, 0), '>=2.0.0,<3.0.0', s_exc.BadVersion),
+
+        ]
+
+        for vec in tsts:
+            self._runreqtest(*vec)
+
     def test_version_basics(self):
         self.eq(s_version.mask20.bit_length(), 20)
         self.eq(s_version.mask60.bit_length(), 60)
@@ -21,6 +60,9 @@ class VersionTest(s_t_utils.SynTest):
         self.isinstance(s_version.verstring, str)
         tver = tuple([int(p) for p in s_version.verstring.split('.')])
         self.eq(tver, s_version.version)
+
+        self.isinstance(s_version.commit, str)
+        self.true((s_version.commit == '') or (len(s_version.commit) == 40))
 
     def test_version_pack(self):
         ver = s_version.packVersion(0)

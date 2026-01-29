@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-axon_load:
+
+axon.load
+=========
+
+The Synapse ``axon.load`` tool can be used to load blobs into a Synapse Axon.
+
+Syntax
+------
+
+``axon.load`` is executed using ``python -m synapse.tools.axon.load``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.axon.load -h

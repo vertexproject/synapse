@@ -13,16 +13,34 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import re
 import sys
+import datetime
 sys.path.insert(0, os.path.abspath('..'))
 
 import synapse
 
+# -- Warning Filter Configuration --------------------------------------------
+
+# List of warning patterns to ignore
+WARNINGS_IGNORE = [
+    r'Detected \d+ deprecated properties unlocked and not in use',
+    r'Sysctl values different than expected',
+    r'The form edge:refs is deprecated or using a deprecated type',
+    r'The form edge:has is deprecated or using a deprecated type',
+    r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
+    r'The type [a-z:]+ field [a-z:]+ uses a deprecated type [a-z:]+.',
+]
+
+# List of warning patterns to convert to errors
+WARNINGS_ERROR = [
+    r'.* is deprecated or using a deprecated type',
+]
 
 # -- Project information -----------------------------------------------------
 
-project = 'synapse'
-copyright = '2018, The Vertex Project'
+project = 'Synapse'
+copyright = f'{datetime.datetime.now().year}, The Vertex Project, LLC'
 author = 'The Vertex Project'
 
 # The short X.Y version
@@ -42,12 +60,11 @@ release = synapse.verstring
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.jquery',
+    'notfound.extension',
 ]
-
-napoleon_google_docstring = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -66,7 +83,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -82,15 +99,24 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'alabaster'
-# XXX Requires pip install sphinx_rtd_theme
 html_theme = 'sphinx_rtd_theme'
+
+# Add custom logos
+html_logo = "_static/logo.svg"
+
+html_css_files = [
+    'css/theme_overrides.css',
+]
+
+html_favicon = "_static/favicon.svg"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'navigation_depth': 5,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -111,7 +137,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'synapsedoc'
+htmlhelp_basename = 'Synapsedoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -138,7 +164,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'synapse.tex', 'synapse Documentation',
+    (master_doc, 'Synapse.tex', 'Synapse Documentation',
      'The Vertex Project', 'manual'),
 ]
 
@@ -148,7 +174,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'synapse', 'synapse Documentation',
+    (master_doc, 'synapse', 'Synapse Documentation',
      [author], 1)
 ]
 
@@ -159,8 +185,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'synapse', 'synapse Documentation',
-     author, 'synapse', 'One line description of project.',
+    (master_doc, 'Synapse', 'Synapse Documentation',
+     author, 'Synapse', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -184,12 +210,25 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+
+# Define the canonical URL if you are using a custom domain on Read the Docs
+html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
+
+# Tell Jinja2 templates the build is running on Read the Docs
+if os.environ.get("READTHEDOCS", "") == "True":
+    if "html_context" not in globals():
+        html_context = {}
+    html_context["READTHEDOCS"] = True
+
 # Our magic
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
-    args = ['-M', '-o', './autodocs', '../synapse', ]
-    ignores = ['../synapse/tests']
+    args = ['-M', '--no-toc', '-o', './synapse/autodocs', '../synapse', ]
+    ignores = ['../synapse/tests/test_*',
+               '../synapse/tests/files',
+               '../synapse/tests/nopmod',
+               '../synapse/vendor']
     args.extend(ignores)
     main(args)
 
@@ -199,24 +238,97 @@ def run_modeldoc(_):
     abssynf = os.path.abspath(synapse.__file__)
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
-    args = ['python', '-m', 'synapse.tools.autodoc', '--doc-model',
-            '--savedir', './docs/autodocs']
+    args = ['python', '-m', 'synapse.tools.utils.autodoc', '--doc-model',
+            '--savedir', './docs/synapse/autodocs']
     subprocess.run(args, cwd=synpd)
 
-def convert_ipynb(_):
-    import nbconvert.nbconvertapp as nba
+def run_confdocs(_):
+    import synapse
+    import subprocess
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    baseargs = ['python', '-m', 'synapse.tools.utils.autodoc', '--savedir',
+                './docs/synapse/autodocs', '--doc-conf']
+    svcargs = (
+        ('synapse.axon.Axon',),
+        ('synapse.cortex.Cortex',),
+        ('synapse.lib.aha.AhaCell', ),
+        ('synapse.lib.jsonstor.JsonStorCell', ),
+    )
+    for args in svcargs:
+        argv = baseargs.copy()
+        argv.extend(args)
+        subprocess.run(argv, cwd=synpd)
+
+def run_stormtypes(_):
+    import synapse
+    import subprocess
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    args = ['python', '-m', 'synapse.tools.utils.autodoc', '--doc-stormtypes',
+            '--savedir', './docs/synapse/autodocs']
+    r = subprocess.run(args, cwd=synpd)
+    assert r.returncode == 0, f'Failed to convert stormtypes.'
+
+def convert_rstorm(_):
+    import subprocess
+
+    import synapse
+    import synapse.common as s_common
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    env = {**os.environ, 'SYN_LOG_LEVEL': 'DEBUG'}
+
+    def check_output_for_warnings(output):
+        for line in output.splitlines():
+            if '[WARNING]' in line:
+                msg = line.split('[WARNING]', 1)[1].strip()
+                for pattern in WARNINGS_IGNORE:
+                    if re.search(pattern, msg):
+                        break
+                else:
+                    for pattern in WARNINGS_ERROR:
+                        if re.search(pattern, msg):
+                            raise RuntimeError(f"Warning converted to error: {msg}")
+                        else: # Unhandled warnings
+                            raise RuntimeError(f"Unhandled warning found: {msg}")
+
     cwd = os.getcwd()
     for fdir, dirs, fns in os.walk(cwd):
-        if '.ipynb_checkpoints' in dirs:
-            dirs.remove('.ipynb_checkpoints')
         for fn in fns:
-            if fn.endswith('.ipynb'):
-                fp = os.path.join(fdir, fn)
-                args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
-                nba.main(args)
+            if fn.endswith('.rstorm'):
+
+                oname = fn.rsplit('.', 1)[0]
+                oname = oname + '.rst'
+                sfile = os.path.join(fdir, fn)
+                ofile = os.path.join(fdir, oname)
+
+                tick = s_common.now()
+
+                args = ['python', '-m', 'synapse.tools.utils.rstorm', '--save', ofile, sfile]
+                result = subprocess.run(args, cwd=synpd, env=env, capture_output=True, text=True)
+
+                if result.stdout:
+                    print(result.stdout, end='')
+                    check_output_for_warnings(result.stdout)
+
+                if result.stderr:
+                    print(result.stderr, end='')
+                    check_output_for_warnings(result.stderr)
+
+                if result.returncode != 0:
+                    raise RuntimeError(f'Failed to convert {sfile}: {result.stderr}')
+
+                tock = s_common.now()
+                took = (tock - tick) / 1000
+                print(f'convert_rstorm: Rstorm {fn} execution took {took} seconds.')
 
 def setup(app):
-    # app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
-    app.connect('builder-inited', convert_ipynb)
+    app.connect('builder-inited', run_confdocs)
+    app.connect('builder-inited', convert_rstorm)
+    app.connect('builder-inited', run_stormtypes)

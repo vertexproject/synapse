@@ -1,3 +1,13 @@
 [report]
 omit =
     */synapse/tests/test_*
+
+; Uncomment this section to enable code coverage of storm files in the
+; storm_dirs directory listed below. This is disabled by default right now
+; because it's pretty intensive and imposes a large perf hit on the already slow
+; tests.
+;[run]
+;plugins = synapse.utils.stormcov
+
+[synapse.utils.stormcov]
+storm_dirs = synapse/assets/storm

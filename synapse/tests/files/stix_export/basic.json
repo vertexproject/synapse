@@ -1,0 +1,497 @@
+{
+  "id": "bundle--0f3876a3-14c9-43a2-9eb6-9bf6a52f0d0c",
+  "objects": [
+    {
+      "created": "2021-04-29T13:40:00.000Z",
+      "description": "Synapse specific STIX 2.1 extensions.",
+      "extension_types": [
+        "property-extension"
+      ],
+      "id": "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0",
+      "modified": "2021-04-29T13:40:00.000Z",
+      "name": "Vertex Project Synapse",
+      "schema": "The Synapse Extensions for Stix 2.1",
+      "spec_version": "2.1",
+      "type": "extension-definition",
+      "version": "1.0"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:asn",
+            30
+          ]
+        }
+      },
+      "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
+      "name": "woot30",
+      "number": 30,
+      "spec_version": "2.1",
+      "type": "autonomous-system"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:asn",
+            40
+          ]
+        }
+      },
+      "id": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
+      "name": "woot40",
+      "number": 40,
+      "spec_version": "2.1",
+      "type": "autonomous-system"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:ipv4",
+            16909060
+          ]
+        }
+      },
+      "id": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "spec_version": "2.1",
+      "type": "ipv4-addr",
+      "value": "1.2.3.4"
+    },
+    {
+      "created": "2021-04-29T17:34:49.689Z",
+      "id": "relationship--0a7f84d6-961f-46f9-873f-375f96ce2785",
+      "modified": "2021-04-29T17:34:49.689Z",
+      "relationship_type": "belongs-to",
+      "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "spec_version": "2.1",
+      "target_ref": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
+      "type": "relationship"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:ipv6",
+            "::ff"
+          ]
+        }
+      },
+      "id": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "spec_version": "2.1",
+      "type": "ipv6-addr",
+      "value": "::ff"
+    },
+    {
+      "created": "2021-04-29T17:34:49.693Z",
+      "id": "relationship--56958d44-7ccf-4894-9cfc-9d2a850cbf42",
+      "modified": "2021-04-29T17:34:49.693Z",
+      "relationship_type": "belongs-to",
+      "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "spec_version": "2.1",
+      "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
+      "type": "relationship"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:email",
+            "scammer@scammer.org"
+          ]
+        }
+      },
+      "id": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
+      "spec_version": "2.1",
+      "type": "email-addr",
+      "value": "scammer@scammer.org"
+    },
+    {
+      "display_name": "visi stark",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:email",
+            "visi@vertex.link"
+          ]
+        }
+      },
+      "id": "email-addr--a20979f7-1b90-5f2a-a1c5-3933675b5c3c",
+      "spec_version": "2.1",
+      "type": "email-addr",
+      "value": "visi@vertex.link"
+    },
+    {
+      "account_created": "2010-01-01T00:00:00.000Z",
+      "account_first_login": "2021-01-01T00:00:00.000Z",
+      "account_last_login": "2010-01-01T00:00:00.000Z",
+      "account_login": "invisig0th",
+      "account_type": "twitter",
+      "credential": "secret",
+      "display_name": "visi stark",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:web:acct",
+            [
+              "twitter.com",
+              "invisig0th"
+            ]
+          ]
+        }
+      },
+      "id": "user-account--5aee248b-8b9d-5ef3-ab46-fc82de4785d0",
+      "spec_version": "2.1",
+      "type": "user-account",
+      "user_id": "invisig0th"
+    },
+    {
+      "created": "2021-04-29T17:34:49.364Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "media:news",
+            "840b9b003a765020705ea8d203a7659c"
+          ]
+        }
+      },
+      "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
+      "modified": "2021-04-29T17:34:49.364Z",
+      "name": "report0",
+      "object_refs": [
+        "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
+      ],
+      "published": "2021-03-28T00:00:00.000Z",
+      "spec_version": "2.1",
+      "type": "report"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:fqdn",
+            "vertex.link"
+          ]
+        }
+      },
+      "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
+      "resolves_to_refs": [
+        "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+        "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+        "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
+      ],
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vertex.link"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:fqdn",
+            "vtx.lk"
+          ]
+        }
+      },
+      "id": "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c",
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vtx.lk"
+    },
+    {
+      "created": "2021-04-29T17:34:49.333Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:org",
+            "c915178f2ddd08145ff48ccbaa551873"
+          ]
+        }
+      },
+      "id": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
+      "identity_class": "organization",
+      "modified": "2021-04-29T17:34:49.333Z",
+      "name": "target",
+      "sectors": [
+        "aerospace"
+      ],
+      "spec_version": "2.1",
+      "type": "identity"
+    },
+    {
+      "created": "2021-04-29T17:34:49.344Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:campaign",
+            "21592cce6e1532dee5e348bfc4481e6b"
+          ]
+        }
+      },
+      "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "modified": "2021-04-29T17:34:49.344Z",
+      "name": "woot",
+      "objective": "pwning",
+      "spec_version": "2.1",
+      "type": "campaign"
+    },
+    {
+      "created": "2021-04-29T17:34:49.338Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:org",
+            "d820b6d58329662bc5cabec03ef72ffa"
+          ]
+        }
+      },
+      "goals": [
+        "pwning"
+      ],
+      "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "modified": "2021-04-29T17:34:49.338Z",
+      "name": "attacker",
+      "spec_version": "2.1",
+      "type": "threat-actor"
+    },
+    {
+      "created": "2021-04-29T17:34:49.338Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:org",
+            "d820b6d58329662bc5cabec03ef72ffa"
+          ]
+        }
+      },
+      "id": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "identity_class": "organization",
+      "modified": "2021-04-29T17:34:49.338Z",
+      "name": "attacker",
+      "spec_version": "2.1",
+      "type": "identity"
+    },
+    {
+      "created": "2021-04-29T17:34:50.767Z",
+      "id": "relationship--d43ef95a-b6f2-4cf5-bb06-b2455625c7f8",
+      "modified": "2021-04-29T17:34:50.767Z",
+      "relationship_type": "attributed-to",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "spec_version": "2.1",
+      "target_ref": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "type": "relationship"
+    },
+    {
+      "country": "ru",
+      "created": "2021-04-29T17:34:49.341Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "geo:place",
+            "c0254e1d0f9dedb0a03e2b95a55428eb"
+          ]
+        }
+      },
+      "id": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
+      "latitude": 55.7558,
+      "longitude": 37.6173,
+      "modified": "2021-04-29T17:34:49.341Z",
+      "name": "moscow",
+      "spec_version": "2.1",
+      "type": "location"
+    },
+    {
+      "created": "2021-04-29T17:34:50.847Z",
+      "id": "relationship--58ecc009-1e6a-42ef-8d8b-5238726251fc",
+      "modified": "2021-04-29T17:34:50.847Z",
+      "relationship_type": "located-at",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "spec_version": "2.1",
+      "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
+      "type": "relationship"
+    },
+    {
+      "created": "2021-04-29T17:34:50.863Z",
+      "id": "relationship--685ec144-2804-4156-86a3-ed6dc9d2f622",
+      "modified": "2021-04-29T17:34:50.863Z",
+      "relationship_type": "targets",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "spec_version": "2.1",
+      "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
+      "type": "relationship"
+    },
+    {
+      "created": "2021-04-29T17:34:50.863Z",
+      "id": "relationship--5359a1b4-1bc3-4c3e-81a8-aa02fb087af0",
+      "modified": "2021-04-29T17:34:50.863Z",
+      "relationship_type": "attributed-to",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "spec_version": "2.1",
+      "target_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "type": "relationship"
+    },
+    {
+      "created": "2021-04-29T17:34:50.873Z",
+      "id": "relationship--46232104-5074-4a19-8b21-84949983d41b",
+      "modified": "2021-04-29T17:34:50.873Z",
+      "relationship_type": "originates-from",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "spec_version": "2.1",
+      "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
+      "type": "relationship"
+    },
+    {
+      "created": "2021-04-29T17:34:50.886Z",
+      "id": "relationship--de1fae1f-87e9-461e-87d1-530a1c9cf583",
+      "modified": "2021-04-29T17:34:50.886Z",
+      "relationship_type": "targets",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "spec_version": "2.1",
+      "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
+      "type": "relationship"
+    },
+    {
+      "contains_refs": [
+        "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
+      ],
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "file:bytes",
+            "sha256:00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+          ]
+        }
+      },
+      "hashes": {
+        "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+      },
+      "id": "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
+      "mime_type": "application/json",
+      "name": "woot.json",
+      "size": 333,
+      "spec_version": "2.1",
+      "type": "file"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:email:message",
+            "41750ef970b825675004ff8012838d5e"
+          ]
+        }
+      },
+      "from_ref": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
+      "id": "email-message--81569f0f-802f-53bf-95ba-936383bdf308",
+      "is_multipart": false,
+      "spec_version": "2.1",
+      "subject": "freestuff",
+      "to_refs": [
+        "email-addr--a20979f7-1b90-5f2a-a1c5-3933675b5c3c"
+      ],
+      "type": "email-message"
+    },
+    {
+      "created": "2021-04-29T17:34:49.389Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "it:prod:softver",
+            "a920b6d58329662bc5cabec03ef72ffa"
+          ]
+        }
+      },
+      "id": "tool--ee99694e-dab2-40c3-ae6f-6c28ce4264ea",
+      "modified": "2021-04-29T17:34:49.389Z",
+      "name": "rar",
+      "spec_version": "2.1",
+      "tool_version": "2.0.1",
+      "type": "tool"
+    },
+    {
+      "created": "2021-04-29T17:34:49.353Z",
+      "description": "a yara rule",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "it:app:yara:rule",
+            "2f200ad524a2e7e56830f9bab6220892"
+          ]
+        }
+      },
+      "id": "indicator--3614a192-7cee-4c0f-8782-3ee2f6654e76",
+      "modified": "2021-04-29T17:34:49.353Z",
+      "name": "yararulez",
+      "pattern": "rule dummy { condition: false }",
+      "pattern_type": "yara",
+      "spec_version": "2.1",
+      "type": "indicator",
+      "valid_from": "2021-04-29T17:34:49.353Z"
+    },
+    {
+      "created": "2021-04-29T17:34:49.356Z",
+      "description": "a snort rule",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "it:app:snort:rule",
+            "73e8073e66b2833c12184094d3433ebb"
+          ]
+        }
+      },
+      "id": "indicator--5453376b-2fba-40e5-bec6-eafa39707265",
+      "modified": "2021-04-29T17:34:49.356Z",
+      "name": "snortrulez",
+      "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
+      "pattern_type": "snort",
+      "spec_version": "2.1",
+      "type": "indicator",
+      "valid_from": "2021-04-29T17:34:49.356Z"
+    },
+    {
+      "created": "2021-04-29T17:34:49.374Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "syn:tag",
+            "cno.mal.redtree"
+          ]
+        }
+      },
+      "first_seen": "2010-01-01T00:00:00.000Z",
+      "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
+      "is_family": true,
+      "last_seen": "2020-01-01T00:00:00.000Z",
+      "modified": "2021-04-29T17:34:49.374Z",
+      "name": "Redtree Malware",
+      "sample_refs": [
+        "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9"
+      ],
+      "spec_version": "2.1",
+      "type": "malware"
+    }
+  ],
+  "type": "bundle"
+}

@@ -123,7 +123,7 @@ class TinFoilTest(s_t_utils.SynTest):
                  }
         msg = s_msgpack.en({k: binascii.unhexlify(v) for k, v in edict.items()})
         tinh = s_tinfoil.TinFoilHat(key)
-        self.eq(hashlib.md5(tinh.dec(msg)).digest(),
+        self.eq(hashlib.md5(tinh.dec(msg), usedforsecurity=False).digest(),
                 binascii.unhexlify(b'3303e226461e38f0f36988e441825e19'))
 
     def test_lib_crypto_tnfl_cryptseq(self):

@@ -1,0 +1,5 @@
+name: testpkg
+version: 0.0.1
+
+docs:
+    - path: docs/foobar.md

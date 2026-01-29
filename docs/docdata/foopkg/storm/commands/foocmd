@@ -1,0 +1,5 @@
+$foo = $lib.import(foomod)
+
+[:asn = $foo.bar(:asn, $(20))]
+
+$node.data.set(foodata, $lib.time.now())

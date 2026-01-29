@@ -1,204 +1,200 @@
 import logging
-import collections
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.datamodel as s_datamodel
 
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
+
+class SynUser(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            user = core.auth.user(text)
+            if user is not None:
+                return user.iden, {}
+
+            user = core.auth._getUserByName(text)
+            if user is not None:
+                return user.iden, {}
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            user = core.auth.user(iden)
+            if user is not None:
+                return user.name
+
+        return iden
+
+class SynRole(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            role = core.auth.role(text)
+            if role is not None:
+                return role.iden, {}
+
+            role = core.auth._getRoleByName(text)
+            if role is not None:
+                return role.iden, {}
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            role = core.auth.role(iden)
+            if role is not None:
+                return role.name
+
+        return iden
 
 class SynModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
-        # Static runt data for model data
-        self._modelRuntsByBuid = {}
-        self._modelRuntsByPropValu = collections.defaultdict(list)
-
-        # Add runt lift helpers
-        for form in ('syn:type', 'syn:form', 'syn:prop'):
+        for form, lifter in (('syn:cmd', self._liftRuntSynCmd),
+                             ('syn:cron', self._liftRuntSynCron),
+                             ('syn:form', self._liftRuntSynForm),
+                             ('syn:prop', self._liftRuntSynProp),
+                             ('syn:type', self._liftRuntSynType),
+                             ('syn:tagprop', self._liftRuntSynTagProp),
+                             ('syn:trigger', self._liftRuntSynTrigger),
+                             ):
             form = self.model.form(form)
-            self.core.addRuntLift(form.full, self._synModelLift)
-            for name, prop in form.props.items():
+            self.core.addRuntLift(form.full, lifter)
+            for _, prop in form.props.items():
                 pfull = prop.full
-                # universal properties are indexed separately.
-                univ = prop.univ
-                if univ:
-                    pfull = form.full + univ
-                self.core.addRuntLift(pfull, self._synModelLift)
+                self.core.addRuntLift(pfull, lifter)
 
-        # add event registration for model changes to allow for new models to reset the runtime model data
-        self.core.on('core:module:load', self._onCoreModuleLoad)
+    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
 
-    def _onCoreModuleLoad(self, event):
-        '''
-        Clear the cached model rows and rebuild them only if they have been loaded already.
-        '''
-        if not self._modelRuntsByBuid:
-            return
-        # Discard previously cached data. It will be computed upon the next
-        # lift that needs it.
-        self._modelRuntsByBuid = {}
-        self._modelRuntsByPropValu = collections.defaultdict(list)
+        def iterStormCmds():
+            for item in self.core.getStormCmds():
+                yield item[1]
 
-    async def _synModelLift(self, full, valu=None, cmpr=None):
-        if not self._modelRuntsByBuid:
-            self._initModelRunts()
+        async for node in self._doRuntLift(iterStormCmds, full, valu, cmpr):
+            yield node
 
-        # runt lift helpers must decide what comparators they support
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Model runtime nodes only support equality comparator.',
-                                    cmpr=cmpr)
+    async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
 
-        # Runt lift helpers must support their own normalization for data retrieval
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
+        def iterAppts():
+            for item in self.core.agenda.list():
+                yield item[1]
 
-        # runt lift helpers must then yield buid/rows pairs for Node object creation.
-        if valu is None:
-            buids = self._modelRuntsByPropValu.get(full, ())
+        async for node in self._doRuntLift(iterAppts, full, valu, cmpr):
+            yield node
+
+    async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
+
+        def getForms():
+            return list(self.model.forms.values())
+
+        async for node in self._doRuntLift(getForms, full, valu, cmpr):
+            yield node
+
+    async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
+
+        genr = self.model.getProps
+
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
+            yield node
+
+    async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
+
+        def getTypes():
+            return list(self.model.types.values())
+
+        async for node in self._doRuntLift(getTypes, full, valu, cmpr):
+            yield node
+
+    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
+
+        def getTagProps():
+            return list(self.model.tagprops.values())
+
+        async for node in self._doRuntLift(getTagProps, full, valu, cmpr):
+            yield node
+
+    async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
+
+        view = self.core.getView(iden=view)
+
+        def iterTriggers():
+            for item in view.triggers.list():
+                yield item[1]
+
+        async for node in self._doRuntLift(iterTriggers, full, valu, cmpr):
+            yield node
+
+    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
+
+        if cmpr is not None:
+            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
+            if filt is None:
+                raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        fullprop = self.model.prop(full)
+        if fullprop.isform:
+
+            if cmpr is None:
+                for obj in genr():
+                    yield obj.getStorNode(fullprop)
+                return
+
+            for obj in genr():
+                sode = obj.getStorNode(fullprop)
+                if filt(sode[1]['ndef'][1]):
+                    yield sode
         else:
-            buids = self._modelRuntsByPropValu.get((full, valu), ())
+            for obj in genr():
+                sode = obj.getStorNode(fullprop.form)
+                propval = sode[1]['props'].get(fullprop.name)
 
-        rowsets = [(buid, self._modelRuntsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
-
-    def _addModelRuntRows(self, form, valu, props):
-        buid = s_common.buid((form, valu))
-        if buid in self._modelRuntsByBuid:
-            return
-
-        rows = [('*' + form, valu)]
-        props.setdefault('.created', s_common.now())
-        for k, v in props.items():
-            rows.append((k, v))
-
-        self._modelRuntsByBuid[buid] = rows
-
-        self._modelRuntsByPropValu[form].append(buid)
-        self._modelRuntsByPropValu[(form, valu)].append(buid)
-
-        for k, propvalu in props.items():
-            prop = form + ':' + k
-            if k.startswith('.'):
-                prop = form + k
-            self._modelRuntsByPropValu[prop].append(buid)
-            # Can the secondary property be indexed for lift?
-            if self.model.prop(prop).type.indx(propvalu):
-                self._modelRuntsByPropValu[(prop, propvalu)].append(buid)
-
-    def _initModelRunts(self):
-
-        tdocs = {}
-
-        now = s_common.now()
-        typeform = self.model.form('syn:type')
-        for tname, tobj in self.model.types.items():
-            tnorm, _ = typeform.type.norm(tname)
-            ctor = '.'.join([tobj.__class__.__module__, tobj.__class__.__qualname__])
-            ctor, _ = self.model.prop('syn:type:ctor').type.norm(ctor)
-
-            doc = tobj.info.get('doc', 'no docstring')
-            doc, _ = self.model.prop('syn:type:doc').type.norm(doc)
-            tdocs[tname] = doc
-            opts = {k: v for k, v in tobj.opts.items()}
-
-            props = {'doc': doc,
-                     'ctor': ctor,
-                     '.created': now}
-            if opts:
-                opts, _ = self.model.prop('syn:type:opts').type.norm(opts)
-                props['opts'] = opts
-            subof = tobj.subof
-            if subof is not None:
-                subof, _ = self.model.prop('syn:type:subof').type.norm(subof)
-                props['subof'] = subof
-            self._addModelRuntRows('syn:type', tnorm, props)
-
-        formform = self.model.form('syn:form')
-        for fname, fobj in self.model.forms.items():
-            fnorm, _ = formform.type.norm(fname)
-
-            runt, _ = self.model.prop('syn:form:runt').type.norm(fobj.isrunt)
-
-            ptype, _ = self.model.prop('syn:form:type').type.norm(fobj.type.name)
-
-            doc = fobj.info.get('doc', tdocs.get(ptype))
-            doc, _ = self.model.prop('syn:form:doc').type.norm(doc)
-            tdocs[fnorm] = doc
-
-            props = {'doc': doc,
-                     'runt': runt,
-                     'type': ptype,
-                     '.created': now,
-                     }
-
-            self._addModelRuntRows('syn:form', fnorm, props)
-
-        propform = self.model.form('syn:prop')
-
-        for pname, pobj in self.model.props.items():
-            if isinstance(pname, tuple):
-                continue
-
-            pnorm, _ = propform.type.norm(pname)
-
-            ro, _ = self.model.prop('syn:prop:ro').type.norm(pobj.info.get('ro', False))
-
-            ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
-
-            univ = False
-
-            doc = pobj.info.get('doc', 'no docstring')
-            doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
-
-            props = {'doc': doc,
-                     'type': ptype,
-                     '.created': now,
-                     }
-
-            defval = pobj.info.get('defval', s_common.novalu)
-            if defval is not s_common.novalu:
-                if not isinstance(defval, (str, int)):
-                    defval = repr(defval)
-                defval, _ = self.model.prop('syn:prop:defval').type.norm(defval)
-                props['defval'] = defval
-
-            if isinstance(pobj, s_datamodel.Univ):
-                univ = True
-                props['ro'] = ro
-
-            elif isinstance(pobj, s_datamodel.Form):
-                fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
-                props['form'] = fnorm
-                # All smashing a docstring in for a prop which is a form
-                if doc == 'no docstring':
-                    doc = tdocs.get(ptype, 'no docstring')
-                    doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
-                    props['doc'] = doc
-
-            else:
-                fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.form.full)
-                relname, _ = self.model.prop('syn:prop:relname').type.norm(pobj.name)
-                base, _ = self.model.prop('syn:prop:base').type.norm(pobj.name.rsplit(':', 1)[-1])
-                props['ro'] = ro
-                props['form'] = fnorm
-                props['base'] = base
-                props['relname'] = relname
-
-            univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
-            props['univ'] = univ
-
-            self._addModelRuntRows('syn:prop', pnorm, props)
+                if propval is not None and (cmpr is None or filt(propval)):
+                    yield sode
 
     def getModelDefs(self):
 
         return (('syn', {
 
+            'ctors': (
+                ('syn:user', 'synapse.models.syn.SynUser', {}, {
+                    'doc': 'A Synapse user.'}),
+
+                ('syn:role', 'synapse.models.syn.SynRole', {}, {
+                    'doc': 'A Synapse role.'}),
+            ),
             'types': (
                 ('syn:type', ('str', {'strip': True}), {
                     'doc': 'A Synapse type used for normalizing nodes and properties.',
@@ -208,30 +204,49 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:prop', ('str', {'strip': True}), {
                     'doc': 'A Synapse property.'
-                })
+                }),
+                ('syn:tagprop', ('str', {'strip': True}), {
+                    'doc': 'A user defined tag property.'
+                }),
+                ('syn:cron', ('guid', {}), {
+                    'doc': 'A Cortex cron job.',
+                }),
+                ('syn:trigger', ('guid', {}), {
+                    'doc': 'A Cortex trigger.'
+                }),
+                ('syn:cmd', ('str', {'strip': True}), {
+                    'doc': 'A Synapse storm command.'
+                }),
+                ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
+                    'doc': 'A nodedata key and the form it may be present on.',
+                }),
             ),
 
             'forms': (
 
                 ('syn:tag', {}, (
 
-                    ('up', ('syn:tag', {}), {'ro': 1,
+                    ('up', ('syn:tag', {}), {'ro': True,
                         'doc': 'The parent tag for the tag.'}),
 
                     ('isnow', ('syn:tag', {}), {
                         'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                    ('doc', ('str', {}), {'defval': '',
-                        'doc': 'A short definition for the tag.'}),
+                    ('doc', ('str', {}), {
+                        'doc': 'A short definition for the tag.',
+                        'disp': {'hint': 'text'},
+                    }),
 
-                    ('depth', ('int', {}), {'ro': 1,
+                    ('doc:url', ('inet:url', {}), {
+                        'doc': 'A URL link to additional documentation about the tag.'}),
+
+                    ('depth', ('int', {}), {'ro': True,
                         'doc': 'How deep the tag is in the hierarchy.'}),
 
-                    ('title', ('str', {}), {'defval': '',
-                        'doc': 'A display title for the tag.'}),
+                    ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
-                    ('base', ('str', {}), {'ro': 1,
-                        'doc': 'The tag base name. Eg baz for foo.bar.baz'}),
+                    ('base', ('str', {}), {'ro': True,
+                        'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
                 )),
                 ('syn:type', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {
@@ -262,13 +277,102 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Relative property name.', 'ro': True}),
                     ('univ', ('bool', {}), {
                         'doc': 'Specifies if a prop is universal.', 'ro': True}),
-                    ('defval', ('str', {}), {
-                        'doc': 'Set to the python repr of the default value for this property', 'ro': True}),
                     ('base', ('str', {'strip': True}), {
-                        'doc': 'Base name of the property', 'ro': True}),
+                        'doc': 'Base name of the property.', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'If the property is an extended model property or not.', 'ro': True}),
                 )),
+                ('syn:tagprop', {'runt': True}, (
+                    ('doc', ('str', {'strip': True}), {
+                        'doc': 'Description of the tagprop definition.'}),
+                    ('type', ('syn:type', {}), {
+                        'doc': 'The synapse type for this tagprop.', 'ro': True}),
+                )),
+                ('syn:trigger', {'runt': True}, (
+                    ('vers', ('int', {}), {
+                        'doc': 'Trigger version.', 'ro': True,
+                    }),
+                    ('doc', ('str', {}), {
+                        'doc': 'A documentation string describing the trigger.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('name', ('str', {}), {
+                        'doc': 'A user friendly name/alias for the trigger.',
+                    }),
+                    ('cond', ('str', {'strip': True, 'lower': True}), {
+                        'doc': 'The trigger condition.', 'ro': True,
+                    }),
+                    ('user', ('str', {}), {
+                        'doc': 'User who owns the trigger.', 'ro': True,
+                    }),
+                    ('storm', ('str', {}), {
+                        'doc': 'The Storm query for the trigger.', 'ro': True,
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('enabled', ('bool', {}), {
+                        'doc': 'Trigger enabled status.', 'ro': True,
+                    }),
+                    ('form', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Form the trigger is watching for.'
+                    }),
+                    ('verb', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Edge verb the trigger is watching for.'
+                    }),
+                    ('n2form', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'N2 form the trigger is watching for.'
+                    }),
+                    ('prop', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Property the trigger is watching for.'
+                    }),
+                    ('tag', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Tag the trigger is watching for.'
+                    }),
+                )),
+                ('syn:cron', {'runt': True}, (
 
+                    ('doc', ('str', {}), {
+                        'doc': 'A description of the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
+
+                    ('name', ('str', {}), {
+                        'doc': 'A user friendly name/alias for the cron job.'}),
+
+                    ('storm', ('str', {}), {
+                        'ro': True,
+                        'doc': 'The storm query executed by the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
+
+                )),
+                ('syn:cmd', {'runt': True}, (
+                    ('doc', ('str', {'strip': True}), {
+                        'doc': 'Description of the command.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('package', ('str', {'strip': True}), {
+                        'doc': 'Storm package which provided the command.'}),
+                    ('svciden', ('guid', {'strip': True}), {
+                        'doc': 'Storm service iden which provided the package.'}),
+                    ('input', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
+                        'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
+                    ('output', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
+                        'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
+                    ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'deprecated': True,
+                        'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
+                    ('deprecated', ('bool', {}), {
+                        'doc': 'Set to true if this command is scheduled to be removed.'}),
+                    ('deprecated:version', ('it:semver', {}), {
+                        'doc': 'The Synapse version when this command will be removed.'}),
+                    ('deprecated:date', ('time', {}), {
+                        'doc': 'The date when this command will be removed.'}),
+                    ('deprecated:mesg', ('str', {}), {
+                        'doc': 'Optional description of this deprecation.'}),
+                )),
             ),
         }),)

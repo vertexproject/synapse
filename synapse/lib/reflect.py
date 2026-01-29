@@ -1,6 +1,15 @@
 import inspect
 
+import logging
+
+import synapse.lib.version as s_version
+
+logger = logging.getLogger(__name__)
+
 clsskip = set([object])
+unwraps = {'adminapi',
+           }
+
 def getClsNames(item):
     '''
     Return a list of "fully qualified" class names for an instance.
@@ -40,35 +49,63 @@ def getItemLocals(item):
         try:
             valu = getattr(item, name, None)
             yield name, valu
-        except Exception as e:
-            pass # various legit reasons...
+        except Exception:  # pragma: no cover
+            pass  # various legit reasons...
 
-def getItemInfo(item):
+def getShareInfo(item):
     '''
-    Get "reflection info" dict for the given object.
+    Get a dictionary of special annotations for a Telepath Proxy.
 
     Args:
-        item: Item to inspect.
-
-    Examples:
-        Find out what classes a Telepath Proxy object inherits::
-
-            info = getItemInfo(prox)
-            classes = info.get('inherits')
+        item:  Item to inspect.
 
     Notes:
-        Classes may implement a ``def _syn_reflect(self):`` function
-        in order to return explicit values. The Telepath Proxy object
-        is one example of doing this, in order to allow a remote caller
-        to identify what classes the Proxy object represents.
+        This will set the ``_syn_telemeth`` attribute on the item
+        and the items class, so this data is only computed once.
 
     Returns:
-        dict: Dictionary of reflection information.
+        dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    func = getattr(item, '_syn_reflect', None)
-    if func is not None:
-        return func()
+    key = f'_syn_sharinfo_{item.__class__.__module__}_{item.__class__.__qualname__}'
+    info = getattr(item, key, None)
+    if info is not None:
+        return info
 
-    return {
-        'inherits': getClsNames(item)
-    }
+    meths = {}
+    info = {'meths': meths,
+            'syn:commit': s_version.commit,
+            'syn:version': s_version.version,
+            'classes': getClsNames(item),
+            }
+
+    for name in dir(item):
+
+        if name.startswith('_'):
+            continue
+
+        attr = getattr(item, name, None)
+        if not callable(attr):
+            continue
+
+        meths[name] = meth = {}
+
+        # We know we can cleanly unwrap these functions
+        # for asyncgenerator inspection.
+        wrapped = getattr(attr, '__syn_wrapped__', None)
+        if wrapped in unwraps:
+            attr = inspect.unwrap(attr)
+
+        if inspect.isasyncgenfunction(attr):
+            meth['genr'] = True
+
+    try:
+        setattr(item, key, info)
+    except Exception:  # pragma: no cover
+        logger.exception(f'Failed to set magic on {item}')
+
+    try:
+        setattr(item.__class__, key, info)
+    except Exception:  # pragma: no cover
+        logger.exception(f'Failed to set magic on {item.__class__}')
+
+    return info

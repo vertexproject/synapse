@@ -1,95 +1,11 @@
+import synapse.common as s_common
 
-import sys
-import argparse
+import synapse.lib.cmd as s_cmd
 
+from synapse.tools.utils.easycert import main
 
-import synapse.exc as s_exc
-import synapse.lib.output as s_output
-import synapse.lib.certdir as s_certdir
-
-descr = '''
-Command line tool to generate simple x509 certs
-'''
-
-def main(argv, outp=None):
-
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
-
-    pars = argparse.ArgumentParser(prog='easycert', description=descr)
-    pars.add_argument('--certdir', default='~/.syn/certs', help='Directory for certs/keys')
-    pars.add_argument('--importfile', choices=('cas', 'hosts', 'users'), help='import certs and/or keys into local certdir')
-
-    pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
-    pars.add_argument('--p12', default=False, action='store_true', help='mark the certificate as a p12 archive')
-    pars.add_argument('--server', default=False, action='store_true', help='mark the certificate as a server')
-    pars.add_argument('--server-sans', help='server cert subject alternate names')
-
-    pars.add_argument('--csr', default=False, action='store_true', help='generate a cert signing request')
-    pars.add_argument('--sign-csr', default=False, action='store_true', help='sign a cert signing request')
-    pars.add_argument('--signas', help='sign the new cert with the given cert name')
-
-    pars.add_argument('name', help='common name for the certificate (or filename for CSR signing)')
-
-    opts = pars.parse_args(argv)
-
-    cdir = s_certdir.CertDir(path=opts.certdir)
-
-    try:
-
-        if opts.importfile:
-            cdir.importFile(opts.name, opts.importfile, outp=outp)
-            return 0
-
-        if opts.p12:
-
-            cdir.genClientCert(opts.name, outp=outp)
-            return 0
-
-        if opts.sign_csr:
-
-            if opts.signas is None:
-                outp.printf('--sign-csr requires --signas')
-                return -1
-
-            xcsr = cdir._loadCsrPath(opts.name)
-            if xcsr is None:
-                outp.printf('csr not found: %s' % (opts.name,))
-                return -1
-
-            if opts.server:
-                cdir.signHostCsr(xcsr, opts.signas, outp=outp)
-                return 0
-
-            cdir.signUserCsr(xcsr, opts.signas, outp=outp)
-            return 0
-
-        if opts.csr:
-
-            if opts.ca:
-                raise NotImplementedError('CSR for CA cert not supported (yet)')
-
-            if opts.server:
-                cdir.genHostCsr(opts.name, outp=outp)
-                return 0
-
-            cdir.genUserCsr(opts.name, outp=outp)
-            return 0
-
-        if opts.ca:
-            cdir.genCaCert(opts.name, signas=opts.signas, outp=outp)
-            return 0
-
-        if opts.server:
-            cdir.genHostCert(opts.name, signas=opts.signas, outp=outp, sans=opts.server_sans)
-            return 0
-
-        cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)
-        return 0
-
-    except s_exc.DupFileName as e:
-        outp.printf('file exists: %s' % (e.errinfo.get('path'),))
-        return -1
+s_common.deprecated('synapse.tools.easycert is deprecated. Please use synapse.tools.utils.easycert instead.',
+                    curv='v2.225.0')
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    s_cmd.exitmain(main)

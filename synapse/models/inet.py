@@ -1,31 +1,43 @@
-# FIXME
-# "nullvals" - inet:mac, inet:ipv4, inet:ipv6
-
-
 import socket
+import asyncio
 import hashlib
 import logging
-import ipaddress
-import email.utils
+import urllib.parse
 
-
+import idna
 import regex
-
+import collections
+import unicodedata
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
+import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
+
 logger = logging.getLogger(__name__)
+
+ipaddress = s_common.ipaddress
+
+drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
+
+udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
+ipv4max = 2 ** 32 - 1
 
+rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
+
+# defined from https://x.com/4A4133/status/1887269972545839559
+ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
+ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
 
 def getAddrType(ip):
 
@@ -44,23 +56,80 @@ def getAddrType(ip):
     if ip.is_reserved:
         return 'reserved'
 
+    if ip in rfc6598:
+        return 'shared'
+
     return 'unicast'
 
-class Addr(s_types.Type):
+# https://en.wikipedia.org/wiki/IPv6_address#Address_scopes
+ipv6_multicast_scopes = {
+    'ff00:': 'reserved',
+    'ff01:': 'interface-local',
+    'ff02:': 'link-local',
+    'ff03:': 'realm-local',
+    'ff04:': 'admin-local',
+    'ff05:': 'site-local',
+    'ff08:': 'organization-local',
+    'ff0e:': 'global',
+    'ff0f:': 'reserved',
+}
+
+scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
+
+svcobjstatus = (
+    (10, 'draft'),
+    (30, 'available'),
+    (40, 'offline'),
+    (50, 'removed'),
+)
+
+svcaccesstypes = (
+    (10, 'create'),
+    (30, 'read'),
+    (40, 'update'),
+    (50, 'delete'),
+    (60, 'list'),
+    (70, 'execute'),
+)
+
+def getAddrScope(ipv6):
+
+    if ipv6.is_loopback:
+        return 'link-local'
+
+    if ipv6.is_link_local:
+        return 'link-local'
+
+    if ipv6.is_multicast:
+        pref = ipv6.compressed[:5]
+        return ipv6_multicast_scopes.get(pref, 'unassigned')
+
+    return 'global'
+
+class Addr(s_types.Str):
+
+    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
+    # TODO: this should include icmp and host but requires a migration
+    noports = ('gre',)
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def indx(self, norm):
-        return norm.encode('utf8')
+        self.defport = self.opts.get('defport', None)
+        self.defproto = self.opts.get('defproto', 'tcp')
 
     def _getPort(self, valu):
-        port = None
+
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
             port = self.modl.type('inet:port').norm(port)[0]
             return valu, port, f':{port}'
+
+        if self.defport:
+            return valu, self.defport, f':{self.defport}'
+
         return valu, None, ''
 
     def _normPyStr(self, valu):
@@ -70,14 +139,16 @@ class Addr(s_types.Type):
         # no protos use case sensitivity yet...
         valu = valu.lower()
 
-        proto = 'tcp'
+        proto = self.defproto
         parts = valu.split('://', 1)
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:addr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
+
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -108,14 +179,22 @@ class Addr(s_types.Type):
                     if v6v4addr is not None:
                         subs['ipv4'] = v6v4addr
 
-                port = self.modl.type('inet:port').norm(port)[0]
                 subs['ipv6'] = ipv6
-                subs['port'] = port
 
-                return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
+                portstr = ''
+                if port is not None:
+                    port = self.modl.type('inet:port').norm(port)[0]
+                    subs['port'] = port
+                    portstr = f':{port}'
 
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='invalid IPv6 w/ port')
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
+                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
+
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
@@ -127,22 +206,31 @@ class Addr(s_types.Type):
         if port:
             subs['port'] = port
 
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
         ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
         ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
         subs['ipv4'] = ipv4
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
-
-class Cidr4(s_types.Type):
+class Cidr4(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-        ip_str, mask_str = valu.split('/', 1)
 
-        mask_int = int(mask_str)
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid CIDR Mask')
@@ -164,48 +252,149 @@ class Cidr4(s_types.Type):
         }
         return norm, info
 
-    def indx(self, norm):
-        return norm.encode('utf8')
-
-class Email(s_types.Type):
+class Cidr6(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        try:
+            network = ipaddress.IPv6Network(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+        norm = str(network)
+        info = {
+            'subs': {
+                'broadcast': str(network.broadcast_address),
+                'mask': network.prefixlen,
+                'network': str(network.network_address),
+            }
+        }
+        return norm, info
+
+class Email(s_types.Str):
+
+    def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
 
         try:
             user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        plus = None
+        if len(parts := user.split('+', 1)) == 2:
+            baseuser, plus = parts
+            plus = plus.strip().lower()
+
+        try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = f'{usernorm}@{fqdnnorm}'
+
         info = {
             'subs': {
                 'fqdn': fqdnnorm,
                 'user': usernorm,
             }
         }
-        return norm, info
 
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
+        if plus is not None:
+            info['subs']['plus'] = plus
+            info['subs']['base'] = f'{baseuser}@{fqdnnorm}'
+
+        return norm, info
 
 class Fqdn(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_FQDN
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu == '':
+                mesg = 'Cannot generate fqdn index bytes for a empty string.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+            if valu == '*':
+                return (
+                    ('=', '*', self.stortype),
+                )
+
+            if valu.startswith('*.'):
+                norm, info = self.norm(valu[2:])
+                return (
+                    ('=', f'*.{norm}', self.stortype),
+                )
+
+            if valu.startswith('*'):
+                norm, info = self.norm(valu[1:])
+                return (
+                    ('=', f'*{norm}', self.stortype),
+                )
+
+            if '*' in valu:
+                mesg = 'Wild card may only appear at the beginning.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+        return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:fqdn='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        if text[0] == '*':
+            cval = text[1:]
+            def cmpr(valu):
+                return valu.endswith(cval)
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+        return cmpr
 
     def _normPyStr(self, valu):
 
+        valu = unicodedata.normalize('NFKC', valu)
+
+        valu = regex.sub(udots, '.', valu)
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
 
         # strip leading/trailing .
         valu = valu.strip().strip('.')
+
+        try:
+            valu = idna.encode(valu, uts46=True).decode('utf8')
+        except idna.IDNAError:
+            try:
+                valu = valu.encode('idna').decode('utf8').lower()
+            except UnicodeError:
+                mesg = 'Failed to encode/decode the value with idna/utf8.'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg=mesg) from None
 
         if not fqdnre.match(valu):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -219,111 +408,140 @@ class Fqdn(s_types.Type):
         except OSError:
             pass
 
-        try:
-            valu = valu.encode('idna').decode('utf8').lower()
-        except UnicodeError as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to encode/decode the value with idna/utf8.')
-
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
             subs['domain'] = parts[1]
         else:
-            subs['sfx'] = 1
+            subs['issuffix'] = 1
 
         return valu, {'subs': subs}
 
-    def indx(self, norm):
-        return norm[::-1].encode('utf8')
-
-    def indxByEq(self, valu):
-
-        if valu == '':
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Cannot generate fqdn index bytes for a empty string.')
-
-        if valu[0] == '*':
-            indx = valu[1:][::-1].encode('utf8')
-            return (
-                ('pref', indx),
-            )
-
-        if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Wild card may only appear at the beginning.')
-
-        return s_types.Type.indxByEq(self, valu)
-
-    def repr(self, valu, defval=None):
-
+    def repr(self, valu):
         try:
+            return idna.decode(valu.encode('utf8'), uts46=True)
+        except idna.IDNAError:
+            try:
+                return valu.encode('utf8').decode('idna')
+            except UnicodeError:
+                return valu
 
-            text = valu.encode('utf8').decode('idna')
-            if text != valu:
-                return text
+class HttpCookie(s_types.Str):
 
-        except UnicodeError as e:
-            logger.exception('Failed to IDNA decode ACE prefixed inet:fqdn')
+    def _normPyStr(self, text):
 
-        return defval
+        text = text.strip()
+        parts = text.split('=', 1)
 
+        name = parts[0].split(';', 1)[0].strip()
+        if len(parts) == 1:
+            return text, {'subs': {'name': name}}
+
+        valu = parts[1].split(';', 1)[0].strip()
+        return text, {'subs': {'name': name, 'value': valu}}
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+            cookies = valu.split(';')
+            for cookie in [c.strip() for c in cookies]:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        if isinstance(valu, (list, tuple)):
+
+            for cookie in valu:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        yield valu
 
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
     '''
+    stortype = s_layer.STOR_TYPE_U32
+
     def postTypeInit(self):
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+        })
+
     def _ctorCmprEq(self, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm < maxv
                 return cmpr
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm <= maxv
                 return cmpr
 
         return s_types.Type._ctorCmprEq(self, valu)
 
-    def getTypeVals(self, text):
+    def getTypeVals(self, valu):
 
-        if text.find('/') != -1:
+        if isinstance(valu, str):
 
-            minv, maxv = self.getCidrRange(text)
-            while minv < maxv:
-                yield minv
-                minv += 1
+            if valu.find('/') != -1:
 
-            return
+                minv, maxv = self.getCidrRange(valu)
+                while minv < maxv:
+                    yield minv
+                    minv += 1
 
-        if text.find('-') != -1:
+                return
 
-            minv, maxv = self.getNetRange(text)
+            if valu.find('-') != -1:
 
-            while minv <= maxv:
-                yield minv
-                minv += 1
+                minv, maxv = self.getNetRange(valu)
 
-            return
+                while minv <= maxv:
+                    yield minv
+                    minv += 1
 
-        yield text
+                return
+
+        yield valu
 
     def _normPyInt(self, valu):
-        norm = valu & 0xffffffff
-        addr = ipaddress.IPv4Address(norm)
+
+        if valu < 0 or valu > ipv4max:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Value outside of IPv4 range')
+
+        addr = ipaddress.IPv4Address(valu)
         subs = {'type': getAddrType(addr)}
-        return norm, {'subs': subs}
+        return valu, {'subs': subs}
 
     def _normPyStr(self, valu):
 
@@ -336,65 +554,113 @@ class IPv4(s_types.Type):
             byts = socket.inet_aton(valu)
         except OSError as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e))
+                                    mesg=str(e)) from None
 
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
-
-    def repr(self, norm, defval=None):
-        return socket.inet_ntoa(self.indx(norm))
+    def repr(self, norm):
+        byts = norm.to_bytes(4, 'big')
+        return socket.inet_ntoa(byts)
 
     def getNetRange(self, text):
-        minstr, maxstr = text.split('-')
+        minstr, maxstr = text.split('-', 1)
         minv, info = self.norm(minstr)
         maxv, info = self.norm(maxstr)
         return minv, maxv
 
     def getCidrRange(self, text):
-        addr, mask = text.split('/', 1)
+        addr, mask_str = text.split('/', 1)
         norm, info = self.norm(addr)
 
-        mask = cidrmasks[int(mask)]
+        try:
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        mask = cidrmasks[mask_int]
 
         minv = norm & mask[0]
         return minv, minv + mask[1]
 
-    def indxByEq(self, valu):
+    def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
                 maxv -= 1
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
-        return s_types.Type.indxByEq(self, valu)
+        return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu >= norm
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu <= norm
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu > norm
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu < norm
+        return cmpr
 
 class IPv6(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_IPV6
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
 
-    def indx(self, norm):
-        return ipaddress.IPv6Address(norm).packed
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '>': self._storLiftNorm,
+            '<': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+        })
 
     def _normPyStr(self, valu):
 
         try:
 
-            if type(valu) == str:
+            if isinstance(valu, str):
                 valu = s_chop.printables(valu)
                 if valu.find(':') == -1:
                     valu = '::ffff:' + valu
@@ -402,7 +668,10 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
-            subs = {'type': getAddrType(v6)}
+            subs = {
+                'type': getAddrType(v6),
+                'scope': getAddrScope(v6),
+            }
 
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
@@ -410,22 +679,151 @@ class IPv6(s_types.Type):
                 subs['ipv4'] = v4_int
                 return f'::ffff:{v4_str}', {'subs': subs}
 
-            return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
+            return v6.compressed, {'subs': subs}
 
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+
+                minv, maxv = self.getCidrRange(valu)
+                while minv <= maxv:
+                    yield minv.compressed
+                    minv += 1
+
+                return
+
+            if valu.find('-') != -1:
+
+                minv, maxv = self.getNetRange(valu)
+                while minv <= maxv:
+                    yield minv.compressed
+                    minv += 1
+
+                return
+
+        yield valu
+
+    def getCidrRange(self, text):
+        try:
+            netw = ipaddress.IPv6Network(text, strict=False)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+        minv = netw[0]
+        maxv = netw[-1]
+        return minv, maxv
+
+    def getNetRange(self, text):
+        minv, maxv = text.split('-', 1)
+        try:
+            minv = ipaddress.IPv6Address(minv)
+            maxv = ipaddress.IPv6Address(maxv)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+        return minv, maxv
+
+    def _ctorCmprEq(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+
+                def cmpr(norm):
+                    norm = ipaddress.IPv6Address(norm)
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+
+                def cmpr(norm):
+                    norm = ipaddress.IPv6Address(norm)
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                return (
+                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
+                )
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed >= addr.packed
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed <= addr.packed
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed > addr.packed
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed < addr.packed
+        return cmpr
+
+class IPv4Range(s_types.Range):
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ipv4', {})
+        s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr4')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
 
 class IPv6Range(s_types.Range):
-    _opt_defs = ()
 
     def postTypeInit(self):
         self.opts['type'] = ('inet:ipv6', {})
         s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr6')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
@@ -436,25 +834,14 @@ class IPv6Range(s_types.Range):
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
-class Rfc2822Addr(s_types.Type):
+class Rfc2822Addr(s_types.Str):
     '''
     An RFC 2822 compatible email address parser
     '''
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
-
-    def indxByPref(self, valu):
-        valu = valu.replace('"', ' ').replace("'", ' ')
-        valu = valu.strip().lower()
-        valu = ' '.join(valu.split())
-        return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
-        )
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
 
@@ -464,11 +851,16 @@ class Rfc2822Addr(s_types.Type):
         valu = ' '.join(valu.split())
 
         try:
-            name, addr = email.utils.parseaddr(valu)
+            name, addr = s_v_email_utils.parseaddr(valu, strict=True)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
+            mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='email.utils.parsaddr failed: %s' % (e,))
+                                    mesg=mesg) from None
+
+        if not name and not addr:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'No name or email parsed from {valu}')
 
         subs = {}
         if name:
@@ -476,7 +868,7 @@ class Rfc2822Addr(s_types.Type):
 
         try:
             data = self.modl.type('inet:email').norm(addr)
-            if len(data) is 2:
+            if len(data) == 2:
                 mail = data[0]
 
             subs['email'] = mail
@@ -489,11 +881,26 @@ class Rfc2822Addr(s_types.Type):
 
         return valu, {'subs': subs}
 
-class Url(s_types.StrBase):
+class Url(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:url='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr
 
     def _normPyStr(self, valu):
         orig = valu
@@ -503,16 +910,46 @@ class Url(s_types.StrBase):
         hostparts = ''
         pathpart = ''
         parampart = ''
+        local = False
+        isUNC = False
+
+        if valu.startswith('\\\\'):
+            orig = s_chop.uncnorm(valu)
+            # Fall through to original norm logic
 
         # Protocol
-        try:
-            proto, valu = valu.split('://', 1)
-            proto = proto.lower()
-            subs['proto'] = proto
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='Invalid/Missing protocol')
+        for splitter in ('://///', ':////'):
+            try:
+                proto, valu = orig.split(splitter, 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                isUNC = True
+                break
+            except Exception:
+                proto = valu = ''
 
+        if not proto:
+            try:
+                proto, valu = orig.split('://', 1)
+                proto = proto.lower()
+            except Exception:
+                pass
+
+        if not proto:
+            try:
+                proto, valu = orig.split(':', 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                assert valu
+                local = True
+            except Exception:
+                proto = valu = ''
+
+        if not proto or not valu:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Invalid/Missing protocol') from None
+
+        subs['proto'] = proto
         # Query params first
         queryrem = ''
         if '?' in valu:
@@ -521,24 +958,40 @@ class Url(s_types.StrBase):
 
         # Resource Path
         parts = valu.split('/', 1)
+        subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
-            pathpart = f'/{pathpart}'
-        subs['path'] = pathpart
+            if local:
+                if drivre.match(valu):
+                    pathpart = '/'.join((valu, pathpart))
+                    valu = ''
+            # Ordering here matters due to the differences between how windows and linux filepaths are encoded
+            # *nix paths: file://<host>/some/chosen/path
+            # for windows path: file://<host>/c:/some/chosen/path
+            # the split above will rip out the starting slash on *nix, so we need it back before making the path
+            # sub, but for windows we need to only when constructing the full url (and not the path sub)
+            if proto == 'file' and drivre.match(pathpart):
+                # make the path sub before adding in the slash separator so we don't end up with "/c:/foo/bar"
+                # as part of the subs
+                # per the rfc, only do this for things that start with a drive letter
+                subs['path'] = pathpart
+                pathpart = f'/{pathpart}'
+            else:
+                pathpart = f'/{pathpart}'
+                subs['path'] = pathpart
 
         if queryrem:
             parampart = f'?{queryrem}'
         subs['params'] = parampart
 
         # Optional User/Password
-        parts = valu.split('@', 1)
+        parts = valu.rsplit('@', 1)
         if len(parts) == 2:
             authparts, valu = parts
-
             userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
+            subs['user'] = urllib.parse.unquote(userpass[0])
             if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
+                subs['passwd'] = urllib.parse.unquote(userpass[1])
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -557,14 +1010,14 @@ class Url(s_types.StrBase):
                 if match:
                     host = f'[{host}]'
 
-            except Exception as e:
+            except Exception:
                 pass
 
         else:
             # FQDN and IPv4 handle ports the same way
             fqdnipv4_parts = valu.split(':', 1)
             part = fqdnipv4_parts[0]
-            if len(fqdnipv4_parts) is 2:
+            if len(fqdnipv4_parts) == 2:
                 port = fqdnipv4_parts[1]
 
             # IPv4
@@ -573,7 +1026,7 @@ class Url(s_types.StrBase):
                 ipv4 = self.modl.type('inet:ipv4').norm(part)[0]
                 host = self.modl.type('inet:ipv4').repr(ipv4)
                 subs['ipv4'] = ipv4
-            except Exception as e:
+            except Exception:
                 pass
 
             # FQDN
@@ -581,12 +1034,17 @@ class Url(s_types.StrBase):
                 try:
                     host = self.modl.type('inet:fqdn').norm(part)[0]
                     subs['fqdn'] = host
-                except Exception as e:
+                except Exception:
                     pass
 
-        # Raise exception if there was no FQDN, IPv4, or IPv6
-        if host is None:
-            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='No valid host')
+            # allow MSFT specific wild card syntax
+            # https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
+            if host is None and part == '+':
+                host = '+'
+
+        if host and local:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Host specified on local-only file URI') from None
 
         # Optional Port
         if port is not None:
@@ -599,12 +1057,23 @@ class Url(s_types.StrBase):
                 subs['port'] = self.modl.type('inet:port').norm(defport)[0]
 
         # Set up Normed URL
+        if isUNC:
+            hostparts += '//'
+
         if authparts:
             hostparts = f'{authparts}@'
 
-        hostparts = f'{hostparts}{host}'
-        if port is not None:
-            hostparts = f'{hostparts}:{port}'
+        if host is not None:
+            hostparts = f'{hostparts}{host}'
+            if port is not None:
+                hostparts = f'{hostparts}:{port}'
+
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if not hostparts and not pathpart:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Missing address/url') from None
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
@@ -638,8 +1107,8 @@ class InetModule(s_module.CoreModule):
     async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        await node.set('md5', hashlib.md5(byts).hexdigest())
-        await node.set('sha1', hashlib.sha1(byts).hexdigest())
+        await node.set('md5', hashlib.md5(byts, usedforsecurity=False).hexdigest())
+        await node.set('sha1', hashlib.sha1(byts, usedforsecurity=False).hexdigest())
         await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
     async def _onAddFqdn(self, node):
@@ -647,33 +1116,50 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        if domain is None:
-            await node.set('issuffix', True)
-            return
+        async with node.snap.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
 
-        # almost certainly in the cache anyway....
-        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
 
-        if parent.get('issuffix'):
-            await node.set('iszone', True)
-            await node.set('zone', fqdn)
-            return
+            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain)
 
-        if parent.get('iszone'):
-            await node.set('zone', domain)
-            return
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', fqdn)
+                return
 
-        zone = parent.get('zone')
-        if zone is not None:
-            await node.set('zone', zone)
+            await protonode.set('iszone', False)
+
+            if parent.get('iszone'):
+                await protonode.set('zone', domain)
+                return
+
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone)
 
     async def _onSetFqdnIsSuffix(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
-            await child.set('iszone', issuffix)
+
+        async with node.snap.getEditor() as editor:
+            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
 
@@ -691,7 +1177,7 @@ class InetModule(s_module.CoreModule):
             await node.pop('zone')
             return
 
-        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.addNode('inet:fqdn', domain)
 
         zone = parent.get('zone')
         if zone is None:
@@ -702,17 +1188,24 @@ class InetModule(s_module.CoreModule):
 
     async def _onSetFqdnZone(self, node, oldv):
 
-        fqdn = node.ndef[1]
+        todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async with node.snap.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                    await asyncio.sleep(0)
 
-            # if they are their own zone level, skip
-            if child.get('iszone'):
-                continue
+                    # if they are their own zone level, skip
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
 
-            # the have the same zone we do
-            await child.set('zone', zone)
+                    # the have the same zone we do
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone)
+
+                    todo.append(child.ndef[1])
 
     def getModelDefs(self):
         return (
@@ -731,6 +1224,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.0/24'
                     }),
 
+                    ('inet:cidr6', 'synapse.models.inet.Cidr6', {}, {
+                        'doc': 'An IPv6 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                        'ex': '2001:db8::/101'
+                    }),
+
                     ('inet:email', 'synapse.models.inet.Email', {}, {
                         'doc': 'An e-mail address.'}),
 
@@ -743,13 +1241,18 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.4'
                     }),
 
+                    ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
+                        'doc': 'An IPv4 address range.',
+                        'ex': '1.2.3.4-1.2.3.8'
+                    }),
+
                     ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
                         'doc': 'An IPv6 address.',
                         'ex': '2607:f8b0:4004:809::200e'
                     }),
 
                     ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
-                        'doc': 'An IPv6 address range',
+                        'doc': 'An IPv6 address range.',
                         'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
                     }),
 
@@ -763,17 +1266,36 @@ class InetModule(s_module.CoreModule):
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
 
+                    ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
+                        'doc': 'An individual HTTP cookie string.',
+                        'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
+                    }),
+
+                ),
+
+                'edges': (
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv4'), {
+                        'doc': 'The source IP whois record describes the target IPv4 address.'}),
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv6'), {
+                        'doc': 'The source IP whois record describes the target IPv6 address.'}),
                 ),
 
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An Autonomous System Number (ASN).'
-                    }),
+                        'doc': 'An Autonomous System Number (ASN).'}),
+
+                    ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
+                        'doc': 'A network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
                         'ex': '(54959, (1.2.3.4, 1.2.3.20))',
+                    }),
+
+                    ('inet:asnet6', ('comp', {'fields': (('asn', 'inet:asn'), ('net6', 'inet:net6'))}), {
+                        'doc': 'An Autonomous System Number (ASN) and its associated IPv6 address range.',
+                        'ex': '(54959, (ff::00, ff::02))',
                     }),
 
                     ('inet:client', ('inet:addr', {}), {
@@ -785,15 +1307,21 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:flow', ('guid', {}), {
-                        'doc': 'An individual network connection between a given source and destination.'
-                    }),
+                        'doc': 'An individual network connection between a given source and destination.'}),
+
+                    ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of network tunnel types.'}),
+
+                    ('inet:tunnel', ('guid', {}), {
+                        'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
+
+                    ('inet:egress', ('guid', {}), {
+                        'doc': 'A host using a specific network egress client address.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
-
-                    ('inet:http:cookie', ('str', {}), {
-                        'doc': 'An HTTP cookie string.'}),
 
                     ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -809,7 +1337,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                         'doc': 'An HTTP request path query parameter.'}),
 
+                    ('inet:http:session', ('guid', {}), {
+                        'doc': 'An HTTP session.'}),
+
                     ('inet:http:request', ('guid', {}), {
+                        'interfaces': ('inet:proto:request',),
                         'doc': 'A single HTTP request.'}),
 
                     ('inet:iface', ('guid', {}), {
@@ -817,12 +1349,11 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                        # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
 
-                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
+                    ('inet:net4', ('inet:ipv4range', {}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
@@ -837,8 +1368,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                        'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:ff....fff)',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert.',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -868,11 +1399,18 @@ class InetModule(s_module.CoreModule):
                         'ex': '(http://foo.com/,http://bar.com/)'
                     }),
 
+                    ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                        'doc': 'A URL mirror site.',
+                    }),
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
 
+                    ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
+                        'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
+
                     ('inet:search:query', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
                         'doc': 'An instance of a search query issued to a search engine.',
                     }),
 
@@ -880,17 +1418,13 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A single result from a web search.',
                     }),
 
-                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
+                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
                         'doc': 'An account with a given Internet-based site or service.',
                         'ex': 'twitter.com/invisig0th'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
-                    }),
-
-                    ('inet:web:actref', ('comp', {'fields': (('act', 'inet:web:action'), ('node', 'ndef'))}), {
-                        'doc': 'A web action that references a given node.'
                     }),
 
                     ('inet:web:chprofile', ('guid', {}), {
@@ -902,11 +1436,14 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A file posted by a web account.'
                     }),
 
+                    ('inet:web:attachment', ('guid', {}), {
+                        'doc': 'An instance of a file being sent to a web service by an account.'}),
+
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
-                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group'))}), {
+                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
                         'doc': 'A group hosted within or registered with a given Internet-based site or service.',
                         'ex': 'somesite.com/mycoolgroup'
                     }),
@@ -914,22 +1451,40 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:logon', ('guid', {}), {
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
-
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
-                        'doc': 'A web account that is a member of a web group.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:web:member.'
                     }),
-
+                    ('inet:web:member', ('guid', {}), {
+                        'doc': 'Represents a web account membership in a channel or group.',
+                    }),
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
-                        'doc': 'A message sent from one web account to another web account.',
-                        'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'
+                        'doc': 'A message sent from one web account to another web account or channel.',
+                        'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
                     }),
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
 
-                    ('inet:web:postref', ('comp', {'fields': (('post', 'inet:web:post'), ('node', 'ndef'))}), {
-                        'doc': 'A web post that references a given node.'
+                    ('inet:web:post:link', ('guid', {}), {
+                        'doc': 'A link contained within post text.'
+                    }),
+
+                    ('inet:web:instance', ('guid', {}), {
+                        'doc': 'An instance of a web service such as slack or discord.'
+                    }),
+
+                    ('inet:web:channel', ('guid', {}), {
+                        'doc': 'A channel within a web service or instance such as slack or discord.'
+                    }),
+
+                    ('inet:web:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
+                        # regex explanation:
+                        # - starts with pound
+                        # - one or more non-whitespace/non-pound character
+                        # The minimum hashtag is a pound with a single non-whitespace character
+                        'doc': 'A hashtag used in a web post.',
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -942,7 +1497,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
-                        'doc': 'A domain whois record'
+                        'doc': 'A domain whois record.'
                     }),
 
                     ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
@@ -954,12 +1509,25 @@ class InetModule(s_module.CoreModule):
                         'ex': 'woot hostmaster'
                     }),
 
-                    ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                        'doc': 'An association between a domain and a registrant email address.'
-                    }),
-
                     ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                         'doc': 'An email address associated with an FQDN via whois registration text.',
+                    }),
+
+                    ('inet:whois:ipquery', ('guid', {}), {
+                        'doc': 'Query details used to retrieve an IP record.'
+                    }),
+
+                    ('inet:whois:iprec', ('guid', {}), {
+                        'doc': 'An IPv4/IPv6 block registration record.'
+                    }),
+
+                    ('inet:whois:ipcontact', ('guid', {}), {
+                        'doc': 'An individual contact from an IP block record.'
+                    }),
+
+                    ('inet:whois:regid', ('str', {}), {
+                        'doc': 'The registry unique identifier of the registration record.',
+                        'ex': 'NET-10-0-0-0-1'
                     }),
 
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
@@ -972,27 +1540,371 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:email:message', ('guid', {}), {
-                        'doc': 'A unique email message.',
-                    }),
+                        'doc': 'An individual email message delivered to an inbox.'}),
 
                     ('inet:email:header:name', ('str', {'lower': True}), {
-                        'doc': 'An email header name.',
                         'ex': 'subject',
-                    }),
+                        'doc': 'An email header name.'}),
+
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
-                        'doc': 'A unique email message header.',
-                    }),
+                        'doc': 'A unique email message header.'}),
+
                     ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file which was attached to an email message.',
-                    }),
+                        'doc': 'A file which was attached to an email message.'}),
+
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
-                        'doc': 'A url/link embedded in an email message.',
+                        'doc': 'A url/link embedded in an email message.'}),
+
+                    ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                        'doc': 'A TLS JARM fingerprint hash.'}),
+
+                    ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
+                        'doc': 'A JARM hash sample taken from a server.'}),
+
+                    ('inet:service:platform:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A service platform type taxonomy.'}),
+
+                    ('inet:service:platform', ('guid', {}), {
+                        'doc': 'A network platform which provides services.'}),
+
+                    ('inet:service:agent', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'agent'},
+                        'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.'}),
+
+                    ('inet:service:app', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'application'},
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:agent for autonomous agents.'}),
+
+                    ('inet:service:instance', ('guid', {}), {
+                        'doc': 'An instance of the platform such as Slack or Discord instances.'}),
+
+                    ('inet:service:object:status', ('int', {'enums': svcobjstatus}), {
+                        'doc': 'An object status enumeration.'}),
+
+                    ('inet:service:account', ('guid', {}), {
+                        'interfaces': ('inet:service:subscriber',),
+                        'template': {'service:base': 'account'},
+                        'doc': 'An account within a service platform. Accounts may be instance specific.'}),
+
+                    ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A service object relationship type taxonomy.'}),
+
+                    ('inet:service:relationship', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'relationship'},
+                        'doc': 'A relationship between two service objects.'}),
+
+                    ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A permission type taxonomy.'}),
+
+                    ('inet:service:permission', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'permission'},
+                        'doc': 'A permission which may be granted to a service account or role.'}),
+
+                    ('inet:service:rule', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'rule'},
+                        'doc': 'A rule which grants or denies a permission to a service account or role.'}),
+
+                    ('inet:service:login', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A login event for a service account.'}),
+
+                    ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service login methods.'}),
+
+                    ('inet:service:session', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'session'},
+                        'doc': 'An authenticated session.'}),
+
+                    ('inet:service:group', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'group'},
+                        'doc': 'A group or role which contains member accounts.'}),
+
+                    ('inet:service:group:member', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'group membership'},
+                        'doc': 'Represents a service account being a member of a group.'}),
+
+                    ('inet:service:channel', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'channel'},
+                        'doc': 'A channel used to distribute messages.'}),
+
+                    ('inet:service:thread', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'thread'},
+                        'doc': 'A message thread.'}),
+
+                    ('inet:service:channel:member', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'channel membership'},
+                        'doc': 'Represents a service account being a member of a channel.'}),
+
+                    ('inet:service:message', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A message or post created by an account.'}),
+
+                    ('inet:service:message:link', ('guid', {}), {
+                        'doc': 'A URL link included within a message.'}),
+
+                    ('inet:service:message:attachment', ('guid', {}), {
+                        'doc': 'A file attachment included within a message.'}),
+
+                    ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A message type taxonomy.'}),
+
+                    ('inet:service:emote', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'emote'},
+                        'doc': 'An emote or reaction by an account.'}),
+
+                    ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of service actions.'}),
+
+                    ('inet:service:access', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'Represents a user access request to a service resource.'}),
+
+                    ('inet:service:tenant', ('guid', {}), {
+                        'interfaces': ('inet:service:subscriber',),
+                        'template': {'service:base': 'tenant'},
+                        'doc': 'A tenant which groups accounts and instances.'}),
+
+                    ('inet:service:subscription:level:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of platform specific subscription levels.'}),
+
+                    ('inet:service:subscription', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'subscription'},
+                        'doc': 'A subscription to a service platform or instance.'}),
+
+                    ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
+                        'doc': 'A node which may subscribe to a service subscription.'}),
+
+                    ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service resource types.'}),
+
+                    ('inet:service:resource', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'resource'},
+                        'doc': 'A generic resource provided by the service architecture.'}),
+
+                    ('inet:service:bucket', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'bucket'},
+                        'doc': 'A file/blob storage object within a service architecture.'}),
+
+                    ('inet:service:bucket:item', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'bucket item'},
+                        'doc': 'An individual file stored within a bucket.'}),
+
+                    ('inet:tls:handshake', ('guid', {}), {
+                        'doc': 'An instance of a TLS handshake between a server and client.'}),
+
+                    ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+                        'doc': 'A JA4 TLS client fingerprint.'}),
+
+                    ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+                        'doc': 'A JA4S TLS server fingerprint.'}),
+
+                    ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
+                        'doc': 'A JA4 TLS client fingerprint used by a client.'}),
+
+                    ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
+                        'doc': 'A JA4S TLS server fingerprint used by a server.'}),
+
+                    ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
+                        'doc': 'A JA3 sample taken from a server.'}),
+
+                    ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'hash:md5'))}), {
+                        'doc': 'A JA3 sample taken from a client.'}),
+
+                    ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate sent by a server for TLS.',
+                        'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
+                    }),
+
+                    ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate sent by a client for TLS.',
+                        'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
+                    }),
+                ),
+
+                'interfaces': (
+
+                    ('inet:proto:request', {
+
+                        'doc': 'Properties common to network protocol requests and responses.',
+                        'interfaces': ('it:host:activity',),
+
+                        'props': (
+                            ('flow', ('inet:flow', {}), {
+                                'doc': 'The raw inet:flow containing the request.'}),
+                            ('client', ('inet:client', {}), {
+                                'doc': 'The inet:addr of the client.'}),
+                            ('client:ipv4', ('inet:ipv4', {}), {
+                                'doc': 'The server IPv4 address that the request was sent from.'}),
+                            ('client:ipv6', ('inet:ipv6', {}), {
+                                'doc': 'The server IPv6 address that the request was sent from.'}),
+                            ('client:host', ('it:host', {}), {
+                                'doc': 'The host that the request was sent from.'}),
+                            ('server', ('inet:server', {}), {
+                                'doc': 'The inet:addr of the server.'}),
+                            ('server:ipv4', ('inet:ipv4', {}), {
+                                'doc': 'The server IPv4 address that the request was sent to.'}),
+                            ('server:ipv6', ('inet:ipv6', {}), {
+                                'doc': 'The server IPv6 address that the request was sent to.'}),
+                            ('server:port', ('inet:port', {}), {
+                                'doc': 'The server port that the request was sent to.'}),
+                            ('server:host', ('it:host', {}), {
+                                'doc': 'The host that the request was sent to.'}),
+                        ),
+                    }),
+
+                    ('inet:service:base', {
+                        'doc': 'Properties common to most forms within a service platform.',
+                        'template': {'service:base': 'node'},
+                        'props': (
+
+                            ('id', ('str', {'strip': True}), {
+                                'doc': 'A platform specific ID which identifies the {service:base}.'}),
+
+                            ('platform', ('inet:service:platform', {}), {
+                                'doc': 'The platform which defines the {service:base}.'}),
+
+                            ('instance', ('inet:service:instance', {}), {
+                                'doc': 'The platform instance which defines the {service:base}.'}),
+                        ),
+                    }),
+
+                    ('inet:service:object', {
+
+                        'doc': 'Properties common to objects within a service platform.',
+                        'interfaces': ('inet:service:base',),
+                        'template': {'service:base': 'object'},
+                        'props': (
+
+                            ('url', ('inet:url', {}), {
+                                'doc': 'The primary URL associated with the {service:base}.'}),
+
+                            ('status', ('inet:service:object:status', {}), {
+                                'doc': 'The status of the {service:base}.'}),
+
+                            ('period', ('ival', {}), {
+                                'doc': 'The period when the {service:base} existed.'}),
+
+                            ('creator', ('inet:service:account', {}), {
+                                'doc': 'The service account which created the {service:base}.'}),
+
+                            ('remover', ('inet:service:account', {}), {
+                                'doc': 'The service account which removed or decommissioned the {service:base}.'}),
+
+                            ('app', ('inet:service:app', {}), {
+                                'deprecated': True,
+                                'doc': 'Deprecated. Objects are no longer scoped to an application or agent.'}),
+                        ),
+                    }),
+
+                    ('inet:service:subscriber', {
+                        'doc': 'Properties common to the nodes which subscribe to services.',
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'subscriber'},
+                        'props': (
+                            ('profile', ('ps:contact', {}), {
+                                'doc': 'The primary contact information for the {service:base}.'}),
+                        ),
+                    }),
+
+                    ('inet:service:action', {
+
+                        'doc': 'Properties common to events within a service platform.',
+                        'interfaces': ('inet:service:base',),
+                        'props': (
+
+                            ('app', ('inet:service:app', {}), {
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :agent / inet:service:agent.'}),
+
+                            ('agent', ('inet:service:agent', {}), {
+                                'doc': 'The service agent which performed the action potentially on behalf of an account.'}),
+
+                            ('time', ('time', {}), {
+                                'doc': 'The time that the account initiated the action.'}),
+
+                            ('account', ('inet:service:account', {}), {
+                                'doc': 'The account which initiated the action.'}),
+
+                            ('success', ('bool', {}), {
+                                'doc': 'Set to true if the action was successful.'}),
+
+                            ('rule', ('inet:service:rule', {}), {
+                                'doc': 'The rule which allowed or denied the action.'}),
+
+                            ('error:code', ('str', {'strip': True}), {
+                                'doc': 'The platform specific error code if the action was unsuccessful.'}),
+
+                            ('error:reason', ('str', {'strip': True}), {
+                                'doc': 'The platform specific friendly error reason if the action was unsuccessful.'}),
+
+                            ('platform', ('inet:service:platform', {}), {
+                                'doc': 'The platform where the action was initiated.'}),
+
+                            ('instance', ('inet:service:instance', {}), {
+                                'doc': 'The platform instance where the action was initiated.'}),
+
+                            ('session', ('inet:service:session', {}), {
+                                'doc': 'The session which initiated the action.'}),
+
+                            ('client', ('inet:client', {}), {
+                                'doc': 'The network address of the client which initiated the action.'}),
+
+                            ('client:host', ('it:host', {}), {
+                                'doc': 'The client host which initiated the action.'}),
+
+                            ('client:software', ('it:prod:softver', {}), {
+                                'doc': 'The client software used to initiate the action.'}),
+
+                            ('client:app', ('inet:service:app', {}), {
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :client:software.'}),
+
+                            ('server', ('inet:server', {}), {
+                                'doc': 'The network address of the server which handled the action.'}),
+
+                            ('server:host', ('it:host', {}), {
+                                'doc': 'The server host which handled the action.'}),
+
+                        ),
                     }),
                 ),
 
                 'forms': (
 
+                    ('inet:proto', {}, (
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The default port this protocol typically uses if applicable.'}),
+                    )),
+
                     ('inet:email:message', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The ID parsed from the "message-id" header.'}),
 
                         ('to', ('inet:email', {}), {
                             'doc': 'The email address of the recipient.'}),
@@ -1001,19 +1913,39 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The email address of the sender.'}),
 
                         ('replyto', ('inet:email', {}), {
-                            'doc': 'The email address from the reply-to header.'}),
+                            'doc': 'The email address parsed from the "reply-to" header.'}),
+
+                        ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Email addresses parsed from the "cc" header.'}),
 
                         ('subject', ('str', {}), {
-                            'doc': 'The email message subject line.'}),
+                            'doc': 'The email message subject parsed from the "subject" header.'}),
 
                         ('body', ('str', {}), {
+                            'disp': {'hint': 'text'},
                             'doc': 'The body of the email message.'}),
 
                         ('date', ('time', {}), {
-                            'doc': 'The time the email message was received.'}),
+                            'doc': 'The time the email message was delivered.'}),
 
                         ('bytes', ('file:bytes', {}), {
                             'doc': 'The file bytes which contain the email message.'}),
+
+                        ('headers', ('array', {'type': 'inet:email:header'}), {
+                            'doc': 'An array of email headers from the message.'}),
+
+                        ('received:from:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The sending SMTP server IPv4, potentially from the Received: header.'}),
+
+                        ('received:from:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The sending SMTP server IPv6, potentially from the Received: header.'}),
+
+                        ('received:from:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The sending server FQDN, potentially from the Received: header.'}),
+
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which delivered the message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -1043,11 +1975,12 @@ class InetModule(s_module.CoreModule):
                         ('url', ('inet:url', {}), {
                             'ro': True,
                             'doc': 'The url contained within the email message.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
                     )),
 
                     ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {
-                            'defval': '??',
                             'doc': 'The name of the organization currently responsible for the ASN.'
                         }),
                         ('owner', ('ou:org', {}), {
@@ -1074,6 +2007,25 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:asnet6', {}, (
+                        ('asn', ('inet:asn', {}), {
+                            'ro': True,
+                            'doc': 'The Autonomous System Number (ASN) of the netblock.'
+                        }),
+                        ('net6', ('inet:net6', {}), {
+                            'ro': True,
+                            'doc': 'The IPv6 address range assigned to the ASN.'
+                        }),
+                        ('net6:min', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The first IPv6 in the range assigned to the ASN.'
+                        }),
+                        ('net6:max', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The last IPv6 in the range assigned to the ASN.'
+                        }),
+                    )),
+
                     ('inet:cidr4', {}, (
                         ('broadcast', ('inet:ipv4', {}), {
                             'ro': True,
@@ -1088,6 +2040,22 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The network IP address from the CIDR notation.'
                         }),
                     )),
+
+                    ('inet:cidr6', {}, (
+                        ('broadcast', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The broadcast IP address from the CIDR notation.'
+                        }),
+                        ('mask', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The mask from the CIDR notation.'
+                        }),
+                        ('network', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The network IP address from the CIDR notation.'
+                        }),
+                    )),
+
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
@@ -1160,12 +2128,22 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email', {}, (
+
                         ('user', ('inet:user', {}), {
                             'ro': True,
                             'doc': 'The username of the email address.'}),
+
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The domain of the email address.'}),
+
+                        ('plus', ('str', {'lower': True, 'strip': True}), {
+                            'ro': True,
+                            'doc': 'The optional email address "tag".'}),
+
+                        ('base', ('inet:email', {}), {
+                            'ro': True,
+                            'doc': 'The base email address which is populated if the email address contains a user with a +<tag>.'}),
                     )),
 
                     ('inet:flow', {}, (
@@ -1179,24 +2157,19 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ingest source file/iden. Used for reparsing.'
                         }),
                         ('dst', ('inet:server', {}), {
-                            'ro': True,
                             'doc': 'The destination address / port for a connection.'
                         }),
                         ('dst:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The destination IPv4 address.'
                         }),
                         ('dst:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The destination IPv6 address.'
                         }),
                         ('dst:port', ('inet:port', {}), {
-                            'ro': True,
                             'doc': 'The destination port.'
                         }),
                         ('dst:proto', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The destination port.'
+                            'doc': 'The destination protocol.'
                         }),
                         ('dst:host', ('it:host', {}), {
                             'doc': 'The guid of the destination host.'
@@ -1205,61 +2178,150 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the destination process.'
                         }),
                         ('dst:exe', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The file (executable) that received the connection.'
+                            'doc': 'The file (executable) that received the connection.'}),
+
+                        ('dst:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the destination host.'}),
+
+                        ('dst:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent by the destination host.'
                         }),
                         ('dst:txbytes', ('int', {}), {
-                            'ro': True,
-                            'doc': 'The number of bytes sent by the destination host / process / file.'
+                            'doc': 'The number of bytes sent by the destination host.'
+                        }),
+                        ('dst:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the server.'
                         }),
                         ('src', ('inet:client', {}), {
-                            'ro': True,
                             'doc': 'The source address / port for a connection.'
                         }),
                         ('src:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The source IPv4 address.'
                         }),
                         ('src:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The source IPv6 address.'
                         }),
                         ('src:port', ('inet:port', {}), {
-                            'ro': True,
                             'doc': 'The source port.'
                         }),
                         ('src:proto', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The source port.'
+                            'doc': 'The source protocol.'
                         }),
                         ('src:host', ('it:host', {}), {
-                            'ro': True,
                             'doc': 'The guid of the source host.'
                         }),
                         ('src:proc', ('it:exec:proc', {}), {
-                            'ro': True,
                             'doc': 'The guid of the source process.'
                         }),
                         ('src:exe', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The file (executable) that created the connection.'
+                            'doc': 'The file (executable) that created the connection.'}),
+
+                        ('src:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the source host.'}),
+
+                        ('src:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent by the source host.'
                         }),
                         ('src:txbytes', ('int', {}), {
-                            'ro': True,
-                            'doc': 'The number of bytes sent by the source host / process / file.'
+                            'doc': 'The number of bytes sent by the source host.'
                         }),
+                        ('tot:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent in both directions.'
+                        }),
+                        ('tot:txbytes', ('int', {}), {
+                            'doc': 'The number of bytes sent in both directions.'
+                        }),
+                        ('src:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the client.'
+                        }),
+                        ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of NIST CPEs identified on the destination host.',
+                        }),
+                        ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of software names identified on the destination host.',
+                        }),
+                        ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of NIST CPEs identified on the source host.',
+                        }),
+                        ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of software names identified on the source host.',
+                        }),
+                        ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
+                            'doc': 'The IP protocol number of the flow.',
+                        }),
+                        ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
+                            'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.',
+                        }),
+                        ('sandbox:file', ('file:bytes', {}), {
+                            'doc': 'The initial sample given to a sandbox environment to analyze.'
+                        }),
+
+                        ('src:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
+
+                        ('dst:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'}),
+
+                        ('src:rdp:hostname', ('it:hostname', {}), {
+                            'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
+
+                        ('src:rdp:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
+
+                        ('src:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the client as part of an SSH session setup.'}),
+
+                        ('dst:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the server as part of an SSH session setup.'}),
+
+                        ('capture:host', ('it:host', {}), {
+                            'doc': 'The host which captured the flow.'}),
+
+                        ('raw', ('data', {}), {
+                            'doc': 'A raw record used to create the flow which may contain additional protocol details.'}),
+                    )),
+
+                    ('inet:tunnel:type:taxonomy', {}, ()),
+                    ('inet:tunnel', {}, (
+                        ('anon', ('bool', {}), {
+                            'doc': 'Indicates that this tunnel provides anonymization.'}),
+                        ('type', ('inet:tunnel:type:taxonomy', {}), {
+                            'doc': 'The type of tunnel such as vpn or proxy.'}),
+                        ('ingress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic enters the tunnel.'}),
+                        ('egress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic leaves the tunnel.'}),
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information for the tunnel operator.'}),
+                    )),
+
+                    ('inet:egress', {}, (
+
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that used the network egress.'}),
+
+                        ('host:iface', ('inet:iface', {}), {
+                            'doc': 'The interface which the host used to connect out via the egress.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The service account which used the client address to egress.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address the host used as a network egress.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The client IPv4 address the host used as a network egress.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The client IPv6 address the host used as a network egress.'}),
                     )),
 
                     ('inet:fqdn', {}, (
-                        ('created', ('time', {'ismin': True}), {
-                            'doc': 'The earliest known registration (creation) date for the fqdn.'
-                        }),
                         ('domain', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The parent domain for the FQDN.',
-                        }),
-                        ('expires', ('time', {'ismax': True}), {
-                            'doc': 'The current expiration date for the fqdn.'
                         }),
                         ('host', ('str', {'lower': True}), {
                             'ro': True,
@@ -1267,14 +2329,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('issuffix', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a suffix.',
-                            'defval': 0,
                         }),
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
-                            'defval': 0,
-                        }),
-                        ('updated', ('time', {'ismax': True}), {
-                            'doc': 'The last known updated date for the fqdn.'
                         }),
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
@@ -1313,23 +2370,15 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    ('inet:http:cookie', {}, ()),
+                    ('inet:http:cookie', {}, (
+                        ('name', ('str', {}), {
+                            'doc': 'The name of the cookie preceding the equal sign.'}),
+                        ('value', ('str', {}), {
+                            'doc': 'The value of the cookie after the equal sign if present.'}),
+                    )),
 
                     ('inet:http:request', {}, (
 
-                        ('flow', ('inet:flow', {}), {}),
-
-                        ('client', ('inet:client', {}), {'ro': True}),
-                        ('client:ipv4', ('inet:ipv4', {}), {'ro': True}),
-                        ('client:ipv6', ('inet:ipv6', {}), {'ro': True}),
-
-                        ('server', ('inet:server', {}), {'ro': True}),
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True}),
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True}),
-                        ('server:port', ('inet:port', {}), {'ro': True}),
-
-                        ('time', ('time', {}), {
-                            'doc': 'The time that the HTTP request was sent.'}),
 
                         ('method', ('str', {}), {
                             'doc': 'The HTTP request method string.'}),
@@ -1343,19 +2392,52 @@ class InetModule(s_module.CoreModule):
                         ('query', ('str', {}), {
                             'doc': 'The HTTP query string which optionally follows the path.'}),
 
+                        ('headers', ('array', {'type': 'inet:http:request:header'}), {
+                            'doc': 'An array of HTTP headers from the request.'}),
+
+                        ('header:host', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN parsed from the "Host:" header in the request.'}),
+
+                        ('header:referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
+
+                        ('referer', ('inet:url', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :header:referer.'}),
+
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
+                        ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
+                            'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
+                        ('session', ('inet:http:session', {}), {
+                            'doc': 'The HTTP session this request was part of.'}),
+                    )),
 
+                    ('inet:http:session', {}, (
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The ps:contact which owns the session.'}),
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of cookies used to identify this specific session.'}),
                     )),
 
                     ('inet:iface', {}, (
                         ('host', ('it:host', {}), {
-                            'doc': 'The guid of the host the interface is associated with.'
+                            'doc': 'The guid of the host the interface is associated with.'}),
+
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'eth0',
+                            'doc': 'The interface name.'}),
+
+                        ('network', ('it:network', {}), {
+                            'doc': 'The guid of the it:network the interface connected to.'
                         }),
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The free-form interface type.'
@@ -1378,6 +2460,9 @@ class InetModule(s_module.CoreModule):
                         ('wifi:bssid', ('inet:mac', {}), {
                             'doc': 'The wifi BSSID of the interface.'
                         }),
+                        ('adid', ('it:adid', {}), {
+                            'doc': 'An advertising ID associated with the interface.',
+                        }),
                         ('mob:imei', ('tel:mob:imei', {}), {
                             'doc': 'The IMEI of the interface.'
                         }),
@@ -1388,16 +2473,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4', {}, (
 
-                        ('asn', ('inet:asn', {}), {'defval': 0,  # TODO replace with nullval
+                        ('asn', ('inet:asn', {}), {
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The best known latitude/longitude for the node'}),
+                            'doc': 'The best known latitude/longitude for the node.'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv4.'}),
 
-                        ('type', ('str', {}), {'defval': '??',
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place associated with the latlong property.'}),
+
+                        ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
@@ -1407,26 +2495,33 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv6', {}, (
 
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
 
                         ('ipv4', ('inet:ipv4', {}), {
                             'doc': 'The mapped ipv4.'}),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'}),
+                            'doc': 'The last known latitude/longitude for the node.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
 
                         ('loc', ('loc', {}), {
-                            'defval': '??',
                             'doc': 'The geo-political location string for the IPv6.'}),
+
+                        ('type', ('str', {}), {
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+
+                        ('scope', ('str', {'enums': scopes_enum}), {
+                            'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
+
                     )),
 
                     ('inet:mac', {}, (
                         ('vendor', ('str', {}), {
-                            'defval': '??',
                             'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
                         }),
                     )),
@@ -1481,20 +2576,22 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:banner', {}, (
 
-                        ('server', ('inet:server', {}), {'ro': 1,
+                        ('server', ('inet:server', {}), {'ro': True,
                             'doc': 'The server which presented the banner string.'}),
 
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': 1,
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True,
                             'doc': 'The IPv4 address of the server.'}),
 
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True,
                             'doc': 'The IPv6 address of the server.'}),
 
-                        ('server:port', ('inet:port', {}), {'ro': 1,
+                        ('server:port', ('inet:port', {}), {'ro': True,
                             'doc': 'The network port.'}),
 
-                        ('text', ('it:dev:str', {}), {'ro': 1,
-                            'doc': 'The banner text.'}),
+                        ('text', ('it:dev:str', {}), {'ro': True,
+                            'doc': 'The banner text.',
+                            'disp': {'hint': 'text'},
+                        }),
                     )),
 
                     ('inet:servfile', {}, (
@@ -1534,7 +2631,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
+                            'doc': 'The server that presented the SSL certificate.'
                         }),
                         ('server:ipv4', ('inet:ipv4', {}), {
                             'ro': True,
@@ -1573,11 +2670,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('path', ('str', {}), {
                             'ro': True,
-                            'doc': 'The path in the URL w/o parameters'
+                            'doc': 'The path in the URL w/o parameters.'
                         }),
                         ('params', ('str', {}), {
                             'ro': True,
-                            'doc': 'The URL parameter string'
+                            'doc': 'The URL parameter string.'
                         }),
                         ('port', ('inet:port', {}), {
                             'ro': True,
@@ -1608,19 +2705,30 @@ class InetModule(s_module.CoreModule):
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The original/source URL before redirect'
+                            'doc': 'The original/source URL before redirect.'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the src URL (if present)'
+                            'doc': 'The FQDN within the src URL (if present).'
                         }),
                         ('dst', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The redirected/destination URL'
+                            'doc': 'The redirected/destination URL.'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the dst URL (if present)'
+                            'doc': 'The FQDN within the dst URL (if present).'
+                        }),
+                    )),
+
+                    ('inet:url:mirror', {}, (
+                        ('of', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL being mirrored.',
+                        }),
+                        ('at', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL of the mirror.',
                         }),
                     )),
 
@@ -1629,14 +2737,24 @@ class InetModule(s_module.CoreModule):
                     ('inet:search:query', {}, (
 
                         ('text', ('str', {}), {
-                            'doc': 'The search query text.'}),
-
+                            'doc': 'The search query text.',
+                            'disp': {'hint': 'text'},
+                        }),
                         ('time', ('time', {}), {
-                            'doc': 'The time the web search was issued.'}),
-
+                            'doc': 'The time the web search was issued.',
+                        }),
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that the query was issued as.',
+                        }),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that issued the query.',
+                        }),
                         ('engine', ('str', {'lower': True}), {
                             'ex': 'google',
-                            'doc': 'A simple name for the search engine used.'}),
+                            'doc': 'A simple name for the search engine used.',
+                        }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request used to issue the query.'}),
                     )),
 
                     ('inet:search:result', {}, (
@@ -1662,14 +2780,23 @@ class InetModule(s_module.CoreModule):
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
                         }),
+                        ('banner', ('file:bytes', {}), {
+                            'doc': 'The file representing the banner for the account.'
+                        }),
                         ('dob', ('time', {}), {
                             'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
                         }),
                         ('email', ('inet:email', {}), {
                             'doc': 'The email address associated with the account.'
                         }),
+                        ('linked:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Linked accounts specified in the account profile.',
+                        }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -1680,7 +2807,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
-                                   'the account identifier, e.g., a display name).'
+                                   'the account identifier, e.g., a display name).',
+                            'deprecated': True,
+                        }),
+                        ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate names for the user.',
                         }),
                         ('occupation', ('str', {'lower': True}), {
                             'doc': 'A self-declared occupation for the account.'
@@ -1695,7 +2826,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized version of the real name of the account owner / registrant.'
                         }),
                         ('realname:en', ('ps:name', {}), {
-                            'doc': 'The English version of the real name of the account owner / registrant.'
+                            'doc': 'The English version of the real name of the account owner / registrant.',
+                            'deprecated': True,
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
@@ -1706,7 +2838,7 @@ class InetModule(s_module.CoreModule):
                         ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to sign up for the account.'
                         }),
-                        ('signup:client:ipv6', ('inet:ipv4', {}), {
+                        ('signup:client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address used to sign up for the account.'
                         }),
                         ('site', ('inet:fqdn', {}), {
@@ -1728,6 +2860,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A related URL specified by the account (e.g., a personal or company web '
                                    'page, blog, etc.).'
                         }),
+                        ('recovery:email', ('inet:email', {}), {
+                            'doc': 'An email address registered as a recovery email address for the account.',
+                        }),
                     )),
 
                     ('inet:web:action', {}, (
@@ -1735,15 +2870,12 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the action.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
@@ -1758,34 +2890,25 @@ class InetModule(s_module.CoreModule):
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
                         }),
-                    )),
-
-                    ('inet:web:actref', {}, (
-                        ('act', ('inet:web:action', {}), {
-                            'ro': True,
-                            'doc': 'The action that references the given node.'
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location of the user executing the web action.',
                         }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the action.'
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The latlong of the user when executing the web action.',
                         }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the action.'
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place of the user when executing the web action.',
                         }),
                     )),
 
                     ('inet:web:chprofile', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the change.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -1801,12 +2924,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date and time when the account change occurred.'
                         }),
                         ('pv', ('nodeprop', {}), {
-                            'ro': True,
                             'doc': 'The prop=valu of the account property that was changed. Valu should be '
                                    'the old / original value, while the new value should be updated on the '
                                    'inet:web:acct form.'}),
                         ('pv:prop', ('str', {}), {
-                            'ro': True,
                             'doc': 'The property that was changed.'
                         }),
                     )),
@@ -1832,17 +2953,66 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the file owned by or associated with the account.'
                         }),
                         ('posted', ('time', {}), {
-                            'doc': 'The date and time the file was posted / submitted.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client', ('inet:client', {}), {
-                            'doc': 'The source client address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+                    )),
+
+                    ('inet:web:attachment', {}, (
+
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that uploaded the file.'}),
+
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The optional web post that the file was attached to.'}),
+
+                        ('mesg', ('inet:web:mesg', {}), {
+                            'doc': 'The optional web message that the file was attached to.'}),
+
+                        ('proto', ('inet:proto', {}), {
+                            'ex': 'https',
+                            'doc': 'The protocol used to transmit the file to the web service.'}),
+
+                        ('interactive', ('bool', {}), {
+                            'doc': 'Set to true if the upload was interactive. False if automated.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was sent.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the file at the time it was sent.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was sent.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address which initiated the upload.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place the file was sent from.'}),
+
+                        ('place:loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The reported name of the place that the file was sent from.'}),
                     )),
 
                     ('inet:web:follows', {}, (
@@ -1870,9 +3040,13 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized name associated with the group (may be different from '
                                    'the account identifier, e.g., a display name).'
                         }),
+                        ('aliases', ('array', {'type': 'inet:group', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate names for the group.',
+                        }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
-                                   'from the localized name).'
+                                   'from the localized name).',
+                            'deprecated': True,
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The service provider URL where the group is hosted.'
@@ -1890,7 +3064,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A self-declared location for the group.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -1908,19 +3085,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -1933,9 +3106,17 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
-                        })
+                        }),
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location of the user executing the logon.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The latlong of the user executing the logon.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place of the user executing the logon.',
+                        }),
                     )),
 
                     ('inet:web:memb', {}, (
@@ -1954,7 +3135,23 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date / time the account joined the group.'
                         }),
                     )),
-
+                    ('inet:web:member', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that is a member of the group or channel.'
+                        }),
+                        ('group', ('inet:web:group', {}), {
+                            'doc': 'The group that the account is a member of.'
+                        }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel that the account is a member of.'
+                        }),
+                        ('added', ('time', {}), {
+                            'doc': 'The date / time the account was added to the group or channel.'
+                        }),
+                        ('removed', ('time', {}), {
+                            'doc': 'The date / time the account was removed from the group or channel.'
+                        }),
+                    )),
                     ('inet:web:mesg', {}, (
                         ('from', ('inet:web:acct', {}), {
                             'ro': True,
@@ -1964,6 +3161,15 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The web account that received the message.'
                         }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the message.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the message.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the message.'
+                        }),
                         ('time', ('time', {}), {
                             'ro': True,
                             'doc': 'The date and time at which the message was sent.'
@@ -1972,32 +3178,54 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The URL where the message is posted / visible.'
                         }),
                         ('text', ('str', {}), {
-                            'doc': 'The text of the message.'
+                            'doc': 'The text of the message.',
+                            'disp': {'hint': 'text'},
+                        }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted.',
                         }),
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was reportedly sent from.',
+                        }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was reportedly sent from. Used for entity resolution.',
+                        }),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance where the message was sent.',
                         }),
                     )),
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account that made the post.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the post.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the post.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the post.'
+                        }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('text', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The text of the post.'
+                            'doc': 'The text of the post.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'
+                        }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted by the poster.',
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The URL where the post is published / visible.'
@@ -2011,22 +3239,113 @@ class InetModule(s_module.CoreModule):
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
                         }),
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Hashtags mentioned within the post.',
+                        }),
+                        ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Accounts mentioned within the post.',
+                        }),
+                        ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Groups mentioned within the post.',
+                        }),
+                        # location protocol...
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location that the post was reportedly sent from.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the post was reportedly sent from. Used for entity resolution.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel where the post was made.',
+                        }),
                     )),
 
-                    ('inet:web:postref', {}, (
+                    ('inet:web:post:link', {}, (
                         ('post', ('inet:web:post', {}), {
-                            'ro': True,
-                            'doc': 'The web post that references the given node.'
+                            'doc': 'The post containing the embedded link.'}),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The url that the link forwards to.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
+                    )),
+
+                    ('inet:web:instance', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y',
+                            'doc': 'The primary URL used to identify the instance.',
                         }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the web post.'
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'T2XK1223Y',
+                            'doc': 'The operator specified ID of this instance.',
                         }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the web post.'
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'vertex synapse',
+                            'doc': 'The visible name of the instance.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the instance was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the instance.',
+                        }),
+                        ('owner', ('ou:org', {}), {
+                            'doc': 'The organization which created the instance.',
+                        }),
+                        ('owner:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'vertex.link',
+                            'doc': 'The FQDN of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('owner:name', ('ou:name', {}), {
+                            'ex': 'the vertex project, llc.',
+                            'doc': 'The name of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('operator', ('ou:org', {}), {
+                            'doc': 'The organization which operates the instance.',
+                        }),
+                        ('operator:name', ('ou:name', {}), {
+                            'ex': 'slack',
+                            'doc': 'The name of the organization which operates the instance. Used for entity resolution.',
+                        }),
+                        ('operator:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'slack.com',
+                            'doc': 'The FQDN of the organization which operates the instance. Used for entity resolution.',
                         }),
                     )),
+
+                    ('inet:web:channel', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y/C2XHHNDS7',
+                            'doc': 'The primary URL used to identify the channel.',
+                        }),
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'C2XHHNDS7',
+                            'doc': 'The operator specified ID of this channel.'}),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance which contains the channel.',
+                        }),
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'general',
+                            'doc': 'The visible name of the channel.',
+                        }),
+                        ('topic', ('str', {'strip': True}), {
+                            'ex': 'Synapse Discussion - Feel free to invite others!',
+                            'doc': 'The visible topic of the channel.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the channel was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the channel.',
+                        }),
+                    )),
+
+                    ('inet:web:hashtag', {}, ()),
 
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {
@@ -2042,7 +3361,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('type', ('str', {'lower': True}), {
-                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
+                            'ro': True,
                         }),
                         ('id', ('str', {'lower': True}), {
                             'doc': 'The ID associated with the contact.'
@@ -2075,7 +3395,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The content of the fax field of the contact.'
                         }),
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL specified for the contact'
+                            'doc': 'The URL specified for the contact.'
                         }),
                         ('whois:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
@@ -2094,7 +3414,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('text', ('str', {'lower': True}), {
-                            'doc': 'The full text of the whois record.'
+                            'doc': 'The full text of the whois record.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('created', ('time', {}), {
                             'doc': 'The "created" time from the whois record.'
@@ -2106,11 +3427,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The "expires" time from the whois record.'
                         }),
                         ('registrar', ('inet:whois:rar', {}), {
-                            'defval': '??',
                             'doc': 'The registrar name from the whois record.'
                         }),
                         ('registrant', ('inet:whois:reg', {}), {
-                            'defval': '??',
                             'doc': 'The registrant name from the whois record.'
                         }),
                     )),
@@ -2136,17 +3455,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:reg', {}, ()),
 
-                    ('inet:whois:regmail', {}, (
-                        ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The domain associated with the registrant email address.'
-                        }),
-                        ('email', ('inet:email', {}), {
-                            'ro': True,
-                            'doc': 'The registrant email address associated with the domain.'
-                        }),
-                    )),
-
                     ('inet:whois:email', {}, (
                         ('fqdn', ('inet:fqdn', {}), {'ro': True,
                             'doc': 'The domain with a whois record containing the email address.',
@@ -2156,23 +3464,746 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:whois:ipquery', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time the request was made.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The query URL when using the HTTP RDAP Protocol.'
+                        }),
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address queried.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address queried.'
+                        }),
+                        ('success', ('bool', {}), {
+                            'doc': 'Whether the host returned a valid response for the query.'
+                        }),
+                        ('rec', ('inet:whois:iprec', {}), {
+                            'doc': 'The resulting record from the query.'
+                        }),
+                    )),
+
+                    ('inet:whois:iprec', {}, (
+                        ('net4', ('inet:net4', {}), {
+                            'doc': 'The IPv4 address range assigned.'
+                        }),
+                        ('net4:min', ('inet:ipv4', {}), {
+                            'doc': 'The first IPv4 in the range assigned.'
+                        }),
+                        ('net4:max', ('inet:ipv4', {}), {
+                            'doc': 'The last IPv4 in the range assigned.'
+                        }),
+                        ('net6', ('inet:net6', {}), {
+                            'doc': 'The IPv6 address range assigned.'
+                        }),
+                        ('net6:min', ('inet:ipv6', {}), {
+                            'doc': 'The first IPv6 in the range assigned.'
+                        }),
+                        ('net6:max', ('inet:ipv6', {}), {
+                            'doc': 'The last IPv6 in the range assigned.'
+                        }),
+                        ('asof', ('time', {}), {
+                            'doc': 'The date of the record.'
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The "created" time from the record.'
+                        }),
+                        ('updated', ('time', {}), {
+                            'doc': 'The "last updated" time from the record.'
+                        }),
+                        ('text', ('str', {'lower': True}), {
+                            'doc': 'The full text of the record.',
+                            'disp': {'hint': 'text'},
+                        }),
+                        ('desc', ('str', {'lower': True}), {
+                            'doc': 'Notes concerning the record.',
+                            'disp': {'hint': 'text'},
+                        }),
+                        ('asn', ('inet:asn', {}), {
+                            'doc': 'The associated Autonomous System Number (ASN).'
+                        }),
+                        ('id', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
+                        }),
+                        ('name', ('str', {}), {
+                            'doc': 'The name assigned to the network by the registrant.'
+                        }),
+                        ('parentid', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
+                        }),
+                        ('registrant', ('inet:whois:ipcontact', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
+                        }),
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Additional contacts from the record.',
+                        }),
+                        ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
+                            'doc': 'The two-letter ISO 3166 country code.'
+                        }),
+                        ('status', ('str', {'lower': True}), {
+                            'doc': 'The state of the registered network.'
+                        }),
+                        ('type', ('str', {'lower': True}), {
+                            'doc': 'The classification of the registered network (e.g. direct allocation).'
+                        }),
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                            'doc': 'URLs provided with the record.',
+                        }),
+                    )),
+
+                    ('inet:whois:ipcontact', {}, (
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'Contact information associated with a registration.'
+                        }),
+                        ('asof', ('time', {}), {
+                            'doc': 'The date of the record.'
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The "created" time from the record.'
+                        }),
+                        ('updated', ('time', {}), {
+                            'doc': 'The "last updated" time from the record.'
+                        }),
+                        ('role', ('str', {'lower': True}), {
+                            'doc': 'The primary role for the contact.'
+                        }),
+                        ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Additional roles assigned to the contact.',
+                        }),
+                        ('asn', ('inet:asn', {}), {
+                            'doc': 'The associated Autonomous System Number (ASN).'
+                        }),
+                        ('id', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
+                        }),
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                            'doc': 'URLs provided with the record.',
+                        }),
+                        ('status', ('str', {'lower': True}), {
+                            'doc': 'The state of the registered contact (e.g. validated, obscured).'
+                        }),
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Additional contacts referenced by this contact.',
+                        }),
+                    )),
+
+                    ('inet:whois:regid', {}, ()),
+
                     ('inet:wifi:ap', {}, (
 
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'}),
+                            'doc': 'The SSID for the wireless access point.', 'ro': True, }),
 
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'}),
+                            'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.',
+                        }),
+                        ('channel', ('int', {}), {
+                            'doc': 'The WIFI channel that the AP was last observed operating on.',
+                        }),
+                        ('encryption', ('str', {'lower': True, 'strip': True}), {
+                            'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place associated with the latlong property.'}),
+
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),
+
+                        ('org', ('ou:org', {}), {
+                            'doc': 'The organization that owns/operates the access point.'}),
                     )),
 
                     ('inet:wifi:ssid', {}, ()),
 
+                    ('inet:ssl:jarmhash', {}, (
+                        ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                            'ro': True,
+                            'doc': 'The encoded cipher and TLS version of the server.'}),
+                        ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                            'ro': True,
+                            'doc': 'The truncated SHA256 of the TLS server extensions.'}),
+                    )),
+                    ('inet:ssl:jarmsample', {}, (
+                        ('jarmhash', ('inet:ssl:jarmhash', {}), {
+                            'ro': True,
+                            'doc': 'The JARM hash computed from the server responses.'}),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to compute the JARM hash.'}),
+                    )),
+
+                    ('inet:tls:ja4', {}, ()),
+                    ('inet:tls:ja4s', {}, ()),
+
+                    ('inet:tls:ja4:sample', {}, (
+
+                        ('ja4', ('inet:tls:ja4', {}), {
+                            'ro': True,
+                            'doc': 'The JA4 TLS client fingerprint.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client which initiated the TLS handshake with a JA4 fingerprint.'}),
+                    )),
+
+                    ('inet:tls:ja4s:sample', {}, (
+
+                        ('ja4s', ('inet:tls:ja4s', {}), {
+                            'ro': True,
+                            'doc': 'The JA4S TLS server fingerprint.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
+                    )),
+
+                    ('inet:tls:handshake', {}, (
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the handshake was initiated.'}),
+
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The raw inet:flow associated with the handshake.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The TLS server during the handshake.'}),
+
+                        ('server:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the server during the handshake.'}),
+
+                        ('server:ja3s', ('hash:md5', {}), {
+                            'doc': 'The JA3S fingerprint of the server response.'}),
+
+                        ('server:ja4s', ('inet:tls:ja4s', {}), {
+                            'doc': 'The JA4S fingerprint of the server response.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The TLS client during the handshake.'}),
+
+                        ('client:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the client during the handshake.'}),
+
+                        ('client:ja3', ('hash:md5', {}), {
+                            'doc': 'The JA3 fingerprint of the client request.'}),
+
+                        ('client:ja4', ('inet:tls:ja4', {}), {
+                            'doc': 'The JA4 fingerprint of the client request.'}),
+
+                        ('client:fingerprint:ja3', ('hash:md5', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :client:ja3.'}),
+
+                        ('server:fingerprint:ja3', ('hash:md5', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :server:ja3s.'}),
+                    )),
+
+                    ('inet:tls:ja3s:sample', {}, (
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to produce the JA3S hash.'}),
+                        ('ja3s', ('hash:md5', {}), {
+                            'ro': True,
+                            'doc': "The JA3S hash computed from the server's TLS hello packet."})
+                    )),
+
+                    ('inet:tls:ja3:sample', {}, (
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client that was sampled to produce the JA3 hash.'}),
+                        ('ja3', ('hash:md5', {}), {
+                            'ro': True,
+                            'doc': "The JA3 hash computed from the client's TLS hello packet."})
+                    )),
+
+                    ('inet:tls:servercert', {}, (
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate sent by the server.'})
+                    )),
+
+                    ('inet:tls:clientcert', {}, (
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate sent by the client.'})
+                    )),
+
+                    ('inet:service:platform:type:taxonomy', {}, ()),
+                    ('inet:service:platform', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'An ID which identifies the platform.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://twitter.com',
+                            'alts': ('urls',),
+                            'doc': 'The primary URL of the platform.'}),
+
+                        ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate URLs for the platform.'}),
+
+                        ('zone', ('inet:fqdn', {}), {
+                            'alts': ('zones',),
+                            'doc': 'The primary zone for the platform.'}),
+
+                        ('zones', ('array', {'type': 'inet:fqdn', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate zones for the platform.'}),
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'ex': 'twitter',
+                            'alts': ('names',),
+                            'doc': 'A friendly name for the platform.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the platform.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service platform.'}),
+
+                        ('type', ('inet:service:platform:type:taxonomy', {}), {
+                            'doc': 'The type of service platform.'}),
+
+                        ('family', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
+
+                        ('parent', ('inet:service:platform', {}), {
+                            'doc': 'A parent platform which owns this platform.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The status of the platform.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period when the platform existed.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The service account which created the platform.'}),
+
+                        ('remover', ('inet:service:account', {}), {
+                            'doc': 'The service account which removed or decommissioned the platform.'}),
+
+                        ('provider', ('ou:org', {}), {
+                            'doc': 'The organization which operates the platform.'}),
+
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which operates the platform.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version that the platform is running.'}),
+                    )),
+
+                    ('inet:service:instance', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'B8ZS2',
+                            'doc': 'A platform specific ID to identify the service instance.'}),
+
+                        ('platform', ('inet:service:platform', {}), {
+                            'doc': 'The platform which defines the service instance.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://v.vtx.lk/slack',
+                            'doc': 'The primary URL which identifies the service instance.'}),
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'ex': 'synapse users slack',
+                            'doc': 'The name of the service instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service instance.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the instance existed.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The status of this instance.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The service account which created the instance.'}),
+
+                        ('owner', ('inet:service:account', {}), {
+                            'doc': 'The service account which owns the instance.'}),
+
+                        ('tenant', ('inet:service:tenant', {}), {
+                            'doc': 'The tenant which contains the instance.'}),
+
+                        ('app', ('inet:service:app', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instances are no longer scoped to applications.'}),
+                    )),
+
+                    ('inet:service:app', {}, (
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
+                            'doc': 'The name of the platform specific application.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the application.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the platform specific application.'}),
+
+                        ('provider', ('ou:org', {}), {
+                            'doc': 'The organization which provides the application.'}),
+
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which provides the application.'}),
+                    )),
+
+                    ('inet:service:agent', {}, (
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
+                            'doc': 'The name of the service agent instance.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the service agent instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the deployed service agent instance.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version running on the service agent instance.'}),
+                    )),
+
+                    ('inet:service:account', {}, (
+
+                        ('user', ('inet:user', {}), {
+                            'alts': ('users',),
+                            'doc': 'The current user name of the account.'}),
+
+                        ('users', ('array', {'type': 'inet:user', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate user names for this account.'}),
+
+                        ('parent', ('inet:service:account', {}), {
+                            'doc': 'A parent account which owns this account.'}),
+
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The current email address associated with the account.'}),
+
+                        ('tenant', ('inet:service:tenant', {}), {
+                            'doc': 'The tenant which contains the account.'}),
+                    )),
+
+                    ('inet:service:relationship:type:taxonomy', {}, ()),
+                    ('inet:service:relationship', {}, (
+
+                        ('source', ('inet:service:object', {}), {
+                            'doc': 'The source object.'}),
+
+                        ('target', ('inet:service:object', {}), {
+                            'doc': 'The target object.'}),
+
+                        ('type', ('inet:service:relationship:type:taxonomy', {}), {
+                            'ex': 'follows',
+                            'doc': 'The type of relationship between the source and the target.'}),
+                    )),
+
+                    ('inet:service:group', {}, (
+
+                        ('name', ('inet:group', {}), {
+                            'doc': 'The name of the group on this platform.'}),
+
+                        ('profile', ('ps:contact', {}), {
+                            'doc': 'Current detailed contact information for this group.'}),
+                    )),
+
+                    ('inet:service:group:member', {}, (
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that is a member of the group.'}),
+
+                        ('group', ('inet:service:group', {}), {
+                            'doc': 'The group that the account is a member of.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period when the account was a member of the group.'}),
+                    )),
+
+                    ('inet:service:permission:type:taxonomy', {}, ()),
+
+                    ('inet:service:permission', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the permission.'}),
+
+                        ('type', ('inet:service:permission:type:taxonomy', {}), {
+                            'doc': 'The type of permission.'}),
+
+                    )),
+
+                    ('inet:service:rule', {}, (
+
+                        ('permission', ('inet:service:permission', {}), {
+                            'doc': 'The permission which is granted.'}),
+
+                        ('denied', ('bool', {}), {
+                            'doc': 'Set to (true) to denote that the rule is an explicit deny.'}),
+
+                        ('object', ('ndef', {'interface': 'inet:service:object'}), {
+                            'doc': 'The object that the permission controls access to.'}),
+
+                        ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
+                            'doc': 'The user or role which is granted the permission.'}),
+                    )),
+
+                    ('inet:service:session', {}, (
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The account which authenticated to create the session.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period where the session was valid.'}),
+
+                        ('http:session', ('inet:http:session', {}), {
+                            'doc': 'The HTTP session associated with the service session.'}),
+                    )),
+
+                    ('inet:service:login', {}, (
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL of the login endpoint used for this login attempt.'}),
+
+                        ('method', ('inet:service:login:method:taxonomy', {}), {
+                            'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
+
+                        # TODO ndef based auth proto details
+                    )),
+
+                    ('inet:service:message:type:taxonomy', {}, ()),
+                    ('inet:service:message', {}, (
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account which sent the message.'}),
+
+                        ('to', ('inet:service:account', {}), {
+                            'doc': 'The destination account. Used for direct messages.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL where the message may be viewed.'}),
+
+                        ('group', ('inet:service:group', {}), {
+                            'doc': 'The group that the message was sent to.'}),
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that the message was sent to.'}),
+
+                        ('thread', ('inet:service:thread', {}), {
+                            'doc': 'The thread which contains the message.'}),
+
+                        ('public', ('bool', {}), {
+                            'doc': 'Set to true if the message is publicly visible.'}),
+
+                        ('title', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The message title.'}),
+
+                        ('text', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The text body of the message.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The message status.'}),
+
+                        ('replyto', ('inet:service:message', {}), {
+                            'doc': 'The message that this message was sent in reply to. Used for message threading.'}),
+
+                        ('repost', ('inet:service:message', {}), {
+                            'doc': 'The original message reposted by this message.'}),
+
+                        ('links', ('array', {'type': 'inet:service:message:link', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of links contained within the message.'}),
+
+                        ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of files attached to the message.'}),
+
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'An array of hashtags mentioned within the message.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was sent from.'}),
+
+                        ('client:address', ('inet:client', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :client.'}),
+
+                        ('client:software', ('it:prod:softver', {}), {
+                            'doc': 'The client software version used to send the message.'}),
+
+                        ('client:software:name', ('it:prod:softname', {}), {
+                            'doc': 'The name of the client software used to send the message.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The raw file that the message was extracted from.'}),
+
+                        ('type', ('inet:service:message:type:taxonomy', {}), {
+                            'doc': 'The type of message.'}),
+
+                        ('mentions', ('array', {'type': 'ndef',
+                                                'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
+                                                'uniq': True, 'sorted': True}), {
+                            'doc': 'Contactable entities mentioned within the message.'}),
+                    )),
+
+                    ('inet:service:message:link', {}, (
+
+                        ('title', ('str', {'strip': True}), {
+                            'doc': 'The title text for the link.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL which was attached to the message.'}),
+                    )),
+
+                    ('inet:service:message:attachment', {}, (
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the attached file.'}),
+
+                        ('text', ('str', {}), {
+                            'doc': 'Any text associated with the file such as alt-text for images.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file which was attached to the message.'}),
+                    )),
+
+                    ('inet:service:emote', {}, (
+
+                        ('about', ('inet:service:object', {}), {
+                            'doc': 'The node that the emote is about.'}),
+
+                        ('text', ('str', {'strip': True}), {
+                            'ex': ':partyparrot:',
+                            'doc': 'The unicode or emote text of the reaction.'}),
+                    )),
+
+                    ('inet:service:channel', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the channel.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the channel was available.'}),
+
+                        ('topic', ('media:topic', {}), {
+                            'doc': 'The visible topic of the channel.'}),
+                    )),
+
+                    ('inet:service:thread', {}, (
+
+                        ('title', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The title of the thread.'}),
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that contains the thread.'}),
+
+                        ('message', ('inet:service:message', {}), {
+                            'doc': 'The message which initiated the thread.'}),
+                    )),
+
+                    ('inet:service:channel:member', {}, (
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that the account was a member of.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that was a member of the channel.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the account was a member of the channel.'}),
+                    )),
+
+                    ('inet:service:resource:type:taxonomy', {}, {}),
+                    ('inet:service:resource', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the service resource.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service resource.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The primary URL where the resource is available from the service.'}),
+
+                        ('type', ('inet:service:resource:type:taxonomy', {}), {
+                            'doc': 'The resource type. For example "rpc.endpoint".'}),
+                    )),
+
+                    ('inet:service:bucket', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the service resource.'}),
+                    )),
+
+                    ('inet:service:bucket:item', {}, (
+
+                        ('bucket', ('inet:service:bucket', {}), {
+                            'doc': 'The bucket which contains the item.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The bytes stored within the bucket item.'}),
+
+                        ('file:name', ('file:path', {}), {
+                            'doc': 'The name of the file stored in the bucket item.'}),
+                    )),
+
+                    ('inet:service:access', {}, (
+
+                        ('action', ('inet:service:access:action:taxonomy', {}), {
+                            'doc': 'The platform specific action which this access records.'}),
+
+                        ('resource', ('inet:service:resource', {}), {
+                            'doc': 'The resource which the account attempted to access.'}),
+
+                        ('type', ('int', {'enums': svcaccesstypes}), {
+                            'doc': 'The type of access requested.'}),
+                    )),
+
+                    ('inet:service:tenant', {}, ()),
+
+                    ('inet:service:subscription:level:taxonomy', {}, ()),
+
+                    ('inet:service:subscription', {}, (
+
+                        ('level', ('inet:service:subscription:level:taxonomy', {}), {
+                            'doc': 'A platform specific subscription level.'}),
+
+                        ('pay:instrument', ('econ:pay:instrument', {}), {
+                            'doc': 'The primary payment instrument used to pay for the subscription.'}),
+
+                        ('subscriber', ('inet:service:subscriber', {}), {
+                            'doc': 'The subscriber who owns the subscription.'}),
+                    )),
                 ),
             }),
         )

@@ -1,0 +1,14 @@
+name: dotstorm
+version: 0.0.1
+
+genopts:
+  dotstorm: true
+
+modules:
+    - name: dotstorm.foo
+
+commands:
+    - name: dotstorm.bar
+
+onload: |
+  $lib.time.sleep(0)

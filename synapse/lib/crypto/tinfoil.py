@@ -69,7 +69,7 @@ class TinFoilHat:
 
         try:
             data = decryptor.decrypt(iv, data, asscd)
-        except Exception as e:
+        except Exception:
             logger.exception('Error decrypting data')
             return None
         return data

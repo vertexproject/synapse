@@ -1,0 +1,12 @@
+$eq = ${ [inet:fqdn=bar.com] }
+$eq = ${ [inet:fqdn=bar.com] }
+tee {
+    [inet:fqdn=foo.com]
+} { [inet:fqdn=baz.com ] }
+$eq
+
+tee {
+    [inet:fqdn=argv.com]
+} {
+    [inet:fqdn=argv.com]
+}

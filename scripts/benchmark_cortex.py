@@ -1,235 +1,677 @@
 import os
-import pickle
-import timeit
-import cProfile
+import gc
+import sys
+import time
+import random
+import asyncio
+import logging
+import pathlib
+import binascii
+import tempfile
+import argparse
+import datetime
 import itertools
-import threading
+import contextlib
+import statistics
+import collections
+from typing import List, Dict, AsyncIterator, Tuple, Any, Callable, Sequence
 
-from math import ceil
-from binascii import hexlify
-from time import perf_counter as now
+try:
+    import tqdm
+    DoProgress = True
+except ModuleNotFoundError:
+    print('"tqdm" module not found.  Install it to see progress.')
+    DoProgress = False
 
+try:
+    import yappi
+    YappiHere = True
+except ModuleNotFoundError:
+    YappiHere = False
+
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
-from numpy import random
+import synapse.lib.base as s_base
+import synapse.lib.json as s_json
+import synapse.lib.time as s_time
+import synapse.lib.lmdbslab as s_lmdbslab
 
-NUM_PREEXISTING_TUFOS = 1000
+import synapse.tests.utils as s_t_utils
 
-NUM_TUFOS = 100000
-NUM_ONE_AT_A_TIME_TUFOS = 100
+# Increment this when the stored benchmark data changes
+BENCHMARK_DATA_VERSION = 1
 
-HUGE_VAL_BYTES = 1000000
-HUGE_VAL_RATE = 0.0001
+SimpleConf = {'layers:lockmemory': False, 'layer:lmdb:map_async': False, 'nexslog:en': False, 'layers:logedits': False}
+MapAsyncConf = {**SimpleConf, 'layer:lmdb:map_async': True}
+DedicatedConf = {**SimpleConf, 'layers:lockmemory': True}
+DefaultConf = {**MapAsyncConf, 'layers:lockmemory': True}
+DefaultNoBuidConf = {**MapAsyncConf, 'layers:lockmemory': True, 'buid:prefetch': False}
+DedicatedAsyncLogConf = {**DefaultConf, 'nexslog:en': True, 'layers:logedits': True}
 
-LARGE_VAL_BYTES = 10000
-LARGE_VAL_RATE = 0.005
+Configs: Dict[str, Dict] = {
+    'simple': SimpleConf,
+    'mapasync': MapAsyncConf,
+    'dedicated': DedicatedConf,
+    'default': DefaultConf,
+    'defaultnobuid': DefaultNoBuidConf,
+    'dedicatedasynclogging': DedicatedAsyncLogConf,
+}
 
-MEDIUM_VAL_BYTES = 100
-MEDIUM_VAL_RATE = .1949
+'''
+Benchmark cortex operations
 
-SMALL_VAL_BYTES = 5
-SMALL_VAL_RATE = .80
+TODO:  separate client process, multiple clients
+TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option
+'''
 
-# what percent of properties will have integer value
-INTEGER_VAL_RATE = .20
+logger = logging.getLogger(__name__)
+if __debug__:
+    logger.warning('Running benchmark without -O.  Performance will be slower.')
 
-AVG_PROPS_PER_TUFO = 7
-AVG_PROP_NAME_LEN = 11
+s_common.setlogging(logger, 'ERROR')
 
-NUM_THREADS = 4
-NUM_FORMS = 20
+async def acount(genr):
+    '''
+    Counts an async generator
+    '''
+    count = 0
+    async for _ in genr:
+        count += 1
+    return count
 
-def _addRows(rows, core, one_at_a_time=False):
-    if one_at_a_time:
-        for row in rows:
-            core.addRows([row])
-    else:
-        core.addRows(rows)
-        # core.flush()
+async def acountPodes(genr):
+    '''Count storm node messages'''
+    count = 0
+    async for (m, _) in genr:
+        if m == 'node':
+            count += 1
+    return count
 
-def _getTufosByIdens(idens, core):
-    core.getTufosByIdens(idens)
+syntest = s_t_utils.SynTest()
 
-def _getTufoByPropVal(propvals, core):
-    for p, v in propvals:
-        core.getTufoByProp(p, v)
+async def layerByName(prox: s_telepath.Proxy, name: str):
+    retn = await prox.callStorm('''
+               for $layr in $lib.layer.list() {
+                   if ($name=$layr.get(name)) {
+                       return ($layr.iden)
+                   }
+               }''', opts={'vars': {'name': name}})
+    return retn
 
-def random_normal(avg):
-    ''' Returns a number with normal distribution around avg, the very fast way '''
-    return random.randint(1, avg) + random.randint(0, avg + 1)
+FeedT = List[Tuple[Tuple, Dict[str, Any]]]
 
-def random_string(avg):
-    num_letters = random_normal(avg)
-    return ''.join(chr(random.randint(ord('a'), ord('a') + 25)) for x in range(num_letters))
+class TestData(s_base.Base):
+    '''
+    Pregenerates a bunch of data for future test runs
+    '''
+    async def __anit__(self, work_factor: int, dirn: str, remote: str = None, keep=False):  # type: ignore
+        '''
+        Args:
+            work_factor:  a rough scale of the amount of data to generate
+            dirn: directory where to put a temporary cortex.  Not used if remote is set
+            remote: Telepath URL to a remote cortex
+            keep: Whether to keep (and use if already there) the benchmark data between runs of this tool
 
-small_count = 0
-medium_count = 0
-large_count = 0
-huge_count = 0
+        Notes:
+            inet:ipv4 -> inet:dns:a -> inet:fqdn
+            For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
+            divisible by ten also make a inet:dns:a that points to blackhole.website
+        '''
+        await s_base.Base.__anit__(self)
+        self.nrecs = work_factor
+        rando = random.Random(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+        self.rando = rando
+        ips = list(range(work_factor))
+        rando.shuffle(ips)
+        dnsas = [(f'{ip}.website', ip) for ip in ips if ip % 2 == 0]
+        dnsas += [('blackhole.website', ip) for ip in ips if ip % 10 == 0]
+        rando.shuffle(dnsas)
+        self.remote = remote
 
-def random_val_len():
-    global small_count, medium_count, large_count, huge_count
-    x = random.random()
-    prob = SMALL_VAL_RATE
-    if x < prob:
-        small_count += 1
-        return SMALL_VAL_BYTES
-    prob += MEDIUM_VAL_RATE
-    if x < prob:
-        medium_count += 1
-        return MEDIUM_VAL_BYTES
-    prob += LARGE_VAL_RATE
-    if x < prob:
-        large_count += 1
-        return LARGE_VAL_BYTES
-    huge_count += 1
-    return HUGE_VAL_BYTES
+        def oe(num):
+            return 'odd' if num % 2 else 'even'
 
-def gen_random_form():
-    num_props = random_normal(AVG_PROPS_PER_TUFO)
-    props = [random_string(AVG_PROP_NAME_LEN) for x in range(num_props)]
-    return props
+        # Ip addresses with an all tag with half having an 'even' tag and the other an 'odd' tag
+        self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
+        self.dnsas: List[Tuple[Tuple, Dict]] = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
-def gen_random_tufo(form):
-    iden = hexlify(random.bytes(16)).decode('utf8')
-    props = {}
-    for propname in form:
-        if random.random() <= INTEGER_VAL_RATE:
-            val = random.randint(-2 ** 62, 2 ** 63)
+        self.asns: FeedT = [(('inet:asn', asn * 2), {}) for asn in range(work_factor)]
+        self.asns2: FeedT = [(('inet:asn', asn * 2 + 1), {}) for asn in range(work_factor)]
+        rando.shuffle(self.asns)
+        rando.shuffle(self.asns2)
+
+        self.asns2prop: FeedT = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
+
+        fredguid = self.myguid()
+        self.asns2formexist: FeedT = [(asn[0], {'props': {'owner': fredguid}}) for asn in self.asns]
+        self.asns2formnoexist: FeedT = [(asn[0], {'props': {'owner': self.myguid()}}) for asn in self.asns]
+
+        self.urls: FeedT = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(work_factor)]
+        rando.shuffle(self.urls)
+        orgs: FeedT = [(('ou:org', fredguid), {})]
+        already_got_one = False
+
+        if remote:
+            self.dirn = None
+            core = None
+            prox = await s_telepath.openurl(self.remote)
+            self.prox = prox
         else:
-            val = random_string(random_val_len())
-        props[propname] = val
-    return (iden, props)
+            tstdirctx = syntest.getTestDir(startdir=dirn)
+            self.dirn = await self.enter_context(tstdirctx)
+            core = await s_cortex.Cortex.anit(self.dirn, conf=DefaultConf)
+            prox = await self.enter_context(core.getLocalProxy())
 
-def _rows_from_tufo(tufo):
-    timestamp = random.randint(1, 2 ** 63)
-    rows = []
-    iden = tufo[0]
-    for p, v in tufo[1].items():
-        rows.append((iden, p, v, timestamp))
-    return rows
+        self.layriden = None
 
-def flatten(iterable):
-    return list(itertools.chain.from_iterable(iterable))
+        name = str(('benchmark base', BENCHMARK_DATA_VERSION, work_factor))
+        if remote and keep:
+            self.layriden = await layerByName(prox, name)
 
-def _prepopulate_core(core, rows):
-    core.addRows(rows)
-
-def nth(iterable, n):
-    "Returns the nth item or a default value"
-    return next(itertools.islice(iterable, n, None))
-
-def get_random_keyval(d):
-    i = random.randint(0, len(d))
-    key = nth(d.keys(), i)
-    return (key, d[key])
-
-class TestData:
-    def __init__(self, test_data_fn):
-        start = now()
-        if os.path.isfile(test_data_fn):
-            print("Reading test data...")
-            self.prepop_rows, self.idens, self.props, self.rows = \
-                pickle.load(open(test_data_fn, 'rb'))
+        if self.layriden is None:
+            retn = await prox.callStorm('''
+                $layr = $lib.layer.add($lib.dict(name=$name)) return ($layr.iden)''', opts={'vars': {'name': name}})
+            self.layriden = retn
         else:
-            print("Generating test data...")
-            random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
-            forms = [gen_random_form() for x in range(NUM_FORMS)]
-            # FIXME:  don't use random.choice!!! Super duper slow
-            self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo(random.choice(forms)))
-                                       for x in range(NUM_PREEXISTING_TUFOS))
-            tufos = [gen_random_tufo(random.choice(forms)) for x in range(NUM_TUFOS)]
-            self.idens = [t[0] for t in tufos]
-            self.props = [get_random_keyval(t[1]) for t in tufos]
-            random.shuffle(self.idens)
-            random.shuffle(self.props)
+            logger.info('Reusing existing benchmarking layer')
+            already_got_one = True
 
-            self.rows = flatten(_rows_from_tufo(x) for x in tufos)
-            pickle.dump((self.prepop_rows, self.idens, self.props, self.rows),
-                        open(test_data_fn, 'wb'))
+        retn = await prox.callStorm('''
+            $view = $lib.view.add(($layr,))
+            $view.set(name, $name)
+            return ($view.iden)''', opts={'vars': {'name': name, 'layr': self.layriden}})
 
-        print("Test data generation took: %.2f" % (now() - start))
-        print('addRows: # Tufos:%8d, # Rows: %8d' % (NUM_TUFOS, len(self.rows)))
-        print('len count: small:%d, medium:%d, large:%d, huge:%d' %
-              (small_count, medium_count, large_count, huge_count))
+        self.viewiden = retn
 
-def _run_x(func, data, num_threads, *args, **kwargs):
-    chunk_size = ceil(len(data) / num_threads)
-    chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
-    threads = [threading.Thread(target=func, args=[chunks[x]] + list(args), kwargs=kwargs)
-               for x in range(num_threads)]
-    for i in range(num_threads):
-        threads[i].start()
-    for i in range(num_threads):
-        threads[i].join()
+        if not already_got_one:
+            gen = itertools.chain(self.ips, self.dnsas, self.urls, self.asns, orgs)
+            await prox.addFeedData('syn.nodes', list(gen), viewiden=self.viewiden)
 
-def do_it(cmd, data_str, num_threads, globals, number, repeat, divisor):
-    if num_threads == 1:
-        times = timeit.repeat('%s(%s, core)' % (cmd, data_str), globals=globals, number=number, repeat=repeat)
-    else:
-        times = timeit.repeat('_run_x(%s, %s, %s, core=core)' % (cmd, data_str, num_threads), globals=globals,
-                              number=number, repeat=repeat)
-    print_time(cmd, times, divisor)
+        if core:
+            await core.fini()
 
-def profile_it(cmd, globals, number, repeat, divisor):
-    cProfile.runctx(cmd, globals, {}, filename='lmdb_02.prof')
+        async def fini():
+            opts = {'vars': {'view': self.viewiden, 'layer': self.layriden}}
+            await prox.callStorm('$lib.view.del($view)', opts=opts)
+            if not keep:
+                await prox.callStorm('$lib.layer.del($layer)', opts=opts)
+            await self.prox.fini()
 
-def benchmark_cortex(test_data, url, cleanup_func, num_threads=1):
-    core = s_cortex.openurl(url)
-    _prepopulate_core(core, test_data.prepop_rows)
-    g = {'_addRows': _addRows, '_getTufosByIdens': _getTufosByIdens, 'core': core,
-         'test_data': test_data, '_getTufoByPropVal': _getTufoByPropVal, '_run_x': _run_x}
-    do_it('_addRows', 'test_data.rows', num_threads, g, 1, 1, len(test_data.rows))
-    if cleanup_func:
-        del core
-        core = s_cortex.openurl(url)
-        g['core'] = core
-    do_it('_getTufosByIdens', 'test_data.idens', num_threads, g, 2, 5, NUM_TUFOS)
-    do_it('_getTufoByPropVal', 'test_data.props', num_threads, g, 2, 5, NUM_TUFOS)
+        if remote:
+            self.onfini(fini)
 
-    if cleanup_func:
-        cleanup_func()
+    def myguid(self):
+        '''
+        Like s_common.guid but uses the rng seed so is predictable
+        '''
+        return binascii.hexlify(self.rando.getrandbits(128).to_bytes(16, 'big')).decode('utf8')
 
-def print_time(label, times, divisor):
-    t = min(times)
-    print('%50s:   %8.2f (max=%7.2f) %7d %10.6f' % (label, t, max(times), divisor, t / divisor))
+def benchmark(tags=None):
 
-LMDB_FILE = 'test.lmdb'
-SQLITE_FILE = 'test.sqlite'
+    def _inner(meth):
+        '''
+        Mark a method as being a benchmark
+        '''
+        meth._benchmark = True
 
-def cleanup_lmdb():
-    try:
-        os.remove(LMDB_FILE)
-        os.remove(LMDB_FILE + '-lock')
-    except OSError:
-        pass
+        mytags = set() if tags is None else tags
+        mytags.add('all')
 
-def cleanup_sqlite():
-    try:
-        os.remove('test.sqlite')
-    except OSError:
-        pass
+        meth._tags = mytags
+        return meth
 
-def benchmark_all(which_runs, num_threads):
-    runs = (
-        ('ram://', None),
-        ('sqlite:///:memory:', None),
-        ('sqlite:///' + SQLITE_FILE, cleanup_sqlite),
-        ('lmdb:///%s?lmdb:mapsize=536870912&lmdb:mapslack=536870912' % LMDB_FILE, cleanup_lmdb)
-    )
+    return _inner
 
-    test_data = TestData('testdata')
-    for i, (url, cleanup_func) in enumerate(runs):
-        if i not in which_runs:
-            continue
-        print('%s-threaded benchmarking: %s' % (num_threads, url))
-        benchmark_cortex(test_data, url, cleanup_func, num_threads)
+class Benchmarker:
+
+    def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4, tmpdir=None,
+                 bench=None, tags=None):
+        '''
+        Args:
+            config: the cortex config
+            testdata: pre-generated data
+            workfactor:  a positive integer indicating roughly the amount of work each benchmark should do
+            num_iters:  the number of times each test is run
+            tags:  filters which individual measurements should be run (all tags must be present)
+            remote: the remote telepath URL of a remote cortex
+
+        All the benchmark methods are independent and should not have an effect (other than btree caching and size)
+        on the other tests.  The only precondition is that the testdata has been loaded.
+        '''
+        self.measurements: Dict[str, List] = collections.defaultdict(list)
+        self.num_iters = num_iters
+        self.coreconfig = config
+        self.workfactor = workfactor
+        self.testdata = testdata
+        self.tmpdir = tmpdir
+        self.bench = bench
+        self.tags = tags
+
+    def printreport(self, configname: str):
+        print(f'Config {configname}: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
+        for name, info in self.reportdata():
+            totmean = info.get('totmean')
+            count = info.get('count')
+            mean = info.get('mean') * 1000000
+            stddev = info.get('stddev') * 1000000
+            print(f'{name:30}: {totmean:8.3f}s / {count:5} = {mean:6.0f}μs stddev: {stddev:6.0f}μs')
+
+    def reportdata(self):
+        retn = []
+        if self.num_iters < 3:
+            print('--niters must be > 2 for effective statistics')
+            return retn
+
+        for name, measurements in self.measurements.items():
+            # ms = ', '.join(f'{m[0]:0.3}' for m in measurements)
+            tottimes = [m[0] for m in measurements[1:]]
+            pertimes = [m[0] / m[1] for m in measurements[1:]]
+            totmean = statistics.mean(tottimes)
+            mean = statistics.mean(pertimes)
+            stddev = statistics.stdev(pertimes)
+            count = measurements[0][1]
+
+            retn.append((name, {'measurements': measurements,
+                                'tottimes': tottimes,
+                                'pertimes': pertimes,
+                                'totmean': totmean,
+                                'mean': mean,
+                                'stddev': stddev,
+                                'count': count}))
+        return retn
+
+    @contextlib.asynccontextmanager
+    async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
+        '''
+        Prepares a cortex/proxy for a benchmark run
+        '''
+        ldef = {
+            'lockmemory': self.coreconfig.get('layers:lockmemory', False),
+            'logedits': self.coreconfig.get('layers:logedits', True),
+            'name': 'tmp for benchmark',
+        }
+        core = None
+
+        async with contextlib.AsyncExitStack() as stack:
+            if not self.testdata.remote:
+                ctx = await s_cortex.Cortex.anit(self.testdata.dirn, conf=self.coreconfig)
+                core = await stack.enter_async_context(ctx)
+                prox = await stack.enter_async_context(core.getLocalProxy())
+                assert not core.inaugural
+            else:
+                ctx = await s_telepath.openurl(self.testdata.remote)
+                prox = await stack.enter_async_context(ctx)
+
+            layer = await prox.cloneLayer(self.testdata.layriden, ldef)
+            layeriden = layer['iden']
+            view = await prox.callStorm('return($lib.view.add(($layer, ), name="tmp for benchmark"))',
+                                        opts={'vars': {'layer': layeriden}})
+            self.viewiden = view['iden']
+            self.opts = {'view': self.viewiden}
+
+            await prox.dyncall(layeriden, s_common.todo('waitForHot'))
+
+            try:
+                yield core, prox
+
+            finally:
+                await prox.callStorm('''
+                    $lib.view.del($view)
+                    $lib.layer.del($layer)
+                ''', opts={'vars': {'view': self.viewiden, 'layer': layeriden}})
+
+    @benchmark({'remote'})
+    async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        for _ in range(self.workfactor // 10):
+            count = await acountPodes(prox.storm('', opts=self.opts))
+
+        assert count == 0
+        return self.workfactor // 10
+
+    @benchmark({'remote'})
+    async def do00NewQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        for i in range(self.workfactor):
+            count = await acountPodes(prox.storm(f'$x={i}', opts=self.opts))
+
+        assert count == 0
+        return self.workfactor
+
+    @benchmark({'official', 'remote'})
+    async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4 | count | spin', opts=self.opts))
+        assert count == 0
+        return self.workfactor
+
+    @benchmark({'official', 'remote'})
+    async def do02LiftSimple(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4', opts=self.opts))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'remote'})
+    async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4 | +#newp', opts=self.opts))
+        assert count == 0
+        return 1
+
+    @benchmark({'official', 'remote'})
+    async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4 | +#all', opts=self.opts))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'remote'})
+    async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:dns:a:fqdn=newp', opts=self.opts))
+        assert count == 0
+        return 1
+
+    @benchmark({'official', 'remote'})
+    async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:dns:a:fqdn=blackhole.website', opts=self.opts))
+        assert count == self.workfactor // 10
+        return count
+
+    @benchmark({'official', 'remote'})
+    async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4#newp', opts=self.opts))
+        assert count == 0
+        return 1
+
+    @benchmark({'official', 'remote'})
+    async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4#even', opts=self.opts))
+        assert count == self.workfactor // 2
+        return count
+
+    @benchmark({'official', 'remote'})
+    async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4#odd -> inet:dns:a', opts=self.opts))
+        assert count == 0
+        return self.workfactor // 2
+
+    @benchmark({'official', 'remote'})
+    async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:ipv4#even -> inet:dns:a', opts=self.opts))
+        assert count == self.workfactor // 2 + self.workfactor // 10
+        return count
+
+    @benchmark({'addnodes', 'remote'})
+    async def do07AAddNodesCallStorm(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        tags_to_add = '+#test'
+        count = 0
+
+        for node in self.testdata.asns2prop:
+            props_to_add = f":name = {node[1]['props']['name']}"
+            form, valu = node[0]
+
+            opts = {'vars': {'valu': valu}, 'view': self.viewiden}
+            await prox.callStorm(f'[ {form}=$valu {props_to_add} {tags_to_add}] return($node.pack(dorepr=1))',
+                                 opts=opts)
+            count += 1
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'addnodes', 'remote'})
+    async def do07AAddNodesStorm(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        tags_to_add = '+#test'
+        msgs = []
+
+        for node in self.testdata.asns2prop:
+            props_to_add = f":name = {node[1]['props']['name']}"
+            form, valu = node[0]
+
+            opts = {'vars': {'valu': valu}, 'view': self.viewiden}
+            msgs.extend([x async for x in prox.storm(f'[ {form}=$valu {props_to_add} {tags_to_add}]', opts=opts)])
+            newnodes = [m for m in msgs if m[0] == 'node:edits' and m[1]['edits'][0][2][0][0] == 2]
+        assert len(newnodes) == self.workfactor
+        return len(newnodes)
+
+    @benchmark({'official', 'addnodes', 'remote', 'this'})
+    async def do07BAddNodesSimpleProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single non-form secondary prop
+        '''
+        await prox.addFeedData('syn.nodes', self.testdata.asns2prop, viewiden=self.viewiden)
+
+        assert self.workfactor == await prox.count('inet:asn:name=x', opts=self.opts)
+
+        return self.workfactor
+
+    @benchmark({'official', 'addnodes', 'remote'})
+    async def do07CAddNodesFormProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single form secondary prop and that secondary prop form doesn't exist
+        '''
+        await prox.addFeedData('syn.nodes', self.testdata.asns2formnoexist, viewiden=self.viewiden)
+
+        if __debug__:
+            assert self.workfactor + 1 == await prox.count('ou:org', opts=self.opts)
+        return self.workfactor
+
+    @benchmark({'official', 'addnodes', 'remote'})
+    async def do07DAddNodesFormPropExists(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single form secondary prop and that secondary prop form already exists
+        '''
+        await prox.addFeedData('syn.nodes', self.testdata.asns2formexist, viewiden=self.viewiden)
+
+        assert self.workfactor == await prox.count('inet:asn', opts=self.opts)
+        return self.workfactor
+
+    @benchmark({'official', 'addnodes', 'remote'})
+    async def do07EAddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        await prox.addFeedData('syn.nodes', self.testdata.asns, viewiden=self.viewiden)
+        assert len(self.testdata.asns) == await prox.count('inet:asn', opts=self.opts)
+        return len(self.testdata.asns)
+
+    @benchmark({'official', 'addnodes'})
+    async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acount(core.addNodes(self.testdata.asns2, view=core.getView(self.viewiden)))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'remote'})
+    async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acountPodes(prox.storm('inet:url | delnode', opts=self.opts))
+        assert count == 0
+        return self.workfactor
+
+    @benchmark({'remote'})
+    async def do10AutoAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        q = "$template='{num}.rev' inet:ipv4 $val=$template.format(num=$(1000000-$node.value())) [:dns:rev=$val]"
+        count = await acountPodes(prox.storm(q, opts=self.opts))
+        assert count == self.workfactor
+        return self.workfactor
+
+    @benchmark({'remote'})
+    async def do10SlashAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        q = '[ inet:ipv4=1.2.0.0/16 ] | spin'
+        count = await acountPodes(prox.storm(q, opts=self.opts))
+        assert count == 0
+        return 2 ** 16
+
+    @benchmark({'remote'})
+    async def do10Formatting(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        The same as do10AutoAdds without the adds (to isolate the autoadd part)
+        '''
+        q = "$template='{num}.rev' inet:ipv4 $val=$template.format(num=$(1000000-$node.value()))"
+        count = await acountPodes(prox.storm(q, opts=self.opts))
+        assert count == self.workfactor
+        return self.workfactor
+
+    async def run(self, name: str, testdirn: str, coro, do_profiling=False) -> None:
+        for _ in range(self.num_iters):
+            # We set up the cortex each time to avoid intra-cortex caching
+            # (there's still a substantial amount of OS caching)
+            async with self.getCortexAndProxy() as (core, prox):
+                gc.collect()
+                gc.disable()
+
+                if do_profiling:
+                    yappi.start()
+                start = time.time()
+                count = await coro(core, prox)
+                await s_lmdbslab.Slab.syncLoopOnce()
+                self.measurements[name].append((time.time() - start, count))
+                if do_profiling:
+                    yappi.stop()
+                gc.enable()
+            renderProgress()
+
+    def _getTrialFuncs(self):
+        funcs: List[Tuple[str, Callable]] = []
+        funcnames = sorted(f for f in dir(self))
+        tags = set(self.tags) if self.tags is not None else set()
+        for funcname in funcnames:
+            func = getattr(self, funcname)
+            if not hasattr(func, '_benchmark'):
+                continue
+            if self.bench is not None:
+                if not any(funcname.startswith(b) for b in self.bench):
+                    continue
+            if not tags.issubset(func._tags):
+                continue
+            funcs.append((funcname, func))
+        return funcs
+
+    async def runSuite(self, numprocs: int, tmpdir: str = None, do_profiling=False):
+        assert numprocs == 1
+        if tmpdir is not None:
+            tmpdir = os.path.abspath(tmpdir)
+        with syntest.getTestDir(tmpdir) as dirn:
+            logger.info('Loading test data complete.  Starting benchmarks')
+            for funcname, func in self._getTrialFuncs():
+                await self.run(funcname, dirn, func, do_profiling=do_profiling)
+
+ProgressBar = None
+
+def initProgress(total):
+    if not DoProgress:
+        return
+    global ProgressBar
+
+    ProgressBar = tqdm.tqdm(total=total)
+
+def renderProgress():
+    if not DoProgress:
+        return
+
+    ProgressBar.update()
+
+def endProgress():
+    global ProgressBar
+    if not DoProgress:
+        return
+    ProgressBar.close()
+
+async def benchmarkAll(confignames: List = None,
+                       num_procs=1,
+                       workfactor=1000,
+                       tmpdir: str = None,
+                       jsondir: str = None,
+                       jsonprefix: str = None,
+                       niters: int = 4,
+                       bench=None,
+                       do_profiling=False,
+                       tags: Sequence = None,
+                       remote: str = None,
+                       keep: bool = False,
+                       ) -> None:
+
+    if jsondir:
+        s_common.gendir(jsondir)
+
+    if do_profiling:
+        yappi.set_clock_type('wall')
+
+    with syntest.getTestDir(startdir=tmpdir) as dirn:
+
+        async with await TestData.anit(workfactor, dirn, remote=remote, keep=keep) as testdata:
+
+            if not confignames:
+                confignames = ['simple']
+
+            for configname in confignames:
+                tick = s_common.now()
+                config = Configs[configname]
+                bencher = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench,
+                                      tags=tags)
+                print(f'{num_procs}-process benchmarking: {configname}')
+                initProgress(niters * len(bencher._getTrialFuncs()))
+                try:
+                    await bencher.runSuite(num_procs, do_profiling=do_profiling)
+                    endProgress()
+
+                    if do_profiling:
+                        stats = yappi.get_func_stats()
+                        stats.print_all()
+                        perfdir = tmpdir or tempfile.gettempdir()
+                        perffn = pathlib.Path(perfdir) / f'{configname}_{datetime.datetime.now().isoformat()}.out'
+                        print(f'Callgrind stats output to {str(perffn)}')
+                        stats.save(perffn, 'CALLGRIND')
+                        yappi.clear_stats()
+
+                    bencher.printreport(configname)
+
+                    if jsondir:
+                        data = {'time': tick,
+                                'config': config,
+                                'configname': configname,
+                                'workfactor': workfactor,
+                                'niters': niters,
+                                'results': bencher.reportdata()
+                                }
+                        fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
+                        if jsonprefix:
+                            fn = f'{jsonprefix}{fn}'
+                            data['prefix'] = jsonprefix
+                        s_json.jssave(data, jsondir, fn)
+                finally:
+                    endProgress()
+
+def getParser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', nargs='*', default=['default'])
+    parser.add_argument('--remote', type=str, help='Telepath URL of remote cortex (benchmark is nondestructive)')
+    parser.add_argument('--workfactor', type=int, default=1000)
+    parser.add_argument('--niters', type=int, default=4, help='Number of times to run each benchmark')
+    parser.add_argument('--tmpdir', type=str),
+    parser.add_argument('--jsondir', default=None, type=str,
+                        help='Directory to output JSON report data too.')
+    parser.add_argument('--jsonprefix', default=None, type=str,
+                        help='Prefix to append to the autogenerated filename for json output.')
+    parser.add_argument('--bench', '-b', nargs='*', default=None,
+                        help='Prefixes of which benchmarks to run (defaults to run all)')
+    parser.add_argument('--tags', '-t', nargs='*',
+                        help='Tag(s) of which suite to run (defaults to "official" if bench not set)')
+    parser.add_argument('--do-profiling', action='store_true')
+    parser.add_argument('--keep', action='store_true',
+                        help='Whether to keep and use existing initial benchmark data')
+    return parser
 
 if __name__ == '__main__':
-    import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('which_runs', type=int, nargs='*', default=(0, 1, 2, 3))
-    parser.add_argument('--num-threads', type=int, default=1)
+    parser = getParser()
     opts = parser.parse_args()
-    benchmark_all(opts.which_runs, opts.num_threads)
+
+    if opts.do_profiling and not YappiHere:
+        print('Error: module "yappi" must be installed to use --do-profiling')
+        sys.exit(1)
+
+    if opts.bench is None and opts.tags is None:
+        opts.tags = ['official', ]
+
+    if opts.tags is None:
+        opts.tags = []
+
+    if opts.remote:
+        opts.tags.append('remote')
+
+    asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
+                             jsondir=opts.jsondir, jsonprefix=opts.jsonprefix,
+                             niters=opts.niters, bench=opts.bench, do_profiling=opts.do_profiling, tags=opts.tags,
+                             remote=opts.remote, keep=opts.keep))

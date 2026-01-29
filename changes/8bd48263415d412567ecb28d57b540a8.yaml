@@ -1,0 +1,7 @@
+---
+desc: Added the ``setproctitle`` Python library to the ``synapse[dev]`` requirements.
+  This increases the functionality of ``pytest-xdist``.
+desc:literal: false
+prs: []
+type: note
+...

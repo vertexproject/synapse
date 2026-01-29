@@ -1,4 +1,8 @@
+import urllib.parse
+
 import synapse.exc as s_exc
+
+import synapse.lib.cache as s_cache
 
 def chopurl(url):
     '''
@@ -10,7 +14,7 @@ def chopurl(url):
     '''
     ret = {}
     if url.find('://') == -1:
-        raise s_exc.BadUrl(':// not found in [{}]!'.format(url))
+        raise s_exc.BadUrl(mesg=':// not found in [{}]!'.format(url))
 
     scheme, remain = url.split('://', 1)
     ret['scheme'] = scheme.lower()
@@ -40,9 +44,8 @@ def chopurl(url):
         user, remain = remain.rsplit('@', 1)
         if user.find(':') != -1:
             user, passwd = user.split(':', 1)
-            ret['passwd'] = passwd
-
-        ret['user'] = user
+            ret['passwd'] = urllib.parse.unquote(passwd)
+        ret['user'] = urllib.parse.unquote(user)
 
     # remain should be down to host[:port]
 
@@ -67,3 +70,43 @@ def chopurl(url):
 
     ret['path'] = pathrem
     return ret
+
+@s_cache.memoize(size=1024)
+def sanitizeUrl(url):
+    '''
+    Returns a URL with the password (if present) replaced with ``****``
+
+    RFC 3986 3.2.1 'Applications should not render as clear text any data after the first colon (":") character found
+    within a userinfo subcomponent unless the data after the colon is the empty string (indicating no password)'
+
+    Essentially, replace everything between the 2nd colon (if it exists) and the first succeeding at sign.  Return the
+    original string otherwise.
+
+    Note: this depends on this being a reasonably-well formatted URI that starts with a scheme (e.g. http) and '//:'
+    Failure of this condition yields the original string.
+    '''
+    try:
+        info = chopurl(url)
+    except Exception as e:
+        return url
+    else:
+        if info.get('passwd'):
+            # Rebuild the URL from info
+            valu = f"{info.get('scheme')}://{info.get('user')}:****@"
+            host = info.get('host')
+            port = info.get('port')
+            if ':' in host and port:
+                valu = f"{valu}[{host}]:{port}"
+            elif port:
+                valu = f"{valu}{host}:{port}"
+            else:
+                valu = f"{valu}{host}"
+            if path := info.get('path'):
+                valu = f"{valu}{path}"
+            if query := info.get('query'):
+                parts = []
+                for k, v in query.items():
+                    parts.append(f'{k}={v}')
+                valu = f"{valu}?{'&'.join(parts)}"
+            return valu
+        return url

@@ -1,17 +1,12 @@
-import sys
-import logging
-import argparse
-
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
-logger = logging.getLogger(__name__)
+async def main(argv, outp=s_output.stdout):
 
-def main(argv, outp=s_output.stdout):
-
-    pars = argparse.ArgumentParser(prog='cryo.list', description='List tanks within a cryo cell.')
+    pars = s_cmd.Parser(prog='synapse.tools.cryo.list', outp=outp, description='List tanks within a cryo cell.')
     pars.add_argument('cryocell', nargs='+', help='Telepath URLs to cryo cells.')
 
     opts = pars.parse_args(argv)
@@ -20,12 +15,15 @@ def main(argv, outp=s_output.stdout):
 
         outp.printf(url)
 
-        with s_telepath.openurl(url) as cryo:
+        async with s_telepath.withTeleEnv():
 
-            for name, info in cryo.list():
+            async with await s_telepath.openurl(url) as cryo:
 
-                outp.printf(f'    {name}: {info}')
+                for name, info in await cryo.list():
+                    outp.printf(f'    {name}: {info}')
+
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
-    logging.basicConfig()
-    sys.exit(main(sys.argv[1:]))
+    s_common.deprecated('synapse.tools.cryo.list', curv='2.223.0')
+    s_cmd.exitmain(main)

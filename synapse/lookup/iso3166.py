@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Provides data for the ISO 3166-1 Country codes.
 

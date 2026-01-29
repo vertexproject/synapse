@@ -7,9 +7,8 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
-import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.lmdbslab as s_slab
@@ -57,45 +56,57 @@ class Node(s_base.Base):
         ''' Increments existing node valu '''
         return await self.hive.add(self.full, valu)
 
-    async def open(self, *path):
+    async def open(self, path):
+        '''
+        Open a child Node of the this Node.
+
+        Args:
+            path (tuple): A child path of the current node.
+
+        Returns:
+            Node: A Node at the child path.
+        '''
         full = self.full + path
         return await self.hive.open(full)
 
-    async def dict(self):
-        info = await HiveDict.anit(self.hive, self)
-        self.onfini(info)
-        return info
+    async def pop(self, path=()):
+        full = self.full + path
+        return await self.hive.pop(full)
+
+    async def dict(self, nexs=False):
+        '''
+        Get a HiveDict for this Node.
+
+        Returns:
+            HiveDict: A HiveDict for this Node.
+        '''
+        return await HiveDict.anit(self.hive, self, nexs=nexs)
 
     def __iter__(self):
         for name, node in self.kids.items():
             yield name, node
 
-class Hive(s_base.Base, s_telepath.Aware):
+class Hive(s_nexus.Pusher):
     '''
     An optionally persistent atomically accessed tree which implements
     primitives for use in making distributed/clustered services.
     '''
-    async def __anit__(self, conf=None):
+    async def __anit__(self, conf=None, nexsroot=None, cell=None):
 
-        await s_base.Base.__anit__(self)
-        s_telepath.Aware.__init__(self)
+        await s_nexus.Pusher.__anit__(self, 'hive', nexsroot=nexsroot)
 
         if conf is None:
             conf = {}
 
+        self.cell = cell
         self.conf = conf
-        self.nodes = {} # full=Node()
+        self.nodes = {}  # full=Node()
 
         self.conf.setdefault('auth:en', False)
         self.conf.setdefault('auth:path', 'hive/auth')
 
-        # event dist by path
-        self.editsbypath = collections.defaultdict(set)
-
         self.root = await Node.anit(self, (), None)
         self.nodes[()] = self.root
-
-        self.root.link(self._onNodeEdit)
 
         await self._storLoadHive()
 
@@ -103,65 +114,137 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         self.auth = None
 
-    async def getHiveAuth(self):
+    async def saveHiveTree(self, path=()):
+        tree = {}
+        root = await self.open(path)
+        self._saveHiveNode(root, tree)
+        return tree
 
-        if self.auth is None:
+    def _saveHiveNode(self, node, tree):
 
-            path = tuple(self.conf.get('auth:path').split('/'))
+        tree['value'] = node.valu
 
-            node = await self.open(path)
-            self.auth = await HiveAuth.anit(node)
-            self.onfini(self.auth.fini)
+        kids = list(node.kids.items())
+        if not kids:
+            return
 
-        return self.auth
+        kidtrees = {}
+        for kidname, kidnode in kids:
+            kidtree = kidtrees[kidname] = {}
+            self._saveHiveNode(kidnode, kidtree)
 
-    async def _onNodeEdit(self, mesg):
+        tree['kids'] = kidtrees
 
-        path = mesg[1].get('path')
-        for meth in self.editsbypath.get(path, ()):
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        root = await self.open(path)
+        await self._loadHiveNode(root, tree, trim=trim)
 
-            try:
-                await s_coro.ornot(meth, mesg)
+    async def _loadHiveNode(self, node, tree, trim=False):
 
-            except asyncio.CancelledError as e:
-                raise
+        valu = tree.get('value', s_common.novalu)
+        if node is not self.root and valu is not s_common.novalu:
+            await node.set(valu)
 
-            except Exception as e:
-                logger.exception('hive edit error with mesg %s', mesg)
+        kidnames = set()
+
+        kids = tree.get('kids')
+        if kids is not None:
+            for kidname, kidtree in kids.items():
+                kidnames.add(kidname)
+                kidnode = await node.open((kidname,))
+                await self._loadHiveNode(kidnode, kidtree, trim=trim)
+
+        if trim:
+            culls = [n for n in node.kids.keys() if n not in kidnames]
+            for cullname in culls:
+                await node.pop((cullname,))
 
     async def _onHiveFini(self):
         await self.root.fini()
 
-    def onedit(self, path, func, base=None):
+    async def get(self, full, defv=None):
+        '''
+        Get the value of a node at a given path.
 
-        if base is not None:
-            async def fini():
-                self.editsbypath[path].discard(func)
-            base.onfini(fini)
+        Args:
+            full (tuple): A full path tuple.
 
-        self.editsbypath[path].add(func)
-
-    async def get(self, full):
+        Returns:
+            Arbitrary node value.
+        '''
 
         node = self.nodes.get(full)
         if node is None:
-            return None
+            return defv
 
         return node.valu
 
+    async def exists(self, full):
+        '''
+        Returns whether the Hive path has already been created.
+        '''
+
+        return full in self.nodes
+
     def dir(self, full):
+        '''
+        List subnodes of the given Hive path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Notes:
+            This returns None if there is not a node at the path.
+
+        Returns:
+            list: A list of tuples. Each tuple contains the name, node value, and the number of children nodes.
+        '''
         node = self.nodes.get(full)
         if node is None:
             return None
 
         return node.dir()
 
-    async def dict(self, full):
+    async def rename(self, oldpath, newpath):
+        '''
+        Moves a node at oldpath and all its descendant nodes to newpath.  newpath must not exist
+        '''
+        if await self.exists(newpath):
+            raise s_exc.BadHivePath(mesg='path already exists')
+
+        if len(newpath) >= len(oldpath) and newpath[:len(oldpath)] == oldpath:
+            raise s_exc.BadHivePath(mesg='cannot move path into itself')
+
+        if not await self.exists(oldpath):
+            raise s_exc.BadHivePath(mesg=f'path {"/".join(oldpath)} does not exist')
+
+        await self._rename(oldpath, newpath)
+
+    async def _rename(self, oldpath, newpath):
+        '''
+        Same as rename, but no argument checking
+        '''
+        root = await self.open(oldpath)
+
+        for kidname in list(root.kids):
+            await self._rename(oldpath + (kidname,), newpath + (kidname,))
+
+        await self.set(newpath, root.valu)
+
+        await root.pop(())
+
+    async def dict(self, full, nexs=False):
         '''
         Open a HiveDict at the given full path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            HiveDict: A HiveDict for the full path.
         '''
         node = await self.open(full)
-        return await HiveDict.anit(self, node)
+        return await HiveDict.anit(self, node, nexs=nexs)
 
     async def _initNodePath(self, base, path, valu):
 
@@ -197,6 +280,12 @@ class Hive(s_base.Base, s_telepath.Aware):
     async def open(self, full):
         '''
         Open and return a hive Node().
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            Node: A Hive node.
         '''
         return await self._getHiveNode(full)
 
@@ -215,18 +304,35 @@ class Hive(s_base.Base, s_telepath.Aware):
             step = node.kids.get(name)
             if step is None:
                 step = await self._initNodePath(node, path, None)
-                #print('STEP: %r %r' % (path, step))
-                # hive add events alert the *parent* path of edits
-                #await node.fire('hive:add', path=path[:-1], name=name, valu=None)
 
             node = step
 
         return node
 
-    async def set(self, full, valu):
+    async def set(self, full, valu, nexs=False):
         '''
         A set operation at the hive level (full path).
         '''
+        valu = s_common.tuplify(valu)
+        if nexs:
+            return await self._push('hive:set', full, valu)
+
+        return await self._set(full, valu)
+
+    @s_nexus.Pusher.onPush('hive:set')
+    async def _set(self, full, valu):
+        if self.cell is not None:
+            if full[0] == 'auth':
+                if len(full) == 5:
+                    _, _, iden, dtyp, name = full
+                    if dtyp == 'vars':
+                        await self.cell.auth._hndlsetUserVarValu(iden, name, valu)
+                    elif dtyp == 'profile':
+                        await self.cell.auth._hndlsetUserProfileValu(iden, name, valu)
+
+            elif full[0] == 'cellvers':
+                await self.cell.setCellVers(full[-1], valu, nexs=False)
+
         node = await self._getHiveNode(full)
 
         oldv = node.valu
@@ -252,15 +358,33 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return newv
 
-    async def pop(self, full):
+    async def pop(self, full, nexs=False):
         '''
         Remove and return the value for the given node.
         '''
+        if nexs:
+            return await self._push('hive:pop', full)
+
+        return await self._pop(full)
+
+    @s_nexus.Pusher.onPush('hive:pop')
+    async def _pop(self, full):
+
+        if self.cell is not None and full[0] == 'auth':
+            if len(full) == 5:
+                _, _, iden, dtyp, name = full
+                if dtyp == 'vars':
+                    await self.cell.auth._popUserVarValu(iden, name)
+                elif dtyp == 'profile':
+                    await self.cell.auth._popUserProfileValu(iden, name)
+
         node = self.nodes.get(full)
         if node is None:
             return
 
-        return await self._popHiveNode(node)
+        valu = await self._popHiveNode(node)
+
+        return valu
 
     async def _popHiveNode(self, node):
         for kidn in list(node.kids.values()):
@@ -279,46 +403,22 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
-    async def getTeleApi(self, link, mesg):
-
-        auth = await self.getHiveAuth()
-
-        if not self.conf.get('auth:en'):
-            user = auth.getUserByName('root')
-            return await HiveApi.anit(self, user)
-
-        name, info = mesg[1].get('auth')
-
-        user = auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(name=name)
-
-        # passwd None always fails...
-        passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
-
-        return await HiveApi.anit(self, user)
-
-    # TODO maybe eventually allow opening at a position and acting
-    # like a hive with the given path as the root...
-    #async def onTeleOpen(self, link, path):
-        #class HivePathApi(s_telepath.Aware):
-            #async def getTeleApi(self, link, mesg):
-                #return await HiveApi.anit(self, link, mesg, path=path)
-
     async def _storLoadHive(self):
         pass
 
     async def storNodeValu(self, full, valu):
         return valu
 
+    async def storNodeDele(self, path):
+        pass
+
 class SlabHive(Hive):
 
-    async def __anit__(self, slab, db=None, conf=None):
+    async def __anit__(self, slab, db=None, conf=None, nexsroot=None, cell=None):
         self.db = db
         self.slab = slab
-        await Hive.__anit__(self, conf=conf)
+        await Hive.__anit__(self, conf=conf, nexsroot=nexsroot, cell=cell)
+        self.slab.onfini(self.fini)
 
     async def _storLoadHive(self):
 
@@ -339,222 +439,36 @@ class SlabHive(Hive):
         lkey = '\x00'.join(full).encode('utf8')
         self.slab.pop(lkey, db=self.db)
 
-class HiveApi(s_base.Base):
-
-    async def __anit__(self, hive, user):
-
-        await s_base.Base.__anit__(self)
-
-        self.hive = hive
-        self.user = user
-
-        self.msgq = asyncio.Queue(maxsize=10000)
-
-        self.onfini(self._onHapiFini)
-
-    async def treeAndSync(self, path, iden):
-
-        node = await self.hive.open(path)
-
-        # register handlers...
-        node.on('hive:add', self._onHiveEdit, base=self)
-        node.on('hive:set', self._onHiveEdit, base=self)
-        node.on('hive:del', self._onHiveEdit, base=self)
-
-        # serialize the subtree into a message and return
-        # via the mesg queue so there is no get/update race
-        root = (node.valu, {})
-
-        todo = collections.deque([(node, root)])
-
-        # breadth first generator
-        while todo:
-
-            node, pode = todo.popleft()
-
-            for name, kidn in node.kids.items():
-
-                kidp = (kidn.valu, {})
-                pode[1][name] = kidp
-
-                todo.append((kidn, kidp))
-
-        await self.msgq.put(('hive:tree', {'path': path, 'tree': root}))
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return
-
-    async def setAndSync(self, path, valu, iden):
-        valu = await self.hive.set(path, valu)
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return valu
-
-    async def addAndSync(self, path, valu, iden):
-        valu = await self.hive.add(path, valu)
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return valu
-
-    async def _onHapiFini(self):
-        await self.msgq.put(None)
-
-    async def _onHiveEdit(self, mesg):
-        self.msgq.put_nowait(mesg)
-
-    async def get(self, full):
-        return await self.hive.get(full)
-
-    async def edits(self):
-
-        while not self.isfini:
-
-            item = await self.msgq.get()
-            if item is None:
-                return
-
-            yield item
-
-class TeleHive(Hive):
-
-    async def __anit__(self, proxy):
-
-        self.proxy = proxy
-
-        await Hive.__anit__(self)
-
-        self.lock = asyncio.Lock()
-
-        self.syncevents = {} # iden: asyncio.Event()
-
-        # fire a task to sync the sections of the tree we open
-        self.schedCoro(self._runHiveLoop())
-
-        self.mesgbus = await s_base.Base.anit()
-        #self.mesgbus.on('hive:add', self._onHiveAdd)
-        self.mesgbus.on('hive:set', self._onHiveSet)
-        #self.mesgbus.on('hive:del', self._onHiveDel)
-        self.mesgbus.on('hive:tree', self._onHiveTree)
-        self.mesgbus.on('hive:sync', self._onHiveSync)
-
-        self.onfini(self.mesgbus.fini)
-
-        self.onfini(proxy.fini)
-
-    async def _onHiveSync(self, mesg):
-
-        iden = mesg[1].get('iden')
-        evnt = self.syncevents.pop(iden, None)
-        if evnt is None:
-            return
-
-        evnt.set()
-
-    def _getSyncIden(self):
-        iden = s_common.guid()
-        evnt = asyncio.Event()
-        self.syncevents[iden] = evnt
-        return iden, evnt
-
-    async def _runHiveLoop(self):
-        while not self.isfini:
-            async for mesg in await self.proxy.edits():
-                await self.mesgbus.dist(mesg)
-
-    async def _onHiveSet(self, mesg):
-        path = mesg[1].get('path')
-        valu = mesg[1].get('valu')
-        await Hive.set(self, path, valu)
-
-    async def _onHiveTree(self, mesg):
-
-        # get an entire tree update at once
-        path = mesg[1].get('path')
-        tree = mesg[1].get('tree')
-
-        node = await Hive.open(self, path)
-
-        todo = collections.deque([(node, path, tree)])
-
-        while todo:
-
-            node, path, (valu, kids) = todo.popleft()
-
-            # do *not* go through the set() API
-            node.valu = valu
-            for name, kidt in kids.items():
-
-                kidp = path + (name,)
-                kidn = await Hive.open(self, kidp)
-
-                todo.append((kidn, kidp, kidt))
-
-    async def set(self, path, valu):
-        iden, evnt = self._getSyncIden()
-        valu = await self.proxy.setAndSync(path, valu, iden)
-        await evnt.wait()
-        return valu
-
-    async def add(self, path, valu):
-        iden, evnt = self._getSyncIden()
-        valu = await self.proxy.addAndSync(path, valu, iden)
-        await evnt.wait()
-        return valu
-
-    async def get(self, path):
-        return await self.proxy.get(path)
-
-    async def open(self, path):
-
-        # try once pre-lock for speed
-        node = self.nodes.get(path)
-        if node is not None:
-            return node
-
-        async with self.lock:
-
-            # try again with lock to avoid race
-            node = self.nodes.get(path)
-            if node is not None:
-                return node
-
-            iden, evnt = self._getSyncIden()
-
-            await self.proxy.treeAndSync(path, iden)
-
-            await evnt.wait()
-
-            return self.nodes.get(path)
-
-    #async def pop(self, path):
-    #async def append(self, path, valu):
-
 class HiveDict(s_base.Base):
     '''
     '''
-    async def __anit__(self, hive, node):
+    async def __anit__(self, hive, node, nexs=False):
 
         await s_base.Base.__anit__(self)
 
         self.defs = {}
 
+        self.nexs = nexs
         self.hive = hive
         self.node = node
 
-    def get(self, name, onedit=None):
+        self.node.onfini(self)
 
-        # use hive.onedit() here to register for
-        # paths which potentially dont exist yet
-        if onedit is not None:
-            full = self.node.full + (name,)
-            self.hive.onedit(full, onedit, base=self)
+    def get(self, name, default=None):
 
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         return node.valu
 
-    async def set(self, name, valu):
+    async def set(self, name, valu, nexs=None):
+
+        if nexs is None:
+            nexs = self.nexs
+
         full = self.node.full + (name,)
-        return await self.hive.set(full, valu)
+        return await self.hive.set(full, valu, nexs=nexs)
 
     def setdefault(self, name, valu):
         self.defs[name] = valu
@@ -563,297 +477,27 @@ class HiveDict(s_base.Base):
         for key, node in iter(self.node):
             yield key, node.valu
 
-    async def pop(self, name):
+    def values(self):
+        for _, node in iter(self.node):
+            yield node.valu
+
+    def pack(self):
+        return {name: node.valu for (name, node) in iter(self.node)}
+
+    async def pop(self, name, default=None):
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         retn = node.valu
 
-        await node.hive.pop(node.full)
+        await node.hive.pop(node.full, nexs=self.nexs)
 
         return retn
-
-#TODO
-#class HiveLock(s_base.Base):
-#class HiveSeqn(s_base.Base):
-#class HiveRules(s_base.Base): allow separate rules for different objects
-
-class HiveAuth(s_base.Base):
-
-    async def __anit__(self, node):
-
-        await s_base.Base.__anit__(self)
-
-        self.node = node
-
-        self.users = await node.open('users')
-        self.roles = await node.open('roles')
-
-        self.usersbyiden = {}
-        self.rolesbyiden = {}
-        self.usersbyname = {}
-        self.rolesbyname = {}
-
-        for iden, node in self.roles:
-            await self._addRoleNode(node)
-
-        for idne, node in self.users:
-            await self._addUserNode(node)
-
-        # initialize an admin user named root
-        if self.getUserByName('root') is None:
-            user = await self.addUser('root')
-            await user.setAdmin(True)
-
-    def role(self, iden):
-        return self.rolesbyiden.get(iden)
-
-    def user(self, iden):
-        return self.usersbyiden.get(iden)
-
-    def getUserByName(self, name):
-        return self.usersbyname.get(name)
-
-    def getRoleByName(self, name):
-        return self.rolesbyname.get(name)
-
-    async def _addUserNode(self, node):
-
-        user = await HiveUser.anit(self, node)
-
-        self.onfini(user)
-
-        self.usersbyiden[user.iden] = user
-        self.usersbyname[user.name] = user
-
-        return user
-
-    async def _addRoleNode(self, node):
-
-        role = await HiveRole.anit(self, node)
-
-        self.onfini(role)
-
-        self.rolesbyiden[role.iden] = role
-        self.rolesbyname[role.name] = role
-
-        return role
-
-    async def addUser(self, name):
-
-        if self.usersbyname.get(name) is not None:
-            raise s_exc.DupUserName(name=name)
-
-        iden = s_common.guid()
-        path = self.node.full + ('users', iden)
-
-        # directly set the nodes value and let events prop
-        await self.node.hive.set(path, name)
-
-        node = await self.node.hive.open(path)
-        return await self._addUserNode(node)
-
-    async def addRole(self, name):
-
-        if self.rolesbyname.get(name) is not None:
-            raise s_exc.DupRoleName(name=name)
-
-        iden = s_common.guid()
-        path = self.node.full + ('roles', iden)
-
-        # directly set the nodes value and let events prop
-        await self.node.hive.set(path, name)
-
-        node = await self.node.hive.open(path)
-        return await self._addRoleNode(node)
-
-class HiveIden(s_base.Base):
-
-    async def __anit__(self, auth, node):
-
-        await s_base.Base.__anit__(self)
-
-        self.auth = auth
-        self.node = node
-        self.iden = node.name()
-        self.name = node.valu
-
-        self.info = await node.dict()
-
-        self.info.setdefault('rules', ())
-        self.rules = self.info.get('rules', onedit=self._onRulesEdit)
-
-    async def addRule(self, rule, indx=None):
-
-        rules = list(self.rules)
-
-        if indx is None:
-            rules.append(rule)
-        else:
-            rules.insert(indx, rule)
-
-        await self.info.set('rules', rules)
-
-    async def delRule(self, rule):
-
-        if rule not in self.rules:
-            return False
-
-        rules = list(self.rules)
-        rules.remove(rule)
-
-        await self.info.set('rules', rules)
-
-class HiveRole(HiveIden):
-    '''
-    A role within the Hive authorization subsystem.
-    The HiveRole mainly exists to contain rules.
-    '''
-    async def _onRulesEdit(self, mesg):
-
-        self.rules = self.info.get('rules')
-
-        for user in self.auth.usersbyiden.values():
-
-            if self.iden in user.roles:
-                await user._initFullRules()
-
-class HiveUser(HiveIden):
-
-    async def __anit__(self, auth, node):
-
-        await HiveIden.__anit__(self, auth, node)
-
-        self.info.setdefault('roles', ())
-
-        self.info.setdefault('admin', False)
-        self.info.setdefault('passwd', None)
-        self.info.setdefault('locked', False)
-
-        self.roles = self.info.get('roles', onedit=self._onRolesEdit)
-        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
-        self.locked = self.info.get('locked', onedit=self._onLockedEdit)
-
-        self.fullrules = []
-        self.permcache = s_cache.FixedCache(self._calcPermAllow)
-
-        self._initFullRules()
-
-    def _calcPermAllow(self, perm):
-        for retn, path in self.fullrules:
-            if perm[:len(path)] == path:
-                return retn
-
-        return False
-
-    def _initFullRules(self):
-
-        self.fullrules.clear()
-        self.permcache.clear()
-
-        for rule in self.rules:
-            self.fullrules.append(rule)
-
-        for iden in self.roles:
-
-            role = self.auth.role(iden)
-
-            for rule in role.rules:
-                self.fullrules.append(rule)
-
-    async def _onRolesEdit(self, mesg):
-        self.roles = self.info.get('roles')
-        self._initFullRules()
-
-    async def _onRulesEdit(self, mesg):
-        self.rules = self.info.get('rules')
-        self._initFullRules()
-
-    async def _onAdminEdit(self, mesg):
-        self.admin = self.info.get('admin')
-        # no need to bump the cache/rules
-
-    async def _onLockedEdit(self, mesg):
-        self.locked = self.info.get('locked')
-
-    def allowed(self, perm, elev=True):
-
-        if self.locked:
-            return False
-
-        if self.admin and elev:
-            return True
-
-        return self.permcache.get(perm)
-
-    async def grant(self, name, indx=None):
-
-        role = self.auth.rolesbyname.get(name)
-        if role is None:
-            raise s_exc.NoSuchRole(name=name)
-
-        roles = list(self.roles)
-        if role.iden in roles:
-            return
-
-        if indx is None:
-            roles.append(role.iden)
-        else:
-            roles.insert(indx, role.iden)
-
-        await self.info.set('roles', roles)
-
-    async def revoke(self, name):
-
-        role = self.auth.rolesbyname.get(name)
-        if role is None:
-            raise s_exc.NoSuchRole(name=name)
-
-        roles = list(self.roles)
-        if role.iden not in roles:
-            return
-
-        roles.remove(role.iden)
-        await self.info.set('roles', roles)
-
-    async def setAdmin(self, admin):
-        await self.info.set('admin', admin)
-
-    async def setLocked(self, locked):
-        await self.info.set('locked', locked)
-
-    def tryPasswd(self, passwd):
-
-        if self.locked:
-            return False
-
-        if passwd is None:
-            return False
-
-        shadow = self.info.get('passwd')
-        if shadow is None:
-            return False
-
-        salt, hashed = shadow
-
-        if s_common.guid((salt, passwd)) == hashed:
-            return True
-
-        return False
-
-    async def setPasswd(self, passwd):
-        salt = s_common.guid()
-        hashed = s_common.guid((salt, passwd))
-        await self.info.set('passwd', (salt, hashed))
 
 def iterpath(path):
     for i in range(len(path)):
         yield path[:i + 1]
-
-async def openurl(url, **opts):
-    prox = await s_telepath.openurl(url, **opts)
-    return await TeleHive.anit(prox)
 
 async def opendir(dirn, conf=None):
     slab = await s_slab.Slab.anit(dirn, map_size=s_const.gibibyte)

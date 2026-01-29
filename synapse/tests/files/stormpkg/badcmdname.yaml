@@ -1,0 +1,6 @@
+name: badcmdname
+version: [0, 0, 1]
+
+commands:
+    - name: invalidCMD
+      descr: No capital letters in command names!

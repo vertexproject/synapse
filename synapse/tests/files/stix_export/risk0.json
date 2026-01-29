@@ -1,0 +1,179 @@
+{
+  "type": "bundle",
+  "id": "bundle--7386ab97-9877-46cb-85be-ba3507f56095",
+  "objects": [
+    {
+      "id": "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0",
+      "type": "extension-definition",
+      "spec_version": "2.1",
+      "name": "Vertex Project Synapse",
+      "description": "Synapse specific STIX 2.1 extensions.",
+      "created": "2021-04-29T13:40:00.000Z",
+      "modified": "2021-04-29T13:40:00.000Z",
+      "schema": "The Synapse Extensions for Stix 2.1",
+      "version": "1.0",
+      "extension_types": [
+        "property-extension"
+      ]
+    },
+    {
+      "id": "campaign--85f46227-0644-4ddb-9852-ef0a192640b5",
+      "type": "campaign",
+      "spec_version": "2.1",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:campaign",
+            "00a8f1cbdd6ad271e0d11b7b7205d21e"
+          ]
+        }
+      },
+      "name": "bob hax",
+      "created": "2021-05-05T03:35:36.176Z",
+      "modified": "2021-05-05T03:35:36.176Z"
+    },
+    {
+      "id": "threat-actor--13932a7e-5273-402c-b7fe-c955be165056",
+      "type": "threat-actor",
+      "spec_version": "2.1",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:org",
+            "d067b284c345a0be98757a73bfc97796"
+          ]
+        }
+      },
+      "name": "bobs whitehatz",
+      "created": "2021-05-05T03:35:36.173Z",
+      "modified": "2021-05-05T03:35:36.173Z"
+    },
+    {
+      "id": "identity--13932a7e-5273-402c-b7fe-c955be165056",
+      "type": "identity",
+      "spec_version": "2.1",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "ou:org",
+            "d067b284c345a0be98757a73bfc97796"
+          ]
+        }
+      },
+      "name": "bobs whitehatz",
+      "identity_class": "organization",
+      "created": "2021-05-05T03:35:36.173Z",
+      "modified": "2021-05-05T03:35:36.173Z"
+    },
+    {
+      "id": "relationship--87fdfa2b-52cd-4023-b155-df7e73a1724e",
+      "type": "relationship",
+      "relationship_type": "attributed-to",
+      "created": "2021-05-05T03:35:36.891Z",
+      "modified": "2021-05-05T03:35:36.891Z",
+      "source_ref": "threat-actor--13932a7e-5273-402c-b7fe-c955be165056",
+      "target_ref": "identity--13932a7e-5273-402c-b7fe-c955be165056",
+      "spec_version": "2.1"
+    },
+    {
+      "id": "vulnerability--893f0bcc-3480-4c2d-adef-59db40592453",
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "risk:vuln",
+            "be35ff223ec028a31a3c97aaaa987643"
+          ]
+        }
+      },
+      "name": "vuln1",
+      "description": "bad vuln",
+      "created": "2021-05-05T03:35:36.156Z",
+      "modified": "2021-05-05T03:35:36.156Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2013-0000"
+        }
+      ]
+    },
+    {
+      "id": "relationship--de576455-9929-4459-bfe4-4a15b42cc427",
+      "type": "relationship",
+      "relationship_type": "targets",
+      "created": "2021-05-05T03:35:37.126Z",
+      "modified": "2021-05-05T03:35:37.126Z",
+      "source_ref": "threat-actor--13932a7e-5273-402c-b7fe-c955be165056",
+      "target_ref": "vulnerability--893f0bcc-3480-4c2d-adef-59db40592453",
+      "spec_version": "2.1"
+    },
+    {
+      "id": "vulnerability--75a47507-b8a2-4009-ab1e-f761fb9e55d3",
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "risk:vuln",
+            "db9e7ba50ec71c3a9ecd8f4aafe17aac"
+          ]
+        }
+      },
+      "name": "bobs version of cve-2013-001",
+      "created": "2021-05-05T03:35:36.169Z",
+      "modified": "2021-05-05T03:35:36.169Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2013-0001"
+        }
+      ]
+    },
+    {
+      "id": "relationship--0d7e8dca-655b-487a-bde5-5693f6f26d3c",
+      "type": "relationship",
+      "relationship_type": "targets",
+      "created": "2021-05-05T03:35:37.128Z",
+      "modified": "2021-05-05T03:35:37.128Z",
+      "source_ref": "threat-actor--13932a7e-5273-402c-b7fe-c955be165056",
+      "target_ref": "vulnerability--75a47507-b8a2-4009-ab1e-f761fb9e55d3",
+      "spec_version": "2.1"
+    },
+    {
+      "id": "relationship--c169aa73-b83d-49f1-a8f5-e9da4898c385",
+      "type": "relationship",
+      "relationship_type": "attributed-to",
+      "created": "2021-05-05T03:35:37.128Z",
+      "modified": "2021-05-05T03:35:37.128Z",
+      "source_ref": "campaign--85f46227-0644-4ddb-9852-ef0a192640b5",
+      "target_ref": "threat-actor--13932a7e-5273-402c-b7fe-c955be165056",
+      "spec_version": "2.1"
+    },
+    {
+      "id": "relationship--6638bd63-3b70-4771-91e6-9fa15d1ac3a2",
+      "type": "relationship",
+      "relationship_type": "targets",
+      "created": "2021-05-05T03:35:37.196Z",
+      "modified": "2021-05-05T03:35:37.196Z",
+      "source_ref": "campaign--85f46227-0644-4ddb-9852-ef0a192640b5",
+      "target_ref": "vulnerability--893f0bcc-3480-4c2d-adef-59db40592453",
+      "spec_version": "2.1"
+    },
+    {
+      "id": "relationship--b6eb232a-8d46-4815-a20f-530f22e50fe7",
+      "type": "relationship",
+      "relationship_type": "targets",
+      "created": "2021-05-05T03:35:37.197Z",
+      "modified": "2021-05-05T03:35:37.197Z",
+      "source_ref": "campaign--85f46227-0644-4ddb-9852-ef0a192640b5",
+      "target_ref": "vulnerability--75a47507-b8a2-4009-ab1e-f761fb9e55d3",
+      "spec_version": "2.1"
+    }
+  ]
+}

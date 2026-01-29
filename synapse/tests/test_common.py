@@ -1,18 +1,90 @@
-
 import os
-import sys
+import http
+import asyncio
+import logging
+import subprocess
 
+import yaml
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.httpapi as s_httpapi
+
 import synapse.tests.utils as s_t_utils
 
+logger = logging.getLogger(__name__)
+
 class CommonTest(s_t_utils.SynTest):
+
+    async def test_waitgenr(self):
+
+        async def genr():
+            yield 10
+            raise Exception('omg')
+
+        rets = [retn async for retn in s_common.waitgenr(genr(), 10)]
+
+        self.true(rets[0][0])
+        self.false(rets[1][0])
+
+        async def one():
+            yield 'item'
+
+        rets = [retn async for retn in s_common.waitgenr(one(), timeout=1.0)]
+        self.eq(rets, [(True, 'item')])
+
+        async def genr():
+            yield 1
+            await asyncio.sleep(60)
+            yield 2
+
+        rets = [retn async for retn in s_common.waitgenr(genr(), timeout=0.1)]
+        self.eq(rets[0], (True, 1))
+        self.false(rets[1][0])
+        self.eq(rets[1][1]['err'], 'TimeoutError')
+
+    def test_tuplify(self):
+        tv = ['node', [['test:str', 'test'],
+                       {'tags': {
+                           'beep': [None, None],
+                           'beep.boop': [0x01020304, 0x01020305]
+                       },
+                       'props': {
+                           'tick': 0x01020304,
+                           'tock': ['hehe', ['haha', 1]]
+                       }}]]
+        ev = ('node', (('test:str', 'test'),
+                       {'tags': {
+                           'beep': (None, None),
+                           'beep.boop': (0x01020304, 0x01020305)
+                       },
+                       'props': {
+                           'tick': 0x01020304,
+                           'tock': ('hehe', ('haha', 1))
+                       }}))
+
+        self.eq(ev, s_common.tuplify(tv))
+        tv = ('foo', ['bar', 'bat'])
+        ev = ('foo', ('bar', 'bat'))
+        self.eq(ev, s_common.tuplify(tv))
+
+    def test_common_flatten(self):
+        item = {'foo': 'bar', 'baz': 10, 'gronk': True, 'hehe': ['ha', 'ha'], 'tupl': (1, 'two'), 'newp': None}
+        self.ne('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(item))
+        self.eq('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(s_common.flatten(item)))
+
+        item = {'foo': 'bar', 'baz': 10, 'gronk': True, 'hehe': ['ha', 'ha'], 'tupl': (1, 'two', 1.23), 'newp': None}
+        self.ne('02efa9b7612f371dbb65a596cd303d9a', s_common.guid(item))
+        self.eq('02efa9b7612f371dbb65a596cd303d9a', s_common.guid(s_common.flatten(item)))
+
     def test_common_vertup(self):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
     def test_common_file_helpers(self):
+
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
@@ -82,6 +154,11 @@ class CommonTest(s_t_utils.SynTest):
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
 
+            real, appr = s_common.getDirSize(dirn)
+            self.eq(real % 512, 0)
+            self.gt(real, appr)
+            self.ge(appr, len(b'woot') + len(b'nope'))
+
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
         self.eq(s_common.intify("20"), 20)
@@ -124,45 +201,12 @@ class CommonTest(s_t_utils.SynTest):
             parts = [chunk for chunk in s_common.chunks({1, 2, 3}, 10000)]
 
         # dict is unslicable
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, KeyError)) as cm:
             parts = [chunk for chunk in s_common.chunks({1: 2}, 10000)]
 
         # empty dict is caught during the [0:0] slice
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, KeyError)) as cm:
             parts = [chunk for chunk in s_common.chunks({}, 10000)]
-
-    def test_common_lockfile(self):
-
-        with self.getTestDir() as fdir:
-            fp = os.path.join(fdir, 'hehe.lock')
-            # Ensure that our yield is None
-            with s_common.lockfile(fp) as cm:
-                self.none(cm)
-
-    def test_common_getexcfo(self):
-        try:
-            1 / 0
-        except ZeroDivisionError as e:
-            excfo = s_common.getexcfo(e)
-
-        self.istufo(excfo)
-        self.eq(excfo[0], 'ZeroDivisionError')
-        self.isin('msg', excfo[1])
-        self.isin('file', excfo[1])
-        self.isin('line', excfo[1])
-        self.isin('name', excfo[1])
-        self.isin('src', excfo[1])
-        self.notin('syn:err', excfo[1])
-
-        excfo = s_common.getexcfo(s_exc.SynErr(mesg='hehe', key=1))
-        self.eq(excfo[0], 'SynErr')
-        self.isin('msg', excfo[1])
-        self.isin('file', excfo[1])
-        self.isin('line', excfo[1])
-        self.isin('name', excfo[1])
-        self.isin('src', excfo[1])
-        self.isin('syn:err', excfo[1])
-        self.eq(excfo[1].get('syn:err'), {'mesg': 'hehe', 'key': 1})
 
     def test_common_ehex_uhex(self):
         byts = b'deadb33f00010203'
@@ -245,3 +289,190 @@ class CommonTest(s_t_utils.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
             obj['bar'] = 42
             self.eq(obj, robj)
+
+            s_common.yamlmod({'bar': 42}, dirn, 'nomod.yaml')
+            robj = s_common.yamlload(dirn, 'nomod.yaml')
+            self.eq(robj, {'bar': 42})
+
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            robj = s_common.yamlload(dirn, 'test.yaml')
+            self.eq(robj, {'foo': 'bar', 'bar': 42})
+            # And its replayable
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            # And won't blow up if the file doesn't exist
+            s_common.yamlpop('zap', dirn, 'newp.yaml')
+
+            # Test yaml helper safety
+            s = '!!python/object/apply:os.system ["pwd"]'
+            with s_common.genfile(dirn, 'explode.yaml') as fd:
+                fd.write(s.encode())
+            self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
+
+            # Make sure we're testing the CSafeLoader and not the python native
+            # implementation
+            self.eq(s_common.Loader, yaml.CSafeLoader)
+
+            data = '{"foo":"bar", "unicode": "✊"}'
+            obj = s_common.yamlloads(data)
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads(data.encode('utf8'))
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads('{"foo": "bar", "unicode": "\u270A"}')
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+    def test_switchext(self):
+        retn = s_common.switchext('foo.txt', ext='.rdf')
+        self.eq(retn, s_common.genpath('foo.rdf'))
+
+        retn = s_common.switchext('.vim', ext='.rdf')
+        self.eq(retn, s_common.genpath('.vim.rdf'))
+
+    def test_envbool(self):
+        with self.setTstEnvars(SYN_FOO='true', SYN_BAR='1', SYN_BAZ='foobar'):
+            self.true(s_common.envbool('SYN_FOO'))
+            self.true(s_common.envbool('SYN_BAR'))
+            self.true(s_common.envbool('SYN_BAZ'))
+            # non-existent and default behaviors
+            self.false(s_common.envbool('SYN_NEWP'))
+            self.true(s_common.envbool('SYN_NEWP', '1'))
+
+        with self.setTstEnvars(SYN_FOO='false', SYN_BAR='0'):
+            self.false(s_common.envbool('SYN_FOO'))
+            self.false(s_common.envbool('SYN_BAR'))
+
+    def test_normlog(self):
+        self.eq(10, s_common.normLogLevel(' 10 '))
+        self.eq(10, s_common.normLogLevel(10))
+        self.eq(20, s_common.normLogLevel(' inFo\n'))
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel(100)
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel('BEEP')
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel('12')
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel({'key': 'newp'})
+
+    async def test_merggenr(self):
+        async def asyncl(data):
+            for item in data:
+                yield item
+
+        async def alist(coro):
+            return [x async for x in coro]
+
+        l1 = (1, 2, 3)
+        l2 = (4, 5, 6)
+        l3 = (7, 8, 9)
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l1, l2, l3)], lambda x, y: x < y)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l1, l1, l1)], lambda x, y: x < y)
+        self.eq((1, 1, 1, 2, 2, 2, 3, 3, 3), await alist(retn))
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l3, l2, l1)], lambda x, y: x < y)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3, ())], lambda x: x)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)], lambda x: x)
+        self.eq((1, 1, 1, 2, 2, 2, 3, 3, 3), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], lambda x: x)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3, ())])
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)])
+        self.eq((1, 1, 1, 2, 2, 2, 3, 3, 3), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)])
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        l1 = (3, 2, 1)
+        l2 = (6, 5, 4)
+        l3 = (9, 8, 7)
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3)], lambda x: x, True)
+        self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)], lambda x: x, True)
+        self.eq((3, 3, 3, 2, 2, 2, 1, 1, 1), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], lambda x: x, True)
+        self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3)], reverse=True)
+        self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)], reverse=True)
+        self.eq((3, 3, 3, 2, 2, 2, 1, 1, 1), await alist(retn))
+
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
+        self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+    def test_sslctx(self):
+        with self.getTestDir(mirror='certdir') as dirn:
+            cadir = s_common.genpath(dirn, 'cas')
+            os.makedirs(s_common.genpath(cadir, 'newp'))
+            with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
+                ctx = s_common.getSslCtx(cadir)
+                self.true(stream.wait(10))
+            ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
+            self.isin(((('commonName', 'test'),),), ca_subjects)
+
+    async def test_wait_for(self):
+
+        async def foo():
+            return 123
+
+        loop = asyncio.get_running_loop()
+        footask = loop.create_task(foo())
+
+        await footask
+
+        self.eq(123, await s_common.wait_for(footask, timeout=-1))
+
+    def test_trim_text(self):
+        tvs = (
+            ('Hello world!', 'Hello world!'),
+            ('Hello world 123', 'Hello world 123'),
+            ('Hello world 1234', 'Hello world 1234'),
+            ('Hello world 12345', 'Hello world 1...'),
+            ('Hello world 1234 5678', 'Hello world 1...'),
+            ('HelloXworldY1234Z5678', 'HelloXworldY1...'),
+        )
+        n = 16
+        for iv, ev in tvs:
+            v = s_common.trimText(iv, n=n)
+            self.le(len(v), n)
+            self.eq(v, ev)
+
+    async def test_tornado_monkeypatch(self):
+        class JsonHandler(s_httpapi.Handler):
+            async def get(self):
+                resp = {
+                    'foo': 'bar',
+                    'html': '<html></html>'
+                }
+                self.write(resp)
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/test_tornado/', JsonHandler, {'cell': core})
+            _, port = await core.addHttpsPort(0)
+            url = f'https://127.0.0.1:{port}/api/v1/test_tornado/'
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=False) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+
+                    text = await resp.text()
+                    self.eq(text, '{"foo":"bar","html":"<html><\\/html>"}')
+
+                    json = await resp.json()
+                    self.eq(json, {'foo': 'bar', 'html': '<html></html>'})

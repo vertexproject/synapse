@@ -1,4 +1,3 @@
-import os
 import asyncio
 import contextlib
 
@@ -22,7 +21,6 @@ class Scope:
 
     '''
     def __init__(self, *frames, **vals):
-        self.ctors = {}
         self.frames = list(frames)
         if vals:
             self.frames.append(vals)
@@ -68,13 +66,6 @@ class Scope:
             if valu != s_common.novalu:
                 return valu
 
-        task = self.ctors.get(name)
-        if task is not None:
-            func, args, kwargs = task
-            item = func(*args, **kwargs)
-            self.frames[-1][name] = item
-            return item
-
         return defval
 
     def add(self, name, *vals):
@@ -97,19 +88,6 @@ class Scope:
         '''
         return self.frames[-1].pop(name, None)
 
-    def ctor(self, name, func, *args, **kwargs):
-        '''
-        Add a constructor to be called when a specific property is not present.
-
-        Example:
-
-            scope.ctor('foo',FooThing)
-            ...
-            foo = scope.get('foo')
-
-        '''
-        self.ctors[name] = (func, args, kwargs)
-
     def iter(self, name):
         '''
         Iterate through values added with add() from each scope frame.
@@ -124,18 +102,36 @@ class Scope:
     def __setitem__(self, name, valu):
         self.frames[-1][name] = valu
 
-# set up a global scope with env vars etc...
-envr = dict(os.environ)
-globscope = Scope(envr)
+    def copy(self):
+        '''
+        Create a shallow copy of the current Scope.
 
-def _task_scope():
+        Returns:
+            Scope: A new scope which is a copy of the current scope.
+        '''
+        return self.__class__(*[frame.copy() for frame in self.frames])
 
+# set up a global scope with an empty frame
+globscope = Scope(dict())
+
+
+def _task_scope() -> Scope:
+    '''
+    Get the current task scope. If the _syn_scope is not set, set it to a new scope
+    that inherits from the globscope.
+
+    Notes:
+        This must be run from inside an asyncio.Task.
+
+    Returns:
+        Scope: A Scope object.
+    '''
     task = asyncio.current_task()
     scope = getattr(task, '_syn_scope', None)
 
     # no need to lock because it's per-task...
     if scope is None:
-        scope = Scope(globscope)
+        scope = globscope.copy()
         task._syn_scope = scope
 
     return scope
@@ -179,5 +175,52 @@ def enter(vals=None):
     '''
     scope = _task_scope()
     scope.enter(vals)
-    yield
-    scope.leave()
+    try:
+        yield
+    finally:
+        scope.leave()
+
+def clone(task: asyncio.Task) -> None:
+    '''
+    Clone the current task Scope onto the provided task.
+
+    Args:
+        task (asyncio.Task): The task object to attach the scope too.
+
+    Notes:
+        This must be run from an asyncio IO loop.
+
+        If the current task does not have a scope, we clone the default global Scope.
+
+        This will ``enter()`` the scope, and add a task callback to ``leave()`` the scope.
+
+    Returns:
+        None
+    '''
+
+    current_task = asyncio.current_task()
+
+    if current_task is None:
+        # It is possible that we are executing code started by
+        # asyncio.call_soon_threadsafe (or similar mechanisms)
+        # in which case there is not yet a task for us to
+        # retrieve the scope from, and we can inherit directly
+        # from globscope.
+
+        parent_scope = globscope
+
+    else:
+
+        parent_scope = _task_scope()
+
+    scope = parent_scope.copy()
+    task._syn_scope = scope
+    scope.enter()
+
+    def taskdone(_task):
+        # Leave the scope and drop any refs to objects
+        # on Tasks to break possible GC cycles
+        scope.leave()
+        delattr(_task, '_syn_scope')
+
+    task.add_done_callback(taskdone)

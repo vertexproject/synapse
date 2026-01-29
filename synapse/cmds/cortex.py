@@ -1,89 +1,79 @@
-import json
+import os
+import queue
+import shlex
 import pprint
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.reactor as s_reactor
-import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
+import synapse.lib.cmd as s_cmd
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
-import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+RED = '#ff0066'
+YELLOW = '#f4e842'
+BLUE = '#6faef2'
+DARKBLUE = '#4842f5'
 
-reac = s_reactor.Reactor()
-
-def _reacJsonl(mesg):
-    s = json.dumps(mesg, sort_keys=True) + '\n'
-    buf = s.encode()
-    return buf
-
-def _reacMpk(mesg):
-    buf = s_msgpack.en(mesg)
-    return buf
-
-reac.act('mpk', _reacMpk)
-reac.act('jsonl', _reacJsonl)
-
+PROVNEW_COLOR = DARKBLUE
+UNKNOWN_COLOR = BLUE
+NODEEDIT_COLOR = "lightblue"
+WARNING_COLOR = YELLOW
+SYNTAX_ERROR_COLOR = RED
 
 class Log(s_cli.Cmd):
-    '''
-    Add a storm log to the local command session.
+    '''Add a storm log to the local command session.
 
-    Syntax:
-        log (--on|--off) [--splices-only] [--format (mpk|jsonl)] [--path /path/to/file]
+Notes:
+    By default, the log file contains all messages received from the execution of
+    a Storm query by the current CLI. By default, these messages are saved to a
+    file located in ~/.syn/stormlogs/storm_(date).(format).
 
-    Required Arguments:
-        --on: Enables logging of storm messages to a file.
-        --off: Disables message logging and closes the current storm file.
+Examples:
+    # Enable logging all messages to mpk files (default)
+    log --on
 
-    Optional Arguments:
-        --splices-only: Only records splices. Does not record any other messages.
-        --format: The format used to save messages to disk. Defaults to msgpack (mpk).
-        --path: The path to the log file.  This will append messages to a existing file.
+    # Disable logging and close the current file
+    log --off
 
-    Notes:
-        By default, the log file contains all messages received from the execution of
-        a Storm query by the current CLI. By default, these messages are saved to a
-        file located in ~/.syn/stormlogs/storm_(date).(format).
+    # Enable logging, but only log edits. Log them as jsonl instead of mpk.
+    log --on --edits-only --format jsonl
 
-    Examples:
-        # Enable logging all messages to mpk files (default)
-        log --on
+    # Enable logging, but log to a custom path:
+    log --on --path /my/aweome/log/directory/storm20010203.mpk
 
-        # Disable logging and close the current file
-        log --off
-
-        # Enable logging, but only log splices. Log them as jsonl instead of mpk.
-        log --on --splices-only --format jsonl
-
-        # Enable logging, but log to a custom path:
-        log --on --path /my/aweome/log/directory/storm20010203.mpk
-
+    # Log only the node messages which come back from a storm cmd execution.
+    log --on --nodes-only --path /my/awesome/log/directory/stormnodes20010203.mpk
     '''
     _cmd_name = 'log'
     _cmd_syntax = (
-        ('--on', {'type': 'flag'}),
-        ('--off', {'type': 'flag'}),
-        ('--path', {'type': 'valu'}),
-        ('--format', {'type': 'enum',
-                      'defval': 'mpk',
-                      'enum:vals': ['mpk', 'jsonl']}),
-        ('--splices-only', {'defval': False})
+        ('line', {'type': 'glob'}),  # type: ignore
     )
-    splicetypes = (
-        'tag:add',
-        'tag:del',
-        'node:add',
-        'node:del',
-        'prop:set',
-        'prop:del',
-    )
+
+    def _make_argparser(self):
+
+        parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
+        muxp = parser.add_mutually_exclusive_group(required=True)
+        muxp.add_argument('--on', action='store_true', default=False,
+                          help='Enables logging of storm messages to a file.')
+        muxp.add_argument('--off', action='store_true', default=False,
+                          help='Disables message logging and closes the current storm file.')
+        parser.add_argument('--format', choices=('mpk', 'jsonl'), default='mpk', type=str.lower,
+                            help='The format used to save messages to disk. Defaults to msgpack (mpk).')
+        parser.add_argument('--path', type=str, default=None,
+                            help='The path to the log file.  This will append messages to a existing file.')
+        optmux = parser.add_mutually_exclusive_group()
+        optmux.add_argument('--edits-only', action='store_true', default=False,
+                            help='Only records edits. Does not record any other messages.')
+        optmux.add_argument('--nodes-only', action='store_true', default=False,
+                            help='Only record the packed nodes returned by storm.')
+        return parser
 
     def __init__(self, cli, **opts):
         s_cli.Cmd.__init__(self, cli, **opts)
@@ -92,54 +82,65 @@ class Log(s_cli.Cmd):
         self._cmd_cli.onfini(self.closeLogFd)
 
     def onStormMesg(self, mesg):
-        queue = self.locs.get('log:queue')
-        queue.put(mesg)
+        self.locs.get('log:queue').put(mesg)
 
     @s_common.firethread
     def queueLoop(self):
-        queue = self.locs.get('log:queue')
+        q = self.locs.get('log:queue')
         while not self._cmd_cli.isfini:
             try:
-                mesg = queue.get(timeout=2)
-            except s_exc.TimeOut:
+                mesg = q.get(timeout=2)
+            except queue.Empty:
                 continue
-            except s_exc.IsFini:
-                break
             smesg = mesg[1].get('mesg')
             self.save(smesg)
 
     def save(self, mesg):
         fd = self.locs.get('log:fd')
-        spliceonly = self.locs.get('log:splicesonly')
+        editsonly = self.locs.get('log:editsonly')
+        nodesonly = self.locs.get('log:nodesonly')
         if fd and not fd.closed:
-            if spliceonly and mesg[0] not in self.splicetypes:
+            if editsonly and mesg[0] != 'node:edits':
                 return
+            if nodesonly:
+                if mesg[0] != 'node':
+                    return
+                mesg = mesg[1]
             try:
                 buf = self.encodeMsg(mesg)
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error('Failed to serialize message: [%s]', str(e))
                 return
             fd.write(buf)
 
     def encodeMsg(self, mesg):
         '''Get byts for a message'''
+
         fmt = self.locs.get('log:fmt')
-        return reac.react(mesg, fmt)
+        if fmt == 'jsonl':
+            return s_json.dumps(mesg, sort_keys=True, newline=True)
+
+        elif fmt == 'mpk':
+            buf = s_msgpack.en(mesg)
+            return buf
+
+        mesg = f'Unknown encoding format: {fmt}'
+        raise s_exc.SynErr(mesg=mesg)
 
     def closeLogFd(self):
         self._cmd_cli.off('storm:mesg', self.onStormMesg)
-        queue = self.locs.pop('log:queue', None)
-        if queue is not None:
+        q = self.locs.pop('log:queue', None)
+        if q is not None:
             self.printf('Marking log queue done')
-            queue.done()
         thr = self.locs.pop('log:thr', None)
         if thr:
             self.printf('Joining log thread.')
             thr.join(2)
         fp = self.locs.pop('log:fp', None)
         fd = self.locs.pop('log:fd', None)
-        self.locs.pop('log:fmt', None)
-        self.locs.pop('log:splicesonly', None)
+        for key in list(self.locs.keys()):
+            if key.startswith('log:'):
+                self.locs.pop(key, None)
         if fd:
             try:
                 self.printf(f'Closing logfile: [{fp}]')
@@ -152,105 +153,42 @@ class Log(s_cli.Cmd):
         if opath:
             self.printf('Must call --off to disable current file before starting a new file.')
             return
-        fmt = opts.get('format')
-        path = opts.get('path')
-        splice_only = opts.get('splices-only')
+        fmt = opts.format
+        path = opts.path
+        nodes_only = opts.nodes_only
+        edits_only = opts.edits_only
         if not path:
             ts = s_time.repr(s_common.now(), True)
             fn = f'storm_{ts}.{fmt}'
             path = s_common.getSynPath('stormlogs', fn)
         self.printf(f'Starting logfile at [{path}]')
-        queue = s_queue.Queue()
+        q = queue.Queue()
         fd = s_common.genfile(path)
         # Seek to the end of the file. Allows a user to append to a file.
         fd.seek(0, 2)
         self.locs['log:fp'] = path
         self.locs['log:fd'] = fd
         self.locs['log:fmt'] = fmt
-        self.locs['log:queue'] = queue
+        self.locs['log:queue'] = q
         self.locs['log:thr'] = self.queueLoop()
-        self.locs['log:splicesonly'] = splice_only
+        self.locs['log:nodesonly'] = nodes_only
+        self.locs['log:editsonly'] = edits_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
     async def runCmdOpts(self, opts):
-        on = opts.get('on')
-        off = opts.get('off')
 
-        if bool(on) == bool(off):
-            self.printf('Pick one of "--on" or "--off".')
+        line = opts.get('line', '')
+
+        try:
+            opts = self._make_argparser().parse_args(shlex.split(line))
+        except s_exc.ParserExit:
             return
 
-        if on:
+        if opts.on:
             return self.openLogFd(opts)
 
-        if off:
+        if opts.off:
             return self.closeLogFd()
-
-class PsCmd(s_cli.Cmd):
-
-    '''
-    List running tasks in the cortex.
-    '''
-
-    _cmd_name = 'ps'
-    _cmd_syntax = ()
-
-    async def runCmdOpts(self, opts):
-
-        core = self.getCmdItem()
-        tasks = await core.ps()
-
-        for task in tasks:
-
-            self.printf('task iden: %s' % (task.get('iden'),))
-            self.printf('    name: %s' % (task.get('name'),))
-            self.printf('    user: %r' % (task.get('user'),))
-            self.printf('    status: %r' % (task.get('status'),))
-            self.printf('    metadata: %r' % (task.get('info'),))
-            self.printf('    start time: %s' % (s_time.repr(task.get('tick', 0)),))
-
-        self.printf('%d tasks found.' % (len(tasks,)))
-
-class KillCmd(s_cli.Cmd):
-    '''
-    Kill a running task/query within the cortex.
-
-    Syntax:
-        kill <iden>
-
-    Users may specify a partial iden GUID in order to kill
-    exactly one matching process based on the partial guid.
-    '''
-    _cmd_name = 'kill'
-    _cmd_syntax = (
-        ('iden', {}),
-    )
-
-    async def runCmdOpts(self, opts):
-
-        core = self.getCmdItem()
-
-        match = opts.get('iden')
-        if not match:
-            self.printf('no iden given to kill.')
-            return
-
-        idens = []
-        for task in await core.ps():
-            iden = task.get('iden')
-            if iden.startswith(match):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            self.printf('no matching process found. aborting.')
-            return
-
-        if len(idens) > 1:
-            self.printf('multiple matching process found. aborting.')
-            return
-
-        kild = await core.kill(idens[0])
-        self.printf('kill status: %r' % (kild,))
 
 class StormCmd(s_cli.Cmd):
     '''
@@ -263,86 +201,131 @@ class StormCmd(s_cli.Cmd):
         query: The storm query
 
     Optional Arguments:
-        --hide-tags: Do not print tags
-        --hide-props: Do not print secondary properties
+        --hide-tags: Do not print tags.
+        --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
-        --raw: Print the nodes in their raw format
-            (overrides --hide-tags and --hide-props)
-        --debug: Display cmd debug information along with nodes in raw format
-            (overrides --hide-tags, --hide-props and raw)
+        --show-nodeedits:  Show full nodeedits (otherwise printed as a single . per edit).
+        --editformat <format>: What format of edits the server shall emit.
+                Options are
+                   * nodeedits (default),
+                   * count (just counts of nodeedits), or
+                   * none (no such messages emitted).
+        --show-prov:  Deprecated. This no longer does anything.
+        --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
+        --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
-        --graph: Get graph information about returned nodes.
+        --show <names>: Limit storm events (server-side) to the comma-separated list.
+        --file <path>: Run the storm query specified in the given file path.
+        --optsfile <path>: Run the query with the given options from a JSON/YAML file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
         storm --debug inet:ipv4=1.2.3.4
-    '''
 
+    '''
     _cmd_name = 'storm'
+
+    editformat_enums = ('nodeedits', 'count', 'none')
     _cmd_syntax = (
-        ('--hide-tags', {}),
+        ('--hide-tags', {}),  # type: ignore
+        ('--show', {'type': 'valu'}),
+        ('--show-nodeedits', {}),
+        ('--show-prov', {}),  # TODO: remove in 3.0.0
+        ('--editformat', {'type': 'enum', 'defval': 'nodeedits', 'enum:vals': editformat_enums}),
+        ('--file', {'type': 'valu'}),
+        ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
         ('--debug', {}),
-        ('--graph', {}),
         ('--path', {}),
+        ('--save-nodes', {'type': 'valu'}),
         ('query', {'type': 'glob'}),
     )
 
     def __init__(self, cli, **opts):
         s_cli.Cmd.__init__(self, cli, **opts)
-        self.reac = s_reactor.Reactor()
-        self.reac.act('node', self._onNode)
-        self.reac.act('init', self._onInit)
-        self.reac.act('fini', self._onFini)
-        self.reac.act('print', self._onPrint)
-        self.reac.act('warn', self._onWarn)
+        self.cmdmeths = {
+            'node': self._onNode,
+            'init': self._onInit,
+            'fini': self._onFini,
+            'print': self._onPrint,
+            'warn': self._onWarn,
+            'err': self._onErr,
+            'node:edits': self._onNodeEdits,
+            'node:edits:count': self._onNodeEditsCount,
+        }
+        self._indented = False
 
-    def _onNode(self, mesg):
+    def printf(self, mesg, addnl=True, color=None):
+        if self._indented:
+            s_cli.Cmd.printf(self, '')
+            self._indented = False
+        return s_cli.Cmd.printf(self, mesg, addnl=addnl, color=color)
 
+    def _onNodeEdits(self, mesg, opts):
+        edit = mesg[1]
+        if not opts.get('show-nodeedits'):
+            count = sum(len(e[2]) for e in edit.get('edits', ()))
+            s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+            self._indented = True
+            return
+
+        self.printf(repr(mesg), color=NODEEDIT_COLOR)
+
+    def _onNodeEditsCount(self, mesg, opts):
+        count = mesg[1].get('count', 1)
+        s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+        self._indented = True
+
+    def _printNodeProp(self, name, valu):
+        self.printf(f'        {name} = {valu}')
+
+    def _onNode(self, mesg, opts):
         node = mesg[1]
-        opts = node[1].pop('_opts', {})
-        formname = node[0][0]
-
-        formvalu = node[1].get('repr')
-        if formvalu is None:
-            formvalu = str(node[0][1])
 
         if opts.get('raw'):
             self.printf(repr(node))
             return
 
+        formname, formvalu = s_node.reprNdef(node)
+
         self.printf(f'{formname}={formvalu}')
 
         if not opts.get('hide-props'):
 
-            for name, valu in sorted(node[1]['props'].items()):
+            for name in sorted(s_node.props(node).keys()):
 
-                valu = node[1]['reprs'].get(name, valu)
+                valu = s_node.reprProp(node, name)
 
                 if name[0] != '.':
                     name = ':' + name
-
-                self.printf(f'        {name} = {valu}')
+                self._printNodeProp(name, valu)
 
         if not opts.get('hide-tags'):
 
-            for tag in sorted(s_node.tags(node, leaf=True)):
+            for tag in sorted(s_node.tagsnice(node)):
 
-                valu = node[1]['tags'].get(tag)
-                if valu == (None, None):
+                valu = s_node.reprTag(node, tag)
+                tprops = s_node.reprTagProps(node, tag)
+                printed = False
+                if valu:
+                    self.printf(f'        #{tag} = {valu}')
+                    printed = True
+                if tprops:
+                    for prop, pval in tprops:
+                        self.printf(f'        #{tag}:{prop} = {pval}')
+                    printed = True
+                if not printed:
                     self.printf(f'        #{tag}')
-                    continue
 
-                mint = s_time.repr(valu[0])
-                maxt = s_time.repr(valu[1])
-                self.printf(f'        #{tag} = ({mint}, {maxt})')
+    def _onInit(self, mesg, opts):
+        tick = mesg[1].get('tick')
+        if tick is not None:
+            tick = s_time.repr(tick)
+            self.printf(f'Executing query at {tick}')
 
-    def _onInit(self, mesg):
-        pass
-
-    def _onFini(self, mesg):
+    def _onFini(self, mesg, opts):
         took = mesg[1].get('took')
         took = max(took, 1)
 
@@ -350,47 +333,112 @@ class StormCmd(s_cli.Cmd):
         pers = float(count) / float(took / 1000)
         self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
-    def _onPrint(self, mesg):
+    def _onPrint(self, mesg, opts):
         self.printf(mesg[1].get('mesg'))
 
-    def _onWarn(self, mesg):
-        warn = mesg[1].get('mesg')
-        self.printf(f'WARNING: {warn}')
+    def _onWarn(self, mesg, opts):
+        info = mesg[1]
+        warn = info.pop('mesg', '')
+        xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
+        if xtra:
+            warn = ' '.join([warn, xtra])
+        self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
+
+    def _onErr(self, mesg, opts):
+        err = mesg[1]
+        if err[0] == 'BadSyntax':
+            pos = err[1].get('at', None)
+            text = err[1].get('text', None)
+            tlen = len(text)
+            mesg = err[1].get('mesg', None)
+            if pos is not None and text is not None and mesg is not None:
+                text = text.replace('\n', ' ')
+                # Handle too-long text
+                if tlen > 60:
+                    text = text[max(0, pos - 30):pos + 30]
+                    if pos < tlen - 30:
+                        text += '...'
+                    if pos > 30:
+                        text = '...' + text
+                        pos = 33
+
+                self.printf(text, color=BLUE)
+                self.printf(f'{" "*pos}^', color=BLUE)
+                self.printf(f'Syntax Error: {mesg}', color=SYNTAX_ERROR_COLOR)
+                return
+
+        self.printf(f'ERROR: {err}', color=SYNTAX_ERROR_COLOR)
 
     async def runCmdOpts(self, opts):
 
         text = opts.get('query')
-        if text is None:
+        filename = opts.get('file')
+
+        if bool(text) == bool(filename):
+            self.printf('Cannot use a storm file and manual query together.')
             self.printf(self.__doc__)
             return
 
+        if filename is not None:
+            try:
+                with open(filename, 'r') as fd:
+                    text = fd.read()
+
+            except FileNotFoundError:
+                self.printf('file not found: %s' % (filename,))
+                return
+
+        stormopts = {}
+        optsfile = opts.get('optsfile')
+        if optsfile is not None:
+            if not os.path.isfile(optsfile):
+                self.printf('optsfile not found: %s' % (optsfile,))
+                return
+            stormopts = s_common.yamlload(optsfile)
+
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
-        stormopts = {'repr': True}
+
+        stormopts.setdefault('repr', True)
         stormopts.setdefault('path', opts.get('path', False))
-        stormopts.setdefault('graph', opts.get('graph', False))
-        self.printf('')
+
+        showtext = opts.get('show')
+        if showtext is not None:
+            stormopts['show'] = showtext.split(',')
+
+        editformat = opts['editformat']
+        if editformat != 'nodeedits':
+            stormopts['editformat'] = editformat
+
+        nodesfd = None
+        if opts.get('save-nodes'):
+            nodesfd = s_common.genfile(opts.get('save-nodes'))
+            nodesfd.truncate(0)
 
         try:
 
-            async for mesg in await core.storm(text, opts=stormopts):
+            async for mesg in core.storm(text, opts=stormopts):
 
-                self._cmd_cli.fire('storm:mesg', mesg=mesg)
+                await self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
                 if opts.get('debug'):
                     self.printf(pprint.pformat(mesg))
+                    continue
 
+                if mesg[0] == 'node':
+
+                    if nodesfd is not None:
+                        byts = s_json.dumps(mesg[1], newline=True)
+                        nodesfd.write(byts)
+
+                try:
+                    func = self.cmdmeths[mesg[0]]
+                except KeyError:
+                    if hide_unknown:
+                        continue
+                    self.printf(repr(mesg), color=UNKNOWN_COLOR)
                 else:
-                    if mesg[0] == 'node':
-                        # Tuck the opts into the node dictionary since
-                        # they control node metadata display
-                        mesg[1][1]['_opts'] = opts
-                    try:
-                        self.reac.react(mesg)
-                    except s_exc.NoSuchAct as e:
-                        if hide_unknown:
-                            continue
-                        self.printf(repr(mesg))
+                    func(mesg, opts)
 
         except s_exc.SynErr as e:
 
@@ -399,3 +447,8 @@ class StormCmd(s_cli.Cmd):
                 return
 
             raise
+
+        finally:
+
+            if nodesfd is not None:
+                nodesfd.close()

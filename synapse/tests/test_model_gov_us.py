@@ -5,7 +5,8 @@ class UsGovTest(s_t_utils.SynTest):
     async def test_models_usgov_cage(self):
 
         async with self.getTestCore() as core:
-            input_props = {
+            valu = '7qe71'
+            props = {
                 'street': '123 Main St',
                 'city': 'Smallville',
                 'state': 'Kansas',
@@ -16,23 +17,23 @@ class UsGovTest(s_t_utils.SynTest):
                 'phone1': 17035551213,
                 'name0': 'Kent Labs',
             }
-            expected_props = {
-                'street': '123 main st',
-                'city': 'smallville',
-                'state': 'kansas',
-                'zip': 12345,
-                'cc': 'us',
-                'country': 'united states of america',
-                'phone0': '17035551212',
-                'phone1': '17035551213',
-                'name0': 'kent labs',
-            }
-            formname = 'gov:us:cage'
-            valu = '7qe71'
-            expected_ndef = (formname, valu)
-            async with await core.snap() as snap:
-                n0 = await snap.addNode(formname, valu.upper(), input_props)
+            q = '''[(gov:us:cage=$valu
+                 :street=$p.street :city=$p.city :state=$p.state :zip=$p.zip
+                 :cc=$p.cc :country=$p.country
+                 :phone0=$p.phone0 :phone1=$p.phone1 :name0=$p.name0
+            )]'''
+            opts = {'vars': {'valu': valu, 'p': props}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
 
-            self.eq(n0.ndef, expected_ndef)
-            for prop, valu in expected_props.items():
-                self.eq(n0.get(prop), valu)
+            self.eq(node.ndef, ('gov:us:cage', '7qe71'))
+            self.eq(node.get('street'), '123 main st')
+            self.eq(node.get('city'), 'smallville')
+            self.eq(node.get('state'), 'kansas')
+            self.eq(node.get('zip'), 12345)
+            self.eq(node.get('cc'), 'us')
+            self.eq(node.get('country'), 'united states of america')
+            self.eq(node.get('phone0'), '17035551212')
+            self.eq(node.get('phone1'), '17035551213')
+            self.eq(node.get('name0'), 'kent labs')

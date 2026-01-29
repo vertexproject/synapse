@@ -1,28 +1,21 @@
 # vim:set ft=dockerfile:
-
-# Example Usage
-#
-# To Build:
-#   docker build -t vertexproject/synapse-cortex docker/images/cortex/Dockerfile
-#
-# To Run a example Cortex on port 27492:
-#   docker run -it -p 27492:27492 vertexproject/synapse-cortex
-
-FROM vertexproject/synapse-base-image2:py37
+FROM vertexproject/vtx-base-image:py311
 
 COPY synapse /build/synapse/synapse
-COPY setup.py /build/synapse/setup.py
-COPY MANIFEST.in /build/synapse/MANIFEST.in
+COPY README.rst /build/synapse/README.rst
+COPY pyproject.toml /build/synapse/pyproject.toml
 
-COPY docker/images/cortex/bootstrap.sh /build/synapse/bootstrap.sh
+COPY docker/rmlist.txt /build/synapse/rmlist.txt
+COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
 COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
 
 RUN /build/synapse/bootstrap.sh
 
-EXPOSE 80
-EXPOSE 443
+EXPOSE 4443
 EXPOSE 27492
 
-VOLUME /vertex/cortex
+VOLUME /vertex/storage
 
-ENTRYPOINT /vertex/synapse/entrypoint.sh
+ENTRYPOINT ["tini", "--", "/vertex/synapse/entrypoint.sh"]
+
+HEALTHCHECK --start-period=10s --retries=1 --timeout=10s --interval=30s CMD python -m synapse.tools.service.healthcheck -c cell:///vertex/storage/

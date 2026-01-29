@@ -1,4 +1,0 @@
-type: echoauth
-
-auth:en: True
-auth:admin: root:secretsauce

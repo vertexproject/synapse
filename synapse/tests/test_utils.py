@@ -1,20 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-synapse - test_utils.py.py
-Created on 10/21/17.
-
-Test for synapse.tests.utils classes
-"""
 import os
 import time
 import logging
+import unittest
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
+import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
-import synapse.lib.threads as s_threads
+import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 
@@ -102,23 +97,51 @@ class TestUtils(s_t_utils.SynTest):
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
 
-    def test_syntest_logstream(self):
+        with self.raises(unittest.SkipTest) as cm:
+            self.skipIfNoPath('newpDoesNotExist', mesg='hehe')
+        self.isin('newpDoesNotExist mesg=hehe', str(cm.exception))
+
+    async def test_syntest_logstream(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
+
+        stream.expect('error message')
+        with self.raises(s_exc.SynErr):
+            stream.expect('does not exist')
+
+        self.eq(str(stream), 'ruh roh i am a error message\n')
+        self.true(repr(stream).endswith('valu: ruh roh i am a error message>'))
+        self.true(repr(stream).startswith('<synapse.tests.utils.StreamEvent'))
+
         stream.seek(0)
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
 
+        with self.getAsyncLoggerStream('synapse.tests.test_utils') as stream:
+            logger.error('ruh roh i am a new message')
+
+        stream.expect('new message')
+        with self.raises(s_exc.SynErr):
+            stream.expect('does not exist')
+
+        stream.noexpect('newp')
+        with self.raises(s_exc.SynErr):
+            stream.noexpect('ruh roh')
+
+        self.eq(str(stream), 'ruh roh i am a new message\n')
+        self.true(repr(stream).endswith('valu: ruh roh i am a new message>'))
+        self.true(repr(stream).startswith('<synapse.tests.utils.AsyncStreamEvent'))
+
     def test_syntest_logstream_event(self):
 
         @s_common.firethread
-        def logathing():
+        def logathing(mesg):
             time.sleep(0.01)
-            logger.error('StreamEvent Test Message')
+            logger.error(mesg)
 
         logger.error('notthere')
         with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing()
+            thr = logathing('StreamEvent Test Message')
             self.true(stream.wait(10))
             thr.join()
 
@@ -127,15 +150,33 @@ class TestUtils(s_t_utils.SynTest):
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
 
+        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
+            thr = logathing(s_json.dumps({'mesg': 'Test Message'}).decode())
+            self.true(stream.wait(10))
+            thr.join()
+
+        msgs = stream.jsonlines()
+        self.len(1, msgs)
+        self.eq(msgs[0], {'mesg': 'Test Message'})
+
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
 
-        with self.setTstEnvars(foo=1, bar='joke', baz=1234) as cm:
+        with self.setTstEnvars(foo=1, bar='joke', baz=1234, FOO_THING=1, BAR_THING=0) as cm:
             self.none(cm)
             self.eq(os.environ.get('foo'), '1')
             self.eq(os.environ.get('bar'), 'joke')
             self.eq(os.environ.get('baz'), '1234')
+
+            self.thisEnvMust('FOO_THING', 'baz')
+            self.thisEnvMustNot('BAR_THING', 'NEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('MEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('BAR_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMustNot('FOO_THING')
 
         self.eq(os.environ.get('foo'), '1')
         self.eq(os.environ.get('bar'), '2')
@@ -147,104 +188,42 @@ class TestUtils(s_t_utils.SynTest):
         outp.expect('#1')
         self.raises(Exception, outp.expect, 'oh my')
 
-    def test_testenv(self):
-        ebus = s_eventbus.EventBus()
+    async def test_testenv(self):
 
-        with s_t_utils.TstEnv() as env:
+        async with s_t_utils.TstEnv() as env:
+
+            base = await s_base.Base.anit()
             foo = 'foo'
-            env.add('ebus', ebus, True)
             env.add('foo', foo)
+            env.add('base', base, fini=True)
 
-            self.true(env.ebus is ebus)
             self.true(env.foo is foo)
 
             def blah():
-                blah = env.blah
+                env.blah
 
             self.raises(AttributeError, blah)
 
-        self.true(ebus.isfini)
+        self.true(base.isfini)
 
-    def test_cmdg_simple_sequence(self):
+    async def test_cmdg_simple_sequence(self):
         cmdg = s_t_utils.CmdGenerator(['foo', 'bar'])
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'quit')
-        self.eq(cmdg(), 'quit')
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
+        with self.raises(Exception):
+            await cmdg()
 
-    def test_cmdg_evnt(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        cmdg.fire('syn:cmdg:add', cmd='hehe')
-        self.eq(cmdg(), 'hehe')
-        self.eq(cmdg(), 'spam')
+    async def test_cmdg_end_exception(self):
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar', EOFError()])
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
 
-    def test_cmdg_end_actions(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        self.eq(cmdg(), 'spam')
+        with self.raises(EOFError):
+            await cmdg()
 
-    def test_cmdg_end_exception(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=EOFError)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        with self.raises(EOFError) as cm:
-            cmdg()
-        self.assertIn('No further actions', str(cm.exception))
-
-    def test_cmdg_end_exception_unknown(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=1)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
         with self.raises(Exception) as cm:
-            cmdg()
-        self.assertIn('Unhandled end action', str(cm.exception))
-
-    def test_teststeps(self):
-
-        # Helper function - he is used a few times
-        def setStep(w, stepper, step):
-            time.sleep(w)
-            stepper.done(step)
-
-        with s_threads.Pool() as pool:
-
-            names = ['hehe', 'haha', 'ohmy']
-            tsteps = self.getTestSteps(names)
-            self.isinstance(tsteps, s_t_utils.TestSteps)
-
-            tsteps.done('hehe')
-            self.true(tsteps.wait('hehe', 1))
-
-            pool.call(setStep, 0.1, tsteps, 'haha')
-            self.true(tsteps.wait('haha', 1))
-
-            pool.call(setStep, 0.2, tsteps, 'ohmy')
-            self.raises(s_exc.StepTimeout, tsteps.wait, 'ohmy', 0.01)
-            self.true(tsteps.wait('ohmy', 1))
-
-            # use the waitall api
-            tsteps = self.getTestSteps(names)
-
-            pool.call(setStep, 0.01, tsteps, 'hehe')
-            pool.call(setStep, 0.10, tsteps, 'haha')
-            pool.call(setStep, 0.05, tsteps, 'ohmy')
-            self.true(tsteps.waitall(1))
-
-            tsteps = self.getTestSteps(names)
-            self.raises(s_exc.StepTimeout, tsteps.waitall, 0.1)
-
-            # Use the step() api
-            tsteps = self.getTestSteps(names)
-            pool.call(setStep, 0.1, tsteps, 'haha')
-            self.true(tsteps.step('hehe', 'haha', 1))
-
-            tsteps = self.getTestSteps(names)
-            self.raises(s_exc.StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+            await cmdg()
+            self.assertIn('No further actions', str(cm.exception))
 
     def test_istufo(self):
         node = (None, {})
@@ -257,15 +236,6 @@ class TestUtils(s_t_utils.SynTest):
         self.raises(AssertionError, self.istufo, (1234, set()))
         self.raises(AssertionError, self.istufo, (None, set()))
 
-    async def test_getTestCell(self):
-        with self.getTestDir() as dirn:
-            boot = {'auth:en': True}
-            conf = {'test': 1}
-            async with await self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
-                self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
-                self.eq(cortex.conf.get('test'), 1)
-                self.eq(cortex.boot.get('auth:en'), True)
-
     async def test_async(self):
 
         async def araiser():
@@ -273,12 +243,81 @@ class TestUtils(s_t_utils.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    async def test_dmoncoreaxon(self):
-        async with self.getTestDmonCortexAxon() as dmon:
-            self.isin('core', dmon.cells)
-            self.isin('axon00', dmon.cells)
-            self.isin('blobstor00', dmon.cells)
+    async def test_storm_msgs(self):
 
-            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                node = await core.addNode('teststr', 'hehe')
-                self.nn(node)
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('[test:str=1234] | count')
+            self.stormIsInPrint('Counted 1 nodes.', msgs)
+
+            msgs = await core.stormlist('iden newp')
+            self.stormIsInWarn('Failed to decode iden', msgs)
+
+            msgs = await core.stormlist('[test:str=')
+            self.stormIsInErr("Unexpected token 'end of input'", msgs)
+
+            with self.raises(AssertionError):
+                self.stormHasNoErr(msgs)
+
+            with self.raises(AssertionError):
+                self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('test:str')
+            self.stormHasNoErr(msgs)
+
+            msgs = await core.stormlist('test:str $lib.warn("oh hi")')
+            with self.raises(AssertionError):
+                self.stormHasNoWarnErr(msgs)
+
+    def test_utils_certdir(self):
+        oldcertdirn = s_certdir.getCertDirn()
+        oldcertdir = s_certdir.getCertDir()
+
+        self.eq(1, oldcertdir.pathrefs[oldcertdirn])
+
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'haha')
+
+            # Patch the singleton related functionality
+            with self.getTestCertDir(path) as certdir:
+
+                # The singleton functionality now refers to the patched objects
+                self.eq(1, certdir.pathrefs[path])
+                self.true(certdir is s_certdir.getCertDir())
+                self.false(oldcertdir is s_certdir.getCertDir())
+
+                self.eq(path, s_certdir.getCertDirn())
+                self.ne(oldcertdirn, s_certdir.getCertDirn())
+
+                # Adding / deleting paths does not affect the old singleton
+                newpath = s_common.genpath(dirn, 'hehe')
+                s_certdir.addCertPath(newpath)
+                self.eq(1, certdir.pathrefs[path])
+                self.eq(1, certdir.pathrefs[newpath])
+                self.eq(1, oldcertdir.pathrefs[oldcertdirn])
+
+                s_certdir.delCertPath(newpath)
+                self.eq(1, certdir.pathrefs[path])
+                self.eq(None, certdir.pathrefs.get(newpath))
+                self.eq(1, oldcertdir.pathrefs[oldcertdirn])
+
+        # Patch is removed and singleton behavior is restored
+        self.true(oldcertdir is s_certdir.getCertDir())
+        self.eq(oldcertdirn, s_certdir.getCertDirn())
+
+    async def test_checknode(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:comp=(1, test)]')
+            self.len(1, nodes)
+            self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'newp')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
+            with self.getAsyncLoggerStream('synapse.tests.utils', 'untested properties') as stream:
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
+                self.true(await stream.wait(timeout=12))
+
+            await self.checkNodes(core, [('test:comp', (1, 'test')),])
+            with self.raises(AssertionError):
+                await self.checkNodes(core, [('test:comp', (1, 'newp')),])

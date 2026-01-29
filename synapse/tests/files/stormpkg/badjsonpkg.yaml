@@ -1,0 +1,8 @@
+name: badjsonpkg
+version: 0.0.1
+
+modules:
+    - name: testmod
+      modconf:
+        test: valu
+        1234: newp

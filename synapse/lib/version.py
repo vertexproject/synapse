@@ -6,6 +6,9 @@ import string
 
 import regex
 
+import packaging.version as p_version
+import packaging.specifiers as p_specifiers
+
 # This module is imported during synapse.__init__.  As such, we can't pull
 # arbitrary modules from Synapse here. synapse.exc is currently safe,
 # but we should not add other modules to this module.
@@ -14,7 +17,8 @@ import synapse.exc as s_exc
 vseps = ('.', '-', '_', '+')
 mask20 = 0xFFFFF
 mask60 = 0xFFFFFFFFFFFFFFF
-semver_re = regex.compile(r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$''')
+semverstr = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
+semver_re = regex.compile(semverstr)
 
 def parseSemver(text):
     '''
@@ -180,8 +184,45 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
+def matches(vers, cmprvers):
+    '''
+    Check if a version string matches a version comparison string.
+    '''
+    spec = p_specifiers.SpecifierSet(cmprvers)
+    return p_version.Version(vers) in spec
+
+def reqVersion(valu, reqver,
+               exc=s_exc.BadVersion,
+               mesg='Provided version does not match required version.'):
+    '''
+    Require a given version tuple is valid for a given requirements string.
+
+    Args:
+        valu Optional[Tuple[int, int, int]]: Major, minor and patch value to check.
+        reqver (str): A requirements version string.
+        exc (s_exc.SynErr): The synerr class to raise.
+        mesg (str): The message to pass in the exception.
+
+    Returns:
+        None: If the value is in bounds of minver and maxver.
+
+    Raises:
+        s_exc.BadVersion: If a precondition is incorrect or a version value is out of bounds.
+    '''
+    if valu is None:
+        mesg = 'Version value is missing.  ' + mesg
+        raise exc(mesg=mesg, valu=valu, reqver=reqver)
+
+    spec = p_specifiers.SpecifierSet(reqver)
+    verstr = fmtVersion(*valu)
+    vers = p_version.Version(verstr)
+
+    if vers not in spec:
+        raise exc(mesg=mesg, valu=valu, verstr=verstr, reqver=reqver)
+
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (0, 1, 0)
+version = (2, 231, 0)
 verstring = '.'.join([str(x) for x in version])
+commit = ''

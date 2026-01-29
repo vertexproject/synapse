@@ -1,11 +1,12 @@
 import csv
-import json
 import regex
 import base64
 import codecs
 import xml.etree.ElementTree as x_etree
 
 import synapse.exc as s_exc
+
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 
 def _de_base64(item, **opts):
@@ -32,13 +33,13 @@ def _de_utf8(byts, **opts):
     return byts.decode('utf8')
 
 decoders = {
-    'utf8': _de_utf8,
-    'base64': _de_base64,
+    'utf8': _de_utf8,  # type: ignore
+    'base64': _de_base64,  # type: ignore
 }
 
 encoders = {
-    'utf8': _en_utf8,
-    'base64': _en_base64,
+    'utf8': _en_utf8,  # type: ignore
+    'base64': _en_base64,  # type: ignore
 }
 
 def decode(name, byts, **opts):
@@ -101,7 +102,7 @@ def _xml_stripns(e):
 
 
 def _fmt_xml(fd, gest):
-    #TODO stream XML for huge files
+    # TODO stream XML for huge files
     elem = x_etree.fromstring(fd.read())
     _xml_stripns(elem)
     yield {elem.tag: elem}
@@ -176,11 +177,11 @@ def _fmt_lines(fd, gest):
         yield line
 
 def _fmt_json(fd, info):
-    yield json.loads(fd.read())
+    yield s_json.load(fd)
 
 def _fmt_jsonl(fd, info):
     for line in fd:
-        yield json.loads(line)
+        yield s_json.loads(line)
 
 def _fmt_mpk(fd, info):
     yield from s_msgpack.iterfd(fd)
