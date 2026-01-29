@@ -6503,10 +6503,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 info = {}
             info['text'] = text
             # username and user here are logged twice.
-            # info['username'] = user.name
-            # info['user'] = user.iden
+            info['username'] = user.name
+            info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
-            # TODO Understand why this is using s_logging.getLogExtra instead of self.getLogExtra
+             # TODO Understand why this is using s_logging.getLogExtra instead of self.getLogExtra
             extra = s_logging.getLogExtra(**info)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra=extra)
