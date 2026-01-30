@@ -9738,6 +9738,9 @@ class LibCron(Lib):
         period = period.lower()
 
         if period == 'hourly':
+            if timepart is None:
+                mesg = 'Hourly period requires explicit minute'
+                raise s_exc.BadTime(mesg=mesg)
             incunit = 'hour'
             reqs.setdefault('minute', 0)
             if vals:

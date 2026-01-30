@@ -114,7 +114,7 @@ Examples:
     cron.add --period daily@14:30 { $lib.print(daily) }
 
     # Run every 2 hours at minute 0
-    cron.add --period hourly/2 { $lib.print(hourly) }
+    cron.add --period hourly/2@:00 { $lib.print(hourly) }
 
     # Run every hour at minute 25
     cron.add --period hourly@:25 { $lib.print(hourly) }
@@ -815,6 +815,9 @@ stormcmds = (
             ('--period', {'help': 'The new recurrence period for the cron job.'}),
         ),
         'storm': '''
+            if (not $cmdopts.query and not $cmdopts.period) {
+                $lib.raise(BadArg, 'One of the argument <query> or --period option is required.')
+            }
             $iden = $lib.cron.mod($cmdopts.iden, query=$cmdopts.query, period=$cmdopts.period)
             $lib.print("Modified cron job: {iden}", iden=$iden)
         ''',

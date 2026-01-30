@@ -673,7 +673,7 @@ class Agenda(s_base.Base):
         appt.enabled = False
         await appt.save()
 
-    async def mod(self, iden, cdef=None):
+    async def mod(self, iden, cdef):
         '''
         Modify an existing appointment
         '''
@@ -682,8 +682,8 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        if cdef is None:
-            cdef = {}
+        if not cdef:
+            return
 
         query = cdef.get('query')
         if query is not None:

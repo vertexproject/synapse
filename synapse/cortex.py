@@ -6952,8 +6952,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
 
         if (all(param is None for param in (query, reqs, incunit, incvals))):
-            mesg = 'One of the argument <query> or --period option is required.'
-            raise s_exc.BadArg(mesg=mesg)
+            return None
 
         if incunit is not None:
             incunit = s_agenda.TimeUnit.fromString(incunit)

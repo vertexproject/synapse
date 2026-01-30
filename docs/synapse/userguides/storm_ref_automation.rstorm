@@ -364,11 +364,11 @@ The output of ``cron.list`` includes the following columns:
 You want to create a cron job that will run every hour to download the latest MISP data using the ``misp.sync`` command.
 
 .. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'misp.sync', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: cron.add --period hourly { misp.sync }
+.. storm-pre:: cron.add --period hourly@:00 { misp.sync }
 
 ::
   
-  cron.add --period hourly { misp.sync }
+  cron.add --period hourly@:00 { misp.sync }
 
 .. TIP::
   

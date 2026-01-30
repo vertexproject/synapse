@@ -1439,6 +1439,10 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(appt.recs[0].reqdict[s_tu.HOUR], 12)
             self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 0)
 
+            # modify without a cdef is a no-op
+            self.none(await core.updateCronJob(guid))
+            self.none(await agenda.mod(guid, None))
+
             # sad
 
             # modify period with 'now' and recurring
@@ -1458,9 +1462,6 @@ class AgendaTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadConfValu,
                 core.updateCronJob(guid, reqs={'hour': 10}, incunit='day', incvals=1)
             )
-
-            # modify with no arguments
-            await self.asyncraises(s_exc.BadArg, core.updateCronJob(guid))
 
             # modify with an invalid iden
             await self.asyncraises(s_exc.NoSuchIden, agenda.mod(
@@ -1513,7 +1514,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(incval, 1)
 
             # test hourly period with increment
-            msgs = await core.stormlist('cron.add --period hourly/2 { $lib.print(every2hours) }')
+            msgs = await core.stormlist('cron.add --period hourly/2@:00 { $lib.print(every2hours) }')
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
             self.len(2, crons)
@@ -1606,8 +1607,10 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period "bad//format" { $lib.print(err) }', 'Failed to parse period'),
                 ('cron.add --period daily@newp:00 { $lib.print(err) }', 'Invalid hour value: newp'),
                 ('cron.add --period daily@10:newp { $lib.print(err) }', 'Invalid minute value: newp'),
+                ('cron.add --period hourly { $lib.print(err) }', 'Hourly period requires explicit minute'),
+                ('cron.add --period hourly/2 { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add --period hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
-                ('cron.add --period hourly/newp { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add --period hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period'),
                 ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
                 ('cron.add --period monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),
@@ -1640,7 +1643,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(incunit, 'day')
 
             # modify period only
-            msgs = await core.stormlist('cron.mod $guid --period hourly/2', opts=opts)
+            msgs = await core.stormlist('cron.mod $guid --period hourly/2@:00', opts=opts)
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
             cron = [c for c in crons if c['iden'] == guid][0]
@@ -1689,9 +1692,9 @@ class AgendaTest(s_t_utils.SynTest):
             msgs = await core.stormlist('cron.mod nonexistent { $lib.print(modified) }')
             self.stormIsInErr('does not match any valid', msgs)
 
-            # modify non-existent cron
-            msgs = await core.stormlist('cron.mod nonexistent --period daily')
-            self.stormIsInErr('does not match any valid', msgs)
+            # modify with no arguments
+            msgs = await core.stormlist('cron.mod $guid', opts=opts)
+            self.stormIsInErr('One of the argument <query> or --period option is required.', msgs)
 
             # modify with invalid period
             cdef = {'creator': core.auth.rootuser.iden,
