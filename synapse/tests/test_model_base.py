@@ -55,10 +55,10 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:note:created<=now'))
             self.len(1, await core.nodes('meta:note:updated<=now'))
             self.len(1, await core.nodes('meta:note:created +(:created = :updated)'))
-            self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
+            self.len(1, await core.nodes('meta:note:creator=(syn:user, $lib.user.iden)'))
             self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
             self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
-            self.len(1, await core.nodes('meta:note [ :author={[ entity:contact=* :name=visi ]} ]'))
+            self.len(1, await core.nodes('meta:note [ :creator={[ entity:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('entity:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
 

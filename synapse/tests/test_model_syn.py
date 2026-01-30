@@ -68,7 +68,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('name'), 'syn:user')
 
             with self.raises(s_exc.BadTypeValu) as exc:
-                await core.callStorm('[ it:exec:query=* :synuser=* ]')
+                await core.callStorm('$lib.cast(syn:user, *)')
+
             self.isin('syn:user values must be a valid username or a guid.', exc.exception.get('mesg'))
             self.eq(exc.exception.get('valu'), '*')
             self.eq(exc.exception.get('name'), 'syn:user')
@@ -117,7 +118,7 @@ class SynModelTest(s_t_utils.SynTest):
             visi = await core.addUser('visi')
             view = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            q = '[proj:project=(p1,) :creator=visi ]'
+            q = '[proj:project=(p1,) :creator={[ syn:user=visi ]} ]'
             msgs = await core.stormlist(q, opts={'view': view})
             self.stormHasNoWarnErr(msgs)
 

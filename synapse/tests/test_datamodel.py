@@ -139,6 +139,21 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addIface('test:iface', {})
 
+        modl.addType('test:form', 'guid', {}, {})
+        modl.addForm('test:form', {}, ())
+
+        with self.raises(s_exc.DupName):
+            modl.addIface('test:iface', {})
+
+        with self.raises(s_exc.DupName):
+            modl.addIface('test:form', {})
+
+        with self.raises(s_exc.DupName):
+            modl.addForm('test:iface', {}, ())
+
+        with self.raises(s_exc.DupName):
+            modl.addForm('test:form', {}, ())
+
         modl.addType('bar', 'int', {}, {})
         modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
 

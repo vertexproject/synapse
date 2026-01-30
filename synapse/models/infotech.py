@@ -719,6 +719,36 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
+            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Group ID.',
+                'ex': 'G0100',
+            }),
+
+            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Tactic ID.',
+                'ex': 'TA0040',
+            }),
+
+            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+                'doc': 'A MITRE ATT&CK Technique ID.',
+                'ex': 'T1548',
+            }),
+
+            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Mitigation ID.',
+                'ex': 'M1036',
+            }),
+
+            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Software ID.',
+                'ex': 'S0154',
+            }),
+
+            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Campaign ID.',
+                'ex': 'C0028',
+            }),
+
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'string'}}),
@@ -808,13 +838,13 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
-                'prevnames': ('it:prod:soft', 'it:prod:softver'),
+                'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
                 'interfaces': (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
-                'doc': 'A software product.'}),
+                'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
                 'prevnames': ('it:prod:softname',),
@@ -1661,6 +1691,13 @@ modeldefs = (
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
 
+            ('it:mitre:attack:group:id', {}, ()),
+            ('it:mitre:attack:tactic:id', {}, ()),
+            ('it:mitre:attack:technique:id', {}, ()),
+            ('it:mitre:attack:mitigation:id', {}, ()),
+            ('it:mitre:attack:software:id', {}, ()),
+            ('it:mitre:attack:campaign:id', {}, ()),
+
             ('it:dev:int', {}, ()),
             ('it:os:windows:registry:key', {}, (
                 ('parent', ('it:os:windows:registry:key', {}), {
@@ -1986,6 +2023,9 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
 
+                ('risk:score', ('meta:score', {}), {
+                    'doc': 'The risk posed by the software.'}),
+
             )),
 
             ('it:host:installed', {}, (
@@ -2176,14 +2216,11 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('synuser', ('syn:user', {}), {
-                    'doc': 'The synapse user who executed the query.'}),
+                ('account', ('ndef', {'forms': ('syn:user', 'it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the query.'}),
 
-                ('service:platform', ('inet:service:platform', {}), {
+                ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which ran the query.'}),
             )),
             ('it:exec:thread', {}, (
 

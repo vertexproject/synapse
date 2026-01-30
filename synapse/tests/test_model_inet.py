@@ -2592,9 +2592,9 @@ class InetModelTest(s_t_utils.SynTest):
                         :text=Vertex
                 ]}
                 :attachments={[
-                    inet:email:message:attachment=*
+                    file:attachment=*
                         :file=*
-                        :name=sploit.exe
+                        :path=sploit.exe
                 ]}
             ]
             '''
@@ -2615,12 +2615,12 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:attachment +:path=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
             self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
-            self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
+            self.len(1, await core.nodes('inet:email:message -> file:attachment +:path=sploit.exe +:file'))
 
             self.len(1, await core.nodes('inet:email:header limit 1 | [:seen=2022]'))
 
@@ -3045,21 +3045,6 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('platform'), platform.ndef[1])
                 self.eq(node.get('of'), gnrlchan.ndef)
 
-            nodes = await core.nodes('''
-            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
-                :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
-                :name=pbjtime.gif
-                :text="peanut butter jelly time"
-                :seen=2022
-            ]
-            ''')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'pbjtime.gif')
-            self.eq(nodes[0].get('text'), 'peanut butter jelly time')
-            self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
-            self.nn(nodes[0].get('seen'))
-            attachment = nodes[0]
-
             q = '''
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
@@ -3078,7 +3063,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
-                    :mentions?=((inet:service:message:attachment, $atchiden),)
+                    :mentions?=((file:attachment, *),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
@@ -3090,7 +3075,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :account=$blckiden
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                 :links+=$linkiden
-                :attachments+=$atchiden
+                :attachments+={[ file:attachment=* ]}
 
                 :place:name=nyc
                 :place = { gen.geo.place nyc }
@@ -3106,7 +3091,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'devsiden': devsgrp.ndef[1],
                 'gnrliden': gnrlchan.ndef[1],
                 'linkiden': msglink.ndef[1],
-                'atchiden': attachment.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)

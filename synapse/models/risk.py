@@ -599,11 +599,8 @@ modeldefs = (
                     'ex': 'benign.false_positive',
                     'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
-                ('assignee', ('syn:user', {}), {
-                    'doc': 'The Synapse user who is assigned to investigate the alert.'}),
-
-                ('ext:assignee', ('entity:contact', {}), {
-                    'doc': 'The alert assignee contact information from an external system.'}),
+                ('assignee', ('entity:actor', {}), {
+                    'doc': 'The actor who is assigned to investigate the alert.'}),
 
                 ('engine', ('it:software', {}), {
                     'doc': 'The software that generated the alert.'}),
