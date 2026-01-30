@@ -94,20 +94,11 @@ class JsonFormatter(logging.Formatter):
         if hasattr(record, 'loginfo'):
             loginfo.update(record.loginfo)
 
-        user = None
-        if (runt := s_scope.get('runt')) is not None:
-            # Give preference to runtime user?
-            if (user := runt.user) is not None:
-                loginfo['user'] = user.iden
-                loginfo['username'] = user.name
-
-        elif user is not None and (user := s_scope.get('user')) is not None:
-        # if (user := s_scope.get('user')) is not None:
+        if (user := s_scope.get('user')) is not None:
             loginfo['user'] = user.iden
             loginfo['username'] = user.name
 
         elif (sess := s_scope.get('sess')) is not None:
-            # loginfo['sess'] = sess.iden
             if sess.user is not None:
                 loginfo['user'] = sess.user.iden
                 loginfo['username'] = sess.user.name
