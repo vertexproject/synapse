@@ -382,10 +382,10 @@ that make DNS queries (``inet:dns:request``) for "known bad" FQDNs (e.g., tagged
 have not yet been tagged. You want to run the job three times a week (every Tuesday, Thursday, and Saturday at
 2000 UTC) and tag the files for review (``#int.review.malware``).
 
-.. storm-pre:: cron.add --period weekly/tue,thu,sat@20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
+.. storm-pre:: cron.add --period weekly/tue,thu,sat@20:00 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 ::
   
-  cron.add --period weekly/tue,thu,sat@20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
+  cron.add --period weekly/tue,thu,sat@20:00 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 
 
 .. _auto-triggers:

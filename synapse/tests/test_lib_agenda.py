@@ -306,8 +306,8 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Modify the last appointment
-                await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
-                await agenda.mod(guid2, '#baz')
+                await self.asyncraises(ValueError, agenda.mod(guid2, {'query': ''}))
+                await agenda.mod(guid2, {'query': '#baz'})
                 self.eq(agenda.appts[guid2].query, '#baz')
 
                 # Delete the other recurring appointment
@@ -1464,7 +1464,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # modify with an invalid iden
             await self.asyncraises(s_exc.NoSuchIden, agenda.mod(
-                'nonexistent', query='#test'))
+                'nonexistent', {'query': '#test'}))
 
             # modify a recurring period that's in the past
             cdef = {'creator': core.auth.rootuser.iden,
@@ -1476,11 +1476,12 @@ class AgendaTest(s_t_utils.SynTest):
             adef = await agenda.add(cdef)
             guid = adef.get('iden')
             past_year = datetime.datetime.now(tz.utc).year - 1
-            await self.asyncraises(s_exc.BadTime, agenda.mod(guid,
-                reqs={s_tu.YEAR: past_year, s_tu.MONTH: 1, s_tu.DAYOFMONTH: 1,
-                     s_tu.HOUR: 0, s_tu.MINUTE: 0},
-                incunit=s_agenda.TimeUnit.YEAR,
-                incvals=1))
+            await self.asyncraises(s_exc.BadTime, agenda.mod(guid, cdef={
+                'reqs': {s_tu.YEAR: past_year, s_tu.MONTH: 1, s_tu.DAYOFMONTH: 1,
+                         s_tu.HOUR: 0, s_tu.MINUTE: 0},
+                'incunit': s_agenda.TimeUnit.YEAR,
+                'incvals': 1,
+            }))
 
             # modify with empty increment values
             cdef = {'creator': core.auth.rootuser.iden,
@@ -1491,10 +1492,11 @@ class AgendaTest(s_t_utils.SynTest):
                     'incvals': 1}
             adef = await agenda.add(cdef)
             guid = adef.get('iden')
-            await self.asyncraises(s_exc.BadTime, agenda.mod(guid,
-                reqs={s_tu.HOUR: 11, s_tu.MINUTE: 0},
-                incunit=s_agenda.TimeUnit.DAY,
-                incvals=[]))
+            await self.asyncraises(s_exc.BadTime, agenda.mod(guid, cdef={
+                'reqs': {s_tu.HOUR: 11, s_tu.MINUTE: 0},
+                'incunit': s_agenda.TimeUnit.DAY,
+                'incvals': [],
+            }))
 
     async def test_agenda_period_add_storm(self):
 

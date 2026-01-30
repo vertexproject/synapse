@@ -662,7 +662,7 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        await self.mod(iden, appt.query)
+        await self.mod(iden, {'query': appt.query})
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
@@ -673,7 +673,7 @@ class Agenda(s_base.Base):
         appt.enabled = False
         await appt.save()
 
-    async def mod(self, iden, query=None, reqs=None, incunit=None, incvals=None):
+    async def mod(self, iden, cdef=None):
         '''
         Modify an existing appointment
         '''
@@ -682,13 +682,20 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
+        if cdef is None:
+            cdef = {}
+
+        query = cdef.get('query')
         if query is not None:
             if not query:
                 raise ValueError('empty query')
             await self.core.getStormQuery(query)
             appt.query = query
 
-        if reqs or incunit or incvals:
+        reqs = cdef.get('reqs')
+        incunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        if reqs is not None or incunit is not None or incvals is not None:
 
             recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
 

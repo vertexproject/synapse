@@ -6964,7 +6964,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = "Recurring jobs may not be scheduled to run 'now'"
                 raise s_exc.BadConfValu(mesg)
 
-        cdef = await self.agenda.mod(iden, query=query, reqs=reqs, incunit=incunit, incvals=incvals)
+        cdef = {}
+        if query is not None:
+            cdef['query'] = query
+
+        if reqs is not None or incunit is not None or incvals is not None:
+            cdef['reqs'] = reqs
+            cdef['incunit'] = incunit
+            cdef['incvals'] = incvals
+
+        cdef = await self.agenda.mod(iden, cdef=cdef)
         if query is not None:
             await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
 
