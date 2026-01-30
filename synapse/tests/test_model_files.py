@@ -742,12 +742,14 @@ class FileTest(s_t_utils.SynTest):
                     :path=Foo/Bar.exe
                     :text="foo bar"
                     :file=*
+                    :seen=2022
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.eq(nodes[0].get('text'), 'foo bar')
             self.eq(nodes[0].get('path'), 'foo/bar.exe')
+            self.nn(nodes[0].get('seen'))
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
             self.len(1, await core.nodes('file:attachment -> file:path'))

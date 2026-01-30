@@ -1927,11 +1927,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :key=foo/bar/baz
                     :name=faz
                     :value={[ it:dev:int=0xf0 ]}
+                    :seen=2022
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].get('key'), 'foo/bar/baz')
             self.eq(nodes[0].get('name'), 'faz')
             self.eq(nodes[0].get('value'), ('it:dev:int', 0xf0))
+            self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))

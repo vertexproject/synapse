@@ -301,6 +301,10 @@ modeldefs = (
                 'doc': 'A file entry contained by a ZIP archive file.'}),
 
             ('file:attachment', ('file:entry', {}), {
+                'template': {'title': 'file attachment'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'path'}},

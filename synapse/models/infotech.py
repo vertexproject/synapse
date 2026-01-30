@@ -767,6 +767,9 @@ modeldefs = (
                 'doc': 'A Windows registry key.'}),
 
             ('it:os:windows:registry:entry', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registry entry'}}),
+                ),
                 'prevnames': ('it:dev:regval',),
                 'doc': 'A Windows registry key, name, and value.'}),
 
