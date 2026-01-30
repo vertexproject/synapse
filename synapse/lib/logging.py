@@ -97,7 +97,7 @@ class JsonFormatter(logging.Formatter):
         user = None
         if (runt := s_scope.get('runt')) is not None:
             # Give preference to runtime user?
-            if (user := runt.user ) is not None:
+            if (user := runt.user) is not None:
                 loginfo['user'] = user.iden
                 loginfo['username'] = user.name
 
