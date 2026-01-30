@@ -230,6 +230,19 @@ class NexsRoot(s_base.Base):
 
         logger.warning('...Nexus log migration complete')
 
+    async def getNexsInfo(self):
+        ret = {
+            'indx': await self.index(),
+            'ready': self.ready.is_set(),
+            'uplink:ready': self.miruplink.is_set(),
+            'readonly': self.readonly,
+            # This is a list of dictionaries so that we can populate metadata
+            # in the future if we want to do so.
+            'holds': sorted([{'reason': hold} for hold in self.writeholds],
+                                key=lambda x: x.get('reason'))
+        }
+        return ret
+
     @contextlib.contextmanager
     def _getResponseFuture(self, iden=None):
 
