@@ -318,6 +318,19 @@ class TestUtils(s_t_utils.SynTest):
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
                 self.true(await stream.wait(timeout=12))
 
-            await self.checkNodes(core, [('test:comp', (1, 'test')),])
+            await self.checkNodes(core, [('test:comp', (1, 'test'))])
             with self.raises(AssertionError):
-                await self.checkNodes(core, [('test:comp', (1, 'newp')),])
+                await self.checkNodes(core, [('test:comp', (1, 'newp'))])
+
+    async def test_propeq(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:str=foo :hehe=haha]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 'haha')
+            with self.raises(AssertionError):
+                self.propeq(nodes[0], 'hehe', 'newp')
+            with self.raises(AssertionError):
+                self.propeq(nodes[0], 'hehe', None)
+            self.propeq(nodes[0], 'gprop', None)
+            with self.raises(AssertionError):
+                self.propeq(nodes[0], 'gprop', 'newp')
