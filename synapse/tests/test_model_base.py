@@ -11,19 +11,22 @@ class BaseTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ meta:timeline=* :title=Woot :desc=4LOLZ :type=lol.cats ]')
             self.len(1, nodes)
-            nodes = await core.nodes('''
-                [ meta:event=* :title=Zip :period=(202203211400, 202203211520) :index=0
-                    :desc=Zop :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
-            self.len(1, nodes)
-            self.eq(0, nodes[0].get('index'))
-            nodes = await core.nodes('''[ meta:event=* :title=Hehe
-                    :desc=Haha :period=(202203221400, 202203221600) :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
+            nodes = await core.nodes('''[
+                meta:event=* :title=Hehe
+                    :desc=Haha :period=(202203221400, 202203221600)
+                    :type=hehe.haha
+                    <(has)+ {meta:timeline:title=Woot}
+                    +(about)> {[ inet:fqdn=vertex.link ]}
+            ]''')
             self.len(1, nodes)
 
-            self.len(2, await core.nodes('meta:timeline +:title=Woot +:desc=4LOLZ +:type=lol.cats -> meta:event'))
+            self.len(1, await core.nodes('meta:timeline +:title=Woot +:desc=4LOLZ +:type=lol.cats -(has)> meta:event'))
             self.len(1, await core.nodes('meta:timeline -> meta:timeline:type:taxonomy'))
-            self.len(2, await core.nodes('meta:event -> meta:event:type:taxonomy'))
-            self.len(1, await core.nodes('meta:event +:title=Hehe +:desc=Haha +:period.duration=2:00:00 +:type=hehe.haha +:timeline'))
+
+            self.len(1, await core.nodes('meta:event -(about)> inet:fqdn'))
+            self.len(1, await core.nodes('meta:event <(has)- meta:timeline'))
+            self.len(1, await core.nodes('meta:event -> meta:event:type:taxonomy'))
+            self.len(1, await core.nodes('meta:event +:title=Hehe +:desc=Haha +:period.duration=2:00:00 +:type=hehe.haha'))
 
     async def test_model_base_meta_taxonomy(self):
         async with self.getTestCore() as core:
@@ -52,10 +55,10 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:note:created<=now'))
             self.len(1, await core.nodes('meta:note:updated<=now'))
             self.len(1, await core.nodes('meta:note:created +(:created = :updated)'))
-            self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
+            self.len(1, await core.nodes('meta:note:creator=(syn:user, $lib.user.iden)'))
             self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
             self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
-            self.len(1, await core.nodes('meta:note [ :author={[ entity:contact=* :name=visi ]} ]'))
+            self.len(1, await core.nodes('meta:note [ :creator={[ entity:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('entity:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
 

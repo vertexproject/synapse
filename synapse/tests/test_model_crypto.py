@@ -102,8 +102,10 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :private:exponent=BB:BB
                     :private:coefficient=DDDD
                     :private:primes = {[ crypto:key:rsa:prime=({"value": "aaaa", "exponent": "bbbb"}) ]}
+                    :public:hashes = { crypto:hash:sha1=$sha1 }
+                    :private:hashes = { crypto:hash:sha256=$sha256 }
                 ]
-            ''')
+            ''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('bits'), 2048)
             self.eq(nodes[0].get('algorithm'), 'rsa')
@@ -111,6 +113,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('public:exponent'), 'cccc')
             self.eq(nodes[0].get('private:exponent'), 'bbbb')
             self.eq(nodes[0].get('private:coefficient'), 'dddd')
+            self.eq(nodes[0].get('public:hashes'), [('crypto:hash:sha1', TEST_SHA1)])
+            self.eq(nodes[0].get('private:hashes'), [('crypto:hash:sha256', TEST_SHA256)])
 
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:algorithm'))
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:key:rsa:prime'))
@@ -124,8 +128,11 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :public:p=cccc
                     :public:q=dddd
                     :public:g=eeee
+
+                    :public:hashes = { crypto:hash:sha1=$sha1 }
+                    :private:hashes = { crypto:hash:sha256=$sha256 }
                 ]
-            ''')
+            ''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('algorithm'), 'dsa')
             self.eq(nodes[0].get('public'), 'aaaa')
@@ -133,6 +140,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('public:p'), 'cccc')
             self.eq(nodes[0].get('public:q'), 'dddd')
             self.eq(nodes[0].get('public:g'), 'eeee')
+            self.eq(nodes[0].get('public:hashes'), [('crypto:hash:sha1', TEST_SHA1)])
+            self.eq(nodes[0].get('private:hashes'), [('crypto:hash:sha256', TEST_SHA256)])
 
             self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
 
@@ -151,8 +160,10 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :public:h=aaca
                     :public:x=aada
                     :public:y=aaea
+                    :public:hashes={crypto:hash:sha1=$sha1}
+                    :private:hashes={ crypto:hash:sha256=$sha256}
                 ]
-            ''')
+            ''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('algorithm'), 'ecdsa')
             self.eq(nodes[0].get('private'), 'ffff')
@@ -166,6 +177,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('public:h'), 'aaca')
             self.eq(nodes[0].get('public:x'), 'aada')
             self.eq(nodes[0].get('public:y'), 'aaea')
+            self.eq(nodes[0].get('public:hashes'), [('crypto:hash:sha1', TEST_SHA1)])
+            self.eq(nodes[0].get('private:hashes'), [('crypto:hash:sha256', TEST_SHA256)])
 
     async def test_model_crypto_currency(self):
 

@@ -135,6 +135,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :parent={[ meta:technique=* :name=metawoot ]}
+                    :used=(2025, 20260124)
                 ]
             ''')
             self.len(1, nodes)
@@ -147,6 +148,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq('Foo', nodes[0].get('id'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq(nodes[0].get('used'), (1735689600000000, 1769212800000000, 33523200000000))
             self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
@@ -174,18 +176,27 @@ class EntityModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ entity:conflict=*
                     :name="World War III"
-                    :timeline=*
                     :period=2049*
                 ]
             ''')
             self.eq(nodes[0].get('name'), 'world war iii')
             self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001, 1))
 
-            self.len(1, await core.nodes('entity:conflict -> meta:timeline'))
-
             nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={entity:conflict} ]')
             self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
             self.len(1, await core.nodes('entity:campaign:names*[="pacific campaign"]'))
+
+            nodes = await core.nodes('''[
+                entity:contactlist=*
+                    :name="Foo  Bar"
+                    :source={[ it:host=* ]}
+                    +(has)> {[ entity:contact=* entity:contact=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'foo bar')
+            self.eq(nodes[0].get('source')[0], 'it:host')
+            self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
+            self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
 
     async def test_entity_relationship(self):
 

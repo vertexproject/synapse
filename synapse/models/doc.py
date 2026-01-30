@@ -33,7 +33,7 @@ modeldefs = (
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
 
-                    ('supersedes', ('array', {'type': '$self'}), {
+                    ('supersedes', ('array', {'type': '{$self}'}), {
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
@@ -153,6 +153,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
+            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
+                'doc': 'A node which implements the document interface.'}),
+
+            ('doc:reference', ('guid', {}), {
+                'doc': 'A reference included in a source.'}),
+
         ),
         'edges': (
             (('doc:contract', 'has', 'doc:requirement'), {
@@ -221,7 +227,7 @@ modeldefs = (
                 ('publisher', ('entity:actor', {}), {
                     'doc': 'The entity which published the report.'}),
 
-                ('publisher:name', ('meta:name', {}), {
+                ('publisher:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
 
                 ('topics', ('array', {'type': 'meta:topic'}), {
@@ -252,6 +258,22 @@ modeldefs = (
 
                 ('terminated', ('time', {}), {
                     'doc': 'The date that the contract was terminated.'}),
+            )),
+
+            ('doc:reference', {}, (
+
+                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software',
+                                                 'entity:campaign', 'meta:technique', 'plan:phase')}), {
+                    'doc': 'The source which contains the reference.'}),
+
+                ('text', ('str', {}), {
+                    'doc': 'A reference string included in the source.'}),
+
+                ('doc', ('doc:document', {}), {
+                    'doc': 'The document which the reference refers to.'}),
+
+                ('doc:url', ('inet:url', {}), {
+                    'doc': 'A URL for the reference.'}),
             )),
         ),
     }),

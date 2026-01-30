@@ -719,6 +719,36 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
+            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Group ID.',
+                'ex': 'G0100',
+            }),
+
+            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Tactic ID.',
+                'ex': 'TA0040',
+            }),
+
+            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+                'doc': 'A MITRE ATT&CK Technique ID.',
+                'ex': 'T1548',
+            }),
+
+            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Mitigation ID.',
+                'ex': 'M1036',
+            }),
+
+            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Software ID.',
+                'ex': 'S0154',
+            }),
+
+            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Campaign ID.',
+                'ex': 'C0028',
+            }),
+
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'string'}}),
@@ -805,12 +835,17 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
-                'prevnames': ('it:prod:soft', 'it:prod:softver'),
+                'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
-                'doc': 'A software product.'}),
+                'doc': 'A software product, tool, or script.'}),
+
+            ('it:softwarename', ('base:name', {}), {
+                'prevnames': ('it:prod:softname',),
+                'doc': 'The name of a software product or tool.'}),
 
             ('it:software:type:taxonomy', ('taxonomy', {}), {
                 'prevnames': ('it:prod:soft:taxonomy',),
@@ -828,6 +863,9 @@ modeldefs = (
 
             ('it:hardware', ('guid', {}), {
                 'prevnames': ('it:prod:hardware',),
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
@@ -955,10 +993,6 @@ modeldefs = (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
-
-             ('it:host:filepath', ('guid', {}), {
-                'prevnames': ('it:fs:file',),
-                 'doc': 'A file on a host.'}),
 
             ('it:exec:file:add', ('guid', {}), {
                 'interfaces': (
@@ -1122,14 +1156,35 @@ modeldefs = (
         ),
         'edges': (
 
+            (('it:sec:stix:indicator', 'detects', 'entity:campaign'), {
+                'doc': 'The STIX indicator detects the campaign.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'entity:contact'), {
+                'doc': 'The STIX indicator detects the entity.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'it:software'), {
+                'doc': 'The STIX indicator detects the software.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'meta:technique'), {
+                'doc': 'The STIX indicator detects the technique.'}),
+
+            (('it:sec:stix:indicator', 'detects', 'ou:org'), {
+                'doc': 'The STIX indicator detects the organization.'}),
+
+            (('it:software', 'runson', 'it:software'), {
+                'doc': 'The source software can be run within the target software.'}),
+
+            (('it:software', 'runson', 'it:hardware'), {
+                'doc': 'The source software can be run on the target hardware.'}),
+
             (('it:software', 'uses', 'meta:technique'), {
                 'doc': 'The software uses the technique.'}),
 
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
+            (('it:software', 'creates', 'file:exemplar:entry'), {
+                'doc': 'The software creates the file entry.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
                 'doc': 'The software creates the Microsoft Windows registry entry.'}),
@@ -1152,6 +1207,9 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'meta:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
+            (('it:app:snort:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The snort rule detects the named software.'}),
+
             (('it:app:yara:rule', 'detects', 'it:software'), {
                 'doc': 'The YARA rule detects the software.'}),
 
@@ -1163,6 +1221,9 @@ modeldefs = (
 
             (('it:app:yara:rule', 'detects', 'risk:vuln'), {
                 'doc': 'The YARA rule detects the vulnerability.'}),
+
+            (('it:app:yara:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The YARA rule detects the named software.'}),
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
@@ -1200,7 +1261,7 @@ modeldefs = (
                 ('os', ('it:software', {}), {
                     'doc': 'The operating system of the host.'}),
 
-                ('os:name', ('meta:name', {}), {
+                ('os:name', ('it:softwarename', {}), {
                     'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
 
                 ('hardware', ('it:hardware', {}), {
@@ -1241,7 +1302,7 @@ modeldefs = (
             ('it:software:image:type:taxonomy', {}, ()),
             ('it:software:image', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('it:softwarename', {}), {
                     'doc': 'The name of the image.'}),
 
                 ('type', ('it:software:image:type:taxonomy', {}), {
@@ -1348,6 +1409,9 @@ modeldefs = (
 
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period where the account existed.'}),
 
                 ('contact', ('entity:contact', {}), {
                     'doc': 'Additional contact information associated with this account.'}),
@@ -1522,7 +1586,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization whose security program is being measured.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The organization name. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -1580,7 +1644,7 @@ modeldefs = (
                 ('software', ('it:software', {}), {
                     'doc': 'The scanning software used.'}),
 
-                ('software:name', ('meta:name', {}), {
+                ('software:name', ('it:softwarename', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('operator', ('entity:contact', {}), {
@@ -1611,7 +1675,7 @@ modeldefs = (
                 ('ext:url', ('inet:url', {}), {
                     'doc': 'An external URL which documents the scan result.'}),
 
-                ('mitigation', ('risk:mitigation', {}), {
+                ('mitigation', ('meta:technique', {}), {
                     'doc': 'The mitigation used to address this asset vulnerability.'}),
 
                 ('mitigated', ('time', {}), {
@@ -1623,6 +1687,13 @@ modeldefs = (
                 ('severity', ('meta:severity', {}), {
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
+
+            ('it:mitre:attack:group:id', {}, ()),
+            ('it:mitre:attack:tactic:id', {}, ()),
+            ('it:mitre:attack:technique:id', {}, ()),
+            ('it:mitre:attack:mitigation:id', {}, ()),
+            ('it:mitre:attack:software:id', {}, ()),
+            ('it:mitre:attack:campaign:id', {}, ()),
 
             ('it:dev:int', {}, ()),
             ('it:os:windows:registry:key', {}, (
@@ -1637,7 +1708,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', ('str', {}), {
+                ('value', ('ndef', {'forms': ('file:bytes', 'it:dev:int', 'it:dev:str')}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),
@@ -1850,7 +1921,7 @@ modeldefs = (
                 ('manufacturer', ('entity:actor', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
 
-                ('manufacturer:name', ('meta:name', {}), {
+                ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
 
                 ('model', ('base:name', {}), {
@@ -1889,7 +1960,7 @@ modeldefs = (
                     'prevnames': ('soft',),
                     'doc': 'The software which issued the ID to the host.'}),
 
-                ('software:name', ('meta:name', {}), {
+                ('software:name', ('it:softwarename', {}), {
                     'prevnames': ('soft:name',),
                     'doc': 'The name of the software which issued the ID to the host.'}),
             )),
@@ -1926,6 +1997,7 @@ modeldefs = (
 
             )),
 
+            ('it:softwarename', {}, ()),
             ('it:software:type:taxonomy', {}, ()),
             ('it:software', {}, (
 
@@ -1935,11 +2007,11 @@ modeldefs = (
                 ('parent', ('it:software', {}), {
                     'doc': 'The parent software version or family.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('it:softwarename', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('released', ('time', {}), {
@@ -1947,6 +2019,9 @@ modeldefs = (
 
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
+
+                ('risk:score', ('meta:score', {}), {
+                    'doc': 'The risk posed by the software.'}),
 
             )),
 
@@ -1975,7 +2050,7 @@ modeldefs = (
                 ('scanner', ('it:software', {}), {
                     'doc': 'The scanner software used to produce the result.'}),
 
-                ('scanner:name', ('meta:name', {}), {
+                ('scanner:name', ('it:softwarename', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('signame', ('it:av:signame', {}), {
@@ -2023,8 +2098,8 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('host:account', ('it:host:account', {}), {
-                    'doc': 'The host account which executed the commands in the session.'}),
+                ('account', ('ndef', {'forms': ('it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
 
@@ -2138,14 +2213,11 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('synuser', ('syn:user', {}), {
-                    'doc': 'The synapse user who executed the query.'}),
+                ('account', ('ndef', {'forms': ('syn:user', 'it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the query.'}),
 
-                ('service:platform', ('inet:service:platform', {}), {
+                ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which ran the query.'}),
             )),
             ('it:exec:thread', {}, (
 
@@ -2326,35 +2398,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:host:filepath', {}, (
 
-                ('host', ('it:host', {}), {
-                    'doc': 'The host containing the file.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path for the file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file on the host.'}),
-
-                ('created', ('time', {}), {
-                    'prevnames': ('ctime',),
-                    'doc': 'The file creation time.'}),
-
-                ('modified', ('time', {}), {
-                    'prevnames': ('mtime',),
-                    'doc': 'The file modification time.'}),
-
-                ('accessed', ('time', {}), {
-                    'prevnames': ('atime',),
-                    'doc': 'The file access time.'}),
-
-                ('user', ('it:host:account', {}), {
-                    'doc': 'The owner of the file.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group owner of the file.'}),
-            )),
             ('it:exec:file:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
@@ -2618,7 +2662,7 @@ modeldefs = (
 
             ('it:sec:c2:config', {}, (
 
-                ('family', ('meta:name', {}), {
+                ('family', ('it:softwarename', {}), {
                     'doc': 'The name of the software family which uses the config.'}),
 
                 ('file', ('file:bytes', {}), {

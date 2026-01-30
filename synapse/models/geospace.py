@@ -407,7 +407,7 @@ modeldefs = (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location where the {title} {happened}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('geo:name', {}), {
                         'doc': 'The name where the {title} {happened}.'}),
 
                     ('address', ('geo:address', {}), {
@@ -455,6 +455,9 @@ modeldefs = (
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
 
+            ('geo:name', ('base:name', {}), {
+                'doc': 'An unstructured place name or address.'}),
+
             ('geo:place', ('guid', {}), {
                 'template': {'title': 'place'},
                 'interfaces': (
@@ -500,6 +503,8 @@ modeldefs = (
 
         'forms': (
 
+            ('geo:name', {}, ()),
+
             ('geo:telem', {}, (
 
                 ('time', ('time', {}), {
@@ -523,11 +528,11 @@ modeldefs = (
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'geo:name'}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('text', {}), {

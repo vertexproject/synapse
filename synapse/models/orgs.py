@@ -73,8 +73,10 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'template': {'title': 'organization'},
                 'interfaces': (
+                    ('meta:havable', {}),
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
+                    ('risk:targetable', {}),
                     ('entity:contactable', {}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
@@ -136,6 +138,12 @@ modeldefs = (
                     ),
                 },
                 'doc': 'An industry classification type.'}),
+
+            ('ou:industry:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of industry statuses.'}),
 
             ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -346,7 +354,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The name of the organization as listed in the opening.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -460,7 +468,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The resolved org.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The org name as reported by the source of the vitals.'}),
 
@@ -549,7 +557,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The organization which issued the ID.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the issuer.'}),
 
                 ('recipient', ('entity:actor', {}), {
@@ -591,8 +599,8 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry'}), {
                     'doc': 'The industries associated with the org.'}),
 
-                ('subs', ('array', {'type': 'ou:org'}), {
-                    'doc': 'An set of sub-organizations.'}),
+                ('parent', ('ou:org', {}), {
+                    'doc': 'The parent organization.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
@@ -754,6 +762,9 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the participant competed in the contest.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': "A URL which documents the participant's results."}),
             )),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (

@@ -8,6 +8,16 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_mode_inet_basics(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:serverfile=(1.2.3.4:22, *) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
+            self.len(1, await core.nodes('inet:serverfile -> file:bytes'))
+            self.len(1, await core.nodes('inet:serverfile -> inet:server'))
+
     async def test_inet_handshakes(self):
 
         async with self.getTestCore() as core:
@@ -259,29 +269,6 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in expected_props.items():
                     self.eq(node.get(p), v)
 
-    async def test_download(self):
-        async with self.getTestCore() as core:
-
-            valu = s_common.guid()
-            file = s_common.guid()
-            props = {
-                'time': 0,
-                'file': file,
-                'fqdn': 'vertex.link',
-                'client': 'tcp://127.0.0.1:45654',
-                'server': 'tcp://1.2.3.4:80'
-            }
-            q = '[(inet:download=$valu :time=$p.time :file=$p.file :fqdn=$p.fqdn :client=$p.client :server=$p.server)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:download', valu))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('file'), file)
-            self.eq(node.get('fqdn'), 'vertex.link')
-            self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('server'), 'tcp://1.2.3.4:80')
-
     async def test_email(self):
         formname = 'inet:email'
         async with self.getTestCore() as core:
@@ -394,7 +381,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:txcount=33
                     :server:txbytes=2
                     :server:handshake="OHai!"
-                    :server:txfiles={[ file:attachment=* :name=bar.exe ]}
+                    :server:txfiles={[ file:attachment=* :path=bar.exe ]}
                     :server:softnames=(FooBar, bazfaz)
                     :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -404,7 +391,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :client:txcount=30
                     :client:txbytes=1
                     :client:handshake="Hello There"
-                    :client:txfiles={[ file:attachment=* :name=foo.exe ]}
+                    :client:txfiles={[ file:attachment=* :path=foo.exe ]}
                     :client:softnames=(HeHe, haha)
                     :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -444,8 +431,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:flow :client:proc -> it:exec:proc'))
             self.len(1, await core.nodes('inet:flow :server:proc -> it:exec:proc'))
 
-            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:name=foo.exe'))
-            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:name=bar.exe'))
+            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:path=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:path=bar.exe'))
 
             self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
             self.len(1, await core.nodes('inet:flow :sandbox:file -> file:bytes'))
@@ -2374,10 +2361,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
 
-            nodes = await core.nodes('inet:whois:email')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
-
             with self.getLoggerStream('synapse.datamodel') as stream:
                 nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
                 self.len(1, nodes)
@@ -2604,9 +2587,9 @@ class InetModelTest(s_t_utils.SynTest):
                         :text=Vertex
                 ]}
                 :attachments={[
-                    inet:email:message:attachment=*
+                    file:attachment=*
                         :file=*
-                        :name=sploit.exe
+                        :path=sploit.exe
                 ]}
             ]
             '''
@@ -2627,12 +2610,12 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:attachment +:path=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
             self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
-            self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
+            self.len(1, await core.nodes('inet:email:message -> file:attachment +:path=sploit.exe +:file'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:
@@ -3055,19 +3038,6 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('platform'), platform.ndef[1])
                 self.eq(node.get('of'), gnrlchan.ndef)
 
-            nodes = await core.nodes('''
-            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
-                :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
-                :name=pbjtime.gif
-                :text="peanut butter jelly time"
-            ]
-            ''')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'pbjtime.gif')
-            self.eq(nodes[0].get('text'), 'peanut butter jelly time')
-            self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
-            attachment = nodes[0]
-
             q = '''
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
@@ -3086,7 +3056,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
-                    :mentions?=((inet:service:message:attachment, $atchiden),)
+                    :mentions?=((file:attachment, *),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
@@ -3098,7 +3068,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :account=$blckiden
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                 :links+=$linkiden
-                :attachments+=$atchiden
+                :attachments+={[ file:attachment=* ]}
 
                 :place:name=nyc
                 :place = { gen.geo.place nyc }
@@ -3114,7 +3084,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'devsiden': devsgrp.ndef[1],
                 'gnrliden': gnrlchan.ndef[1],
                 'linkiden': msglink.ndef[1],
-                'atchiden': attachment.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)

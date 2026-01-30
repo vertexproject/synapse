@@ -192,14 +192,14 @@ modeldefs = (
                     'prevnames': ('org',),
                     'doc': 'The issuer organization.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'prevnames': ('name',),
                     'doc': 'The registered name of the issuer.'}),
             )),
 
             ('econ:pay:card', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name as it appears on the card.'}),
 
                 ('pan', ('econ:pay:pan', {}), {
@@ -223,7 +223,7 @@ modeldefs = (
 
             ('econ:bank:check', {}, (
 
-                ('payto', ('meta:name', {}), {
+                ('payto', ('entity:name', {}), {
                     'doc': 'The name of the intended recipient.'}),
 
                 ('amount', ('econ:price', {}), {
@@ -534,7 +534,7 @@ modeldefs = (
                 ('bank', ('ou:org', {}), {
                     'doc': 'The bank which was issued the ABA RTN.'}),
 
-                ('bank:name', ('meta:name', {}), {
+                ('bank:name', ('entity:name', {}), {
                     'doc': 'The name which is registered for this ABA RTN.'}),
 
             )),
@@ -581,7 +581,7 @@ modeldefs = (
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The bank which issued the account number.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the bank which issued the account number.'}),
 
                 ('account', ('econ:fin:account', {}), {

@@ -97,6 +97,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :published=2020-01-14
                     :exploited=2020-01-14
                     :discovered=2020-01-14
+                    :discoverer={[ entity:contact=({"name": "visi"}) ]}
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
 
@@ -160,6 +161,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
             self.len(2, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
+            self.len(1, await core.nodes('risk:vuln:id=VISI-0000 :discoverer -> entity:contact'))
+
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 :cve -> it:sec:cve'))
 
@@ -176,8 +179,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :detected=20501217
                     :vuln=*
                     :status=todo
-                    :assignee=$lib.user.iden
-                    :ext:assignee = {[ entity:contact=* :email=visi@vertex.link ]}
+                    :assignee={[ syn:user=root ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :id=WOOT-20
                     :engine={[ it:software=* :name=visiware ]}
@@ -198,9 +200,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
-            self.eq(core.auth.rootuser.iden, nodes[0].get('assignee'))
+            self.eq(nodes[0].get('assignee'), ('syn:user', core.auth.rootuser.iden))
             self.nn(nodes[0].get('host'))
-            self.nn(nodes[0].get('ext:assignee'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert :engine -> it:software'))
@@ -277,21 +278,23 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=apt1
                     :names=(comment crew,)
                     :desc=VTX-APT1
+                    :resolved={[ risk:threat=(foo, bar) :name="foo bar"]}
                     :tag=cno.threat.apt1
                     :active=(2012,2023)
                     :activity=high
                     :reporter={[ ou:org=({"name": "mandiant"}) ]}
                     :reporter:name=mandiant
-                    :reporter:discovered=202202
-                    :reporter:published=202302
+                    :discovered=202202
+                    :published=202302
                     :sophistication=high
-                    :merged:time = 20230111
-                    :merged:isnow = {[ risk:threat=* ]}
+                    :superseded = 20230111
                     :place:loc=cn.shanghai
                     :place:country={gen.pol.country cn}
                     :place:country:code=cn
                     +(had)> {[ entity:goal=* ]}
                 ]
+                $threat = $node
+                $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
             ''')
             self.len(1, nodes)
             node = nodes[0]
@@ -307,14 +310,18 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))
-            self.nn(nodes[0].get('merged:isnow'))
             self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
-            self.eq(1673395200000000, nodes[0].get('merged:time'))
-            self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
-            self.eq(1675209600000000, nodes[0].get('reporter:published'))
+            self.eq(1673395200000000, nodes[0].get('superseded'))
+            self.eq(1643673600000000, nodes[0].get('discovered'))
+            self.eq(1675209600000000, nodes[0].get('published'))
+            self.nn(nodes[0].get('resolved'))
 
-            self.len(1, await core.nodes('risk:threat -(had)> entity:goal'))
-            self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
+
+            nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
+            self.len(1, nodes)
+            self.eq('apt1next', nodes[0].get('name'))
 
             self.len(1, nodes := await core.nodes('[ risk:threat=({"name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
@@ -408,7 +415,10 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln={[ risk:vuln=* :name=redtree ]}
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
-                    :mitigations={[ risk:mitigation=* :name=patchstuff ]}
+                    :mitigations={[
+                        ( risk:mitigation=* :name=patchstuff )
+                        ( meta:technique=* :name=dothing )
+                    ]}
                     <(shows)+ {[ inet:flow=* ]}
                 ]
             ''')
@@ -419,9 +429,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
-            self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
+            self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))
             self.len(1, await core.nodes('risk:vulnerable <(shows)- inet:flow'))
+
+            nodes = await core.nodes('risk:vulnerable :mitigations -> *')
+            self.sorteq(['meta:technique', 'risk:mitigation'], [n.ndef[0] for n in nodes])
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -463,6 +475,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
                     +(addresses)> {[ risk:vuln=* meta:technique=* ]}
+                    +(uses)> {[ meta:rule=* it:hardware=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq(('bar', 'foo'), nodes[0].get('names'))
@@ -473,54 +486,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
 
             self.len(2, await core.nodes('risk:mitigation -(addresses)> *'))
-            self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
+            self.len(2, await core.nodes('risk:mitigation -(uses)> *'))
+            self.len(1, await core.nodes('risk:mitigation -> meta:technique:type:taxonomy'))
 
-            nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
+            nodes = await core.nodes('meta:technique:type:taxonomy=foo.bar [ :desc="foo that bars"]')
             self.len(1, nodes)
             self.eq('foo that bars', nodes[0].get('desc'))
-
-    async def test_model_risk_tool_software(self):
-
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('''
-                [ risk:tool:software=*
-                    :software=*
-                    :used=(2012,?)
-                    :name=cobaltstrike
-                    :names=(beacon,)
-                    :reporter={[ ou:org=({"name": "vertex"}) ]}
-                    :reporter:name=vertex
-                    :reporter:discovered=202202
-                    :reporter:published=202302
-                    :tag=cno.mal.cobaltstrike
-                    :id=" AAAbbb123  "
-
-                    :sophistication=high
-                    :availability=public
-                ]
-            ''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.nn(nodes[0].get('software'))
-
-            self.nn(nodes[0].get('reporter'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq(40, nodes[0].get('sophistication'))
-            self.eq('public.', nodes[0].get('availability'))
-            self.eq((1325376000000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('used'))
-            self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
-            self.eq(1675209600000000, nodes[0].get('reporter:published'))
-            self.eq('AAAbbb123', nodes[0].get('id'))
-
-            self.eq('cobaltstrike', nodes[0].get('name'))
-            self.eq(('beacon',), nodes[0].get('names'))
-
-            self.len(1, await core.nodes('risk:tool:software -> ou:org'))
-            self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
-            self.len(1, await core.nodes('risk:tool:software -> it:software'))
-
-            self.len(1, nodes := await core.nodes('[ risk:tool:software=({"name": "beacon"}) ]'))
-            self.eq(node.ndef, nodes[0].ndef)
 
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:

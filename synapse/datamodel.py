@@ -706,10 +706,8 @@ class Model:
             if form.startswith(prefix):
                 forms.update(self.getChildForms(form))
 
-        forms = list(forms)
-        if forms:
-            forms.sort()
-            self.formprefixcache[prefix] = forms
+        forms = tuple(sorted(forms))
+        self.formprefixcache[prefix] = forms
         return forms
 
     def reqProp(self, name, extra=None):
@@ -731,7 +729,7 @@ class Model:
             return self.getChildProps(prop)
 
         if (props := self.ifaceprops.get(name)) is not None:
-            return [self.props.get(prop) for prop in props]
+            return tuple(self.props.get(prop) for prop in props)
 
         mesg = None
 
@@ -783,7 +781,7 @@ class Model:
             return self.getChildForms(form.name)
 
         if (forms := self.formsbyiface.get(name)) is not None:
-            return forms
+            return tuple(forms)
 
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
@@ -804,10 +802,10 @@ class Model:
 
         if (kids := self.childforms.get(formname)) is None:
             if depth == 0:
-                childforms = [formname]
+                childforms = (formname,)
                 self.childformcache[formname] = childforms
                 return childforms
-            return [(depth, formname)]
+            return ((depth, formname),)
 
         childforms = [(depth, formname)]
         for kid in kids:
@@ -815,7 +813,7 @@ class Model:
 
         if depth == 0:
             childforms.sort(reverse=True)
-            childforms = [cform[1] for cform in childforms]
+            childforms = tuple(cform[1] for cform in childforms)
             self.childformcache[formname] = childforms
 
         return childforms
@@ -826,10 +824,10 @@ class Model:
 
         if (kids := self.childforms.get(prop.form.name)) is None:
             if depth == 0:
-                childprops = [prop]
+                childprops = (prop,)
                 self.childpropcache[prop.full] = childprops
                 return childprops
-            return [(depth, prop)]
+            return ((depth, prop),)
 
         suffix = ''
         if not prop.isform:
@@ -842,7 +840,7 @@ class Model:
 
         if depth == 0:
             childprops.sort(reverse=True, key=lambda x: (x[0], x[1].name))
-            childprops = [cprop[1] for cprop in childprops]
+            childprops = tuple(cprop[1] for cprop in childprops)
             self.childpropcache[prop.full] = childprops
 
         return childprops
@@ -852,14 +850,14 @@ class Model:
             return self.getChildProps(prop)
 
         if (forms := self.formsbyiface.get(name)) is not None:
-            return [self.prop(name) for name in forms]
+            return tuple(self.prop(name) for name in forms)
 
         if (props := self.ifaceprops.get(name)) is not None:
-            return [self.prop(name) for name in props]
+            return tuple(self.prop(name) for name in props)
 
         if name.endswith('*'):
             forms = self.reqFormsByPrefix(name[:-1], extra=extra)
-            return [self.prop(name) for name in forms]
+            return tuple(self.prop(name) for name in forms)
 
         mesg = None
         if (prevname := self.propprevnames.get(name)) is not None:
@@ -1179,11 +1177,16 @@ class Model:
         return tuple(virts)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
-        assert formname not in self.forms, f'{formname} form already present in model'
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
+
+        if self.forms.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing form: {formname}')
+
+        if self.ifaces.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing interface: {formname}')
 
         if (_type := self.types.get(formname)) is None:
             raise s_exc.NoSuchType(name=formname)
@@ -1357,7 +1360,12 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
-        assert name not in self.ifaces, f'{name} interface already present in model'
+        if self.forms.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing form: {name}')
+
+        if self.ifaces.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
+
         self.ifaces[name] = info
 
     def reqTypeNotInUse(self, typename):

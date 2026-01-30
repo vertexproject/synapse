@@ -194,7 +194,7 @@ modeldefs = (
                     ('manufacturer', ('entity:actor', {}), {
                         'doc': 'The organization which manufactured the {title}.'}),
 
-                    ('manufacturer:name', ('meta:name', {}), {
+                    ('manufacturer:name', ('entity:name', {}), {
                         'doc': 'The name of the organization which manufactured the {title}.'}),
 
                     ('model', ('base:name', {}), {
@@ -341,7 +341,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the license.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the license.'}),
             )),
             ('transport:land:registration', {}, (
@@ -367,7 +367,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the registration.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the registration.'}),
             )),
 
@@ -511,7 +511,7 @@ modeldefs = (
                 ('destination', ('geo:place', {}), {
                     'doc': 'The fully resolved destination that the vessel has declared.'}),
 
-                ('destination:name', ('meta:name', {}), {
+                ('destination:name', ('geo:name', {}), {
                     'doc': 'The name of the destination that the vessel has declared.'}),
 
                 ('destination:eta', ('time', {}), {

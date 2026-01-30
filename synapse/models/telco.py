@@ -395,7 +395,7 @@ modeldefs = (
 
                 # FIXME contact prop or interface?
                 # User related data
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The user name associated with the mobile telemetry sample.'}),
 
                 ('email', ('inet:email', {}), {
