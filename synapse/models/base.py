@@ -22,6 +22,9 @@ modeldefs = (
                 'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'name'}}),
+                ),
                 'doc': 'A base type for case insensitive names.'}),
 
             ('meta:name', ('base:name', {}), {
