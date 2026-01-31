@@ -1681,10 +1681,10 @@ modeldefs = (
                 ('mitigated', ('time', {}), {
                     'doc': 'The time that the vulnerability in the asset was mitigated.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of mitigating the vulnerability.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
 
@@ -2653,7 +2653,7 @@ modeldefs = (
                 ('va', ('int', {}), {
                     'doc': 'The virtual address of the first codeblock of the function.'}),
 
-                ('complexity', ('meta:priority', {}), {
+                ('complexity', ('meta:score', {}), {
                     'doc': 'The complexity of the function.'}),
 
                 ('calls', ('array', {'type': 'it:dev:function:sample'}), {
