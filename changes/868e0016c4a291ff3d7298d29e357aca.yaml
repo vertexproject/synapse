@@ -1,0 +1,7 @@
+---
+desc: Added a new ``--period`` option to both ``cron.add`` and ``cron.mod`` commands
+  for setting or modifying cron job schedules. The older schedule options have been deprecated.
+desc:literal: false
+prs: []
+type: feat
+...
