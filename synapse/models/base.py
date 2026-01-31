@@ -114,18 +114,6 @@ modeldefs = (
             ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                 'doc': 'A generic score enumeration.'}),
 
-            ('meta:activity', ('meta:score', {}), {
-                'doc': 'A generic activity level enumeration.'}),
-
-            ('meta:priority', ('meta:score', {}), {
-                'doc': 'A generic priority enumeration.'}),
-
-            ('meta:severity', ('meta:score', {}), {
-                'doc': 'A generic severity enumeration.'}),
-
-            ('meta:sophistication', ('meta:score', {}), {
-                'doc': 'A generic sophistication enumeration.'}),
-
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -543,7 +531,7 @@ modeldefs = (
                 ('type', ('meta:technique:type:taxonomy', {}), {
                     'doc': 'The taxonomy classification of the technique.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the technique.'}),
 
                 ('tag', ('syn:tag', {}), {

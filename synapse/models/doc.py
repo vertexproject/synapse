@@ -186,7 +186,7 @@ modeldefs = (
                 ('optional', ('bool', {}), {
                     'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of the requirement as defined by the standard.'}),
 
                 ('standard', ('doc:standard', {}), {

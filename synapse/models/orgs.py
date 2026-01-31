@@ -640,16 +640,16 @@ modeldefs = (
                 ('type', ('ou:asset:type:taxonomy', {}), {
                     'doc': 'The asset type.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The overall priority of protecting the asset.'}),
 
-                ('priority:confidentiality', ('meta:priority', {}), {
+                ('priority:confidentiality', ('meta:score', {}), {
                     'doc': 'The priority of protecting the confidentiality of the asset.'}),
 
-                ('priority:integrity', ('meta:priority', {}), {
+                ('priority:integrity', ('meta:score', {}), {
                     'doc': 'The priority of protecting the integrity of the asset.'}),
 
-                ('priority:availability', ('meta:priority', {}), {
+                ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
                 ('node', ('ndef', {}), {

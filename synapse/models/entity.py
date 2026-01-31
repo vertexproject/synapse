@@ -472,7 +472,8 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                # TODO: should we create risk:campaign and define this there
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
