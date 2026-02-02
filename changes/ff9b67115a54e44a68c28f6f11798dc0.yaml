@@ -1,7 +1,0 @@
----
-desc: Added a ``getViewDef`` Telepath method for returning a view definition if the
-  user has view read permission for it.
-desc:literal: false
-prs: []
-type: feat
-...

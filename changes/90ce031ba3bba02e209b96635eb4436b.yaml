@@ -1,7 +1,0 @@
----
-desc: Fixed an issue with ``$lib.repr()`` where Python exceptions could be raised.
-  Invalid inputs now raise a ``BadArg`` exception.
-desc:literal: false
-prs: []
-type: bug
-...
