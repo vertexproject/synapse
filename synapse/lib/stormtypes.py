@@ -1611,7 +1611,12 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        return self._reqTypeByName(name).repr(valu)
+        try:
+            return self._reqTypeByName(name).repr(valu)
+        except s_exc.SynErr:
+            raise
+        except Exception as e:
+            raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
