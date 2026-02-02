@@ -4822,6 +4822,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if mirror is not None:
             mirror = s_urlhelp.sanitizeUrl(mirror)
 
+        nxfo = await self.nexsroot.getNexsInfo()
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4836,13 +4838,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'active': self.isactive,
                 'safemode': self.safemode,
                 'started': self.startms,
-                'ready': self.nexsroot.ready.is_set(),
+                'ready': nxfo['ready'],  # TODO: Remove in 3.x.x
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
-                'nexsindx': await self.getNexsIndx(),
-                'uplink': self.nexsroot.miruplink.is_set(),
+                'nexsindx': nxfo['indx'],  # TODO: Remove in 3.x.x
+                'uplink': nxfo['uplink:ready'],  # TODO: Remove in 3.x.x
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
@@ -4851,7 +4853,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 },
                 'network': {
                     'https': self.https_listeners,
-                }
+                },
+                'nexus': nxfo,
             },
             'features': self.features,
         }
