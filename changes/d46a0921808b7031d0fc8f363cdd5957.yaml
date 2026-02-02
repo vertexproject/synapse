@@ -1,7 +1,0 @@
----
-desc: When shutting down a Cell, coroutines run using the ``addActiveTask()`` API will
-   be cancelled as the first part of the Cell shutdown.
-desc:literal: false
-prs: []
-type: note
-...
