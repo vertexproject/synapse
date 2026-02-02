@@ -520,10 +520,12 @@ class Agenda(s_base.Base):
         Process period parameters (reqs, incunit, incvals) into recs and nexttime.
         '''
         if not reqs and incunit is None:
-            raise ValueError('at least one of reqs and incunit must be non-empty')
+            mesg = 'at least one of reqs and incunit must be non-empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         if incunit is not None and incvals is None:
-            raise ValueError('incvals must be non-None if incunit is non-None')
+            mesg = 'incvals must be non-None if incunit is non-None'
+            raise s_exc.BadArg(mesg=mesg)
 
         if reqs is None:
             reqs = [{}]
@@ -538,7 +540,7 @@ class Agenda(s_base.Base):
             if TimeUnit.NOW in req:
                 if incunit is not None:
                     mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
+                    raise s_exc.BadArg(mesg=mesg)
                 nexttime = self._getNowTick()
                 continue
 
@@ -627,12 +629,14 @@ class Agenda(s_base.Base):
             raise s_exc.DupIden(iden=iden, mesg=mesg)
 
         if not query:
-            raise ValueError('"query" key of cdef parameter is not present or empty')
+            mesg = '"query" key of cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.core.getStormQuery(query)
 
         if not creator:
-            raise ValueError('"creator" key is cdef parameter is not present or empty')
+            mesg = '"creator" key is cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
 
@@ -688,7 +692,7 @@ class Agenda(s_base.Base):
         query = cdef.get('query')
         if query is not None:
             if not query:
-                raise ValueError('empty query')
+                raise s_exc.BadArg(mesg='empty query')
             await self.core.getStormQuery(query)
             appt.query = query
 

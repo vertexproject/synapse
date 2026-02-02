@@ -179,31 +179,31 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Missing reqs
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
-                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
 
                 # Missing creator
                 cdef = {'iden': 'fakeiden', 'storm': 'foo',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
 
                 # Missing storm
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Missing incvals
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH}
-                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
 
                 # Cannot schedule a recurring job with 'now'
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
-                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
                 # Require valid storm
@@ -306,7 +306,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Modify the last appointment
-                await self.asyncraises(ValueError, agenda.mod(guid2, {'query': ''}))
+                await self.asyncraises(s_exc.BadArg, agenda.mod(guid2, {'query': ''}))
                 await agenda.mod(guid2, {'query': '#baz'})
                 self.eq(agenda.appts[guid2].query, '#baz')
 
