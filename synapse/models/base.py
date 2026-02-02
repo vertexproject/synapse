@@ -78,7 +78,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
-                'doc': 'An analytically relevant event in a curated timeline.'}),
+                'doc': 'An analytically relevant event.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -177,6 +177,13 @@ modeldefs = (
                         'doc': 'The {title} was observed during the time interval.'}),
                 ),
             }),
+
+            # TODO: discuss interfaces which may only be implemented by a base form
+            ('meta:attendable', {
+                'doc': 'An interface implemented by events which may be attended.'}),
+
+            ('meta:sponsorable', {
+                'doc': 'An interface implemented by events which may be sponsored.'}),
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
@@ -467,17 +474,23 @@ modeldefs = (
 
             ('meta:event', {}, (
 
+                # FIXME discuss instant vs activity
                 ('period', ('ival', {}), {
-                    'doc': 'The period over which the event occurred.'}),
+                    'doc': 'The period over which the {title} occurred.'}),
 
-                ('title', ('str', {}), {
-                    'doc': 'A title for the event.'}),
+                # FIXME redundant with :name / :names and should be removed
+                # ('title', ('str', {}), {
+                #     'doc': 'A title for the event.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the event.'}),
 
+                # FIXME conscious decision to fold all "event" types into one taxonomy
                 ('type', ('meta:event:type:taxonomy', {}), {
                     'doc': 'Type of event.'}),
+
+                #('parent', ('meta:event', {}), {
+                    #'doc': 'The parent event.'}),
             )),
 
             ('meta:event:type:taxonomy', {

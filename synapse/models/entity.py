@@ -8,35 +8,55 @@ modeldefs = (
 
             ('entity:action', {
                 'template': {'title': 'action'},
-                'doc': 'Properties which are common to actions taken by entities.',
                 'props': (
-
                     ('actor', ('entity:actor', {}), {
                         'doc': 'The actor who carried out the {title}.'}),
 
                     ('actor:name', ('entity:name', {}), {
                         'doc': 'The name of the actor who carried out the {title}.'}),
-                ),
-            }),
 
-            ('entity:attendable', {
-                'template': {'title': 'event'},
-                'interfaces': (
-                    ('geo:locatable', {}),
-                    ('lang:transcript', {}),
+                    #('period', ('ival', {}), {
+                        #'doc': 'The period over which the actor carried out the {title}.'}),
+
                 ),
+                'doc': 'Properties common to actions taken by entities.'}),
+
+            ('entity:effected', {
+                'template': {'effected': 'effected'},
                 'props': (
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
+                    ('party', ('entity:actor', {}), {
+                        'doc': 'The entity who was {effected}.'}),
+
+                    ('party:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity who was {effected}.'}),
 
                     ('period', ('ival', {}), {
-                        'doc': 'The period of time over which the {title} occurred.'}),
-
-                    ('parent', ('entity:attendable', {}), {
-                        'doc': 'The parent event which hosts the {title}.'}),
+                        'doc': 'The period over which the actor carried out the {title}.'}),
                 ),
-                'doc': 'Properties common to events which individuals may attend.',
-            }),
+                'doc': 'Properties common to actions taken by entities.'}),
+
+            # ('entity:attendable', {
+            #     'template': {'title': 'event'},
+            #     'interfaces': (
+            #         ('geo:locatable', {}),
+            #         ('lang:transcript', {}),
+            #         #('entity:activity', {}),
+            #     ),
+            #     'props': (
+            #         (#'desc', ('text', {}), {
+            #          #   'doc': 'A description of the {title}.'}),
+
+            #         #('actor', ('entity:actor', {}), {
+            #             #'doc': 'The primary organizer of the {title}',
+
+            #         #('period', ('ival', {}), {
+            #             #'doc': 'The period of time over which the {title} occurred.'}),
+
+            #         ('parent', ('entity:attendable', {}), {
+            #             'doc': 'The parent event which hosts the {title}.'}),
+            #     ),
+            #     'doc': 'Properties common to events which individuals may attend.',
+            # }),
 
             ('entity:contactable', {
 
@@ -173,6 +193,9 @@ modeldefs = (
             ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
                 'doc': 'A node which inherits the entity:identifier interface.'}),
 
+            ('entity:action', ('ndef', {'interface': 'entity:action'}), {
+                'doc': 'FIXME polyprop place holder'}),
+
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
 
@@ -282,11 +305,11 @@ modeldefs = (
                 },
                 'doc': 'A stated or assessed goal.'}),
 
-            ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of campaign types.'}),
+            #('entity:campaign:type:taxonomy', ('taxonomy', {}), {
+                #'interfaces': (
+                    #('meta:taxonomy', {}),
+                #),
+                #'doc': 'A hierarchical taxonomy of campaign types.'}),
 
             ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -294,7 +317,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
-            ('entity:campaign', ('guid', {}), {
+            ('entity:campaign', ('meta:event', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
                     ('entity:action', {}),
@@ -314,14 +337,62 @@ modeldefs = (
             ('entity:conflict', ('guid', {}), {
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
 
-            ('entity:contribution', ('guid', {}), {
-                'template': {'title': 'contribution'},
+            #('entity:contribution:type:taxonomy', ('taxonomy', {}), {
+                #'doc': 'A hierarchical taxonomy of contribution types.'}),
+
+            ('entity:effected', ('guid', {}), {
+
+                ('event', ('meta:event', {}), {
+                    'doc': 'The event which effected the entity.'}),
+
+                ('party', ('entity:actor', {}), {
+                    'doc': 'The party which was effected by the event.'}),
+            }),
+            ('risk:impacted', ('entity:effected', {}), {}),
+            #('meta:impact' -> risk:impact -> risk:damage
+
+            ('entity:observed', ('entity:effected', {}), {}),
+
+            ('entity:activity', ('guid', {}), {
                 'interfaces': (
                     ('entity:action', {}),
                 ),
-                'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
+                'props': (
+                    ('actor:roles', ('array', {'type': 'base:name'}), {
+                        'doc': 'The roles of the actor in the activity.'}),
+                ),
+                'doc': 'Activity carried out by an actor.'}),
+
+            ('entity:support', ('entity:activity', {}), {
+                'template': {
+                    'title': 'support',
+                    'supported': 'supported',
+                },
+                'doc': 'Represents an actor having supported an action.',
+            }),
+                
+            ('entity:contribution', ('entity:activity', {}), {
+                'template': {
+                    'title': 'contribution',
+                    'supported': 'contributed to',
+                },
+                'interfaces': (
+                    ('entity:action', {}),
+                ),
+            }),
+
+            ('entity:participation', ('entity:activity', {}), {
+                'template': {
+                    'title': 'participation',
+                    'suppoted': 'particpated in',
+                },
+            }),
 
             ('entity:discovery', ('guid', {}), {
+                'templates': {'title': 'discovery'},
+                'interfaces': (
+                    ('entity:action', {}),
+                ),
                 'doc': 'A discovery made by an actor.'}),
 
         ),
@@ -423,18 +494,18 @@ modeldefs = (
 
             ('entity:attendee', {}, (
 
-                ('person', ('entity:individual', {}), {
-                    'doc': 'The person who attended the event.'}),
+                # ('person', ('entity:individual', {}), {
+                #     'doc': 'The person who attended the event.'}),
 
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the person attended the event.'}),
+                # ('period', ('ival', {}), {
+                #     'doc': 'The time period when the person attended the event.'}),
 
-                ('roles', ('array', {'type': 'base:name', 'split': ','}), {
-                    'doc': 'List of the roles the person had at the event.'}),
+                #('roles', ('array', {'type': 'base:name', 'split': ','}), {
+                    #'doc': 'List of the roles the person had at the event.'}),
 
-                ('event', ('entity:attendable', {}), {
-                    'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
-                    'doc': 'The event that the person attended.'}),
+                # ('event', ('entity:attendable', {}), {
+                #     'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
+                #     'doc': 'The event that the person attended.'}),
 
                 # ('link', ('entity:link', {}), {
                 #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
@@ -466,8 +537,8 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
-                    'doc': 'Actors who participated in the campaign.'}),
+                #('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
+                    #'doc': 'Actors who participated in the campaign.'}),
 
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
@@ -476,13 +547,14 @@ modeldefs = (
                 ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
-                ('type', ('entity:campaign:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy entry for the campaign.',
-                    'prevnames': ('camptype',)}),
+                #('type', ('entity:campaign:type:taxonomy', {}), {
+                    #'doc': 'A type taxonomy entry for the campaign.',
+                    #'prevnames': ('camptype',)}),
 
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the entity was running the campaign.'}),
+                #('period', ('ival', {}), {
+                    #'doc': 'The time interval when the entity was running the campaign.'}),
 
+                # TODO: cost:budget cost:actual ?
                 ('cost', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
@@ -498,12 +570,12 @@ modeldefs = (
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record econ:price properties.'}),
 
-                ('team', ('ou:team', {}), {
-                    'doc': 'The org team responsible for carrying out the campaign.'}),
+                #('team', ('ou:team', {}), {
+                    #'doc': 'The org team responsible for carrying out the campaign.'}),
 
                 # FIXME overfit?
-                ('conflict', ('entity:conflict', {}), {
-                    'doc': 'The conflict in which this campaign is a primary participant.'}),
+                #('conflict', ('entity:conflict', {}), {
+                    #'doc': 'The conflict in which this campaign is a primary participant.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
@@ -517,24 +589,61 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
 
-                ('adversaries', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The primary adversaries in conflict with one another.'}),
+                #('adversaries', ('array', {'type': 'entity:actor'}), {
+                    #'doc': 'The primary adversaries in conflict with one another.'}),
             )),
+
+            # other terse entity nouns: subject, party, target
+            # entity:effected
+            #     :event=<event>
+            #     :party=<entity:actor
+
+            #   entity:observed
+            #       :event=<event>
+            #       :party=<entity:actor>
+
+
+            # entity:activity
+            #   :role=attacker
+
+            #   entity:attended
+            #       :period
+            #       :actor=<entity:actor>
+            #       :event=<entity:attendable>
+
+            #   entity:registered
+            #       :time
+            #       :actor=<entity:actor>
+            #       :event=<entity:attendable>
+
+            #   entity:contributed
+            #   entity:participated
+            #       :actor=<entity:actor>
+            #       :event=<entity:action>
+
+            ('entity:support', {}, (
+                ('event', ('entity:action', {}), {
+                    'doc': 'The action which the actor {supported}.'}),
+            )),
+
             ('entity:contribution', {}, (
 
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'The campaign receiving the contribution.'}),
-
-                # FIXME - :price / :price:currency ( and the interface )
+                # recipient? mix of entity and action?
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used for the assessed value.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the contribution occurred.'}),
             )),
+            ('entity:sponsorship', {}, (
+                ('event', ('meta:sponsorable', {}), {
+                    'doc': 'The event which was sponsored by the actor.'}),
+            )),
+            ('entity:attendance'
+            ('entity:participation', {}, ()),
+            # -(has)> econ:payment
+            # -(has)> entity:ownerhip ( representing the transfer of ownership of a thing )
+
 
             ('entity:discovery', {}, (
 
