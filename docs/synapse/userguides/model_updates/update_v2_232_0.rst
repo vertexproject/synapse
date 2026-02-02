@@ -14,10 +14,10 @@ Light Edges
 
 ``generated``
     When used with a ``meta:rule`` and an ``it:log:event`` node, the edge
-    indicates the meta:rule generated the it:log:event node.
+    indicates the ``meta:rule`` generated the ``it:log:event`` node.
 
 
 ``generated``
     When used with a ``meta:rule`` and an ``risk:alert`` node, the edge
-    indicates the meta:rule generated the risk:alert node.
+    indicates the ``meta:rule`` generated the ``risk:alert`` node.
 

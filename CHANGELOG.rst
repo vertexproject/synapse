@@ -12,7 +12,7 @@ v2.232.0 - 2026-02-02
 Model Changes
 -------------
 - Added a ``generated`` edge between ``meta:rule`` and the following forms:
-  ``risk:alert``, and ``it:log:event``.
+  ``risk:alert`` and ``it:log:event``.
   (`#4687 <https://github.com/vertexproject/synapse/pull/4687>`_)
 - See :ref:`userguide_model_v2_232_0` for more detailed model changes.
 
