@@ -1,7 +1,0 @@
----
-desc: 'Added a ``generated`` edge between ``meta:rule`` and the following forms: ``risk:alert``,
-  and ``it:log:event``.'
-desc:literal: false
-prs: []
-type: model
-...
