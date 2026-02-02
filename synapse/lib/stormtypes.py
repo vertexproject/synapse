@@ -940,8 +940,6 @@ class LibService(Lib):
             'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
         {'perm': ('service', 'get'), 'gate': 'cortex',
             'desc': 'Controls the ability to get the Service object for any Storm Service.'},
-        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
          'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
     )
@@ -1415,6 +1413,26 @@ class LibBase(Lib):
                               'desc': 'A deep copy of the primitive object.', }}},
     )
 
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'del'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'del', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
+
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
         self.stors['debug'] = self._setRuntDebug
@@ -1592,7 +1610,12 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        return self._reqTypeByName(name).repr(valu)
+        try:
+            return self._reqTypeByName(name).repr(valu)
+        except s_exc.SynErr:
+            raise
+        except Exception as e:
+            raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
@@ -4218,9 +4241,7 @@ class LibTelepath(Lib):
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
-        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+         'desc': 'Controls the ability to open a telepath URL. USE WITH CAUTION.'},
     )
 
     def getObjLocals(self):
@@ -5868,25 +5889,6 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
-    _storm_lib_perms = (
-        {'perm': ('globals',), 'gate': 'cortex',
-            'desc': 'Used to control all operations for global variables.'},
-
-        {'perm': ('globals', 'get'), 'gate': 'cortex',
-            'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control read access to a specific global variable.'},
-
-        {'perm': ('globals', 'set'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to a specific global variable.'},
-
-        {'perm': ('globals', 'pop'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to a specific global variable.'},
-    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)

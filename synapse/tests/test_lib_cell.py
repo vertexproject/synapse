@@ -910,6 +910,7 @@ class CellTest(s_t_utils.SynTest):
                 info = await prox.getCellInfo()
                 # Cell information
                 cnfo = info.get('cell')
+                nxfo = cnfo.get('nexus')
                 snfo = info.get('synapse')
                 self.eq(cnfo.get('commit'), 'mycommit')
                 self.eq(cnfo.get('version'), (1, 2, 3))
@@ -919,7 +920,15 @@ class CellTest(s_t_utils.SynTest):
                 self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
+                self.true(cnfo.get('ready'))
                 self.none(cnfo.get('mirror', True))
+                # Nexus info
+                self.ge(nxfo.get('indx'), 0)
+                self.false(nxfo.get('uplink:ready'))
+                self.true(nxfo.get('ready'))
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
+
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -937,6 +946,21 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+                # Write hold information is reflected through cell info
+                await cell.nexsroot.addWriteHold('boop')
+                await cell.nexsroot.addWriteHold('beep')
+                info = await prox.getCellInfo()
+                nxfo = info.get('cell').get('nexus')
+                self.true(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [{'reason': 'beep'}, {'reason': 'boop'}])
+
+                await cell.nexsroot.delWriteHold('boop')
+                await cell.nexsroot.delWriteHold('beep')
+                info = await prox.getCellInfo()
+                nxfo = info.get('cell').get('nexus')
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
 
         # Mirrors & ready flags
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
@@ -956,18 +980,26 @@ class CellTest(s_t_utils.SynTest):
                 await cell01.sync()
 
                 cnfo0 = await cell00.getCellInfo()
+                nxfo0 = cnfo0['cell']['nexus']
                 cnfo1 = await cell01.getCellInfo()
+                nxfo1 = cnfo1['cell']['nexus']
                 self.true(cnfo0['cell']['ready'])
                 self.false(cnfo0['cell']['uplink'])
                 self.none(cnfo0['cell']['mirror'])
                 self.eq(cnfo0['cell']['version'], (1, 2, 3))
+                self.false(nxfo0.get('uplink:ready'))
+                self.true(nxfo0.get('ready'))
 
                 self.true(cnfo1['cell']['ready'])
                 self.true(cnfo1['cell']['uplink'])
                 self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
                 self.eq(cnfo1['cell']['version'], (1, 2, 3))
 
+                self.true(nxfo1.get('uplink:ready'))
+                self.true(nxfo1.get('ready'))
+
                 self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
+                self.eq(nxfo0['indx'], nxfo1['indx'])
 
     async def test_cell_dyncall(self):
 
@@ -3734,3 +3766,47 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+    async def test_cell_fini_order(self):
+
+        with self.getTestDir() as dirn:
+
+            data = []
+            conf = {'nexslog:en': True}
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+
+                event00 = asyncio.Event()
+
+                async def coro():
+                    try:
+                        event00.set()
+                        await asyncio.sleep(100000)
+                    except asyncio.CancelledError:
+                        # nexus txn can run in a activeTask handler
+                        await cell.sync()
+                        data.append('activetask_cancelled')
+
+                async def bg_coro():
+                    self.true(await cell.waitfini(timeout=12))
+                    data.append('cell_fini')
+                    return True
+
+                bg_task = s_coro.create_task(bg_coro())
+                cell.runActiveTask(coro())
+                self.true(await asyncio.wait_for(event00.wait(), timeout=6))
+
+                # Perform a non-sync nexus txn then teardown the cell via __aexit__
+                self.nn(await cell.addUser('someuser'))
+
+            self.true(await asyncio.wait_for(bg_task, timeout=6))
+
+            self.eq(data, ['activetask_cancelled', 'cell_fini'])
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+                offs = await cell.getNexsIndx()
+                items = []
+                async for offs, item in cell.getNexusChanges(offs - 1, wait=False):
+                    items.append(item)
+                self.len(1, items)
+                self.eq('sync', items[0][1])
