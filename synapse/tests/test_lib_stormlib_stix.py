@@ -70,57 +70,55 @@ class StormLibStixTest(s_test.SynTest):
                 'targetorg': 'c915178f2ddd08145ff48ccbaa551873',
                 'attackorg': 'd820b6d58329662bc5cabec03ef72ffa',
 
-                'softver': 'a920b6d58329662bc5cabec03ef72ffa',
-                'prodsoft': 'a120b6d58329662bc5cabec03ef72ffa',
-
+                'software': 'a920b6d58329662bc5cabec03ef72ffa',
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
             self.len(22, await core.nodes('''[
-                (inet:asn=30 :name=woot30)
-                (inet:asn=40 :name=woot40)
-                (inet:ipv4=1.2.3.4 :asn=30)
-                (inet:ipv6="::ff" :asn=40)
+                (inet:asn=30 :owner:name=woot30)
+                (inet:asn=40 :owner:name=woot40)
+                (inet:ip=1.2.3.4 :asn=30)
+                (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
-                (ps:contact=* :name="visi stark" :email=visi@vertex.link)
+                (entity:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
-                (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
-                (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
+                (ou:org=$attackorg :name=attacker :place={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
+                (entity:campaign=$campaign :name=woot :actor={ou:org:name=attacker} +(had)> {[entity:goal=$goal :name=pwning]})
+                (risk:attack=$attack :campaign={entity:campaign} +(targeted)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
-                (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
-                (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
-                (inet:web:acct=(twitter.com, invisig0th) :realname="visi stark" .seen=(2010,2021) :signup=2010 :passwd=secret)
-                (syn:tag=cno.mal.redtree :title="Redtree Malware" .seen=(2010, 2020))
-                (it:prod:soft=$prodsoft :name=rar)
-                (it:prod:softver=$softver :software=$prodsoft .seen=(1996, 2021) :vers=2.0.1)
+                (doc:report=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
+                (file:bytes=({'sha256': $sha256}) :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
+                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark"
+                 :period=(2010, *) :seen=(2010, 2021) :creds={[auth:passwd=secret]})
+                (inet:service:account=(twitter, saltpass) :user="salthash pass" :id=saltpass :creds={[crypto:salthash=* :value={[auth:passwd=saltvalu]}]})
+                (syn:tag=cno.mal.redtree :title="Redtree Malware")
+                (it:software=$software :name=rar :version=2.0.1)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
             ]''', opts=opts))
 
-            self.len(1, await core.nodes('media:news -(refs)> *'))
+            self.len(1, await core.nodes('doc:report -(refs)> *'))
 
             bund = await core.callStorm('''
                 init { $bundle = $lib.stix.export.bundle() }
 
                 inet:asn
-                inet:ipv4
-                inet:ipv6
+                inet:ip
                 inet:email
-                inet:web:acct
-                media:news
+                inet:service:account
+                doc:report
                 ou:org:name=target
-                ou:campaign
+                entity:campaign
 
                 inet:fqdn=vtx.lk
                 inet:fqdn=vertex.link
 
                 file:bytes
                 inet:email:message
-                it:prod:softver
+                it:software
 
                 it:app:yara:rule
                 it:app:snort:rule
@@ -137,7 +135,7 @@ class StormLibStixTest(s_test.SynTest):
             self.bundeq(self.getTestBundle('basic.json'), bund)
 
             opts = {'vars': {
-                'file': 'guid:64610b9fdc23964d27f5d84f395a76df',
+                'file': '64610b9fdc23964d27f5d84f395a76df',
                 'execurl': 'f248920f711cd2ea2c5bec139d82ce0b',
             }}
 
@@ -146,7 +144,7 @@ class StormLibStixTest(s_test.SynTest):
                     $config = $lib.stix.export.config()
 
                     $config.forms."syn:tag".stix.malware.rels.append(
-                        (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
+                        (communicates-with, url, ${-> file:bytes -> it:exec:fetch:exe -> inet:url})
                     )
 
                     $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
@@ -156,7 +154,7 @@ class StormLibStixTest(s_test.SynTest):
                 [ syn:tag=cno.mal.redtree ]
 
                 {[( file:bytes=$file +#cno.mal.redtree )]}
-                {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
+                {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
 
                 $bundle.add($node, stixtype=malware)
 
@@ -198,7 +196,7 @@ class StormLibStixTest(s_test.SynTest):
                 $config = $lib.stix.export.config()
                 $config.synapse_extension=$lib.false  // Disable synapse extension
                 $config.forms."syn:tag".stix.malware.rels.append(
-                    (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
+                    (communicates-with, url, ${-> file:bytes -> it:exec:fetch:exe -> inet:url})
                 )
                 $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
                 $bundle = $lib.stix.export.bundle(config=$config)
@@ -207,7 +205,7 @@ class StormLibStixTest(s_test.SynTest):
             [ syn:tag=cno.mal.redtree ]
 
             {[( file:bytes=$file +#cno.mal.redtree )]}
-            {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
+            {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
 
             $bundle.add($node, stixtype=malware)
 
@@ -310,20 +308,22 @@ class StormLibStixTest(s_test.SynTest):
 
     async def test_risk_vuln(self):
         async with self.getTestCore() as core:
-            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
-            [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
+            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :id={[ it:sec:cve=CVE-2013-0000]} )]
+            [(risk:vuln=(vuln3,) :name="bobs version of CVE-2013-001" :id={[ it:sec:cve=CVE-2013-0001 ]} )]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
-            [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
-            [(risk:attack=(attk1,) :used:vuln=(vuln1,) :campaign=(campaign1,) )]
-            [(risk:attack=(attk2,) :used:vuln=(vuln3,) :campaign=(campaign1,) )]
+            [(entity:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
+            [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
 
             bund = await core.callStorm('''
             init { $bundle = $lib.stix.export.bundle() }
-            ou:campaign
+            entity:campaign
             $bundle.add($node)
             fini { return($bundle) }''')
             self.reqValidStix(bund)
+            import synapse.lib.json as s_json
+            s_json.jssave(bund, 'risk0.json')
             self.bundeq(self.getTestBundle('risk0.json'), bund)
 
     async def test_stix_import(self):
@@ -335,8 +335,8 @@ class StormLibStixTest(s_test.SynTest):
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
             # self.stormHasNoWarnErr(msgs)
-            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
-            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
 
             # Pass in a heavy dict object
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -344,13 +344,13 @@ class StormLibStixTest(s_test.SynTest):
             q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
             yield $lib.stix.import.ingest($data)'''
             msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
-            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(34, await core.nodes('media:news -(refs)> *', opts={'view': viewiden}))
+            self.len(34, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
             self.len(3, await core.nodes('it:sec:stix:indicator -(refs)> inet:fqdn', opts={'view': viewiden}))
 
@@ -434,23 +434,23 @@ class StormLibStixTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
 
             opts = {'view': viewiden}
-            self.len(1, await core.nodes('file:bytes=71935c8b268ebbd1dfee73198e1767a2e02c85b1780c6a7322445520484ebba3', opts=opts))
+            self.len(1, await core.nodes('file:bytes:sha256=71935c8b268ebbd1dfee73198e1767a2e02c85b1780c6a7322445520484ebba3', opts=opts))
 
             files = await core.nodes('file:bytes', opts=opts)
             self.len(2, files)
 
             file = await core.nodes('file:bytes:sha1=669a1e53b9dd9df3474300d3d959bb85bad75945', opts=opts)
             self.len(1, file)
-            self.eq(file[0].props['md5'], 'fa818a259cbed7ce8bc2a22d35a464fc')
-            self.eq(file[0].props['sha512'], '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
-            self.eq(file[0].props['name'], 'license')
-            self.eq(file[0].props['size'], 11358)
+            self.eq(file[0].get('md5'), 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.eq(file[0].get('sha512'), '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
+            self.eq(file[0].get('name'), 'license')
+            self.eq(file[0].get('size'), 11358)
 
-            ipv4 = await core.nodes('inet:ipv4', opts=opts)
+            ipv4 = await core.nodes('inet:ip +:version=4', opts=opts)
             self.len(1, ipv4)
             self.eq(ipv4[0].repr(), '10.147.20.97')
 
-            ipv6 = await core.nodes('inet:ipv6', opts=opts)
+            ipv6 = await core.nodes('inet:ip +:version=6', opts=opts)
             self.len(1, ipv6)
             self.eq(ipv6[0].repr(), 'fe80::2421:75ff:feaa:37cb')
 
@@ -463,12 +463,12 @@ class StormLibStixTest(s_test.SynTest):
 
             place = await core.nodes('geo:place:loc=cn', opts=opts)
             self.len(1, place)
-            self.eq(place[0].props['name'], 'china')
+            self.eq(place[0].get('name'), 'china')
 
             addr = await core.nodes('geo:place:address', opts=opts)
             self.len(1, addr)
-            self.eq(addr[0].props['address'], '1234 jefferson drive')
-            self.eq(addr[0].props['desc'], "It's a magical place!")
+            self.eq(addr[0].get('address'), '1234 jefferson drive')
+            self.eq(addr[0].get('desc'), "It's a magical place!")
 
             latlong = await core.nodes('geo:place:latlong', opts=opts)
             self.len(1, latlong)
@@ -557,7 +557,7 @@ class StormLibStixTest(s_test.SynTest):
                 init {
                     $config = $lib.stix.export.config()
                     $config.forms."inet:fqdn".stix."domain-name".pivots = ([
-                        {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                        {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                     ])
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
@@ -568,30 +568,58 @@ class StormLibStixTest(s_test.SynTest):
                 fini { return($bundle) }
             ''')
             stixids = [obj['id'] for obj in bund['objects']]
-            self.isin('ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db', stixids)
+            self.isin('ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7', stixids)
 
     async def test_stix_revs(self):
 
         async with self.getTestCore() as core:
-            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ ou:technique=* :name=foo ]} ]')
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ meta:technique=* :name=foo ]} ]')
 
             with self.raises(s_exc.BadConfValu):
                 bund = await core.callStorm('''
                     $config = $lib.stix.export.config()
-                    $config.forms."ou:technique".stix."attack-pattern".revs = (["a"])
+                    $config.forms."meta:technique".stix."attack-pattern".revs = (["a"])
                     $bundle = $lib.stix.export.bundle(config=$config)
-                    ou:technique
+                    meta:technique
                     $bundle.add($node, "attack-pattern")
-                    fini { return($bundle.pack()) }
+                    fini { return($bundle) }
                 ''')
 
             bund = await core.callStorm('''
                 $bundle = $lib.stix.export.bundle()
-                ou:technique
+                meta:technique
                 $bundle.add($node, "attack-pattern")
-                fini { return($bundle.pack()) }
+                fini { return($bundle) }
             ''')
             rels = [sobj for sobj in bund['objects'] if sobj.get('relationship_type') == 'mitigates']
             self.len(1, rels)
             self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
             self.true(rels[0]['source_ref'].startswith('course-of-action--'))
+
+    async def test_stix_export_dyndefault(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ it:dev:str=foo it:dev:str=bar ]')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."it:dev:str"=({
+                        "dynopts": ["location"],
+                        "dyndefault": "+it:dev:str=foo { return(location) }",
+                        "stix": {
+                            "location": {"props": {"name": "return($node.repr())"}}
+                        }
+                    })
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                it:dev:str
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+
+            locs = [obj for obj in bund['objects'] if obj['type'] == 'location']
+            self.len(1, locs)
+            self.eq(locs[0]['name'], 'foo')

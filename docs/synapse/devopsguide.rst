@@ -1344,13 +1344,13 @@ The Cortex can be configured to log Storm queries executed by users. This is don
 
 When enabled, the log message contains the query text and username::
 
-    2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ipv4=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
+    2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ip=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
 
 When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual
 fields in the logged message as well::
 
     {
-      "message": "Executing storm query {inet:ipv4=1.2.3.4} as [root]",
+      "message": "Executing storm query {inet:ip=1.2.3.4} as [root]",
       "logger": {
         "name": "synapse.storm",
         "process": "MainProcess",
@@ -1359,7 +1359,7 @@ fields in the logged message as well::
       },
       "level": "INFO",
       "time": "2021-06-28 16:18:47,232",
-      "text": "inet:ipv4=1.2.3.4",
+      "text": "inet:ip=1.2.3.4",
       "username": "root",
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
@@ -1596,8 +1596,8 @@ information about the Extended HTTP API endpoint::
     storm> cortex.httpapi.stat 50cf80d0e332a31608331490cd453103
     Iden: 50cf80d0e332a31608331490cd453103
     Creator: root (b13c21813628ac4464b78b5d7c55cd64)
-    Created: 2023/10/18 14:02:52.070
-    Updated: 2023/10/18 14:07:29.448
+    Created: 2023-10-18T14:02:52.070Z
+    Updated: 2023-10-18T14:07:29.448Z
     Path: demo/([a-z0-9]+)/(.*)
     Owner: root (b13c21813628ac4464b78b5d7c55cd64)
     Runas: owner

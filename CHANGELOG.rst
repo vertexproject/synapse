@@ -6,6 +6,12 @@
 Synapse Changelog
 *****************
 
+v3.0.0 - 2025-XX-YY
+===================
+
+Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
+changes.
+
 v2.232.0 - 2026-02-02
 =====================
 
@@ -532,7 +538,6 @@ Deprecations
 ------------
 - Deprecated the ``synapse.cryotank.CryoTank`` Cell.
   (`#4494 <https://github.com/vertexproject/synapse/pull/4494>`_)
-
 
 v2.222.0 - 2025-09-15
 =====================

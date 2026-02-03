@@ -1,6 +1,7 @@
 '''
 Exceptions used by synapse, all inheriting from SynErr
 '''
+import sys
 
 class SynErr(Exception):
 
@@ -108,13 +109,13 @@ class BadCoreStore(SynErr):
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
-class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
+class BadMsgpackData(SynErr): pass
 class BadDataValu(SynErr):
     '''Cannot process the data as intended.'''
     pass
@@ -149,11 +150,11 @@ class BadUrl(SynErr): pass
 class TypeMismatch(SynErr): pass
 
 class CantDelCmd(SynErr): pass
+class CantDelEdge(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelType(SynErr): pass
-class CantDelUniv(SynErr): pass
 class CantDelView(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
@@ -226,7 +227,13 @@ class InconsistentStorage(SynErr):
 
 class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
-class IsDeprLocked(SynErr): pass
+
+class IsDeprLocked(SynErr):
+    def __init__(self, *args, **info):
+        if __debug__:
+            sys.audit('synapse.exc.IsDeprLocked', (args, info))
+        super().__init__(*args, **info)
+
 class IsRuntForm(SynErr): pass
 class ShuttingDown(SynErr): pass
 
@@ -275,6 +282,22 @@ class NoSuchProp(SynErr):
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
 
+class NoSuchVirt(SynErr):
+
+    @classmethod
+    def init(cls, name, ptyp, mesg=None):
+        if mesg is None:
+            mesg = f'No virtual prop named {name} on type {ptyp.name}.'
+        return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
+
+class NoSuchIface(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No interface named {name}.'
+        return NoSuchIface(mesg=mesg, name=name)
+
 class NoSuchEdge(SynErr):
 
     @classmethod
@@ -313,7 +336,6 @@ class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass

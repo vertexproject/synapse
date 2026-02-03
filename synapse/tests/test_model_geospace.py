@@ -3,27 +3,25 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.module as s_module
+geotestmodel = (
+    ('geo:test', {
 
-geotestmodel = {
+        'types': (
+            ('test:latlong', ('geo:latlong', {}), {}),
+            ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
+        ),
 
-    'ctors': (),
+        'forms': (
 
-    'types': (
-        ('test:latlong', ('geo:latlong', {}), {}),
-        ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
-    ),
-
-    'forms': (
-
-        ('test:latlong', {}, (
-            ('lat', ('geo:latitude', {}), {}),
-            ('long', ('geo:longitude', {}), {}),
-            ('dist', ('geo:dist', {}), {}),
-        )),
-        ('test:distoff', {}, ()),
-    ),
-}
+            ('test:latlong', {}, (
+                ('lat', ('geo:latitude', {}), {}),
+                ('long', ('geo:longitude', {}), {}),
+                ('dist', ('geo:dist', {}), {}),
+            )),
+            ('test:distoff', {}, ()),
+        ),
+    }),
+)
 
 geojson0 = {
   "type": "GeometryCollection",
@@ -107,12 +105,6 @@ geojson2 = {
   ]
 }
 
-class GeoTstModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('geo:test', geotestmodel),
-        )
-
 
 class GeoTest(s_t_utils.SynTest):
 
@@ -125,45 +117,51 @@ class GeoTest(s_t_utils.SynTest):
 
             # Latitude Type Tests =====================================================================================
             t = core.model.type(formlat)
-            self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
-            self.eq(t.norm('-90')[0], -90.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
-            self.eq(t.norm('-0')[0], 0.0)
-            self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
-            self.eq(t.norm('90')[0], 90.0)
-            self.eq(t.norm('39.94891608')[0], 39.94891608)
-            self.raises(s_exc.BadTypeValu, t.norm, '90.1')
-            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('-90.1'))
+            self.eq((await t.norm('-90'))[0], -90.0)
+            self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
+            self.eq((await t.norm('-0'))[0], 0.0)
+            self.eq((await t.norm('0'))[0], 0.0)
+            self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
+            self.eq((await t.norm('90'))[0], 90.0)
+            self.eq((await t.norm('39.94891608'))[0], 39.94891608)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('90.1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
 
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
-            self.raises(s_exc.BadTypeValu, t.norm, '-180.0')
-            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
-            self.eq(t.norm('-0')[0], 0.0)
-            self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
-            self.eq(t.norm('180')[0], 180.0)
-            self.eq(t.norm('39.94891608')[0], 39.94891608)
-            self.raises(s_exc.BadTypeValu, t.norm, '180.1')
-            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('-180.0'))
+            self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
+            self.eq((await t.norm('-0'))[0], 0.0)
+            self.eq((await t.norm('0'))[0], 0.0)
+            self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
+            self.eq((await t.norm('180'))[0], 180.0)
+            self.eq((await t.norm('39.94891608'))[0], 39.94891608)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('180.1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
-            self.eq(t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
-            self.eq(t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
+            subs = {'lat': (t.lattype.typehash, 0.0, {}), 'lon': (t.lontype.typehash, 0.0, {})}
+            self.eq(await t.norm('0,-0'), ((0.0, 0.0), {'subs': subs}))
 
-            self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            subs = {'lat': (t.lattype.typehash, 89.999, {}), 'lon': (t.lontype.typehash, 179.999, {})}
+            self.eq(await t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, -89.999, {}), 'lon': (t.lontype.typehash, -179.999, {})}
+            self.eq(await t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, 89.999, {}), 'lon': (t.lontype.typehash, 179.999, {})}
+            self.eq(await t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': subs}))
+            self.eq(await t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': subs}))
 
             # Demonstrate precision
-            self.eq(t.norm('12.345678,-12.345678'),
-                    ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
-            self.eq(t.norm('12.3456789,-12.3456789'),
-                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
-            self.eq(t.norm('12.34567890,-12.34567890'),
-                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+            subs = {'lat': (t.lattype.typehash, 12.345678, {}), 'lon': (t.lontype.typehash, -12.345678, {})}
+            self.eq(await t.norm('12.345678,-12.345678'), ((12.345678, -12.345678), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, 12.3456789, {}), 'lon': (t.lontype.typehash, -12.3456789, {})}
+            self.eq(await t.norm('12.3456789,-12.3456789'), ((12.3456789, -12.3456789), {'subs': subs}))
+            self.eq(await t.norm('12.34567890,-12.34567890'), ((12.3456789, -12.3456789), {'subs': subs}))
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')
@@ -173,28 +171,28 @@ class GeoTest(s_t_utils.SynTest):
             formname = 'geo:dist'
             t = core.model.type(formname)
 
-            self.eq(t.norm('11 mm'), (11, {}))
-            self.eq(t.norm('11 millimeter'), (11, {}))
-            self.eq(t.norm('11 millimeters'), (11, {}))
+            self.eq(await t.norm('11 mm'), (11, {}))
+            self.eq(await t.norm('11 millimeter'), (11, {}))
+            self.eq(await t.norm('11 millimeters'), (11, {}))
 
-            self.eq(t.norm('837.33 m')[0], 837330)
-            self.eq(t.norm('837.33 meter')[0], 837330)
-            self.eq(t.norm('837.33 meters')[0], 837330)
+            self.eq((await t.norm('837.33 m'))[0], 837330)
+            self.eq((await t.norm('837.33 meter'))[0], 837330)
+            self.eq((await t.norm('837.33 meters'))[0], 837330)
 
-            self.eq(t.norm('100km')[0], 100000000)
-            self.eq(t.norm('100     km')[0], 100000000)
-            self.eq(t.norm('11.2 km'), (11200000, {}))
-            self.eq(t.norm('11.2 kilometer'), (11200000, {}))
-            self.eq(t.norm('11.2 kilometers'), (11200000, {}))
+            self.eq((await t.norm('100km'))[0], 100000000)
+            self.eq((await t.norm('100     km'))[0], 100000000)
+            self.eq(await t.norm('11.2 km'), (11200000, {}))
+            self.eq(await t.norm('11.2 kilometer'), (11200000, {}))
+            self.eq(await t.norm('11.2 kilometers'), (11200000, {}))
 
-            self.eq(t.norm(11200000), (11200000, {}))
+            self.eq(await t.norm(11200000), (11200000, {}))
 
-            self.eq(t.norm('2 foot')[0], 609)
-            self.eq(t.norm('5 feet')[0], 1524)
-            self.eq(t.norm('1 yard')[0], 914)
-            self.eq(t.norm('10 yards')[0], 9144)
-            self.eq(t.norm('1 mile')[0], 1609344)
-            self.eq(t.norm('3 miles')[0], 4828032)
+            self.eq((await t.norm('2 foot'))[0], 609)
+            self.eq((await t.norm('5 feet'))[0], 1524)
+            self.eq((await t.norm('1 yard'))[0], 914)
+            self.eq((await t.norm('10 yards'))[0], 9144)
+            self.eq((await t.norm('1 mile'))[0], 1609344)
+            self.eq((await t.norm('3 miles'))[0], 4828032)
 
             self.eq(t.repr(5), '5 mm')
             self.eq(t.repr(500), '50.0 cm')
@@ -202,30 +200,8 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr(10000), '10.0 m')
             self.eq(t.repr(1000000), '1.0 km')
 
-            self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
-            self.raises(s_exc.BadTypeValu, t.norm, 'foo')
-
-            # geo:nloc
-            formname = 'geo:nloc'
-            t = core.model.type(formname)
-
-            ndef = ('inet:ipv4', '0.0.0.0')
-            latlong = ('0.000000000', '0')
-            stamp = -0
-
-            place = s_common.guid()
-            opts = {'vars': {'place': place, 'loc': 'us.hehe.haha', 'valu': (ndef, latlong, stamp)}}
-            nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
-            self.eq(node.get('ndef'), ('inet:ipv4', 0))
-            self.eq(node.get('ndef:form'), 'inet:ipv4')
-            self.eq(node.get('latlong'), (0.0, 0.0))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('place'), place)
-            self.eq(node.get('loc'), 'us.hehe.haha')
-            self.len(1, await core.nodes('inet:ipv4=0'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('1.3 pc'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('foo'))
 
             # geo:place
 
@@ -236,48 +212,42 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'woot.woot.')
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
-            guid = s_common.guid()
-            fbyts = s_common.guid()
-            parent = s_common.guid()
-            props = {'name': 'Vertex  HQ',
-                     'desc': 'The place where Vertex Project hangs out at!',
-                     'address': '208 Datong Road, Pudong District, Shanghai, China',
-                     'parent': parent,
-                     'loc': 'us.hehe.haha',
-                     'photo': f'guid:{fbyts}',
-                     'latlong': '34.1341, -118.3215',
-                     'bbox': '2.11, 2.12, -4.88, -4.9',
-                     'radius': '1.337km'}
-            opts = {'vars': {'valu': guid, 'p': props}}
-            q = '''
-                [ geo:place=$valu
+            nodes = await core.nodes('''
+                [ geo:place=*
                     :id=IAD
-                    :name=$p.name :desc=$p.desc :address=$p.address :parent=$p.parent :loc=$p.loc
-                    :photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius
+                    :desc="The place where Vertex Project hangs out at!"
+                    :name="Vertex HQ"
+                    :address="208 Datong Road, Pudong District, Shanghai, China"
+                    :address:city="  Shanghai  "
+                    :loc=us.hehe.haha
+                    :photo=*
+                    :latlong=(34.1341, -118.3215)
+                    :latlong:accuracy=2m
+                    :altitude=200m
+                    :altitude:accuracy=2m
+                    :bbox="2.11, 2.12, -4.88, -4.9"
                 ]
-            '''
-            nodes = await core.nodes(q, opts=opts)
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], guid)
             self.eq(node.get('id'), 'IAD')
             self.eq(node.get('name'), 'vertex hq')
             self.eq(node.get('loc'), 'us.hehe.haha')
             self.eq(node.get('latlong'), (34.1341, -118.3215))
-            self.eq(node.get('radius'), 1337000)
+            self.eq(node.get('latlong:accuracy'), 2000)
+            self.eq(node.get('altitude'), 6371208800)
+            self.eq(node.get('altitude:accuracy'), 2000)
             self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
             self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-            self.eq(node.get('parent'), parent)
-            self.eq(node.get('photo'), f'guid:{fbyts}')
+            self.eq(node.get('address:city'), 'shanghai')
+            self.nn(node.get('photo'))
+
+            self.len(1, await core.nodes('geo:place :photo -> file:bytes'))
 
             self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
-            opts = {'vars': {'place': parent}}
-            nodes = await core.nodes('geo:place=$place', opts=opts)
-            self.len(1, nodes)
-
-            self.len(1, await core.nodes('geo:place -> geo:place:taxonomy'))
+            self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
 
             q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}
@@ -296,25 +266,11 @@ class GeoTest(s_t_utils.SynTest):
     async def test_eq(self):
 
         async with self.getTestCore() as core:
-            guid0 = s_common.guid()
-            props = {'name': 'Vertex  HQ',
-                     'latlong': '34.1341, -118.3215',
-                     'radius': '1.337km'}
-            opts = {'vars': {'valu': guid0, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
 
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('[geo:place=* :name="Vertex HQ" :latlong=(34.1341, -118.3215)]')
             self.len(1, nodes)
 
-            guid1 = s_common.guid()
-            props = {'name': 'Griffith Observatory',
-                     'latlong': '34.1341, -118.3215',
-                     'radius': '75m'}
-
-            opts = {'vars': {'valu': guid1, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
-
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('[geo:place=* :name="Griffith Observatory" :latlong=(34.1341, -118.3215)]')
             self.len(1, nodes)
 
             nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3215)')
@@ -333,17 +289,15 @@ class GeoTest(s_t_utils.SynTest):
             # These two nodes are 2,605m apart
             guid0 = s_common.guid()
             props = {'name': 'Vertex  HQ',
-                     'latlong': '34.1341, -118.3215',  # hollywood sign
-                     'radius': '1.337km'}
+                     'latlong': '34.1341, -118.3215'}
             opts = {'vars': {'valu': guid0, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
+            q = '[ geo:place=$valu :name=$p.name :latlong=$p.latlong ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid1 = s_common.guid()
             props = {'name': 'Griffith Observatory',
-                     'latlong': '34.118560, -118.300370',
-                     'radius': '75m'}
+                     'latlong': '34.118560, -118.300370'}
             opts = {'vars': {'valu': guid1, 'p': props}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -351,23 +305,7 @@ class GeoTest(s_t_utils.SynTest):
             guid2 = s_common.guid()
             props = {'name': 'unknown location'}
             opts = {'vars': {'valu': guid2, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
-            # A telemetry node for example by the observatory
-            guid3 = s_common.guid()
-            props = {'latlong': '34.118660, -118.300470'}
-            opts = {'vars': {'valu': guid3, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
-            # A telemetry node for example by the HQ
-            guid4 = s_common.guid()
-            props = {'latlong': '34.13412, -118.32153'}
-            opts = {'vars': {'valu': guid4, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[ geo:place=$valu :name=$p.name ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
@@ -375,14 +313,14 @@ class GeoTest(s_t_utils.SynTest):
             guid5 = s_common.guid()
             props = {'latlong': '35.118660, -118.300470'}
             opts = {'vars': {'valu': guid5, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid6 = s_common.guid()
             props = {'latlong': '33.118660, -118.300470'}
             opts = {'vars': {'valu': guid6, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
@@ -401,15 +339,10 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 50m)')
             self.len(2 + 1, nodes)
 
-            # Storm variable use to filter nodes based on a given location.
-            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
-                f'$radius)'
-            self.len(1, await core.nodes(q))
-
-            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, 5km)'
+            q = f'geo:place={guid0} $latlong=:latlong | spin | geo:place +:latlong*near=($latlong, 5km)'
             self.len(2, await core.nodes(q))
 
-            # Lifting nodes by *near=((latlong), radius)
+            # Lifting nodes by *near=((latlong), accuracy)
             q = 'geo:place:latlong*near=((34.1, -118.3), 10km)'
             self.len(2, await core.nodes(q))
 
@@ -424,18 +357,10 @@ class GeoTest(s_t_utils.SynTest):
             q = 'geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'
             self.len(1, await core.nodes(q))
 
-            # Storm variable use to lift nodes based on a given location.
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
-                f'tel:mob:telem:latlong*near=($latlong, 3km) +tel:mob:telem'
-            self.len(2, await core.nodes(q))
-
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
-                f'tel:mob:telem:latlong*near=($latlong, $radius) +tel:mob:telem'
-            self.len(1, await core.nodes(q))
-
         async with self.getTestCore() as core:
 
-            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            await core._addDataModels(geotestmodel)
+
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
                                     '(test:latlong=(10.1, 10.1) :dist=20m) '
@@ -491,7 +416,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            await core._addDataModels(geotestmodel)
             nodes = await core.nodes('[ test:distoff=-3cm ]')
             self.eq(970, nodes[0].ndef[1])
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))
@@ -505,15 +430,13 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ geo:telem=*
                     :time=20220618
-                    :latlong=(10.1, 3.0)
                     :desc=foobar
-                    :accuracy=10m
                     :node=(test:int, 1234)
 
                     :place={[ geo:place=({"name": "Woot"}) ]}
                     :place:loc=us.ny.woot
                     :place:name=Woot
-                    :place:country={[ pol:country=({"iso2": "us"}) ]}
+                    :place:country={[ pol:country=({"code": "us"}) ]}
                     :place:country:code=us
                     :place:address="123 main street"
 
@@ -527,11 +450,9 @@ class GeoTest(s_t_utils.SynTest):
                     :phys:volume=1000m
                 ]
             ''')
-            self.eq(1655510400000, nodes[0].get('time'))
-            self.eq((10.1, 3.0), nodes[0].get('latlong'))
+            self.eq(1655510400000000, nodes[0].get('time'))
             self.eq('foobar', nodes[0].get('desc'))
             self.eq('woot', nodes[0].get('place:name'))
-            self.eq(10000, nodes[0].get('accuracy'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
             self.eq(('test:int', 1234), nodes[0].get('node'))
             self.len(1, await core.nodes('test:int=1234'))
@@ -553,11 +474,11 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             area = core.model.type('geo:area')
-            self.eq(1, area.norm(1)[0])
-            self.eq(1000000, area.norm('1 sq.km')[0])
+            self.eq(1, (await area.norm(1))[0])
+            self.eq(1000000, (await area.norm('1 sq.km'))[0])
             self.eq('1.0 sq.km', area.repr(1000000))
             self.eq('1 sq.mm', area.repr(1))
             with self.raises(s_exc.BadTypeValu):
-                area.norm('asdf')
+                await area.norm('asdf')
             with self.raises(s_exc.BadTypeValu):
-                area.norm('-1sq.km')
+                await area.norm('-1sq.km')

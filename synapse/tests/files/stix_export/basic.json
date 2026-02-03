@@ -52,22 +52,22 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:ipv4",
-            16909060
+            "inet:ip",
+            [4, 16909060]
           ]
         }
       },
-      "id": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "id": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
       "spec_version": "2.1",
       "type": "ipv4-addr",
       "value": "1.2.3.4"
     },
     {
       "created": "2021-04-29T17:34:49.689Z",
-      "id": "relationship--0a7f84d6-961f-46f9-873f-375f96ce2785",
+      "id": "relationship--5e7bcf59-694d-43f7-94a6-2298def37101",
       "modified": "2021-04-29T17:34:49.689Z",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "source_ref": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
       "spec_version": "2.1",
       "target_ref": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
       "type": "relationship"
@@ -77,22 +77,22 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:ipv6",
-            "::ff"
+            "inet:ip",
+            [6, 255]
           ]
         }
       },
-      "id": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "id": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
       "spec_version": "2.1",
       "type": "ipv6-addr",
       "value": "::ff"
     },
     {
       "created": "2021-04-29T17:34:49.693Z",
-      "id": "relationship--56958d44-7ccf-4894-9cfc-9d2a850cbf42",
+      "id": "relationship--46e559e8-d15c-4068-8333-c68fbc457556",
       "modified": "2021-04-29T17:34:49.693Z",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "source_ref": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
       "spec_version": "2.1",
       "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
       "type": "relationship"
@@ -129,26 +129,39 @@
       "value": "visi@vertex.link"
     },
     {
-      "account_created": "2010-01-01T00:00:00.000Z",
-      "account_first_login": "2021-01-01T00:00:00.000Z",
-      "account_last_login": "2010-01-01T00:00:00.000Z",
-      "account_login": "invisig0th",
-      "account_type": "twitter",
-      "credential": "secret",
-      "display_name": "visi stark",
+      "account_login": "salthash pass",
+      "credential": "saltvalu",
       "extensions": {
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:web:acct",
-            [
-              "twitter.com",
-              "invisig0th"
-            ]
+            "inet:service:account",
+            "4c97b4dd4d10b67b79f5f6a7ca8ec959"
           ]
         }
       },
-      "id": "user-account--5aee248b-8b9d-5ef3-ab46-fc82de4785d0",
+      "id": "user-account--2217918b-3aba-5bb0-8695-ec80d36e8b8c",
+      "spec_version": "2.1",
+      "type": "user-account",
+      "user_id": "saltpass"
+    },
+    {
+      "account_created": "2010-01-01T00:00:00.000Z",
+      "account_first_login": "2010-01-01T00:00:00.000Z",
+      "account_last_login": "2021-01-01T00:00:00.000Z",
+      "account_login": "visi stark",
+      "account_type": "twitter",
+      "credential": "secret",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:service:account",
+            "1a72816a63072589e6f22a1939fc0210"
+          ]
+        }
+      },
+      "id": "user-account--fa2c6c5d-a425-5f98-bd31-0e556e5198d4",
       "spec_version": "2.1",
       "type": "user-account",
       "user_id": "invisig0th"
@@ -159,12 +172,12 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "media:news",
+            "doc:report",
             "840b9b003a765020705ea8d203a7659c"
           ]
         }
       },
-      "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
+      "id": "report--bff8b6f2-2183-44c9-9dc9-eed555e0b95f",
       "modified": "2021-04-29T17:34:49.364Z",
       "name": "report0",
       "object_refs": [
@@ -186,8 +199,8 @@
       },
       "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
       "resolves_to_refs": [
-        "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
-        "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+        "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
+        "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
         "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
       ],
       "spec_version": "2.1",
@@ -236,12 +249,12 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "ou:campaign",
+            "entity:campaign",
             "21592cce6e1532dee5e348bfc4481e6b"
           ]
         }
       },
-      "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "id": "campaign--9ea7f65f-d219-4bad-b6d7-6841122a4a76",
       "modified": "2021-04-29T17:34:49.344Z",
       "name": "woot",
       "objective": "pwning",
@@ -338,30 +351,30 @@
     },
     {
       "created": "2021-04-29T17:34:50.863Z",
-      "id": "relationship--5359a1b4-1bc3-4c3e-81a8-aa02fb087af0",
+      "id": "relationship--7fc6d261-ff40-4cab-a711-6291a7bf8d1b",
       "modified": "2021-04-29T17:34:50.863Z",
       "relationship_type": "attributed-to",
-      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "source_ref": "campaign--9ea7f65f-d219-4bad-b6d7-6841122a4a76",
       "spec_version": "2.1",
       "target_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "type": "relationship"
     },
     {
       "created": "2021-04-29T17:34:50.873Z",
-      "id": "relationship--46232104-5074-4a19-8b21-84949983d41b",
+      "id": "relationship--226a06d0-1659-4f77-92c2-2205357804c3",
       "modified": "2021-04-29T17:34:50.873Z",
       "relationship_type": "originates-from",
-      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "source_ref": "campaign--9ea7f65f-d219-4bad-b6d7-6841122a4a76",
       "spec_version": "2.1",
       "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "type": "relationship"
     },
     {
       "created": "2021-04-29T17:34:50.886Z",
-      "id": "relationship--de1fae1f-87e9-461e-87d1-530a1c9cf583",
+      "id": "relationship--f8cd110d-5067-4e3d-8159-283844ecd67d",
       "modified": "2021-04-29T17:34:50.886Z",
       "relationship_type": "targets",
-      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
+      "source_ref": "campaign--9ea7f65f-d219-4bad-b6d7-6841122a4a76",
       "spec_version": "2.1",
       "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "type": "relationship"
@@ -375,14 +388,14 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "file:bytes",
-            "sha256:00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+            "58f81b208f098f9678f1619e3e866317"
           ]
         }
       },
       "hashes": {
         "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
       },
-      "id": "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
+      "id": "file--82c308d6-cd7d-556e-a019-cc2761422776",
       "mime_type": "application/json",
       "name": "woot.json",
       "size": 333,
@@ -415,12 +428,12 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "it:prod:softver",
+            "it:software",
             "a920b6d58329662bc5cabec03ef72ffa"
           ]
         }
       },
-      "id": "tool--ee99694e-dab2-40c3-ae6f-6c28ce4264ea",
+      "id": "tool--30370dd5-6bad-4507-96d6-6196e5cce1f0",
       "modified": "2021-04-29T17:34:49.389Z",
       "name": "rar",
       "spec_version": "2.1",
@@ -480,14 +493,12 @@
           ]
         }
       },
-      "first_seen": "2010-01-01T00:00:00.000Z",
       "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
       "is_family": true,
-      "last_seen": "2020-01-01T00:00:00.000Z",
       "modified": "2021-04-29T17:34:49.374Z",
       "name": "Redtree Malware",
       "sample_refs": [
-        "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9"
+        "file--82c308d6-cd7d-556e-a019-cc2761422776"
       ],
       "spec_version": "2.1",
       "type": "malware"

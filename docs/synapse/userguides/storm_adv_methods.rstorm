@@ -53,7 +53,7 @@ for a full list.
 
 - Print the value of ``$node`` for an ``inet:dns:a`` node:
 
-.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) .seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
+.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) :seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node) | spin
 
 - Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
@@ -69,11 +69,16 @@ for a full list.
   As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
   node object (the value of the ``$node`` variable) when creating new nodes.
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
   server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
 
-.. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
 
 In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create
 the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value
@@ -214,7 +219,7 @@ The method can optionally take one argument.
 
 - If no arguments are provided, the method returns the repr of the node's primary property value.
 - If an argument is provided, it should be the string of the secondary property name (i.e., without the leading colon ( ``:`` ) from relative property syntax).
-- If a universal property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
+- If a meta property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-value` to return the raw value of a property.
 
@@ -225,15 +230,10 @@ See :ref:`meth-node-value` to return the raw value of a property.
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr())  | spin
 
 
-- Print the repr of the ``:ipv4`` secondary property value of an ``inet:dns:a`` node:
+- Print the repr of the ``:ip`` secondary property value of an ``inet:dns:a`` node:
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ipv4)) | spin
+.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ip)) | spin
 
-
-- Print the repr of the ``.seen`` universal property value of an ``inet:dns:a`` node:
-
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(".seen")) | spin
-    
 
 .. _meth-node-tags:
 
@@ -322,43 +322,38 @@ The ``$path`` variable is generally not used on its own, but in conjunction with
 :ref:`stormprims-node-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation
 for a full list.
 
-.. _meth-path-idens:
+.. _meth-path-links:
 
-$path.idens()
+$path.links()
 +++++++++++++
 
-The ``$path.idens()`` method returns the list of idens (:ref:`gloss-iden`) of each node in a node's path
+The ``$path.links()`` method returns a list of (node id, link info) tuples of each link in a node's path
 through a Storm query.
 
 The method takes no arguments.
 
 **Examples**
 
-- Print the list of iden(s) for the path of a single lifted node:
+- Print the list of links for the path of a single node through two pivots to a single end node:
 
 .. storm-pre:: [ (inet:dns:a=(aunewsonline.com,67.215.66.149)) (inet:dns:a=(aunewsonline.com,184.168.221.92)) (inet:dns:a=(aunewsonline.com,104.239.213.7)) ]
-.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($path.idens()) | spin
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ip=67.215.66.149 -> inet:ip $lib.print($path.links())
     
-.. NOTE::
-
-  A lift operation contains no pivots (i.e., no "path"), so the method returns only the iden of the lifted node.
-
-
-- Print the list of idens for the path of a single node through two pivots to a single end node:
-
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ipv4=67.215.66.149 -> inet:ipv4 $lib.print($path.idens()) 
-    
-The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the
-specified IP, and the ``inet:ipv4`` node.
+The example above returns the node ids of the original ``inet:fqdn`` node and the ``inet:dns:a`` node with the
+specified IP, along with information about the pivot performed that linked the nodes.
 
 
-- Print the list of idens for the path of a single node through two pivots to three different end nodes
+- Print the list of links for the path of a single node through two pivots to three different end nodes
   (i.e., three paths):
 
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ipv4 $lib.print($path.idens()) 
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ip $lib.print($path.links())
 
 In the example above, the FQDN has three DNS A records, thus there are three different paths that the
 original node takes through the query.
+
+.. NOTE::
+
+  A lift operation contains no pivots (i.e., no "path"), so the method does not return any links.
 
 
 .. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html

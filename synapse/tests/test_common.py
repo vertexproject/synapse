@@ -436,7 +436,7 @@ class CommonTest(s_t_utils.SynTest):
 
         await footask
 
-        self.eq(123, await s_common.wait_for(footask, timeout=-1))
+        self.eq(123, await asyncio.wait_for(footask, timeout=-1))
 
     def test_trim_text(self):
         tvs = (
@@ -476,3 +476,9 @@ class CommonTest(s_t_utils.SynTest):
 
                     json = await resp.json()
                     self.eq(json, {'foo': 'bar', 'html': '<html></html>'})
+
+    async def test_queryhash(self):
+        self.eq('7c18c9e1895308ac46845a069472b12e', s_common.queryhash('inet:fqdn'))
+
+        with self.raises(s_exc.BadDataValu):
+            s_common.queryhash('😀\ud83d\ude47')

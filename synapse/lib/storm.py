@@ -18,10 +18,11 @@ import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
-import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
+import synapse.lib.editor as s_editor
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -50,8 +51,7 @@ to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
 The added tag is provided to the query in the ``$auto`` dictionary variable under
-``$auto.opts.tag``. Usage of the ``$tag`` variable is deprecated and it will no longer
-be populated in Synapse v3.0.0.
+``$auto.opts.tag``.
 
 Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
@@ -63,20 +63,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -203,28 +203,57 @@ stormcmds = (
         ),
         'storm': '''
             $lib.queue.add($cmdopts.name)
-            $lib.print("queue added: {name}", name=$cmdopts.name)
+            $lib.print(`queue added: {$cmdopts.name}`)
         ''',
     },
     {
         'name': 'queue.del',
         'descr': 'Remove a queue from the cortex.',
         'cmdargs': (
-            ('name', {'help': 'The name of the queue to remove.'}),
+            ('iden', {'help': 'The iden of the queue to remove.'}),
         ),
         'storm': '''
-            $lib.queue.del($cmdopts.name)
-            $lib.print("queue removed: {name}", name=$cmdopts.name)
+            $lib.queue.del($cmdopts.iden)
+            $lib.print(`queue removed: {$cmdopts.iden}`)
         ''',
     },
     {
         'name': 'queue.list',
         'descr': 'List the queues in the cortex.',
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 32},
+                        {"name": "name", "width": 30},
+                        {"name": "creator", "width": 20},
+                        {"name": "created", "width": 20},
+                        {"name": "size", "width": 10},
+                        {"name": "offs", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $lib.print('Storm queue list:')
-            for $info in $lib.queue.list() {
-                $name = $info.name.ljust(32)
-                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            $queues = $lib.queue.list()
+            $lib.print($printer.header())
+            for $info in $queues {
+                $row = (
+                    $info.iden,
+                    $info.name,
+                    $lib.auth.users.get($info.creator).name,
+                    $lib.time.format($info.created, '%Y-%m-%d %H:%M:%S'),
+                    $info.size,
+                    $info.offs
+                )
+                $lib.print($printer.row($row))
             }
         ''',
     },
@@ -243,28 +272,12 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'feed.list',
-        'descr': 'List the feed functions available in the Cortex',
-        'cmdargs': (),
-        'storm': '''
-            $lib.print('Storm feed list:')
-            for $flinfo in $lib.feed.list() {
-                $flname = $flinfo.name.ljust(30)
-                $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
-            }
-        '''
-    },
-    {
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
-            ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
-                              'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
-            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
@@ -360,21 +373,41 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve pull configurations for.'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+            $lib.print('Pulls configured:')
             $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
             $pulls = $layr.get(pulls)
             if $pulls {
-                $lib.print('Pull Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print($printer.header())
                 for ($iden, $pdef) in $pulls {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                    $row = (
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print('No pulls configured.')
@@ -419,21 +452,41 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve push configurations for.'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+            $lib.print('Pushes configured:')
             $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
             $pushs = $layr.get(pushs)
             if $pushs {
-                $lib.print('Push Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print($printer.header())
                 for ($iden, $pdef) in $pushs {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                    $row = (
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print('No pushes configured.')
@@ -444,8 +497,8 @@ stormcmds = (
         'name': 'version',
         'descr': 'Show version metadata relating to Synapse.',
         'storm': '''
-            $comm = $lib.version.commit()
-            $synv = $lib.version.synapse()
+            $comm = $lib.version.commit
+            $synv = $lib.version.synapse
 
             if $synv {
                 $synv = ('.').join($synv)
@@ -455,8 +508,8 @@ stormcmds = (
                 $comm = $comm.slice(0,7)
             }
 
-            $lib.print('Synapse Version: {s}', s=$synv)
-            $lib.print('Commit Hash: {c}', c=$comm)
+            $lib.print(`Synapse Version: {$synv}`)
+            $lib.print(`Commit Hash: {$comm}`)
         ''',
     },
     {
@@ -550,7 +603,7 @@ stormcmds = (
             $view.merge()
 
             if $cmdopts.delete {
-                $layriden = $view.pack().layers.index(0).iden
+                $layriden = $view.layers.index(0).iden
                 $lib.view.del($view.iden)
                 $lib.layer.del($layriden)
             } else {
@@ -564,13 +617,12 @@ stormcmds = (
         'descr': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
+            ('storm', {'help': 'Storm query for the trigger to execute.'}),
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
-                         'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
@@ -601,14 +653,26 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger's query.",
+        'descr': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-            ('query', {'help': 'New storm query for the trigger.'}),
+            ('--view', {'help': 'View to move the trigger to.'}),
+            ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--user', {'help': 'User to run the trigger as.'}),
+            ('--async', {'help': 'Make the trigger run in the background.'}),
+            ('--enabled', {'help': 'Enable the trigger.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified trigger: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $iden = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$iden}`)
         ''',
     },
     {
@@ -618,77 +682,81 @@ stormcmds = (
             ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "creator", "width": 24},
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 32},
+                        {"name": "view", "width": 11},
+                        {"name": "en?", "width": 3},
+                        {"name": "async?", "width": 6},
+                        {"name": "cond", "width": 9},
+                        {"name": "object", "width": 32},
+                        {"name": "storm query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+
             $triggers = $lib.trigger.list($cmdopts.all)
-
             if $triggers {
+                $lib.print($printer.header())
 
-                $lib.print("user       iden                             view                             en?    async? cond      object                    storm query")
+                for $trig in $triggers {
 
-                for $trigger in $triggers {
-                    $user = $trigger.username.ljust(10)
-                    $iden = $trigger.iden.ljust(12)
-                    $view = $trigger.view.ljust(12)
-                    ($ok, $async) = $lib.trycast(bool, $trigger.async)
-                    if $ok {
-                        $async = $lib.model.type(bool).repr($async).ljust(6)
-                    } else {
-                        $async = $lib.model.type(bool).repr($lib.false).ljust(6)
-                    }
-                    $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
-                    $cond = $trigger.cond.ljust(9)
+                    if ($trig.enabled) { $enabled = 'Y' }
+                    else { $enabled = 'N' }
+
+                    if ($trig.async) { $async = 'Y' }
+                    else { $async = 'N' }
 
                     $fo = ""
-                    if $trigger.form {
-                        $fo = $trigger.form
-                    }
+                    if $trig.form { $fo = $trig.form }
 
-                    $pr = ""
-                    if $trigger.prop {
-                        $pr = $trigger.prop
-                    }
+                    if $trig.cond.startswith('tag:') {
 
-                    if $cond.startswith('tag:') {
-                        $obj = $fo.ljust(14)
-                        $obj2 = $trigger.tag.ljust(10)
+                        $obj = `{$fo}#{$trig.tag}`
+
+                    } elif $trig.cond.startswith('edge:') {
+
+                        $n2form = $trig.n2form
+                        if (not $n2form) { $n2form = '*' }
+                        if (not $fo) { $fo = '*' }
+
+                        $obj = `{$fo} -({$trig.verb})> {$n2form}`
 
                     } else {
-                        if $pr {
-                            $obj = $pr.ljust(14)
-                        } elif $fo {
-                            $obj = $fo.ljust(14)
-                        } else {
-                            $obj = '<missing>     '
+                        $pr = ""
+                        if $trig.prop {
+                            $pr = $trig.prop
                         }
-                        $obj2 = '          '
+
+                        if $pr {
+                            $obj = $pr
+                        } elif $fo {
+                            $obj = $fo
+                        } else {
+                            $obj = '<missing>'
+                        }
                     }
 
-                    $lib.print(`{$user} {$iden} {$view} {$enabled} {$async} {$cond} {$obj} {$obj2} {$trigger.storm}`)
+                    $row = (
+                        $trig.creatorname, $trig.username, $trig.iden, $trig.view,
+                        $enabled, $async, $trig.cond, $obj, $trig.storm
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No triggers found")
             }
-        ''',
-    },
-    {
-        'name': 'trigger.enable',
-        'descr': 'Enable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Enabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.disable',
-        'descr': 'Disable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Disabled trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -725,10 +793,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
-                                  view=$cmdopts.view,)
-
-            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
-            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+                                  view=$cmdopts.view,
+                                  doc=$cmdopts.doc,
+                                  name=$cmdopts.name)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -771,27 +838,27 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'cron.move',
-        'descr': "Move a cron job from one view to another",
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('view', {'help': 'View to move the cron job to.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.move($cmdopts.iden, $cmdopts.view)
-            $lib.print("Moved cron job {iden} to view {view}", iden=$iden, view=$cmdopts.view)
-        ''',
-    },
-    {
         'name': 'cron.mod',
-        'descr': "Modify an existing cron job's query.",
+        'descr': "Modify an existing cron job.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('query', {'help': 'New storm query for the cron job.'}),
+            ('--view', {'help': 'View to move the cron job to.'}),
+            ('--storm', {'help': 'New Storm query for the cron job.'}),
+            ('--user', {'help': 'New user for the cron job to run as.'}),
+            ('--doc', {'help': 'New doc string for the cron job.', 'type': 'str'}),
+            ('--name', {'help': 'New name for the cron job.', 'type': 'str'}),
+            ('--pool', {'help': 'True to enable offloading the job to the Storm pool, False to disable.'}),
+            ('--enabled', {'help': 'True to enable the cron job, False to disable.'}),
+            ('--loglevel', {'help': 'New logging level for the cron job.',
+                            'choices': list(s_const.LOG_LEVEL_CHOICES.keys())}),
         ),
         'storm': '''
-            $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified cron job: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $cdef = $lib.cron.mod($cmdopts.iden, $edits)
+            $lib.print(`Modified cron job: {$cdef.iden}`)
         ''',
     },
     {
@@ -804,9 +871,8 @@ stormcmds = (
 
             if $crons {
                 for $cron in $crons {
-                    $job = $cron.pack()
-                    if (not $job.recs) {
-                        $lib.cron.del($job.iden)
+                    if $cron.completed {
+                        $lib.cron.del($cron.iden)
                         $count = ($count + 1)
                     }
                 }
@@ -823,6 +889,7 @@ stormcmds = (
             init {
                 $conf = ({
                     "columns": [
+                        {"name": "creator", "width": 24},
                         {"name": "user", "width": 24},
                         {"name": "iden", "width": 10},
                         {"name": "view", "width": 10},
@@ -851,9 +918,9 @@ stormcmds = (
                 for $cron in $crons {
                     $job = $cron.pprint()
                     $row = (
-                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.creator, $job.user, $job.idenshort, $job.viewshort, $job.enabled,
                         $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
-                        $job.laststart, $job.lastend, $job.query
+                        $job.laststart, $job.lastend, $job.storm
                     )
                     $lib.print($printer.row($row))
                 }
@@ -875,6 +942,7 @@ stormcmds = (
                 $job = $cron.pprint()
 
                 $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('creator:         {creator}', creator=$job.creator)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print(`pool:            {$job.pool}`)
@@ -910,67 +978,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'cron.enable',
-        'descr': 'Enable a cron job in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.enable($cmdopts.iden)
-            $lib.print("Enabled cron job: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'cron.disable',
-        'descr': 'Disable a cron job in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.disable($cmdopts.iden)
-            $lib.print("Disabled cron job: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'ps.list',
-        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
-        'descr': 'List running tasks in the cortex.',
-        'cmdargs': (
-            ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
-        ),
-        'storm': '''
-            $tasks = $lib.ps.list()
-
-            for $task in $tasks {
-                $lib.print("task iden: {iden}", iden=$task.iden)
-                $lib.print("    name: {name}", name=$task.name)
-                $lib.print("    user: {user}", user=$task.user)
-                $lib.print("    status: {status}", status=$task.status)
-                $lib.print("    start time: {start}", start=$lib.time.format($task.tick, '%Y-%m-%d %H:%M:%S'))
-                $lib.print("    metadata:")
-                if $cmdopts.verbose {
-                    $lib.pprint($task.info, prefix='    ')
-                } else {
-                    $lib.pprint($task.info, prefix='    ', clamp=120)
-                }
-            }
-
-            $lib.print("{tlen} tasks found.", tlen=$tasks.size())
-        ''',
-    },
-    {
-        'name': 'ps.kill',
-        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.kill`` instead.'},
-        'descr': 'Kill a running task/query within the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
-        ),
-        'storm': '''
-            $kild = $lib.ps.kill($cmdopts.iden)
-            $lib.print("kill status: {kild}", kild=$kild)
-        ''',
-    },
-    {
         'name': 'wget',
         'descr': wgetdescr,
         'cmdargs': (
@@ -997,7 +1004,7 @@ stormcmds = (
             if $cmdopts.no_headers { $headers = $lib.null }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
         $timeout = $cmdopts.timeout
 
         if $node {
@@ -1034,20 +1041,20 @@ stormcmds = (
         init {
             $count = (0)
             function fetchnodes(url, ssl) {
-                $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
+                $resp = $lib.inet.http.get($url, ssl=$ssl)
                 if ($resp.code = 200) {
                     $nodes = ()
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
-                    yield $lib.feed.genr("syn.nodes", $nodes)
+                    yield $lib.feed.genr($nodes, (true))
                 } else {
                     $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
                 }
             }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
 
         if $node {
             $count = ($count + 1)
@@ -1083,7 +1090,11 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
+                    [ meta:note=*
+                        :text=$text
+                        :creator={[ syn:user=$lib.user.iden ]}
+                        :created=.created
+                        :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }
@@ -1276,6 +1287,8 @@ class StormDmon(s_base.Base):
 
         viewiden = opts.get('view')
 
+        query = await self.core.getStormQuery(text, mode=opts.get('mode', 'storm'))
+
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
 
         await self.core.boss.promote('storm:dmon', user=self.user, info=info, background=True)
@@ -1308,14 +1321,12 @@ class StormDmon(s_base.Base):
             try:
 
                 self.status = 'running'
-                async with await self.core.snap(user=self.user, view=view) as snap:
-                    snap.cachebuids = False
-
-                    snap.on('warn', dmonWarn)
-                    snap.on('print', dmonPrint)
+                async with await Runtime.anit(query, view, opts=opts, user=self.user) as runt:
+                    runt.bus.on('warn', dmonWarn)
+                    runt.bus.on('print', dmonPrint)
                     self.err_evnt.clear()
 
-                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
+                    async for nodepath in runt.execute():
                         # all storm tasks yield often to prevent latency
                         self.count += 1
                         await asyncio.sleep(0)
@@ -1343,28 +1354,27 @@ class StormDmon(s_base.Base):
 class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
-
-    The runtime should maintain a firm API boundary using the snap.
-    Parallel query execution requires that the snap be treated as an
-    opaque object which is called through, but not dereferenced.
-
     '''
-
-    _admin_reason = s_auth._allowedReason(True, isadmin=True)
-    async def __anit__(self, query, snap, opts=None, user=None, root=None):
+    async def __anit__(self, query, view, opts=None, user=None, root=None, bus=None):
 
         await s_base.Base.__anit__(self)
 
         if opts is None:
             opts = {}
 
+        if bus is None:
+            bus = self
+            bus._warnonce_keys = set()
+            self.onfini(bus)
+
+        self.bus = bus
         self.vars = {}
         self.ctors = {
             'lib': s_stormtypes.LibBase,
         }
 
         self.opts = opts
-        self.snap = snap
+        self.view = view
         self.user = user
         self.debug = opts.get('debug', False)
         self.asroot = False
@@ -1374,10 +1384,10 @@ class Runtime(s_base.Base):
 
         self.query = query
 
-        self.spawn_log_conf = await self.snap.core._getSpawnLogConf()
+        self.spawn_log_conf = await self.view.core._getSpawnLogConf()
 
-        self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
-        self.model = snap.core.getDataModel()
+        self.readonly = opts.get('readonly', False)
+        self.model = view.core.getDataModel()
 
         self.task = asyncio.current_task()
         self.emitq = None
@@ -1417,6 +1427,10 @@ class Runtime(s_base.Base):
         self.runtvars.update({k: True for k in self.ctors.keys()})
 
         self._loadRuntVars(query)
+
+    async def keepalive(self, period):
+        while not await self.waitfini(period):
+            await self.bus.fire('ping')
 
     def getScopeVars(self):
         '''
@@ -1485,14 +1499,14 @@ class Runtime(s_base.Base):
     async def reqGateKeys(self, gatekeys):
         if self.asroot:
             return
-        await self.snap.core.reqGateKeys(gatekeys)
+        await self.view.core.reqGateKeys(gatekeys)
 
     async def reqUserCanReadLayer(self, layriden):
 
         if self.asroot:
             return
 
-        for view in self.snap.core.viewsbylayer.get(layriden, ()):
+        for view in self.view.core.viewsbylayer.get(layriden, ()):
             if self.user.allowed(('view', 'read'), gateiden=view.iden):
                 return
 
@@ -1507,26 +1521,17 @@ class Runtime(s_base.Base):
         # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
-        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+        return await self.view.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
-        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+        async for item in self.view.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
     async def getStormQuery(self, text):
-        return await self.snap.core.getStormQuery(text)
-
-    async def coreDynCall(self, todo, perm=None):
-        gatekeys = ()
-        if perm is not None:
-            gatekeys = ((self.user.iden, perm, None),)
-        # bypass all perms checks if we are running asroot
-        if self.asroot:
-            gatekeys = ()
-        return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.view.core.getStormQuery(text)
 
     async def getTeleProxy(self, url, **opts):
 
@@ -1538,7 +1543,7 @@ class Runtime(s_base.Base):
         prox = await s_telepath.openurl(url, **opts)
 
         self.proxies[(url, flat)] = prox
-        self.snap.onfini(prox.fini)
+        self.bus.onfini(prox.fini)
 
         return prox
 
@@ -1546,19 +1551,24 @@ class Runtime(s_base.Base):
         return bool(self.runtvars.get(name))
 
     async def printf(self, mesg):
-        return await self.snap.printf(mesg)
+        await self.bus.fire('print', mesg=mesg)
 
-    async def warn(self, mesg, **info):
-        return await self.snap.warn(mesg, **info)
+    async def warn(self, mesg, log=True, **info):
+        if log:
+            logger.warning(mesg)
+        await self.bus.fire('warn', mesg=mesg, **info)
 
-    async def warnonce(self, mesg, **info):
-        return await self.snap.warnonce(mesg, **info)
+    async def warnonce(self, mesg, log=True, **info):
+        if mesg in self.bus._warnonce_keys:
+            return
+        self.bus._warnonce_keys.add(mesg)
+        await self.warn(mesg, log, **info)
 
     def cancel(self):
         self.task.cancel()
 
     def initPath(self, node):
-        return s_node.Path(dict(self.vars), [node])
+        return s_node.Path(dict(self.vars), node)
 
     def getOpt(self, name, defval=None):
         return self.opts.get(name, defval)
@@ -1644,7 +1654,7 @@ class Runtime(s_base.Base):
 
         for ndef in self.opts.get('ndefs', ()):
 
-            node = await self.snap.getNodeByNdef(ndef)
+            node = await self.view.getNodeByNdef(ndef)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -1655,15 +1665,22 @@ class Runtime(s_base.Base):
 
             buid = s_common.uhex(iden)
 
-            node = await self.snap.getNodeByBuid(buid)
+            node = await self.view.getNodeByBuid(buid)
+            if node is not None:
+                yield node, self.initPath(node)
+
+        for nid in self.opts.get('nids', ()):
+            if (intnid := s_common.intify(nid)) is None:
+                raise s_exc.BadTypeValu(mesg=f'Node IDs must be integers, got: {nid}', valu=nid)
+
+            node = await self.view.getNodeByNid(s_common.int64en(intnid))
             if node is not None:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
         if self.asroot:
             return
-        iden = self.snap.wlyr.iden
-        return self.user.confirm(perms, gateiden=iden)
+        return self.user.confirm(perms, gateiden=self.view.wlyr.iden)
 
     def isAdmin(self, gateiden=None):
         if self.asroot:
@@ -1698,7 +1715,7 @@ class Runtime(s_base.Base):
         if default is None:
             default = False
 
-            permdef = self.snap.core.getPermDef(perms)
+            permdef = self.view.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', False)
 
@@ -1711,44 +1728,38 @@ class Runtime(s_base.Base):
         if default is None:
             default = False
 
-            permdef = self.snap.core.getPermDef(perms)
+            permdef = self.view.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', False)
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
-
-    def allowedReason(self, perms, gateiden=None, default=None):
-        if self.asroot:
-            return self._admin_reason
-
-        return self.snap.core._propAllowedReason(self.user, perms, gateiden=gateiden, default=default)
 
     def confirmPropSet(self, prop, layriden=None):
         if self.asroot:
             return
 
         if layriden is None:
-            layriden = self.snap.wlyr.iden
+            layriden = self.view.wlyr.iden
 
-        return self.snap.core.confirmPropSet(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.setperm, gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
         if self.asroot:
             return
 
         if layriden is None:
-            layriden = self.snap.wlyr.iden
+            layriden = self.view.wlyr.iden
 
-        return self.snap.core.confirmPropDel(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.delperm, gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
-            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
+            self.view.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
 
     def allowedEasyPerm(self, item, perm):
         if self.asroot:
             return True
-        return self.snap.core._hasEasyPerm(item, self.user, perm)
+        return self.view.core._hasEasyPerm(item, self.user, perm)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1784,7 +1795,7 @@ class Runtime(s_base.Base):
                     if rules is True:
                         rules = {'degrees': None, 'refs': True}
                     elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                        rules = await self.view.core.getStormGraph(rules)
 
                     subgraph = s_ast.SubGraph(rules)
                     nodegenr = subgraph.run(self, nodegenr)
@@ -1796,23 +1807,104 @@ class Runtime(s_base.Base):
             mesg = 'Maximum Storm pipeline depth exceeded.'
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
 
-    async def _snapFromOpts(self, opts):
+    async def _joinEmbedStor(self, storage, embeds):
+        for nodePath, relProps in embeds.items():
 
-        snap = self.snap
+            await asyncio.sleep(0)
+
+            if (nid := relProps.get('$nid')) is None:
+                continue
+
+            nid = s_common.int64en(nid)
+
+            stor = await self.view.getStorNodes(nid)
+            for relProp in relProps.keys():
+
+                await asyncio.sleep(0)
+
+                if relProp[0] == '$':
+                    continue
+
+                for idx, layrstor in enumerate(stor):
+
+                    await asyncio.sleep(0)
+
+                    props = layrstor.get('props')
+                    if not props:
+                        continue
+
+                    if relProp not in props:
+                        continue
+
+                    if 'embeds' not in storage[idx]:
+                        storage[idx]['embeds'] = {}
+
+                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+
+    async def iterStormPodes(self):
+        '''
+        Yield packed node tuples for the given storm query text.
+        '''
+        dorepr = False
+        dolink = False
+
+        show_storage = False
+
+        info = self.opts.get('_loginfo', {})
+        info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
+        self.view.core._logStormQuery(self.query.text, self.user, info=info)
+
+        nodeopts = self.opts.get('node:opts', {})
+
+        # { form: ( embedprop, ... ) }
+        embeds = nodeopts.get('embeds')
+        dorepr = nodeopts.get('repr', False)
+        dolink = nodeopts.get('links', False)
+        virts = nodeopts.get('virts', False)
+        verbs = nodeopts.get('verbs', True)
+        show_storage = nodeopts.get('show:storage', False)
+
+        async for node, path in self.execute():
+
+            pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
+            pode[1]['path'] = await path.pack()
+
+            if path.display:
+                pode[1]['display'] = path.display
+
+            if (nodedata := path.getData(node.nid)) is not None:
+                pode[1]['nodedata'] = nodedata
+
+            if dolink:
+                pode[1]['links'] = path.links
+
+            if show_storage:
+                pode[1]['storage'] = await node.getStorNodes()
+
+            if embeds is not None:
+                embdef = embeds.get(node.form.name)
+                if embdef is not None:
+                    pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
+            yield pode
+
+    async def _viewFromOpts(self, opts):
+
+        view = self.view
 
         if opts is not None:
 
             viewiden = opts.get('view')
             if viewiden is not None:
 
-                view = snap.core.views.get(viewiden)
+                view = self.view.core.views.get(viewiden)
                 if view is None:
                     raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.confirm(('view', 'read'), gateiden=viewiden)
-                snap = await view.snap(self.user)
 
-        return snap
+        return view
 
     @contextlib.asynccontextmanager
     async def getSubRuntime(self, query, opts=None):
@@ -1822,14 +1914,17 @@ class Runtime(s_base.Base):
         async with await self.initSubRuntime(query, opts=opts) as runt:
             yield runt
 
-    async def initSubRuntime(self, query, opts=None):
+    async def initSubRuntime(self, query, opts=None, bus=None):
         '''
         Construct and return sub-runtime with a shared scope.
         ( caller must fini )
         '''
-        snap = await self._snapFromOpts(opts)
+        view = await self._viewFromOpts(opts)
 
-        runt = await Runtime.anit(query, snap, user=self.user, opts=opts, root=self)
+        if bus is None:
+            bus = self.bus
+
+        runt = await Runtime.anit(query, view, user=self.user, opts=opts, root=self, bus=bus)
         if self.debug:
             runt.debug = True
         runt.asroot = self.asroot
@@ -1842,7 +1937,7 @@ class Runtime(s_base.Base):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+        async with await Runtime.anit(query, self.view, user=self.user, opts=opts, bus=self.bus) as runt:
             if self.debug:
                 runt.debug = True
             runt.asroot = self.asroot
@@ -1853,7 +1948,7 @@ class Runtime(s_base.Base):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
-        runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
+        runt = await Runtime.anit(query, self.view, user=self.user, opts=opts, bus=self.bus)
         if self.debug:
             runt.debug = True
         runt.asroot = self.asroot
@@ -1866,39 +1961,11 @@ class Runtime(s_base.Base):
         '''
         if opts is None:
             opts = {}
-        query = await self.snap.core.getStormQuery(text)
+        query = await self.view.core.getStormQuery(text)
         async with self.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute(genr=genr):
                 await asyncio.sleep(0)
                 yield item
-
-    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
-        '''
-        Return exactly 1 node by <prop> <cmpr> <valu>
-        '''
-        opts = {'vars': {'propname': propname, 'valu': valu}}
-
-        nodes = []
-        try:
-
-            async for node in self.snap.nodesByPropValu(propname, cmpr, valu):
-
-                await asyncio.sleep(0)
-
-                if filt is not None and not await filt(node):
-                    continue
-
-                if len(nodes) == 1:
-                    mesg = f'Ambiguous value for single node lookup: {propname}{cmpr}{valu}'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
-
-                nodes.append(node)
-
-            if len(nodes) == 1:
-                return nodes[0]
-
-        except s_exc.BadTypeValu:
-            return None
 
 class Parser:
 
@@ -1975,7 +2042,7 @@ class Parser:
             return False
         return self.optargs.get(valu) is not None
 
-    def parse_args(self, argv):
+    async def parse_args(self, argv):
 
         posargs = []
         todo = collections.deque(argv)
@@ -2017,14 +2084,14 @@ class Parser:
                     vals = opts[dest] = []
 
                 fakeopts = {}
-                if not self._get_store(item, argdef, todo, fakeopts):
+                if not await self._get_store(item, argdef, todo, fakeopts):
                     return
 
                 vals.append(fakeopts.get(dest))
                 continue
 
             assert oact == 'store'
-            if not self._get_store(item, argdef, todo, opts):
+            if not await self._get_store(item, argdef, todo, opts):
                 return
 
         # check for help before processing other args
@@ -2039,7 +2106,7 @@ class Parser:
         todo = collections.deque(posargs)
 
         for name, argdef in self.posargs:
-            if not self._get_store(name, argdef, todo, opts):
+            if not await self._get_store(name, argdef, todo, opts):
                 return
 
         if todo:
@@ -2066,7 +2133,7 @@ class Parser:
 
         return retn
 
-    def _get_store(self, name, argdef, todo, opts):
+    async def _get_store(self, name, argdef, todo, opts):
 
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
@@ -2086,7 +2153,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2109,7 +2176,7 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2132,7 +2199,7 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2161,7 +2228,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2305,11 +2372,11 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         if (deprecated := argdef.get('deprecated')) is not None:
             mesg = deprmesg(names[0], deprecated)
-            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2358,37 +2425,11 @@ class Cmd:
 
         cmd --help
 
-    Notes:
-        Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
-        about Synapse forms which are possible input and output nodes that a Cmd may recognize. A list of
-        (key, form) tuples may also be added to provide information about forms which may have additional
-        nodedata added to them by the Cmd.
-
-        Example:
-
-            ::
-
-                {
-                    'input': (
-                        'inet:ipv4',
-                        'tel:mob:telem',
-                    ),
-                    'output': (
-                        'geo:place',
-                    ),
-                    'nodedata': (
-                        ('foodata', 'inet:http:request'),
-                        ('bardata', 'inet:ipv4'),
-                    ),
-                }
-
     '''
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    asroot = False
     readonly = False
-    forms = {}  # type: ignore
 
     def __init__(self, runt, runtsafe):
 
@@ -2399,7 +2440,7 @@ class Cmd:
         self.runtsafe = runtsafe
 
         self.pars = self.getArgParser()
-        self.pars.printf = runt.snap.printf
+        self.pars.printf = runt.printf
 
     def isReadOnly(self):
         return self.readonly
@@ -2422,16 +2463,16 @@ class Cmd:
         self.argv = argv
 
         try:
-            self.opts = self.pars.parse_args(self.argv)
+            self.opts = await self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
 
         for item, depr in self.pars.deprs.items():
             mesg = deprmesg(item, depr)
-            await self.runt.snap.warnonce(mesg)
+            await self.runt.warnonce(mesg)
 
         for line in self.pars.mesgs:
-            await self.runt.snap.printf(line)
+            await self.runt.printf(line)
 
         if self.pars.exc is not None:
             raise self.pars.exc
@@ -2445,26 +2486,13 @@ class Cmd:
             yield item
 
     @classmethod
-    def getStorNode(cls, form):
-        ndef = (form.name, form.type.norm(cls.name)[0])
+    def getRuntPode(cls):
+        ndef = ('syn:cmd', cls.name)
         buid = s_common.buid(ndef)
 
         props = {
             'doc': cls.getCmdBrief()
         }
-
-        inpt = cls.forms.get('input')
-        outp = cls.forms.get('output')
-        nodedata = cls.forms.get('nodedata')
-
-        if inpt:
-            props['input'] = tuple(inpt)
-
-        if outp:
-            props['output'] = tuple(outp)
-
-        if nodedata:
-            props['nodedata'] = tuple(nodedata)
 
         if cls.svciden:
             props['svciden'] = cls.svciden
@@ -2472,15 +2500,9 @@ class Cmd:
         if cls.pkgname:
             props['package'] = cls.pkgname
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': props,
         })
 
 class PureCmd(Cmd):
@@ -2493,7 +2515,6 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
-        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -2512,20 +2533,6 @@ class PureCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         name = self.getName()
-        perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
-
-        asroot = runt.allowed(perm)
-        if self.asroot:
-            mesg = f'Command ({name}) requires asroot permission which is deprecated and will be removed in v3.0.0. ' \
-                    'Functionality which requires elevated permissions should be implemented in Storm modules and use ' \
-                    'asroot:perms to specify the required permissions.'
-
-            s_common.deprecated('Storm command asroot key', curv='2.226.0', eolv='3.0.0')
-            await runt.warnonce(mesg, log=False)
-
-            if not asroot:
-                mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
-                raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2543,7 +2550,7 @@ class PureCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         text = self.cdef.get('storm')
-        query = await runt.snap.core.getStormQuery(text)
+        query = await runt.view.core.getStormQuery(text)
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
@@ -2571,15 +2578,12 @@ class PureCmd(Cmd):
                     yield xnode, xpath
 
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
                     path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
-
                 async for node, path in genr:
                     pathvars = path.vars.copy()
                     async def genx():
@@ -2856,7 +2860,7 @@ class HelpCmd(Cmd):
 
     async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
-        stormcmds = sorted(runt.snap.core.getStormCmds())
+        stormcmds = sorted(runt.view.core.getStormCmds())
 
         if item:
             stormcmds = [c for c in stormcmds if item in c[0]]
@@ -2865,7 +2869,7 @@ class HelpCmd(Cmd):
                     await runt.printf(f'No commands found matching "{item}"')
                     return
 
-        stormpkgs = await runt.snap.core.getStormPkgs()
+        stormpkgs = await runt.view.core.getStormPkgs()
 
         pkgsvcs = {}
         pkgcmds = {}
@@ -2878,7 +2882,7 @@ class HelpCmd(Cmd):
             for cmd in pkg.get('commands', []):
                 pkgmap[cmd.get('name')] = pkgname
 
-            ssvc = runt.snap.core.getStormSvc(svciden)
+            ssvc = runt.view.core.getStormSvc(svciden)
             if ssvc is not None:
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
@@ -2946,7 +2950,7 @@ class HelpCmd(Cmd):
             await runt.printf(line)
 
     def _getChildLibs(self, lib: s_stormtypes.Lib):
-        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        corelibs = self.runt.view.core.getStormLib(lib.name)
         if corelibs is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
 
@@ -3112,7 +3116,7 @@ class DiffCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if runt.snap.view.parent is None:
+        if runt.view.parent is None:
             mesg = 'You may only generate a diff in a forked view.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
@@ -3127,10 +3131,9 @@ class DiffCmd(Cmd):
 
             tagnames = [await s_stormtypes.tostr(tag) for tag in self.opts.tag]
 
-            layr = runt.snap.view.layers[0]
-
-            async for _, buid, sode in layr.liftByTags(tagnames):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+            layr = runt.view.wlyr
+            async for nid, sode in layr.liftByTags(tagnames):
+                node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
@@ -3138,33 +3141,36 @@ class DiffCmd(Cmd):
 
         if self.opts.prop:
 
+            layr = runt.view.wlyr
             propname = await s_stormtypes.tostr(self.opts.prop)
 
-            prop = self.runt.snap.core.model.prop(propname)
-            if prop is None:
+            if (prop := self.runt.view.core.model.prop(propname)) is None:
                 mesg = f'The property {propname} does not exist.'
                 raise s_exc.NoSuchProp(mesg=mesg)
 
             if prop.isform:
                 liftform = prop.name
                 liftprop = None
-            elif prop.isuniv:
-                liftform = None
-                liftprop = prop.name
             else:
                 liftform = prop.form.name
                 liftprop = prop.name
 
-            layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                if node is not None:
+            async for _, nid, sode in layr.liftByProp(liftform, liftprop):
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                    yield node, runt.initPath(node)
+
+            async for nid in layr.iterPropTombstones(liftform, liftprop):
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
                     yield node, runt.initPath(node)
 
             return
 
-        async for buid, sode in runt.snap.view.layers[0].getStorNodes():
-            node = await runt.snap.getNodeByBuid(buid)
+        async for nid, sode in runt.view.wlyr.getStorNodes():
+            if sode.get('antivalu') is not None:
+                node = await runt.view.getDeletedRuntNode(nid)
+            else:
+                node = await runt.view.getNodeByNid(nid)
+
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -3195,87 +3201,79 @@ class CopyToCmd(Cmd):
 
         iden = await s_stormtypes.tostr(self.opts.view)
 
-        view = runt.snap.core.getView(iden)
+        view = runt.view.core.getView(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        layriden = view.layers[0].iden
+        layriden = view.wlyr.iden
 
-        async with await view.snap(user=runt.user) as snap:
+        async for node, path in genr:
 
-            async for node, path in genr:
+            runt.confirm(node.form.addperm, gateiden=layriden)
+            for name in node.getPropNames():
+                runt.confirmPropSet(node.form.props[name], layriden=layriden)
 
-                runt.confirm(node.form.addperm, gateiden=layriden)
-                for name in node.props.keys():
-                    runt.confirmPropSet(node.form.props[name], layriden=layriden)
+            for tag in node.getTagNames():
+                runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
-                for tag in node.tags.keys():
-                    runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
+            if not self.opts.no_data:
+                async for name in node.iterDataKeys():
+                    runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
 
-                if not self.opts.no_data:
-                    async for name in node.iterDataKeys():
-                        runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+            async with view.getEditor() as editor:
 
-                async with snap.getEditor() as editor:
+                proto = await editor.addNode(node.ndef[0], node.ndef[1])
 
-                    proto = await editor.addNode(node.ndef[0], node.ndef[1])
+                await proto.setMeta('created', node.getMeta('created'))
 
-                    for name, valu in node.props.items():
+                for name, valu in node.getProps().items():
 
-                        prop = node.form.prop(name)
-                        if prop.info.get('ro'):
-                            if name == '.created':
-                                proto.props['.created'] = valu
-                                continue
-
-                            curv = proto.get(name)
-                            if curv is not None and curv != valu:
-                                valurepr = prop.type.repr(curv)
-                                mesg = f'Cannot overwrite read only property with conflicting ' \
-                                       f'value: {node.iden()} {prop.full} = {valurepr}'
-                                await runt.snap.warn(mesg)
-                                continue
-
-                        await proto.set(name, valu)
-
-                    for name, valu in node.tags.items():
-                        await proto.addTag(name, valu=valu)
-
-                    for tagname, tagprops in node.tagprops.items():
-                        for propname, valu in tagprops.items():
-                            await proto.setTagProp(tagname, propname, valu)
-
-                    if not self.opts.no_data:
-                        async for name, valu in node.iterData():
-                            await proto.setData(name, valu)
-
-                    verbs = {}
-                    async for (verb, n2iden) in node.iterEdgesN1():
-
-                        if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
-                            verbs[verb] = True
-
-                        n2node = await snap.getNodeByBuid(s_common.uhex(n2iden))
-                        if n2node is None:
+                    prop = node.form.prop(name)
+                    if prop.info.get('computed'):
+                        curv = proto.get(name)
+                        if curv is not None and curv != valu:
+                            valurepr = prop.type.repr(curv)
+                            mesg = f'Cannot overwrite read only property with conflicting ' \
+                                   f'value: {node.iden()} {prop.full} = {valurepr}'
+                            await runt.warn(mesg)
                             continue
 
-                        await proto.addEdge(verb, n2iden)
+                    await proto.set(name, valu)
 
-                    # for the reverse edges, we'll need to make edits to the n1 node
-                    async for (verb, n1iden) in node.iterEdgesN2():
+                for name, valu in node.getTags():
+                    await proto.addTag(name, valu=valu)
 
-                        if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
-                            verbs[verb] = True
+                for tagname, tagprops in node._getTagPropsDict().items():
+                    for propname, valu in tagprops.items():
+                        await proto.setTagProp(tagname, propname, valu)
 
-                        n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
-                        if n1proto is not None:
-                            await n1proto.addEdge(verb, s_common.ehex(node.buid))
+                if not self.opts.no_data:
+                    async for name, valu in node.iterData():
+                        await proto.setData(name, valu)
 
-                yield node, path
+                verbs = {}
+                async for verb, n2nid in node.iterEdgesN1():
+
+                    if not verbs.get(verb):
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                        verbs[verb] = True
+
+                    await proto.addEdge(verb, n2nid)
+
+                # for the reverse edges, we'll need to make edits to the n1 node
+                async for verb, n1nid in node.iterEdgesN2():
+
+                    if not verbs.get(verb):
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                        verbs[verb] = True
+
+                    n1proto = await editor.getNodeByNid(n1nid)
+                    if n1proto is not None:
+                        await n1proto.addEdge(verb, node.nid, n2form=node.form.name)
+
+            yield node, path
 
 class MergeCmd(Cmd):
     '''
@@ -3403,8 +3401,13 @@ class MergeCmd(Cmd):
 
     async def _checkNodePerms(self, node, sode, runt, allows):
 
-        layr0 = runt.snap.view.layers[0].iden
-        layr1 = runt.snap.view.layers[1].iden
+        core = runt.view.core
+        layr0 = runt.view.wlyr.iden
+        layr1 = runt.view.layers[1].iden
+
+        if not allows['formtombs'] and sode.get('antivalu') is not None:
+            runt.confirm(('node', 'del', node.form.name), gateiden=layr1)
+            return
 
         if not allows['forms'] and sode.get('valu') is not None:
             if not self.opts.wipe:
@@ -3418,12 +3421,17 @@ class MergeCmd(Cmd):
                     runt.confirmPropDel(prop, layriden=layr0)
                 runt.confirmPropSet(prop, layriden=layr1)
 
+        if not allows['proptombs']:
+            for name in sode.get('antiprops', {}).keys():
+                prop = node.form.prop(name)
+                runt.confirmPropDel(prop, layriden=layr1)
+
         if not allows['tags']:
 
             tags = []
             tagadds = []
             for tag, valu in sode.get('tags', {}).items():
-                if valu != (None, None):
+                if valu != (None, None, None):
                     tagadds.append(tag)
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.wipe:
@@ -3449,28 +3457,45 @@ class MergeCmd(Cmd):
                     runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-        if not allows['ndata']:
-            async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
-                if not self.opts.wipe:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+        if not allows['tagtombs']:
+            for tag in sode.get('antitags', {}).keys():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
 
-        if not allows['edges']:
-            async for verb in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
-                if not self.opts.wipe:
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+            for tag in sode.get('antitagprops', {}).keys():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
+
+        if not (allows['ndata'] and allows['ndatatombs']):
+            async for abrv, tomb in runt.view.wlyr.iterNodeDataKeys(node.nid):
+                name = core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    runt.confirm(('node', 'data', 'del', name), gateiden=layr1)
+                else:
+                    if not self.opts.wipe:
+                        runt.confirm(('node', 'data', 'del', name), gateiden=layr0)
+                    runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+
+        if not (allows['edges'] and allows['edgetombs']):
+            async for vabrv, tomb in runt.view.wlyr.iterNodeEdgeVerbsN1(node.nid):
+                verb = core.getAbrvIndx(vabrv)[0]
+                if tomb:
+                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr1)
+                else:
+                    if not self.opts.wipe:
+                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                    runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
-        if runt.snap.view.parent is None:
+        if runt.view.parent is None:
             mesg = 'You may only merge nodes in forked views'
             raise s_exc.CantMergeView(mesg=mesg)
 
         if self.opts.wipe:
             mesg = 'merge --wipe requires view admin'
-            runt.reqAdmin(gateiden=runt.snap.view.iden, mesg=mesg)
-            runt.confirm(('layer', 'del'), gateiden=runt.snap.view.layers[0].iden)
+            runt.reqAdmin(gateiden=runt.view.iden, mesg=mesg)
+            runt.confirm(('layer', 'del'), gateiden=runt.view.layers[0].iden)
 
         notags = self.opts.no_tags
         onlytags = self.opts.only_tags
@@ -3479,8 +3504,9 @@ class MergeCmd(Cmd):
         tagfilter = self._getTagFilter()
         propfilter = self._getPropFilter()
 
-        layr0 = runt.snap.view.layers[0]
-        layr1 = runt.snap.view.layers[1]
+        core = runt.view.core
+        layr0 = runt.view.wlyr
+        layr1 = runt.view.layers[1]
 
         doperms = doapply and not (runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden))
 
@@ -3493,10 +3519,15 @@ class MergeCmd(Cmd):
                              runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
                     'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
                             runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
-                    'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
+                    'ndata': runt.user.allowed(('node', 'data', 'del'), gateiden=layr0.iden, deepdeny=True) and
                              runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
                     'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
                              runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
                 }
             else:
                 allows = {
@@ -3505,6 +3536,11 @@ class MergeCmd(Cmd):
                     'tags': runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
                     'ndata': runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
                     'edges': runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
                 }
 
             doperms = not all(allows.values())
@@ -3515,192 +3551,278 @@ class MergeCmd(Cmd):
                 yield node, path
 
             async def diffgenr():
-                async for buid, sode in layr0.getStorNodes():
-                    node = await runt.snap.getNodeByBuid(buid)
+                async for nid, sode in runt.view.wlyr.getStorNodes():
+                    node = await runt.view.getNodeByNid(nid, tombs=True)
                     if node is not None:
                         yield node, runt.initPath(node)
 
             genr = diffgenr()
 
-        async with await runt.snap.view.parent.snap(user=runt.user) as snap:
-            snap.strict = False
+        meta = {'user': runt.user.iden}
 
-            snap.on('warn', runt.snap.dist)
+        if doapply:
+            editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, meta=meta)
 
-            meta = {'user': runt.user.iden}
+        async for node, path in genr:
 
-            if doapply:
-                editor = s_snap.SnapEditor(snap, meta=meta)
+            if node.ndef[0] == 'syn:deleted':
+                node = await runt.view.getNodeByNid(node.nid, tombs=True)
+                if node is None:
+                    continue
 
-            async for node, path in genr:
+            # the timestamp for the adds/subs of each node merge will match
+            nodeiden = node.iden()
+            meta['time'] = s_common.now()
 
-                # the timestamp for the adds/subs of each node merge will match
-                nodeiden = node.iden()
+            sodes = await node.getStorNodes()
+            sode = sodes[0]
 
-                meta['time'] = s_common.now()
+            subs = []
 
-                sodes = await node.getStorNodes()
-                sode = sodes[0]
+            # check all node perms first
+            if doperms:
+                await self._checkNodePerms(node, sode, runt, allows)
 
-                subs = []
+            form = node.form.name
+            if form == 'syn:tag':
+                if notags:
+                    await asyncio.sleep(0)
+                    continue
+            else:
+                # avoid merging a tag if the node won't exist below us
+                if onlytags:
+                    skip = True
+                    for undr in sodes[1:]:
+                        if undr.get('valu') is not None:
+                            skip = False
+                            break
+                        elif undr.get('antivalu') is not None:
+                            break
 
-                # check all node perms first
-                if doperms:
-                    await self._checkNodePerms(node, sode, runt, allows)
-
-                form = node.form.name
-                if form == 'syn:tag':
-                    if notags:
+                    if skip:
                         await asyncio.sleep(0)
                         continue
-                else:
-                    # avoid merging a tag if the node won't exist below us
-                    if onlytags:
+
+            protonode = None
+            delnode = False
+            if not onlytags or form == 'syn:tag':
+
+                if sode.get('antivalu') is not None:
+                    if tagfilter is not None and form == 'syn:tag' and tagfilter(node.ndef[1]):
+                        await asyncio.sleep(0)
+                        continue
+
+                    if not doapply:
+                        await runt.printf(f'{nodeiden} delete {form} = {node.repr()}')
+                    else:
+                        protonode = await editor.getNodeByNid(node.nid)
+                        if protonode is None:
+                            await asyncio.sleep(0)
+                            continue
+
+                        await protonode.delEdgesN2(meta=meta)
+                        await protonode.delete()
+
+                        addedits = editor.getNodeEdits()
+                        if addedits:
+                            await runt.view.parent.storNodeEdits(addedits, meta=meta)
+
+                        if not self.opts.wipe:
+                            subedits = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
+                            await runt.view.saveNodeEdits(subedits, meta=meta)
+
+                    continue
+
+                if (valu := sode.get('valu')) is not None:
+
+                    if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
+                        await asyncio.sleep(0)
+                        continue
+
+                    ctime = sode['meta']['created'][0]
+
+                    if not doapply:
+                        await runt.printf(f'{nodeiden} {form} = {node.repr()}')
+                        mtyp = self.runt.model.metatypes['created']
+                        await runt.printf(f'{nodeiden} {form}.created = {mtyp.repr(ctime)}')
+                    else:
+                        delnode = True
+                        try:
+                            protonode = await editor.addNode(form, valu[0])
+                        except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                            await runt.warn(e.errinfo.get('mesg'))
+                            await asyncio.sleep(0)
+                            continue
+
+                        await protonode.setMeta('created', ctime)
+
+                elif doapply:
+                    try:
+                        protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                    except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                        await runt.warn(e.errinfo.get('mesg'))
+                        await asyncio.sleep(0)
+                        continue
+
+                for name, (valu, stortype, _) in sode.get('props', {}).items():
+
+                    prop = node.form.prop(name)
+                    if propfilter is not None:
+                        if propfilter(prop.full):
+                            continue
+
+                    if prop.info.get('computed'):
+                        isset = False
                         for undr in sodes[1:]:
-                            if undr.get('valu') is not None:
-                                break
-                        else:
-                            await asyncio.sleep(0)
+                            props = undr.get('props')
+                            if props is not None:
+                                curv = props.get(name)
+                                if curv is not None:
+                                    isset = curv[0] != valu
+                                    break
+
+                        if isset:
+                            valurepr = prop.type.repr(curv[0])
+                            mesg = f'Cannot merge read only property with conflicting ' \
+                                   f'value: {nodeiden} {form}:{name} = {valurepr}'
+                            await runt.warn(mesg)
                             continue
 
-                protonode = None
-                delnode = False
-                if not onlytags or form == 'syn:tag':
-                    valu = sode.get('valu')
-                    if valu is not None:
+                    if not doapply:
+                        valurepr = prop.type.repr(valu)
+                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        await protonode.set(name, valu)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_PROP_DEL, (name,)))
 
-                        if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
-                            await asyncio.sleep(0)
-                            continue
+                for name in sode.get('antiprops', {}).keys():
+                    if not doapply:
+                        await runt.printf(f'{nodeiden} delete {form}:{name}')
+                    else:
+                        await protonode.pop(name)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
 
-                        if not doapply:
-                            valurepr = node.form.type.repr(valu[0])
-                            await runt.printf(f'{nodeiden} {form} = {valurepr}')
-                        else:
-                            delnode = True
-                            if (protonode := await editor.addNode(form, valu[0])) is None:
-                                await asyncio.sleep(0)
-                                continue
+            if doapply and protonode is None:
+                try:
+                    protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                    await runt.warn(e.errinfo.get('mesg'))
+                    await asyncio.sleep(0)
+                    continue
 
-                    elif doapply:
-                        if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
-                            await asyncio.sleep(0)
-                            continue
+            if not notags:
+                for tag, valu in sode.get('tags', {}).items():
 
-                    for name, (valu, stortype) in sode.get('props', {}).items():
-
-                        prop = node.form.prop(name)
-                        if propfilter is not None:
-                            if name[0] == '.':
-                                if propfilter(name):
-                                    continue
-                            else:
-                                if propfilter(prop.full):
-                                    continue
-
-                        if prop.info.get('ro'):
-                            if name == '.created':
-                                if doapply:
-                                    protonode.props['.created'] = valu
-                                    if not self.opts.wipe:
-                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                continue
-
-                            isset = False
-                            for undr in sodes[1:]:
-                                props = undr.get('props')
-                                if props is not None:
-                                    curv = props.get(name)
-                                    if curv is not None:
-                                        isset = curv[0] != valu
-                                        break
-
-                            if isset:
-                                valurepr = prop.type.repr(curv[0])
-                                mesg = f'Cannot merge read only property with conflicting ' \
-                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
-                                await runt.snap.warn(mesg)
-                                continue
-
-                        if not doapply:
-                            valurepr = prop.type.repr(valu)
-                            await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                        else:
-                            await protonode.set(name, valu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-
-                if doapply and protonode is None:
-                    if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
-                        await asyncio.sleep(0)
+                    if tagfilter is not None and tagfilter(tag):
                         continue
 
-                if not notags:
-                    for tag, valu in sode.get('tags', {}).items():
+                    if not doapply:
+                        valurepr = ''
+                        if valu != (None, None, None):
+                            tagrepr = runt.model.type('ival').repr(valu)
+                            valurepr = f' = {tagrepr}'
+                        await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                    else:
+                        await protonode.addTag(tag, valu)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
-                        if tagfilter is not None and tagfilter(tag):
-                            continue
+                for tag in sode.get('antitags', {}).keys():
 
+                    if tagfilter is not None and tagfilter(tag):
+                        continue
+
+                    if not doapply:
+                        await runt.printf(f'{nodeiden} delete {form}#{tag}')
+                    else:
+                        await protonode.delTag(tag)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+
+                for tag, tagdict in sode.get('tagprops', {}).items():
+
+                    if tagfilter is not None and tagfilter(tag):
+                        continue
+
+                    for prop, (valu, stortype, virts) in tagdict.items():
                         if not doapply:
-                            valurepr = ''
-                            if valu != (None, None):
-                                tagrepr = runt.model.type('ival').repr(valu)
-                                valurepr = f' = {tagrepr}'
-                            await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                            valurepr = repr(valu)
+                            await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
-                            await protonode.addTag(tag, valu)
+                            await protonode.setTagProp(tag, prop, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
+                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
-                    for tag, tagdict in sode.get('tagprops', {}).items():
+                for tag, tagdict in sode.get('antitagprops', {}).items():
 
-                        if tagfilter is not None and tagfilter(tag):
-                            continue
+                    if tagfilter is not None and tagfilter(tag):
+                        continue
 
-                        for prop, (valu, stortype) in tagdict.items():
-                            if not doapply:
-                                valurepr = repr(valu)
-                                await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                            else:
-                                await protonode.setTagProp(tag, prop, valu)
-                                if not self.opts.wipe:
-                                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                    for prop in tagdict.keys():
+                        if not doapply:
+                            await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
+                        else:
+                            await protonode.delTagProp(tag, prop)
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
 
-                if not onlytags or form == 'syn:tag':
+            if not onlytags or form == 'syn:tag':
 
-                    async for name, valu in s_coro.pause(layr0.iterNodeData(node.buid)):
+                async for abrv, valu, tomb in s_coro.pause(layr0.iterNodeData(node.nid)):
+                    name = core.getAbrvIndx(abrv)[0]
+                    if tomb:
+                        if not doapply:
+                            await runt.printf(f'{nodeiden} delete {form} DATA {name}')
+                        else:
+                            await protonode.popData(name)
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+                    else:
                         if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                         else:
                             await protonode.setData(name, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
-                    async for edge in s_coro.pause(layr0.iterNodeEdgesN1(node.buid)):
-                        name, dest = edge
+                async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
+                    verb = core.getAbrvIndx(abrv)[0]
+                    if tomb:
                         if not doapply:
-                            await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
                         else:
-                            await protonode.addEdge(name, dest)
+                            await protonode.delEdge(verb, n2nid)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                    else:
+                        if not doapply:
+                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
+                        else:
+                            await protonode.addEdge(verb, n2nid)
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
-                if delnode and not self.opts.wipe:
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+            if delnode and not self.opts.wipe:
+                subs.append((s_layer.EDIT_NODE_DEL, ()))
 
-                if doapply:
-                    await editor.flushEdits()
+            if doapply:
+                await editor.flushEdits()
 
-                    if subs:
-                        subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.applyNodeEdits(subedits, nodecache={node.buid: node}, meta=meta)
+                if subs:
+                    subedits = [(s_common.int64un(node.nid), node.form.name, subs)]
+                    await runt.view.saveNodeEdits(subedits, meta=meta)
 
-                runt.snap.clearCachedNode(node.buid)
-                yield await runt.snap.getNodeByBuid(node.buid), path
+            if node.hasvalu():
+                yield node, path
 
-            if doapply and self.opts.wipe:
-                await runt.snap.view.swapLayer()
+        runt.view.clearCache()
+        if doapply and self.opts.wipe:
+            await runt.view.swapLayer()
 
 class MoveNodesCmd(Cmd):
     '''
@@ -3709,6 +3831,11 @@ class MoveNodesCmd(Cmd):
     Storage nodes will be removed from the source layers and the resulting
     storage node in the destination layer will contain the merged values (merged
     in bottom up layer order by default).
+
+    By default, when the resulting merged value is a tombstone, any current value
+    in the destination layer will be deleted and the tombstone will be removed. The
+    --preserve-tombstones option may be used to add the tombstone to the destination
+    layer in addition to deleting any current value.
 
     Examples:
 
@@ -3751,9 +3878,11 @@ class MoveNodesCmd(Cmd):
                           help='Layer to move storage nodes to (defaults to the top layer)')
         pars.add_argument('--precedence', default=None, nargs='*',
                           help='Layer precedence for resolving conflicts (defaults to bottom up)')
+        pars.add_argument('--preserve-tombstones', default=False, action='store_true',
+                          help='Add tombstones to the destination layer in addition to deleting the current value.')
         return pars
 
-    async def _checkNodePerms(self, node, sodes, layrdata):
+    async def _checkNodePerms(self, node, sodes):
 
         for layr, sode in sodes.items():
             if layr == self.destlayr:
@@ -3763,30 +3892,52 @@ class MoveNodesCmd(Cmd):
                 self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
                 self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
+            if sode.get('antivalu') is not None:
+                self.runt.confirm(('node', 'del', node.form.name), gateiden=self.destlayr)
+
+            for name in sode.get('props', {}).keys():
                 full = node.form.prop(name).full
                 self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
                 self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
 
-            for tag, valu in sode.get('tags', {}).items():
+            for name in sode.get('antiprops', {}).keys():
+                full = node.form.prop(name).full
+                self.runt.confirm(('node', 'prop', 'del', full), gateiden=self.destlayr)
+
+            for tag in sode.get('tags', {}).keys():
                 tagperm = tuple(tag.split('.'))
                 self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
                 self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
+            for tag in sode.get('antitags', {}).keys():
+                tagperm = tuple(tag.split('.'))
+                self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=self.destlayr)
+
             for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
+                for prop in tagdict.keys():
                     tagperm = tuple(tag.split('.'))
                     self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
                     self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
-            for name in layrdata[layr]:
-                self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
-                self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
+            for tag, tagdict in sode.get('antitagprops', {}).items():
+                for prop in tagdict.keys():
+                    tagperm = tuple(tag.split('.'))
+                    self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=self.destlayr)
 
-            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
-                verb = edge[0]
+            async for abrv, tomb in self.lyrs[layr].iterNodeDataKeys(node.nid):
+                name = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    self.runt.confirm(('node', 'data', 'del', name), gateiden=self.destlayr)
+                else:
+                    self.runt.confirm(('node', 'data', 'del', name), gateiden=layr)
+                    self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
+
+            for verb in sode.get('n1verbs', {}).keys():
                 self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
                 self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
+
+            for verb in sode.get('n1antiverbs', {}).keys():
+                self.runt.confirm(('node', 'edge', 'del', verb), gateiden=self.destlayr)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3794,11 +3945,11 @@ class MoveNodesCmd(Cmd):
             mesg = 'movenodes arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if len(runt.snap.view.layers) < 2:
+        if len(runt.view.layers) < 2:
             mesg = 'You may only move nodes in views with multiple layers.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        layridens = {layr.iden: layr for layr in runt.snap.view.layers}
+        layridens = {layr.iden: layr for layr in runt.view.layers}
 
         if self.opts.srclayers:
             srclayrs = self.opts.srclayers
@@ -3807,7 +3958,7 @@ class MoveNodesCmd(Cmd):
                     mesg = f'No layer with iden {layr} in this view, cannot move nodes.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
         else:
-            srclayrs = [layr.iden for layr in runt.snap.view.layers[1:]]
+            srclayrs = [layr.iden for layr in runt.view.layers[1:]]
 
         if self.opts.destlayer:
             self.destlayr = self.opts.destlayer
@@ -3815,7 +3966,7 @@ class MoveNodesCmd(Cmd):
                 mesg = f'No layer with iden {self.destlayr} in this view, cannot move nodes.'
                 raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
         else:
-            self.destlayr = runt.snap.view.layers[0].iden
+            self.destlayr = runt.view.wlyr.iden
 
         if self.destlayr in srclayrs:
             mesg = f'Source layer {self.destlayr} cannot also be the destination layer.'
@@ -3825,6 +3976,7 @@ class MoveNodesCmd(Cmd):
         self.subs = {}
         self.lyrs = {}
         self.runt = runt
+        self.core = self.runt.view.core
 
         if self.opts.precedence:
             layrlist = srclayrs + [self.destlayr]
@@ -3855,220 +4007,517 @@ class MoveNodesCmd(Cmd):
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-            # get nodedata keys per layer
             sodes = {}
-            layrdata = {}
             for layr in self.lyrs.keys():
-                sodes[layr] = await self.lyrs[layr].getStorNode(node.buid)
-                layrkeys = set()
-                async for name in self.lyrs[layr].iterNodeDataKeys(node.buid):
-                    layrkeys.add(name)
-                layrdata[layr] = layrkeys
+                sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
+
+            destsode = sodes[self.destlayr]
 
             # check all perms
             if self.opts.apply:
-                await self._checkNodePerms(node, sodes, layrdata)
+                await self._checkNodePerms(node, sodes)
 
+            addnode = False
+            delnode = False
             delnodes = []
             for layr, sode in sodes.items():
-                if layr == self.destlayr:
-                    continue
 
                 valu = sode.get('valu')
                 if valu is not None:
                     valurepr = node.form.type.repr(valu[0])
-                    if not self.opts.apply:
-                        await runt.printf(f'{self.destlayr} add {nodeiden} {node.form.name} = {valurepr}')
-                        await runt.printf(f'{layr} delete {nodeiden} {node.form.name} = {valurepr}')
-                    else:
-                        self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                        delnodes.append((layr, valu))
+                    if not layr == self.destlayr:
+                        if not self.opts.apply:
+                            await runt.printf(f'{self.destlayr} add {nodeiden} {node.form.name} = {valurepr}')
+                            await runt.printf(f'{layr} delete {nodeiden} {node.form.name} = {valurepr}')
+                        else:
+                            if not addnode and not delnode:
+                                self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                            delnodes.append((layr, valu))
 
-            await self._moveProps(node, sodes, meta)
-            await self._moveTags(node, sodes, meta)
-            await self._moveTagProps(node, sodes, meta)
-            await self._moveNodeData(node, layrdata, meta)
-            await self._moveEdges(node, meta)
+                    if not delnode:
+                        addnode = True
+
+                    continue
+
+                if sode.get('antivalu') is not None:
+                    if not addnode:
+                        delnode = True
+
+                    if not layr == self.destlayr:
+                        if not self.opts.apply:
+                            if (valu := destsode.get('valu')) is not None:
+                                valurepr = node.form.type.repr(valu[0])
+
+                                await runt.printf(f'{self.destlayr} delete {nodeiden} {node.form.name} = {valurepr}')
+                            await runt.printf(f'{layr} delete tombstone {nodeiden} {node.form.name}')
+
+                            if self.opts.preserve_tombstones:
+                                await runt.printf(f'{self.destlayr} tombstone {nodeiden} {node.form.name}')
+
+                        else:
+                            self.subs[layr].append((s_layer.EDIT_NODE_TOMB_DEL, ()))
+
+            await self._moveMeta(node, sodes, meta, delnode)
+            await self._moveProps(node, sodes, meta, delnode)
+            await self._moveTags(node, sodes, meta, delnode)
+            await self._moveTagProps(node, sodes, meta, delnode)
+            await self._moveNodeData(node, meta, delnode)
+            await self._moveEdges(node, meta, delnode)
 
             for layr, valu in delnodes:
-                edit = [(node.buid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
-                await self.lyrs[layr].storNodeEdits(edit, meta=meta)
+                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, ())])]
+                await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
-            runt.snap.livenodes.pop(node.buid, None)
-            yield await runt.snap.getNodeByBuid(node.buid), path
+            if delnode and destsode.get('antivalu') is None:
+                if (valu := destsode.get('valu')) is not None:
+                    self.adds.append((s_layer.EDIT_NODE_DEL, ()))
+
+                if (tags := destsode.get('tags')) is not None:
+                    for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                        self.adds.append((s_layer.EDIT_TAG_DEL, (name,)))
+
+                if (props := destsode.get('props')) is not None:
+                    for name, stortype in props.items():
+                        self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
+
+                if (tagprops := destsode.get('tagprops')) is not None:
+                    for tag, props in tagprops.items():
+                        for name, stortype in props.items():
+                            self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
+
+                if self.opts.preserve_tombstones:
+                    self.adds.append((s_layer.EDIT_NODE_TOMB, ()))
+
+                    if (tags := destsode.get('antitags')) is not None:
+                        for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                            self.adds.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+
+                    if (props := destsode.get('antiprops')) is not None:
+                        for prop in props.keys():
+                            self.adds.append((s_layer.EDIT_PROP_TOMB_DEL, (prop,)))
+
+                    if (tagprops := destsode.get('antitagprops')) is not None:
+                        for tag, props in tagprops.items():
+                            for name in props.keys():
+                                self.adds.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
+
+                await self._sync(node, meta)
+
+            # yield the node if it still has a value
+            if node.hasvalu():
+                yield node, path
 
     async def _sync(self, node, meta):
 
         if not self.opts.apply:
             return
 
+        intnid = s_common.int64un(node.nid)
+
         if self.adds:
-            addedits = [(node.buid, node.form.name, self.adds)]
-            await self.lyrs[self.destlayr].storNodeEdits(addedits, meta=meta)
+            addedits = [(intnid, node.form.name, self.adds)]
+            await self.lyrs[self.destlayr].saveNodeEdits(addedits, meta=meta)
             self.adds.clear()
 
         for srclayr, edits in self.subs.items():
             if edits:
-                subedits = [(node.buid, node.form.name, edits)]
-                await self.lyrs[srclayr].storNodeEdits(subedits, meta=meta)
+                subedits = [(intnid, node.form.name, edits)]
+                await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
-    async def _moveProps(self, node, sodes, meta):
+    async def _moveMeta(self, node, sodes, meta, delnode):
 
-        ecnt = 0
-        movekeys = set()
+        movevals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
-            for name, (valu, stortype) in sode.get('props', {}).items():
+            if (mdict := sode.get('meta')) is None or (valu := mdict.get('created')) is None:
+                continue
 
-                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
-                    or name not in movekeys) and not layr == self.destlayr:
+            if (oldv := movevals.get('created')) is not s_common.novalu:
+                if oldv is None:
+                    movevals['created'] = valu[0]
+                else:
+                    movevals['created'] = min(valu[0], oldv)
 
-                    if not self.opts.apply:
-                        valurepr = node.form.prop(name).type.repr(valu)
-                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
-                    else:
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                        ecnt += 1
+        if not delnode:
+            for name, valu in movevals.items():
+                if not self.opts.apply:
+                    valurepr = self.runt.model.metatypes[name].repr(valu)
+                    await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}.{name} = {valurepr}')
+                else:
+                    stortype = self.runt.model.metatypes[name].stortype
+                    self.adds.append((s_layer.EDIT_META_SET, (name, valu, stortype)))
 
-                movekeys.add(name)
+        await self._sync(node, meta)
+
+    async def _moveProps(self, node, sodes, meta, delnode):
+
+        movevals = {}
+        virtvals = {}
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+
+            for name, (valu, stortype, virts) in sode.get('props', {}).items():
+
+                virtvals[name] = virts
+
+                if (oldv := movevals.get(name)) is not s_common.novalu:
+                    if oldv is None:
+                        movevals[name] = valu
+
+                    elif stortype == s_layer.STOR_TYPE_IVAL:
+                        allv = oldv + valu
+                        movevals[name] = (min(allv), max(allv))
+
+                    elif stortype == s_layer.STOR_TYPE_MINTIME:
+                        movevals[name] = min(valu, oldv)
+
+                    elif stortype == s_layer.STOR_TYPE_MAXTIME:
+                        movevals[name] = max(valu, oldv)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
                         valurepr = node.form.prop(name).type.repr(valu)
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype), ()))
-                        ecnt += 1
+                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name,)))
 
-                if ecnt >= 1000:
-                    await self._sync(node, meta)
-                    ecnt = 0
+            for name in sode.get('antiprops', {}).keys():
+
+                if (oldv := movevals.get(name)) is None:
+                    movevals[name] = s_common.novalu
+
+                if not layr == self.destlayr:
+                    if not self.opts.apply:
+                        await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form}:{name}')
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
+
+        if not delnode:
+            destprops = sodes[self.destlayr].get('props')
+
+            for name, valu in movevals.items():
+                if valu is not s_common.novalu:
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        stortype = node.form.prop(name).type.stortype
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
+                else:
+                    if destprops is not None and (destvalu := destprops.get(name)) is not None:
+                        if not self.opts.apply:
+                            valurepr = node.form.prop(name).type.repr(destvalu[0])
+                            await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}:{name} = {valurepr}')
+                        else:
+                            self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
+
+                    if self.opts.preserve_tombstones:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form}:{name}')
+                        else:
+                            self.adds.append((s_layer.EDIT_PROP_TOMB, (name,)))
 
         await self._sync(node, meta)
 
-    async def _moveTags(self, node, sodes, meta):
+    async def _moveTags(self, node, sodes, meta, delnode):
 
-        ecnt = 0
+        tagvals = {}
+        tagtype = self.runt.model.type('ival')
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
+
             for tag, valu in sode.get('tags', {}).items():
+
+                if (oldv := tagvals.get(tag)) is not s_common.novalu:
+                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None, None):
+                        tagvals[tag] = valu
+                    elif valu == (None, None, None):
+                        tagvals[tag] = oldv
+                    else:
+                        tagvals[tag] = tagtype.merge(oldv, valu)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
-                            tagrepr = self.runt.model.type('ival').repr(valu)
-                            valurepr = f' = {tagrepr}'
-                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
+                        if valu != (None, None, None):
+                            valurepr = f' = {tagtype.repr(valu)}'
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
-                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None), ()))
-                        ecnt += 2
+                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag,)))
 
-                if ecnt >= 1000:
-                    await self._sync(node, meta)
-                    ecnt = 0
+            for tag in sode.get('antitags', {}).keys():
+
+                if (oldv := tagvals.get(tag)) is None:
+                    tagvals[tag] = s_common.novalu
+
+                if not layr == self.destlayr:
+                    if not self.opts.apply:
+                        await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form}#{tag}')
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+
+        if not delnode:
+            desttags = sodes[self.destlayr].get('tags')
+
+            for tag, valu in tagvals.items():
+                if valu is not s_common.novalu:
+                    if not self.opts.apply:
+                        valurepr = ''
+                        if valu != (None, None, None):
+                            valurepr = f' = {tagtype.repr(valu)}'
+
+                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
+                    else:
+                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu,)))
+
+                else:
+                    if desttags is not None and (destvalu := desttags.get(tag)) is not None:
+                        if not self.opts.apply:
+                            valurepr = ''
+                            if valu != (None, None, None):
+                                valurepr = f' = {tagtype.repr(destvalu)}'
+                            await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}#{tag}{valurepr}')
+                        else:
+                            self.adds.append((s_layer.EDIT_TAG_DEL, (tag,)))
+
+                    if self.opts.preserve_tombstones:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form}#{tag}')
+                        else:
+                            self.adds.append((s_layer.EDIT_TAG_TOMB, (tag,)))
 
         await self._sync(node, meta)
 
-    async def _moveTagProps(self, node, sodes, meta):
+    async def _moveTagProps(self, node, sodes, meta, delnode):
 
-        ecnt = 0
-        movekeys = set()
+        movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
-            for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
-                        or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                        if not self.opts.apply:
-                            valurepr = repr(valu)
-                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                            await self.runt.printf(mesg)
-                        else:
-                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                            ecnt += 1
 
-                    movekeys.add((tag, prop))
+            for tag, tagdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype, virts) in tagdict.items():
+
+                    name = (tag, prop)
+                    virtvals[name] = virts
+
+                    if (oldv := movevals.get(name)) is not s_common.novalu:
+                        if oldv is None:
+                            movevals[name] = valu
+
+                        elif stortype == s_layer.STOR_TYPE_IVAL:
+                            allv = oldv + valu
+                            movevals[name] = (min(allv), max(allv))
+
+                        elif stortype == s_layer.STOR_TYPE_MINTIME:
+                            movevals[name] = min(valu, oldv)
+
+                        elif stortype == s_layer.STOR_TYPE_MAXTIME:
+                            movevals[name] = max(valu, oldv)
 
                     if not layr == self.destlayr:
                         if not self.opts.apply:
-                            valurepr = repr(valu)
-                            await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                            tptype = self.core.model.tagprop(prop).type
+                            valurepr = tptype.repr(valu)
+                            mesg = f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
                         else:
-                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
-                            ecnt += 1
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
-                    if ecnt >= 1000:
-                        await self._sync(node, meta)
-                        ecnt = 0
+            for tag, tagdict in sode.get('antitagprops', {}).items():
+                for prop in tagdict.keys():
+                    name = (tag, prop)
+
+                    if (oldv := movevals.get(name)) is None:
+                        movevals[name] = s_common.novalu
+
+                    if not layr == self.destlayr:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form}#{tag}:{prop}')
+                        else:
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
+
+        if not delnode:
+            destdict = sodes[self.destlayr].get('tagprops')
+
+            for (tag, prop), valu in movevals.items():
+                if valu is not s_common.novalu:
+                    tptype = self.core.model.tagprop(prop).type
+                    if not self.opts.apply:
+                        valurepr = tptype.repr(valu)
+                        mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                        await self.runt.printf(mesg)
+                    else:
+                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
+                        self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
+
+                else:
+                    if destdict is not None and (destprops := destdict.get(tag)) is not None:
+                        if (destvalu := destprops.get(prop)) is not None:
+                            if not self.opts.apply:
+                                tptype = self.core.model.tagprop(prop).type
+                                valurepr = tptype.repr(destvalu[0])
+                                mesg = f'{self.destlayr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                                await self.runt.printf(mesg)
+                            else:
+                                self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
+
+                    if self.opts.preserve_tombstones:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form}#{tag}:{prop}')
+                        else:
+                            self.adds.append((s_layer.EDIT_TAGPROP_TOMB, (tag, prop)))
 
         await self._sync(node, meta)
 
-    async def _moveNodeData(self, node, layrdata, meta):
+    async def _moveNodeData(self, node, meta, delnode):
 
         ecnt = 0
-        movekeys = set()
         form = node.form.name
         nodeiden = node.iden()
 
-        for layr in self.lyrs.keys():
-            for name in layrdata[layr]:
-                if name not in movekeys and not layr == self.destlayr:
+        async def wrap_liftgenr(lidn, genr):
+            async for abrv, tomb in genr:
+                yield abrv, tomb, lidn
+
+        last = None
+        gens = []
+        for lidn, layr in self.lyrs.items():
+            gens.append(wrap_liftgenr(lidn, layr.iterNodeDataKeys(node.nid)))
+
+        async for abrv, tomb, layr in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
+
+            await asyncio.sleep(0)
+
+            name = self.core.getAbrvIndx(abrv)[0]
+
+            if not layr == self.destlayr:
+                if not self.opts.apply:
+                    if tomb:
+                        await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form} DATA {name}')
+                    else:
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
+                else:
+                    if tomb:
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name,)))
+                    ecnt += 1
+
+            if abrv == last:
+                continue
+
+            last = abrv
+
+            if not delnode and not layr == self.destlayr:
+                if tomb:
+                    if await self.lyrs[self.destlayr].hasNodeData(node.nid, name):
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} DATA {name}')
+                        else:
+                            self.adds.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
+                            ecnt += 1
+
+                    if self.opts.preserve_tombstones:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form} DATA {name}')
+                        else:
+                            self.adds.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))
+                            ecnt += 1
+
+                else:
                     if not self.opts.apply:
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
-                        (retn, valu) = await self.lyrs[layr].getNodeData(node.buid, name)
-                        if retn:
-                            self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                            ecnt += 1
-
-                        await asyncio.sleep(0)
-
-                movekeys.add(name)
-
-                if not layr == self.destlayr:
-                    if not self.opts.apply:
-                        await self.runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
-                    else:
-                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+                        (_, valu, _) = await self.lyrs[layr].getNodeData(node.nid, name)
+                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu)))
                         ecnt += 1
 
-                if ecnt >= 1000:
-                    await self._sync(node, meta)
-                    ecnt = 0
+            if ecnt >= 100:
+                await self._sync(node, meta)
+                ecnt = 0
 
         await self._sync(node, meta)
 
-    async def _moveEdges(self, node, meta):
+    async def _moveEdges(self, node, meta, delnode):
 
         ecnt = 0
         form = node.form.name
         nodeiden = node.iden()
 
-        for iden, layr in self.lyrs.items():
-            if not iden == self.destlayr:
-                async for edge in layr.iterNodeEdgesN1(node.buid):
-                    if not self.opts.apply:
-                        name, dest = edge
-                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')
-                        await self.runt.printf(f'{iden} delete {nodeiden} {form} +({name})> {dest}')
-                    else:
-                        self.adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                        ecnt += 2
+        async def wrap_liftgenr(lidn, genr):
+            async for abrv, n2nid, tomb in genr:
+                yield abrv, n2nid, tomb, lidn
 
-                    if ecnt >= 1000:
-                        await self._sync(node, meta)
-                        ecnt = 0
+        last = None
+        gens = []
+        for lidn, layr in self.lyrs.items():
+            gens.append(wrap_liftgenr(lidn, layr.iterNodeEdgesN1(node.nid)))
+
+        async for abrv, n2nid, tomb, layr in s_common.merggenr2(gens, cmprkey=lambda x: x[:2]):
+
+            await asyncio.sleep(0)
+
+            verb = self.core.getAbrvIndx(abrv)[0]
+
+            if not layr == self.destlayr:
+                if not self.opts.apply:
+                    dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                    if tomb:
+                        await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form} -({verb})> {dest}')
+                    else:
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form} -({verb})> {dest}')
+                else:
+                    if tomb:
+                        self.subs[layr].append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
+                    ecnt += 1
+
+            edge = (abrv, n2nid)
+            if edge == last:
+                continue
+
+            last = edge
+
+            if not delnode and not layr == self.destlayr:
+                if tomb:
+                    if await self.lyrs[self.destlayr].hasNodeEdge(node.nid, verb, n2nid):
+                        if not self.opts.apply:
+                            dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                            await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} -({verb})> {dest}')
+                        else:
+                            self.adds.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
+                            ecnt += 1
+
+                    if self.opts.preserve_tombstones:
+                        if not self.opts.apply:
+                            dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                            await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form} -({verb})> {dest}')
+                        else:
+                            self.adds.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
+                            ecnt += 1
+
+                else:
+                    if not self.opts.apply:
+                        dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} -({verb})> {dest}')
+                    else:
+                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
+                        ecnt += 1
+
+            if ecnt >= 1000:
+                await self._sync(node, meta)
+                ecnt = 0
 
         await self._sync(node, meta)
 
@@ -4129,7 +4578,7 @@ class UniqCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as uniqset:
+        async with await s_spooled.Set.anit(dirn=self.runt.view.core.dirn) as uniqset:
 
             if len(self.argv) > 0:
                 async for node, path in genr:
@@ -4146,12 +4595,12 @@ class UniqCmd(Cmd):
             else:
                 async for node, path in genr:
 
-                    if node.buid in uniqset:
+                    if node.nid in uniqset:
                         # all filters must sleep
                         await asyncio.sleep(0)
                         continue
 
-                    await uniqset.add(node.buid)
+                    await uniqset.add(node.nid)
                     yield node, path
 
 class MaxCmd(Cmd):
@@ -4164,7 +4613,7 @@ class MaxCmd(Cmd):
         file:bytes#foo.bar | max :size
 
         // Yield the file:bytes node with the highest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | max $tick
 
         // Yield the it:dev:str node with the longest length
         it:dev:str | max $lib.len($node.value())
@@ -4184,7 +4633,7 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        ivaltype = self.runt.snap.core.model.type('ival')
+        ivaltype = self.runt.view.core.model.type('ival')
 
         async for item in genr:
 
@@ -4193,10 +4642,10 @@ class MaxCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[1]
 
             valu = s_stormtypes.intify(valu)
@@ -4218,7 +4667,7 @@ class MinCmd(Cmd):
         file:bytes#foo.bar | min :size
 
         // Yield the file:bytes node with the lowest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | min $tick
 
         // Yield the it:dev:str node with the shortest length
         it:dev:str | min $lib.len($node.value())
@@ -4237,7 +4686,7 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        ivaltype = self.runt.snap.core.model.type('ival')
+        ivaltype = self.runt.view.core.model.type('ival')
 
         async for node, path in genr:
 
@@ -4246,10 +4695,10 @@ class MinCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[0]
 
             valu = s_stormtypes.intify(valu)
@@ -4296,43 +4745,42 @@ class DelNodeCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         if delbytes:
-            runt.confirm(('storm', 'lib', 'axon', 'del'))
-            await runt.snap.core.getAxon()
-            axon = runt.snap.core.axon
+            runt.confirm(('axon', 'del'))
+            await runt.view.core.getAxon()
+            axon = runt.view.core.axon
 
         async for node, path in genr:
-
-            # make sure we can delete the tags...
-            for tag in node.tags.keys():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if deledges:
-                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                async with await s_spooled.Set.anit(dirn=self.runt.view.core.dirn) as edges:
                     seenverbs = set()
 
-                    async for (verb, n2iden) in node.iterEdgesN2():
+                    async for (verb, n2nid) in node.iterEdgesN2():
                         if verb not in seenverbs:
                             runt.layerConfirm(('node', 'edge', 'del', verb))
                             seenverbs.add(verb)
-                        await edges.add((verb, n2iden))
+                        await edges.add((verb, n2nid))
 
-                    async with self.runt.snap.getEditor() as editor:
-                        async for (verb, n2iden) in edges:
-                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
-                            if n2 is not None:
-                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
-                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                    async with self.runt.view.getEditor() as editor:
+                        async for (verb, n2nid) in edges:
+                            if (n2 := await editor.getNodeByNid(n2nid)) is not None:
+                                if await n2.delEdge(verb, node.nid) and len(editor.protonodes) >= 1000:
+                                    meta = editor.getEditorMeta()
+                                    await self.runt.view.saveNodeEdits(editor.getNodeEdits(), meta=meta)
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.props.get('sha256')
+                sha256 = node.get('sha256')
+
+                await node.delete(force=force)
+
                 if sha256:
                     sha256b = s_common.uhex(sha256)
                     await axon.del_(sha256b)
-
-            await node.delete(force=force)
+            else:
+                await node.delete(force=force)
 
             await asyncio.sleep(0)
 
@@ -4354,7 +4802,7 @@ class ReIndexCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         mesg = 'reindex currently does nothing but is reserved for future use'
-        await runt.snap.warn(mesg)
+        await runt.warn(mesg)
 
         # Make this a generator
         if False:
@@ -4382,10 +4830,10 @@ class MoveTagCmd(Cmd):
             mesg = 'movetag arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        snap = runt.snap
+        view = runt.view
 
         opts = {'vars': {'tag': self.opts.oldtag}}
-        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+        nodes = await view.nodes('syn:tag=$tag', opts=opts)
 
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
@@ -4396,13 +4844,13 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newname, newinfo = await view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
         runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
-        newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
+        newt = await view.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -4417,7 +4865,7 @@ class MoveTagCmd(Cmd):
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
-            newtag = await snap.addNode('syn:tag', isnow)
+            newtag = await view.addNode('syn:tag', isnow)
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4429,7 +4877,7 @@ class MoveTagCmd(Cmd):
 
         # first we set all the syn:tag:isnow props
         oldtag = self.opts.oldtag.strip('#')
-        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
+        async for node in view.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -4439,7 +4887,7 @@ class MoveTagCmd(Cmd):
 
             newtag = newstr + tagstr[oldsize:]
 
-            newnode = await snap.addNode('syn:tag', newtag)
+            newnode = await view.addNode('syn:tag', newtag)
 
             olddoc = node.get('doc')
             if olddoc is not None:
@@ -4454,20 +4902,21 @@ class MoveTagCmd(Cmd):
                 await newnode.set('title', oldtitle)
 
             # Copy any tags over to the newnode if any are present.
-            for k, v in node.tags.items():
+            for k, v in node.getTags():
                 await newnode.addTag(k, v)
                 await asyncio.sleep(0)
 
             retag[tagstr] = newtag
             await node.set('isnow', newtag)
+            view.tagcache.pop(tagstr)
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.nodesByTag(oldstr):
+        async for node in view.nodesByTag(oldstr):
 
             count += 1
 
-            tags = list(node.tags.items())
+            tags = node.getTags()
             tags.sort(reverse=True)
 
             for name, valu in tags:
@@ -4488,7 +4937,7 @@ class MoveTagCmd(Cmd):
                 for tagp, tagp_valu in tgfo.items():
                     await node.setTagProp(newt, tagp, tagp_valu)
 
-        await snap.printf(f'moved tags on {count} nodes.')
+        await runt.printf(f'moved tags on {count} nodes.')
 
         async for node, path in genr:
             yield node, path
@@ -4586,7 +5035,7 @@ class IdenCmd(Cmd):
                 await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
-            node = await runt.snap.getNodeByBuid(buid)
+            node = await runt.view.getNodeByBuid(buid)
             if node is None:
                 await asyncio.sleep(0)
                 continue
@@ -4654,8 +5103,9 @@ class GraphCmd(Cmd):
         pars.add_argument('--form-filter', default=[], nargs=2, action='append',
                           help='Specify a <form> <filter> form specific filter.')
 
-        pars.add_argument('--refs', default=False, action='store_true',
-                          help='Do automatic in-model pivoting with node.getNodeRefs().')
+        pars.add_argument('--no-refs', default=False, action='store_true',
+                          help='Disable automatic in-model pivoting with node.getNodeRefs().')
+
         pars.add_argument('--yield-filtered', default=False, action='store_true', dest='yieldfiltered',
                           help='Yield nodes which would be filtered. This still performs pivots to collect edge data,'
                                'but does not yield pivoted nodes.')
@@ -4678,7 +5128,7 @@ class GraphCmd(Cmd):
 
             'forms': {},
 
-            'refs': self.opts.refs,
+            'refs': not self.opts.no_refs,
             'filterinput': self.opts.filterinput,
             'yieldfiltered': self.opts.yieldfiltered,
 
@@ -4733,6 +5183,12 @@ class ViewExecCmd(Cmd):
 
     name = 'view.exec'
     readonly = True
+    events = (
+        'print',
+        'warn',
+        'storm:fire',
+        'csv:row',
+    )
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -4756,11 +5212,11 @@ class ViewExecCmd(Cmd):
 
             query = await runt.getStormQuery(text)
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
-                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
-
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
+                    async for item in filtrunt.execute():
+                        await asyncio.sleep(0)
 
             yield node, path
 
@@ -4771,11 +5227,11 @@ class ViewExecCmd(Cmd):
 
             opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
-                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
-
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
+                    async for item in filtrunt.execute():
+                        await asyncio.sleep(0)
 
 class BackgroundCmd(Cmd):
     '''
@@ -4791,7 +5247,7 @@ class BackgroundCmd(Cmd):
 
     async def execStormTask(self, query, opts):
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
         user = core._userFromOpts(opts)
         info = {'query': query.text,
                 'view': opts['view'],
@@ -4824,12 +5280,12 @@ class BackgroundCmd(Cmd):
 
         opts = {
             'user': runt.user.iden,
-            'view': runt.snap.view.iden,
+            'view': runt.view.iden,
             'vars': runtvars,
         }
 
         coro = self.execStormTask(query, opts)
-        runt.snap.core.schedCoro(coro)
+        runt.view.core.schedCoro(coro)
 
 class ParallelCmd(Cmd):
     '''
@@ -5024,7 +5480,7 @@ class TeeCmd(Cmd):
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
                         subg = s_common.agen((node, path.fork(node, None)))
-                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
+                        self.runt.schedCoro(self.pipeline(subr, outq, genr=subg))
 
                     exited = 0
 
@@ -5057,7 +5513,7 @@ class TeeCmd(Cmd):
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
-                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
+                        self.runt.schedCoro(self.pipeline(subr, outq))
 
                     exited = 0
 
@@ -5197,18 +5653,18 @@ class ScrapeCmd(Cmd):
 
             # if a list of props haven't been specified, then default to ALL of them
             if not todo:
-                todo = list(node.props.values())
+                todo = list(node.getProps().values())
 
             link = {'type': 'scrape'}
             for text in todo:
 
                 text = str(text)
 
-                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    nnode = await node.snap.addNode(form, valu)
+                    nnode = await node.view.addNode(form, valu)
                     npath = path.fork(nnode, link)
 
                     if refs:
@@ -5216,7 +5672,7 @@ class ScrapeCmd(Cmd):
                             mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                             await runt.warn(mesg)
                         else:
-                            await node.addEdge('refs', nnode.iden())
+                            await node.addEdge('refs', nnode.nid, n2form=nnode.form.name)
 
                     if self.opts.doyield:
                         yield nnode, npath
@@ -5237,11 +5693,11 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    addnode = await runt.snap.addNode(form, valu)
+                    addnode = await runt.view.addNode(form, valu)
                     if self.opts.doyield:
                         yield addnode, runt.initPath(addnode)
 
@@ -5274,25 +5730,25 @@ class LiftByVerb(Cmd):
 
     async def iterEdgeNodes(self, verb, idenset, n2=False):
         if n2:
-            async for (_, _, n2) in self.runt.snap.view.getEdges(verb):
+            async for (_, _, n2) in self.runt.view.getEdges(verb):
                 if n2 in idenset:
                     continue
                 await idenset.add(n2)
-                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n2))
+                node = await self.runt.view.getNodeByNid(n2)
                 if node:
                     yield node
         else:
-            async for (n1, _, _) in self.runt.snap.view.getEdges(verb):
+            async for (n1, _, _) in self.runt.view.getEdges(verb):
                 if n1 in idenset:
                     continue
                 await idenset.add(n1)
-                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n1))
+                node = await self.runt.view.getNodeByNid(n1)
                 if node:
                     yield node
 
     async def execStormCmd(self, runt, genr):
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
 
         async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as idenset:
 
@@ -5344,15 +5800,14 @@ class EdgesDelCmd(Cmd):
 
     async def delEdges(self, node, verb, n2=False):
         if n2:
-            n2iden = node.iden()
-            async for (v, n1iden) in node.iterEdgesN2(verb):
-                n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
-                if n1 is not None:
-                    await n1.delEdge(v, n2iden)
+            n2nid = node.nid
+            async for (v, n1nid) in node.iterEdgesN2(verb):
+                if (n1 := await self.runt.view.getNodeByNid(n1nid)) is not None:
+                    await n1.delEdge(v, n2nid)
 
         else:
-            async for (v, n2iden) in node.iterEdgesN1(verb):
-                await node.delEdge(v, n2iden)
+            async for (v, n2nid) in node.iterEdgesN1(verb):
+                await node.delEdge(v, n2nid)
 
     async def execStormCmd(self, runt, genr):
 
@@ -5489,7 +5944,7 @@ class TagPruneCmd(Cmd):
 
     def hasChildTags(self, node, tag):
         pref = tag + '.'
-        for ntag in node.tags:
+        for ntag in node.getTagNames():
             if ntag.startswith(pref):
                 return True
         return False
@@ -5563,6 +6018,12 @@ class RunAsCmd(Cmd):
     '''
 
     name = 'runas'
+    events = (
+        'print',
+        'warn',
+        'storm:fire',
+        'csv:row',
+    )
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -5578,7 +6039,7 @@ class RunAsCmd(Cmd):
             mesg = 'The runas command requires admin privileges.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        core = runt.snap.core
+        core = runt.view.core
 
         node = None
         async for node, path in genr:
@@ -5591,18 +6052,16 @@ class RunAsCmd(Cmd):
 
             opts = {'vars': path.vars}
 
-            async with await core.snap(user=user, view=runt.snap.view) as snap:
-                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
-                await snap.enter_context(snap.onWith('print', runt.snap.dist))
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt) as subr:
+                subr.debug = runt.debug
+                subr.readonly = runt.readonly
 
-                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
-                    subr.debug = runt.debug
-                    subr.readonly = runt.readonly
+                if self.opts.asroot:
+                    subr.asroot = runt.asroot
 
-                    if self.opts.asroot:
-                        subr.asroot = runt.asroot
-
-                    async for item in subr.execute():
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
+                    async for item in filtsubr.execute():
                         await asyncio.sleep(0)
 
             yield node, path
@@ -5616,18 +6075,16 @@ class RunAsCmd(Cmd):
 
             opts = {'user': user}
 
-            async with await core.snap(user=user, view=runt.snap.view) as snap:
-                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
-                await snap.enter_context(snap.onWith('print', runt.snap.dist))
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt) as subr:
+                subr.debug = runt.debug
+                subr.readonly = runt.readonly
 
-                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
-                    subr.debug = runt.debug
-                    subr.readonly = runt.readonly
+                if self.opts.asroot:
+                    subr.asroot = runt.asroot
 
-                    if self.opts.asroot:
-                        subr.asroot = runt.asroot
-
-                    async for item in subr.execute():
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
+                    async for item in filtsubr.execute():
                         await asyncio.sleep(0)
 
 class IntersectCmd(Cmd):
@@ -5660,7 +6117,7 @@ class IntersectCmd(Cmd):
             mesg = 'intersect arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
 
         async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as counters:
             async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as pathvars:
@@ -5670,8 +6127,8 @@ class IntersectCmd(Cmd):
 
                 # Note: The intersection works by counting the # of nodes inbound to the command.
                 # For each node which is emitted from the pivot, we increment a counter, mapping
-                # the buid -> count. We then iterate over the counter, and only yield nodes which
-                # have a buid -> count equal to the # of inbound nodes we consumed.
+                # the nid -> count. We then iterate over the counter, and only yield nodes which
+                # have a nid -> count equal to the # of inbound nodes we consumed.
 
                 count = 0
                 async for node, path in genr:
@@ -5680,24 +6137,24 @@ class IntersectCmd(Cmd):
                     async with runt.getSubRuntime(query) as subr:
                         subg = s_common.agen((node, path))
                         async for subn, subp in subr.execute(genr=subg):
-                            curv = counters.get(subn.buid)
+                            curv = counters.get(subn.nid)
                             if curv is None:
-                                await counters.set(subn.buid, 1)
+                                await counters.set(subn.nid, 1)
                             else:
-                                await counters.set(subn.buid, curv + 1)
-                            await pathvars.set(subn.buid, await s_stormtypes.toprim(subp.vars))
+                                await counters.set(subn.nid, curv + 1)
+                            await pathvars.set(subn.nid, await s_stormtypes.toprim(subp.vars))
                             await asyncio.sleep(0)
 
-                for buid, hits in counters.items():
+                for nid, hits in counters.items():
 
                     if hits != count:
                         await asyncio.sleep(0)
                         continue
 
-                    node = await runt.snap.getNodeByBuid(buid)
+                    node = await runt.view.getNodeByNid(nid)
                     if node is not None:
                         path = runt.initPath(node)
-                        path.vars.update(pathvars.get(buid))
+                        path.vars.update(pathvars.get(nid))
                         yield (node, path)
 
 css4_colors = {

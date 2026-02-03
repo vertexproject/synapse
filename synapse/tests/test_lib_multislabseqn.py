@@ -404,7 +404,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             slab20dirn = s_common.genpath(baddirn, f'seqn{"0" * 14}14.lmdb')
             async with await s_lmdbslab.Slab.anit(slab20dirn) as slab:
                 db = slab.initdb('info')
-                slab.put(b'firstindx', s_common.int64en(99), db=db)
+                await slab.put(b'firstindx', s_common.int64en(99), db=db)
 
             with self.raises(s_exc.BadCoreStore):
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:

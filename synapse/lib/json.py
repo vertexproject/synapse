@@ -1,6 +1,5 @@
 import io
 import os
-import json
 import logging
 
 from typing import Any, BinaryIO, Callable, Iterator, Optional
@@ -12,13 +11,6 @@ import yyjson
 import synapse.exc as s_exc
 
 logger = logging.getLogger(__name__)
-
-def _fallback_loads(s: str | bytes) -> Any:
-
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError as exc:
-        raise s_exc.BadJsonText(mesg=exc.args[0])
 
 def loads(s: str | bytes) -> Any:
     '''
@@ -42,11 +34,8 @@ def loads(s: str | bytes) -> Any:
 
     try:
         return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
-
     except (ValueError, TypeError) as exc:
-        extra = {'synapse': {'fn': 'loads', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.', extra=extra)
-        return _fallback_loads(s)
+        raise s_exc.BadJsonText(mesg=str(exc))
 
 def load(fp: BinaryIO) -> Any:
     '''
@@ -65,15 +54,6 @@ def load(fp: BinaryIO) -> Any:
             deserializing the provided data.
     '''
     return loads(fp.read())
-
-def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None) -> bytes:
-    indent = 2 if indent else None
-
-    try:
-        ret = json.dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
-        return ret.encode()
-    except TypeError as exc:
-        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
     rflags = 0
@@ -100,8 +80,17 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
         doc = yyjson.Document([obj], default=default, flags=rflags)
         return doc.dumps(flags=wflags)[1:-1].encode()
 
-    doc = yyjson.Document(obj, default=default, flags=rflags)
-    return doc.dumps(flags=wflags).encode()
+    try:
+        doc = yyjson.Document(obj, default=default, flags=rflags)
+        return doc.dumps(flags=wflags).encode()
+
+    except UnicodeEncodeError as exc:
+        mesg = str(exc)
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+    except Exception as exc:
+        mesg = f'{exc.__class__.__name__}: {exc}'
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
 
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''
@@ -122,22 +111,7 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     Raises:
         synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
     '''
-    try:
-        return _dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
-    except UnicodeEncodeError as exc:
-        extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
-
-        ret = _fallback_dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
-
-        if newline:
-            ret += b'\n'
-
-        return ret
-
-    except (TypeError, ValueError) as exc:
-        mesg = f'{exc.__class__.__name__}: {exc}'
-        raise s_exc.MustBeJsonSafe(mesg=mesg)
+    return _dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
     '''
@@ -220,7 +194,7 @@ def jssave(js: Any, *paths: list[str]) -> None:
     with io.open(path, 'wb') as fd:
         dump(js, fd, sort_keys=True, indent=True)
 
-def reqjsonsafe(item: Any, strict: bool = False) -> None:
+def reqjsonsafe(item: Any) -> None:
     '''
     Check if a python object is safe to be serialized to JSON.
 
@@ -228,8 +202,6 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
 
     Arguments:
         item (any): The python object to check.
-        strict (bool): If specified, do not fallback to python json library which is
-                more permissive of unicode strings. Default: False
 
     Returns: None if item is json serializable, otherwise raises an exception.
 
@@ -237,19 +209,4 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
         synapse.exc.MustBeJsonSafe: This exception is raised when the item
         cannot be serialized.
     '''
-    if strict:
-        try:
-            _dumps(item)
-
-        except s_exc.MustBeJsonSafe:
-            raise
-
-        except UnicodeEncodeError as exc:
-            mesg = str(exc)
-            raise s_exc.MustBeJsonSafe(mesg=mesg)
-
-        except Exception as exc:
-            mesg = f'{exc.__class__.__name__}: {exc}'
-            raise s_exc.MustBeJsonSafe(mesg=mesg)
-    else:
-        dumps(item)
+    _dumps(item)

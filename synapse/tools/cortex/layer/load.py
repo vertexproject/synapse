@@ -48,7 +48,7 @@ async def importLayer(infiles, opts, outp):
                         if opts.dryrun:
                             continue
 
-                        await layer.saveNodeEdits(edit, meta=meta)
+                        await layer.saveNodeEdits(edit, meta=meta, compat=True)
 
                     case ('fini', info):
                         fini = info

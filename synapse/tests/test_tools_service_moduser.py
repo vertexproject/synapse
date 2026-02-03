@@ -37,7 +37,7 @@ class ModUserTest(s_test.SynTest):
 
             svcurl = core.getLocalUrl()
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
             )
             outp = s_output.OutPutStr()
@@ -45,7 +45,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: User not found (need --add?): visi', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--add',
                 'visi',
             )
@@ -55,7 +55,7 @@ class ModUserTest(s_test.SynTest):
             self.nn(await core.auth.getUserByName('visi'))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--grant', 'woot',
                 'visi',
             )
@@ -64,7 +64,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: Role not found: woot', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--revoke', 'woot',
                 'visi',
             )
@@ -73,7 +73,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: Role not found: woot', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--passwd', 'mySecretPassword',
             )
@@ -85,7 +85,7 @@ class ModUserTest(s_test.SynTest):
             self.true(await visi.tryPasswd('mySecretPassword'))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--email', 'visi@test.com',
             )
@@ -97,7 +97,7 @@ class ModUserTest(s_test.SynTest):
             self.eq('visi@test.com', visi.info.get('email'))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--admin', 'true',
                 '--locked', 'true',
@@ -111,7 +111,7 @@ class ModUserTest(s_test.SynTest):
             self.true(visi.isLocked())
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--grant', 'ninjas',
             )
@@ -121,7 +121,7 @@ class ModUserTest(s_test.SynTest):
             self.true(visi.hasRole(ninjas.iden))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--revoke', 'ninjas',
             )
@@ -131,7 +131,7 @@ class ModUserTest(s_test.SynTest):
             self.false(visi.hasRole(ninjas.iden))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--admin', 'false',
                 '--locked', 'false',
@@ -152,7 +152,7 @@ class ModUserTest(s_test.SynTest):
 
             gateiden = core.getLayer().iden
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--admin', 'true',
                 '--gate', gateiden,
@@ -168,7 +168,7 @@ class ModUserTest(s_test.SynTest):
 
             gateiden = core.getLayer().iden
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--admin', 'false',
                 '--allow', 'bar.baz',
@@ -188,7 +188,7 @@ class ModUserTest(s_test.SynTest):
                     self.isin((False, ('bar', 'baz', 'faz')), user['rules'])
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
             )
             outp = s_output.OutPutStr()
@@ -196,7 +196,7 @@ class ModUserTest(s_test.SynTest):
             self.isin(userlist, str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
                 'visi',
             )
@@ -205,7 +205,7 @@ class ModUserTest(s_test.SynTest):
             self.isin(userinfo, s_test.deguidify(str(outp)))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
                 'newpuser',
             )
@@ -214,7 +214,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: User not found: newpuser', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--gate', 'newp',
             )
@@ -223,7 +223,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: No auth gate found with iden: newp', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--add',
                 '--del',
@@ -234,7 +234,7 @@ class ModUserTest(s_test.SynTest):
 
             # Del visi
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--del',
             )
@@ -243,7 +243,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('...deleting user: visi', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
             )
             outp = s_output.OutPutStr()
@@ -251,7 +251,7 @@ class ModUserTest(s_test.SynTest):
             self.isin('ERROR: User not found (need --add?): visi', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
             )
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_moduser.main(argv, outp=outp))

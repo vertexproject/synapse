@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -173,9 +174,6 @@ class StormSvcClient(s_base.Base):
                 # push the svciden in the package metadata for later reference.
                 await self.core._addStormPkg(pdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
             except Exception:
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
@@ -190,18 +188,12 @@ class StormSvcClient(s_base.Base):
             if evts is not None:
                 self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
 
         try:
             if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
@@ -211,6 +203,13 @@ class StormSvcClient(s_base.Base):
         clss = proxy._getClasses()
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
+
+        if 'CellApi' in names:
+            cellinfo = await proxy.getCellInfo()
+            if (cellvers := cellinfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Service {self.name} ({self.iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
 
         if 'StormSvc' in names:
             self.info = await proxy.getStormSvcInfo()

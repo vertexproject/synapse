@@ -1,0 +1,119 @@
+# CN province abbreviations taken from https://www.cottongen.org/data/nomenclatures/China_provinces
+icpregex = '^(皖|京|渝|闽|粤|甘|桂|黔|豫|鄂|冀|琼|港|黑|湘|吉|苏|赣|辽|澳|蒙|宁|青|川|鲁|沪|陕|晋|津|台|新|藏|滇|浙)ICP(备|证)[0-9]{8}号$'
+
+modeldefs = (
+    ('gov:cn', {
+        'types': (
+
+            ('gov:cn:icp', ('str', {'regex': icpregex}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Chinese Internet Content Provider ID.'}),
+
+            ('gov:cn:mucd', ('str', {'regex': '^[0-9]{5}部队$'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Chinese PLA MUCD.'}),
+        ),
+        'forms': (
+            ('gov:cn:icp', {}, ()),
+            ('gov:cn:mucd', {}, ()),
+        )
+    }),
+    ('gov:intl', {
+        'types': (
+            ('iso:oid', ('str', {'regex': '^([0-2])((\\.0)|(\\.[1-9][0-9]*))*$'}), {
+                'doc': 'An ISO Object Identifier string.'}),
+
+            ('iso:3166:alpha2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
+                'prevnames': ('pol:iso2', 'iso:3166:cc'),
+                'ex': 'us',
+                'doc': 'An ISO 3166 Alpha-2 country code.'}),
+
+            ('iso:3166:alpha3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
+                'prevnames': ('pol:iso3',),
+                'ex': 'usa',
+                'doc': 'An ISO 3166 Alpha-3 country code.'}),
+
+            ('iso:3166:numeric3', ('int', {'min': 0, 'max': 999, 'fmt': '%.3d'}), {
+                'prevnames': ('pol:isonum',),
+                'ex': '840',
+                'doc': 'An ISO 3166 Numeric-3 country code.'}),
+
+            ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
+                'doc': 'UN M49 Numeric Country Code.'}),
+        ),
+
+        'forms': (
+            ('iso:oid', {}, (
+
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the value or meaning of the OID.'}),
+
+                ('identifier', ('str', {}), {
+                    'doc': 'The string identifier for the deepest tree element.'}),
+            )),
+        ),
+    }),
+    ('gov:us', {
+        'types': (
+
+            ('gov:us:ssn', ('str', {'regex': '^[0-9]{3}-[0-9]{2}-[0-9]{4}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A US Social Security Number (SSN).'}),
+
+            ('gov:us:zip', ('int', {'min': 0, 'max': 99999}), {
+                'doc': 'A US Postal Zip Code.'}),
+
+            ('gov:us:cage', ('str', {'lower': True}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Commercial and Government Entity (CAGE) code.'}),
+        ),
+
+        'forms': (
+            ('gov:us:cage', {}, (
+                ('org', ('ou:org', {}), {
+                    'doc': 'The organization which was issued the CAGE code.'}),
+
+                ('name0', ('entity:name', {}), {
+                    'doc': 'The name of the organization.'}),
+
+                ('name1', ('str', {'lower': True}), {
+                    'doc': 'Name Part 1.'}),
+
+                ('street', ('str', {'lower': True}), {
+                    'doc': 'The street in the CAGE code record.'}),
+
+                ('city', ('str', {'lower': True}), {
+                    'doc': 'The city in the CAGE code record.'}),
+
+                ('state', ('str', {'lower': True}), {
+                    'doc': 'The state in the CAGE code record.'}),
+
+                ('zip', ('gov:us:zip', {}), {
+                    'doc': 'The zip code in the CAGE code record.'}),
+
+                ('cc', ('iso:3166:alpha2', {}), {
+                    'doc': 'The country code in the CAGE code record.'}),
+
+                ('country', ('str', {'lower': True}), {
+                    'doc': 'The country in the CAGE code record.'}),
+
+                ('phone0', ('tel:phone', {}), {
+                    'doc': 'The primary phone number in the CAGE code record.'}),
+
+                ('phone1', ('tel:phone', {}), {
+                    'doc': 'The alternate phone number in the CAGE code record.'}),
+            )),
+
+            ('gov:us:ssn', {}, []),
+            ('gov:us:zip', {}, []),
+        ),
+    }),
+)

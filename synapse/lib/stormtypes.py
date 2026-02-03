@@ -1,3 +1,4 @@
+import os
 import bz2
 import copy
 import gzip
@@ -32,7 +33,7 @@ import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.trigger as s_trigger
+import synapse.lib.schemas as s_schemas
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
@@ -41,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
 AXON_MINVERS_PROXYTRUE = (2, 192, 0)
-AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
@@ -80,7 +80,7 @@ async def resolveCoreProxyUrl(valu):
     Resolve a proxy value to a proxy URL.
 
     Args:
-        valu (str|None|bool): The proxy value.
+        valu (str|bool): The proxy value.
 
     Returns:
         (str|None): A proxy URL string or None.
@@ -88,20 +88,15 @@ async def resolveCoreProxyUrl(valu):
     runt = s_scope.get('runt')
 
     match valu:
-        case None:
-            s_common.deprecated('Setting the HTTP proxy argument $lib.null', curv='2.192.0')
-            await runt.snap.warnonce('Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
-            return await runt.snap.core.getConfOpt('http:proxy')
-
         case True:
-            return await runt.snap.core.getConfOpt('http:proxy')
+            return await runt.view.core.getConfOpt('http:proxy')
 
         case False:
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return None
 
         case str():
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return valu
 
         case _:
@@ -112,37 +107,32 @@ async def resolveAxonProxyArg(valu):
     Resolve a proxy value to the kwarg to set for an Axon HTTP call.
 
     Args:
-        valu (str|null|bool): The proxy value.
+        valu (str|bool): The proxy value.
 
     Returns:
         tuple: A retn tuple where the proxy kwarg should not be set if ok=False, otherwise a proxy URL or None.
     '''
     runt = s_scope.get('runt')
 
-    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    await runt.view.core.getAxon()
+
+    axonvers = runt.view.core.axoninfo['synapse']['version']
     if axonvers < AXON_MINVERS_PROXY:
-        await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
+        await runt.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
         return False, None
 
     match valu:
-        case None:
-            s_common.deprecated('Setting the Storm HTTP proxy argument $lib.null', curv='2.192.0')
-            await runt.snap.warnonce('Setting the Storm HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
-            if axonvers >= AXON_MINVERS_PROXYTRUE:
-                return True, True
-            return True, None
-
         case True:
             if axonvers < AXON_MINVERS_PROXYTRUE:
                 return True, None
             return True, True
 
         case False:
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return True, False
 
         case str():
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return True, valu
 
         case _:
@@ -634,7 +624,7 @@ class Lib(StormType):
         StormType.__init__(self)
         self.runt = runt
         self.name = name
-        self.auth = runt.snap.core.auth
+        self.auth = runt.view.core.auth
         self.addLibFuncs()
 
     def addLibFuncs(self):
@@ -644,7 +634,7 @@ class Lib(StormType):
 
         if self._storm_query is not None:
 
-            query = await self.runt.snap.core.getStormQuery(self._storm_query)
+            query = await self.runt.view.core.getStormQuery(self._storm_query)
             self.modrunt = await self.runt.getModRuntime(query)
 
             self.runt.onfini(self.modrunt)
@@ -681,7 +671,7 @@ class Lib(StormType):
 
         path = self.name + (name,)
 
-        slib = self.runt.snap.core.getStormLib(path)
+        slib = self.runt.view.core.getStormLib(path)
         if slib is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name)
 
@@ -780,7 +770,7 @@ class LibDmon(Lib):
         }
 
     async def _libDmonDel(self, iden):
-        dmon = await self.runt.snap.core.getStormDmon(iden)
+        dmon = await self.runt.view.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -788,20 +778,20 @@ class LibDmon(Lib):
         if dmon.get('user') != self.runt.user.iden:
             self.runt.confirm(('dmon', 'del', iden))
 
-        await self.runt.snap.core.delStormDmon(iden)
+        await self.runt.view.core.delStormDmon(iden)
 
     @stormfunc(readonly=True)
     async def _libDmonGet(self, iden):
-        return await self.runt.snap.core.getStormDmon(iden)
+        return await self.runt.view.core.getStormDmon(iden)
 
     @stormfunc(readonly=True)
     async def _libDmonList(self):
-        return await self.runt.snap.core.getStormDmons()
+        return await self.runt.view.core.getStormDmons()
 
     @stormfunc(readonly=True)
     async def _libDmonLog(self, iden):
         self.runt.confirm(('dmon', 'log'))
-        return await self.runt.snap.core.getStormDmonLog(iden)
+        return await self.runt.view.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, text, name='noname', ddef=None):
 
@@ -818,7 +808,7 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.snap.view.iden
+        viewiden = self.runt.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
@@ -833,44 +823,44 @@ class LibDmon(Lib):
 
         ddef.setdefault('enabled', True)
 
-        return await self.runt.snap.core.addStormDmon(ddef)
+        return await self.runt.view.core.addStormDmon(ddef)
 
     async def _libDmonBump(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.bumpStormDmon(iden)
+        await self.runt.view.core.bumpStormDmon(iden)
         return True
 
     async def _libDmonStop(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        return await self.runt.snap.core.disableStormDmon(iden)
+        return await self.runt.view.core.disableStormDmon(iden)
 
     async def _libDmonStart(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        return await self.runt.snap.core.enableStormDmon(iden)
+        return await self.runt.view.core.enableStormDmon(iden)
 
 @registry.registerLib
 class LibService(Lib):
@@ -959,17 +949,7 @@ class LibService(Lib):
         '''
         Helper to handle service.get.* permissions
         '''
-        try:
-            self.runt.confirm(('service', 'get', ssvc.iden))
-        except s_exc.AuthDeny as e:
-            try:
-                self.runt.confirm(('service', 'get', ssvc.name))
-            except s_exc.AuthDeny:
-                raise e from None
-            else:
-                # TODO: Remove support for this permission in 3.0.0
-                mesg = 'Use of service.get.<servicename> permissions are deprecated.'
-                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+        self.runt.confirm(('service', 'get', ssvc.iden))
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
@@ -977,14 +957,14 @@ class LibService(Lib):
             'name': name,
             'url': url,
         }
-        return await self.runt.snap.core.addStormSvc(sdef)
+        return await self.runt.view.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
         self.runt.confirm(('service', 'del'))
-        return await self.runt.snap.core.delStormSvc(iden)
+        return await self.runt.view.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -993,7 +973,7 @@ class LibService(Lib):
 
     @stormfunc(readonly=True)
     async def _libSvcHas(self, name):
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             return False
         return True
@@ -1003,7 +983,7 @@ class LibService(Lib):
         self.runt.confirm(('service', 'list'))
         retn = []
 
-        for ssvc in self.runt.snap.core.getStormSvcs():
+        for ssvc in self.runt.view.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             sdef['svcname'] = ssvc.svcname
@@ -1016,7 +996,7 @@ class LibService(Lib):
     async def _libSvcWait(self, name, timeout=None):
         name = await tostr(name)
         timeout = await toint(timeout, noneok=True)
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -1075,13 +1055,13 @@ class LibTags(Lib):
 
         prefix = await tostr(prefix)
         ispart = await tobool(ispart)
-        tagpart = self.runt.snap.core.model.type('syn:tag:part')
+        tagpart = self.runt.view.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
             if not ispart:
                 try:
-                    partnorm = tagpart.norm(part)[0]
+                    partnorm = (await tagpart.norm(part))[0]
                     retn.append(f'{prefix}.{partnorm}')
                 except s_exc.BadTypeValu:
                     pass
@@ -1164,13 +1144,6 @@ class LibBase(Lib):
                        'desc': 'Additional keyword arguments containing data to add to the event.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a Storm List object. This is deprecated, use ([]) to declare a list instead.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_list',
-                  'args': (
-                      {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A new list object.', }}},
         {'name': 'raise', 'desc': 'Raise an exception in the storm runtime.',
          'type': {'type': 'function', '_funcname': '_raise',
                   'args': (
@@ -1225,15 +1198,6 @@ class LibBase(Lib):
                     storm> if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': "Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``('.').join($listOfStr)`` to join them on demand.",
-         'deprecated': {'eolvers': '3.0.0'},
-         'type': {'type': 'function', '_funcname': '_text',
-                  'args': (
-                      {'name': '*args', 'type': 'str',
-                       'desc': 'An initial set of values to place in the Text. '
-                               'These values are joined together with an empty string.', },
-                  ),
-                  'returns': {'type': 'text', 'desc': 'The new Text object.', }}},
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
          'type': {'type': 'function', '_funcname': '_cast',
                   'args': (
@@ -1438,6 +1402,12 @@ class LibBase(Lib):
         self.stors['debug'] = self._setRuntDebug
         self.gtors['debug'] = self._getRuntDebug
 
+        self.ctors.update({
+            'env': self._ctorEnvVars,
+            'vars': self._ctorRuntVars,
+            'globals': self._ctorGlobalVars,
+        })
+
     async def _getRuntDebug(self):
         return self.runt.debug
 
@@ -1455,12 +1425,10 @@ class LibBase(Lib):
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
-            'list': self._list,
             'null': None,
             'undef': undef,
             'true': True,
             'false': False,
-            'text': self._text,
             'cast': self._cast,
             'repr': self._repr,
             'warn': self._warn,
@@ -1480,7 +1448,7 @@ class LibBase(Lib):
         debug = await tobool(debug)
         reqvers = await tostr(reqvers, noneok=True)
 
-        mdef = await self.runt.snap.core.getStormMod(name, reqvers=reqvers)
+        mdef = await self.runt.view.core.getStormMod(name, reqvers=reqvers)
         if mdef is None:
             mesg = f'No storm module named {name} matching version requirement {reqvers}'
             raise s_exc.NoSuchName(mesg=mesg, name=name, reqvers=reqvers)
@@ -1490,7 +1458,7 @@ class LibBase(Lib):
 
         query = await self.runt.getStormQuery(text)
 
-        asroot = False
+        asroot = self.runt.asroot
 
         rootperms = mdef.get('asroot:perms')
         if rootperms is not None:
@@ -1512,21 +1480,6 @@ class LibBase(Lib):
                     case _:
                         mesg = f'Module ({name}) requires permission: {permtext}'
                         raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        else:
-            perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
-            asroot = self.runt.allowed(perm)
-
-            if mdef.get('asroot', False):
-                mesg = f'Module ({name}) requires asroot permission but does not specify any asroot:perms. ' \
-                        'storm.asroot.mod.<modname> style permissons are deprecated and will be removed in v3.0.0.'
-
-                s_common.deprecated('Storm module asroot key', curv='2.226.0', eolv='3.0.0')
-                await self.runt.warnonce(mesg, log=False)
-
-                if not asroot:
-                    mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                    raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1568,13 +1521,13 @@ class LibBase(Lib):
             raise s_exc.BadArg(mesg=mesg) from None
 
     def _reqTypeByName(self, name):
-        typeitem = self.runt.snap.core.model.type(name)
+        typeitem = self.runt.view.core.model.type(name)
         if typeitem is not None:
             return typeitem
 
         # If a type cannot be found for the form, see if name is a property
         # that has a type we can use
-        propitem = self.runt.snap.core.model.prop(name)
+        propitem = self.runt.view.core.model.prop(name)
         if propitem is not None:
             return propitem.type
 
@@ -1584,34 +1537,41 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
         name = await toprim(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         typeitem = self._reqTypeByName(name)
         # TODO an eventual mapping between model types and storm prims
 
-        norm, info = typeitem.norm(valu)
+        norm, info = await typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
     async def trycast(self, name, valu):
         name = await toprim(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         typeitem = self._reqTypeByName(name)
 
         try:
-            norm, info = typeitem.norm(valu)
+            norm, info = await typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
-        except s_exc.BadTypeValu:
-            return (False, None)
+        except s_exc.BadTypeValu as exc:
+            return False, s_common.excinfo(exc)
 
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
-        name = await toprim(name)
-        valu = await toprim(valu)
+        name = await tostr(name)
+        valu = await tostor(valu)
+
+        parts = name.strip().split('.')
+        name = parts[0]
 
         try:
-            return self._reqTypeByName(name).repr(valu)
+            typeitem = self._reqTypeByName(name)
+            if len(parts) > 1:
+                typeitem = typeitem.getVirtType(parts[1:])
+
+            return typeitem.repr(valu)
         except s_exc.SynErr:
             raise
         except Exception as e:
@@ -1638,30 +1598,15 @@ class LibBase(Lib):
         return Set(vals)
 
     @stormfunc(readonly=True)
-    async def _list(self, *vals):
-        s_common.deprecated('$lib.list()', curv='2.194.0')
-        await self.runt.snap.warnonce('$lib.list() is deprecated. Use ([]) instead.')
-        return List(list(vals))
-
-    @stormfunc(readonly=True)
-    async def _text(self, *args):
-        s_common.deprecated('$lib.text()', curv='2.194.0')
-        runt = s_scope.get('runt')
-        if runt:
-            await runt.snap.warnonce("$lib.text() is deprecated. Please use a list to append strings to, and then use ``('').join($listOfStr)`` to join them on demand.")
-        valu = ''.join(args)
-        return Text(valu)
-
-    @stormfunc(readonly=True)
     async def _guid(self, *args, valu=undef):
         if args:
             if valu is not undef:
                 raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
-            args = await toprim(args)
+            args = await tostor(args, packsafe=True)
             return s_common.guid(args)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu, packsafe=True)
             return s_common.guid(valu)
 
         return s_common.guid()
@@ -1786,7 +1731,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -1799,7 +1744,16 @@ class LibBase(Lib):
     async def _fire(self, name, **info):
         info = await toprim(info)
         s_json.reqjsonsafe(info)
-        await self.runt.snap.fire('storm:fire', type=name, data=info)
+        await self.runt.bus.fire('storm:fire', type=name, data=info)
+
+    def _ctorGlobalVars(self, path=None):
+        return GlobalVars(path=path)
+
+    def _ctorEnvVars(self, path=None):
+        return EnvVars(path=path)
+
+    def _ctorRuntVars(self, path=None):
+        return RuntVars(path=path)
 
 @registry.registerLib
 class LibDict(Lib):
@@ -1946,152 +1900,21 @@ class LibDict(Lib):
         valu = await toprim(valu)
         return list(valu.values())
 
-    async def __call__(self, **kwargs):
-        s_common.deprecated('$lib.dict()', curv='2.161.0')
-        await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
-        return Dict(kwargs)
-
-@registry.registerLib
-class LibPs(Lib):
-    '''
-    A Storm Library for interacting with running tasks on the Cortex.
-    '''
-    _storm_locals = (  # type:  ignore
-        {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
-         'type': {'type': 'function', '_funcname': '_kill',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
-        {'name': 'list', 'desc': 'List tasks the current user can access.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
-    )
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
-    _storm_lib_path = ('ps',)
-
-    def getObjLocals(self):
-        return {
-            'kill': self._kill,
-            'list': self._list,
-        }
-
-    async def _kill(self, prefix):
-        idens = []
-
-        todo = s_common.todo('ps', self.runt.user)
-        tasks = await self.dyncall('cell', todo)
-        for task in tasks:
-            iden = task.get('iden')
-            if iden.startswith(prefix):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            mesg = 'Provided iden does not match any processes.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        if len(idens) > 1:
-            mesg = 'Provided iden matches more than one process.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        todo = s_common.todo('kill', self.runt.user, idens[0])
-        return await self.dyncall('cell', todo)
-
-    @stormfunc(readonly=True)
-    async def _list(self):
-        todo = s_common.todo('ps', self.runt.user)
-        return await self.dyncall('cell', todo)
-
-@registry.registerLib
-class LibStr(Lib):
-    '''
-    A Storm Library for interacting with strings.
-    '''
-    _storm_locals = (
-        {'name': 'join', 'desc': 'Join items into a string using a separator.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``('').join($foo, $bar, $baz, ....)`` instead.'},
-         'type': {'type': 'function', '_funcname': 'join',
-                  'args': (
-                      {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
-                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': "Use ``('').join($foo, $bar, $baz, ....)`` instead."},
-         'type': {'type': 'function', '_funcname': 'concat',
-                  'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'format', 'desc': 'Format a text string.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``$mystr.format(foo=$bar)`` instead.'},
-         'type': {'type': 'function', '_funcname': 'format',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
-                      {'name': '**kwargs', 'type': 'any',
-                       'desc': 'Keyword values which are substituted into the string.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The new string.', }}},
-    )
-    _storm_lib_path = ('str',)
-
-    # _lib_str_join_depr_mesg = '$lib.str.join(), use "$sepr.join($items)" instead.'
-    # _lib_str_concat_depr_mesg = "$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead."
-    # _lib_str_format_depr_mesg = '$lib.str.format(), use "$mystr.format(foo=$bar)" instead.'
-
-    def getObjLocals(self):
-        return {
-            'join': self.join,
-            'concat': self.concat,
-            'format': self.format,
-        }
-
-    @stormfunc(readonly=True)
-    async def concat(self, *args):
-        # s_common.deprecated(self._lib_str_concat_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_concat_depr_mesg)
-        strs = [await tostr(a) for a in args]
-        return ''.join(strs)
-
-    @stormfunc(readonly=True)
-    async def format(self, text, **kwargs):
-        # s_common.deprecated(self._lib_str_format_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_format_depr_mesg)
-        text = await kwarg_format(text, **kwargs)
-
-        return text
-
-    @stormfunc(readonly=True)
-    async def join(self, sepr, items):
-        # s_common.deprecated(self._lib_str_join_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_join_depr_mesg)
-        strs = [await tostr(item) async for item in toiter(items)]
-        return sepr.join(strs)
-
 @registry.registerLib
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
 
-    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+    For APIs that accept an ssl argument, the dictionary may contain the following values::
 
         ({
-            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'verify': <bool> - Perform SSL/TLS verification. Default is True.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
         })
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        ``(null)``: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
         ``(true)``: Use the proxy defined by the http:proxy configuration option if set.
         ``(false)``: Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
@@ -2123,16 +1946,16 @@ class LibAxon(Lib):
                       {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET'},
                       {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.',
                        'default': None},
-                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None},
-                      {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
+                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.',
+                       'default': None},
+                      {'name': 'ssl', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
                       {'name': 'proxy', 'type': ['boolean', 'str'],
-                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict',
-                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
-                       'default': None},
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.',
+                       'default': True},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -2146,16 +1969,16 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
                        'default': None},
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT'},
-                      {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.',
+                       'default': 'PUT'},
+                      {'name': 'ssl', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
                       {'name': 'proxy', 'type': ['boolean', 'str'],
-                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict',
-                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
-                       'default': None},
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.',
+                       'default': True},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
@@ -2428,18 +2251,6 @@ class LibAxon(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
-    _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
-            'desc': 'Controls the ability to remove a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
-            'desc': 'Controls the ability to check if the Axon contains a file.'},
-        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
-            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
-    )
 
     def getObjLocals(self):
         return {
@@ -2464,28 +2275,25 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.getAxon()
+        self.runt.confirm(('axon', 'get'))
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
+        async for line in self.runt.view.core.axon.readlines(sha256, errors=errors):
             yield line
 
     @stormfunc(readonly=True)
     async def jsonlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.getAxon()
+        self.runt.confirm(('axon', 'get'))
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.jsonlines(sha256):
+        async for line in self.runt.view.core.axon.jsonlines(sha256):
             yield line
 
     async def dels(self, sha256s):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2494,46 +2302,43 @@ class LibAxon(Lib):
 
         hashes = [s_common.uhex(s) for s in sha256s]
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         return await axon.dels(hashes)
 
     async def del_(self, sha256):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
 
-        if not self.runt.allowed(('axon', 'wget')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        self.runt.confirm(('axon', 'upload'))
 
         url = await tostr(url)
         method = await tostr(method)
 
-        ssl = await tobool(ssl)
+        ssl = await toprim(ssl)
         body = await toprim(body)
         json = await toprim(json)
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
-        ssl_opts = await toprim(ssl_opts)
 
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         kwargs = {}
 
@@ -2541,40 +2346,31 @@ class LibAxon(Lib):
         if ok:
             kwargs['proxy'] = proxy
 
-        if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
-            kwargs['ssl_opts'] = ssl_opts
-
-        axon = self.runt.snap.core.axon
-        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout, **kwargs)
+        axon = self.runt.view.core.axon
+        resp = await axon.wget(url, headers=headers, params=params, method=method, json=json, body=body,
+                               ssl=ssl, timeout=timeout, **kwargs)
         resp['original_url'] = url
         return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
 
-        if not self.runt.allowed(('axon', 'wput')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        self.runt.confirm(('axon', 'get'))
 
         url = await tostr(url)
+        ssl = await toprim(ssl)
         sha256 = await tostr(sha256)
         method = await tostr(method)
         proxy = await toprim(proxy)
 
-        ssl = await tobool(ssl)
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
-        ssl_opts = await toprim(ssl_opts)
 
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         kwargs = {}
 
@@ -2582,21 +2378,14 @@ class LibAxon(Lib):
         if ok:
             kwargs['proxy'] = proxy
 
-        if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
-            kwargs['ssl_opts'] = ssl_opts
-
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
                                ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
-        gateiden = self.runt.snap.wlyr.iden
+        gateiden = self.runt.view.wlyr.iden
         self.runt.confirm(('node', 'add', 'file:bytes'), gateiden=gateiden)
         self.runt.confirm(('node', 'add', 'inet:urlfile'), gateiden=gateiden)
 
@@ -2608,7 +2397,7 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        now = self.runt.model.type('time').norm('now')[0]
+        now = (await self.runt.model.type('time').norm('now'))[0]
 
         original_url = resp.get('original_url')
         hashes = resp.get('hashes')
@@ -2618,10 +2407,12 @@ class LibAxon(Lib):
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
             'sha256': sha256,
-            '.seen': now,
+        # TODO: update once we know where this ends up in the model
+        #    'seen': now,
         }
 
-        filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
+        valu = {'sha256': sha256}
+        filenode = await self.runt.view.addNode('file:bytes', valu, props=props)
 
         if not filenode.get('name'):
             info = s_urlhelp.chopurl(original_url)
@@ -2629,8 +2420,9 @@ class LibAxon(Lib):
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': now}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+        # props = {'seen': now}
+        props = {}
+        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, filenode.ndef[1]), props=props)
 
         history = resp.get('history')
         if history is not None:
@@ -2652,8 +2444,9 @@ class LibAxon(Lib):
             redirs.append((src, resp.get('url')))
 
             for valu in redirs:
-                props = {'.seen': now}
-                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
+                # props = {'seen': now}
+                props = {}
+                await self.runt.view.addNode('inet:url:redir', valu, props=props)
 
         return urlfile
 
@@ -2663,11 +2456,10 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        axon = self.runt.snap.core.axon
+        await self.runt.view.core.getAxon()
+        axon = self.runt.view.core.axon
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
@@ -2675,31 +2467,29 @@ class LibAxon(Lib):
     @stormfunc(readonly=True)
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect,
+        async for item in self.runt.view.core.axon.csvrows(s_common.uhex(sha256), dialect,
                                                            errors=errors, **fmtparams):
             yield item
             await asyncio.sleep(0)
 
     @stormfunc(readonly=True)
     async def metrics(self):
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
-        return await self.runt.snap.core.axon.metrics()
+        self.runt.confirm(('axon', 'has'))
+        return await self.runt.view.core.axon.metrics()
 
     async def upload(self, genr):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
+        await self.runt.view.core.getAxon()
+        async with await self.runt.view.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
             size, sha256 = await upload.save()
@@ -2713,8 +2503,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.has(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
     async def size(self, sha256):
@@ -2722,8 +2512,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.size(s_common.uhex(sha256))
 
     async def put(self, byts):
         if not isinstance(byts, bytes):
@@ -2734,11 +2524,11 @@ class LibAxon(Lib):
 
         sha256 = hashlib.sha256(byts).digest()
 
-        await self.runt.snap.core.getAxon()
-        if await self.runt.snap.core.axon.has(sha256):
+        await self.runt.view.core.getAxon()
+        if await self.runt.view.core.axon.has(sha256):
             return (len(byts), s_common.ehex(sha256))
 
-        size, sha256 = await self.runt.snap.core.axon.put(byts)
+        size, sha256 = await self.runt.view.core.axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)
@@ -2747,8 +2537,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
     async def read(self, sha256, offs=0, size=s_const.mebibyte):
@@ -2763,13 +2553,12 @@ class LibAxon(Lib):
             mesg = f'Size must be between 1 and {s_const.mebibyte} bytes'
             raise s_exc.BadArg(mesg=mesg)
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         byts = b''
-        async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
+        async for chunk in self.runt.view.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
             byts += chunk
         return byts
 
@@ -2778,7 +2567,7 @@ class LibAxon(Lib):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
-        if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+        if self.runt.view.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
             mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
             raise s_exc.FeatureNotSupported(mesg=mesg)
 
@@ -2786,216 +2575,10 @@ class LibAxon(Lib):
         fmt = await tostr(fmt)
         offs = await toint(offs)
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
-
-@registry.registerLib
-class LibBytes(Lib):
-    '''
-    A Storm Library for interacting with bytes.
-    '''
-    _storm_locals = (
-        {'name': 'put', 'desc': '''
-            Save the given bytes variable to the Axon the Cortex is configured to use.
-
-            This is deprecated; please use ``$lib.axon.put()`` instead.
-
-            Examples:
-                Save a base64 encoded buffer to the Axon::
-
-                    storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
-
-                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_libBytesPut',
-                  'args': (
-                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-        {'name': 'has', 'desc': '''
-            Check if the Axon the Cortex is configured to use has a given sha256 value.
-
-            This is deprecated; please use ``$lib.axon.has()`` instead.
-
-            Examples:
-                Check if the Axon has a given file::
-
-                    # This example assumes the Axon does have the bytes
-                    storm> if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
-                            $lib.print("Has bytes")
-                        } else {
-                            $lib.print("Does not have bytes")
-                        }
-
-                    Has bytes
-            ''',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_libBytesHas',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
-        {'name': 'size', 'desc': '''
-            Return the size of the bytes stored in the Axon for the given sha256.
-
-            This is deprecated; please use ``$lib.axon.size()`` instead.
-
-            Examples:
-                Get the size for a file given a variable named ``$sha256``::
-
-                    $size = $lib.bytes.size($sha256)
-            ''',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_libBytesSize',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': ['int', 'null'],
-                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
-        {'name': 'hashset', 'desc': '''
-            Return additional hashes of the bytes stored in the Axon for the given sha256.
-
-            This is deprecated; please use ``$lib.axon.hashset()`` instead.
-
-            Examples:
-                Get the md5 hash for a file given a variable named ``$sha256``::
-
-                    $hashset = $lib.bytes.hashset($sha256)
-                    $md5 = $hashset.md5
-            ''',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_libBytesHashset',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
-        {'name': 'upload', 'desc': '''
-            Upload a stream of bytes to the Axon as a file.
-
-            This is deprecated; please use ``$lib.axon.upload()`` instead.
-
-            Examples:
-                Upload bytes from a generator::
-
-                    ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
-            ''',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_libBytesUpload',
-                  'args': (
-                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-
-        {'name': 'fromints', 'desc': '''
-            Convert an iterable source of integers into bytes.
-
-            Note:
-                The integer values must be in the range 0 to 255. Values outside of this range will raise a
-                BadArg.
-
-            Examples:
-                Convert a list of integers into bytes::
-
-                    $ints = ([0x56, 0x49, 0x53, 0x49])
-                    $byts = $lib.bytes.fromints($ints)
-
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesFromInts',
-                  'args': (
-                      {'name': 'ints', 'type': 'generator', 'desc': 'An iterable source of integers.', },
-                  ),
-                  'returns': {'type': 'bytes', 'desc': 'The bytes from processing the integers.'}}},
-    )
-
-    _storm_lib_path = ('bytes',)
-
-    def getObjLocals(self):
-        return {
-            'put': self._libBytesPut,
-            'has': self._libBytesHas,
-            'size': self._libBytesSize,
-            'upload': self._libBytesUpload,
-            'hashset': self._libBytesHashset,
-            'fromints': self._libBytesFromInts,
-        }
-
-    async def _libBytesUpload(self, genr):
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
-            async for byts in s_coro.agen(genr):
-                await upload.write(byts)
-            size, sha256 = await upload.save()
-            return size, s_common.ehex(sha256)
-
-    @stormfunc(readonly=True)
-    async def _libBytesFromInts(self, ints):
-        try:
-            ints = [await toint(item) async for item in toiter(ints)]
-            ret = bytes(ints)
-        except s_exc.SynErr as e:
-            raise s_exc.BadArg(mesg=e.get('mesg'))
-        except Exception as e:
-            raise s_exc.BadArg(mesg=f'Failed to convert ints to bytes: {str(e)}')
-        return ret
-
-    @stormfunc(readonly=True)
-    async def _libBytesHas(self, sha256):
-
-        sha256 = await tostr(sha256, noneok=True)
-        if sha256 is None:
-            return None
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('has', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    @stormfunc(readonly=True)
-    async def _libBytesSize(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('size', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    async def _libBytesPut(self, byts):
-
-        if not isinstance(byts, bytes):
-            mesg = '$lib.bytes.put() requires a bytes argument'
-            raise s_exc.BadArg(mesg=mesg)
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('put', byts)
-        size, sha2 = await self.dyncall('axon', todo)
-
-        return (size, s_common.ehex(sha2))
-
-    @stormfunc(readonly=True)
-    async def _libBytesHashset(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('hashset', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib
 class LibLift(Lib):
@@ -3003,25 +2586,194 @@ class LibLift(Lib):
     A Storm Library for interacting with lift helpers.
     '''
     _storm_locals = (
-        {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
-         'type': {'type': 'function', '_funcname': '_byNodeData',
+        {'name': 'byPropAlts', 'desc': 'Lift nodes by a property value, including alternate property values.',
+         'type': {'type': 'function', '_funcname': '_byPropAlts',
                   'args': (
-                      {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
+                      {'name': 'name', 'desc': 'The name of the property to lift by.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
+         'type': {'type': 'function', '_funcname': '_byNodeData',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the nodedata key to lift by.', 'type': 'str', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byPropRefs', 'desc': 'Lift nodes which are referenced by properties of other nodes.',
+         'type': {'type': 'function', '_funcname': '_byPropRefs',
+                  'args': (
+                      {'name': 'props', 'desc': 'The name of the props to check for references.', 'type': ['str', 'list']},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
+         'type': {'type': 'function', '_funcname': '_byTypeValue',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the type to lift.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the type.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byPropsDict', 'desc': 'Lift all nodes of a form which have a set of properties with specific values.',
+         'type': {'type': 'function', '_funcname': '_byPropsDict',
+                  'args': (
+                      {'name': 'form', 'desc': 'The name of the form to lift.', 'type': 'str'},
+                      {'name': 'props', 'desc': 'A dictionary of properties and values.', 'type': 'dict'},
+                      {'name': 'errok', 'desc': 'If set, norming failures will not raise an exception.',
+                       'type': 'boolean', 'default': False},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.'}}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'byPropAlts': self._byPropAlts,
+            'byPropRefs': self._byPropRefs,
+            'byPropsDict': self._byPropsDict,
+            'byTypeValue': self._byTypeValue,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
-        async for node in self.runt.snap.nodesByDataName(name):
+        name = await tostr(name)
+        async for node in self.runt.view.nodesByDataName(name):
+            yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropAlts(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await tostor(valu)
+        cmpr = await tostr(cmpr)
+
+        props = self.runt.model.reqPropList(name)
+        if props[0].isform:
+            mesg = '$lib.lift.byPropAlts cannot be used to lift by form value.'
+            raise s_exc.StormRuntimeError(mesg=mesg, prop=name)
+
+        for prop in props:
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, valu):
+                yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropRefs(self, props, valu=None, cmpr='='):
+
+        props = await toprim(props)
+        valu = await tostor(valu)
+        cmpr = await tostr(cmpr)
+
+        if not isinstance(props, tuple):
+            props = (props,)
+
+        flatprops = []
+        for prop in props:
+            plist = self.runt.model.reqPropList(prop)
+            for item in plist:
+                if not item.isform:
+                    flatprops.extend(item.getAlts())
+                else:
+                    flatprops.extend(plist)
+
+        def getType(prop):
+            if prop.type.isarray:
+                return prop.type.arraytype
+            else:
+                return prop.type
+
+        genrs = []
+        ptyp = getType(flatprops[0])
+        form = ptyp.name
+
+        if self.runt.model.form(form) is None:
+            mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
+            raise s_exc.StormRuntimeError(mesg=mesg, type=form)
+
+        for prop in flatprops:
+            if getType(prop) != ptyp:
+                mesg = '$lib.lift.byPropRefs props must all be of the same type.'
+                raise s_exc.StormRuntimeError(mesg=mesg, props=props)
+
+            genrs.append(self.runt.view.iterPropValuesWithCmpr(prop.full, cmpr, valu, array=prop.type.isarray))
+
+        lastvalu = None
+
+        async for indx, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+            yield await self.runt.view.getNodeByNdef((form, valu))
+
+    @stormfunc(readonly=True)
+    async def _byPropsDict(self, form, props, errok=False):
+
+        form = await tostr(form)
+        props = await tostor(props)
+        errok = await tobool(errok)
+
+        form = self.runt.model.reqForm(form)
+        norms = {}
+
+        for propname, valu in list(props.items()):
+            prop = form.reqProp(propname)
+
+            try:
+                norm, _ = await prop.type.norm(valu, view=self.runt.view)
+                norms[propname] = norm
+
+            except s_exc.BadTypeValu as e:
+                if not errok:
+                    raise
+                return
+
+        for formname in self.runt.model.getChildForms(form.name):
+
+            form = self.runt.model.form(formname)
+
+            counts = []
+            for propname, norm in norms.items():
+                prop = form.reqProp(propname)
+                count = await self.runt.view.getPropAltCount(prop, norm)
+                counts.append((count, prop, norm))
+
+            counts.sort(key=lambda x: x[0])
+
+            count, prop, norm = counts[0]
+            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+                await asyncio.sleep(0)
+
+                for count, prop, norm in counts[1:]:
+                    if not node.hasPropAltsValu(prop, norm):
+                        break
+                else:
+                    yield node
+
+    @stormfunc(readonly=True)
+    async def _byTypeValue(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await tostor(valu)
+        cmpr = await tostr(cmpr)
+
+        if self.runt.model.prop(name) is not None:
+            async for node in self.runt.view.nodesByPropValu(name, cmpr, valu):
+                yield node
+
+        async for node in self.runt.view.nodesByPropTypeValu(name, valu, cmpr=cmpr):
             yield node
 
 @registry.registerLib
@@ -3030,26 +2782,26 @@ class LibTime(Lib):
     A Storm Library for interacting with timestamps.
     '''
     _storm_locals = (
-        {'name': 'now', 'desc': 'Get the current epoch time in milliseconds.',
+        {'name': 'now', 'desc': 'Get the current epoch time in microseconds.',
          'type': {
              'type': 'function', '_funcname': '_now',
-             'returns': {'desc': 'Epoch time in milliseconds.', 'type': 'int', }}},
+             'returns': {'desc': 'Epoch time in microseconds.', 'type': 'int', }}},
         {'name': 'fromunix',
          'desc': '''
-            Normalize a timestamp from a unix epoch time in seconds to milliseconds.
+            Normalize a timestamp from a unix epoch time in seconds to microseconds.
 
             Examples:
-                Convert a timestamp from seconds to millis and format it::
+                Convert a timestamp from seconds to micros and format it::
 
-                    storm> $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
-                         $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
+                    storm> $seconds=1594684800 $micros=$lib.time.fromunix($seconds)
+                         $str=$lib.time.format($micros, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_fromunix',
                   'args': (
                       {'name': 'secs', 'type': 'int', 'desc': 'Unix epoch time in seconds.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The normalized time in milliseconds.', }}},
+                  'returns': {'type': 'int', 'desc': 'The normalized time in microseconds.', }}},
         {'name': 'parse', 'desc': '''
             Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
 
@@ -3058,7 +2810,7 @@ class LibTime(Lib):
 
                     storm> $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
-                    1590969600000''',
+                    1590969600000000''',
          'type': {'type': 'function', '_funcname': '_parse',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
@@ -3084,16 +2836,12 @@ class LibTime(Lib):
                     2025-10-02T09:34:00Z''',
          'type': {'type': 'function', '_funcname': '_format',
                   'args': (
-                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
+                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch microseconds.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The strftime format string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The formatted time string.', }}},
         {'name': 'sleep', 'desc': '''
             Pause the processing of data in the storm query.
-
-            Notes:
-                This has the effect of clearing the Snap's cache, so any node lifts performed
-                after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
             ''',
          'type': {'type': 'function', '_funcname': '_sleep',
                   'args': (
@@ -3102,10 +2850,6 @@ class LibTime(Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'ticker', 'desc': '''
         Periodically pause the processing of data in the storm query.
-
-        Notes:
-            This has the effect of clearing the Snap's cache, so any node lifts performed
-            after each tick will be lifted directly from storage.
         ''',
          'type': {'type': 'function', '_funcname': '_ticker',
                   'args': (
@@ -3208,7 +2952,7 @@ class LibTime(Lib):
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
         {'name': 'toUTC', 'desc': '''
-        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        Adjust an epoch microseconds timestamp to UTC from the given timezone.
         ''',
          'type': {'type': 'function', '_funcname': 'toUTC',
                   'args': (
@@ -3259,9 +3003,9 @@ class LibTime(Lib):
         tick = await toprim(tick)
         timezone = await tostr(timezone)
 
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
 
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         try:
             return (True, s_time.toUTC(norm, timezone))
         except s_exc.BadArg as e:
@@ -3274,90 +3018,90 @@ class LibTime(Lib):
     @stormfunc(readonly=True)
     async def day(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.day(norm)
 
     @stormfunc(readonly=True)
     async def hour(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.hour(norm)
 
     @stormfunc(readonly=True)
     async def year(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.year(norm)
 
     @stormfunc(readonly=True)
     async def month(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.month(norm)
 
     @stormfunc(readonly=True)
     async def minute(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.minute(norm)
 
     @stormfunc(readonly=True)
     async def second(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.second(norm)
 
     @stormfunc(readonly=True)
     async def dayofweek(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.dayofweek(norm)
 
     @stormfunc(readonly=True)
     async def dayofyear(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.dayofyear(norm)
 
     @stormfunc(readonly=True)
     async def dayofmonth(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.dayofmonth(norm)
 
     @stormfunc(readonly=True)
     async def monthofyear(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        timetype = self.runt.view.core.model.type('time')
+        norm, info = await timetype.norm(tick)
         return s_time.month(norm) - 1
 
     @stormfunc(readonly=True)
     async def _format(self, valu, format):
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:
-            norm, _ = timetype.norm(valu)
+            norm, _ = await timetype.norm(valu)
         except s_exc.BadTypeValu as e:
             mesg = f'Failed to norm a time value prior to formatting - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
 
-        if norm == timetype.futsize:
-            mesg = 'Cannot format a timestamp for ongoing/future time.'
+        if norm in (timetype.futsize, timetype.unksize):
+            mesg = 'Cannot format a timestamp for ongoing/unknown time.'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
 
         try:
-            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=norm)
+            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=norm)
             ret = dt.strftime(format)
         except Exception as e:
             mesg = f'Error during time format - {str(e)}'
@@ -3380,12 +3124,11 @@ class LibTime(Lib):
         if dt.tzinfo is not None:
             # Convert the aware dt to UTC, then strip off the tzinfo
             dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        return int((dt - s_time.EPOCH).total_seconds() * 1000)
+        return s_time.total_microseconds(dt - s_time.EPOCH)
 
     @stormfunc(readonly=True)
     async def _sleep(self, valu):
-        await self.runt.snap.waitfini(timeout=float(valu))
-        await self.runt.snap.clearCache()
+        await self.runt.waitfini(timeout=float(valu))
 
     async def _ticker(self, tick, count=None):
         if count is not None:
@@ -3396,8 +3139,7 @@ class LibTime(Lib):
         offs = 0
         while True:
 
-            await self.runt.snap.waitfini(timeout=tick)
-            await self.runt.snap.clearCache()
+            await self.runt.waitfini(timeout=tick)
             yield offs
 
             offs += 1
@@ -3406,7 +3148,7 @@ class LibTime(Lib):
 
     async def _fromunix(self, secs):
         secs = float(secs)
-        return int(secs * 1000)
+        return int(secs * 1000000)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -3625,7 +3367,7 @@ class LibCsv(Lib):
     @stormfunc(readonly=True)
     async def _libCsvEmit(self, *args, table=None):
         row = [await toprim(a) for a in args]
-        await self.runt.snap.fire('csv:row', row=row, table=table)
+        await self.runt.bus.fire('csv:row', row=row, table=table)
 
 @registry.registerLib
 class LibExport(Lib):
@@ -3664,48 +3406,45 @@ class LibExport(Lib):
             mesg = '$lib.export.toaxon() opts argument must be a dictionary.'
             raise s_exc.BadArg(mesg=mesg)
 
-        opts['user'] = self.runt.snap.user.iden
-        opts.setdefault('view', self.runt.snap.view.iden)
-        return await self.runt.snap.core.exportStormToAxon(query, opts=opts)
+        opts['user'] = self.runt.user.iden
+        opts.setdefault('view', self.runt.view.iden)
+        return await self.runt.view.core.exportStormToAxon(query, opts=opts)
 
 @registry.registerLib
 class LibFeed(Lib):
     '''
-    A Storm Library for interacting with Cortex feed functions.
+    A Storm Library for feeding bulk nodes into a Cortex.
     '''
     _storm_locals = (
         {'name': 'genr', 'desc': '''
-            Yield nodes being added to the graph by adding data with a given ingest type.
+            Yield nodes being added to the graph by adding data in nodes format.
 
             Notes:
-                This is using the Runtimes's Snap to call addFeedNodes().
-                This only yields nodes if the feed function yields nodes.
+                This is using the Runtimes's View to call addNodes().
                 If the generator is not entirely consumed there is no guarantee
                 that all of the nodes which should be made by the feed function
                 will be made.
             ''',
          'type': {'type': 'function', '_funcname': '_libGenr',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
-                      {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                      {'name': 'data', 'type': 'prim', 'desc': 'Nodes data to ingest', },
+                      {'name': 'reqmeta', 'type': 'boolean', 'desc': 'Require a meta record.',
+                       'default': False},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields Nodes as they are created by the ingest function.', }}},
-        {'name': 'list', 'desc': 'Get a list of feed functions.',
-         'type': {'type': 'function', '_funcname': '_libList',
-                  'returns': {'type': 'list', 'desc': 'A list of feed functions.', }}},
+                              'desc': 'Yields Nodes as they are created.', }}},
         {'name': 'ingest', 'desc': '''
-            Add nodes to the graph with a given ingest type.
+            Add nodes to the graph.
 
             Notes:
-                This is using the Runtimes's Snap to call addFeedData(), after setting
-                the snap.strict mode to False. This will cause node creation and property
-                setting to produce warning messages, instead of causing the Storm Runtime
+                This API will cause errors during node creation and property setting
+                to produce warning messages, instead of causing the Storm Runtime
                 to be torn down.''',
          'type': {'type': 'function', '_funcname': '_libIngest',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                      {'name': 'reqmeta', 'type': 'boolean', 'desc': 'Require a meta record.',
+                       'default': False},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'fromAxon', 'desc': 'Load a syn.nodes formatted export from axon.',
@@ -3720,7 +3459,6 @@ class LibFeed(Lib):
     def getObjLocals(self):
         return {
             'genr': self._libGenr,
-            'list': self._libList,
             'ingest': self._libIngest,
             'fromAxon': self._fromAxon,
         }
@@ -3737,41 +3475,30 @@ class LibFeed(Lib):
         '''
         sha256 = await tostr(sha256)
         opts = {
-            'user': self.runt.snap.user.iden,
-            'view': self.runt.snap.view.iden,
+            'user': self.runt.user.iden,
+            'view': self.runt.view.iden,
         }
-        return await self.runt.snap.core.feedFromAxon(sha256, opts=opts)
+        return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, name, data):
-        name = await tostr(name)
-        data = await toprim(data)
+    async def _feedCommon(self, data, reqmeta=False):
+        data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
+        if reqmeta:
+            meta, *data = data
+            self.runt.view.core.reqValidExportStormMeta(meta)
 
-        #  small work around for the feed API consistency
-        if name == 'syn.nodes':
-            async for node in self.runt.snap.addNodes(data):
-                yield node
-            return
+        await self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
 
-        await self.runt.snap.addFeedData(name, data)
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
 
-    @stormfunc(readonly=True)
-    async def _libList(self):
-        todo = ('getFeedFuncs', (), {})
-        return await self.runt.dyncall('cortex', todo)
+    async def _libGenr(self, data, reqmeta=False):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
+            yield node
 
-    async def _libIngest(self, name, data):
-        name = await tostr(name)
-        data = await toprim(data)
-
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
-
-        # TODO this should be a reentrent safe with block
-        strict = self.runt.snap.strict
-        self.runt.snap.strict = False
-        await self.runt.snap.addFeedData(name, data)
-        self.runt.snap.strict = strict
+    async def _libIngest(self, data, reqmeta=False):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
+            await asyncio.sleep(0)
 
 @registry.registerLib
 class LibPipe(Lib):
@@ -3783,8 +3510,7 @@ class LibPipe(Lib):
             Generate and return a Storm Pipe.
 
             Notes:
-                The filler query is run in parallel with $pipe. This requires the permission
-                ``storm.pipe.gen`` to use.
+                The filler query is run in parallel with $pipe.
 
             Examples:
                 Fill a pipe with a query and consume it with another::
@@ -3840,7 +3566,7 @@ class LibPipe(Lib):
 
             await pipe.close()
 
-        self.runt.snap.schedCoro(coro())
+        self.runt.schedCoro(coro())
 
         return pipe
 
@@ -3970,6 +3696,7 @@ class LibQueue(Lib):
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to assign to the Queue.', 'default': None},
                   ),
                   'returns': {'type': 'queue', }}},
         {'name': 'gen', 'desc': 'Add or get a Queue in a single operation.',
@@ -3981,11 +3708,17 @@ class LibQueue(Lib):
         {'name': 'del', 'desc': 'Delete a given Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to delete.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Queue.',
+        {'name': 'get', 'desc': 'Get an existing Queue object by iden.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
+                  ),
+                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
+        {'name': 'byname', 'desc': 'Get an existing Queue object by name.',
+         'type': {'type': 'function', '_funcname': '_methQueueGetByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
                   ),
@@ -4013,50 +3746,69 @@ class LibQueue(Lib):
             'gen': self._methQueueGen,
             'del': self._methQueueDel,
             'get': self._methQueueGet,
+            'byname': self._methQueueGetByName,
             'list': self._methQueueList,
         }
 
-    async def _methQueueAdd(self, name):
+    async def _methQueueAdd(self, name, iden=None):
+        name = await tostr(name)
+        iden = await tostr(iden, noneok=True)
 
-        info = {
-            'time': s_common.now(),
-            'creator': self.runt.snap.user.iden,
+        qdef = {
+            'creator': self.runt.user.iden,
+            'name': name,
         }
 
-        todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        if iden is not None:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+            qdef['iden'] = iden
 
-        return Queue(self.runt, name, info)
+        self.runt.confirm(('queue', 'add'))
+        info = await self.runt.view.core.addCoreQueue(qdef)
+        iden = info.get('iden')
+        return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)
-    async def _methQueueGet(self, name):
-        todo = s_common.todo('getCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+    async def _methQueueGet(self, iden):
+        iden = await tostr(iden)
+        info = await self.runt.view.core.reqCoreQueue(iden)
+        name = info.get('name')
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        return Queue(self.runt, name, iden, info)
 
-        return Queue(self.runt, name, info)
+    @stormfunc(readonly=True)
+    async def _methQueueGetByName(self, name):
+        name = await tostr(name)
+        info = await self.runt.view.core.reqCoreQueueByName(name)
+        name = info.get('name')
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        return Queue(self.runt, name, iden, info)
 
     async def _methQueueGen(self, name):
+        name = await tostr(name)
         try:
-            return await self._methQueueGet(name)
-        except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
+        except s_exc.DupName:
+            return await self._methQueueGetByName(name)
 
-    async def _methQueueDel(self, name):
-        todo = s_common.todo('delCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+    async def _methQueueDel(self, iden):
+        iden = await tostr(iden)
+        if not s_common.isguid(iden):
+            raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
+        self.runt.confirm(('queue', 'del'), gateiden=iden)
+        await self.runt.view.core.delCoreQueue(iden)
 
     @stormfunc(readonly=True)
     async def _methQueueList(self):
         retn = []
 
-        todo = s_common.todo('listCoreQueues')
-        qlist = await self.dyncall('cortex', todo)
-
+        qlist = await self.runt.view.core.listCoreQueues()
         for queue in qlist:
-            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not self.runt.allowed(('queue', 'get'), gateiden=queue['iden']):
                 continue
 
             retn.append(queue)
@@ -4069,6 +3821,7 @@ class Queue(StormType):
     A StormLib API instance of a named channel in the Cortex MultiQueue.
     '''
     _storm_locals = (
+        {'name': 'iden', 'desc': 'The iden of the Queue.', 'type': 'str', },
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
         {'name': 'get', 'desc': 'Get a particular item from the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
@@ -4131,17 +3884,17 @@ class Queue(StormType):
     _storm_typename = 'queue'
     _ismutable = False
 
-    def __init__(self, runt, name, info):
+    def __init__(self, runt, name, iden, info):
 
         StormType.__init__(self)
         self.runt = runt
         self.name = name
+        self.iden = iden
         self.info = info
-
-        self.gateiden = f'queue:{name}'
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
+        self.locls['iden'] = self.iden
 
     def __hash__(self):
         return hash((self._storm_typename, self.name))
@@ -4164,63 +3917,53 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        await self.runt.snap.core.coreQueueCull(self.name, offs)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.snap.core.coreQueueSize(self.name)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueueSize(self.iden)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        async for item in self.runt.snap.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        async for item in self.runt.view.core.coreQueueGets(self.iden, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        gatekeys = self._getGateKeys('put')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.snap.core.coreQueuePuts(self.name, items)
+
+        self.runt.confirm(('queue', 'put'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueuePuts(self.iden, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        return await self.runt.snap.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueueGet(self.iden, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
 
         # emulate the old behavior on no argument
-        core = self.runt.snap.core
+        core = self.runt.view.core
         if offs is None:
-            async for item in core.coreQueueGets(self.name, 0, wait=wait):
-                return await core.coreQueuePop(self.name, item[0])
+            async for item in core.coreQueueGets(self.iden, 0, wait=wait):
+                return await core.coreQueuePop(self.iden, item[0])
             return
 
-        return await core.coreQueuePop(self.name, offs)
+        return await core.coreQueuePop(self.iden, offs)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
-
-    def _getGateKeys(self, perm):
-        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.name}'
@@ -4240,7 +3983,7 @@ class LibTelepath(Lib):
     )
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
+        {'perm': ('telepath', 'open'), 'gate': 'cortex',
          'desc': 'Controls the ability to open a telepath URL. USE WITH CAUTION.'},
     )
 
@@ -4253,7 +3996,7 @@ class LibTelepath(Lib):
         url = await tostr(url)
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
         try:
             return Proxy(self.runt, await self.runt.getTeleProxy(url))
         except s_exc.SynErr:
@@ -4338,7 +4081,7 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         ret = await self.meth(*args, **kwargs)
         if isinstance(ret, s_telepath.Share):
-            self.runt.snap.onfini(ret)
+            self.runt.bus.onfini(ret)
             return Proxy(self.runt, ret)
         return ret
 
@@ -4813,7 +4556,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, 'surrogatepass')
+            return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
@@ -4907,7 +4650,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid values rather than replacing the character.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4959,8 +4703,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
-                       'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                   ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
@@ -5077,9 +4821,10 @@ class Bytes(Prim):
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     @stormfunc(readonly=True)
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', strict=False):
         encoding = await tostr(encoding)
-        errors = await tostr(errors)
+        strict = await tobool(strict)
+        errors = 'strict' if strict else 'replace'
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
@@ -5100,10 +4845,11 @@ class Bytes(Prim):
         return gzip.compress(self.valu)
 
     @stormfunc(readonly=True)
-    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+    async def _methJsonLoad(self, encoding=None, strict=False):
         try:
             valu = self.valu
-            errors = await tostr(errors)
+            strict = await tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -5153,6 +4899,10 @@ class Dict(Prim):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
 
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        return item in self.valu
+
     async def iter(self):
         for item in tuple(self.valu.items()):
             yield item
@@ -5199,6 +4949,11 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        valu = getattr(self.valu.opts, item, s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
@@ -5301,6 +5056,9 @@ class Set(Prim):
     def __len__(self):
         return len(self.valu)
 
+    async def _storm_contains(self, item):
+        return item in self.valu
+
     async def bool(self):
         return bool(self.valu)
 
@@ -5380,10 +5138,6 @@ class List(Prim):
                       {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
                   ),
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
-        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methListLength',
-                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',
          'type': {'type': 'function', '_funcname': '_methListAppend',
                   'args': (
@@ -5461,7 +5215,6 @@ class List(Prim):
             'size': self._methListSize,
             'sort': self._methListSort,
             'index': self._methListIndex,
-            'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
             'slice': self._methListSlice,
@@ -5487,6 +5240,9 @@ class List(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        return await self._methListHas(item)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -5535,14 +5291,6 @@ class List(Prim):
     @stormfunc(readonly=True)
     async def _methListReverse(self):
         self.valu.reverse()
-
-    @stormfunc(readonly=True)
-    async def _methListLength(self):
-        s_common.deprecated('StormType List.length()')
-        runt = s_scope.get('runt')
-        if runt:
-            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
-        return len(self)
 
     @stormfunc(readonly=True)
     async def _methListSort(self, reverse=False):
@@ -5726,7 +5474,7 @@ class Number(Prim):
         return float(self.valu)
 
     def __str__(self):
-        return str(self.value())
+        return format(self.value(), 'f')
 
     def __int__(self):
         return int(self.value())
@@ -5854,236 +5602,154 @@ class Number(Prim):
     async def stormrepr(self):
         return str(self.value())
 
-@registry.registerLib
-class LibGlobals(Lib):
-    '''
-    A Storm Library for interacting with global variables which are persistent across the Cortex.
-    '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get a Cortex global variables.',
-         'type': {'type': 'function', '_funcname': '_methGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'pop', 'desc': 'Delete a variable value from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methPop',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'set', 'desc': 'Set a variable value in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the variable to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'list', 'desc': 'Get a list of variable names and values.',
-         'type': {'type': 'function', '_funcname': '_methList',
-                  'returns': {'type': 'list',
-                              'desc': 'A list of tuples with variable names and values that the user can access.', }}},
-    )
-    _storm_lib_path = ('globals', )
-
-    def __init__(self, runt, name):
-        Lib.__init__(self, runt, name)
-
-    def getObjLocals(self):
-        return {
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
-        }
-
-    def _reqStr(self, name):
-        if not isinstance(name, str):
-            mesg = 'The name of a persistent variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-    @stormfunc(readonly=True)
-    async def _methGet(self, name, default=None):
-        self._reqStr(name)
-        confirm(('globals', 'get', name))
-        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _methPop(self, name, default=None):
-        self._reqStr(name)
-        confirm(('globals', 'pop', name))
-        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _methSet(self, name, valu):
-        self._reqStr(name)
-        valu = await toprim(valu)
-        confirm(('globals', 'set', name))
-        return await self.runt.snap.core.setStormVar(name, valu)
-
-    @stormfunc(readonly=True)
-    async def _methList(self):
-        ret = []
-
-        async for key, valu in self.runt.snap.core.itemsStormVar():
-            if allowed(('globals', 'get', key)):
-                ret.append((key, valu))
-        return s_msgpack.deepcopy(ret, use_list=True)
-
 @registry.registerType
-class StormHiveDict(Prim):
+class GlobalVars(Prim):
     '''
-    A Storm Primitive representing a HiveDict.
+    The Storm deref/setitem/iter convention on top of global vars information.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get the named value from the HiveDict.',
-         'type': {'type': 'function', '_funcname': '_get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if the name is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pop', 'desc': 'Remove a value out of the HiveDict.',
-         'type': {'type': 'function', '_funcname': '_pop',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if the name is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'set', 'desc': 'Set a value in the HiveDict.',
-         'type': {'type': 'function', '_funcname': '_set',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value to set', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store in the HiveDict', },
-                  ),
-                  'returns': {'type': ['null', 'prim'],
-                              'desc': 'Old value of the dictionary if the value was previously set, or none.', }}},
-        {'name': 'list', 'desc': 'List the keys and values in the HiveDict.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
-    )
-    _storm_typename = 'hive:dict'
+    _storm_typename = 'global:vars'
     _ismutable = True
 
-    def __init__(self, runt, info):
-        Prim.__init__(self, None)
-        self.runt = runt
-        self.info = info
-        self.locls.update(self.getObjLocals())
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
 
-    def getObjLocals(self):
-        return {
-            'get': self._get,
-            'pop': self._pop,
-            'set': self._set,
-            'list': self._list,
-        }
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', item))
+        valu = await runt.view.core.getStormVar(item, default=s_common.novalu)
+        return valu is not s_common.novalu
 
-    @stormfunc(readonly=True)
-    async def _get(self, name, default=None):
-        return self.info.get(name, default)
+    async def deref(self, name):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', name))
+        if (valu := await runt.view.core.getStormVar(name)) is not None:
+            return s_msgpack.deepcopy(valu, use_list=True)
 
-    async def _pop(self, name, default=None):
-        return await self.info.pop(name, default)
+    async def setitem(self, name, valu):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
 
-    async def _set(self, name, valu):
-        if not isinstance(name, str):
-            mesg = 'The name of a variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+        if valu is undef:
+            runt.confirm(('globals', 'del', name))
+            await runt.view.core.popStormVar(name)
+            return
 
+        runt.confirm(('globals', 'set', name))
         valu = await toprim(valu)
-
-        return await self.info.set(name, valu)
-
-    @stormfunc(readonly=True)
-    def _list(self):
-        return list(self.info.items())
+        await runt.view.core.setStormVar(name, valu)
 
     async def iter(self):
-        for item in list(self.info.items()):
-            yield item
+        runt = s_scope.get('runt')
+        async for name, valu in runt.view.core.itemsStormVar():
+            if runt.allowed(('globals', 'get', name)):
+                yield name, s_msgpack.deepcopy(valu, use_list=True)
+            await asyncio.sleep(0)
 
-    def value(self):
-        return self.info.pack()
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
 
-@registry.registerLib
-class LibVars(Lib):
+@registry.registerType
+class EnvVars(Prim):
     '''
-    A Storm Library for interacting with runtime variables.
+    The Storm deref/iter convention on top of environment vars information.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get the value of a variable from the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to get.', },
-                      {'name': 'defv', 'type': 'prim', 'default': None,
-                       'desc': 'The default value returned if the variable is not set in the runtime.', },
-                  ),
-                  'returns': {'type': 'any', 'desc': 'The value of the variable.', }}},
-        {'name': 'del', 'desc': 'Unset a variable in the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsDel',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The variable name to remove.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'set', 'desc': 'Set the value of a variable in the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'type', 'desc': 'Get the type of the argument value.',
-         'type': {'type': 'function', '_funcname': '_libVarsType',
-                  'args': (
-                     {'name': 'valu', 'type': 'any', 'desc': 'Value to inspect.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The type of the argument.'}}},
-        {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsList',
-                  'returns': {'type': 'list',
-                              'desc': 'A list of variable names and their values for the current Runtime.', }}},
-    )
-    _storm_lib_path = ('vars',)
+    _storm_typename = 'environment:vars'
 
-    def getObjLocals(self):
-        return {
-            'get': self._libVarsGet,
-            'set': self._libVarsSet,
-            'del': self._libVarsDel,
-            'list': self._libVarsList,
-            'type': self._libVarsType,
-        }
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        if not item.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {item}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = os.getenv(item, default=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
-    async def _libVarsGet(self, name, defv=None):
-        return self.runt.getVar(name, defv=defv)
+    async def deref(self, name):
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+        name = await tostr(name)
+
+        if not name.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return os.getenv(name)
 
     @stormfunc(readonly=True)
-    async def _libVarsSet(self, name, valu):
-        await self.runt.setVar(name, valu)
+    async def iter(self):
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        for name, valu in list(os.environ.items()):
+            await asyncio.sleep(0)
+
+            if name.startswith('SYN_STORM_ENV_'):
+                yield name, valu
+
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
+
+@registry.registerType
+class RuntVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of runtime vars information.
+    '''
+    _storm_typename = 'runtime:vars'
+    _ismutable = True
+
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        valu = runt.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
-    async def _libVarsDel(self, name):
-        await self.runt.popVar(name)
+    async def deref(self, name):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+        return runt.getVar(name)
 
     @stormfunc(readonly=True)
-    async def _libVarsList(self):
-        return list(self.runt.vars.items())
+    async def setitem(self, name, valu):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+
+        if name in ('lib', 'node', 'path'):
+            raise s_exc.StormRuntimeError(mesg=f'Assignment to reserved variable ${name} is not allowed.')
+
+        if valu is undef:
+            await runt.popVar(name)
+            return
+
+        await runt.setVar(name, valu)
 
     @stormfunc(readonly=True)
-    async def _libVarsType(self, valu):
-        return await totype(valu)
+    async def iter(self):
+        runt = s_scope.get('runt')
+        for name, valu in list(runt.vars.items()):
+            yield name, valu
+            await asyncio.sleep(0)
+
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
 
 @registry.registerType
 class Query(Prim):
@@ -6187,24 +5853,6 @@ class NodeProps(Prim):
     '''
     A Storm Primitive representing the properties on a Node.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get a specific property value by name.',
-         'type': {'type': 'function', '_funcname': 'get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'set', 'desc': 'Set a specific property value by name.',
-         'type': {'type': 'function', '_funcname': 'set',
-                  'args': (
-                      {'name': 'prop', 'type': 'str', 'desc': 'The name of the property to set.'},
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the property to.'}
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The set value.'}}},
-        {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
-         'type': {'type': 'function', '_funcname': 'list',
-                  'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
-    )
     _storm_typename = 'node:props'
     _ismutable = True
 
@@ -6212,14 +5860,13 @@ class NodeProps(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
-    def getObjLocals(self):
-        return {
-            'get': self.get,
-            'set': self.set,
-            'list': self.list,
-        }
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.valu.get(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def _derefGet(self, name):
+        name = await tostr(name)
         return self.valu.get(name)
 
     async def setitem(self, name, valu):
@@ -6241,37 +5888,26 @@ class NodeProps(Prim):
             mesg = f'No prop {self.valu.form.name}:{name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
 
         if valu is undef:
             confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
-            await self.valu.pop(name, None)
+            await self.valu.pop(name)
             return
 
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
         # Make copies of property values since array types are mutable
-        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
 
-    async def set(self, prop, valu):
-        return await self.setitem(prop, valu)
-
-    @stormfunc(readonly=True)
-    async def get(self, name):
-        return self.valu.get(name)
-
-    @stormfunc(readonly=True)
-    async def list(self):
-        return list(self.valu.props.items())
-
     @stormfunc(readonly=True)
     def value(self):
-        return dict(self.valu.props)
+        return self.valu.getProps()
 
 @registry.registerType
 class NodeData(Prim):
@@ -6357,9 +5993,9 @@ class NodeData(Prim):
         if not envl:
             return None
 
-        timetype = self.valu.snap.core.model.type('time')
+        timetype = self.valu.view.core.model.type('time')
 
-        asoftick = timetype.norm(asof)[0]
+        asoftick = (await timetype.norm(asof))[0]
         if envl.get('asof') >= asoftick:
             return envl.get('data')
 
@@ -6368,6 +6004,10 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return await self.valu.hasData(item)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6381,7 +6021,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_json.reqjsonsafe(valu)
@@ -6389,8 +6029,12 @@ class NodeData(Prim):
 
     async def _popNodeData(self, name):
         name = await tostr(name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
+        gateiden = self.valu.view.wlyr.iden
+        confirm(('node', 'data', 'del', name), gateiden=gateiden)
+
+        if self.path is not None:
+            self.path.popData(self.valu.nid, name)
+
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
@@ -6401,8 +6045,10 @@ class NodeData(Prim):
     async def _loadNodeData(self, name):
         name = await tostr(name)
         valu = await self.valu.getData(name)
-        # set the data value into the nodedata dict so it gets sent
-        self.valu.nodedata[name] = valu
+
+        if self.path is not None:
+            # set the data value into the path nodedata dict so it gets sent
+            self.path.setData(self.valu.nid, name, valu)
 
 @registry.registerType
 class Node(Prim):
@@ -6410,6 +6056,9 @@ class Node(Prim):
     Implements the Storm api for a node instance.
     '''
     _storm_locals = (
+        {'name': 'nid', 'desc': 'Get the node id of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeForm',
+                  'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
         {'name': 'form', 'desc': 'Get the form of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeForm',
                   'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
@@ -6503,15 +6152,37 @@ class Node(Prim):
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The form to compare the Node against.', },
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the Node against.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
+                  'returns': {'desc': 'True if the node is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
+
+        {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocol',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                        'desc': 'The protocol name implemented by the property.', },
+                      {'name': 'propname', 'type': 'str', 'default': None,
+                        'desc': 'The relative name of the property which declares the protocol.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
+
+        {'name': 'protocols', 'desc': 'Return a list of protocol objects for the node.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocols',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                        'desc': 'Only return protocols with the given name.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
+
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
+
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
          'type': {'type': 'function', '_funcname': '_methGetByLayer',
                   'returns': {'type': 'dict', 'desc': 'property / tag lookup dictionary.', }}},
+
         {'name': 'getStorNodes',
          'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
          'type': {'type': 'function', '_funcname': '_methGetStorNodes',
@@ -6532,7 +6203,13 @@ class Node(Prim):
         return hash((self._storm_typename, self.valu.iden))
 
     def getObjLocals(self):
+        if self.valu.nid is not None:
+            nid = s_common.int64un(self.valu.nid)
+        else:
+            nid = None
+
         return {
+            'nid': nid,
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
@@ -6546,6 +6223,8 @@ class Node(Prim):
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
+            'protocol': self._methNodeProtocol,
+            'protocols': self._methNodeProtocols,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6574,40 +6253,72 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.view.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.view.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        await self.valu.addEdge(verb, iden)
+        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.addEdge(verb, nid)
 
     async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        await self.valu.delEdge(verb, iden)
+        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
-        return self.valu.form.name == name
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        for name in names:
+            if name in self.valu.form.formtypes:
+                return True
+
+        return False
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocol(self, name, propname=None):
+        name = await tostr(name)
+        propname = await tostr(propname, noneok=True)
+        return self.valu.protocol(name, propname=propname)
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocols(self, name=None):
+        name = await tostr(name, noneok=True)
+        return self.valu.protocols(name=name)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.
@@ -6630,7 +6341,7 @@ class Node(Prim):
             mesg = f'Tag globs may not be adjacent: {glob}'
             raise s_exc.BadArg(mesg=mesg)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
@@ -6653,11 +6364,11 @@ class Node(Prim):
 
         if norm:
             normtags = set()
-            tagpart = self.valu.snap.core.model.type('syn:tag:part')
+            tagpart = self.valu.view.core.model.type('syn:tag:part')
 
             async for part in toiter(tags):
                 try:
-                    normtags.add(tagpart.norm(part)[0])
+                    normtags.add((await tagpart.norm(part))[0])
                 except s_exc.BadTypeValu:
                     pass
 
@@ -6671,13 +6382,13 @@ class Node(Prim):
 
             tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
-            for tag in list(self.valu.tags.keys()):
+            for tag in self.valu.getTagNames():
                 parts = tuple(tag.split('.'))
                 if parts[:plen] == prefix:
                     curtags.add(parts)
         else:
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
-            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.getTagNames()])
 
         adds = set([tag for tag in tags if tag not in curtags])
         dels = set()
@@ -6714,6 +6425,8 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):
+        name = await toprim(name)
+        defv = await toprim(defv)
         return self.valu.repr(name=name, defv=defv)
 
     @stormfunc(readonly=True)
@@ -6730,6 +6443,10 @@ class PathMeta(Prim):
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return item in self.path.metadata
 
     async def deref(self, name):
         name = await tostr(name)
@@ -6759,6 +6476,11 @@ class PathVars(Prim):
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.path.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await tostr(name)
 
@@ -6773,6 +6495,9 @@ class PathVars(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
         runt = s_scope.get('runt')
+
+        if name in ('lib', 'node', 'path'):
+            raise s_exc.StormRuntimeError(mesg=f'Assignment to reserved variable ${name} is not allowed.')
 
         if valu is undef:
             await self.path.popVar(name)
@@ -6797,13 +6522,9 @@ class Path(Prim):
     _storm_locals = (
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
-        {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methPathIdens',
-                  'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
         {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathLinks',
-                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of (node id, link info) tuples.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6822,14 +6543,9 @@ class Path(Prim):
 
     def getObjLocals(self):
         return {
-            'idens': self._methPathIdens,
             'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
-
-    @stormfunc(readonly=True)
-    async def _methPathIdens(self):
-        return [n.iden() for n in self.valu.nodes]
 
     @stormfunc(readonly=True)
     async def _methPathLinks(self):
@@ -6838,48 +6554,6 @@ class Path(Prim):
     @stormfunc(readonly=True)
     async def _methPathListVars(self):
         return list(self.path.vars.items())
-
-@registry.registerType
-class Text(Prim):
-    '''
-    A mutable text type for simple text construction.
-    '''
-    _storm_locals = (
-        {'name': 'add', 'desc': 'Add text to the Text object.',
-         'type': {'type': 'function', '_funcname': '_methTextAdd',
-                  'args': (
-                      {'name': 'text', 'desc': 'The text to add.', 'type': 'str', },
-                      {'name': '**kwargs', 'desc': 'Keyword arguments used to format the text.', 'type': 'any', }
-                  ),
-                  'returns': {'type': 'null'}}},
-        {'name': 'str', 'desc': 'Get the text content as a string.',
-         'type': {'type': 'function', '_funcname': '_methTextStr',
-                  'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
-    )
-    _storm_typename = 'text'
-    _ismutable = True
-
-    def __init__(self, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'add': self._methTextAdd,
-            'str': self._methTextStr,
-        }
-
-    def __len__(self):
-        return len(self.valu)
-
-    @stormfunc(readonly=True)
-    async def _methTextAdd(self, text, **kwargs):
-        text = await kwarg_format(text, **kwargs)
-        self.valu += text
-
-    @stormfunc(readonly=True)
-    async def _methTextStr(self):
-        return self.valu
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -6958,9 +6632,9 @@ class LibLayer(Lib):
 
         iden = await tostr(iden, noneok=True)
         if iden is None:
-            iden = self.runt.snap.view.layers[0].iden
+            iden = self.runt.view.wlyr.iden
 
-        ldef = await self.runt.snap.core.getLayerDef(iden=iden)
+        ldef = await self.runt.view.core.getLayerDef(iden=iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -6996,32 +6670,9 @@ class Layer(Prim):
                        'desc': 'The default value returned if the name is not set in the Layer.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
-        {'name': 'pack', 'desc': 'Get the Layer definition.',
-         'type': {'type': 'function', '_funcname': '_methLayerPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the Layer definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
          'type': {'type': 'function', '_funcname': '_methLayerRepr',
                   'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
-        {'name': 'edits', 'desc': '''
-            Yield (offs, nodeedits) tuples from the given offset.
-
-            Notes:
-                Specifying reverse=(true) disables the wait behavior.
-         ''',
-         'type': {'type': 'function', '_funcname': '_methLayerEdits',
-                  'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
-                       'default': 0, },
-                      {'name': 'wait', 'type': 'boolean', 'default': True,
-                       'desc': 'If true, wait for new edits, '
-                               'otherwise exit the generator when there are no more edits.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.',
-                       'default': None, },
-                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Yield the edits in reverse order.',
-                       'default': False, },
-                  ),
-                  'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
         {'name': 'edited', 'desc': 'Return the last time the layer was edited or null if no edits are present.',
          'type': {'type': 'function', '_funcname': '_methLayerEdited',
                   'returns': {'type': 'time', 'desc': 'The last time the layer was edited.', }}},
@@ -7081,8 +6732,6 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
-                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
-                       'default': None, },
                       {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'A specific value of the property to look up.', },
                   ),
@@ -7139,8 +6788,7 @@ class Layer(Prim):
 
             Notes:
                 The storage nodes represent **only** the data stored in the layer
-                and may not represent whole nodes. If the only data stored in the layer for
-                a given buid is an N2 edge reference, a storage node will not be returned.
+                and may not represent whole nodes.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodesByForm',
                   'args': (
@@ -7149,7 +6797,7 @@ class Layer(Prim):
                    ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getStorNodesByProp', 'desc': '''
-            Get buid, sode tuples representing the data stored in the layer for a given property.
+            Get nid, sode tuples representing the data stored in the layer for a given property.
             Notes:
                 The storage nodes represent **only** the data stored in the layer
                 and may not represent whole nodes.
@@ -7161,12 +6809,12 @@ class Layer(Prim):
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of node iden, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of nid, sode values.', }}},
         {'name': 'setStorNodeProp',
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to set.'},
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
@@ -7175,14 +6823,14 @@ class Layer(Prim):
          'desc': 'Delete a storage node, node data, and associated edges from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
@@ -7190,7 +6838,7 @@ class Layer(Prim):
          'desc': 'Delete node data from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delNodeData',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                       {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
@@ -7198,17 +6846,11 @@ class Layer(Prim):
          'desc': 'Delete edges from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delEdge',
                   'args': (
-                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'n1nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N1 node id.'},
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
-                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
+                      {'name': 'n2nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N2 node id.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
-        {'name': 'getMirrorStatus', 'desc': '''
-            Return a dictionary of the mirror synchronization status for the layer.
-            ''',
-         'type': {'type': 'function', '_funcname': 'getMirrorStatus',
-                  'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
-
         {'name': 'verify', 'desc': '''
             Verify consistency between the node storage and indexes in the given layer.
 
@@ -7230,11 +6872,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node iden.
+            Retrieve the raw storage node for the specified node id.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -7302,21 +6944,25 @@ class Layer(Prim):
         {'name': 'hasEdge', 'desc': 'Check if a light edge between two nodes exists in the layer.',
          'type': {'type': 'function', '_funcname': 'hasEdge',
                   'args': (
-                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'n1nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N1 node id.'},
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
-                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
+                      {'name': 'n2nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N2 node id.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the edge exists in the layer, False if it does not.', }}},
+                              'desc': 'True if the edge exists in the layer, False if it is a tombstone, or None if not present.'}}},
 
         {'name': 'getEdges', 'desc': '''
-            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+            Yield (n1iden, verb, n2iden, istombstone) tuples for any light edges in the layer.
 
             Example:
                 Iterate the light edges in ``$layer``::
 
-                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
-                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    for ($n1iden, $verb, $n2iden, $tomb) in $layer.getEdges() {
+                        if $tomb {
+                            $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                        } else {
+                            $lib.print(`{$n1iden} +({$verb})> {$n2iden}`)
+                        }
                     }
 
             ''',
@@ -7326,57 +6972,95 @@ class Layer(Prim):
                               'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the source node iden.
+            Yield (verb, n2nid, istombstone) tuples for any light edges in the layer for the source node id.
 
             Example:
                 Iterate the N1 edges for ``$node``::
 
-                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
-                        $lib.print(`-({$verb})> {$n2iden}`)
+                    for ($verb, $n2nid, $tomb) in $layer.getEdgesByN1($node) {
+                        if $tomb {
+                            $lib.print(`-({$verb})> {$n2nid}`)
+                        } else {
+                            $lib.print(`+({$verb})> {$n2nid}`)
+                        }
                     }
 
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                       {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+                              'desc': 'Yields (<verb>, <n2nid>, <istombstone>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n1iden) tuples for any light edges in the layer for the target node iden.
+            Yield (verb, n1nid, istombstone) tuples for any light edges in the layer for the target node id.
 
             Example:
                 Iterate the N2 edges for ``$node``::
 
-                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
-                        $lib.print(`-({$verb})> {$n1iden}`)
+                    for ($verb, $n1nid) in $layer.getEdgesByN2($node) {
+                        if $tomb {
+                            $lib.print(`-({$verb})> {$n1nid}`)
+                        } else {
+                            $lib.print(`+({$verb})> {$n1nid}`)
+                        }
                     }
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                       {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+                              'desc': 'Yields (<verb>, <n1nid>, <istombstone>) tuples', }}},
+        {'name': 'getTombstones', 'desc': '''
+            Get (nid, tombtype, info) tuples representing tombstones stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getTombstones',
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Tuple of node id, tombstone type, and type specific info.'}}},
+        {'name': 'getEdgeTombstones', 'desc': '''
+            Get (n1nid, verb, n2nid) tuples representing edge tombstones stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgeTombstones',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'default': None,
+                       'desc': 'The optional verb to lift edge tombstones for.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of n1nid, verb, n2nid.'}}},
+        {'name': 'delTombstone', 'desc': '''
+            Delete a tombstone stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'delTombstone',
+                  'args': (
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
+                      {'name': 'tombtype', 'type': 'int', 'desc': 'The tombstone type.'},
+                      {'name': 'tombinfo', 'type': 'list', 'desc': 'The tombstone info to delete.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the tombstone was deleted, False if not.'}}},
         {'name': 'getNodeData', 'desc': '''
-            Yield (name, valu) tuples for any node data in the layer for the target node iden.
+            Yield (name, valu, istombstone) tuples for any node data in the layer for the target node iden.
 
             Example:
                 Iterate the node data for ``$node``::
 
-                    for ($name, $valu) in $layer.getNodeData($node.iden()) {
-                        $lib.print(`{$name} = {$valu}`)
+                    for ($name, $valu, $tomb) in $layer.getNodeData($node.iden()) {
+                        if $tomb {
+                            $lib.print(`{$name} DELETED`)
+                        } else {
+                            $lib.print(`{$name} = {$valu}`)
+                        }
                     }
             ''',
          'type': {'type': 'function', '_funcname': 'getNodeData',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<name>, <valu>) tuples', }}},
+                              'desc': 'Yields (<name>, <valu>, <istombstone>>) tuples', }}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -7411,9 +7095,7 @@ class Layer(Prim):
         return {
             'set': self._methLayerSet,
             'get': self._methLayerGet,
-            'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
-            'edits': self._methLayerEdits,
             'edited': self._methLayerEdited,
             'verify': self.verify,
             'addPush': self._addPush,
@@ -7437,8 +7119,10 @@ class Layer(Prim):
             'getStorNodesByProp': self.getStorNodesByProp,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'delTombstone': self.delTombstone,
+            'getTombstones': self.getTombstones,
+            'getEdgeTombstones': self.getEdgeTombstones,
             'getNodeData': self.getNodeData,
-            'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
             'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
@@ -7451,57 +7135,66 @@ class Layer(Prim):
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
 
-        if formname is not None and self.runt.snap.core.model.form(formname) is None:
+        if formname is not None and self.runt.view.core.model.form(formname) is None:
             raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
-        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.view._joinStorNode(nid)
 
     async def _liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
-        propvalu = await toprim(propvalu)
+        propvalu = await tostor(propvalu)
         propcmpr = await tostr(propcmpr)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
 
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'The property {propname} does not exist.'
-            raise s_exc.NoSuchProp(mesg=mesg)
+        if propname[0] == '.':
+            name = propname[1:]
+            ptyp = self.runt.view.core.model.reqMetaType(name)
 
-        if prop.isform:
-            liftform = prop.name
-            liftprop = None
-        elif prop.isuniv:
-            liftform = None
-            liftprop = prop.name
+            if propvalu is None:
+                async for _, nid, sref in layr.liftByMeta(name):
+                    yield nid, sref
+                return
+
+            norm, info = await ptyp.norm(propvalu, view=False)
+            cmprvals = await ptyp.getStorCmprs(propcmpr, norm)
+            async for _, nid, sref in layr.liftByMetaValu(name, cmprvals):
+                yield nid, sref
+
         else:
-            liftform = prop.form.name
-            liftprop = prop.name
+            prop = self.runt.view.core.model.reqProp(propname)
 
-        if propvalu is None:
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield buid, sode
-            return
+            if prop.isform:
+                liftform = prop.name
+                liftprop = None
+            else:
+                liftform = prop.form.name
+                liftprop = prop.name
 
-        norm, info = prop.type.norm(propvalu)
-        cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield buid, sode
+            if propvalu is None:
+                async for _, nid, sref in layr.liftByProp(liftform, liftprop):
+                    yield nid, sref
+                return
+
+            norm, info = await prop.type.norm(propvalu, view=False)
+            cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
+            async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
+                yield nid, sref
 
     @stormfunc(readonly=True)
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
         iden = self.valu.get('iden')
-        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for nid, _ in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def liftByNodeData(self, name):
@@ -7509,69 +7202,64 @@ class Layer(Prim):
         name = await tostr(name)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
 
-        async for _, buid, sode in layr.liftByDataName(name):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for nid, _, tomb in layr.liftByDataName(name):
+            if not tomb:
+                yield await self.runt.view._joinStorNode(nid)
 
-    @stormfunc(readonly=True)
-    async def getMirrorStatus(self):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
-        return await layr.getMirrorStatus()
-
-    async def setStorNodeProp(self, nodeid, prop, valu):
-        buid = await tobuid(nodeid)
+    async def setStorNodeProp(self, nid, prop, valu):
+        nid = await tonidbyts(nid)
         prop = await tostr(prop)
         valu = await tostor(valu)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
+        return await layr.setStorNodeProp(nid, prop, valu, meta=meta)
 
-    async def delStorNode(self, nodeid):
-        buid = await tobuid(nodeid)
-
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
-        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
-        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.delStorNode(buid, meta=meta)
-
-    async def delStorNodeProp(self, nodeid, prop):
-        buid = await tobuid(nodeid)
+    async def delStorNodeProp(self, nid, prop):
+        nid = await tonidbyts(nid)
         prop = await tostr(prop)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.delStorNodeProp(buid, prop, meta=meta)
+        return await layr.delStorNodeProp(nid, prop, meta=meta)
 
-    async def delNodeData(self, nodeid, name=None):
-        buid = await tobuid(nodeid)
+    async def delStorNode(self, nid):
+        nid = await tonidbyts(nid)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(nid, meta=meta)
+
+    async def delNodeData(self, nid, name=None):
+        nid = await tonidbyts(nid)
         name = await tostr(name, noneok=True)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.delNodeData(buid, meta=meta, name=name)
+        return await layr.delNodeData(nid, meta=meta, name=name)
 
-    async def delEdge(self, nodeid1, verb, nodeid2):
-        n1buid = await tobuid(nodeid1)
+    async def delEdge(self, n1nid, verb, n2nid):
+        n1nid = await tonidbyts(n1nid)
         verb = await tostr(verb)
-        n2buid = await tobuid(nodeid2)
+        n2nid = await tonidbyts(n2nid)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.delEdge(n1buid, verb, n2buid, meta=meta)
+        return await layr.delEdge(n1nid, verb, n2nid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7588,7 +7276,7 @@ class Layer(Prim):
 
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -7596,6 +7284,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -7633,7 +7322,7 @@ class Layer(Prim):
         scheme = url.split('://')[0]
 
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -7641,6 +7330,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -7666,7 +7356,7 @@ class Layer(Prim):
     async def _methGetFormcount(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
         return await layr.getFormCounts()
 
     @stormfunc(readonly=True)
@@ -7675,80 +7365,78 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None, valu=undef):
+    async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
-        maxsize = await toint(maxsize, noneok=True)
-
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
-        if valu is undef:
+        if valu is not undef:
+            valu = await tostor(valu)
+
+        props = self.runt.model.reqPropList(propname)
+        count = 0
+
+        for prop in props:
+            await asyncio.sleep(0)
+
+            if valu is undef:
+                if prop.isform:
+                    count += layr.getPropCount(prop.name, None)
+                else:
+                    count += layr.getPropCount(prop.form.name, prop.name)
+                continue
+
+            norm, info = await prop.type.norm(valu, view=False)
             if prop.isform:
-                return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+                count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
+            else:
+                count += layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
 
-            if prop.isuniv:
-                return await layr.getPropCount(None, prop.name, maxsize=maxsize)
-
-            return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
-
-        valu = await toprim(valu)
-        norm, info = prop.type.norm(valu)
-
-        if prop.isform:
-            return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
-
-        if prop.isuniv:
-            return layr.getPropValuCount(None, prop.name, prop.type.stortype, norm)
-
-        return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+        return count
 
     @stormfunc(readonly=True)
     async def _methGetPropArrayCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
-        if not prop.type.isarray:
-            mesg = f'Property is not an array type: {prop.type.name}.'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
-        if valu is undef:
+        props = self.runt.model.reqPropList(propname)
+        count = 0
+
+        if not props[0].type.isarray:
+            mesg = f'Property is not an array type: {propname}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        if valu is not undef:
+            valu = await tostor(valu)
+
+        for prop in props:
+            await asyncio.sleep(0)
+
+            if valu is undef:
+                if prop.isform:
+                    count += layr.getPropArrayCount(prop.name, None)
+                else:
+                    count += layr.getPropArrayCount(prop.form.name, prop.name)
+                continue
+
+            atyp = prop.type.arraytype
+            norm, info = await atyp.norm(valu, view=False)
+
             if prop.isform:
-                return await layr.getPropArrayCount(prop.name, None)
+                count += layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
+            else:
+                count += layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
 
-            if prop.isuniv:
-                return await layr.getPropArrayCount(None, prop.name)
-
-            return await layr.getPropArrayCount(prop.form.name, prop.name)
-
-        valu = await toprim(valu)
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
-        if prop.isform:
-            return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
-
-        if prop.isuniv:
-            return layr.getPropArrayValuCount(None, prop.name, atyp.stortype, norm)
-
-        return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
+        return count
 
     @stormfunc(readonly=True)
     async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
@@ -7756,20 +7444,17 @@ class Layer(Prim):
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
 
-        prop = self.runt.snap.core.model.getTagProp(propname)
-        if prop is None:
-            mesg = f'No tag property named {propname}'
-            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+        prop = self.runt.view.core.model.reqTagProp(propname)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
         if valu is undef:
             return await layr.getTagPropCount(form, tag, prop.name)
 
-        valu = await toprim(valu)
-        norm, info = prop.type.norm(valu)
+        valu = await tostor(valu)
+        norm, info = await prop.type.norm(valu, view=False)
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
@@ -7777,136 +7462,152 @@ class Layer(Prim):
     async def _methGetPropValues(self, propname):
         propname = await tostr(propname)
 
-        prop = self.runt.snap.core.model.reqProp(propname)
-
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
-        formname = None
-        propname = None
+        props = self.runt.model.reqPropList(propname)
 
-        if prop.isform:
-            formname = prop.name
-        else:
-            propname = prop.name
-            if not prop.isuniv:
+        genrs = []
+        lastvalu = None
+
+        for prop in props:
+            if prop.isform:
+                formname = prop.name
+                propname = None
+            else:
                 formname = prop.form.name
+                propname = prop.name
 
-        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+            genrs.append(layr.iterPropValues(formname, propname, prop.type.stortype))
+
+        async for _, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
             yield valu
 
     @stormfunc(readonly=True)
-    async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
-        offs = await toint(offs)
-        wait = await tobool(wait)
-        reverse = await tobool(reverse)
-
-        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
-
-        if not self.runt.allowed(('layer', 'edits', 'read'), gateiden=layr.iden):
-            self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
-
-        if reverse:
-            wait = False
-            if offs == 0:
-                offs = 0xffffffffffffffff
-
-        count = 0
-        async for item in layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
-
-            yield item
-
-            count += 1
-            if size is not None and size == count:
-                break
-
-    @stormfunc(readonly=True)
     async def _methLayerEdited(self):
-        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
-        async for offs, edits, meta in layr.syncNodeEdits2(0xffffffffffffffff, wait=False, reverse=True):
-            return meta.get('time')
+        layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
+        return layr.lastedittime
 
     @stormfunc(readonly=True)
-    async def getStorNode(self, nodeid):
-        nodeid = await tobuid(nodeid)
+    async def getStorNode(self, nid):
+        nid = await tonidbyts(nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(nodeid)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        return layr.getStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for nid, sode in layr.getStorNodes():
+            yield (s_common.int64un(nid), sode)
 
     @stormfunc(readonly=True)
     async def getStorNodesByForm(self, form):
         form = await tostr(form)
-        if self.runt.snap.core.model.form(form) is None:
+        if self.runt.view.core.model.form(form) is None:
             raise s_exc.NoSuchForm.init(form)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
-        async for item in layr.getStorNodesByForm(form):
-            yield item
+        async for nid, sode in layr.getStorNodesByForm(form):
+            yield (s_common.int64un(nid), sode)
 
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
-        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
-            yield s_common.ehex(buid), sode
+        async for nid, sref in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield s_common.int64un(nid), copy.deepcopy(sref.sode)
 
     @stormfunc(readonly=True)
-    async def hasEdge(self, nodeid1, verb, nodeid2):
-        nodeid1 = await tobuid(nodeid1)
+    async def hasEdge(self, n1nid, verb, n2nid):
+        n1nid = await tonidbyts(n1nid)
         verb = await tostr(verb)
-        nodeid2 = await tobuid(nodeid2)
+        n2nid = await tonidbyts(n2nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.hasNodeEdge(nodeid1, verb, nodeid2)
+        layr = self.runt.view.core.getLayer(layriden)
+        return await layr.hasNodeEdge(n1nid, verb, n2nid)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getEdges():
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+        async for n1nid, abrv, n2nid, tomb in layr.getEdges():
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            yield (s_common.int64un(n1nid), verb, s_common.int64un(n2nid), tomb)
 
     @stormfunc(readonly=True)
-    async def getEdgesByN1(self, nodeid, verb=None):
-        nodeid = await tobuid(nodeid)
+    async def getEdgesByN1(self, nid, verb=None):
+        nid = await tonidbyts(nid)
         verb = await tostr(verb, noneok=True)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(nodeid, verb=verb):
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(nid, verb=verb):
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            yield (verb, s_common.int64un(n2nid), tomb)
 
     @stormfunc(readonly=True)
-    async def getEdgesByN2(self, nodeid, verb=None):
-        nodeid = await tobuid(nodeid)
+    async def getEdgesByN2(self, nid, verb=None):
+        nid = await tonidbyts(nid)
         verb = await tostr(verb, noneok=True)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(nodeid, verb=verb):
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(nid, verb=verb):
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            yield (verb, s_common.int64un(n1nid), tomb)
+
+    async def delTombstone(self, nid, tombtype, tombinfo):
+        nid = await tonidbyts(nid)
+        tombtype = await toprim(tombtype)
+        tombinfo = await toprim(tombinfo)
+
+        return await self.runt.view.delTombstone(nid, tombtype, tombinfo, runt=self.runt)
+
+    @stormfunc(readonly=True)
+    async def getTombstones(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for item in layr.iterTombstones():
             yield item
 
     @stormfunc(readonly=True)
-    async def getNodeData(self, nodeid):
-        nodeid = await tobuid(nodeid)
+    async def getEdgeTombstones(self, verb=None):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeData(nodeid):
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for item in layr.iterEdgeTombstones(verb=verb):
             yield item
+
+    @stormfunc(readonly=True)
+    async def getNodeData(self, nid):
+        nid = await tonidbyts(nid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for abrv, valu, tomb in layr.iterNodeData(nid):
+            yield self.runt.view.core.getAbrvIndx(abrv)[0], valu, tomb
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
@@ -7914,19 +7615,18 @@ class Layer(Prim):
             case 'pushs':
                 pushs = copy.deepcopy(self.valu.get('pushs', {}))
                 for iden, pdef in pushs.items():
-                    gvar = f'push:{iden}'
-                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                    pdef['offs'] = self.runt.view.core.layeroffs.get(iden, 0)
                 return pushs
 
             case 'pulls':
                 pulls = copy.deepcopy(self.valu.get('pulls', {}))
                 for iden, pdef in pulls.items():
-                    gvar = f'pull:{iden}'
-                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                    pdef['offs'] = self.runt.view.core.layeroffs.get(iden, 0)
                 return pulls
 
             case _:
-                return self.valu.get(name, defv)
+                ldef = await self.value()
+                return ldef.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
@@ -7937,16 +7637,8 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
-        elif name == 'logedits':
-            valu = await tobool(valu)
-
         elif name == 'readonly':
             valu = await tobool(valu)
-
-        elif name in ('mirror', 'upstream'):
-            if (valu := await toprim(valu)) is not None:
-                mesg = 'Layer only supports setting "mirror" and "upstream" to null.'
-                raise s_exc.BadOptValu(mesg=mesg)
 
         else:
             mesg = f'Layer does not support setting: {name}'
@@ -7959,20 +7651,17 @@ class Layer(Prim):
         valu = await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
         self.valu[name] = valu
 
-    @stormfunc(readonly=True)
-    async def _methLayerPack(self):
+    async def value(self):
         ldef = copy.deepcopy(self.valu)
         pushs = ldef.get('pushs')
         if pushs is not None:
             for iden, pdef in pushs.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         return ldef
 
@@ -7989,7 +7678,7 @@ class Layer(Prim):
         config = await toprim(config)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         async for mesg in layr.verify(config=config):
             yield mesg
 
@@ -8072,8 +7761,8 @@ class LibView(Lib):
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
         if iden is None:
-            iden = self.runt.snap.view.iden
-        vdef = await self.runt.snap.core.getViewDef(iden)
+            iden = self.runt.view.iden
+        vdef = await self.runt.view.core.getViewDef(iden)
         if vdef is None:
             raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
@@ -8082,7 +7771,7 @@ class LibView(Lib):
     @stormfunc(readonly=True)
     async def _methViewList(self, deporder=False):
         deporder = await tobool(deporder)
-        viewdefs = await self.runt.snap.core.getViewDefs(deporder=deporder)
+        viewdefs = await self.runt.view.core.getViewDefs(deporder=deporder)
         return [View(self.runt, vdef, path=self.path) for vdef in viewdefs]
 
 @registry.registerType
@@ -8112,10 +7801,6 @@ class View(Prim):
 
                 parent (str)
                     The parent View iden.
-
-                nomerge (bool)
-                    Deprecated - use protected. Updates to this option will be redirected to
-                    the protected option (below) until this option is removed.
 
                 protected (bool)
                     Setting to ``(true)`` will prevent the layer from being merged or deleted.
@@ -8169,9 +7854,6 @@ class View(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
                   'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
-        {'name': 'pack', 'desc': 'Get the View definition.',
-         'type': {'type': 'function', '_funcname': '_methViewPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
@@ -8381,7 +8063,6 @@ class View(Prim):
         return {
             'set': self._methViewSet,
             'get': self._methViewGet,
-            'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'detach': self.detach,
@@ -8415,13 +8096,13 @@ class View(Prim):
 
     async def addNode(self, form, valu, props=None):
         form = await tostr(form)
-        valu = await toprim(valu)
-        props = await toprim(props)
+        valu = await tostor(valu)
+        props = await tostor(props)
 
         viewiden = self.valu.get('iden')
 
-        view = self.runt.snap.core.getView(viewiden)
-        layriden = view.layers[0].iden
+        view = self.runt.view.core.getView(viewiden)
+        layriden = view.wlyr.iden
 
         # check that the user can read from the view
         # ( to emulate perms check for being able to run storm at all )
@@ -8433,8 +8114,8 @@ class View(Prim):
                 fullname = f'{form}:{propname}'
                 self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        if viewiden == self.runt.snap.view.iden:
-            return await self.runt.snap.addNode(form, valu, props=props)
+        if viewiden == self.runt.view.iden:
+            return await self.runt.view.addNode(form, valu, props=props)
         else:
             await view.addNode(form, valu, props=props, user=self.runt.user)
 
@@ -8461,8 +8142,11 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        todo = s_common.todo('getFormCounts')
-        return await self.viewDynCall(todo, ('view', 'read'))
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        return await view.getFormCounts()
 
     @stormfunc(readonly=True)
     async def _methGetPropCount(self, propname, valu=undef):
@@ -8471,11 +8155,11 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getPropCount(propname, valu=valu)
 
@@ -8488,11 +8172,11 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getTagPropCount(form, tag, propname, valu=valu)
 
@@ -8503,11 +8187,11 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getPropArrayCount(propname, valu=valu)
 
@@ -8517,7 +8201,7 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         async for valu in view.iterPropValues(propname):
             yield valu
@@ -8531,37 +8215,39 @@ class View(Prim):
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
-        todo = s_common.todo('getEdges', verb=verb)
-        async for edge in self.viewDynIter(todo, ('view', 'read')):
-            yield edge
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        if verb is not None:
+            async for n1nid, _, n2nid in view.getEdges(verb=verb):
+                n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
+                n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
+                yield (n1buid, verb, n2buid)
+            return
+
+        async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
+            n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
+            verb = self.runt.view.core.getAbrvIndx(vabrv)[0]
+            n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
-        todo = s_common.todo('getEdgeVerbs')
-        async for verb in self.viewDynIter(todo, ('view', 'read')):
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        async for verb in view.getEdgeVerbs():
             yield verb
-
-    async def viewDynIter(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
-            yield item
-
-    async def viewDynCall(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
-        if name == 'nomerge':
-            name = 'protected'
         return self.valu.get(name, defv)
 
     def _reqView(self):
-        return self.runt.snap.core.reqView(self.valu.get('iden'))
+        return self.runt.view.core.reqView(self.valu.get('iden'))
 
     async def _methViewSet(self, name, valu):
 
@@ -8576,16 +8262,12 @@ class View(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
 
             if name == 'parent' and valu is not None:
-                self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
+                self.runt.view.core.reqView(valu, mesg='The parent view must already exist.')
                 self.runt.confirm(('view', 'read'), gateiden=valu)
                 self.runt.confirm(('view', 'fork'), gateiden=valu)
 
         elif name == 'quorum':
             valu = await toprim(valu)
-
-        elif name == 'nomerge':
-            name = 'protected'
-            valu = await tobool(valu)
 
         elif name == 'protected':
             valu = await tobool(valu)
@@ -8599,7 +8281,7 @@ class View(Prim):
 
             for layriden in layers:
 
-                layr = self.runt.snap.core.getLayer(layriden)
+                layr = self.runt.view.core.getLayer(layriden)
                 if layr is None:
                     mesg = f'No layer with iden: {layriden}'
                     raise s_exc.NoSuchLayer(mesg=mesg)
@@ -8645,15 +8327,14 @@ class View(Prim):
 
         return '\n'.join(lines)
 
-    @stormfunc(readonly=True)
-    async def _methViewPack(self):
+    def value(self):
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
+
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        self.runt.confirm(('view', 'add'))
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
@@ -8663,7 +8344,7 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.view.core.reqView(viewiden)
 
         newv = await view.fork(ldef=ldef, vdef=vdef)
 
@@ -8677,7 +8358,7 @@ class View(Prim):
 
         self.runt.reqAdmin(gateiden=viewiden)
 
-        view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.view.core.reqView(viewiden)
         if not view.isafork():
             mesg = f'View ({viewiden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
@@ -8705,7 +8386,7 @@ class View(Prim):
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
 
     async def _methSwapLayer(self):
@@ -8736,7 +8417,7 @@ class View(Prim):
             'quorum': view.getParentQuorum(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
-            'offset': await view.layers[0].getEditIndx(),
+            'offset': view.wlyr.getEditIndx(),
         }
         return retn
 
@@ -8864,30 +8545,14 @@ class LibTrigger(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Trigger to get.', },
                   ),
                   'returns': {'type': 'trigger', 'desc': 'The requested ``trigger`` object.', }}},
-        {'name': 'enable', 'desc': 'Enable a Trigger in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methTriggerEnable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to enable. '
-                               'Only a single matching prefix will be enabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was enabled.', }}},
-        {'name': 'disable', 'desc': 'Disable a Trigger in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methTriggerDisable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to disable. '
-                               'Only a single matching prefix will be disabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
         {'name': 'mod', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a trigger to modify. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'],
-                       'desc': 'The new Storm query to set as the trigger query.', }
+                               'Only a single matching prefix will be modified.'},
+                      {'name': 'edits', 'type': 'dict',
+                       'desc': 'A dictionary of properties and their values to update on the Trigger.'}
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
@@ -8921,8 +8586,6 @@ class LibTrigger(Lib):
             'del': self._methTriggerDel,
             'list': self._methTriggerList,
             'get': self._methTriggerGet,
-            'enable': self._methTriggerEnable,
-            'disable': self._methTriggerDisable,
             'mod': self._methTriggerMod,
         }
 
@@ -8932,7 +8595,7 @@ class LibTrigger(Lib):
         exactly one.
         '''
         match = None
-        for view in self.runt.snap.core.listViews():
+        for view in self.runt.view.core.listViews():
             if not allowed(('view', 'read'), gateiden=view.iden):
                 continue
 
@@ -8961,18 +8624,13 @@ class LibTrigger(Lib):
         useriden = self.runt.user.iden
 
         tdef['user'] = useriden
+        tdef['creator'] = useriden
 
         viewiden = tdef.pop('view', None)
         if viewiden is None:
-            viewiden = self.runt.snap.view.iden
+            viewiden = self.runt.view.iden
 
         tdef['view'] = viewiden
-        # query is kept to keep this API backwards compatible.
-        query = tdef.pop('query', None)
-        if query is not None:  # pragma: no cover
-            s_common.deprecated('$lib.trigger.add() with "query" argument instead of "storm"', curv='2.95.0')
-            await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
-            tdef['storm'] = query
 
         cond = tdef.pop('condition', None)
         if cond is not None:
@@ -9018,23 +8676,35 @@ class LibTrigger(Lib):
 
         return iden
 
-    async def _methTriggerMod(self, prefix, query):
-        useriden = self.runt.user.iden
-        query = await tostr(query)
+    async def _methTriggerMod(self, prefix, edits):
         trig = await self._matchIdens(prefix)
         iden = trig.iden
-        gatekeys = ((useriden, ('trigger', 'set', 'storm'), iden),)
-        todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
-        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
+        edits = await toprim(edits)
+
+        viewedit = edits.pop('view', None)
+        viewiden = trig.view.iden
+        for name in edits:
+            if name == 'user':
+                self.runt.confirm(('trigger', 'set', 'user'))
+            else:
+                self.runt.confirm(('trigger', 'set', name), gateiden=iden)
+
+        if edits:
+            trigview = self.runt.view.core.getView(viewiden)
+            trigmods = await trigview.setTriggerInfo(iden, edits)
+
+        if viewedit:
+            trigmods = Trigger(self.runt, trig.tdef)
+            await trigmods.setitem('view', viewedit)
 
         return iden
 
     @stormfunc(readonly=True)
     async def _methTriggerList(self, all=False):
         if all:
-            views = self.runt.snap.core.listViews()
+            views = self.runt.view.core.listViews()
         else:
-            views = [self.runt.snap.view]
+            views = [self.runt.view]
 
         triggers = []
         for view in views:
@@ -9053,9 +8723,9 @@ class LibTrigger(Lib):
         trigger = None
         try:
             # fast path to our current view
-            trigger = await self.runt.snap.view.getTrigger(iden)
+            trigger = await self.runt.view.getTrigger(iden)
         except s_exc.NoSuchIden:
-            for view in self.runt.snap.core.listViews():
+            for view in self.runt.view.core.listViews():
                 try:
                     trigger = await view.getTrigger(iden)
                 except s_exc.NoSuchIden:
@@ -9068,47 +8738,28 @@ class LibTrigger(Lib):
 
         return Trigger(self.runt, trigger.pack())
 
-    async def _methTriggerEnable(self, prefix):
-        return await self._triggerendisable(prefix, True)
-
-    async def _methTriggerDisable(self, prefix):
-        return await self._triggerendisable(prefix, False)
-
-    async def _triggerendisable(self, prefix, state):
-        trig = await self._matchIdens(prefix)
-        iden = trig.iden
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('trigger', 'set', 'enabled'), iden),)
-        todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
-        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
-
-        return iden
-
 @registry.registerType
 class Trigger(Prim):
     '''
     Implements the Storm API for a Trigger.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set information in the Trigger.',
-         'type': {'type': 'function', '_funcname': 'set',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to set', }
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'move', 'desc': 'Modify the Trigger to run in a different View.',
-         'type': {'type': 'function', '_funcname': 'move',
-                  'args': (
-                      {'name': 'viewiden', 'type': 'str',
-                       'desc': 'The iden of the new View for the Trigger to run in.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'pack', 'desc': 'Get the trigger definition.',
-         'type': {'type': 'function', '_funcname': 'pack',
-                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
+        {'name': 'async', 'desc': 'Whether the Trigger runs asynchronously.', 'type': 'boolean'},
+        {'name': 'cond', 'desc': 'The edit type which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'created', 'desc': 'The timestamp when the Trigger was created.', 'type': 'int'},
+        {'name': 'creator', 'desc': 'The iden of the user that created the Trigger.', 'type': 'str'},
+        {'name': 'doc', 'desc': 'The description of the Trigger.', 'type': 'str'},
+        {'name': 'enabled', 'desc': 'Whether the Trigger is enabled.', 'type': 'boolean'},
+        {'name': 'form', 'desc': 'The form which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str'},
+        {'name': 'n2form', 'desc': 'The N2 form which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Trigger.', 'type': 'str'},
+        {'name': 'prop', 'desc': 'The prop which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'storm', 'desc': 'The Storm query that the Trigger runs.', 'type': 'str'},
+        {'name': 'tag', 'desc': 'The tag which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'user', 'desc': 'The iden of the user the Trigger runs as.', 'type': 'str'},
+        {'name': 'verb', 'desc': 'The edge verb which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'view', 'desc': 'The iden of the view the Trigger runs in.', 'type': 'str'},
     )
     _storm_typename = 'trigger'
     _ismutable = False
@@ -9118,63 +8769,43 @@ class Trigger(Prim):
         Prim.__init__(self, tdef)
         self.runt = runt
 
-        self.locls.update(self.getObjLocals())
-        self.locls['iden'] = self.valu.get('iden')
-
     def __hash__(self):
-        return hash((self._storm_typename, self.locls['iden']))
+        return hash((self._storm_typename, self.valu.get('iden')))
 
-    def getObjLocals(self):
-        return {
-            'set': self.set,
-            'move': self.move,
-            'pack': self.pack,
-        }
-
-    @stormfunc(readonly=True)
-    async def pack(self):
+    def value(self):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
         name = await tostr(name)
+        return self.valu.get(name)
 
-        valu = self.valu.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-
-        return self.locls.get(name)
-
-    async def set(self, name, valu):
-        trigiden = self.valu.get('iden')
+    async def setitem(self, name, valu):
         viewiden = self.valu.get('view')
-
-        view = self.runt.snap.core.reqView(viewiden)
+        trigiden = self.valu.get('iden')
 
         name = await tostr(name)
         if name in ('async', 'enabled'):
             valu = await tobool(valu)
-        if name in ('user', 'doc', 'name', 'storm'):
+        elif name in ('user', 'doc', 'name', 'storm', 'view'):
             valu = await tostr(valu)
 
-        if name == 'user':
+        if name == 'view':
+            return await self._move(valu)
+        elif name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
             self.runt.confirm(('trigger', 'set', name), gateiden=trigiden)
 
-        await view.setTriggerInfo(trigiden, name, valu)
+        view = self.runt.view.core.reqView(viewiden)
+        await view.setTriggerInfo(trigiden, {name: valu})
 
         self.valu[name] = valu
 
         return self
 
-    async def move(self, viewiden):
+    async def _move(self, viewiden):
         trigiden = self.valu.get('iden')
-        viewiden = await tostr(viewiden)
-
-        todo = s_common.todo('getViewDef', viewiden)
-        vdef = await self.runt.dyncall('cortex', todo)
-        if vdef is None:
-            raise s_exc.NoSuchView(mesg=f'No view with iden={viewiden}', iden=viewiden)
+        view = self.runt.view.core.reqView(viewiden)
 
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -9185,10 +8816,11 @@ class Trigger(Prim):
         tdef = dict(self.valu)
         tdef['view'] = viewiden
         tdef['user'] = useriden
+        tdef['creator'] = useriden
 
         try:
-            s_trigger.reqValidTdef(tdef)
-            await self.runt.snap.core.reqValidStorm(tdef['storm'])
+            s_schemas.reqValidTriggerDef(tdef)
+            await self.runt.view.core.reqValidStorm(tdef['storm'])
         except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
             raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
 
@@ -9293,8 +8925,8 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
-        return await self.runt.snap.core.hasJsonObj(fullpath)
+        fullpath = ('cells', self.runt.view.core.iden) + path
+        return await self.runt.view.core.hasJsonObj(fullpath)
 
     @stormfunc(readonly=True)
     async def get(self, path, prop=None):
@@ -9309,12 +8941,12 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            return await self.runt.snap.core.getJsonObj(fullpath)
+            return await self.runt.view.core.getJsonObj(fullpath)
 
-        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.getJsonObjProp(fullpath, prop=prop)
 
     async def set(self, path, valu, prop=None):
 
@@ -9329,13 +8961,13 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            await self.runt.view.core.setJsonObj(fullpath, valu)
             return True
 
-        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+        return await self.runt.view.core.setJsonObjProp(fullpath, prop, valu)
 
     async def _del(self, path, prop=None):
 
@@ -9349,13 +8981,13 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            await self.runt.snap.core.delJsonObj(fullpath)
+            await self.runt.view.core.delJsonObj(fullpath)
             return True
 
-        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.delJsonObjProp(fullpath, prop=prop)
 
     @stormfunc(readonly=True)
     async def iter(self, path=None):
@@ -9366,13 +8998,13 @@ class LibJsonStor(Lib):
 
         path = await toprim(path)
 
-        fullpath = ('cells', self.runt.snap.core.iden)
+        fullpath = ('cells', self.runt.view.core.iden)
         if path is not None:
             if isinstance(path, str):
                 path = tuple(path.split('/'))
             fullpath += path
 
-        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+        async for path, item in self.runt.view.core.getJsonObjs(fullpath):
             yield path, item
 
     @stormfunc(readonly=True)
@@ -9389,19 +9021,19 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.view.core.iden) + path + (s_common.guid(key),)
 
-        cachetick = await self.runt.snap.core.getJsonObjProp(fullpath, prop='asof')
+        cachetick = await self.runt.view.core.getJsonObjProp(fullpath, prop='asof')
         if cachetick is None:
             return None
 
-        timetype = self.runt.snap.core.model.type('time')
-        asoftick = timetype.norm(asof)[0]
+        timetype = self.runt.view.core.model.type('time')
+        asoftick = (await timetype.norm(asof))[0]
 
         if cachetick >= asoftick:
             if envl:
-                return await self.runt.snap.core.getJsonObj(fullpath)
-            return await self.runt.snap.core.getJsonObjProp(fullpath, prop='data')
+                return await self.runt.view.core.getJsonObj(fullpath)
+            return await self.runt.view.core.getJsonObjProp(fullpath, prop='data')
 
         return None
 
@@ -9419,7 +9051,7 @@ class LibJsonStor(Lib):
             path = tuple(path.split('/'))
 
         cachepath = path + (s_common.guid(key),)
-        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
+        fullpath = ('cells', self.runt.view.core.iden) + cachepath
 
         now = s_common.now()
 
@@ -9429,7 +9061,7 @@ class LibJsonStor(Lib):
             'data': valu,
         }
 
-        await self.runt.snap.core.setJsonObj(fullpath, envl)
+        await self.runt.view.core.setJsonObj(fullpath, envl)
 
         return {
             'asof': now,
@@ -9448,9 +9080,9 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.view.core.iden) + path + (s_common.guid(key),)
 
-        await self.runt.snap.core.delJsonObj(fullpath)
+        await self.runt.view.core.delJsonObj(fullpath)
         return True
 
 @registry.registerLib
@@ -9487,45 +9119,19 @@ class LibCron(Lib):
                                'Only a single matching prefix will be retrieved.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The requested cron job.', }}},
-        {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'],
-                       'desc': 'The new Storm query for the Cron Job.', }
+                               'Only a single matching prefix will be modified.'},
+                      {'name': 'edits', 'type': 'dict',
+                       'desc': 'A dictionary of properties and their values to update on the Cron Job.'}
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
-        {'name': 'move', 'desc': 'Move a cron job to a new view.',
-         'type': {'type': 'function', '_funcname': '_methCronMove',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to move. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'view', 'type': 'str',
-                       'desc': 'The iden of the view to move the CrobJob to', }
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
                   'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
-        {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methCronEnable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to enable. '
-                               'Only a single matching prefix will be enabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was enabled.', }}},
-        {'name': 'disable', 'desc': 'Disable a CronJob in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methCronDisable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to disable. '
-                               'Only a single matching prefix will be disabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
@@ -9539,8 +9145,8 @@ class LibCron(Lib):
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',
          'desc': 'Permits a user to modify/move a cron job.'},
-        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
-         'desc': 'Permits a user to modify the creator property of a cron job.'},
+        {'perm': ('cron', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the user property of a cron job.'},
     )
 
     def getObjLocals(self):
@@ -9551,9 +9157,6 @@ class LibCron(Lib):
             'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
-            'move': self._methCronMove,
-            'enable': self._methCronEnable,
-            'disable': self._methCronDisable,
         }
 
     async def _matchIdens(self, prefix, perm):
@@ -9811,6 +9414,7 @@ class LibCron(Lib):
                 'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
+                'user': self.runt.user.iden,
                 'creator': self.runt.user.iden
                 }
 
@@ -9818,10 +9422,18 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
-        view = kwargs.get('view')
-        if not view:
-            view = self.runt.snap.view.iden
+        if (view := kwargs.get('view')) is not None:
+            if isinstance(view, View):
+                view = await view.deref('iden')
+            else:
+                view = await tostr(view)
+        else:
+            view = self.runt.view.iden
         cdef['view'] = view
+
+        for argname in ('name', 'doc'):
+            if (valu := kwargs.get(argname)) is not None:
+                cdef[argname] = await tostr(valu)
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
@@ -9849,7 +9461,7 @@ class LibCron(Lib):
             for optval in opts.split(','):
                 try:
                     arg = f'{optval} {optname}'
-                    ts = now + s_time.delta(arg) / 1000.0
+                    ts = now + s_time.delta(arg) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{arg}"'
@@ -9859,7 +9471,7 @@ class LibCron(Lib):
         if dts:
             for dt in dts.split(','):
                 try:
-                    ts = s_time.parse(dt) / 1000.0
+                    ts = s_time.parse(dt) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{dt}"'
@@ -9890,6 +9502,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'user': self.runt.user.iden,
                 'creator': self.runt.user.iden
                 }
 
@@ -9897,10 +9510,18 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
-        view = kwargs.get('view')
-        if not view:
-            view = self.runt.snap.view.iden
+        if (view := kwargs.get('view')) is not None:
+            if isinstance(view, View):
+                view = await view.deref('iden')
+            else:
+                view = await tostr(view)
+        else:
+            view = self.runt.view.iden
         cdef['view'] = view
+
+        for argname in ('name', 'doc'):
+            if (valu := kwargs.get(argname)) is not None:
+                cdef[argname] = await tostr(valu)
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
@@ -9912,27 +9533,18 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'del'))
         iden = cron['iden']
 
-        todo = s_common.todo('delCronJob', iden)
-        gatekeys = ((self.runt.user.iden, ('cron', 'del'), iden),)
-        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.runt.view.core.delCronJob(iden)
 
-    async def _methCronMod(self, prefix, query):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
+    async def _methCronMod(self, prefix, edits):
+        cdef = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cdef['iden']
+        edits = await toprim(edits)
 
-        query = await tostr(query)
+        if 'user' in edits:
+            # this permission must be granted cortex wide to prevent abuse...
+            self.runt.confirm(('cron', 'set', 'user'))
 
-        todo = s_common.todo('updateCronJob', iden, query)
-        gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
-        return iden
-
-    async def _methCronMove(self, prefix, view):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        self.runt.confirm(('cron', 'set'), gateiden=iden)
-        return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
+        return await self.runt.view.core.editCronJob(iden, edits)
 
     @stormfunc(readonly=True)
     async def _methCronList(self):
@@ -9948,52 +9560,27 @@ class LibCron(Lib):
 
         return CronJob(self.runt, cdef, path=self.path)
 
-    async def _methCronEnable(self, prefix):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        todo = ('enableCronJob', (iden,), {})
-        await self.runt.dyncall('cortex', todo)
-
-        return iden
-
-    async def _methCronDisable(self, prefix):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        todo = ('disableCronJob', (iden,), {})
-        await self.runt.dyncall('cortex', todo)
-
-        return iden
-
 @registry.registerType
 class CronJob(Prim):
     '''
     Implements the Storm api for a cronjob instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str', },
-        {'name': 'set', 'desc': '''
-            Set an editable field in the cron job definition.
-
-            Example:
-                Change the name of a cron job::
-
-                    $lib.cron.get($iden).set(name, "foo bar cron job")''',
-         'type': {'type': 'function', '_funcname': '_methCronJobSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the field being set', },
-                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set on the definition.', },
-                  ),
-                  'returns': {'type': 'cronjob', 'desc': 'The ``cronjob``', }}},
-
+        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.', 'type': 'boolean'},
+        {'name': 'creator', 'desc': 'The iden of the user that created the Cron Job.', 'type': 'str'},
+        {'name': 'created', 'desc': 'The timestamp when the Cron Job was created.', 'type': 'int'},
+        {'name': 'doc', 'desc': 'The description of the Cron Job.', 'type': 'str'},
+        {'name': 'enabled', 'desc': 'Whether the Cron Job is enabled.', 'type': 'boolean'},
+        {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Cron Job.', 'type': 'str'},
+        {'name': 'pool', 'desc': 'Whether the Cron Job will offload the query to a Storm pool.', 'type': 'boolean'},
+        {'name': 'storm', 'desc': 'The Storm query the Cron Job runs.', 'type': 'str'},
+        {'name': 'view', 'desc': 'The iden of the view the Cron Job runs in.', 'type': 'str'},
+        {'name': 'user', 'desc': 'The iden of the user the Cron Job runs as.', 'type': 'str'},
         {'name': 'kill', 'desc': 'If the job is currently running, terminate the task.',
          'type': {'type': 'function', '_funcname': '_methCronJobKill',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
 
-        {'name': 'pack', 'desc': 'Get the Cronjob definition.',
-         'type': {'type': 'function', '_funcname': '_methCronJobPack',
-                  'returns': {'type': 'dict', 'desc': 'The definition.'}}},
         {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
          'type': {'type': 'function', '_funcname': '_methCronJobPprint',
                   'returns':
@@ -10007,42 +9594,47 @@ class CronJob(Prim):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
-        self.locls['iden'] = self.valu.get('iden')
 
     def __hash__(self):
-        return hash((self._storm_typename, self.locls['iden']))
+        return hash((self._storm_typename, self.valu.get('iden')))
 
     def getObjLocals(self):
         return {
-            'set': self._methCronJobSet,
             'kill': self._methCronJobKill,
-            'pack': self._methCronJobPack,
             'pprint': self._methCronJobPprint,
         }
 
     async def _methCronJobKill(self):
         iden = self.valu.get('iden')
         self.runt.confirm(('cron', 'kill'), gateiden=iden)
-        return await self.runt.snap.core.killCronTask(iden)
+        return await self.runt.view.core.killCronTask(iden)
 
-    async def _methCronJobSet(self, name, valu):
+    async def setitem(self, name, valu):
         name = await tostr(name)
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        if name == 'creator':
+        if name == 'user':
             # this permission must be granted cortex wide
             # to prevent abuse...
-            self.runt.confirm(('cron', 'set', 'creator'))
+            self.runt.confirm(('cron', 'set', 'user'))
         else:
             self.runt.confirm(('cron', 'set', name), gateiden=iden)
 
-        self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
+        self.valu = await self.runt.view.core.editCronJob(iden, {name: valu})
 
         return self
 
     @stormfunc(readonly=True)
-    async def _methCronJobPack(self):
+    async def _derefGet(self, name):
+        name = await tostr(name)
+
+        if name == 'completed':
+            return not bool(self.valu.get('recs'))
+
+        return copy.deepcopy(self.valu.get(name))
+
+    def value(self):
         return copy.deepcopy(self.valu)
 
     @staticmethod
@@ -10052,9 +9644,11 @@ class CronJob(Prim):
     @stormfunc(readonly=True)
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
+        creator = self.valu.get('creatorname')
+
         view = self.valu.get('view')
         if not view:
-            view = self.runt.snap.core.view.iden
+            view = self.runt.view.core.view.iden
 
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
@@ -10065,9 +9659,10 @@ class CronJob(Prim):
             'iden': iden,
             'idenshort': iden[:8] + '..',
             'user': user or '<None>',
+            'creator': creator or '<None>',
             'view': view,
             'viewshort': view[:8] + '..',
-            'query': self.valu.get('query') or '<missing>',
+            'storm': self.valu.get('storm') or '<missing>',
             'pool': self.valu.get('pool', False),
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
@@ -10144,7 +9739,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):
@@ -10178,16 +9773,35 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu, isndef=False):
+async def tostor(valu, packsafe=False):
 
-    if isinstance(valu, Number):
-        return str(valu.value())
+    if not packsafe:
+        if isinstance(valu, s_node.Node):
+            return valu
+
+        if isinstance(valu, Node):
+            return valu.valu
+
+        if isinstance(valu, Number):
+            return valu
+
+    elif isinstance(valu, Number):
+        return str(valu)
 
     if isinstance(valu, (tuple, list)):
         retn = []
         for v in valu:
             try:
-                retn.append(await tostor(v, isndef=isndef))
+                retn.append(await tostor(v, packsafe=packsafe))
+            except s_exc.NoSuchType:
+                pass
+        return tuple(retn)
+
+    if isinstance(valu, List):
+        retn = []
+        for v in valu.valu:
+            try:
+                retn.append(await tostor(v, packsafe=packsafe))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -10196,13 +9810,19 @@ async def tostor(valu, isndef=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v, isndef=isndef)
+                retn[k] = await tostor(v, packsafe=packsafe)
             except s_exc.NoSuchType:
                 pass
         return retn
 
-    if isndef and isinstance(valu, s_node.Node):
-        return valu.ndef
+    if isinstance(valu, Dict):
+        retn = {}
+        for k, v in valu.valu.items():
+            try:
+                retn[k] = await tostor(v, packsafe=packsafe)
+            except s_exc.NoSuchType:
+                pass
+        return retn
 
     return await toprim(valu)
 
@@ -10245,7 +9865,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8', 'surrogatepass')
+            return valu.decode('utf8')
 
         if isinstance(valu, s_node.Node):
             return valu.repr()
@@ -10370,6 +9990,31 @@ async def tobuidhex(valu, noneok=False):
 
     buid = await tobuid(valu)
     return s_common.ehex(buid)
+
+async def tonidbyts(valu):
+    if isinstance(valu, int):
+        return s_common.int64en(valu)
+
+    if isinstance(valu, str):
+        try:
+            valu = s_common.uhex(valu)
+        except:
+            raise s_exc.BadArg(mesg=f'Invalid nid value: {s_common.trimText(repr(valu))}')
+
+    if isinstance(valu, bytes):
+        if len(valu) == 8:
+            return valu
+
+        if len(valu) == 32 and (nid := s_scope.get('runt').view.core.getNidByBuid(valu)) is not None:
+            return nid
+
+    elif isinstance(valu, Node):
+        return valu.valu.nid
+
+    elif isinstance(valu, s_node.Node):
+        return valu.nid
+
+    raise s_exc.BadArg(mesg=f'Invalid nid value: {s_common.trimText(repr(valu))}')
 
 async def totype(valu, basetypes=False) -> str:
     '''

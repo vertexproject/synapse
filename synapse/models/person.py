@@ -1,594 +1,276 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    ('ps', {
+        'types': (
+            ('edu:course', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'title': 'course'}}),
+                ),
+                'doc': 'A course of study taught by an org.'}),
 
-class PsModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
-            'types': (
-                ('edu:course', ('guid', {}), {
-                    'doc': 'A course of study taught by an org.',
-                }),
-                ('edu:class', ('guid', {}), {
-                    'doc': 'An instance of an edu:course taught at a given time.',
-                }),
-                ('ps:education', ('guid', {}), {
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'student::name'}},
-                            {'type': 'prop', 'opts': {'name': 'institution::orgname'}},
-                            {'type': 'prop', 'opts': {'name': 'attended:first'}},
-                            {'type': 'prop', 'opts': {'name': 'attended:last'}},
-                        ),
-                    },
-                    'doc': 'A period of education for an individual.',
-                }),
-                ('ps:achievement', ('guid', {}), {
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'awardee::name'}},
-                            {'type': 'prop', 'opts': {'name': 'award::name'}},
-                            {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-                            {'type': 'prop', 'opts': {'name': 'awarded'}},
-                        ),
-                    },
-                    'doc': 'An instance of an individual receiving an award.',
-                }),
-                ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'A single name element (potentially given or sur).',
-                    'ex': 'robert'
-                }),
-                ('ps:name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
-                    'ex': 'robert grey'}),
+            ('edu:class', ('guid', {}), {
+                'interfaces': (
+                    ('ou:attendable', {'template': {'title': 'class'}}),
+                ),
+                'doc': 'An instance of an edu:course taught at a given time.'}),
 
-                ('ps:person', ('guid', {}), {
-                    'doc': 'A GUID for a person.'}),
+            ('ps:education', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'student::name'}},
+                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
+                'doc': 'A period of education for an individual.'}),
 
-                ('ps:persona', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ps:contact.'}),
+            ('ps:achievement', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'awardee::name'}},
+                        {'type': 'prop', 'opts': {'name': 'award::name'}},
+                        {'type': 'prop', 'opts': {'name': 'award::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'awarded'}},
+                    ),
+                },
+                'doc': 'An instance of an individual receiving an award.'}),
 
-                ('ps:person:has', ('comp', {'fields': (('person', 'ps:person'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ps:person -(has)>.'}),
+            ('ps:person', ('guid', {}), {
+                'template': {'title': 'person'},
+                'interfaces': (
+                    ('entity:actor', {}),
+                    ('entity:singular', {}),
+                    ('entity:contactable', {}),
+                ),
+                'doc': 'A person or persona.'}),
 
-                ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ps:contact -(has)>.'}),
+            ('ps:workhist', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                        {'type': 'prop', 'opts': {'name': 'org:name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
+                'doc': "An entry in a contact's work history."}),
 
-                ('ps:contact', ('guid', {}), {
-                    'doc': 'A GUID for a contact info record.',
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
-                            {'type': 'prop', 'opts': {'name': 'orgname'}},
-                            {'type': 'prop', 'opts': {'name': 'email'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
-                        ),
-                    }}),
+            ('ps:vitals', ('guid', {}), {
+                'template': {'title': 'person'},
+                'interfaces': (
+                    ('phys:object', {}),
+                ),
+                'doc': 'Statistics and demographic data about a person.'}),
 
-                ('ps:contact:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of contact types.',
-                }),
-                ('ps:contactlist', ('guid', {}), {
-                    'doc': 'A GUID for a list of associated contacts.',
-                }),
-                ('ps:workhist', ('guid', {}), {
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
-                            {'type': 'prop', 'opts': {'name': 'jobtitle'}},
-                            {'type': 'prop', 'opts': {'name': 'orgname'}},
-                            {'type': 'prop', 'opts': {'name': 'started'}},
-                            {'type': 'prop', 'opts': {'name': 'ended'}},
-                        ),
-                    },
-                    'doc': "An entry in a contact's work history."}),
+            ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
+                'doc': 'An interface inherited by nodes which represent something which can be learned.'}),
 
-                ('ps:vitals', ('guid', {}), {
-                    'interfaces': ('phys:object',),
-                    'template': {'phys:object': 'person'},
-                    'doc': 'Statistics and demographic data about a person or contact.'}),
+            ('ps:skill', ('guid', {}), {
+                'interfaces': (
+                    ('edu:learnable', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
+                'doc': 'A specific skill which a person or organization may have.'}),
 
-                ('ps:skill', ('guid', {}), {
-                    'doc': 'A specific skill which a person or organization may have.',
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
-                        ),
-                    }}),
+            ('ps:skill:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of skill types.'}),
 
-                ('ps:skill:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of skill types.'}),
+            ('ps:proficiency', ('guid', {}), {
+                'doc': 'The assessment that a given contact possesses a specific skill.',
+                'display': {
+                    'columns': (
+                        # FIXME interface embed props
+                        # {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        # {'type': 'prop', 'opts': {'name': 'skill::name'}},
+                    ),
+                }}),
+        ),
+        'interfaces': (
 
-                ('ps:proficiency', ('guid', {}), {
-                    'doc': 'The assessment that a given contact possesses a specific skill.',
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
-                            {'type': 'prop', 'opts': {'name': 'skill::name'}},
-                        ),
-                    }}),
-            ),
-            'edges': (
-                (('ps:contact', 'has', None), {
-                    'doc': 'The contact is or was in possession of the target node.'}),
-                (('ps:person', 'has', None), {
-                    'doc': 'The person is or was in possession of the target node.'}),
-                (('ps:contact', 'owns', None), {
-                    'doc': 'The contact owns or owned the target node.'}),
-                (('ps:person', 'owns', None), {
-                    'doc': 'The person owns or owned the target node.'}),
-            ),
-            'forms': (
-                ('ps:workhist', {}, (
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact which has the work history.',
-                    }),
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The org that this work history orgname refers to.',
-                    }),
-                    ('orgname', ('ou:name', {}), {
-                        'doc': 'The reported name of the org the contact worked for.',
-                    }),
-                    ('orgfqdn', ('inet:fqdn', {}), {
-                        'doc': 'The reported fqdn of the org the contact worked for.',
-                    }),
-                    ('jobtype', ('ou:jobtype', {}), {
-                        'doc': 'The type of job.',
-                    }),
-                    ('employment', ('ou:employment', {}), {
-                        'doc': 'The type of employment.',
-                    }),
-                    ('jobtitle', ('ou:jobtitle', {}), {
-                        'doc': 'The job title.',
-                    }),
-                    ('started', ('time', {}), {
-                        'doc': 'The date that the contact began working.',
-                    }),
-                    ('ended', ('time', {}), {
-                        'doc': 'The date that the contact stopped working.',
-                    }),
-                    ('duration', ('duration', {}), {
-                        'doc': 'The duration of the period of work.',
-                    }),
-                    ('pay', ('econ:price', {}), {
-                        'doc': 'The estimated/average yearly pay for the work.',
-                    }),
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency that the yearly pay was delivered in.',
-                    }),
-                    ('desc', ('str', {}), {
-                        'doc': 'A description of the work done as part of the job.'}),
-                )),
-                ('edu:course', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ex': 'organic chemistry for beginners',
-                        'doc': 'The name of the course.',
-                    }),
-                    ('desc', ('str', {}), {
-                        'doc': 'A brief course description.',
-                    }),
-                    ('code', ('str', {'lower': True, 'strip': True}), {
-                        'ex': 'chem101',
-                        'doc': 'The course catalog number or designator.',
-                    }),
-                    ('institution', ('ps:contact', {}), {
-                        'doc': 'The org or department which teaches the course.',
-                    }),
-                    ('prereqs', ('array', {'type': 'edu:course', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The pre-requisite courses for taking this course.',
-                    }),
-                )),
-                ('edu:class', {}, (
-                    ('course', ('edu:course', {}), {
-                        'doc': 'The course being taught in the class.',
-                    }),
-                    ('instructor', ('ps:contact', {}), {
-                        'doc': 'The primary instructor for the class.',
-                    }),
-                    ('assistants', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of assistant/co-instructor contacts.',
-                    }),
-                    ('date:first', ('time', {}), {
-                        'doc': 'The date of the first day of class.'
-                    }),
-                    ('date:last', ('time', {}), {
-                        'doc': 'The date of the last day of class.'
-                    }),
-                    ('isvirtual', ('bool', {}), {
-                        'doc': 'Set if the class is known to be virtual.',
-                    }),
-                    ('virtual:url', ('inet:url', {}), {
-                        'doc': 'The URL a student would use to attend the virtual class.',
-                    }),
-                    ('virtual:provider', ('ps:contact', {}), {
-                        'doc': 'Contact info for the virtual infrastructure provider.',
-                    }),
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place that the class is held.',
-                    }),
-                )),
-                ('ps:education', {}, (
-                    ('student', ('ps:contact', {}), {
-                        'doc': 'The contact of the person being educated.',
-                    }),
-                    ('institution', ('ps:contact', {}), {
-                        'doc': 'The contact info for the org providing educational services.',
-                    }),
-                    ('attended:first', ('time', {}), {
-                        'doc': 'The first date the student attended a class.',
-                    }),
-                    ('attended:last', ('time', {}), {
-                        'doc': 'The last date the student attended a class.',
-                    }),
-                    ('classes', ('array', {'type': 'edu:class', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The classes attended by the student.',
-                    }),
-                    ('achievement', ('ps:achievement', {}), {
-                        'doc': 'The achievement awarded to the individual.',
-                    }),
-                )),
-                ('ps:achievement', {}, (
-                    ('awardee', ('ps:contact', {}), {
-                        'doc': 'The recipient of the award.',
-                    }),
-                    ('award', ('ou:award', {}), {
-                        'doc': 'The award bestowed on the awardee.',
-                    }),
-                    ('awarded', ('time', {}), {
-                        'doc': 'The date the award was granted to the awardee.',
-                    }),
-                    ('expires', ('time', {}), {
-                        'doc': 'The date the award or certification expires.',
-                    }),
-                    ('revoked', ('time', {}), {
-                        'doc': 'The date the award was revoked by the org.',
-                    }),
-                )),
-                ('ps:tokn', {}, ()),
-                ('ps:name', {}, (
-                    ('sur', ('ps:tokn', {}), {
-                        'doc': 'The surname part of the name.'
-                    }),
-                    ('middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name part of the name.'
-                    }),
-                    ('given', ('ps:tokn', {}), {
-                        'doc': 'The given name part of the name.'
-                    }),
-                )),
-                ('ps:person', {}, (
-                    ('dob', ('time', {}), {
-                        'doc': 'The date on which the person was born.',
-                    }),
-                    ('dod', ('time', {}), {
-                        'doc': 'The date on which the person died.',
-                    }),
-                    ('img', ('file:bytes', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated: use ps:person:photo.'
-                    }),
-                    ('photo', ('file:bytes', {}), {
-                        'doc': 'The primary image of a person.'
-                    }),
-                    ('nick', ('inet:user', {}), {
-                        'doc': 'A username commonly used by the person.',
-                    }),
-                    ('vitals', ('ps:vitals', {}), {
-                        'doc': 'The most recent known vitals for the person.',
-                    }),
-                    ('name', ('ps:name', {}), {
-                        'alts': ('names',),
-                        'doc': 'The localized name for the person.',
-                    }),
-                    ('name:sur', ('ps:tokn', {}), {
-                        'doc': 'The surname of the person.'
-                    }),
-                    ('name:middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name of the person.'
-                    }),
-                    ('name:given', ('ps:tokn', {}), {
-                        'doc': 'The given name of the person.'
-                    }),
-                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Variations of the name for the person.'
-                    }),
-                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Usernames used by the  person.'
-                    }),
-                )),
-                ('ps:persona', {}, (
-                    ('person', ('ps:person', {}), {
-                        'doc': 'The real person behind the persona.',
-                    }),
-                    ('dob', ('time', {}), {
-                        'doc': 'The Date of Birth (DOB) if known.',
-                    }),
-                    ('img', ('file:bytes', {}), {
-                        'doc': 'The primary image of a suspected person.'
-                    }),
-                    ('nick', ('inet:user', {}), {
-                        'doc': 'A username commonly used by the suspected person.',
-                    }),
-                    ('name', ('ps:name', {}), {
-                        'doc': 'The localized name for the suspected person.',
-                    }),
-                    ('name:sur', ('ps:tokn', {}), {
-                        'doc': 'The surname of the suspected person.'
-                    }),
-                    ('name:middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name of the suspected person.'
-                    }),
-                    ('name:given', ('ps:tokn', {}), {
-                        'doc': 'The given name of the suspected person.'
-                    }),
-                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Variations of the name for a persona.'
-                    }),
-                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Usernames used by the persona.'
-                    }),
-                )),
-                ('ps:person:has', {}, (
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who owns or controls the object or resource.',
-                    }),
-                    ('node', ('ndef', {}), {
-                        'ro': True,
-                        'doc': 'The object or resource that is owned or controlled by the person.',
-                    }),
-                    ('node:form', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The form of the object or resource that is owned or controlled by the person.',
-                    }),
-                )),
-                ('ps:persona:has', {}, (
-                    ('persona', ('ps:persona', {}), {
-                        'ro': True,
-                        'doc': 'The persona who owns or controls the object or resource.',
-                    }),
-                    ('node', ('ndef', {}), {
-                        'ro': True,
-                        'doc': 'The object or resource that is owned or controlled by the persona.',
-                    }),
-                    ('node:form', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The form of the object or resource that is owned or controlled by the persona.',
-                    }),
-                )),
-                ('ps:contact:type:taxonomy', {}, ()),
-                ('ps:contact', {}, (
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The org which this contact represents.',
-                    }),
-                    ('type', ('ps:contact:type:taxonomy', {}), {
-                        'doc': 'The type of contact which may be used for entity resolution.',
-                    }),
-                    ('asof', ('time', {}), {
-                        'date': 'The time this contact was created or modified.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'doc': 'The ps:person GUID which owns this contact.',
-                    }),
-                    ('vitals', ('ps:vitals', {}), {
-                        'doc': 'The most recent known vitals for the contact.',
-                    }),
-                    ('name', ('ps:name', {}), {
-                        'alts': ('names',),
-                        'doc': 'The person name listed for the contact.'}),
+            ('edu:learnable', {
+                'doc': 'An interface inherited by nodes which represent a skill which can be learned.'}),
 
-                    ('bio', ('str', {}), {
-                        'doc': 'A brief bio provided for the contact.'}),
+        ),
+        'edges': (
 
-                    ('desc', ('str', {}), {
-                        'doc': 'A description of this contact.'}),
+            (('ps:education', 'included', 'edu:class'), {
+                'doc': 'The class was taken by the student as part of their education process.'}),
+        ),
+        'forms': (
 
-                    ('title', ('ou:jobtitle', {}), {
-                        'alts': ('titles',),
-                        'doc': 'The job/org title listed for this contact.'}),
+            ('ps:workhist', {}, (
 
-                    ('titles', ('array', {'type': 'ou:jobtitle', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of alternate titles for the contact.'}),
+                ('contact', ('entity:individual', {}), {
+                    'doc': 'The contact which has the work history.'}),
 
-                    ('photo', ('file:bytes', {}), {
-                        'doc': 'The photo listed for this contact.',
-                    }),
-                    ('orgname', ('ou:name', {}), {
-                        'alts': ('orgnames',),
-                        'doc': 'The listed org/company name for this contact.',
-                    }),
-                    ('orgfqdn', ('inet:fqdn', {}), {
-                        'doc': 'The listed org/company FQDN for this contact.',
-                    }),
-                    ('user', ('inet:user', {}), {
-                        'alts': ('users',),
-                        'doc': 'The username or handle for this contact.'}),
+                ('org', ('ou:org', {}), {
+                    'doc': 'The org that this work history orgname refers to.'}),
 
-                    ('service:accounts', ('array', {'type': 'inet:service:account', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The service accounts associated with this contact.'}),
+                ('org:name', ('entity:name', {}), {
+                    'prevnames': ('orgname',),
+                    'doc': 'The reported name of the org the contact worked for.'}),
 
-                    ('web:acct', ('inet:web:acct', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use :service:accounts.',
-                    }),
-                    ('web:group', ('inet:web:group', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use inet:service:group:profile to link to a group.',
-                    }),
-                    ('birth:place', ('geo:place', {}), {
-                        'doc': 'A fully resolved place of birth for this contact.',
-                    }),
-                    ('birth:place:loc', ('loc', {}), {
-                        'doc': 'The loc of the place of birth of this contact.',
-                    }),
-                    ('birth:place:name', ('geo:name', {}), {
-                        'doc': 'The name of the place of birth of this contact.',
-                    }),
-                    ('death:place', ('geo:place', {}), {
-                        'doc': 'A fully resolved place of death for this contact.',
-                    }),
-                    ('death:place:loc', ('loc', {}), {
-                        'doc': 'The loc of the place of death of this contact.',
-                    }),
-                    ('death:place:name', ('geo:name', {}), {
-                        'doc': 'The name of the place of death of this contact.',
-                    }),
-                    ('dob', ('time', {}), {
-                        'doc': 'The date of birth for this contact.',
-                    }),
-                    ('dod', ('time', {}), {
-                        'doc': 'The date of death for this contact.',
-                    }),
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The home or main site for this contact.',
-                    }),
-                    ('email', ('inet:email', {}), {
-                        'alts': ('emails',),
-                        'doc': 'The main email address for this contact.',
-                    }),
-                    ('email:work', ('inet:email', {}), {
-                        'doc': 'The work email address for this contact.'
-                    }),
-                    ('loc', ('loc', {}), {
-                        'doc': 'Best known contact geopolitical location.'
-                    }),
-                    ('address', ('geo:address', {}), {
-                        'doc': 'The street address listed for the contact.',
-                        'disp': {'hint': 'text'}
-                    }),
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place associated with this contact.',
-                    }),
-                    ('place:name', ('geo:name', {}), {
-                        'doc': 'The reported name of the place associated with this contact.',
-                    }),
-                    ('phone', ('tel:phone', {}), {
-                        'doc': 'The main phone number for this contact.',
-                    }),
-                    ('phone:fax', ('tel:phone', {}), {
-                        'doc': 'The fax number for this contact.',
-                    }),
-                    ('phone:work', ('tel:phone', {}), {
-                        'doc': 'The work phone number for this contact.'}),
+                ('org:fqdn', ('inet:fqdn', {}), {
+                    'prevnames': ('orgfqdn',),
+                    'doc': 'The reported fqdn of the org the contact worked for.'}),
 
-                    ('id', ('str', {'strip': True}), {
-                        'doc': 'A type or source specific unique ID for the contact.'}),
+                ('job:type', ('ou:job:type:taxonomy', {}), {
+                    'doc': 'The type of job.',
+                    'prevnames': ('jobtype',)}),
 
-                    ('id:number', ('ou:id:number', {}), {
-                        'alts': ('id:numbers',),
-                        'doc': 'An ID number issued by an org and associated with this contact.',
-                    }),
-                    ('adid', ('it:adid', {}), {
-                        'doc': 'A Advertising ID associated with this contact.',
-                    }),
-                    ('imid', ('tel:mob:imid', {}), {
-                        'doc': 'An IMID associated with the contact.',
-                    }),
-                    ('imid:imei', ('tel:mob:imei', {}), {
-                        'doc': 'An IMEI associated with the contact.',
-                    }),
-                    ('imid:imsi', ('tel:mob:imsi', {}), {
-                        'doc': 'An IMSI associated with the contact.',
-                    }),
-                    # A few probable multi-fields for entity resolution
-                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of associated names/aliases for the person.',
-                    }),
-                    ('orgnames', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of associated names/aliases for the organization.',
-                    }),
-                    ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of secondary/associated email addresses.',
-                    }),
-                    ('web:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use :service:accounts.',
-                    }),
-                    ('id:numbers', ('array', {'type': 'ou:id:number', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of secondary/associated IDs.',
-                    }),
-                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of secondary/associated user names.',
-                    }),
-                    ('crypto:address', ('crypto:currency:address', {}), {
-                        'doc': 'A crypto currency address associated with the contact.'
-                    }),
-                    ('lang', ('lang:language', {}), {
-                        'alts': ('langs',),
-                        'doc': 'The language specified for the contact.'}),
-                    ('langs', ('array', {'type': 'lang:language'}), {
-                        'doc': 'An array of alternative languages specified for the contact.'}),
-                    ('banner', ('file:bytes', {}), {
-                        'doc': 'The file representing the banner for the contact.'}),
-                    ('passwd', ('inet:passwd', {}), {
-                        'doc': 'The current password for the contact.'}),
-                    ('website', ('inet:url', {}), {
-                        'doc': 'A related URL specified by the contact (e.g., a personal or company web '
-                               'page, blog, etc.).'}),
-                    ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Alternative related URLs specified by the contact.'}),
-                )),
-                ('ps:vitals', {}, (
-                    ('asof', ('time', {}), {
-                        'doc': 'The time the vitals were gathered or computed.'}),
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact that the vitals are about.'}),
-                    ('person', ('ps:person', {}), {
-                        'doc': 'The person that the vitals are about.'}),
-                    ('height', ('geo:dist', {}), {
-                        'doc': 'The height of the person or contact.'}),
-                    ('weight', ('mass', {}), {
-                        'doc': 'The weight of the person or contact.'}),
-                    ('econ:currency', ('econ:currency', {}), {
-                        'doc': 'The currency that the price values are recorded using.'}),
-                    ('econ:net:worth', ('econ:price', {}), {
-                        'doc': 'The net worth of the contact.'}),
-                    ('econ:annual:income', ('econ:price', {}), {
-                        'doc': 'The yearly income of the contact.'}),
-                    # TODO: eye color etc. color names / rgb values?
-                )),
-                ('ps:contactlist', {}, (
-                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ',', 'sorted': True}), {
-                        'doc': 'The array of contacts contained in the list.'
-                    }),
-                    ('source:host', ('it:host', {}), {
-                        'doc': 'The host from which the contact list was extracted.',
-                    }),
-                    ('source:file', ('file:bytes', {}), {
-                        'doc': 'The file from which the contact list was extracted.',
-                    }),
-                    ('source:acct', ('inet:web:acct', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use :source:account.',
-                    }),
-                    ('source:account', ('inet:service:account', {}), {
-                        'doc': 'The service account from which the contact list was extracted.',
-                    }),
-                )),
+                ('employment:type', ('ou:employment:type:taxonomy', {}), {
+                    'doc': 'The type of employment.',
+                    'prevnames': ('employment',)}),
 
-                ('ps:skill:type:taxonomy', {}, ()),
-                ('ps:skill', {}, (
+                ('title', ('entity:title', {}), {
+                    'prevnames': ('jobtitle',),
+                    'doc': 'The title held by the contact.'}),
 
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the skill.'}),
+                ('pay', ('econ:price', {}), {
+                    'doc': 'The average yearly income paid to the contact.'}),
 
-                    ('type', ('ps:skill:type:taxonomy', {}), {
-                        'doc': 'The type of skill as a taxonomy.'})
-                )),
+                ('pay:currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the pay.'}),
 
-                ('ps:proficiency', {}, (
+                ('period', ('ival', {}), {
+                    'prevnames': ('started', 'ended', 'duration'),
+                    'doc': 'The period of time that the contact worked for the organization.'}),
 
-                    ('skill', ('ps:skill', {}), {
-                        'doc': 'The skill in which the contact is proficient.'}),
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the work done as part of the job.'}),
+            )),
+            ('edu:course', {}, (
 
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact which is proficient in the skill.'}),
-                )),
-            )
-        }
-        name = 'ps'
-        return ((name, modl), )
+                ('name', ('meta:name', {}), {
+                    'ex': 'organic chemistry for beginners',
+                    'doc': 'The name of the course.'}),
+
+                ('desc', ('str', {}), {
+                    'doc': 'A brief course description.'}),
+
+                ('id', ('meta:id', {}), {
+                    'ex': 'chem101',
+                    'prevnames': ('code',),
+                    'doc': 'The course catalog number or ID.'}),
+
+                ('institution', ('ou:org', {}), {
+                    'doc': 'The org or department which teaches the course.'}),
+
+                ('prereqs', ('array', {'type': 'edu:course'}), {
+                    'doc': 'The pre-requisite courses for taking this course.'}),
+
+            )),
+            ('edu:class', {}, (
+
+                ('course', ('edu:course', {}), {
+                    'doc': 'The course being taught in the class.'}),
+
+                ('instructor', ('entity:individual', {}), {
+                    'doc': 'The primary instructor for the class.'}),
+
+                ('assistants', ('array', {'type': 'entity:individual'}), {
+                    'doc': 'An array of assistant/co-instructor contacts.'}),
+
+                ('period', ('ival', {'precision': 'day'}), {
+                    'prevnames': ('date:first', 'date:last'),
+                    'doc': 'The period over which the class was run.'}),
+
+                ('isvirtual', ('bool', {}), {
+                    'doc': 'Set if the class is virtual.'}),
+
+                ('virtual:url', ('inet:url', {}), {
+                    'doc': 'The URL a student would use to attend the virtual class.'}),
+
+                ('virtual:provider', ('entity:actor', {}), {
+                    'doc': 'Contact info for the virtual infrastructure provider.'}),
+            )),
+            ('ps:education', {}, (
+
+                ('student', ('entity:individual', {}), {
+                    'doc': 'The student who attended the educational institution.'}),
+
+                ('institution', ('ou:org', {}), {
+                    'doc': 'The organization providing educational services.'}),
+
+                ('period', ('ival', {'precision': 'day'}), {
+                    'prevnames': ('attended:first', 'attended:last'),
+                    'doc': 'The period of time when the student attended the institution.'}),
+
+                ('achievement', ('ps:achievement', {}), {
+                    'doc': 'The degree or certificate awarded to the individual.'}),
+
+            )),
+            ('ps:achievement', {}, (
+
+                ('awardee', ('entity:individual', {}), {
+                    'doc': 'The recipient of the award.'}),
+
+                ('award', ('ou:award', {}), {
+                    'doc': 'The award bestowed on the awardee.'}),
+
+                ('awarded', ('time', {}), {
+                    'doc': 'The date the award was granted to the awardee.'}),
+
+                ('expires', ('time', {}), {
+                    'doc': 'The date the award or certification expires.'}),
+
+                ('revoked', ('time', {}), {
+                    'doc': 'The date the award was revoked by the org.'}),
+
+            )),
+
+            ('ps:person', {}, (
+                ('vitals', ('ps:vitals', {}), {
+                    'doc': 'The most recent vitals for the person.'}),
+            )),
+            ('ps:vitals', {}, (
+
+                ('time', ('time', {}), {
+                    'prevnames': ('asof',),
+                    'doc': 'The time the vitals were gathered or computed.'}),
+
+                ('individual', ('entity:individual', {}), {
+                    'prevnames': ('contact', 'person'),
+                    'doc': 'The individual that the vitals are about.'}),
+
+                ('econ:currency', ('econ:currency', {}), {
+                    'doc': 'The currency that the price values are recorded using.'}),
+
+                ('econ:net:worth', ('econ:price', {}), {
+                    'doc': 'The net worth of the contact.'}),
+
+                ('econ:annual:income', ('econ:price', {}), {
+                    'doc': 'The yearly income of the contact.'}),
+
+                # TODO: eye color etc. color names / rgb values?
+            )),
+
+            ('ps:skill:type:taxonomy', {}, ()),
+            ('ps:skill', {}, (
+                ('name', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The name of the skill.'}),
+                ('type', ('ps:skill:type:taxonomy', {}), {
+                    'doc': 'The type of skill as a taxonomy.'})
+            )),
+
+            ('ps:proficiency', {}, (
+                ('skill', ('edu:learnable', {}), {
+                    'doc': 'The topic or skill in which the contact is proficient.'}),
+
+                ('contact', ('entity:actor', {}), {
+                    'doc': 'The entity which is proficient in the skill.'}),
+            )),
+        )
+    }),
+)

@@ -125,79 +125,79 @@ class StatsTest(s_test.SynTest):
             $i = (0)
             for $x in $lib.range(5) {
                 for $y in $lib.range(($x + 1)) {
-                    [ inet:ipv4=$i :asn=(($x * 10) % 17) ]
+                    [ inet:ip=([4, $i]) :asn=(($x * 10) % 17) ]
                     $i = ($i + 1)
                 }
             }
             '''
             await core.nodes(q)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn')
             self.stormIsInPrint(chartnorm, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --by-name')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --by-name')
             self.stormIsInPrint(chartnorm_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 -> inet:asn | stats.countby')
+            msgs = await core.stormlist('inet:ip -> inet:asn | stats.countby')
             self.stormIsInPrint(chartnorm, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 -> inet:asn | stats.countby --by-name')
+            msgs = await core.stormlist('inet:ip -> inet:asn | stats.countby --by-name')
             self.stormIsInPrint(chartnorm_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --reverse')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --reverse')
             self.stormIsInPrint(chartrev, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --reverse --by-name')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --reverse --by-name')
             self.stormIsInPrint(chartrev_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --size 3')
             self.stormIsInPrint(chartsize, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3 --by-name')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --size 3 --by-name')
             self.stormIsInPrint(chartsize_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3 --reverse')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --size 3 --reverse')
             self.stormIsInPrint(chartsizerev, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3 --reverse --by-name')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --size 3 --reverse --by-name')
             self.stormIsInPrint(chartsizerev_byname, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --bar-width 10')
+            msgs = await core.stormlist(f'inet:ip | stats.countby :asn --bar-width 10')
             self.stormIsInPrint(chartwidth, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --bar-width 10 --by-name')
+            msgs = await core.stormlist(f'inet:ip | stats.countby :asn --bar-width 10 --by-name')
             self.stormIsInPrint(chartwidth_byname, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --label-max-width 1')
+            msgs = await core.stormlist(f'inet:ip | stats.countby :asn --label-max-width 1')
             self.stormIsInPrint(chartlabelwidth, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --label-max-width 1 --by-name')
+            msgs = await core.stormlist(f'inet:ip | stats.countby :asn --label-max-width 1 --by-name')
             self.stormIsInPrint(chartlabelwidth_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+"')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --char "+"')
             self.stormIsInPrint(chartchar, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+" --by-name')
+            msgs = await core.stormlist('inet:ip | stats.countby :asn --char "+" --by-name')
             self.stormIsInPrint(chartchar_byname, msgs)
 
             msgs = await core.stormlist(
-                'inet:ipv4=0.0.0.1 inet:ipv4=0.0.0.2 inet:ipv4=0.0.0.6 inet:ipv4=0.0.0.10 | stats.countby --by-name')
+                'inet:ip=0.0.0.1 inet:ip=0.0.0.2 inet:ip=0.0.0.6 inet:ip=0.0.0.10 | stats.countby --by-name')
             self.stormIsInPrint(chartipv4_byname, msgs)
 
             msgs = await core.stormlist('stats.countby foo')
             self.stormIsInPrint('No values to display!', msgs)
 
-            self.len(0, await core.nodes('inet:ipv4 | stats.countby :asn'))
-            self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --yield'))
+            self.len(0, await core.nodes('inet:ip | stats.countby :asn'))
+            self.len(15, await core.nodes('inet:ip | stats.countby :asn --yield'))
 
             with self.raises(s_exc.BadArg):
-                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --label-max-width "-1"'))
+                self.len(15, await core.nodes('inet:ip | stats.countby :asn --label-max-width "-1"'))
 
             with self.raises(s_exc.BadArg):
-                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --bar-width "-1"'))
+                self.len(15, await core.nodes('inet:ip | stats.countby :asn --bar-width "-1"'))
 
             with self.raises(s_exc.BadArg):
-                self.len(15, await core.nodes('inet:ipv4 | stats.countby ({})'))
+                self.len(15, await core.nodes('inet:ip | stats.countby ({})'))
 
     async def test_stormlib_stats_tally(self):
 

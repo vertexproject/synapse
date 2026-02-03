@@ -72,7 +72,7 @@ class StormHttpTest(s_test.SynTest):
 
             # Request URL is exposed
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp.url )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -82,7 +82,7 @@ class StormHttpTest(s_test.SynTest):
             # Redirects expose the final URL
             q = '''
             $params = ({'redirect': $status_url})
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
             return ( $resp.url )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -90,7 +90,7 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $_url = `https://root:root@127.0.0.1:{($port + (1))}/api/v0/newp`
-            $resp = $lib.inet.http.get($_url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($_url, ssl=({"verify": false}))
             if ( $resp.code != (-1) ) { $lib.exit(mesg='Test fail!') }
             return ( $resp.url )
             '''
@@ -105,7 +105,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr."User-Agent"="Storm HTTP Stuff"
             $k = (0)
             $hdr.$k="Why"
-            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -123,7 +123,7 @@ class StormHttpTest(s_test.SynTest):
                     ((0), "Why"),
                     ("true", $lib.true),
             )
-            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -135,7 +135,7 @@ class StormHttpTest(s_test.SynTest):
 
             # headers
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp.headers."Content-Type" )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -144,7 +144,7 @@ class StormHttpTest(s_test.SynTest):
             # Request headers
             q = '''
             $headers = ({"Wow": "OhMy"})
-            $resp = $lib.inet.http.get($url, headers=$headers, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, headers=$headers, ssl=({"verify": false}))
             return ( $resp.request_headers )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -155,7 +155,7 @@ class StormHttpTest(s_test.SynTest):
             badurl = f'https://root:root@127.0.0.1:{port}/api/v0/notjson'
             badopts = {'vars': {'url': badurl}}
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             with self.raises(s_exc.BadJsonText) as cm:
@@ -164,7 +164,7 @@ class StormHttpTest(s_test.SynTest):
             # params as a urlencoded string
             q = '''
             $params="foo=bar&key=valu&foo=baz"
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -174,7 +174,7 @@ class StormHttpTest(s_test.SynTest):
             # Bad param
             q = '''
             $params=(1138)
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
             return ( ($resp.code, $resp.reason, $resp.err) )
             '''
             code, reason, (errname, _) = await core.callStorm(q, opts=opts)
@@ -203,17 +203,17 @@ class StormHttpTest(s_test.SynTest):
             badurl = f'https://root:root@127.0.0.1:{port}/api/v0/badjson'
             badopts = {'vars': {'url': badurl}}
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
+            return ( $resp.json(strict=(true)) )
             '''
             with self.raises(s_exc.StormRuntimeError) as cm:
                 resp = await core.callStorm(q, opts=badopts)
 
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json(encoding=utf8, errors=ignore) )
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
+            return ( $resp.json(encoding=utf8) )
             '''
-            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+            self.eq({"foo": "bar�"}, await core.callStorm(q, opts=badopts))
 
             retn = await core.callStorm('return($lib.inet.http.codereason(404))')
             self.eq(retn, 'Not Found')
@@ -246,7 +246,7 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $url = `https://127.0.0.1:{$port}/api/ext/dyn00`
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -260,7 +260,7 @@ class StormHttpTest(s_test.SynTest):
             # The gtor returns a list of objects
             q = '''
             $url = `https://127.0.0.1:{$port}/api/ext/dyn00`
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp.history.0 )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -271,7 +271,7 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $_url = `https://127.0.0.1:{($port + (1))}/api/v0/newp`
             $params = ({'redirect': $_url})
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
             if ( $resp.code != (-1) ) { $lib.exit(mesg='Test fail!') }
             return ( $resp.history )
             '''
@@ -282,7 +282,7 @@ class StormHttpTest(s_test.SynTest):
             gianturl = f'https://root:root@127.0.0.1:{port}/api/v0/giantheader'
             giantopts = {'vars': {'url': gianturl}}
             q = '''
-            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
             return ( $resp )
             '''
             resp = await core.callStorm(q, opts=giantopts)
@@ -359,7 +359,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl=({"verify": false}))
             return ( ($resp.code, $resp.reason, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -375,7 +375,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl=({"verify": false}))
             return ( ($resp.code, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -392,7 +392,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl=({"verify": false}), allow_redirects=$lib.true)
             return ( ($resp.code, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -405,7 +405,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl=({"verify": false}), allow_redirects=$lib.true)
             return ( ($resp.code, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -418,7 +418,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl=({"verify": false}), allow_redirects=$lib.true)
             return ( ($resp.code, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -440,7 +440,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -456,7 +456,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl=({"verify": false}), timeout=$timeout)
             $code = $resp.code
             return ($code)
             '''
@@ -470,7 +470,7 @@ class StormHttpTest(s_test.SynTest):
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
-            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl=({"verify": false}), timeout=$timeout)
             $code = $resp.code
             return (($code, $resp.err))
             '''
@@ -482,7 +482,7 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $params=({"foo": ["bar", "baz"], "key": [["valu"]]})
-            $resp = $lib.inet.http.request(GET, $url, params=$params, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.request(GET, $url, params=$params, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -492,7 +492,7 @@ class StormHttpTest(s_test.SynTest):
             # headers are safe to serialize
             q = '''
             $headers = ({'Foo': 'Bar'})
-            $resp = $lib.inet.http.request(GET, $url, headers=$headers, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.request(GET, $url, headers=$headers, ssl=({"verify": false}))
             return ( ($lib.json.save($resp.headers), $lib.json.save($resp.request_headers)) )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -512,7 +512,7 @@ class StormHttpTest(s_test.SynTest):
             adduser = '''
                 $url = `https://root:root@127.0.0.1:{$port}/api/v1/auth/adduser`
                 $user = ({"name": $name, "passwd": $passwd})
-                $post = $lib.inet.http.post($url, json=$user, ssl_verify=$(0)).json().result.name
+                $post = $lib.inet.http.post($url, json=$user, ssl=({"verify": false})).json().result.name
                 $lib.print($post)
                 [ test:str=$post ]
             '''
@@ -525,7 +525,7 @@ class StormHttpTest(s_test.SynTest):
                 $url = `https://root:root@127.0.0.1:{$port}/api/v1/auth/adduser`
                 $user = $lib.json.save( ({"name": $name, "passwd": $passwd}) )
                 $header = ({"Content-Type": "application/json"})
-                $post = $lib.inet.http.post($url, headers=$header, body=$user,  ssl_verify=$(0)).json().result.name
+                $post = $lib.inet.http.post($url, headers=$header, body=$user,  ssl=({"verify": false})).json().result.name
                 [ test:str=$post ]
             '''
             opts = {'vars': {'port': port, 'name': 'vertex', 'passwd': 'project'}}
@@ -538,7 +538,7 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'url': url, 'buf': b'1234'}}
             q = '''
             $params=({"key": "valu", "foo": "bar"})
-            $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -552,7 +552,7 @@ class StormHttpTest(s_test.SynTest):
                 {"name": "foo", "value": "bar2"},
                 {"name": "baz", "value": "cool"}
             ])
-            $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
+            $resp = $lib.inet.http.post($url, fields=$fields, ssl=({"verify": false}))
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
@@ -565,7 +565,7 @@ class StormHttpTest(s_test.SynTest):
             $fields = ([
                 {"filename": 'deadb33f.exe', "value": $buf, "name": "word"},
             ])
-            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            return($lib.inet.http.post($url, ssl=({"verify": false}), fields=$fields))
             '''
             resp = await core.callStorm(q, opts=opts)
             request = s_json.loads(resp.get('body'))
@@ -576,7 +576,7 @@ class StormHttpTest(s_test.SynTest):
             $fields = ([
                 {"forgot": "name", "sha256": "newp"},
             ])
-            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            return($lib.inet.http.post($url, ssl=({"verify": false}), fields=$fields))
             '''
             resp = await core.callStorm(q, opts=opts)
             self.eq(resp.get('code'), -1)
@@ -587,7 +587,7 @@ class StormHttpTest(s_test.SynTest):
             $fields = ([
                 {"filename": 'deadbeef.exe', "value": $buf},
             ])
-            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            return($lib.inet.http.post($url, ssl=({"verify": false}), fields=$fields))
             '''
             resp = await core.callStorm(q, opts=opts)
             err = resp['err']
@@ -605,7 +605,7 @@ class StormHttpTest(s_test.SynTest):
             $url = `https://root:root@127.0.0.1:{$port}/api/v1/storm`
             $stormq = "($size, $sha2) = $lib.axon.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
             $json = ({"query": $stormq})
-            $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
+            $bytez = $lib.inet.http.post($url, json=$json, ssl=({"verify": false}))
             '''
             opts = {'vars': {'port': port}}
             nodes = await core.nodes(text, opts=opts)
@@ -621,7 +621,7 @@ class StormHttpTest(s_test.SynTest):
             $url = `https://root:root@127.0.0.1:{$port}/api/v1/storm`
             $json = ({"query": "test:str"})
             $body = $json
-            $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
+            $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl=({"verify": false}))
             return ( ($resp.code, $resp.err) )
             '''
             code, (errname, _) = await core.callStorm(text, opts=opts)
@@ -636,20 +636,9 @@ class StormHttpTest(s_test.SynTest):
             self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
 
             msgs = await core.stormlist('$resp=$lib.axon.wget("http://vertex.link", proxy=(null)) $lib.print($resp.mesg)')
-            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
-            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
             await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
-
-            # todo: setting the synapse version can be removed once proxy=true support is released
-            try:
-                oldv = core.axoninfo['synapse']['version']
-                core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                resp = await core.callStorm('return($lib.axon.wget("http://vertex.link", proxy=(null)))')
-                self.false(resp.get('ok'))
-                self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
-            finally:
-                core.axoninfo['synapse']['version'] = oldv
 
             size, sha256 = await core.axon.put(b'asdf')
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
@@ -663,26 +652,25 @@ class StormHttpTest(s_test.SynTest):
             self.isin("connect to proxy 127.0.0.1:1", errinfo.get('mesg'))
 
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
-            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
-            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
             await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
 
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             errmsg = f'User {visi.name!r} ({visi.iden}) must have permission {{perm}}'
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
@@ -690,15 +678,15 @@ class StormHttpTest(s_test.SynTest):
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.false(resp.get('ok'))
@@ -711,43 +699,25 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
-            host, port = await core.addHttpsPort(0)
-            opts = {
-                'vars': {
-                    'url': f'https://loop.vertex.link:{port}',
-                    'proxy': 'socks5://user:pass@127.0.0.1:1',
-                }
-            }
-            try:
-                oldv = core.axoninfo['synapse']['version']
-                minver = s_stormtypes.AXON_MINVERS_PROXY
-                core.axoninfo['synapse']['version'] = minver[2], minver[1] - 1, minver[0]
-                q = '$resp=$lib.axon.wget($url, ssl=(false), proxy=$proxy) $lib.print(`code={$resp.code}`)'
-                mesgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('code=404', mesgs)
-                self.stormIsInWarn('Axon version does not support proxy argument', mesgs)
-            finally:
-                core.axoninfo['synapse']['version'] = oldv
-
         async with self.getTestCore(conf=conf) as core:
             # Proxy permission tests in this section
 
             visi = await core.auth.addUser('visi')
 
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             _, sha256 = await core.axon.put(b'asdf')
             sha256 = s_common.ehex(sha256)
 
             host, port = await core.addHttpsPort(0)
 
-            q1 = f'return($lib.inet.http.get(https://loop.vertex.link:{port}, ssl_verify=$lib.false, proxy=$proxy))'
-            q2 = f'return($lib.axon.wget(https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
-            q3 = f'return($lib.axon.wput({sha256}, https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
+            q1 = 'return($lib.inet.http.get(`https://loop.vertex.link:{$port}`, ssl=({"verify": false}), proxy=$proxy))'
+            q2 = 'return($lib.axon.wget(`https://loop.vertex.link:{$port}`, ssl=({"verify": false}), proxy=$proxy))'
+            q3 = 'return($lib.axon.wput($sha256, `https://loop.vertex.link:{$port}`, ssl=({"verify": false}), proxy=$proxy))'
 
             for proxy in ('socks5://user:pass@127.0.0.1:1', False):
-                opts = {'vars': {'proxy': proxy}, 'user': visi.iden}
+                opts = {'vars': {'proxy': proxy, 'port': port, 'sha256': sha256}, 'user': visi.iden}
 
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm(q1, opts=opts)
@@ -759,9 +729,9 @@ class StormHttpTest(s_test.SynTest):
                     await core.callStorm(q3, opts=opts)
 
             # Add permissions to use a proxy
-            await visi.addRule((True, ('storm', 'lib', 'inet', 'http', 'proxy')))
+            await visi.addRule((True, ('inet', 'http', 'proxy')))
 
-            opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
+            opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1', 'port': port, 'sha256': sha256}, 'user': visi.iden}
 
             resp = await core.callStorm(q1, opts=opts)
             self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
@@ -772,7 +742,7 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q3, opts=opts)
             self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
-            opts = {'vars': {'proxy': False}, 'user': visi.iden}
+            opts = {'vars': {'proxy': False, 'port': port, 'sha256': sha256}, 'user': visi.iden}
 
             resp = await core.callStorm(q1, opts=opts)
             self.eq(resp['code'], 404)
@@ -798,7 +768,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = `https://127.0.0.1:{$port}/test/ws`
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params, ssl=({"verify": false}))
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -814,7 +784,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = `https://127.0.0.1:{$port}/test/ws`
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl_verify=$lib.false)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl=({"verify": false}))
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -828,7 +798,7 @@ class StormHttpTest(s_test.SynTest):
             query = '''
             $url = `https://127.0.0.1:{$port}/test/ws`
 
-            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl_verify=$lib.false)
+            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl=({"verify": false}))
             if (not $ok) { $lib.exit($sock) }
 
             ($ok, $mesg) = $sock.rx()
@@ -843,15 +813,14 @@ class StormHttpTest(s_test.SynTest):
 
             opts = {'vars': {'port': port, 'proxy': None}}
             mesgs = await core.stormlist(query, opts=opts)
-            self.stormIsInWarn('proxy argument to $lib.null is deprecated', mesgs)
-            self.true(mesgs[-2][0] == 'err' and mesgs[-2][1][1]['mesg'] == "(True, ['echo', 'lololol'])")
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', mesgs)
 
             visi = await core.auth.addUser('visi')
 
             opts = {'user': visi.iden, 'vars': {'port': port, 'proxy': False}}
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.callStorm(query, opts=opts)
-            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission storm.lib.inet.http.proxy')
+            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission inet.http.proxy')
 
             await visi.setAdmin(True)
 
@@ -908,14 +877,13 @@ class StormHttpTest(s_test.SynTest):
                     'vars': {
                         'url': f'https://root:root@localhost:{port}/api/v0/test',
                         'ws': f'https://localhost:{port}/test/ws',
-                        'verify': True,
                         'sslopts': sslopts,
                     },
                 }
 
-                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
+                q = 'return($lib.inet.http.get($url, ssl=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 # mtls required
@@ -945,13 +913,13 @@ class StormHttpTest(s_test.SynTest):
                 self.len(3, core._sslctx_cache)
 
                 ## remaining methods
-                self.eq(200, await core.callStorm('return($lib.inet.http.post($url, ssl_opts=$sslopts).code)', opts=opts))
-                self.eq(200, await core.callStorm('return($lib.inet.http.head($url, ssl_opts=$sslopts).code)', opts=opts))
-                self.eq(200, await core.callStorm('return($lib.inet.http.request(get, $url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.post($url, ssl=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.head($url, ssl=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.request(get, $url, ssl=$sslopts).code)', opts=opts))
 
                 ## connect
                 ret = await core.callStorm('''
-                    ($ok, $sock) = $lib.inet.http.connect($ws, ssl_opts=$sslopts)
+                    ($ok, $sock) = $lib.inet.http.connect($ws, ssl=$sslopts)
                     if (not $ok) { return(($ok, $sock)) }
                     ($ok, $mesg) = $sock.rx()
                     return(($ok, $mesg))
@@ -964,29 +932,12 @@ class StormHttpTest(s_test.SynTest):
                 axon_queries = {
                     'postfile': '''
                         $fields = ([{"name": "file", "sha256": $sha256}])
-                        return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts).code)
+                        return($lib.inet.http.post($url, fields=$fields, ssl=$sslopts).code)
                     ''',
-                    'wget': 'return($lib.axon.wget($url, ssl_opts=$sslopts).code)',
-                    'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)',
-                    'urlfile': 'yield $lib.axon.urlfile($url, ssl_opts=$sslopts)',
+                    'wget': 'return($lib.axon.wget($url, ssl=$sslopts).code)',
+                    'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl=$sslopts).code)',
+                    'urlfile': 'yield $lib.axon.urlfile($url, ssl=$sslopts)',
                 }
-
-                ## version check fails
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (2, 161, 0)
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
-
-                ## version check succeeds
-                self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
-                self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
-                self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
-                self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
 
                 # verify arg precedence
 
@@ -999,8 +950,7 @@ class StormHttpTest(s_test.SynTest):
                 self.isin('self-signed certificate', resp['reason'])
 
                 ## verify arg wins
-                opts['vars']['verify'] = False
-                sslopts['verify'] = True
+                sslopts['verify'] = False
                 resp = await core.callStorm(q, opts=opts)
                 self.eq(200, resp['code'])
 
@@ -1037,14 +987,13 @@ class StormHttpTest(s_test.SynTest):
                 opts = {
                     'vars': {
                         'url': f'https://root:root@localhost:{port}/api/v0/test',
-                        'verify': True,
                         'sslopts': sslopts,
                     },
                 }
 
-                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
+                q = 'return($lib.inet.http.get($url, ssl=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 ## no cert provided

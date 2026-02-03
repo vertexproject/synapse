@@ -323,7 +323,7 @@ def convert_rstorm(_):
                     raise RuntimeError(f'Failed to convert {sfile}: {result.stderr}')
 
                 tock = s_common.now()
-                took = (tock - tick) / 1000
+                took = (tock - tick) / 1000000
                 print(f'convert_rstorm: Rstorm {fn} execution took {took} seconds.')
 
 def setup(app):

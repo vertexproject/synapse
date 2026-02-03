@@ -102,7 +102,6 @@ class NexsRoot(s_base.Base):
         self.writeholds = set()
 
         self.applytask = None
-        self.issuewait = False
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
@@ -292,9 +291,6 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
 
@@ -334,7 +330,22 @@ class NexsRoot(s_base.Base):
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
-    async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
+    async def getIssueProxy(self):
+
+        self.reqNotReadOnly()
+
+        if (client := self.client) is None:
+            return
+
+        try:
+            await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
+        except asyncio.TimeoutError:
+            mesg = 'Mirror cannot reach leader for write request'
+            raise s_exc.LinkErr(mesg=mesg) from None
+
+        return await client.proxy()
+
+    async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True, lock=True):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -343,7 +354,7 @@ class NexsRoot(s_base.Base):
         client = self.client
 
         if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait)
+            return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), wait=wait, lock=lock)
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -360,28 +371,23 @@ class NexsRoot(s_base.Base):
 
         # If this issue came from a downstream mirror, just forward the request
         if 'resp' in meta:
-            if self.issuewait:
-                await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
-            else:
-                await client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
             return
 
         with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
-            if self.issuewait:
-                await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
-            else:
-                await client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
             return await futu
 
-    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
+    async def eat(self, nexsiden, event, args, kwargs, meta, etime, wait=True, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
         '''
         if meta is None:
             meta = {}
 
-        await self.cell.nexslock.acquire()
+        if lock:
+            await self.cell.nexslock.acquire()
 
         if self.isfini:
             self.cell.nexslock.release()
@@ -401,7 +407,8 @@ class NexsRoot(s_base.Base):
             self.reqNotReadOnly()
 
             # Keep a reference to the shielded task to ensure it isn't GC'd
-            self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+            item = (nexsiden, event, args, kwargs, meta, etime)
+            self.applytask = asyncio.create_task(self._eat(item))
 
         except:
             self.cell.nexslock.release()
@@ -442,7 +449,7 @@ class NexsRoot(s_base.Base):
 
     async def _apply(self, indx, mesg):
 
-        nexsiden, event, args, kwargs, _ = mesg
+        nexsiden, event, args, kwargs, _, _ = mesg
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -466,20 +473,6 @@ class NexsRoot(s_base.Base):
 
     async def waitOffs(self, offs, timeout=None):
         return await self.nexslog.waitForOffset(offs, timeout)
-
-    async def setindex(self, indx):
-
-        nexsindx = await self.index()
-        if indx < nexsindx:
-            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
-            return False
-
-        if self.donexslog:
-            self.nexslog.setIndex(indx)
-        else:
-            self.nexshot.set('nexs:indx', indx)
-
-        return True
 
     async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
@@ -609,7 +602,7 @@ class NexsRoot(s_base.Base):
 
     async def connectTimeout(self):
         try:
-            await s_common.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
+            await asyncio.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
 
         except asyncio.TimeoutError:
             await self.addWriteHold(mirrordisconnect)
@@ -639,8 +632,6 @@ class NexsRoot(s_base.Base):
             features = cellinfo.get('features', {})
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
-
-            self.issuewait = bool(features.get('issuewait'))
 
             synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
@@ -705,7 +696,7 @@ class NexsRoot(s_base.Base):
                         await self.fini()
                         return
 
-                    meta = args[-1]
+                    meta = args[4]
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
@@ -747,9 +738,6 @@ class NexsRoot(s_base.Base):
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
@@ -844,5 +832,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         saveoffs, retn = await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
         return retn
 
-    async def saveToNexs(self, name, *args, **kwargs):
-        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)
+    async def saveToNexs(self, name, *args, waitiden=None, **kwargs):
+        if waitiden is not None:
+            meta = {'resp': waitiden}
+            return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, meta=meta, wait=False, lock=False)
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, meta=None, lock=False)

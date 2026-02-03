@@ -3,13 +3,12 @@ import logging
 import synapse.exc as s_exc
 
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
 class SynUser(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -28,7 +27,7 @@ class SynUser(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No user named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
@@ -45,7 +44,7 @@ class SynUser(s_types.Guid):
 
 class SynRole(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -64,7 +63,7 @@ class SynRole(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No role named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
@@ -79,300 +78,198 @@ class SynRole(s_types.Guid):
 
         return iden
 
-class SynModule(s_module.CoreModule):
+async def _liftRuntSynCmd(view, prop, cmprvalu=None):
 
-    def initCoreModule(self):
+    if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+        item = view.core.stormcmds.get(cmprvalu[1])
+        if item is not None:
+            yield item.getRuntPode()
+        return
 
-        for form, lifter in (('syn:cmd', self._liftRuntSynCmd),
-                             ('syn:cron', self._liftRuntSynCron),
-                             ('syn:form', self._liftRuntSynForm),
-                             ('syn:prop', self._liftRuntSynProp),
-                             ('syn:type', self._liftRuntSynType),
-                             ('syn:tagprop', self._liftRuntSynTagProp),
-                             ('syn:trigger', self._liftRuntSynTrigger),
-                             ):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, lifter)
-            for _, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, lifter)
+    for item in view.core.getStormCmds():
+        yield item[1].getRuntPode()
 
-    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
+async def _liftRuntSynForm(view, prop, cmprvalu=None):
 
-        def iterStormCmds():
-            for item in self.core.getStormCmds():
-                yield item[1]
+    if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+        item = prop.modl.form(cmprvalu[1])
+        if item is not None:
+            yield item.getRuntPode()
+        return
 
-        async for node in self._doRuntLift(iterStormCmds, full, valu, cmpr):
-            yield node
+    for item in list(prop.modl.forms.values()):
+        yield item.getRuntPode()
 
-    async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
+async def _liftRuntSynProp(view, prop, cmprvalu=None):
 
-        def iterAppts():
-            for item in self.core.agenda.list():
-                yield item[1]
+    if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+        item = prop.modl.prop(cmprvalu[1])
+        if item is not None:
+            if item.isform:
+                yield item.getRuntPropPode()
+            else:
+                yield item.getRuntPode()
+        return
 
-        async for node in self._doRuntLift(iterAppts, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
-
-        def getForms():
-            return list(self.model.forms.values())
-
-        async for node in self._doRuntLift(getForms, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
-
-        genr = self.model.getProps
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
-
-        def getTypes():
-            return list(self.model.types.values())
-
-        async for node in self._doRuntLift(getTypes, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
-
-        def getTagProps():
-            return list(self.model.tagprops.values())
-
-        async for node in self._doRuntLift(getTagProps, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
-
-        view = self.core.getView(iden=view)
-
-        def iterTriggers():
-            for item in view.triggers.list():
-                yield item[1]
-
-        async for node in self._doRuntLift(iterTriggers, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
+    for item in prop.modl.getProps():
+        if item.isform:
+            yield item.getRuntPropPode()
         else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
+            yield item.getRuntPode()
 
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+async def _liftRuntSynType(view, prop, cmprvalu=None):
 
-    def getModelDefs(self):
+    if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+        item = prop.modl.type(cmprvalu[1])
+        if item is not None:
+            yield item.getRuntPode()
+        return
 
-        return (('syn', {
+    for item in list(prop.modl.types.values()):
+        yield item.getRuntPode()
 
-            'ctors': (
-                ('syn:user', 'synapse.models.syn.SynUser', {}, {
-                    'doc': 'A Synapse user.'}),
+async def _liftRuntSynTagProp(view, prop, cmprvalu=None):
 
-                ('syn:role', 'synapse.models.syn.SynRole', {}, {
-                    'doc': 'A Synapse role.'}),
-            ),
-            'types': (
-                ('syn:type', ('str', {'strip': True}), {
-                    'doc': 'A Synapse type used for normalizing nodes and properties.',
-                }),
-                ('syn:form', ('str', {'strip': True}), {
-                    'doc': 'A Synapse form used for representing nodes in the graph.',
-                }),
-                ('syn:prop', ('str', {'strip': True}), {
-                    'doc': 'A Synapse property.'
-                }),
-                ('syn:tagprop', ('str', {'strip': True}), {
-                    'doc': 'A user defined tag property.'
-                }),
-                ('syn:cron', ('guid', {}), {
-                    'doc': 'A Cortex cron job.',
-                }),
-                ('syn:trigger', ('guid', {}), {
-                    'doc': 'A Cortex trigger.'
-                }),
-                ('syn:cmd', ('str', {'strip': True}), {
-                    'doc': 'A Synapse storm command.'
-                }),
-                ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
-                    'doc': 'A nodedata key and the form it may be present on.',
-                }),
-            ),
+    if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+        item = prop.modl.tagprops.get(cmprvalu[1])
+        if item is not None:
+            yield item.getRuntPode()
+        return
 
-            'forms': (
+    for item in list(prop.modl.tagprops.values()):
+        yield item.getRuntPode()
 
-                ('syn:tag', {}, (
 
-                    ('up', ('syn:tag', {}), {'ro': True,
-                        'doc': 'The parent tag for the tag.'}),
+modeldefs = (
+    ('syn', {
 
-                    ('isnow', ('syn:tag', {}), {
-                        'doc': 'Set to an updated tag if the tag has been renamed.'}),
+        'ctors': (
+            ('syn:user', 'synapse.models.syn.SynUser', {}, {
+                'interfaces': (
+                    ('entity:actor', {}),
+                ),
+                'doc': 'A Synapse user.'}),
 
-                    ('doc', ('str', {}), {
-                        'doc': 'A short definition for the tag.',
-                        'disp': {'hint': 'text'},
-                    }),
+            ('syn:role', 'synapse.models.syn.SynRole', {}, {
+                'doc': 'A Synapse role.'}),
+        ),
+        'types': (
+            ('syn:type', ('str', {}), {
+                'doc': 'A Synapse type used for normalizing nodes and properties.',
+            }),
+            ('syn:form', ('str', {}), {
+                'doc': 'A Synapse form used for representing nodes in the graph.',
+            }),
+            ('syn:prop', ('str', {}), {
+                'doc': 'A Synapse property.'
+            }),
+            ('syn:tagprop', ('str', {}), {
+                'doc': 'A user defined tag property.'
+            }),
+            ('syn:cmd', ('str', {}), {
+                'doc': 'A Synapse storm command.'
+            }),
+            ('syn:deleted', ('ndef', {}), {
+                'doc': 'A node present below the write layer which has been deleted.'
+            }),
+        ),
 
-                    ('doc:url', ('inet:url', {}), {
-                        'doc': 'A URL link to additional documentation about the tag.'}),
+        'forms': (
 
-                    ('depth', ('int', {}), {'ro': True,
-                        'doc': 'How deep the tag is in the hierarchy.'}),
+            ('syn:tag', {}, (
 
-                    ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
+                ('up', ('syn:tag', {}), {'computed': True,
+                    'doc': 'The parent tag for the tag.'}),
 
-                    ('base', ('str', {}), {'ro': True,
-                        'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
-                )),
-                ('syn:type', {'runt': True}, (
-                    ('doc', ('str', {'strip': True}), {
-                        'doc': 'The docstring for the type.', 'ro': True}),
-                    ('ctor', ('str', {'strip': True}), {
-                        'doc': 'The python ctor path for the type object.', 'ro': True}),
-                    ('subof', ('syn:type', {}), {
-                        'doc': 'Type which this inherits from.', 'ro': True}),
-                    ('opts', ('data', {}), {
-                        'doc': 'Arbitrary type options.', 'ro': True})
-                )),
-                ('syn:form', {'runt': True}, (
-                    ('doc', ('str', {'strip': True}), {
-                        'doc': 'The docstring for the form.', 'ro': True}),
-                    ('type', ('syn:type', {}), {
-                        'doc': 'Synapse type for this form.', 'ro': True}),
-                    ('runt', ('bool', {}), {
-                        'doc': 'Whether or not the form is runtime only.', 'ro': True})
-                )),
-                ('syn:prop', {'runt': True}, (
-                    ('doc', ('str', {'strip': True}), {
-                        'doc': 'Description of the property definition.'}),
-                    ('form', ('syn:form', {}), {
-                        'doc': 'The form of the property.', 'ro': True}),
-                    ('type', ('syn:type', {}), {
-                        'doc': 'The synapse type for this property.', 'ro': True}),
-                    ('relname', ('str', {'strip': True}), {
-                        'doc': 'Relative property name.', 'ro': True}),
-                    ('univ', ('bool', {}), {
-                        'doc': 'Specifies if a prop is universal.', 'ro': True}),
-                    ('base', ('str', {'strip': True}), {
-                        'doc': 'Base name of the property.', 'ro': True}),
-                    ('ro', ('bool', {}), {
-                        'doc': 'If the property is read-only after being set.', 'ro': True}),
-                    ('extmodel', ('bool', {}), {
-                        'doc': 'If the property is an extended model property or not.', 'ro': True}),
-                )),
-                ('syn:tagprop', {'runt': True}, (
-                    ('doc', ('str', {'strip': True}), {
-                        'doc': 'Description of the tagprop definition.'}),
-                    ('type', ('syn:type', {}), {
-                        'doc': 'The synapse type for this tagprop.', 'ro': True}),
-                )),
-                ('syn:trigger', {'runt': True}, (
-                    ('vers', ('int', {}), {
-                        'doc': 'Trigger version.', 'ro': True,
-                    }),
-                    ('doc', ('str', {}), {
-                        'doc': 'A documentation string describing the trigger.',
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the trigger.',
-                    }),
-                    ('cond', ('str', {'strip': True, 'lower': True}), {
-                        'doc': 'The trigger condition.', 'ro': True,
-                    }),
-                    ('user', ('str', {}), {
-                        'doc': 'User who owns the trigger.', 'ro': True,
-                    }),
-                    ('storm', ('str', {}), {
-                        'doc': 'The Storm query for the trigger.', 'ro': True,
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('enabled', ('bool', {}), {
-                        'doc': 'Trigger enabled status.', 'ro': True,
-                    }),
-                    ('form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Form the trigger is watching for.'
-                    }),
-                    ('verb', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Edge verb the trigger is watching for.'
-                    }),
-                    ('n2form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'N2 form the trigger is watching for.'
-                    }),
-                    ('prop', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Property the trigger is watching for.'
-                    }),
-                    ('tag', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Tag the trigger is watching for.'
-                    }),
-                )),
-                ('syn:cron', {'runt': True}, (
+                ('isnow', ('syn:tag', {}), {
+                    'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                    ('doc', ('str', {}), {
-                        'doc': 'A description of the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
+                ('doc', ('text', {}), {
+                    'doc': 'A short definition for the tag.'}),
 
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the cron job.'}),
+                ('doc:url', ('inet:url', {}), {
+                    'doc': 'A URL link to additional documentation about the tag.'}),
 
-                    ('storm', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The storm query executed by the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
+                ('depth', ('int', {}), {'computed': True,
+                    'doc': 'How deep the tag is in the hierarchy.'}),
 
-                )),
-                ('syn:cmd', {'runt': True}, (
-                    ('doc', ('str', {'strip': True}), {
-                        'doc': 'Description of the command.',
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('package', ('str', {'strip': True}), {
-                        'doc': 'Storm package which provided the command.'}),
-                    ('svciden', ('guid', {'strip': True}), {
-                        'doc': 'Storm service iden which provided the package.'}),
-                    ('input', ('array', {'type': 'syn:form'}), {
-                        'deprecated': True,
-                        'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
-                    ('output', ('array', {'type': 'syn:form'}), {
-                        'deprecated': True,
-                        'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
-                    ('nodedata', ('array', {'type': 'syn:nodedata'}), {
-                        'deprecated': True,
-                        'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
-                    ('deprecated', ('bool', {}), {
-                        'doc': 'Set to true if this command is scheduled to be removed.'}),
-                    ('deprecated:version', ('it:semver', {}), {
-                        'doc': 'The Synapse version when this command will be removed.'}),
-                    ('deprecated:date', ('time', {}), {
-                        'doc': 'The date when this command will be removed.'}),
-                    ('deprecated:mesg', ('str', {}), {
-                        'doc': 'Optional description of this deprecation.'}),
-                )),
-            ),
-        }),)
+                ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
+
+                ('base', ('str', {}), {'computed': True,
+                    'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
+            )),
+            ('syn:user', {}, ()),
+            ('syn:type', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynType'}, (
+                ('doc', ('str', {}), {
+                    'doc': 'The docstring for the type.', 'computed': True}),
+                ('ctor', ('str', {}), {
+                    'doc': 'The python ctor path for the type object.', 'computed': True}),
+                ('subof', ('syn:type', {}), {
+                    'doc': 'Type which this inherits from.', 'computed': True}),
+                ('opts', ('data', {}), {
+                    'doc': 'Arbitrary type options.', 'computed': True})
+            )),
+            ('syn:form', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynForm'}, (
+                ('doc', ('str', {}), {
+                    'doc': 'The docstring for the form.', 'computed': True}),
+                ('type', ('syn:type', {}), {
+                    'doc': 'Synapse type for this form.', 'computed': True}),
+                ('runt', ('bool', {}), {
+                    'doc': 'Whether or not the form is runtime only.', 'computed': True})
+            )),
+            ('syn:prop', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynProp'}, (
+                ('doc', ('str', {}), {
+                    'doc': 'Description of the property definition.'}),
+                ('form', ('syn:form', {}), {
+                    'doc': 'The form of the property.', 'computed': True}),
+                ('type', ('syn:type', {}), {
+                    'doc': 'The synapse type for this property.', 'computed': True}),
+                ('relname', ('str', {}), {
+                    'doc': 'Relative property name.', 'computed': True}),
+                ('univ', ('bool', {}), {
+                    'doc': 'Specifies if a prop is universal.', 'computed': True}),
+                ('base', ('str', {}), {
+                    'doc': 'Base name of the property.', 'computed': True}),
+                ('computed', ('bool', {}), {
+                    'doc': 'If the property is dynamically computed from other property values.', 'computed': True}),
+                ('extmodel', ('bool', {}), {
+                    'doc': 'If the property is an extended model property or not.', 'computed': True}),
+            )),
+            ('syn:tagprop', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynTagProp'}, (
+                ('doc', ('str', {}), {
+                    'doc': 'Description of the tagprop definition.'}),
+                ('type', ('syn:type', {}), {
+                    'doc': 'The synapse type for this tagprop.', 'computed': True}),
+            )),
+            ('syn:cmd', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynCmd'}, (
+
+                ('doc', ('text', {}), {
+                    'doc': 'Description of the command.'}),
+
+                ('package', ('str', {}), {
+                    'doc': 'Storm package which provided the command.'}),
+
+                ('svciden', ('guid', {}), {
+                    'doc': 'Storm service iden which provided the package.'}),
+
+                ('deprecated', ('bool', {}), {
+                    'doc': 'Set to true if this command is scheduled to be removed.'}),
+
+                ('deprecated:version', ('it:version', {}), {
+                    'doc': 'The Synapse version when this command will be removed.'}),
+
+                ('deprecated:date', ('time', {}), {
+                    'doc': 'The date when this command will be removed.'}),
+
+                ('deprecated:mesg', ('str', {}), {
+                    'doc': 'Optional description of this deprecation.'}),
+            )),
+            ('syn:deleted', {'runt': True}, (
+                ('nid', ('int', {}), {
+                    'doc': 'The nid for the node that was deleted.', 'computed': True}),
+                ('sodes', ('data', {}), {
+                    'doc': 'The layer storage nodes for the node that was deleted.', 'computed': True}),
+            )),
+        ),
+    }),
+)

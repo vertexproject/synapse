@@ -646,23 +646,33 @@ class UserProfile(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', item))
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, name)
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
 
         if valu is s_stormtypes.undef:
-            self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
-            await self.runt.snap.core.popUserProfInfo(self.valu, name)
+            if self.runt.user.iden != self.valu:
+                self.runt.confirm(('auth', 'user', 'del', 'profile', name))
+            await self.runt.view.core.popUserProfInfo(self.valu, name)
             return
 
         valu = await s_stormtypes.toprim(valu)
-        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
-        await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        await self.runt.view.core.setUserProfInfo(self.valu, name, valu)
 
     async def iter(self):
         profile = await self.value()
@@ -670,8 +680,9 @@ class UserProfile(s_stormtypes.Prim):
             yield s_msgpack.deepcopy(item, use_list=True)
 
     async def value(self):
-        self.runt.confirm(('auth', 'user', 'get', 'profile'))
-        return await self.runt.snap.core.getUserProfile(self.valu)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        return await self.runt.view.core.getUserProfile(self.valu)
 
 @s_stormtypes.registry.registerType
 class UserJson(s_stormtypes.Prim):
@@ -736,7 +747,7 @@ class UserJson(s_stormtypes.Prim):
         if self.runt.user.iden != self.valu:
             self.runt.confirm(('user', 'json', 'get'))
 
-        return await self.runt.snap.core.hasJsonObj(fullpath)
+        return await self.runt.view.core.hasJsonObj(fullpath)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def get(self, path, prop=None):
@@ -752,9 +763,9 @@ class UserJson(s_stormtypes.Prim):
             self.runt.confirm(('user', 'json', 'get'))
 
         if prop is None:
-            return await self.runt.snap.core.getJsonObj(fullpath)
+            return await self.runt.view.core.getJsonObj(fullpath)
 
-        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.getJsonObjProp(fullpath, prop=prop)
 
     async def set(self, path, valu, prop=None):
         path = await s_stormtypes.toprim(path)
@@ -770,10 +781,10 @@ class UserJson(s_stormtypes.Prim):
             self.runt.confirm(('user', 'json', 'set'))
 
         if prop is None:
-            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            await self.runt.view.core.setJsonObj(fullpath, valu)
             return True
 
-        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+        return await self.runt.view.core.setJsonObjProp(fullpath, prop, valu)
 
     async def _del(self, path, prop=None):
         path = await s_stormtypes.toprim(path)
@@ -788,10 +799,10 @@ class UserJson(s_stormtypes.Prim):
             self.runt.confirm(('user', 'json', 'set'))
 
         if prop is None:
-            await self.runt.snap.core.delJsonObj(fullpath)
+            await self.runt.view.core.delJsonObj(fullpath)
             return True
 
-        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.delJsonObjProp(fullpath, prop=prop)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def iter(self, path=None):
@@ -807,7 +818,7 @@ class UserJson(s_stormtypes.Prim):
                 path = tuple(path.split('/'))
             fullpath += path
 
-        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+        async for path, item in self.runt.view.core.getJsonObjs(fullpath):
             yield path, item
 
 @s_stormtypes.registry.registerType
@@ -822,23 +833,28 @@ class UserVars(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.getUserVarValu(self.valu, name)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, name)
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
 
         if valu is s_stormtypes.undef:
-            await self.runt.snap.core.popUserVarValu(self.valu, name)
+            await self.runt.view.core.popUserVarValu(self.valu, name)
             return
 
         valu = await s_stormtypes.toprim(valu)
-        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+        await self.runt.view.core.setUserVarValu(self.valu, name, valu)
 
     async def iter(self):
-        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+        async for name, valu in self.runt.view.core.iterUserVars(self.valu):
             yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
@@ -859,9 +875,6 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the User.',
-         'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -902,21 +915,6 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methUserRevoke',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methUserTell',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methUserNotify',
-                  'args': (
-                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
-                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
@@ -1051,7 +1049,7 @@ class User(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
                       {'name': 'duration', 'type': 'int', 'default': None,
-                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
+                       'desc': 'Duration of time for the API key to be valid, in microseconds.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},
@@ -1127,10 +1125,7 @@ class User(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
-            'pack': self._methUserPack,
-            'tell': self._methUserTell,
             'gates': self._methGates,
-            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -1154,61 +1149,37 @@ class User(s_stormtypes.Prim):
             'delApiKey': self._methDelApiKey,
         }
 
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methUserPack(self):
-        return await self.value()
-
-    async def _methUserTell(self, text):
-        s_common.deprecated('user.tell()', '2.210.0', '3.0.0')
-        await self.runt.snap.warnonce('user.tell() is deprecated.')
-        self.runt.confirm(('tell', self.valu), default=True)
-        mesgdata = {
-            'text': await s_stormtypes.tostr(text),
-            'from': self.runt.user.iden,
-        }
-        return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
-
-    async def _methUserNotify(self, mesgtype, mesgdata):
-        s_common.deprecated('user.notify()', '2.210.0', '3.0.0')
-        await self.runt.snap.warnonce('user.notify() is deprecated.')
-        if not self.runt.isAdmin():
-            mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        mesgtype = await s_stormtypes.tostr(mesgtype)
-        mesgdata = await s_stormtypes.toprim(mesgdata)
-        return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
-
     async def _storUserName(self, name):
 
         name = await s_stormtypes.tostr(name)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
-            await self.runt.snap.core.setUserName(self.valu, name)
+            await self.runt.view.core.setUserName(self.valu, name)
             return
 
         self.runt.confirm(('auth', 'user', 'set', 'name'))
-        await self.runt.snap.core.setUserName(self.valu, name)
+        await self.runt.view.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        udef = await self.runt.view.core.getUserDef(self.valu)
         return udef.get(name, s_common.novalu)
 
     async def _methUserGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        udef = await self.runt.view.core.getUserDef(self.valu)
         return udef.get(name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGates(self):
-        user = self.runt.snap.core.auth.user(self.valu)
+        user = self.runt.view.core.auth.user(self.valu)
         retn = []
         for gateiden in user.authgates.keys():
-            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            gate = await self.runt.view.core.getAuthGate(gateiden)
             retn.append(Gate(self.runt, gate))
         return retn
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserRoles(self):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        udef = await self.runt.view.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1218,7 +1189,7 @@ class User(s_stormtypes.Prim):
         default = await s_stormtypes.tobool(default)
 
         perm = tuple(permname.split('.'))
-        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        user = await self.runt.view.core.auth.reqUser(self.valu)
         return user.allowed(perm, gateiden=gateiden, default=default)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1228,35 +1199,35 @@ class User(s_stormtypes.Prim):
         default = await s_stormtypes.tobool(default)
 
         perm = tuple(permname.split('.'))
-        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        user = await self.runt.view.core.auth.reqUser(self.valu)
         reason = user.getAllowedReason(perm, gateiden=gateiden, default=default)
         return reason.value, reason.mesg
 
     async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
         indx = await s_stormtypes.toint(indx, noneok=True)
-        await self.runt.snap.core.addUserRole(self.valu, iden, indx=indx)
+        await self.runt.view.core.addUserRole(self.valu, iden, indx=indx)
 
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
         self.runt.confirm(('auth', 'user', 'revoke'))
         idens = await s_stormtypes.toprim(idens)
-        await self.runt.snap.core.setUserRoles(self.valu, idens)
+        await self.runt.view.core.setUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
         self.runt.confirm(('auth', 'user', 'revoke'))
-        await self.runt.snap.core.delUserRole(self.valu, iden)
+        await self.runt.view.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
         rules = await s_stormtypes.toprim(rules)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
+        await self.runt.view.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGetRules(self, gateiden=None):
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
-        user = self.runt.snap.core.auth.user(self.valu)
+        user = self.runt.view.core.auth.user(self.valu)
         return user.getRules(gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None, indx=None):
@@ -1264,18 +1235,13 @@ class User(s_stormtypes.Prim):
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        # TODO: Remove me in 3.0.0
-        if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            await self.runt.snap.warn(mesg, log=False)
-        await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
+        await self.runt.view.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
         rule = await s_stormtypes.toprim(rule)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.view.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserPopRule(self, indx, gateiden=None):
 
@@ -1290,61 +1256,61 @@ class User(s_stormtypes.Prim):
             raise s_exc.BadArg(mesg=mesg)
 
         retn = rules.pop(indx)
-        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
+        await self.runt.view.core.setUserRules(self.valu, rules, gateiden=gateiden)
         return retn
 
     async def _methUserSetEmail(self, email):
         email = await s_stormtypes.tostr(email)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
-            await self.runt.snap.core.setUserEmail(self.valu, email)
+            await self.runt.view.core.setUserEmail(self.valu, email)
             return
 
         self.runt.confirm(('auth', 'user', 'set', 'email'))
-        await self.runt.snap.core.setUserEmail(self.valu, email)
+        await self.runt.view.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await s_stormtypes.tobool(admin)
 
-        await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
+        await self.runt.view.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
         passwd = await s_stormtypes.tostr(passwd, noneok=True)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
-            return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+            return await self.runt.view.core.setUserPasswd(self.valu, passwd)
 
         self.runt.confirm(('auth', 'user', 'set', 'passwd'))
-        return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+        return await self.runt.view.core.setUserPasswd(self.valu, passwd)
 
     async def _methUserSetLocked(self, locked):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
-        await self.runt.snap.core.setUserLocked(self.valu, await s_stormtypes.tobool(locked))
+        await self.runt.view.core.setUserLocked(self.valu, await s_stormtypes.tobool(locked))
 
     async def _methUserSetArchived(self, archived):
         self.runt.confirm(('auth', 'user', 'set', 'archived'))
-        await self.runt.snap.core.setUserArchived(self.valu, await s_stormtypes.tobool(archived))
+        await self.runt.view.core.setUserArchived(self.valu, await s_stormtypes.tobool(archived))
 
     async def _methGenApiKey(self, name, duration=None):
         name = await s_stormtypes.tostr(name)
         duration = await s_stormtypes.toint(duration, noneok=True)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.addUserApiKey(self.valu, name, duration=duration)
+            return await self.runt.view.core.addUserApiKey(self.valu, name, duration=duration)
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.addUserApiKey(self.valu, name, duration=duration)
+        return await self.runt.view.core.addUserApiKey(self.valu, name, duration=duration)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGetApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            valu = await self.runt.snap.core.getUserApiKey(iden)
+            valu = await self.runt.view.core.getUserApiKey(iden)
         else:
             self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-            valu = await self.runt.snap.core.getUserApiKey(iden)
+            valu = await self.runt.view.core.getUserApiKey(iden)
         valu.pop('shadow', None)
         return valu
 
@@ -1352,10 +1318,10 @@ class User(s_stormtypes.Prim):
     async def _methListApiKeys(self):
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.listUserApiKeys(self.valu)
+            return await self.runt.view.core.listUserApiKeys(self.valu)
 
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.listUserApiKeys(self.valu)
+        return await self.runt.view.core.listUserApiKeys(self.valu)
 
     async def _methModApiKey(self, iden, name, valu):
         iden = await s_stormtypes.tostr(iden)
@@ -1363,20 +1329,20 @@ class User(s_stormtypes.Prim):
         valu = await s_stormtypes.toprim(valu)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.modUserApiKey(iden, name, valu)
+            return await self.runt.view.core.modUserApiKey(iden, name, valu)
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.modUserApiKey(iden, name, valu)
+        return await self.runt.view.core.modUserApiKey(iden, name, valu)
 
     async def _methDelApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.delUserApiKey(iden)
+            return await self.runt.view.core.delUserApiKey(iden)
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.delUserApiKey(iden)
+        return await self.runt.view.core.delUserApiKey(iden)
 
     async def value(self):
-        return await self.runt.snap.core.getUserDef(self.valu)
+        return await self.runt.view.core.getUserDef(self.valu)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {await self.value()}'
@@ -1394,9 +1360,6 @@ class Role(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the Role.',
-         'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
         {'name': 'gates', 'desc': 'Return a list of auth gates that the role has rules for.',
          'type': {'type': 'function', '_funcname': '_methGates',
                   'args': (),
@@ -1473,7 +1436,6 @@ class Role(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
-            'pack': self._methRolePack,
             'gates': self._methGates,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
@@ -1483,61 +1445,52 @@ class Role(s_stormtypes.Prim):
         }
 
     async def _derefGet(self, name):
-        rdef = await self.runt.snap.core.getRoleDef(self.valu)
+        rdef = await self.runt.view.core.getRoleDef(self.valu)
         return rdef.get(name, s_common.novalu)
 
     async def _setRoleName(self, name):
         self.runt.confirm(('auth', 'role', 'set', 'name'))
         name = await s_stormtypes.tostr(name)
-        await self.runt.snap.core.setRoleName(self.valu, name)
+        await self.runt.view.core.setRoleName(self.valu, name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRoleGet(self, name):
-        rdef = await self.runt.snap.core.getRoleDef(self.valu)
+        rdef = await self.runt.view.core.getRoleDef(self.valu)
         return rdef.get(name)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methRolePack(self):
-        return await self.value()
-
-    @s_stormtypes.stormfunc(readonly=True)
     async def _methGates(self):
-        role = self.runt.snap.core.auth.role(self.valu)
+        role = self.runt.view.core.auth.role(self.valu)
         retn = []
         for gateiden in role.authgates.keys():
-            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            gate = await self.runt.view.core.getAuthGate(gateiden)
             retn.append(Gate(self.runt, gate))
         return retn
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGetRules(self, gateiden=None):
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
-        role = self.runt.snap.core.auth.role(self.valu)
+        role = self.runt.view.core.auth.role(self.valu)
         return role.getRules(gateiden=gateiden)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
         rules = await s_stormtypes.toprim(rules)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
+        await self.runt.view.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None, indx=None):
         rule = await s_stormtypes.toprim(rule)
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        # TODO: Remove me in 3.0.0
-        if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            await self.runt.snap.warn(mesg, log=False)
-        await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
+        await self.runt.view.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
         rule = await s_stormtypes.toprim(rule)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.view.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRolePopRule(self, indx, gateiden=None):
 
@@ -1553,11 +1506,11 @@ class Role(s_stormtypes.Prim):
             raise s_exc.BadArg(mesg=mesg)
 
         retn = rules.pop(indx)
-        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
+        await self.runt.view.core.setRoleRules(self.valu, rules, gateiden=gateiden)
         return retn
 
     async def value(self):
-        return await self.runt.snap.core.getRoleDef(self.valu)
+        return await self.runt.view.core.getRoleDef(self.valu)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {await self.value()}'
@@ -1613,199 +1566,12 @@ class LibAuth(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getPermDefs(self):
-        return self.runt.snap.core.getPermDefs()
+        return self.runt.view.core.getPermDefs()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getPermDef(self, perm):
         perm = await s_stormtypes.toprim(perm)
-        return self.runt.snap.core.getPermDef(perm)
-
-@s_stormtypes.registry.registerType
-class StormUserVarsDict(s_stormtypes.Prim):
-    '''
-    A Storm Primitive that maps the HiveDict interface to a user vars dictionary.
-    '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get the value for a user var.',
-         'type': {'type': 'function', '_funcname': '_get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pop', 'desc': 'Remove a user var value.',
-         'type': {'type': 'function', '_funcname': '_pop',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'set', 'desc': 'Set a user var value.',
-         'type': {'type': 'function', '_funcname': '_set',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store.', },
-                  ),
-                  'returns': {'type': ['null', 'prim'],
-                              'desc': 'Old value of the var if it was previously set, or none.', }}},
-        {'name': 'list', 'desc': 'List the vars and their values.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of tuples containing var, value pairs.', }}},
-    )
-    _storm_typename = 'user:vars:dict'
-    _ismutable = True
-
-    def __init__(self, runt, valu, path=None):
-        s_stormtypes.Prim.__init__(self, valu, path=path)
-        self.runt = runt
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'get': self._get,
-            'pop': self._pop,
-            'set': self._set,
-            'list': self._list,
-        }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _get(self, name, default=None):
-        name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.getUserVarValu(self.valu, name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _pop(self, name, default=None):
-        name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.popUserVarValu(self.valu, name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _set(self, name, valu):
-        if not isinstance(name, str):
-            mesg = 'The name of a variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-        name = await s_stormtypes.tostr(name)
-        oldv = await self.runt.snap.core.getUserVarValu(self.valu, name)
-
-        valu = await s_stormtypes.toprim(valu)
-
-        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
-        return s_msgpack.deepcopy(oldv, use_list=True)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _list(self):
-        valu = await self.value()
-        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
-
-    async def iter(self):
-        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, s_msgpack.deepcopy(valu, use_list=True)
-            await asyncio.sleep(0)
-
-    async def value(self):
-        varz = {}
-        async for key, valu in self.runt.snap.core.iterUserVars(self.valu):
-            varz[key] = valu
-            await asyncio.sleep(0)
-
-        return varz
-
-@s_stormtypes.registry.registerType
-class StormUserProfileDict(s_stormtypes.Prim):
-    '''
-    A Storm Primitive that maps the HiveDict interface to a user profile dictionary.
-    '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get a user profile value.',
-         'type': {'type': 'function', '_funcname': '_get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pop', 'desc': 'Remove a user profile value.',
-         'type': {'type': 'function', '_funcname': '_pop',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'The default value to return if not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'set', 'desc': 'Set a user profile value.',
-         'type': {'type': 'function', '_funcname': '_set',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store.', },
-                  ),
-                  'returns': {'type': ['null', 'prim'],
-                              'desc': 'Old value if it was previously set, or none.', }}},
-        {'name': 'list', 'desc': 'List the user profile vars and their values.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of tuples containing var, value pairs.', }}},
-    )
-    _storm_typename = 'user:profile:dict'
-    _ismutable = True
-
-    def __init__(self, runt, valu, path=None):
-        s_stormtypes.Prim.__init__(self, valu, path=path)
-        self.runt = runt
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'get': self._get,
-            'pop': self._pop,
-            'set': self._set,
-            'list': self._list,
-        }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _get(self, name, default=None):
-        name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _pop(self, name, default=None):
-        name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.popUserProfInfo(self.valu, name, default=s_common.novalu)
-        if valu is s_common.novalu:
-            return default
-        return s_msgpack.deepcopy(valu, use_list=True)
-
-    async def _set(self, name, valu):
-        if not isinstance(name, str):
-            mesg = 'The name of a variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-        name = await s_stormtypes.tostr(name)
-        oldv = await self.runt.snap.core.getUserProfInfo(self.valu, name)
-
-        valu = await s_stormtypes.toprim(valu)
-
-        await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
-        return s_msgpack.deepcopy(oldv, use_list=True)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _list(self):
-        valu = await self.value()
-        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
-
-    async def iter(self):
-        async for name, valu in self.runt.snap.core.iterUserProfInfo(self.valu):
-            yield name, s_msgpack.deepcopy(valu, use_list=True)
-            await asyncio.sleep(0)
-
-    async def value(self):
-        return await self.runt.snap.core.getUserProfile(self.valu)
+        return self.runt.view.core.getPermDef(perm)
 
 @s_stormtypes.registry.registerLib
 class LibUser(s_stormtypes.Lib):
@@ -1826,9 +1592,11 @@ class LibUser(s_stormtypes.Lib):
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
         {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
-         'type': 'user:vars:dict', },
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'auth:user:vars'}}},
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
-         'type': 'user:profile:dict', },
+        'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
+                 'returns': {'type': 'auth:user:profile', }}},
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
@@ -1843,9 +1611,12 @@ class LibUser(s_stormtypes.Lib):
     def addLibFuncs(self):
         super().addLibFuncs()
         self.locls.update({
-            'vars': StormUserVarsDict(self.runt, self.runt.user.iden),
             'json': UserJson(self.runt, self.runt.user.iden),
-            'profile': StormUserProfileDict(self.runt, self.runt.user.iden),
+        })
+
+        self.ctors.update({
+            'vars': self._ctorUserVars,
+            'profile': self._ctorUserProfile,
         })
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1860,6 +1631,12 @@ class LibUser(s_stormtypes.Lib):
 
         perm = permname.split('.')
         return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
+
+    def _ctorUserProfile(self, path=None):
+        return UserProfile(self.runt, self.runt.user.iden)
+
+    def _ctorUserVars(self, path=None):
+        return UserVars(self.runt, self.runt.user.iden)
 
 @s_stormtypes.registry.registerLib
 class LibUsers(s_stormtypes.Lib):
@@ -1941,17 +1718,17 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'get', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to retrieve their profile information.',
          'ex': 'auth.user.get.profile.fullname'},
-        {'perm': ('auth', 'user', 'pop', 'profile', '<varname>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'del', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to remove profile information.',
-         'ex': 'auth.user.pop.profile.fullname'},
+         'ex': 'auth.user.del.profile.fullname'},
         {'perm': ('auth', 'user', 'set', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
          'ex': 'auth.user.set.profile.fullname'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
-        {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
-        {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',
          'desc': 'Controls the ability to remove a user from the system. USE WITH CAUTION!'},
     )
 
@@ -1966,36 +1743,34 @@ class LibUsers(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersList(self):
-        return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
+        return [User(self.runt, udef['iden']) for udef in await self.runt.view.core.getUserDefs()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersGet(self, iden=None):
         if iden is None:
             iden = self.runt.user.iden
-        udef = await self.runt.snap.core.getUserDef(iden)
+        udef = await self.runt.view.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersByName(self, name):
-        udef = await self.runt.snap.core.getUserDefByName(name)
+        udef = await self.runt.view.core.getUserDefByName(name)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        if not self.runt.allowed(('auth', 'user', 'add')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
+        self.runt.confirm(('auth', 'user', 'add'))
         name = await s_stormtypes.tostr(name)
         iden = await s_stormtypes.tostr(iden, True)
         email = await s_stormtypes.tostr(email, True)
         passwd = await s_stormtypes.tostr(passwd, True)
-        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email, iden=iden,)
+        udef = await self.runt.view.core.addUser(name, passwd=passwd, email=email, iden=iden,)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        if not self.runt.allowed(('auth', 'user', 'del')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
-        await self.runt.snap.core.delUser(iden)
+        self.runt.confirm(('auth', 'user', 'del'))
+        await self.runt.view.core.delUser(iden)
 
 @s_stormtypes.registry.registerLib
 class LibRoles(s_stormtypes.Lib):
@@ -2036,9 +1811,9 @@ class LibRoles(s_stormtypes.Lib):
     )
     _storm_lib_path = ('auth', 'roles')
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
+        {'perm': ('auth', 'role', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a role to the system. USE WITH CAUTION!'},
-        {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
+        {'perm': ('auth', 'role', 'del'), 'gate': 'cortex',
          'desc': 'Controls the ability to remove a role from the system. USE WITH CAUTION!'},
     )
 
@@ -2053,31 +1828,29 @@ class LibRoles(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesList(self):
-        return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
+        return [Role(self.runt, rdef['iden']) for rdef in await self.runt.view.core.getRoleDefs()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
-        rdef = await self.runt.snap.core.getRoleDef(iden)
+        rdef = await self.runt.view.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesByName(self, name):
-        rdef = await self.runt.snap.core.getRoleDefByName(name)
+        rdef = await self.runt.view.core.getRoleDefByName(name)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name, iden=None):
-        if not self.runt.allowed(('auth', 'role', 'add')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
+        self.runt.confirm(('auth', 'role', 'add'))
         iden = await s_stormtypes.tostr(iden, noneok=True)
-        rdef = await self.runt.snap.core.addRole(name, iden=iden)
+        rdef = await self.runt.view.core.addRole(name, iden=iden)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        if not self.runt.allowed(('auth', 'role', 'del')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
-        await self.runt.snap.core.delRole(iden)
+        self.runt.confirm(('auth', 'role', 'del'))
+        await self.runt.view.core.delRole(iden)
 
 @s_stormtypes.registry.registerLib
 class LibGates(s_stormtypes.Lib):
@@ -2106,15 +1879,13 @@ class LibGates(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGatesList(self):
-        todo = s_common.todo('getAuthGates')
-        gates = await self.runt.coreDynCall(todo)
+        gates = await self.runt.view.core.getAuthGates()
         return [Gate(self.runt, g) for g in gates]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGatesGet(self, iden):
         iden = await s_stormtypes.toprim(iden)
-        todo = s_common.todo('getAuthGate', iden)
-        gate = await self.runt.coreDynCall(todo)
+        gate = await self.runt.view.core.getAuthGate(iden)
         if gate:
             return Gate(self.runt, gate)
 

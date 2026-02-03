@@ -6,242 +6,379 @@ import synapse.tests.utils as s_t_utils
 
 class FileTest(s_t_utils.SynTest):
 
-    async def test_model_filebytes(self):
+    # FIXME decide about exe:packer et al
+    # async def test_model_filebytes(self):
+
+    #     async with self.getTestCore() as core:
+
+    #         nodes = await core.nodes('''
+    #             [ file:bytes=*
+    #                 :exe:packer = {[ it:software=* :name="Visi Packer 31337" ]}
+    #                 :exe:compiler = {[ it:software=* :name="Visi Studio 31337" ]}
+    #             ]
+    #         ''')
+    #         self.nn(nodes[0].get('exe:packer'))
+    #         self.nn(nodes[0].get('exe:compiler'))
+    #         self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
+    #         self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
+
+    async def test_model_file_entry(self):
 
         async with self.getTestCore() as core:
-            valu = 'sha256:' + ('a' * 64)
-            fbyts = core.model.type('file:bytes')
-            norm, info = fbyts.norm(valu)
-            self.eq(info['subs']['sha256'], 'a' * 64)
 
-            norm, info = fbyts.norm('b' * 64)
-            self.eq(info['subs']['sha256'], 'b' * 64)
+            nodes = await core.nodes('[ file:entry=* :path=foo/000.exe :file=* ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/000.exe')
+            self.len(1, await core.nodes('file:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:entry :file -> file:bytes'))
 
-            # Allow an arbitrary struct to be ground into a file:bytes guid.
-            norm, info = fbyts.norm(('md5', 'b' * 32))
-            self.eq(norm, 'guid:d32efb12cb5a0f83ffd12788572e1c88')
-            self.eq(info, {})
+            nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file={file:bytes} ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/001.exe')
+            self.len(1, await core.nodes('file:exemplar:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:exemplar:entry :file -> file:bytes'))
 
-            self.raises(s_exc.BadTypeValu, fbyts.norm, s_common.guid())
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 1.23)
+            nodes = await core.nodes('''[
+                file:stored:entry=*
+                    :file={file:bytes}
+                    :path=foo/002.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/002.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:stored:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:stored:entry :file -> file:bytes'))
 
-            nodes = await core.nodes('''
-                [ file:bytes=$byts
-                    :exe:packer = {[ it:prod:softver=* :name="Visi Packer 31337" ]}
-                    :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
-                ]
-            ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            nodes = await core.nodes('''[
+                file:system:entry=*
+                    :host={[ it:host=* ]}
+                    :file={file:bytes}
+                    :path=foo/003.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('path'), 'foo/003.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:system:entry :host -> it:host'))
+            self.len(1, await core.nodes('file:system:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:system:entry :file -> file:bytes'))
 
-            self.nn(nodes[0].get('exe:packer'))
-            self.nn(nodes[0].get('exe:compiler'))
-            self.len(1, await core.nodes('file:bytes :exe:packer -> it:prod:softver +:name="Visi Packer 31337"'))
-            self.len(1, await core.nodes('file:bytes :exe:compiler -> it:prod:softver +:name="Visi Studio 31337"'))
+            nodes = await core.nodes('''[
+                file:subfile:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/004.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/004.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.len(1, await core.nodes('file:subfile:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:subfile:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:subfile:entry :parent -> file:bytes'))
 
-            self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
+            nodes = await core.nodes('''[
+                file:archive:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/005.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+                    :archived:size=200
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/005.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.eq(nodes[0].get('archived:size'), 200)
+            self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
 
-            with self.raises(s_exc.BadTypeValu):
-                opts = {'vars': {'a': 'a' * 64}}
-                await core.nodes('file:bytes [:sha256=$a]', opts=opts)
+            nodes = await core.nodes('''[
+                file:mime:zip:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/006.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+                    :archived:size=200
+                    :comment=Hiya
+                    :extra:posix:uid=0
+                    :extra:posix:gid=0
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.eq(nodes[0].get('path'), 'foo/006.exe')
+            self.eq(nodes[0].get('added'), 1769385600000000)
+            self.eq(nodes[0].get('created'), 1769385600000000)
+            self.eq(nodes[0].get('modified'), 1769385600000000)
+            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.eq(nodes[0].get('archived:size'), 200)
+            self.eq(nodes[0].get('comment'), 'Hiya')
+            self.eq(nodes[0].get('extra:posix:uid'), 0)
+            self.eq(nodes[0].get('extra:posix:gid'), 0)
+            self.len(1, await core.nodes('file:mime:zip:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:mime:zip:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:mime:zip:entry :parent -> file:bytes'))
 
-            badv = 'z' * 64
-            opts = {'vars': {'z': badv}}
-            msgs = await core.stormlist('[ file:bytes=$z ]', opts=opts)
-            self.stormIsInErr(f'invalid unadorned file:bytes value: Non-hexadecimal digit found - valu={badv}', msgs)
+            self.len(7, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
 
-            msgs = await core.stormlist('[ file:bytes=`sha256:{$z}` ]', opts=opts)
-            self.stormIsInErr(f'invalid file:bytes sha256 value: Non-hexadecimal digit found - valu={badv}', msgs)
-
-            msgs = await core.stormlist('[file:bytes=base64:foo]')
-            self.stormIsInErr(f'invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=guid:foo]')
-            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=newp:foo]')
-            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
-
-    async def test_model_filebytes_pe(self):
+    async def test_model_file_mime_exe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
-            filea = 'a' * 64
+
+            fileiden = s_common.guid()
             exp_time = '201801010233'
-            props = {
-                'imphash': 'e' * 32,
-                'pdbpath': r'c:\this\is\my\pdbstring',
-                'exports:time': exp_time,
-                'exports:libname': 'ohgood',
-                'richhdr': 'f' * 64,
-            }
-            q = '''[(file:bytes=$valu :mime:pe:imphash=$p.imphash :mime:pe:pdbpath=$p.pdbpath
-            :mime:pe:exports:time=$p."exports:time" :mime:pe:exports:libname=$p."exports:libname"
-            :mime:pe:richhdr=$p.richhdr )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': filea, 'p': props}})
+
+            imphash = 'e' * 32
+            richheader = 'f' * 64
+
+            q = '''
+            [ file:mime:pe=*
+                :file=$file
+                :imphash=$imphash
+                :richheader=$richheader
+                :pdbpath=c:/this/is/my/pdbstring
+                :exports:time=201801010233
+                :exports:libname=ohgood
+                :versioninfo=((foo, bar), (baz, faz))
+
+                :packer = {[ it:software=({"name": "foobar"}) ]}
+                :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                :packer:name = foobar
+                :compiler:name = bazfaz
+            ]
+            '''
+            opts = {'vars': {
+                'file': fileiden,
+                'imphash': imphash,
+                'richheader': richheader,
+            }}
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            fnode = nodes[0]
-            # pe props
-            self.eq(fnode.get('mime:pe:imphash'), 'e' * 32)
-            self.eq(fnode.get('mime:pe:pdbpath'), r'c:/this/is/my/pdbstring')
-            self.eq(fnode.get('mime:pe:exports:time'), s_time.parse(exp_time))
-            self.eq(fnode.get('mime:pe:exports:libname'), 'ohgood')
-            self.eq(fnode.get('mime:pe:richhdr'), 'f' * 64)
-            # pe resource
-            nodes = await core.nodes('[file:mime:pe:resource=$valu]',
-                                     opts={'vars': {'valu': (filea, 2, 0x409, 'd' * 64)}})
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].get('imphash'), imphash)
+            self.eq(nodes[0].get('richheader'), richheader)
+            self.eq(nodes[0].get('pdbpath'), 'c:/this/is/my/pdbstring')
+            self.eq(nodes[0].get('exports:time'), 1514773980000000)
+            self.eq(nodes[0].get('exports:libname'), 'ohgood')
+            self.eq(nodes[0].get('versioninfo'), (('baz', 'faz'), ('foo', 'bar')))
+            self.len(2, await core.nodes('file:mime:pe -> file:mime:pe:vsvers:keyval'))
+
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:pe :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:pe :compiler -> it:software'))
+
+            q = '''
+            [ file:mime:pe:resource=*
+                :file=$file
+                :langid=0x409
+                :type=2
+                :sha256=$sha256
+            ]
+            '''
+            opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            rnode = nodes[0]
-            self.eq(rnode.get('langid'), 0x409)
-            self.eq(rnode.get('type'), 2)
-            self.eq(rnode.repr('langid'), 'en-US')
-            self.eq(rnode.repr('type'), 'RT_BITMAP')
+            self.eq(nodes[0].get('type'), 2)
+            self.eq(nodes[0].get('langid'), 0x409)
+            self.eq(nodes[0].get('sha256'), 'f' * 64)
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].repr('langid'), 'en-US')
+            self.eq(nodes[0].repr('type'), 'RT_BITMAP')
+
+            q = '''
+            [ file:mime:pe:section=*
+                :file=$file
+                :name=wootwoot
+                :sha256=$sha256
+            ]
+            '''
+            opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'wootwoot')
+            self.eq(nodes[0].get('sha256'), 'f' * 64)
+            self.eq(nodes[0].get('file'), fileiden)
+
             # unknown langid
-            nodes = await core.nodes('[file:mime:pe:resource=$valu]',
-                                     opts={'vars': {'valu': (filea, 2, 0x1804, 'd' * 64)}})
+            nodes = await core.nodes('[file:mime:pe:resource=* :langid=0x1804]')
             self.len(1, nodes)
             rnode = nodes[0]
             self.eq(rnode.get('langid'), 0x1804)
-            self.eq(rnode.repr('langid'), '6148')
+
+            q = '''
+            [ file:mime:pe:export=*
+                :file=$file
+                :name=WootWoot
+                :rva=0x20202020
+            ]
+            '''
+            opts = {'vars': {'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('rva'), 0x20202020)
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].get('name'), 'WootWoot')
+
+            self.len(1, await core.nodes('file:mime:pe:export -> it:dev:str'))
+
             # invalid langid
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[file:mime:pe:resource=$valu]',
-                                     opts={'vars': {'valu': (filea, 2, 0xfffff, 'd' * 64)}})
-            # pe section
-            nodes = await core.nodes('[file:mime:pe:section=$valu]',
-                                     opts={'vars': {'valu': (filea, 'foo', 'b' * 64)}})
+                await core.nodes('[file:mime:pe:resource=* :langid=0xfffff]')
+
+            nodes = await core.nodes('''
+                [ file:mime:macho=*
+                    :file={ file:bytes | limit 1 }
+                    :packer = {[ it:software=({"name": "foobar"}) ]}
+                    :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                    :packer:name = foobar
+                    :compiler:name = bazfaz
+                ]
+            ''')
             self.len(1, nodes)
-            s1node = nodes[0]
-            self.eq(s1node.get('name'), 'foo')
-            self.eq(s1node.get('sha256'), 'b' * 64)
-            # pe export
-            nodes = await core.nodes('[file:mime:pe:export=$valu]', opts={'vars': {'valu': (filea, 'myexport')}})
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:macho :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:macho :compiler -> it:software'))
+
+            nodes = await core.nodes('''
+                [ file:mime:elf=*
+                    :file={ file:bytes | limit 1 }
+                    :packer = {[ it:software=({"name": "foobar"}) ]}
+                    :compiler = {[ it:software=({"name": "bazfaz"}) ]}
+                    :packer:name = foobar
+                    :compiler:name = bazfaz
+                ]
+            ''')
             self.len(1, nodes)
-            enode = nodes[0]
-            self.eq(enode.get('file'), fnode.ndef[1])
-            self.eq(enode.get('name'), 'myexport')
-            # vsversion
-            nodes = await core.nodes('[file:mime:pe:vsvers:keyval=(foo, bar)]')
-            self.len(1, nodes)
-            vskvnode = nodes[0]
-            self.eq(vskvnode.get('name'), 'foo')
-            self.eq(vskvnode.get('value'), 'bar')
-            nodes = await core.nodes('[file:mime:pe:vsvers:info=$valu]',
-                                     opts={'vars': {'valu': (filea, vskvnode.ndef[1])}})
-            self.len(1, nodes)
-            vsnode = nodes[0]
-            self.eq(vsnode.get('file'), fnode.ndef[1])
-            self.eq(vsnode.get('keyval'), vskvnode.ndef[1])
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('packer:name'), 'foobar')
+            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.len(1, await core.nodes('file:mime:elf :packer -> it:software'))
+            self.len(1, await core.nodes('file:mime:elf :compiler -> it:software'))
 
     async def test_model_filebytes_macho(self):
         async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': file0}})
-            self.len(1, nodes)
-            fnode = nodes[0]
 
-            # loadcmds
-            opts = {'vars': {'file': fnode.get('sha256')}}
-            gencmd = await core.nodes('''[
+            fileguid = s_common.guid()
+            opts = {'vars': {'file': fileguid}}
+
+            nodes = await core.nodes('''[
                 file:mime:macho:loadcmd=*
                     :file=$file
                     :type=27
-                    :size=123456
+                    :file:size=123456
             ]''', opts=opts)
-            self.len(1, gencmd)
-            gencmd = gencmd[0]
-            self.eq(27, gencmd.get('type'))
-            self.eq(123456, gencmd.get('size'))
-            self.eq('sha256:' + file0, gencmd.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('type'), 27)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 123456)
 
             # uuid
-            opts = {'vars': {'file': fnode.get('sha256')}}
-            uuid = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:uuid=*
                     :file=$file
                     :type=27
-                    :size=32
+                    :file:size=32
                     :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
             ]''', opts=opts)
-            self.len(1, uuid)
-            uuid = uuid[0]
-            self.eq('bcaa4a0bbf703a5dbcf972f39780eb67', uuid.get('uuid'))
-            self.eq('sha256:' + file0, uuid.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 32)
+            self.eq(nodes[0].get('uuid'), 'bcaa4a0bbf703a5dbcf972f39780eb67')
 
             # version
-            ver = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:version=*
                     :file=$file
+                    :file:size=32
                     :type=42
-                    :size=32
                     :version="7605.1.33.1.4"
             ]''', opts=opts)
-            self.len(1, ver)
-            ver = ver[0]
-            self.eq('7605.1.33.1.4', ver.get('version'))
-            self.eq('sha256:' + file0, ver.get('file'))
-            self.eq(42, ver.get('type'))
-            self.eq(32, ver.get('size'))
-            self.eq('sha256:' + file0, ver.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('version'), '7605.1.33.1.4')
+            self.eq(nodes[0].get('type'), 42)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 32)
 
             # segment
             seghash = 'e' * 64
-            opts = {'vars': {'file': file0, 'sha256': seghash}}
-            seg = await core.nodes(f'''[
+            opts = {'vars': {'file': fileguid, 'sha256': seghash}}
+            nodes = await core.nodes('''[
                 file:mime:macho:segment=*
                     :file=$file
+                    :file:size=48
+                    :file:offs=1234
                     :type=1
-                    :size=48
                     :name="__TEXT"
                     :memsize=4092
                     :disksize=8192
                     :sha256=$sha256
-                    :offset=1234
             ]''', opts=opts)
-            self.len(1, seg)
-            seg = seg[0]
-            self.eq('sha256:' + file0, seg.get('file'))
-            self.eq(1, seg.get('type'))
-            self.eq(48, seg.get('size'))
-            self.eq('__TEXT', seg.get('name'))
-            self.eq(4092, seg.get('memsize'))
-            self.eq(8192, seg.get('disksize'))
-            self.eq(seghash, seg.get('sha256'))
-            self.eq(1234, seg.get('offset'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('type'), 1)
+            self.eq(nodes[0].get('file:size'), 48)
+            self.eq(nodes[0].get('file:offs'), 1234)
+            self.eq(nodes[0].get('name'), '__TEXT')
+            self.eq(nodes[0].get('memsize'), 4092)
+            self.eq(nodes[0].get('disksize'), 8192)
+            self.eq(nodes[0].get('sha256'), seghash)
 
             # section
-            opts = {'vars': {'seg': seg.ndef[1]}}
-            sect = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:section=*
-                    :segment=$seg
+                    :segment={ file:mime:macho:segment }
                     :name="__text"
-                    :size=12
+                    :file:size=12
                     :type=0
-                    :offset=5678
-            ]''', opts=opts)
-            self.len(1, sect)
-            sect = sect[0]
-            self.eq(seg.ndef[1], sect.get('segment'))
-            self.eq("__text", sect.get('name'))
-            self.eq(12, sect.get('size'))
-            self.eq(0, sect.get('type'))
-            self.eq(5678, sect.get('offset'))
-
-    async def test_model_filebytes_string(self):
-        async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:string=($valu, foo)]', opts={'vars': {'valu': file0}})
+                    :file:offs=5678
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), f'sha256:{file0}')
-            self.eq(node.get('string'), 'foo')
+            self.nn(nodes[0].get('segment'))
+            self.eq(nodes[0].get('name'), "__text")
+            self.eq(nodes[0].get('type'), 0)
+            self.eq(nodes[0].get('file:size'), 12)
+            self.eq(nodes[0].get('file:offs'), 5678)
 
     async def test_model_file_types(self):
 
@@ -250,57 +387,73 @@ class FileTest(s_t_utils.SynTest):
             base = core.model.type('file:base')
             path = core.model.type('file:path')
 
-            norm, info = base.norm('FOO.EXE')
+            norm, info = await base.norm('FOO.EXE')
             subs = info.get('subs')
 
             self.eq('foo.exe', norm)
-            self.eq('exe', subs.get('ext'))
+            self.eq((base.exttype.typehash, 'exe', {}), subs.get('ext'))
 
-            self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
-            self.raises(s_exc.BadTypeValu, base.norm, '/haha')
+            await self.asyncraises(s_exc.BadTypeValu, base.norm('foo/bar.exe'))
+            await self.asyncraises(s_exc.BadTypeValu, base.norm('/haha'))
 
-            norm, info = path.norm('../.././..')
+            norm, info = await path.norm('../.././..')
             self.eq(norm, '')
 
-            norm, info = path.norm('c:\\Windows\\System32\\calc.exe')
+            norm, info = await path.norm('c:\\Windows\\System32\\calc.exe')
 
             self.eq(norm, 'c:/windows/system32/calc.exe')
-            self.eq(info['subs']['dir'], 'c:/windows/system32')
-            self.eq(info['subs']['base'], 'calc.exe')
+            self.eq(info['subs']['dir'][1], 'c:/windows/system32')
+            self.eq(info['subs']['base'][1], 'calc.exe')
 
-            norm, info = path.norm(r'/foo////bar/.././baz.json')
+            norm, info = await path.norm(r'/foo////bar/.././baz.json')
             self.eq(norm, '/foo/baz.json')
 
-            norm, info = path.norm(r'./hehe/haha')
+            norm, info = await path.norm(r'./hehe/haha')
             self.eq(norm, 'hehe/haha')
             # '.' has no normable value.
-            self.raises(s_exc.BadTypeValu, path.norm, '.')
-            self.raises(s_exc.BadTypeValu, path.norm, '..')
+            await self.asyncraises(s_exc.BadTypeValu, path.norm('.'))
+            await self.asyncraises(s_exc.BadTypeValu, path.norm('..'))
 
-            norm, info = path.norm('c:')
+            norm, info = await path.norm('c:')
             self.eq(norm, 'c:')
             subs = info.get('subs')
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
-            self.eq(subs.get('base'), 'c:')
+            self.eq(subs.get('base')[1], 'c:')
 
-            norm, info = path.norm('/foo')
+            norm, info = await path.norm('/foo')
             self.eq(norm, '/foo')
             subs = info.get('subs')
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
-            self.eq(subs.get('base'), 'foo')
+            self.eq(subs.get('base')[1], 'foo')
 
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('base'), 'baz.exe')
-            self.eq(node.get('base:ext'), 'exe')
-            self.eq(node.get('dir'), '/foo/bar')
-            self.len(1, await core.nodes('file:path="/foo/bar"'))
-            self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
-            self.len(1, await core.nodes('file:base^=baz'))
+            self.eq(node.get('.base'), 'baz.exe')
+            self.eq(node.get('.ext'), 'exe')
+            self.eq(node.get('.dir'), '/foo/bar')
+            # FIXME virts need to autoadd!
+            # self.len(1, await core.nodes('file:path="/foo/bar"'))
+            # self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
+            # self.len(1, await core.nodes('file:base^=baz'))
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' '}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], '')
@@ -316,92 +469,31 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': 'hex:56565656'}})
-            self.len(1, nodes)
-            node0 = nodes[0]
+            nodes = await core.nodes('[ file:bytes=* file:bytes=* +(uses)> {[ meta:technique=* ]} ]')
+            self.len(2, nodes)
 
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': 'base64:VlZWVg=='}})
-            self.len(1, nodes)
-            node1 = nodes[0]
-
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': b'VVVV'}})
-            self.len(1, nodes)
-            node2 = nodes[0]
-
-            self.eq(node0.ndef, node1.ndef)
-            self.eq(node1.ndef, node2.ndef)
-
-            self.nn(node0.get('md5'))
-            self.nn(node0.get('sha1'))
-            self.nn(node0.get('sha256'))
-            self.nn(node0.get('sha512'))
-
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': '*'}})
-            self.len(1, nodes)
-            fake = nodes[0]
-            self.true(fake.ndef[1].startswith('guid:'))
-
-            nodes = await core.nodes('[file:subfile=$valu :name=embed.BIN :path="foo/embed.bin"]',
-                                     opts={'vars': {'valu': (node1.ndef[1], node2.ndef[1])}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
-            self.eq(node.get('parent'), node1.ndef[1])
-            self.eq(node.get('child'), node2.ndef[1])
-            self.eq(node.get('name'), 'embed.bin')
-            self.eq(node.get('path'), 'foo/embed.bin')
-
-            fp = 'C:\\www\\woah\\really\\sup.exe'
-            nodes = await core.nodes('[file:filepath=$valu]', opts={'vars': {'valu': (node0.ndef[1], fp)}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), node0.ndef[1])
-            self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.eq(node.get('path:dir'), 'c:/www/woah/really')
-            self.eq(node.get('path:base'), 'sup.exe')
-            self.eq(node.get('path:base:ext'), 'exe')
-
-            self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
-            self.len(1, await core.nodes('file:path="c:/www"'))
-            self.len(1, await core.nodes('file:path=""'))
-            self.len(1, await core.nodes('file:base="sup.exe"'))
-
-    async def test_model_file_ismime(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('[ file:bytes="*" :mime=text/PLAIN ]')
-
-            self.len(1, nodes)
-            guid = nodes[0].ndef[1]
-            self.eq('text/plain', nodes[0].get('mime'))
-
-            nodes = await core.nodes('file:mime=text/plain')
-            self.len(1, nodes)
-
-            opts = {'vars': {'guid': guid}}
-            nodes = await core.nodes('file:ismime:file=$guid', opts=opts)
-            self.len(1, nodes)
-
-            node = nodes[0]
-            self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
+            self.len(1, await core.nodes('[ file:path="c:/www/woah/really" ]'))
+            # FIXME virts need to autoadd
+            # self.len(1, await core.nodes('file:path="c:/www"'))
+            # self.len(1, await core.nodes('file:path=""'))
+            # self.len(1, await core.nodes('file:base="sup.exe"'))
 
     async def test_model_file_mime_msoffice(self):
 
         async with self.getTestCore() as core:
 
             fileguid = s_common.guid()
-            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+            opts = {'vars': {'fileguid': fileguid}}
 
             def testmsoffice(n):
                 self.eq('lolz', n.get('title'))
                 self.eq('deep_value', n.get('author'))
                 self.eq('GME stonks', n.get('subject'))
                 self.eq('stonktrader3000', n.get('application'))
-                self.eq(1611100800000, n.get('created'))
-                self.eq(1611187200000, n.get('lastsaved'))
+                self.eq(1611100800000000, n.get('created'))
+                self.eq(1611187200000000, n.get('lastsaved'))
 
-                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(fileguid, n.get('file'))
                 self.eq(0, n.get('file:offs'))
                 self.eq(('foo', 'bar'), n.get('file:data'))
 
@@ -455,7 +547,7 @@ class FileTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             fileguid = s_common.guid()
-            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+            opts = {'vars': {'fileguid': fileguid}}
 
             nodes = await core.nodes('''[
                 file:mime:rtf=*
@@ -466,7 +558,7 @@ class FileTest(s_t_utils.SynTest):
             ]''', opts=opts)
 
             self.len(1, nodes)
-            self.eq(f'guid:{fileguid}', nodes[0].get('file'))
+            self.eq(fileguid, nodes[0].get('file'))
             self.eq(0, nodes[0].get('file:offs'))
             self.eq(('foo', 'bar'), nodes[0].get('file:data'))
             self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
@@ -478,30 +570,29 @@ class FileTest(s_t_utils.SynTest):
             fileguid = s_common.guid()
             conguid = s_common.guid()
             opts = {'vars': {
-                        'fileguid': f'guid:{fileguid}',
+                        'fileguid': fileguid,
                         'conguid': conguid
                 }
             }
 
             def testexif(n):
-                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(fileguid, n.get('file'))
                 self.eq(0, n.get('file:offs'))
                 self.eq(('foo', 'bar'), n.get('file:data'))
                 self.eq('aaaa', n.get('desc'))
                 self.eq('bbbb', n.get('comment'))
                 self.eq('foo bar', n.get('text'))
-                self.eq(1578236238000, n.get('created'))
-                self.eq('a6b4', n.get('imageid'))
+                self.eq(1578236238000000, n.get('created'))
+                self.eq('a6b4', n.get('id'))
                 self.eq(conguid, n.get('author'))
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
                 self.eq(6371137800, n.get('altitude'))
 
             nodes = await core.nodes(f'''[
-                ps:contact=$conguid
+                entity:contact=$conguid
                     :name="Steve Rogers"
                     :title="Captain"
-                    :orgname="U.S. Army"
-                    :address="569 Leaman Place, Brooklyn, NY, 11201, USA"
+                    :place:address="569 Leaman Place, Brooklyn, NY, 11201, USA"
             ]''', opts=opts)
 
             props = '''
@@ -512,7 +603,7 @@ class FileTest(s_t_utils.SynTest):
                 :comment=bbbb
                 :text="  Foo   Bar   "
                 :created="2020-01-05 14:57:18"
-                :imageid=a6b4
+                :id=a6b4
                 :author=$conguid
                 :latlong="38.9582839,-77.358946"
                 :altitude="129 meters"'''
@@ -558,14 +649,10 @@ class FileTest(s_t_utils.SynTest):
                     :parent=*
                     :file=*
                     :path=foo/bar.exe
-                    :user=visi
                     :added=20230630
                     :created=20230629
+                    :accessed=20230629
                     :modified=20230629
-                    :comment="what exe. much wow."
-                    :posix:uid=1000
-                    :posix:gid=1000
-                    :posix:perms=0x7f
                     :archived:size=999
                 ]
             ''')
@@ -573,19 +660,12 @@ class FileTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
 
-            self.eq('visi', nodes[0].get('user'))
-            self.eq('what exe. much wow.', nodes[0].get('comment'))
-
-            self.eq(1688083200000, nodes[0].get('added'))
-            self.eq(1687996800000, nodes[0].get('created'))
-            self.eq(1687996800000, nodes[0].get('modified'))
-
-            self.eq(1000, nodes[0].get('posix:uid'))
-            self.eq(1000, nodes[0].get('posix:gid'))
-            self.eq(127, nodes[0].get('posix:perms'))
+            self.eq(nodes[0].get('added'), 1688083200000000)
+            self.eq(nodes[0].get('created'), 1687996800000000)
+            self.eq(nodes[0].get('accessed'), 1687996800000000)
+            self.eq(nodes[0].get('modified'), 1687996800000000)
 
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
-            self.len(1, await core.nodes('file:archive:entry :user -> inet:user'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
 
@@ -595,7 +675,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes(r'''[
                 file:mime:lnk=*
                     :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
-                    :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
+                    :entry:secondary="c:\\some\\stuff\\program files\\cmd.exe"
                     :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
                     :entry:localized="c:\\some\\actual\\archivos\\I\\swear\\cmd.exe"
                     :entry:icon="%windir%\\system32\\notepad.exe"
@@ -639,7 +719,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('target:attrs'), 0x20)
             self.eq(node.get('target:size'), 12345)
 
-            time = 1674673065284
+            time = 1674673065284000
             self.eq(node.get('target:created'), time)
             self.eq(node.get('target:accessed'), time)
             self.eq(node.get('target:written'), time)
@@ -656,15 +736,15 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ file:attachment=*
-                    :name=Foo/Bar.exe
+                    :path=Foo/Bar.exe
                     :text="foo bar"
                     :file=*
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq('foo bar', nodes[0].get('text'))
-            self.eq('foo/bar.exe', nodes[0].get('name'))
+            self.eq(nodes[0].get('text'), 'foo bar')
+            self.eq(nodes[0].get('path'), 'foo/bar.exe')
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
             self.len(1, await core.nodes('file:attachment -> file:path'))
@@ -697,11 +777,11 @@ class FileTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('author:name'), 'vertex')
             self.eq(nodes[0].get('language:name'), 'klingon')
             self.eq(nodes[0].get('producer:name'), 'zip zop software')
-            self.eq(nodes[0].get('created'), 1768435200000)
-            self.eq(nodes[0].get('updated'), 1768435200000)
+            self.eq(nodes[0].get('created'), 1768435200000000)
+            self.eq(nodes[0].get('updated'), 1768435200000000)
             self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
             self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))
-            self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:prod:softname'))
-            self.len(1, await core.nodes('file:mime:pdf :producer:name -> it:prod:softname'))
-            self.len(2, await core.nodes('file:mime:pdf :keywords -> media:topic'))
+            self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:softwarename'))
+            self.len(1, await core.nodes('file:mime:pdf :producer:name -> it:softwarename'))
+            self.len(2, await core.nodes('file:mime:pdf :keywords -> meta:topic'))

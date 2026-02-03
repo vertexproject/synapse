@@ -78,8 +78,10 @@ class JsonStorTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchPath):
                         await prox.setPathLink('lol/lol', 'hehe/haha')
 
-                    self.true(await prox.addQueue('hehe', {}))
-                    self.false(await prox.addQueue('hehe', {}))
+                    rootiden = await jsonstor.auth.getUserIdenByName('root')
+                    qdef = {'name': 'hehe', 'creator': rootiden}
+                    self.true(await prox.addQueue('hehe', qdef))
+                    self.false(await prox.addQueue('hehe', qdef))
 
                     self.eq(0, await prox.putsQueue('hehe', ('haha', 'hoho')))
 

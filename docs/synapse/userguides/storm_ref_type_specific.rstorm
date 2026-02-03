@@ -27,7 +27,7 @@ enforcement, see the online documentation_ or the Synapse source code_.
 - `file:bytes`_ (file)
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
-- `inet:ipv4`_ (IPv4)
+- `inet:ip`_ (IP)
 - `int`_ (integer)
 - `ival`_ (time interval)
 - `loc`_ (location)
@@ -49,6 +49,10 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 ``Array`` types can be used for secondary properties where that property is likely to have multiple values.
 Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and
 ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm
@@ -61,8 +65,7 @@ query:
 .. TIP::
   
   Some forms include both a singular and an array property for the same type. This allows you to record a
-  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``),
-  or a primary and optional secondary values (e.g., such as  ``ou:campaign:goal`` and ``ou:campaign:goals``).
+  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``).
 
 Indexing
 ++++++++
@@ -73,8 +76,8 @@ Parsing
 +++++++
 
 Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported
-by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the
-values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
+by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ip`` values, the
+values can be input in any supported ``inet:ip`` format (e.g., dotted-decimal string, tuple, etc.).
 
 Insertion
 +++++++++
@@ -133,14 +136,17 @@ Remove multiple values from the array of names associated with an organization:
 
 **Example:**
 
-Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
-of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
-the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
-``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
+    Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
+    of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
+    the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
+    ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
-.. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
-.. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
+    .. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
+    .. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
 
 
 **Usage Notes:**
@@ -156,7 +162,7 @@ the "fail silently" behavior for the "edit try" operator. The ``:authors`` prope
   value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
   "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation
   attempts to remove a value from an array that does not match the array's defined type. For example, attempting
-  to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
+  to remove an IP from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
   remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version
   ( ``?-=``) is used.
 
@@ -167,7 +173,7 @@ Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
 Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the
-full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is
+full array property value. This makes sense for forms with simple values like ``inet:ip=1.2.3.4``, but is
 often infeasible for arrays because lifting by the **full** array value requires you to know the **exact**
 values of each of the array elements as well as their **exact** order:
 
@@ -223,11 +229,10 @@ the ``:identities:fqdns`` array property):
 .. storm-cli:: crypto:x509:cert -> inet:fqdn
 
 
-Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org``
-nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
+Pivot from a set of ``meta:name`` nodes to any nodes that reference those names (this would include ``ou:org``
+nodes where the ``meta:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
-
-.. storm-cli:: ou:name^=acme <- *
+.. storm-cli:: meta:name^=acme <- *
 
 
 .. _type-duration:
@@ -240,12 +245,12 @@ duration
 Indexing
 ++++++++
 
-A ``duration`` is stored as an integer value representing the number of milliseconds.
+A ``duration`` is stored as an integer value representing the number of microseconds.
 
 Parsing
 +++++++
 
-A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / milliseconds
+A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / microseconds
 as appropriate) with the following notation:
   
   ``##D hh:mm:ss.mmm``
@@ -254,7 +259,7 @@ The literal uppercase letter "D" is used to represent the number of days. When e
 string, single or double quotes are required in accordance with the standard rules for using
 :ref:`storm-whitespace-literals`.
   
-A ``duration`` can also be specified as the number of milliseconds expressed as an integer value
+A ``duration`` can also be specified as the number of microseconds expressed as an integer value
 enclosed in parentheses:
   
   ``(218262777)``
@@ -277,17 +282,24 @@ When setting a ``duration`` value, enter the value using either format above.
 
 **Examples:**
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 Set the duration of a compromise (``risk:compromise`` node) to six days, six hours, 46 minutes, and
 23 seconds:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
 
 Or:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
 
 Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
-values to millisecond resolution.
+values to microsecond resolution.
 
 .. NOTE::
 
@@ -330,6 +342,9 @@ This includes:
 
 file\:bytes
 -----------
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
 ``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a
 file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of
@@ -395,7 +410,9 @@ specified, but is not required (it will be added automatically on node creation)
 primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary
 properties must be set manually.
 
-.. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
 
 Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If
 additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file
@@ -471,8 +488,10 @@ For some lift and filter operations, you may optionally specify ``file:bytes`` n
 partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify
 a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 
-.. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
-.. storm-cli:: file:bytes^=sha256:021b4ce5
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
+    .. storm-cli:: file:bytes^=sha256:021b4ce5
 
 **Usage Notes:**
 
@@ -540,7 +559,7 @@ an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does 
 itself, such as its name, location, or URL. This means that even though Synapse deconflicts guid values, it is still
 possible for users or processes to inadvertently create multiple guid nodes that represent the same thing:
 
-.. storm-pre:: ou:name=vertex -> ou:org | delnode
+.. storm-pre:: entity:name=vertex -> ou:org | delnode
 
 .. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :url=https://vertex.link/ ]
 
@@ -802,10 +821,10 @@ easier to lift guid nodes by a unique secondary property.
 
 **Examples:**
 
-Lift an org node by a single name in the names property:
+Lift an org node by its name:
 
-.. storm-pre:: [ ou:org = * :names = (choam,) :name = 'combine honnete ober advancer mercantiles' ]
-.. storm-cli:: ou:org:names *[ = choam ]
+.. storm-pre:: [ ou:org = * :name = foocorp ]
+.. storm-cli:: ou:org:name = foocorp
 
 Lift a DNS request node by the name used in the DNS query:
 
@@ -818,8 +837,10 @@ It is also possible to lift and filter guid nodes using a "sufficiently unique" 
 
 Lift a ``ps:contact`` node by a partial prefix match:
 
-.. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-.. storm-cli:: ps:contact ^= 13c9663e
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
+    .. storm-cli:: ps:contact ^= 13c9663e
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
@@ -830,12 +851,12 @@ set for the secondary property.
 
 **Example:**
 
-Set the ``:org`` property for a ``ps:contact`` node to the guid value of the associated ``ou:org`` node using
+Set the ``:org`` property for a ``entity:contact`` node to the guid value of the associated ``ou:org`` node using
 a Storm query:
 
-.. storm-pre:: [ (ps:contact=* :name='ron the cat' :title='cattribution analyst') (ou:org=* :name=vertex) ]
+.. storm-pre:: [ (entity:contact=* :name='ron the cat' :title='cattribution analyst') (ou:org=* :name=vertex) ]
 
-.. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
+.. storm-cli:: entity:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
 
 .. NOTE::
   
@@ -1003,79 +1024,78 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example
   ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
 
-.. _type-inet-ipv4:
+.. _type-inet-ip:
 
-inet\:ipv4
+inet\:ip
 ----------
 
-IPv4 addresses are stored as integers and represented (displayed) to users as dotted-decimal strings.
+IP addresses are stored as tuples of integers and represented (displayed) to users as dotted-decimal strings.
 
 Indexing
 ++++++++
 
-IPv4 addresses are indexed as integers. This optimizes various comparison operations, including greater than /
+IP addresses are indexed as tuples of integers. This optimizes various comparison operations, including greater than /
 less than, range, etc.
 
 Parsing
 +++++++
 
-While IPv4 addresses are stored and indexed as integers, they can be input into Storm (and used within Storm
+While IP addresses are stored and indexed as tuples of integers, they can be input into Storm (and used within Storm
 operations) as any of the following.
 
-- integer: ``inet:ipv4 = 3232235521``
-- hex: ``inet:ipv4 = 0xC0A80001``
-- dotted-decimal string: ``inet:ipv4 = 192.168.0.1``
-- range: ``inet:ipv4 = 192.168.0.1-192.167.0.10``
-- CIDR: ``inet:ipv4 = 192.168.0.0/24``
+- dotted-decimal string: ``inet:ip = 192.168.0.1``
+- range: ``inet:ip = 192.168.0.1-192.167.0.10``
+- CIDR: ``inet:ip = 192.168.0.0/24``
+- tuple of version/value integers: ``inet:ip = ([4, 3232235521])``
 
 Insertion
 +++++++++
 
-The ability to specify IPv4 values using either range or CIDR format allows you to "bulk create" sets of
-``inet:ipv4`` nodes without the need to specify each address individually.
+The ability to specify IP values using either range or CIDR format allows you to "bulk create" sets of
+``inet:ip`` nodes without the need to specify each address individually.
 
 **Examples**
 
 **Note:** results (output) not shown below due to length.
 
-Create ten ``inet:ipv4`` nodes:
+Create ten ``inet:ip`` nodes:
 
 
-.. storm-pre:: [ inet:ipv4 = 192.168.0.1-192.168.0.10 ]
+.. storm-pre:: [ inet:ip = 192.168.0.1-192.168.0.10 ]
 ::
 
-    [ inet:ipv4 = 192.168.0.1-192.168.0.10 ]
+    [ inet:ip = 192.168.0.1-192.168.0.10 ]
 
 
 Create the 256 addresses in the range 192.168.0.0/24:
 
 
-.. storm-pre:: [ inet:ipv4 = 192.168.0.0/24 ]
+.. storm-pre:: [ inet:ip = 192.168.0.0/24 ]
 ::
 
-    [ inet:ipv4 = 192.168.0.0/24 ]
+    [ inet:ip = 192.168.0.0/24 ]
 
 
 Operations
 ++++++++++
 
-Similar to node insertion, lifting or filtering IPV4 addresses by range or by CIDR notation will operate on
-every ``inet:ipv4`` node that exists within the Cortex and falls within the specified range or CIDR block. 
+Similar to node insertion, lifting or filtering IP addresses by range or by CIDR notation will operate on
+every ``inet:ip`` node that exists within the Cortex and falls within the specified range or CIDR block. 
 This allows operating on multiple contiguous IP addresses without the need to specify them individually.
 
 **Examples**
 
-Lift all ``inet:ipv4`` nodes within the specified range that exist within the Cortex:
+Lift all ``inet:ip`` nodes within the specified range that exist within the Cortex:
 
 
-.. storm-pre:: [ inet:ipv4=169.254.18.30 inet:ipv4=169.254.18.36 inet:ipv4=169.254.18.53 ]
-.. storm-cli:: inet:ipv4 = 169.254.18.24-169.254.18.64
+.. storm-pre:: [ inet:ip=169.254.18.30 inet:ip=169.254.18.36 inet:ip=169.254.18.53 ]
+.. storm-cli:: inet:ip = 169.254.18.24-169.254.18.64
 
-Filter a set of DNS A records to only include those whose IPv4 value is within the 172.16.* RFC1918 range:
+Filter a set of DNS A records to only include those whose IP value is within the 172.16.* RFC1918 range:
 
 
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
-.. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
+.. storm-cli:: inet:dns:a:fqdn=woot.com +:ip=172.16.0.0/12
 
 .. _type-int:
 
@@ -1098,18 +1118,22 @@ When adding or modifying integer values, Synapse will accept integer, hex (prece
 
 Set the ``:count`` of the ``biz:bundle`` to 42:
 
-.. storm-pre:: [ biz:bundle=(350,) ]
-.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ biz:bundle=(350,) ]
+    .. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
-.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 :dst:proto=tcp :dst:ipv4=142.118.95.50 ]
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :server=tcp://142.118.95.50 ]
 .. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
 
 Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
 
-.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
-.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+    .. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
 
 Insertion
 +++++++++
@@ -1130,13 +1154,15 @@ Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
 
 Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
 
-.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :dst:proto=tcp :dst:ipv4=62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :server=tcp://62.152.42.139 :ip:proto=6 +#my.tag]
 .. storm-cli:: inet:flow#mytag +:ip:proto=0x06
 
 Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
 
-.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
-.. storm-cli:: it:group:posix:gid=0o426
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ]
+    .. storm-cli:: it:group:posix:gid=0o426
 
 
 .. _type-ival:
@@ -1165,9 +1191,9 @@ behavior when specifying a single time value).
 Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 For example:
 
-- ``.seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
+- ``:seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
 - ``+#sometag=(2018/09/15, "+24 hours")``
-- ``.seen=2019/03/24``
+- ``:seen=2019/03/24``
 
 As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in
 parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
@@ -1190,11 +1216,11 @@ When entering relative times in an ``ival`` type:
 
 For example:
 
-- ``.seen="+1 hour"`` means from the current time (now) to one hour after the current time.
-- ``.seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
-- ``.seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
-- ``.seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
-- ``.seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
+- ``:seen="+1 hour"`` means from the current time (now) to one hour after the current time.
+- ``:seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
+- ``:seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
+- ``:seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
+- ``:seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
 
 When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time``
 values to the ``*range=`` comparator), the following restrictions should be kept in mind:
@@ -1257,8 +1283,8 @@ equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<m
 Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 
-.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) .seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
-.. storm-cli:: inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
+.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
+.. storm-cli:: inet:dns:a:seen=("2018/12/13 01:05", "2018/12/16 12:57")
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
@@ -1271,8 +1297,8 @@ and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (incl
 Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 
-.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) .seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) .seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) .seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
-.. storm-cli:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
+.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+.. storm-cli:: inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 
 
 ``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a
@@ -1282,13 +1308,13 @@ range of individual values (such as ``time`` or ``int``).
   
   By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
   when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
-  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
-  the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
+  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``:seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
+  the variable assignment ``$time = :seen`` will assign the **pair** of date/times to ``$time``.
   
   You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
   as follows:
   
-  ``( $min, $max ) = .seen``
+  ``( $min, $max ) = :seen``
   
   ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
 
@@ -1372,20 +1398,20 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:loc ^= tr
+.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :place:loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :place:loc=tr.istanbul ) ]
+.. storm-cli:: ou:org:place:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
 
-.. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ipv4:loc ^= ca.on
+.. storm-pre:: [ ( inet:ip=149.248.52.240 :place:loc=ca.on ) ( inet:ip=49.51.12.195 :place:loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :place:loc=ca.on.keswick ) ]
+.. storm-cli:: inet:ip:place:loc ^= ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ipv4:loc ^= ca.on``
-  will fail to match ``inet:ipv4:loc = ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:place:loc ^= ca.on``
+  will fail to match ``inet:ip:place:loc = ca``.
 
 
 Equals Operator
@@ -1408,20 +1434,20 @@ invalid; the expressions will not generate an error but will fail to return any 
 
 Lift all organizations located in Turkey:
 
-.. storm-cli:: ou:org:loc = tr.*
+.. storm-cli:: ou:org:place:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
-.. storm-cli:: inet:ipv4:loc = ca.on.*
+.. storm-cli:: inet:ip:place:loc = ca.on.*
 
 .. NOTE::
 
   Lifting by ``loc`` property value using the wildcard is equivalent to a prefix lift. The following queries will
   return the same results:
   
-  Wildcard: ``ou:org:loc = de.*``
+  Wildcard: ``ou:org:place:loc = de.*``
   
-  Prefix match: ``ou:org:loc ^= de``
+  Prefix match: ``ou:org:place:loc ^= de``
 
 
 .. _type-str:
@@ -1468,10 +1494,10 @@ Lift all organizations whose name starts with the word "Acme ":
 
 .. storm-cli:: ou:org:name^='acme '
 
-Filter a set of Internet accounts to those with usernames starting with 'matrix':
+Filter a set of service accounts to those with usernames starting with 'matrix':
 
-.. storm-pre:: [ inet:web:acct=(twitter.com,matrixmaster) inet:web:acct=(twitter.com,matrixneo) ]
-.. storm-cli:: inet:web:acct:site=twitter.com +:user^=matrix
+.. storm-pre:: [ (inet:service:account=* :user=matrixmaster) (inet:service:account=* :user=matrixneo) ]
+.. storm-cli:: inet:service:account +:user^=matrix
 
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator
@@ -1578,8 +1604,10 @@ Lift all tags in the computer network operations (``cno``) tree:
 Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
 whose name begins with "br":
 
-.. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
-.. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
+    .. storm-cli:: risk:threat:tag ^=rep.secureworks.br
 
 **Usage notes:**
 
@@ -1609,7 +1637,7 @@ taxonomy
 
 A ``taxonomy`` in Synapse is used to represent a set of hierarchical types or categories that can be used to classify
 objects (forms). Many forms in Synapse include ``:type`` properties (such as ``risk:tool:software:type``, ``geo:place:type``,
-or ``media:news:type``).
+or ``doc:report:type``).
 
 .. TIP::
   
@@ -1621,7 +1649,7 @@ or ``media:news:type``).
   set of categories independent of other taxonomies. This allows you to define one taxonomy to categorize tools/malware and
   a separate taxonomy to categorize articles or publications, for example.
 
-Most taxonomy types are also forms (i.e., ``risk:tool:software:taxonomy``), so you can lift, view, and work with them
+Most taxonomy types are also forms (i.e., ``risk:tool:software:type:taxonomy``), so you can lift, view, and work with them
 just like other nodes in Synapse. To ensure consistency across the numerous taxonomy forms, most taxonomies inherit the
 ``meta:taxonomy`` :ref:`gloss-interface`.
 
@@ -1668,8 +1696,8 @@ The trailing dot is masked / omitted when displaying the taxonomy value. This di
 displaying the value's representation (display value, using the method ``$node.repr()``) as opposed to its actual
 value (using the method ``$node.value()``):
 
-.. storm-pre:: [ ou:goal:type:taxonomy=financial_gain ]
-.. storm-cli:: ou:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
+.. storm-pre:: [ entity:goal:type:taxonomy=financial_gain ]
+.. storm-cli:: entity:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
 
 
 Parsing
@@ -1733,7 +1761,7 @@ with "j":
   or ``ou:industry:type = energy.electricity.distribution``.
 
 - When lifting or filtering ``taxonomy`` types, use of the wildcard ( ``*`` ) is not allowed. For example, the following
-  Storm expression is invalid and will throw a syntax error: ``risk:attacktype = phishing.*``.
+  Storm expression is invalid and will throw a syntax error: ``risk:attack:type:taxonomy = phishing.*``.
 
 
 .. _type-time:
@@ -1741,9 +1769,9 @@ with "j":
 time
 ----
 
-Synapse stores ``time`` types in Epoch milliseconds (millis) - that is, the number of milliseconds since 
+Synapse stores ``time`` types in Epoch microseconds (micros) - that is, the number of microseconds since 
 January 1, 1970. The ``time`` type is technically a date/time because it encompasses both a date and a time.
-A time value alone, such as 12:37 PM (12:37:00.000), is invalid.
+A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
 
 See also the section on :ref:`type-ival` (interval) types for details on how ``time`` types are used as 
 minimum / maximum pairs.
@@ -1760,15 +1788,15 @@ Parsing
 
 - **Explicit** times:
 
-  - Human-readable (YYYY/MM/DD hh:mm:ss.mmm):
+  - Human-readable (YYYY/MM/DD hh:mm:ss.mmmmmm):
   
     ``"2018/12/16 09:37:52.324"``
   
-  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmZ):
+  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmmmmZ):
   
     ``2018/12/16T09:37:52.324Z``
     
-  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmm+/-hh:mm). No spaces are allowed between the time value
+  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmmmmm+/-hh:mm). No spaces are allowed between the time value
     and the time zone offset:
   
     ``2018-12-16 09:37:52.324-04:00``
@@ -1780,13 +1808,13 @@ Parsing
       format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified,
       Synapse will assume the value is in UTC.
 
-  - No formatting (YYYYMMDDhhmmssmmm):
+  - No formatting (YYYYMMDDhhmmssmmmmmm):
     
-    ``20181216093752324``
+    ``20181216093752324000``
   
-  - Epoch millis:
+  - Epoch micros:
     
-    ``(1544953072324)``
+    ``(1544953072324000)``
     
     .. TIP::
       
@@ -1817,9 +1845,9 @@ Parsing
   
   - the keyword ``now`` is used to represent the current date/time.
   - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future
-    (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the
-    heat death of the universe". Note that technically the largest valid millis value is 9999999999999 
-    (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
+    (technically equivalent to 9223372036854775807 micros, i.e., "some really high value in the future".
+    Note that technically the largest valid micros value is 253402300799999999, which
+    represents 9999/12/31 23:59:59.999999).
     
     The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that 
     the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that
@@ -1834,16 +1862,16 @@ Lower Resolution Time Values and Wildcard Time Values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can
-be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
+be entered up to a maximum resolution of microseconds (``YYYY/MM/DD hh:mm:ss.mmmmmm``).
 
 Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time
 value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
 
-- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
-- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
-- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000``).
+- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000000``).
+- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000000``).
+- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000000``).
 - A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour
-  offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000``).
+  offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000000``).
 
 Synapse also supports the use of the wildcard ( ``*`` ) character to specify a partial time value match:
 
@@ -1868,12 +1896,12 @@ Set the observed time window (technically an ``ival`` type) for when an IP addre
 the ``#cno.infra.dns.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole
 is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
 
-.. storm-cli:: [ inet:ipv4=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
+.. storm-cli:: [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
 
 
 - Set the observed time window using a time zone offset:
 
-.. storm-cli:: [ inet:ipv4=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
+.. storm-cli:: [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
 
 
 Insertion
@@ -1884,7 +1912,7 @@ be specified.
 
 In addition, when adding or modifying ``time`` types, a lower resolution time and a wildcard time behave
 identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value
-of the newly created DNS request node to ``2021/01/23 00:00:00.000``):
+of the newly created DNS request node to ``2021/01/23 00:00:00.000000``):
 
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23 ]
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23* ]
@@ -1993,8 +2021,10 @@ Range Custom Operator
 Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 2019 and today:
 
 
-.. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
-.. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
+    .. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
 
 .. NOTE::
   
@@ -2019,8 +2049,8 @@ interval.
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 
-.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) .seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) .seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
-.. storm-cli:: inet:dns:a.seen@='2019/03/16 13:00'
+.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+.. storm-cli:: inet:dns:a:seen@='2019/03/16 13:00'
 
 .. NOTE::
   

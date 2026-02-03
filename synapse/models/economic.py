@@ -1,540 +1,598 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    ('econ', {
 
-class EconModule(s_module.CoreModule):
+        'types': (
 
-    def getModelDefs(self):
-        return (('econ', {
+            ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
+                'doc': 'A product or service which may be sold.'}),
 
-            'types': (
+            ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
+                'doc': 'A Card Verification Value (CVV).'}),
 
-                ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
-                    'doc': 'A Card Verification Value (CVV).'}),
+            ('econ:pay:pin', ('str', {'regex': '^[0-9]{3,6}$'}), {
+                'doc': 'A Personal Identification Number (PIN).'}),
 
-                ('econ:pay:pin', ('str', {'regex': '^[0-9]{3,6}$'}), {
-                    'doc': 'A Personal Identification Number (PIN).'}),
+            ('econ:pay:mii', ('int', {'min': 0, 'max': 9}), {
+                'doc': 'A Major Industry Identifier (MII).'}),
 
-                ('econ:pay:mii', ('int', {'min': 0, 'max': 9}), {
-                    'doc': 'A Major Industry Identifier (MII).'}),
+            ('econ:pay:pan', ('str', {'regex': '^(?<iin>(?<mii>[0-9]{1})[0-9]{5})[0-9]{1,13}$'}), {
+                'doc': 'A Primary Account Number (PAN) or card number.'}),
 
-                ('econ:pay:pan', ('str', {'regex': '^(?<iin>(?<mii>[0-9]{1})[0-9]{5})[0-9]{1,13}$'}), {
-                    'doc': 'A Primary Account Number (PAN) or card number.'}),
+            ('econ:pay:iin', ('int', {'min': 0, 'max': 999999}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'An Issuer Id Number (IIN).'}),
 
-                ('econ:pay:iin', ('int', {'min': 0, 'max': 999999}), {
-                    'doc': 'An Issuer Id Number (IIN).'}),
+            ('econ:pay:card', ('guid', {}), {
+                'template': {'title': 'payment card'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
+                ),
+                'doc': 'A single payment card.'}),
 
-                ('econ:pay:card', ('guid', {}), {
+            ('econ:bank:check', ('guid', {}), {
+                'template': {'title': 'check'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
+                ),
+                'doc': 'A check written out to a recipient.'}),
 
-                    'interfaces': ('econ:pay:instrument',),
-                    'template': {
-                        'instrument': 'payment card'},
+            # TODO...
+            # ('econ:bank:wire', ('guid', {}), {}),
 
-                    'doc': 'A single payment card.'}),
+            ('econ:purchase', ('guid', {}), {
+                'template': {'title': 'purchase event'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
+                'doc': 'A purchase event.'}),
 
-                ('econ:purchase', ('guid', {}), {
-                    'doc': 'A purchase event.'}),
+            ('econ:lineitem', ('guid', {}), {
+                'prevnames': ('econ:receipt:item',),
+                'doc': 'A line item included as part of a purchase.'}),
 
-                ('econ:receipt:item', ('guid', {}), {
-                    'doc': 'A line item included as part of a purchase.'}),
+            ('econ:payment', ('guid', {}), {
+                'template': {'title': 'payment event'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
+                'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
-                ('econ:acquired', ('comp', {'fields': (('purchase', 'econ:purchase'), ('item', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use econ:purchase -(acquired)> *.'}),
+            ('econ:balance', ('guid', {}), {
+                'doc': 'The balance of funds available to a financial instrument at a specific time.'}),
 
-                ('econ:acct:payment', ('guid', {}), {
-                    'doc': 'A payment or crypto currency transaction.'}),
+            ('econ:statement', ('guid', {}), {
+                'doc': 'A statement of starting/ending balance and payments for a financial instrument over a time period.'}),
 
-                ('econ:acct:balance', ('guid', {}), {
-                    'doc': 'A snapshot of the balance of an account at a point in time.'}),
+            ('econ:receipt', ('guid', {}), {
+                'doc': 'A receipt issued as proof of payment.'}),
 
-                ('econ:acct:receipt', ('guid', {}), {
-                    'doc': 'A receipt issued as proof of payment.'}),
+            ('econ:invoice', ('guid', {}), {
+                'doc': 'An invoice issued requesting payment.'}),
 
-                ('econ:acct:invoice', ('guid', {}), {
-                    'doc': 'An invoice issued requesting payment.'}),
+            ('econ:price', ('hugenum', {}), {
+                'doc': 'The amount of money expected, required, or given in payment for something.',
+                'ex': '2.20'}),
 
-                ('econ:price', ('hugenum', {'norm': False}), {
-                    'doc': 'The amount of money expected, required, or given in payment for something.',
-                    'ex': '2.20'}),
+            ('econ:currency', ('str', {'lower': True}), {
+                'doc': 'The name of a system of money in general use.',
+                'ex': 'usd'}),
 
-                ('econ:currency', ('str', {'lower': True, 'strip': False}), {
-                    'doc': 'The name of a system of money in general use.',
-                    'ex': 'usd'}),
+            ('econ:fin:exchange', ('guid', {}), {
+                'doc': 'A financial exchange where securities are traded.'}),
 
-                ('econ:fin:exchange', ('guid', {}), {
-                    'doc': 'A financial exchange where securities are traded.'}),
+            ('econ:fin:security:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of financial security types.'}),
 
-                ('econ:fin:security', ('guid', {}), {
-                    'doc': 'A financial security which is typically traded on an exchange.'}),
+            ('econ:fin:security', ('guid', {}), {
+                'doc': 'A financial security which is typically traded on an exchange.'}),
 
-                ('econ:fin:bar', ('guid', {}), {
-                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window.'}),
+            ('econ:fin:bar', ('guid', {}), {
+                'doc': 'A sample of the open, close, high, low prices of a security in a specific time window.'}),
 
-                ('econ:fin:tick', ('guid', {}), {
-                    'doc': 'A sample of the price of a security at a single moment in time.'}),
+            ('econ:fin:tick', ('guid', {}), {
+                'doc': 'A sample of the price of a security at a single moment in time.'}),
 
-                ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A bank account type taxonomy.'}),
+            ('econ:fin:account:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A financial account type taxonomy.'}),
 
-                ('econ:bank:account', ('guid', {}), {
+            ('econ:fin:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'financial account'}}),
+                ),
+                'doc': 'A financial account which contains a balance of funds.'}),
 
-                    'interfaces': ('econ:pay:instrument',),
-                    'template': {
-                        'instrument': 'bank account'},
+            ('econ:bank:aba:account:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (('meta:taxonomy', {}),),
+                'doc': 'A type taxonomy for ABA bank account numbers.'}),
 
-                    'doc': 'A bank account.'}),
+            ('econ:bank:aba:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'ABA account'}}),
+                ),
+                'doc': 'An ABA routing number and bank account number.'}),
 
-                ('econ:bank:balance', ('guid', {}), {
-                    'doc': 'A balance contained by a bank account at a point in time.'}),
+            # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
+            ('econ:cash:deposit', ('guid', {}), {
+                'doc': 'A cash deposit event to a financial account.'}),
 
-                ('econ:bank:statement', ('guid', {}), {
-                    'doc': 'A statement of bank account payment activity over a period of time.'}),
+            ('econ:cash:withdrawal', ('guid', {}), {
+                'doc': 'A cash withdrawal event from a financial account.'}),
 
-                ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
-                    'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
+            ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
-                ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
-                    'doc': 'An International Bank Account Number.'}),
+            ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'An International Bank Account Number.'}),
 
-                ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
-                    'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+            ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
 
-                ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
-                    'doc': 'A node which may act as a payment instrument.'}),
-            ),
+            ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
+                'doc': 'A node which may act as a payment instrument.'}),
+        ),
 
-            'interfaces': (
-                ('econ:pay:instrument', {
+        'interfaces': (
+            ('econ:pay:instrument', {
 
-                    'doc': 'An interface for forms which may act as a payment instrument.',
-                    'template': {
-                        'instrument': 'instrument',
+                'doc': 'An interface for forms which may act as a payment instrument.',
+                'template': {'title': 'instrument'},
+
+                'props': (
+                    ('account', ('econ:fin:account', {}), {
+                        'doc': 'The account contains the funds used by the {title}.'}),
+                ),
+            }),
+        ),
+
+        'edges': (
+
+            # (('econ:purchase', 'acquired', 'entity:havable'), {
+                # 'doc': 'The purchase was used to acquire the target node.'}),
+
+            (('econ:purchase', 'has', 'econ:lineitem'), {
+                'doc': 'The purchase included the line item.'}),
+
+            (('econ:receipt', 'has', 'econ:lineitem'), {
+                'doc': 'The receipt included the line item.'}),
+
+            (('econ:statement', 'has', 'econ:payment'), {
+                'doc': 'The financial statement includes the payment.'}),
+        ),
+
+        'forms': (
+
+            ('econ:currency', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The full name of the currency.'}),
+            )),
+
+            ('econ:pay:iin', {}, (
+
+                ('issuer', ('ou:org', {}), {
+                    'prevnames': ('org',),
+                    'doc': 'The issuer organization.'}),
+
+                ('issuer:name', ('entity:name', {}), {
+                    'prevnames': ('name',),
+                    'doc': 'The registered name of the issuer.'}),
+            )),
+
+            ('econ:pay:card', {}, (
+
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name as it appears on the card.'}),
+
+                ('pan', ('econ:pay:pan', {}), {
+                    'doc': 'The payment card number.'}),
+
+                ('pan:mii', ('econ:pay:mii', {}), {
+                    'doc': 'The payment card MII.'}),
+
+                ('pan:iin', ('econ:pay:iin', {}), {
+                    'doc': 'The payment card IIN.'}),
+
+                ('expr', ('time', {}), {
+                    'doc': 'The expiration date for the card.'}),
+
+                ('cvv', ('econ:pay:cvv', {}), {
+                    'doc': 'The Card Verification Value on the card.'}),
+
+                ('pin', ('econ:pay:pin', {}), {
+                    'doc': 'The Personal Identification Number on the card.'}),
+            )),
+
+            ('econ:bank:check', {}, (
+
+                ('payto', ('entity:name', {}), {
+                    'doc': 'The name of the intended recipient.'}),
+
+                ('amount', ('econ:price', {}), {
+                    'doc': 'The amount the check is written for.'}),
+
+                ('routing', ('econ:bank:aba:rtn', {}), {
+                    'doc': 'The ABA routing number on the check.'}),
+
+                ('account:number', ('str', {'regex': '[0-9]{1, 12}'}), {
+                    'doc': 'The bank account number.'}),
+            )),
+
+            ('econ:purchase', {}, (
+
+                ('buyer', ('entity:actor', {}), {
+                    'prevnames': ('by:contact',),
+                    'doc': 'The buyer which purchased the items.'}),
+
+                ('seller', ('entity:actor', {}), {
+                    'prevnames': ('from:contact',),
+                    'doc': 'The seller which sold the items.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time of the purchase.'}),
+
+                ('paid', ('bool', {}), {
+                    'doc': 'Set to True if the purchase has been paid in full.'}),
+
+                ('paid:time', ('time', {}), {
+                    'doc': 'The point in time where the purchase was paid in full.'}),
+
+                ('price', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
+                    'doc': 'The econ:price of the purchase.'}),
 
-                    'props': (
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The econ:price of the purchase.'}),
+            )),
 
-                        ('contact', ('ps:contact', {}), {
-                            'doc': 'The primary contact for the {instrument}.'}),
-                    ),
-                }),
-            ),
+            ('econ:lineitem', {}, (
 
-            'edges': (
-                (('econ:purchase', 'acquired', None), {
-                    'doc': 'The purchase was used to acquire the target node.'}),
+                ('count', ('int', {'min': 1}), {
+                    'doc': 'The number of items included in this line item.'}),
 
-                (('econ:bank:statement', 'has', 'econ:acct:payment'), {
-                    'doc': 'The bank statement includes the payment.'}),
-            ),
+                ('price', ('econ:price', {}), {
+                    'doc': 'The total cost of this receipt line item.'}),
 
-            'forms': (
+                # FIXME rename biz:sellable? donation / volunteers
+                ('item', ('biz:sellable', {}), {
+                    'prevnames': ('product',),
+                    'doc': 'The product or service.'}),
+            )),
 
-                ('econ:currency', {}, ()),
-                ('econ:pay:iin', {}, (
+            ('econ:cash:deposit', {}, (
 
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The issuer organization.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time the cash was deposited.'}),
 
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'The registered name of the issuer.'}),
-                )),
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The entity which deposited the cash.'}),
 
-                ('econ:pay:card', {}, (
+                ('amount', ('econ:price', {}), {
+                    'doc': 'The amount of cash deposited.'}),
 
-                    ('pan', ('econ:pay:pan', {}), {
-                        'doc': 'The payment card number.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the deposited cash.'}),
 
-                    ('pan:mii', ('econ:pay:mii', {}), {
-                        'doc': 'The payment card MII.'}),
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The account the cash was deposited to.'}),
+            )),
 
-                    ('pan:iin', ('econ:pay:iin', {}), {
-                        'doc': 'The payment card IIN.'}),
+            ('econ:cash:withdrawal', {}, (
 
-                    ('name', ('ps:name', {}), {
-                        'doc': 'The name as it appears on the card.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time the cash was withdrawn.'}),
 
-                    ('expr', ('time', {}), {
-                        'doc': 'The expiration date for the card.'}),
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The entity which withdrew the cash.'}),
 
-                    ('cvv', ('econ:pay:cvv', {}), {
-                        'doc': 'The Card Verification Value on the card.'}),
+                ('amount', ('econ:price', {}), {
+                    'doc': 'The amount of cash withdrawn.'}),
 
-                    ('pin', ('econ:pay:pin', {}), {
-                        'doc': 'The Personal Identification Number on the card.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the withdrawn cash.'}),
 
-                    ('account', ('econ:bank:account', {}), {
-                        'doc': 'A bank account associated with the payment card.'}),
-                )),
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The account the cash was withdrawn from.'}),
+            )),
 
-                ('econ:purchase', {}, (
+            ('econ:payment', {}, (
 
-                    ('by:contact', ('ps:contact', {}), {
-                        'doc': 'The contact information used to make the purchase.'}),
+                ('id', ('base:id', {}), {
+                    'prevnames': ('txnid',),
+                    'doc': 'A payment processor specific transaction ID.'}),
 
-                    ('from:contact', ('ps:contact', {}), {
-                        'doc': 'The contact information used to sell the item.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time the payment was made.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time of the purchase.'}),
+                ('fee', ('econ:price', {}), {
+                    'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
 
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place where the purchase took place.'}),
+                ('cash', ('bool', {}), {
+                    'doc': 'The payment was made with physical currency.'}),
 
-                    ('paid', ('bool', {}), {
-                        'doc': 'Set to True if the purchase has been paid in full.'}),
+                ('status', ('str', {'lower': True}), {
+                    'doc': 'The status of the payment.'}),
 
-                    ('paid:time', ('time', {}), {
-                        'doc': 'The point in time where the purchase was paid in full.'}),
+                ('payee', ('entity:actor', {}), {
+                    'doc': 'The entity which received the payment.'}),
 
-                    ('settled', ('time', {}), {
-                        'doc': 'The point in time where the purchase was settled.'}),
+                ('payee:instrument', ('econ:pay:instrument', {}), {
+                    'doc': 'The payment instrument used by the payee to receive payment.'}),
 
-                    ('campaign', ('ou:campaign', {}), {
-                        'doc': 'The campaign that the purchase was in support of.'}),
+                ('payer', ('entity:actor', {}), {
+                    'doc': 'The entity which made the payment.'}),
 
-                    ('price', ('econ:price', {}), {
-                        'doc': 'The econ:price of the purchase.'}),
+                ('payer:instrument', ('econ:pay:instrument', {}), {
+                    'doc': 'The payment instrument used by the payer to make the payment.'}),
 
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The econ:price of the purchase.'}),
+                ('amount', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The amount of money transferred in the payment.'}),
 
-                    ('listing', ('biz:listing', {}), {
-                        'doc': 'The purchase was made based on the given listing.'}),
-                )),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the payment.'}),
 
-                ('econ:receipt:item', {}, (
+                ('crypto:transaction', ('crypto:currency:transaction', {}), {
+                    'doc': 'A crypto currency transaction that initiated the payment.'}),
+            )),
 
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase that contains this line item.'}),
+            ('econ:balance', {}, (
 
-                    ('count', ('int', {'min': 1}), {
-                        'doc': 'The number of items included in this line item.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time the balance was recorded.'}),
 
-                    ('price', ('econ:price', {}), {
-                        'doc': 'The total cost of this receipt line item.'}),
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The financial account holding the balance.'}),
 
-                    ('product', ('biz:product', {}), {
-                        'doc': 'The product being being purchased in this line item.'}),
-                )),
-                ('econ:acquired', {}, (
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase event which acquired an item.', 'ro': True, }),
-                    ('item', ('ndef', {}), {
-                        'doc': 'A reference to the item that was acquired.', 'ro': True, }),
-                    ('item:form', ('str', {}), {
-                        'doc': 'The form of item purchased.'}),
-                )),
+                ('amount', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The available funds at the time.'}),
 
-                ('econ:acct:payment', {}, (
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the available funds.'}),
+            )),
 
-                    ('txnid', ('str', {'strip': True}), {
-                        'doc': 'A payment processor specific transaction id.'}),
+            ('econ:statement', {}, (
 
-                    ('fee', ('econ:price', {}), {
-                        'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
+                # TODO: total volume of changes etc...
 
-                    ('from:cash', ('bool', {}), {
-                        'doc': 'Set to true if the payment input was in cash.'}),
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The financial account described by the statement.'}),
 
-                    ('to:instrument', ('econ:pay:instrument', {}), {
-                        'doc': 'The payment instrument which received funds from the payment.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The period that the statement includes.'}),
 
-                    ('from:instrument', ('econ:pay:instrument', {}), {
-                        'doc': 'The payment instrument used to make the payment.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency used to store the balances.'}),
 
-                    ('from:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
+                ('starting:balance', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'period.min'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The balance at the beginning of the statement period.'}),
 
-                    ('from:pay:card', ('econ:pay:card', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
+                ('ending:balance', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'period.max'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The balance at the end of the statement period.'}),
+            )),
 
-                    ('from:contract', ('ou:contract', {}), {
-                        'doc': 'A contract used as an aggregate payment source.'}),
+            ('econ:fin:exchange', {}, (
 
-                    ('from:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
+                ('name', ('meta:name', {}), {
+                    'doc': 'A simple name for the exchange.',
+                    'ex': 'nasdaq'}),
 
-                    ('from:contact', ('ps:contact', {}), {
-                        'doc': 'Contact information for the entity making the payment.'}),
+                ('org', ('ou:org', {}), {
+                    'doc': 'The organization that operates the exchange.'}),
 
-                    ('to:cash', ('bool', {}), {
-                        'doc': 'Set to true if the payment output was in cash.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency used for all transactions in the exchange.',
+                    'ex': 'usd'}),
+            )),
 
-                    ('to:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
+            ('econ:fin:security:type:taxonomy', {}, ()),
+            ('econ:fin:security', {}, (
 
-                    ('to:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
+                ('exchange', ('econ:fin:exchange', {}), {
+                    'doc': 'The exchange on which the security is traded.'}),
 
-                    ('to:contact', ('ps:contact', {}), {
-                        'doc': 'Contact information for the person/org being paid.'}),
+                ('ticker', ('str', {'lower': True}), {
+                    'doc': 'The identifier for this security within the exchange.'}),
 
-                    ('to:contract', ('ou:contract', {}), {
-                        'doc': 'A contract used as an aggregate payment destination.'}),
+                ('type', ('econ:fin:security:type:taxonomy', {}), {
+                    'doc': 'The type of security.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time the payment was processed.'}),
+                # FIXME valuable
+                ('price', ('econ:price', {}), {
+                    'doc': 'The last known/available price of the security.'}),
 
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase which the payment was paying for.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time of the last know price sample.'}),
+            )),
 
-                    ('amount', ('econ:price', {}), {
-                        'doc': 'The amount of money transferred in the payment.'}),
+            ('econ:fin:tick', {}, (
 
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency of the payment.'}),
+                ('security', ('econ:fin:security', {}), {
+                    'doc': 'The security measured by the tick.'}),
 
-                    ('memo', ('str', {}), {
-                        'doc': 'A small note specified by the payer common in financial transactions.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time the price was sampled.'}),
 
-                    ('crypto:transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'A crypto currency transaction that initiated the payment.'}),
+                ('price', ('econ:price', {}), {
+                    'doc': 'The price of the security at the time.'}),
+            )),
 
-                    ('invoice', ('econ:acct:invoice', {}), {
-                        'doc': 'The invoice that the payment applies to.'}),
+            ('econ:fin:bar', {}, (
 
-                    ('receipt', ('econ:acct:receipt', {}), {
-                        'doc': 'The receipt that was issued for the payment.'}),
+                ('security', ('econ:fin:security', {}), {
+                    'doc': 'The security measured by the bar.'}),
 
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place where the payment occurred.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('ival',),
+                    'doc': 'The interval of measurement.'}),
 
-                    ('place:name', ('geo:name', {}), {
-                        'doc': 'The name of the place where the payment occurred.'}),
+                ('price:open', ('econ:price', {}), {
+                    'doc': 'The opening price of the security.'}),
 
-                    ('place:address', ('geo:address', {}), {
-                        'doc': 'The address of the place where the payment occurred.'}),
+                ('price:close', ('econ:price', {}), {
+                    'doc': 'The closing price of the security.'}),
 
-                    ('place:loc', ('loc', {}), {
-                        'doc': 'The loc of the place where the payment occurred.'}),
+                ('price:low', ('econ:price', {}), {
+                    'doc': 'The low price of the security.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
-                        'doc': 'The latlong where the payment occurred.'}),
-                )),
+                ('price:high', ('econ:price', {}), {
+                    'doc': 'The high price of the security.'}),
+            )),
 
-                ('econ:acct:balance', {}, (
+            ('econ:invoice', {}, (
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time the balance was recorded.'}),
+                ('issued', ('time', {}), {
+                    'doc': 'The time that the invoice was issued to the recipient.'}),
 
-                    ('instrument', ('econ:pay:instrument', {}), {
-                        'doc': 'The financial instrument holding the balance.'}),
+                ('issuer', ('entity:actor', {}), {
+                    'doc': 'The contact information for the entity which issued the invoice.'}),
 
-                    ('pay:card', ('econ:pay:card', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :instrument.'}),
+                ('purchase', ('econ:purchase', {}), {
+                    'doc': 'The purchase that the invoice is requesting payment for.'}),
 
-                    ('crypto:address', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :instrument.'}),
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The contact information for the intended recipient of the invoice.'}),
 
-                    ('amount', ('econ:price', {}), {
-                        'doc': 'The account balance at the time.'}),
+                ('due', ('time', {}), {
+                    'doc': 'The time by which the payment is due.'}),
 
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency of the balance amount.'}),
+                ('paid', ('bool', {}), {
+                    'doc': 'Set to true if the invoice has been paid in full.'}),
 
-                    ('delta', ('econ:price', {}), {
-                        'doc': 'The change since last regular sample.'}),
+                ('amount', ('econ:price', {}), {
+                    'doc': 'The balance due.'}),
 
-                    ('total:received', ('econ:price', {}), {
-                        'doc': 'The total amount of currency received by the account.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency that the invoice specifies for payment.'}),
+            )),
 
-                    ('total:sent', ('econ:price', {}), {
-                        'doc': 'The total amount of currency sent from the account.'}),
-                )),
+            ('econ:receipt', {}, (
 
+                ('issued', ('time', {}), {
+                    'doc': 'The time the receipt was issued.'}),
 
-                ('econ:fin:exchange', {}, (
+                ('purchase', ('econ:purchase', {}), {
+                    'doc': 'The purchase that the receipt confirms payment for.'}),
 
-                    ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A simple name for the exchange.',
-                        'ex': 'nasdaq'}),
+                # FIXME entity:contact?
+                ('issuer', ('entity:actor', {}), {
+                    'doc': 'The contact information for the entity which issued the receipt.'}),
 
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The organization that operates the exchange.'}),
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The contact information for the entity which received the receipt.'}),
 
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency used for all transactions in the exchange.',
-                        'ex': 'usd'}),
-                )),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency that the receipt uses to specify the price.'}),
 
-                ('econ:fin:security', {}, (
+                ('amount', ('econ:price', {}), {
+                    'doc': 'The price that the receipt confirms was paid.'}),
+            )),
 
-                    ('exchange', ('econ:fin:exchange', {}), {
-                        'doc': 'The exchange on which the security is traded.'}),
+            ('econ:bank:aba:rtn', {}, (
 
-                    ('ticker', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The identifier for this security within the exchange.'}),
+                ('bank', ('ou:org', {}), {
+                    'doc': 'The bank which was issued the ABA RTN.'}),
 
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user defined type such as stock, bond, option, future, or forex.'}),
+                ('bank:name', ('entity:name', {}), {
+                    'doc': 'The name which is registered for this ABA RTN.'}),
 
-                    ('price', ('econ:price', {}), {
-                        'doc': 'The last known/available price of the security.'}),
+            )),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time of the last know price sample.'}),
-                )),
+            ('econ:bank:iban', {}, ()),
 
-                ('econ:fin:tick', {}, (
+            ('econ:bank:swift:bic', {}, (
 
-                    ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the tick.'}),
+                ('business', ('ou:org', {}), {
+                    'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time the price was sampled.'}),
+                ('office', ('geo:place', {}), {
+                    'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
+            )),
 
-                    ('price', ('econ:price', {}), {
-                        'doc': 'The price of the security at the time.'}),
-                )),
+            ('econ:fin:account:type:taxonomy', {}, ()),
+            ('econ:fin:account', {}, (
 
-                ('econ:fin:bar', {}, (
+                ('type', ('econ:fin:account:type:taxonomy', {}), {
+                    'doc': 'The type of financial account.'}),
 
-                    ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the bar.'}),
+                ('holder', ('entity:contactable', {}), {
+                    'doc': 'The contact information of the account holder.'}),
 
-                    ('ival', ('ival', {}), {
-                        'doc': 'The interval of measurement.'}),
+                ('balance', ('econ:price', {}), {
+                    'doc': 'The most recently known balance of the account.'}),
 
-                    ('price:open', ('econ:price', {}), {
-                        'doc': 'The opening price of the security.'}),
+                ('balance:time', ('time', {}), {
+                    'prevnames': ('balance:asof',),
+                    'doc': 'The time the balance was most recently updated.'}),
 
-                    ('price:close', ('econ:price', {}), {
-                        'doc': 'The closing price of the security.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the account balance.'}),
+            )),
 
-                    ('price:low', ('econ:price', {}), {
-                        'doc': 'The low price of the security.'}),
 
-                    ('price:high', ('econ:price', {}), {
-                        'doc': 'The high price of the security.'}),
-                )),
+            ('econ:bank:aba:account:type:taxonomy', {}, ()),
+            ('econ:bank:aba:account', {}, (
 
-                ('econ:acct:invoice', {}, (
+                ('type', ('econ:bank:aba:account:type:taxonomy', {}), {
+                    'ex': 'checking',
+                    'doc': 'The type of ABA account.'}),
 
-                    ('issued', ('time', {}), {
-                        'doc': 'The time that the invoice was issued to the recipient.'}),
+                ('issuer', ('entity:actor', {}), {
+                    'doc': 'The bank which issued the account number.'}),
 
-                    ('issuer', ('ps:contact', {}), {
-                        'doc': 'The contact information for the entity who issued the invoice.'}),
+                ('issuer:name', ('entity:name', {}), {
+                    'doc': 'The name of the bank which issued the account number.'}),
 
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase that the invoice is requesting payment for.'}),
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The financial account which stores currency for this ABA account number.'}),
 
-                    ('recipient', ('ps:contact', {}), {
-                        'doc': 'The contact information for the intended recipient of the invoice.'}),
+                ('routing', ('econ:bank:aba:rtn', {}), {
+                    'doc': 'The routing number.'}),
 
-                    ('due', ('time', {}), {
-                        'doc': 'The time by which the payment is due.'}),
-
-                    ('paid', ('bool', {}), {
-                        'doc': 'Set to true if the invoice has been paid in full.'}),
-
-                    ('amount', ('econ:price', {}), {
-                        'doc': 'The balance due.'}),
-
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency that the invoice specifies for payment.'}),
-                )),
-
-                ('econ:acct:receipt', {}, (
-
-                    ('issued', ('time', {}), {
-                        'doc': 'The time the receipt was issued.'}),
-
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase that the receipt confirms payment for.'}),
-
-                    ('issuer', ('ps:contact', {}), {
-                        'doc': 'The contact information for the entity who issued the receipt.'}),
-
-                    ('recipient', ('ps:contact', {}), {
-                        'doc': 'The contact information for the entity who received the receipt.'}),
-
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency that the receipt uses to specify the price.'}),
-
-                    ('amount', ('econ:price', {}), {
-                        'doc': 'The price that the receipt confirms was paid.'}),
-                )),
-
-                ('econ:bank:aba:rtn', {}, (
-
-                    ('bank', ('ou:org', {}), {
-                        'doc': 'The bank which was issued the ABA RTN.'}),
-
-                    ('bank:name', ('ou:name', {}), {
-                        'doc': 'The name which is registered for this ABA RTN.'}),
-
-                )),
-
-                ('econ:bank:iban', {}, ()),
-
-                ('econ:bank:swift:bic', {}, (
-
-                    ('business', ('ou:org', {}), {
-                        'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
-
-                    ('office', ('ps:contact', {}), {
-                        'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
-                )),
-
-                ('econ:bank:account:type:taxonomy', {}, ()),
-                ('econ:bank:account', {}, (
-
-                    ('type', ('econ:bank:account:type:taxonomy', {}), {
-                        'doc': 'The type of bank account.'}),
-
-                    ('aba:rtn', ('econ:bank:aba:rtn', {}), {
-                        'doc': 'The ABA routing transit number for the bank which issued the account.'}),
-
-                    ('number', ('str', {'regex': '[0-9]+'}), {
-                        'doc': 'The account number.'}),
-
-                    ('iban', ('econ:bank:iban', {}), {
-                        'doc': 'The IBAN for the account.'}),
-
-                    ('issuer', ('ou:org', {}), {
-                        'doc': 'The bank which issued the account.'}),
-
-                    ('issuer:name', ('ou:name', {}), {
-                        'doc': 'The name of the bank which issued the account.'}),
-
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency of the account balance.'}),
-
-                    ('balance', ('econ:bank:balance', {}), {
-                        'doc': 'The most recently known bank balance information.'}),
-                )),
-
-                ('econ:bank:balance', {}, (
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the account balance was observed.'}),
-
-                    ('amount', ('econ:price', {}), {
-                        'doc': 'The amount of currency available at the time.'}),
-
-                    ('account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which contained the balance amount.'}),
-                )),
-                ('econ:bank:statement', {}, (
-
-                    ('account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account used to compute the statement.'}),
-
-                    ('period', ('ival', {}), {
-                        'doc': 'The period that the statement includes.'}),
-
-                    ('starting:balance', ('econ:price', {}), {
-                        'doc': 'The account balance at the beginning of the statement period.'}),
-
-                    ('ending:balance', ('econ:price', {}), {
-                        'doc': 'The account balance at the end of the statement period.'}),
-                )),
-            ),
-        }),)
+                ('number', ('str', {'regex': '[0-9]+'}), {
+                    'doc': 'The account number.'}),
+            )),
+        ),
+    }),
+)

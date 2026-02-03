@@ -82,18 +82,9 @@ class CoroTest(s_t_utils.SynTest):
         self.false(s_coro.iscoro(genr()))
         self.false(s_coro.iscoro(agen()))
 
-    async def test_coro_genrhelp(self):
-
-        @s_coro.genrhelp
-        async def woot():
-            yield 1
-            yield 2
-            yield 3
-
-        self.none(await woot().spin())
-        self.eq([1, 2, 3], await woot().list())
-
     async def test_executor(self):
+        # Initialize s_glob vars
+        s_glob.initloop()
 
         def func(*args, **kwargs):
             tid = threading.get_ident()

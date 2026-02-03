@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 
 dnsreplycodes = (
     (0, 'NOERROR'),
@@ -34,9 +33,12 @@ class DnsName(s_types.Str):
         self.inarpa = '.in-addr.arpa'
         self.inarpa6 = '.ip6.arpa'
 
+        self.iptype = self.modl.type('inet:ip')
+        self.fqdntype = self.modl.type('inet:fqdn')
+
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         # Backwards compatible
         norm = valu.lower()
         norm = norm.strip()  # type: str
@@ -51,312 +53,327 @@ class DnsName(s_types.Str):
             temp = norm[:-len(self.inarpa)]
             temp = '.'.join(temp.split('.')[::-1])
             try:
-                ipv4norm, info = self.modl.type('inet:ipv4').norm(temp)
+                ipv4norm, info = await self.iptype.norm(temp)
             except s_exc.BadTypeValu as e:
                 pass
             else:
-                subs['ipv4'] = ipv4norm
+                subs['ip'] = (self.iptype.typehash, ipv4norm, info)
         elif norm.endswith(self.inarpa6):
             parts = [c for c in norm[:-len(self.inarpa6)][::-1] if c != '.']
             try:
                 if len(parts) != 32:
                     raise s_exc.BadTypeValu(mesg='Invalid number of ipv6 parts')
-                temp = int(''.join(parts), 16)
-                ipv6norm, info = self.modl.type('inet:ipv6').norm(temp)
+                temp = (6, int(''.join(parts), 16))
+                ipv6norm, info = await self.iptype.norm(temp)
             except s_exc.BadTypeValu as e:
                 pass
             else:
-                subs['ipv6'] = ipv6norm
-                ipv4 = info.get('subs').get('ipv4')
-                if ipv4 is not None:
-                    subs['ipv4'] = ipv4
+                subs['ip'] = (self.iptype.typehash, ipv6norm, info)
         else:
             # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
             try:
-                ipv4norm, info = self.modl.type('inet:ipv4').norm(norm)
-            except s_exc.BadTypeValu as e:
-                try:
-                    ipv6norm, info = self.modl.type('inet:ipv6').norm(norm)
-                except s_exc.BadTypeValu as e2:
-                    pass
-                else:
-                    subs['ipv6'] = ipv6norm
-                    ipv4 = info.get('subs').get('ipv4')
-                    if ipv4 is not None:
-                        subs['ipv4'] = ipv4
-            else:
-                subs['ipv4'] = ipv4norm
-
-            # Lastly, try give the norm'd valu a shot as an inet:fqdn
-            try:
-                fqdnnorm, info = self.modl.type('inet:fqdn').norm(norm)
+                ipnorm, info = await self.iptype.norm(norm)
             except s_exc.BadTypeValu as e:
                 pass
             else:
-                subs['fqdn'] = fqdnnorm
+                subs['ip'] = (self.iptype.typehash, ipnorm, info)
+                return norm, {'subs': subs}
+
+            # Lastly, try give the norm'd valu a shot as an inet:fqdn
+            try:
+                fqdnnorm, info = await self.fqdntype.norm(norm)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['fqdn'] = (self.fqdntype.typehash, fqdnnorm, info)
 
         return norm, {'subs': subs}
 
-class DnsModule(s_module.CoreModule):
+modeldefs = (
+    ('inet:dns', {
 
-    def getModelDefs(self):
+        'ctors': (
 
-        modl = {
+            ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
+                'doc': 'A DNS query name string. Likely an FQDN but not always.',
+                'ex': 'vertex.link',
+            }),
 
-            'ctors': (
+        ),
 
-                ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
-                    'doc': 'A DNS query name string. Likely an FQDN but not always.',
-                    'ex': 'vertex.link',
-                }),
+        'types': (
 
-            ),
+            ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS A record'}}),
+                ),
+                'ex': '(vertex.link,1.2.3.4)',
+                'doc': 'The result of a DNS A record lookup.'}),
 
-            'types': (
+            ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv6'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS AAAA record'}}),
+                ),
+                'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
+                'doc': 'The result of a DNS AAAA record lookup.'}),
 
-                ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
-                    'ex': '(vertex.link,1.2.3.4)',
-                    'doc': 'The result of a DNS A record lookup.'}),
+            ('inet:dns:rev', ('comp', {'fields': (('ip', 'inet:ip'), ('fqdn', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'Reverse DNS record'}}),
+                ),
+                'ex': '(1.2.3.4,vertex.link)',
+                'doc': 'The transformed result of a DNS PTR record lookup.'}),
 
-                ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
-                    'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
-                    'doc': 'The result of a DNS AAAA record lookup.'}),
+            ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS NS record'}}),
+                ),
+                'ex': '(vertex.link,ns.dnshost.com)',
+                'doc': 'The result of a DNS NS record lookup.'}),
 
-                ('inet:dns:rev', ('comp', {'fields': (('ipv4', 'inet:ipv4'), ('fqdn', 'inet:fqdn'))}), {
-                    'ex': '(1.2.3.4,vertex.link)',
-                    'doc': 'The transformed result of a DNS PTR record lookup.'}),
+            ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS CNAME record'}}),
+                ),
+                'ex': '(foo.vertex.link,vertex.link)',
+                'doc': 'The result of a DNS CNAME record lookup.'}),
 
-                ('inet:dns:rev6', ('comp', {'fields': (('ipv6', 'inet:ipv6'), ('fqdn', 'inet:fqdn'))}), {
-                    'ex': '(2607:f8b0:4004:809::200e,vertex.link)',
-                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.'}),
+            ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS MX record'}}),
+                ),
+                'ex': '(vertex.link,mail.vertex.link)',
+                'doc': 'The result of a DNS MX record lookup.'}),
 
-                ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
-                    'ex': '(vertex.link,ns.dnshost.com)',
-                    'doc': 'The result of a DNS NS record lookup.'}),
+            ('inet:dns:soa', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS SOA record'}}),
+                ),
+                'doc': 'The result of a DNS SOA record lookup.'}),
 
-                ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
-                    'ex': '(foo.vertex.link,vertex.link)',
-                    'doc': 'The result of a DNS CNAME record lookup.'}),
+            ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS TXT record'}}),
+                ),
+                'ex': '(hehe.vertex.link,"fancy TXT record")',
+                'doc': 'The result of a DNS TXT record lookup.'}),
 
-                ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
-                    'ex': '(vertex.link,mail.vertex.link)',
-                    'doc': 'The result of a DNS MX record lookup.'}),
+            ('inet:dns:record', ('ndef', {
+                'forms': (
+                    'inet:dns:a',
+                    'inet:dns:aaaa',
+                    'inet:dns:cname',
+                    'inet:dns:mx',
+                    'inet:dns:ns',
+                    'inet:dns:rev',
+                    'inet:dns:soa',
+                    'inet:dns:txt',
+                )}), {
+                'doc': 'An ndef type including all forms which represent DNS records.'}),
 
-                ('inet:dns:soa', ('guid', {}), {
-                    'doc': 'The result of a DNS SOA record lookup.'}),
+            ('inet:dns:type', ('int', {}), {
+                'doc': 'A DNS query/answer type integer.'}),
 
-                ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
-                    'ex': '(hehe.vertex.link,"fancy TXT record")',
-                    'doc': 'The result of a DNS TXT record lookup.'}),
+            ('inet:dns:query',
+                ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
+                    'interfaces': (
+                        ('meta:observable', {'template': {'title': 'DNS query'}}),
+                    ),
+                    'ex': '(1.2.3.4, woot.com, 1)',
+                    'doc': 'A DNS query unique to a given client.'}),
 
-                ('inet:dns:type', ('int', {}), {
-                    'doc': 'A DNS query/answer type integer.'}),
+            ('inet:dns:request', ('guid', {}), {
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
+                'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
 
-                ('inet:dns:query',
-                    ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
-                        'ex': '(1.2.3.4, woot.com, 1)',
-                        'doc': 'A DNS query unique to a given client.'}),
+            ('inet:dns:answer', ('guid', {}), {
+                'doc': 'A single answer from within a DNS reply.'}),
 
-                ('inet:dns:request', ('guid', {}), {
-                    'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
+            ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS wildcard A record'}}),
+                ),
+                'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
 
-                ('inet:dns:answer', ('guid', {}), {
-                    'doc': 'A single answer from within a DNS reply.'}),
+            ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'DNS wildcard AAAA record'}}),
+                ),
+                'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
 
-                ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
-                    'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
+            ('inet:dns:dynreg', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'dynamic DNS registration'}}),
+                ),
+                'doc': 'A dynamic DNS registration.'}),
 
-                ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
-                    'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
+        ),
 
-                ('inet:dns:dynreg', ('guid', {}), {
-                    'doc': 'A dynamic DNS registration.'}),
+        'forms': (
+            ('inet:dns:a', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                    'doc': 'The domain queried for its DNS A record.'}),
+                ('ip', ('inet:ip', {}), {'computed': True,
+                    'doc': 'The IPv4 address returned in the A record.',
+                    'prevnames': ('ipv4',)}),
+                ('seen', ('ival', {}), {
+                    'doc': 'The time range where the record was observed.'}),
+            )),
+            ('inet:dns:aaaa', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                    'doc': 'The domain queried for its DNS AAAA record.'}),
+                ('ip', ('inet:ip', {}), {'computed': True,
+                    'doc': 'The IPv6 address returned in the AAAA record.',
+                    'prevnames': ('ipv6',)}),
+            )),
+            ('inet:dns:rev', {'prevnames': ('inet:dns:rev6',)}, (
+                ('ip', ('inet:ip', {}), {'computed': True,
+                    'doc': 'The IP address queried for its DNS PTR record.',
+                    'prevnames': ('ipv4', 'ipv6')}),
 
-            ),
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain returned in the PTR record.'}),
+            )),
+            ('inet:dns:ns', {}, (
+                ('zone', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain queried for its DNS NS record.'}),
+                ('ns', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain returned in the NS record.'}),
+            )),
+            ('inet:dns:cname', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain queried for its CNAME record.'}),
+                ('cname', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain returned in the CNAME record.'}),
+            )),
+            ('inet:dns:mx', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain queried for its MX record.'}),
+                ('mx', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain returned in the MX record.'}),
+            )),
 
-            'forms': (
-                ('inet:dns:a', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                        'doc': 'The domain queried for its DNS A record.'}),
-                    ('ipv4', ('inet:ipv4', {}), {'ro': True,
-                        'doc': 'The IPv4 address returned in the A record.'}),
-                )),
-                ('inet:dns:aaaa', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its DNS AAAA record.'}),
-                    ('ipv6', ('inet:ipv6', {}), {'ro': True,
-                         'doc': 'The IPv6 address returned in the AAAA record.'}),
-                )),
-                ('inet:dns:rev', {}, (
-                    ('ipv4', ('inet:ipv4', {}), {'ro': True,
-                         'doc': 'The IPv4 address queried for its DNS PTR record.'}),
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain returned in the PTR record.'}),
-                )),
-                ('inet:dns:rev6', {}, (
-                    ('ipv6', ('inet:ipv6', {}), {'ro': True,
-                         'doc': 'The IPv6 address queried for its DNS PTR record.'}),
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain returned in the PTR record.'}),
-                )),
-                ('inet:dns:ns', {}, (
-                    ('zone', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its DNS NS record.'}),
-                    ('ns', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain returned in the NS record.'}),
-                )),
-                ('inet:dns:cname', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its CNAME record.'}),
-                    ('cname', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain returned in the CNAME record.'}),
-                )),
-                ('inet:dns:mx', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its MX record.'}),
-                    ('mx', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain returned in the MX record.'}),
-                )),
+            ('inet:dns:soa', {}, (
+                ('fqdn', ('inet:fqdn', {}), {
+                     'doc': 'The domain queried for its SOA record.'}),
+                ('ns', ('inet:fqdn', {}), {
+                     'doc': 'The domain (MNAME) returned in the SOA record.'}),
+                ('email', ('inet:email', {}), {
+                     'doc': 'The email address (RNAME) returned in the SOA record.'}),
+            )),
 
-                ('inet:dns:soa', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {
-                         'doc': 'The domain queried for its SOA record.'}),
-                    ('ns', ('inet:fqdn', {}), {
-                         'doc': 'The domain (MNAME) returned in the SOA record.'}),
-                    ('email', ('inet:email', {}), {
-                         'doc': 'The email address (RNAME) returned in the SOA record.'}),
-                )),
+            ('inet:dns:txt', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                     'doc': 'The domain queried for its TXT record.'}),
+                ('txt', ('str', {}), {'computed': True,
+                     'doc': 'The string returned in the TXT record.'}),
+            )),
 
-                ('inet:dns:txt', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its TXT record.'}),
-                    ('txt', ('str', {}), {'ro': True,
-                         'doc': 'The string returned in the TXT record.'}),
-                )),
+            ('inet:dns:query', {}, (
+                ('client', ('inet:client', {}), {
+                    'computed': True,
+                    'doc': 'The client that performed the DNS query.'}),
 
-                ('inet:dns:query', {}, (
-                    ('client', ('inet:client', {}), {'ro': True, }),
-                    ('name', ('inet:dns:name', {}), {'ro': True, }),
-                    ('name:ipv4', ('inet:ipv4', {}), {}),
-                    ('name:ipv6', ('inet:ipv6', {}), {}),
-                    ('name:fqdn', ('inet:fqdn', {}), {}),
-                    ('type', ('int', {}), {'ro': True, }),
-                )),
+                ('name', ('inet:dns:name', {}), {
+                    'computed': True,
+                    'doc': 'The DNS query name string.'}),
 
-                ('inet:dns:request', {}, (
+                ('name:ip', ('inet:ip', {}), {
+                    'computed': True,
+                    'doc': 'The IP address in the DNS query name string.',
+                    'prevnames': ('name:ipv4', 'name:ipv6')}),
 
-                    ('time', ('time', {}), {}),
+                ('name:fqdn', ('inet:fqdn', {}), {
+                    'computed': True,
+                    'doc': 'The FQDN in the DNS query name string.'}),
 
-                    ('query', ('inet:dns:query', {}), {}),
-                    ('query:name', ('inet:dns:name', {}), {}),
-                    ('query:name:ipv4', ('inet:ipv4', {}), {}),
-                    ('query:name:ipv6', ('inet:ipv6', {}), {}),
-                    ('query:name:fqdn', ('inet:fqdn', {}), {}),
-                    ('query:type', ('int', {}), {}),
+                ('type', ('int', {}), {
+                    'computed': True,
+                    'doc': 'The type of record that was queried.'}),
+            )),
 
-                    ('server', ('inet:server', {}), {}),
+            ('inet:dns:request', {}, (
 
-                    ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
-                        'doc': 'The DNS server response code.'}),
+                ('query', ('inet:dns:query', {}), {
+                    'doc': 'The DNS query contained in the request.'}),
 
-                    ('exe', ('file:bytes', {}), {
-                        'doc': 'The file containing the code that attempted the DNS lookup.'}),
+                ('query:name', ('inet:dns:name', {}), {
+                    'doc': 'The DNS query name string in the request.'}),
 
-                    ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The process that attempted the DNS lookup.'}),
+                ('query:name:ip', ('inet:ip', {}), {
+                    'doc': 'The IP address in the DNS query name string.',
+                    'prevnames': ('query:name:ipv4', 'query:name:ipv6')}),
 
-                    ('host', ('it:host', {}), {
-                        'doc': 'The host that attempted the DNS lookup.'}),
+                ('query:name:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN in the DNS query name string.'}),
 
-                    ('sandbox:file', ('file:bytes', {}), {
-                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ('query:type', ('int', {}), {
+                    'doc': 'The type of record requested in the query.'}),
 
-                )),
+                ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                    'doc': 'The DNS server response code.'}),
+            )),
 
-                ('inet:dns:answer', {}, (
+            ('inet:dns:answer', {}, (
 
-                    ('ttl', ('int', {}), {}),
-                    ('request', ('inet:dns:request', {}), {}),
+                ('ttl', ('int', {}), {
+                    'doc': 'The time to live value of the DNS record in the response.'}),
 
-                    ('a', ('inet:dns:a', {}), {
-                        'doc': 'The DNS A record returned by the lookup.'}),
+                ('request', ('inet:dns:request', {}), {
+                    'doc': 'The DNS request that was answered.'}),
 
-                    ('ns', ('inet:dns:ns', {}), {
-                        'doc': 'The DNS NS record returned by the lookup.'}),
+                ('record', ('inet:dns:record', {}), {
+                    'doc': 'The DNS record returned by the lookup.',
+                    'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 
-                    ('rev', ('inet:dns:rev', {}), {
-                        'doc': 'The DNS PTR record returned by the lookup.'}),
+                ('mx:priority', ('int', {}), {
+                    'doc': 'The DNS MX record priority.'}),
 
-                    ('aaaa', ('inet:dns:aaaa', {}), {
-                        'doc': 'The DNS AAAA record returned by the lookup.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time that the DNS response was transmitted.'}),
+            )),
 
-                    ('rev6', ('inet:dns:rev6', {}), {
-                        'doc': 'The DNS PTR record returned by the lookup of an IPv6 address.'}),
+            ('inet:dns:wild:a', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                    'doc': 'The domain containing a wild card record.'}),
+                ('ip', ('inet:ip', {}), {'computed': True,
+                    'doc': 'The IPv4 address returned by wild card resolutions.',
+                    'prevnames': ('ipv4',)}),
+            )),
 
-                    ('cname', ('inet:dns:cname', {}), {
-                        'doc': 'The DNS CNAME record returned by the lookup.'}),
+            ('inet:dns:wild:aaaa', {}, (
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
+                    'doc': 'The domain containing a wild card record.'}),
+                ('ip', ('inet:ip', {}), {'computed': True,
+                    'doc': 'The IPv6 address returned by wild card resolutions.',
+                    'prevnames': ('ipv6',)}),
+            )),
 
-                    ('mx', ('inet:dns:mx', {}), {
-                        'doc': 'The DNS MX record returned by the lookup.'}),
+            ('inet:dns:dynreg', {}, (
 
-                    ('mx:priority', ('int', {}), {
-                        'doc': 'The DNS MX record priority.'}),
+                ('fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN registered within a dynamic DNS provider.'}),
 
-                    ('soa', ('inet:dns:soa', {}), {
-                        'doc': 'The domain queried for its SOA record.'}),
+                ('provider', ('ou:org', {}), {
+                    'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                    ('txt', ('inet:dns:txt', {}), {
-                        'doc': 'The DNS TXT record returned by the lookup.'}),
+                ('provider:name', ('entity:name', {}), {
+                    'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the DNS response was transmitted.'}),
-                )),
+                ('provider:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                ('inet:dns:wild:a', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                        'doc': 'The domain containing a wild card record.'}),
-                    ('ipv4', ('inet:ipv4', {}), {'ro': True,
-                        'doc': 'The IPv4 address returned by wild card resolutions.'}),
-                )),
+                ('contact', ('entity:contact', {}), {
+                    'doc': 'The contact information of the registrant.'}),
 
-                ('inet:dns:wild:aaaa', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                        'doc': 'The domain containing a wild card record.'}),
-                    ('ipv6', ('inet:ipv6', {}), {'ro': True,
-                        'doc': 'The IPv6 address returned by wild card resolutions.'}),
-                )),
+                ('created', ('time', {}), {
+                    'doc': 'The time that the dynamic DNS registration was first created.'}),
 
-                ('inet:dns:dynreg', {}, (
-
-                    ('fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The FQDN registered within a dynamic DNS provider.'}),
-
-                    ('provider', ('ou:org', {}), {
-                        'doc': 'The organization which provides the dynamic DNS FQDN.'}),
-
-                    ('provider:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
-
-                    ('provider:fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information of the registrant.'}),
-
-                    ('created', ('time', {}), {
-                        'doc': 'The time that the dynamic DNS registration was first created.'}),
-
-                    ('client', ('inet:client', {}), {
-                        'doc': 'The network client address used to register the dynamic FQDN.'}),
-
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The client IPv4 address used to register the dynamic FQDN.'}),
-
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The client IPv6 address used to register the dynamic FQDN.'}),
-                )),
-            )
-
-        }
-        name = 'inet:dns'
-        return ((name, modl), )
+                ('client', ('inet:client', {}), {
+                    'doc': 'The network client address used to register the dynamic FQDN.'}),
+            )),
+        )
+    }),
+)

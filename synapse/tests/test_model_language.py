@@ -8,67 +8,91 @@ class LangModuleTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 lang:translation=*
-                    :input=Hola
-                    :input:lang=ES
+                    :input=(lang:phrase, Hola)
+                    :input:lang={[ lang:language=({"code": "es"}) ]}
                     :output=Hi
-                    :output:lang=en.us
+                    :output:lang={[ lang:language=({"code": "en.us"}) :name=english :names=(merican,) ]}
                     :desc=Greetings
                     :engine=*
+                lang:phrase=Hola
             ]''')
-            self.len(1, nodes)
-            self.eq('Hola', nodes[0].get('input'))
-            self.eq('Hi', nodes[0].get('output'))
-            self.eq('es', nodes[0].get('input:lang'))
-            self.eq('en.us', nodes[0].get('output:lang'))
-            self.eq('Greetings', nodes[0].get('desc'))
-            self.len(1, await core.nodes('lang:translation -> it:prod:softver'))
+            self.len(2, nodes)
 
-            self.none(await core.callStorm('return($lib.gen.langByCode(neeeeewp, try=$lib.true))'))
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('return($lib.gen.langByCode(neeeeewp))')
+            self.eq(nodes[0].get('input'), ('lang:phrase', 'Hola'))
+            self.eq(nodes[0].get('output'), 'Hi')
+            self.eq(nodes[0].get('input:lang'), '0eae93b46d1c1951525424769faa5205')
+            self.eq(nodes[0].get('output:lang'), 'a8eeae81da6c305c9cf6e4962bd106b2')
+            self.eq(nodes[0].get('desc'), 'Greetings')
+
+            self.len(1, await core.nodes('lang:phrase <- *'))
+            self.len(1, await core.nodes('lang:translation -> lang:phrase'))
+            self.len(1, await core.nodes('lang:phrase -> lang:translation'))
+
+            self.len(1, await core.nodes('lang:translation :input -> *'))
+            self.len(1, await core.nodes('lang:translation :input -> lang:phrase'))
+
+            self.len(1, await core.nodes('lang:translation -> it:software'))
+            self.len(2, await core.nodes('lang:translation -> lang:language'))
+
+            nodes = await core.nodes('lang:language:code=en.us -> lang:name')
+            self.sorteq(['english', 'merican'], [n.repr() for n in nodes])
 
             nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
             self.len(1, nodes)
-            self.eq('for the people', nodes[0].repr())
+            self.eq('For   The  People', nodes[0].repr())
 
-    async def test_forms_idiom(self):
-        async with self.getTestCore() as core:
-            valu = 'arbitrary text 123'
-
-            props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
-            expected_props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
-            expected_ndef = ('lang:idiom', valu)
-
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(lang:idiom=$valu :desc:en=$p."desc:en" :url=$p.url)]'
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('''
+                [ lang:statement=*
+                    :time=20150823
+                    :speaker={[ ps:person=({"name": "visi"}) ]}
+                    :text="We should be handing out UNCs like candy."
+                    :transcript={[ ou:meeting=* ]}
+                    :transcript:offset=02:00
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
+            self.eq(nodes[0].get('time'), 1440288000000000)
+            self.eq(nodes[0].get('transcript:offset'), 120000000)
+            self.eq(nodes[0].get('text'), 'We should be handing out UNCs like candy.')
+            self.len(1, await core.nodes('lang:statement :speaker -> ps:person +:name=visi'))
+            self.len(1, await core.nodes('lang:statement :transcript -> ou:meeting'))
 
-            self.eq(node.ndef, expected_ndef)
-            for prop, valu in expected_props.items():
-                self.eq(node.get(prop), valu)
+    async def test_hashtag(self):
 
-    async def test_forms_trans(self):
         async with self.getTestCore() as core:
-            valu = 'arbitrary text 123'
 
-            props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
-            expected_props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
-            expected_ndef = ('lang:trans', valu)
+            self.len(1, await core.nodes('[ lang:hashtag="#🫠" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#🫠🫠" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#·bar"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo·"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo〜"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#hehe" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ lang:hashtag="#foo〜bar"]'))  # note the wave dash
+            self.len(1, await core.nodes('[ lang:hashtag="#fo·o·······b·ar"]'))
 
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(lang:trans=$valu :desc:en=$p."desc:en" :text:en=$p."text:en")]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ lang:hashtag="foo" ]')
 
-            self.eq(node.ndef, expected_ndef)
-            for prop, valu in expected_props.items():
-                self.eq(node.get(prop), valu)
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ lang:hashtag="#foo#bar" ]')
 
-    async def test_types_unextended(self):
-        # The following types are subtypes that do not extend their base type
-        async with self.getTestCore() as core:
-            self.nn(core.model.type('lang:idiom'))  # str
-            self.nn(core.model.type('lang:trans'))  # str
+            # All unicode whitespace from:
+            # https://www.compart.com/en/unicode/category/Zl
+            # https://www.compart.com/en/unicode/category/Zp
+            # https://www.compart.com/en/unicode/category/Zs
+            whitespace = [
+                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
+                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
+                '\u3000', '\u2028', '\u2029',
+            ]
+            for char in whitespace:
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ lang:hashtag="#foo{char}bar" ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ lang:hashtag="#{char}bar" ]')
+
+                # These are allowed because strip=True
+                await core.callStorm(f'[ lang:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ lang:hashtag=" #foo{char}" ]')

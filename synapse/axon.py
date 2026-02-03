@@ -1,3 +1,4 @@
+import os
 import csv
 import struct
 import asyncio
@@ -168,7 +169,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
                 return False
 
             # ranges are *inclusive*...
-            self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
+            self.set_header('Content-Range', f'bytes {soff}-{eoff - 1}/{self.blobsize}')
             self.set_header('Content-Length', str(cont_len))
             # TODO eventually support multi-range returns
         else:
@@ -208,7 +209,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.getAxon().get(sha256b, soff, size):
+            async for byts in self.getAxon().get(sha256b, offs=soff, size=size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
@@ -393,7 +394,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await s_cell.CellApi.__anit__(self, cell, link, user)
         await s_share.Share.__anit__(self, link, None)
 
-    async def get(self, sha256, offs=None, size=None):
+    async def get(self, sha256, *, offs=None, size=None):
         '''
         Get bytes of a file.
 
@@ -461,7 +462,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.hashset(sha256)
 
-    async def hashes(self, offs, wait=False, timeout=None):
+    async def hashes(self, offs, *, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
@@ -477,13 +478,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.hashes(offs, wait=wait, timeout=timeout):
             yield item
 
-    async def history(self, tick, tock=None):
+    async def history(self, tick, *, tock=None):
         '''
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
@@ -594,8 +595,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+    async def wget(self, url, *, params=None, headers=None, json=None, body=None, method='GET',
+                   ssl=None, timeout=None, proxy=True):
         '''
         Stream a file download directly into the Axon.
 
@@ -606,26 +607,24 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             json: A JSON body which is included with the request.
             body: The body to be included in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.
@@ -660,19 +659,19 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         '''
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method,
-                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                    ssl=ssl, timeout=timeout, proxy=proxy)
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+    async def postfiles(self, fields, url, *, params=None, headers=None, method='POST',
+                        ssl=None, timeout=None, proxy=True):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
-                                         ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                         ssl=ssl, timeout=timeout, proxy=proxy)
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+    async def wput(self, sha256, url, *, params=None, headers=None, method='PUT',
+                   ssl=None, timeout=None, proxy=True):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
-                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                    ssl=ssl, timeout=timeout, proxy=proxy)
 
     async def metrics(self):
         '''
@@ -698,7 +697,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256, errors='ignore'):
+    async def readlines(self, sha256, *, errors='ignore'):
         '''
         Yield lines from a multi-line text file in the axon.
 
@@ -713,7 +712,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
+    async def csvrows(self, sha256, *, dialect='excel', errors='ignore', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
@@ -745,7 +744,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256, errors='ignore'):
+    async def jsonlines(self, sha256, *, errors='ignore'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
@@ -760,7 +759,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
-    async def unpack(self, sha256, fmt, offs=0):
+    async def unpack(self, sha256, fmt, *, offs=0):
         '''
         Unpack bytes from a file in the Axon using struct.
 
@@ -811,10 +810,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
-        self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
+        await self._migrateAxonHistory()
+        self.sizes = self.axonslab.initdb('sizes')
 
         self.hashlocks = {}
 
@@ -826,10 +826,7 @@ class Axon(s_cell.Cell):
         if self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
-
-        await self._bumpCellVers('axon:metrics', (
-            (1, self._migrateAxonMetrics),
-        ), nexs=False)
+            self.cellvers.set('axon:metrics', 1)
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -894,15 +891,37 @@ class Axon(s_cell.Cell):
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
-    async def _migrateAxonMetrics(self):
-        logger.warning('migrating Axon metrics data out of hive')
+    async def _migrateAxonHistory(self):
+        oldpath = s_common.genpath(self.dirn, 'axon.lmdb')
+        if not os.path.isdir(oldpath):
+            return
 
-        async with await self.hive.open(('axon', 'metrics')) as hivenode:
-            axonmetrics = await hivenode.dict()
-            self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
-            self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
+        logger.warning('Migrating Axon history')
 
-        logger.warning('...Axon metrics migration complete!')
+        async with await s_lmdbslab.Slab.anit(oldpath, readonly=True) as oldslab:
+
+            for name in ['sizes', 'axonseqn', 'metrics']:
+                if oldslab.dbexists(name):
+                    oldslab.initdb(name)
+                    await oldslab.copydb(name, self.axonslab, name)
+
+            oldhist = s_lmdbslab.Hist(oldslab, 'history')
+            newhist = s_lmdbslab.Hist(self.axonslab, 'history')
+            migrated = 0
+            for tick, item in oldhist.carve(0):
+                newtick = tick * 1000
+                newhist.add(item, tick=newtick)
+                migrated += 1
+            logger.warning(f"Migrated {migrated} history rows")
+
+            self.axonslab.forcecommit()
+
+            try:
+                await oldslab.trash(ignore_errors=False)
+            except s_exc.BadCoreStore as e:
+                raise
+
+        logger.warning('...Axon history migration complete!')
 
     async def _initBlobStor(self):
 
@@ -933,8 +952,6 @@ class Axon(s_cell.Cell):
         # TODO: need LMDB to support getting value size without getting value
         for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
 
-            await asyncio.sleep(0)
-
             blobsha = lkey[:32]
 
             if blobsha != cursha:
@@ -943,7 +960,7 @@ class Axon(s_cell.Cell):
 
             offs += len(byts)
 
-            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
 
@@ -954,7 +971,7 @@ class Axon(s_cell.Cell):
         return int.from_bytes(byts, 'big')
 
     def _setStorVers(self, version):
-        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        self.blobslab._put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
         return version
 
     def _initAxonHttpApi(self):
@@ -970,10 +987,6 @@ class Axon(s_cell.Cell):
 
     async def _resolveProxyUrl(self, valu):
         match valu:
-            case None:
-                s_common.deprecated('Setting the Axon HTTP proxy argument to None', curv='2.192.0')
-                return await self.getConfOpt('http:proxy')
-
             case True:
                 return await self.getConfOpt('http:proxy')
 
@@ -1009,8 +1022,8 @@ class Axon(s_cell.Cell):
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
@@ -1272,7 +1285,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('file:count')
         self.axonmetrics.inc('size:bytes', valu=size)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1294,8 +1307,8 @@ class Axon(s_cell.Cell):
         ikey = indx.to_bytes(8, 'big')
         okey = offs.to_bytes(8, 'big')
 
-        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+        await self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        await self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')
@@ -1558,7 +1571,7 @@ class Axon(s_cell.Cell):
             raise s_exc.BadArg(mesg=mesg) from None
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                        ssl=None, timeout=None, proxy=True):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1568,10 +1581,9 @@ class Axon(s_cell.Cell):
             params (dict): Additional parameters to add to the URL.
             headers (dict): Additional HTTP headers to add in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The dictionaries in the fields list may contain the following values::
@@ -1585,17 +1597,16 @@ class Axon(s_cell.Cell):
                     'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
                 }
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.
@@ -1615,7 +1626,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):
@@ -1683,12 +1694,12 @@ class Axon(s_cell.Cell):
                     'headers': dict(),
                 }
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
-                   filename=None, filemime=None, proxy=True, ssl_opts=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=None, timeout=None,
+                   filename=None, filemime=None, proxy=True):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):
@@ -1754,7 +1765,7 @@ class Axon(s_cell.Cell):
         return info
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
         '''
         Stream a file download directly into the Axon.
 
@@ -1765,26 +1776,24 @@ class Axon(s_cell.Cell):
             json: A JSON body which is included with the request.
             body: The body to be included in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.
@@ -1819,7 +1828,7 @@ class Axon(s_cell.Cell):
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):

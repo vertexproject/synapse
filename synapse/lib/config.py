@@ -392,13 +392,6 @@ class Config(c_abc.MutableMapping):
         else:
             return
 
-    def reqConfValu(self, key):  # pragma: no cover
-        '''
-        Deprecated. Use ``req(key)`` API instead.
-        '''
-        s_common.deprecated('Config.reqConfValu(), use req() instead.')
-        return self.req(key)
-
     def req(self, key):
         '''
         Get a configuration value. If that value is not present in the schema or is not set, then raise an exception.

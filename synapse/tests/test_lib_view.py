@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -33,50 +34,6 @@ class ViewTest(s_t_utils.SynTest):
             # mop up some coverage issues
             with self.raises(s_exc.BadOptValu):
                 await core.view.setViewInfo('hehe', 10)
-
-        async with self.getTestCore() as core:
-            # Delete this block when nomerge is removed
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            opts = {'view': view}
-
-            # Setting/getting nomerge should be redirected to protected
-            getnomerge = 'return($lib.view.get().get(nomerge))'
-            setnomerge = '$lib.view.get().set(nomerge, $valu)'
-
-            getprotected = 'return($lib.view.get().get(protected))'
-            setprotected = '$lib.view.get().set(protected, $valu)'
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
-            opts['vars'] = {'valu': True}
-            await core.callStorm(setnomerge, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.true(nomerge)
-            self.true(protected)
-
-            opts['vars'] = {'valu': False}
-            await core.callStorm(setprotected, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
-    async def test_view_nomerge_migration(self):
-        async with self.getRegrCore('cortex-defaults-v2') as core:
-            view = core.getView('0df16dd693c74109da0d58ab87ba768a')
-            self.none(view.info.get('nomerge'))
-            self.true(view.info.get('protected'))
-
-            with self.raises(s_exc.CantMergeView):
-                await core.callStorm('return($lib.view.get(0df16dd693c74109da0d58ab87ba768a).merge())')
-            with self.raises(s_exc.CantDelView):
-                await core.callStorm('return($lib.view.del(0df16dd693c74109da0d58ab87ba768a))')
 
     async def test_view_set_parent(self):
 
@@ -183,13 +140,13 @@ class ViewTest(s_t_utils.SynTest):
 
             self.eq(4, (await core.view.getFormCounts()).get('test:int'))
             nodes = await alist(view2.eval('test:int=10'))
-            self.len(1, nodes)
+            self.len(0, nodes)
 
             self.eq(4, (await core.getFormCounts()).get('test:int'))
             await self.agenlen(0, view2.eval('test:int=12'))
 
-            # Until we get tombstoning, the child view can't delete a node in the lower layer
-            await self.agenlen(1, view2.eval('test:int=10'))
+            # The child view can delete a node in the lower layer
+            await self.agenlen(0, view2.eval('test:int=10'))
 
             # Add a node back
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
@@ -198,29 +155,31 @@ class ViewTest(s_t_utils.SynTest):
             for i in range(20):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
+            await core.nodes('[ test:int=15 test:int=16 test:int=17 ]')
+
             # Add prop that will only exist in the child
-            await alist(view2.eval('test:int=10 [:loc=us]'))
-            self.len(1, await alist(view2.eval('test:int=10 +:loc=us')))
-            self.len(0, await core.nodes('test:int=10 +:loc=us'))
+            await alist(view2.eval('test:int=15 [:loc=us]'))
+            self.len(1, await alist(view2.eval('test:int=15 +:loc=us')))
+            self.len(0, await core.nodes('test:int=15 +:loc=us'))
 
             # Add tag that will only exist in child
-            await alist(view2.eval('test:int=11 [+#foo.bar:score=20]'))
-            self.len(1, await alist(view2.eval('test:int=11 +#foo.bar:score=20')))
-            self.len(0, await core.nodes('test:int=11 +#foo.bar:score=20'))
+            await alist(view2.eval('test:int=15 [+#foo.bar]'))
+            self.len(1, await alist(view2.eval('test:int=15 +#foo.bar')))
+            self.len(0, await core.nodes('test:int=15 +#foo.bar'))
 
             # Add tag prop that will only exist in child
-            await alist(view2.eval('test:int=8 [+#faz:score=55]'))
-            self.len(1, await alist(view2.eval('test:int=8 +#faz:score=55')))
-            self.len(0, await core.nodes('test:int=8 +#faz:score=55'))
+            await alist(view2.eval('test:int=15 [+#faz:score=55]'))
+            self.len(1, await alist(view2.eval('test:int=15 +#faz:score=55')))
+            self.len(0, await core.nodes('test:int=15 +#faz:score=55'))
 
             # Add nodedata that will only exist in child
-            await alist(view2.eval('test:int=9 $node.data.set(spam, ham)'))
-            self.len(1, await view2.callStorm('test:int=9 return($node.data.list())'))
-            self.len(0, await core.callStorm('test:int=9 return($node.data.list())'))
+            await alist(view2.eval('test:int=15 $node.data.set(spam, ham)'))
+            self.len(1, await view2.callStorm('test:int=15 return($node.data.list())'))
+            self.len(0, await core.callStorm('test:int=15 return($node.data.list())'))
 
             # Add edges that will only exist in the child
-            await alist(view2.eval('test:int=9 [ +(refs)> {test:int=10} ]'))
-            await alist(view2.eval('test:int=12 [ +(refs)> {test:int=11} ]'))
+            await alist(view2.eval('test:int=15 [ +(refs)> {test:int=16} ]'))
+            await alist(view2.eval('test:int=16 [ +(refs)> {test:int=17} ]'))
             self.len(2, await alist(view2.eval('test:int -(refs)> *')))
             self.len(0, await core.nodes('test:int -(refs)> *'))
 
@@ -257,44 +216,48 @@ class ViewTest(s_t_utils.SynTest):
                     await prox.count('test:int=12', opts={'view': view2.iden})
 
             # The parent count is correct
-            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(7, (await core.view.getFormCounts()).get('test:int'))
 
             # Merge the child back into the parent
             await view2.merge()
             await view2.wipeLayer()
 
             # The parent counts includes all the nodes that were merged
-            self.eq(25, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(24, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
             self.len(1, nodes)
 
+            # A node deleted in the child is now deleted in the parent
+            nodes = await core.nodes('test:int=11')
+            self.len(0, nodes)
+
             # The child can still see the parent's pre-existing node
-            nodes = await view2.nodes('test:int=10')
+            nodes = await view2.nodes('test:int=15')
             self.len(1, nodes)
 
             # Prop that was only set in child is present in parent
-            self.len(1, await core.nodes('test:int=10 +:loc=us'))
+            self.len(1, await core.nodes('test:int=15 +:loc=us'))
             self.len(1, await core.nodes('test:int:loc=us'))
 
             # Tag that was only set in child is present in parent
-            self.len(1, await core.nodes('test:int=11 +#foo.bar:score=20'))
+            self.len(1, await core.nodes('test:int=15 +#foo.bar'))
             self.len(1, await core.nodes('test:int#foo.bar'))
 
             # Tagprop that as only set in child is present in parent
-            self.len(1, await core.nodes('test:int=8 +#faz:score=55'))
+            self.len(1, await core.nodes('test:int=15 +#faz:score=55'))
             self.len(1, await core.nodes('test:int#faz:score=55'))
 
             # Node data that was only set in child is present in parent
-            self.len(1, await core.callStorm('test:int=9 return($node.data.list())'))
+            self.len(1, await core.callStorm('test:int=15 return($node.data.list())'))
             self.len(1, await core.nodes('yield $lib.lift.byNodeData(spam)'))
 
             # Edge that was only set in child present in parent
             self.len(2, await core.nodes('test:int -(refs)> *'))
 
             # The child count includes all the nodes in the view
-            self.eq(25, (await view2.getFormCounts()).get('test:int'))
+            self.eq(24, (await view2.getFormCounts()).get('test:int'))
 
             # The child can see nodes that got merged
             nodes = await view2.nodes('test:int=12')
@@ -353,57 +316,57 @@ class ViewTest(s_t_utils.SynTest):
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
             forkopts = {'view': forkview}
 
-            seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1)
-            seen_midval = (s_time.parse('2010'), s_time.parse('2015'))
-            seen_minval = (s_time.parse('2000'), s_time.parse('2015'))
-            seen_exival = (s_time.parse('2000'), s_time.parse('2021'))
+            seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1, 315532800000001)
+            seen_midval = (s_time.parse('2010'), s_time.parse('2015'), 157766400000000)
+            seen_minval = (s_time.parse('2000'), s_time.parse('2015'), 473385600000000)
+            seen_exival = (s_time.parse('2000'), s_time.parse('2021'), 662774400000000)
 
-            await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=maxval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=maxval [ :seen=2020 ]', opts=forkopts)
+            self.eq(seen_maxval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=midval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=midval [ :seen=2012 ]', opts=forkopts)
+            self.eq(seen_midval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=minval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=minval [ :seen=2000 ]', opts=forkopts)
+            self.eq(seen_minval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=exival :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=exival [ :seen=(2000, 2021) ]', opts=forkopts)
+            self.eq(seen_exival, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('seen'))
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('seen'))
 
             # bad type
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts))
-            await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ :seen=newp ]', opts=forkopts))
+            await core.nodes('test:str=maxval [ :seen?=newp +#foo ]', opts=forkopts)
             self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
     async def test_view_trigger(self):
@@ -505,7 +468,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(0, count['node:edits'])
             self.eq(0, count['node:add'])
             cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
-            self.eq([{'count': 2}, {'count': 1}], cmsgs)
+            self.eq([{'count': 1}, {'count': 1}], cmsgs)
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'})
             count = collections.Counter(m[0] for m in mesgs)
@@ -519,6 +482,15 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadConfValu):
                 await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})
 
+            msgs = await core.stormlist('[test:str=virts :seen=2020 :ndefs={[test:str=foo1 test:str=foo3]}]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][3], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
+            self.eq(cmsgs[2][0][2][0][1][3], {'size': 2, 'form': ['test:str', 'test:str']})
+
+            msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80})
+
     async def test_lib_view_addNodeEdits(self):
 
         async with self.getTestCore() as core:
@@ -528,34 +500,43 @@ class ViewTest(s_t_utils.SynTest):
                 $view = $lib.view.add(($layr,))
                 return($view.iden)
             ''')
+            layr = core.getView().wlyr
 
-            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org {[+#foo]}', opts={'view': view})
 
             nodes = await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
 
+            nodeedits = []
+            async for offs, edits in layr.syncNodeEdits(0, wait=False):
+                nodeedits.append(edits)
+
             await core.stormlist('''
                 $view = $lib.view.get($viewiden)
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                for $edits in $nodeedits {
                     $view.addNodeEdits($edits)
                 }
-            ''', opts={'vars': {'viewiden': view}})
+            ''', opts={'vars': {'viewiden': view, 'nodeedits': nodeedits}})
 
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
 
             # test node:del triggers
-            await core.nodes('trigger.add node:del --form ou:org --query {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form ou:org {[test:str=foo]}', opts={'view': view})
 
-            nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
+            nextoffs = core.getView(iden=view).layers[0].getEditIndx() + 1
 
             await core.nodes('ou:org | delnode')
 
+            nodeedits = []
+            async for offs, edits in layr.syncNodeEdits(nextoffs, wait=False):
+                nodeedits.append(edits)
+
             await core.stormlist('''
                 $view = $lib.view.get($viewiden)
-                for ($offs, $edits) in $lib.layer.get().edits(offs=$offs, wait=$lib.false) {
+                for $edits in $nodeedits {
                     $view.addNodeEdits($edits)
                 }
-            ''', opts={'vars': {'viewiden': view, 'offs': nextoffs}})
+            ''', opts={'vars': {'viewiden': view, 'nodeedits': nodeedits}})
 
             self.len(0, await core.nodes('ou:org +#foo', opts={'view': view}))
 
@@ -571,39 +552,34 @@ class ViewTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
-            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
-            await core.nodes('trigger.add node:del --form inet:ipv4 --query {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ip {[test:str=foo]}', opts={'view': view})
 
             await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
 
-            await core.nodes('[ inet:ipv4=0 ]')
-            self.len(0, await core.nodes('inet:ipv4', opts={'view': view}))
+            await core.nodes('[ inet:ip=([4, 0]) ]')
+            self.len(0, await core.nodes('inet:ip', opts={'view': view}))
 
-            await core.nodes('inet:ipv4=0 | delnode')
+            await core.nodes('inet:ip=([4, 0]) | delnode')
 
-            edits = await core.callStorm('''
-                $nodeedits = ()
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
-                    $nodeedits.extend($edits)
-                }
-                return($nodeedits)
-            ''')
+            nodeedits = []
+            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+                nodeedits.extend(edits)
 
             user = await core.auth.addUser('user')
             await user.addRule((True, ('view', 'read')))
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
-                self.eq(0, await prox.getEditSize())
-                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(nodeedits, None))
 
             await user.addRule((True, ('node',)))
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
-                self.none(await prox.storNodeEdits(edits, None))
+                self.none(await prox.storNodeEdits(nodeedits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
-            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+            self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
 
     async def test_lib_view_savenodeedits_telepath(self):
 
@@ -618,8 +594,8 @@ class ViewTest(s_t_utils.SynTest):
                             return($view.iden)
                         ''')
 
-            await core.nodes('trigger.add node:add --form test:guid --query {$lib.log.info(`u={$auto.opts.user}`) [+#foo]}', opts={'view': view})
-            await core.nodes('trigger.add node:del --form test:int --query {$lib.log.info(`u={$auto.opts.user}`) [test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form test:guid {$lib.log.info(`u={$auto.opts.user}`) [+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form test:int {$lib.log.info(`u={$auto.opts.user}`) [test:str=foo]}', opts={'view': view})
 
             await core.nodes('[ test:guid=* ]')
             self.len(0, await core.nodes('test:guid', opts={'view': view}))
@@ -629,11 +605,9 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('test:int | delnode')
 
-            edits = await core.callStorm('''$nodeedits = ()
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
-                    $nodeedits.extend($edits)
-                }
-                return($nodeedits)''')
+            nodeedits = []
+            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+                nodeedits.append(edits)
 
             user = await core.auth.addUser('user')
             await user.addRule((True, ('view', 'read')))
@@ -641,16 +615,16 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 with self.raises(s_exc.AuthDeny):
-                    await prox.saveNodeEdits(edits, {})
+                    await prox.saveNodeEdits(nodeedits, {})
 
                 await core.setUserAdmin(user.iden, True)
 
                 with self.raises(s_exc.BadArg) as cm:
-                    await prox.saveNodeEdits(edits, {})
+                    await prox.saveNodeEdits(nodeedits, {})
                 self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
-
                 with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
-                    await prox.saveNodeEdits(edits, {'time': s_common.now(), 'user': guid})
+                    for edit in nodeedits:
+                        await prox.saveNodeEdits(edit, {'time': s_common.now(), 'user': guid})
                     self.true(await stream.wait(6))
                 valu = stream.getvalue().strip()
                 self.isin(f'u={guid}', valu)
@@ -672,7 +646,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del --query { $lib.globals.set(trig, $lib.true) } --form test:str')
+            await core.nodes('trigger.add node:del { $lib.globals.trig = $lib.true } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
@@ -682,18 +656,18 @@ class ViewTest(s_t_utils.SynTest):
                     :baz="test:str:hehe=hifoo"
                     :tick=2020
                     :hehe=hibar
-                    .seen=2021
+                    :seen=2021
                     +#test
                     +#test.foo:score=100
-                    <(seen)+ { test:str=foo }
-                    +(seen)> { test:arrayprop=$arrayguid }
+                    <(refs)+ { test:str=foo }
+                    +(refs)> { test:arrayprop=$arrayguid }
                 ]
                 $node.data.set(bardata, ({"hi": "there"}))
             ''', opts=opts)
 
             nodecnt = await core.count('.created')
 
-            offs = await layr.getEditOffs()
+            offs = layr.getEditIndx()
 
             # must have perms for each edit
 
@@ -707,31 +681,24 @@ class ViewTest(s_t_utils.SynTest):
             await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'edge', 'del')), gateiden=layr.iden)
-            await core.addUserRule(useriden, (True, ('node', 'data', 'pop')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'data', 'del')), gateiden=layr.iden)
 
             await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
-            self.len(nodecnt, layr.nodeeditlog.iter(offs + 1)) # one del nodeedit for each node
+            ecnt = 0
+            async for nexsoffs, edits in layr.syncNodeEdits(offs + 1, wait=False):
+                ecnt += 1
+
+            self.eq(nodecnt, ecnt) # one del nodeedit for each node
 
             self.len(0, await core.nodes('.created'))
 
-            self.true(await core.callStorm('return($lib.globals.get(trig))'))
+            self.true(await core.callStorm('return($lib.globals.trig)'))
 
-            self.eq({
-                'meta:source': 0,
-                'syn:tag': 0,
-                'test:arrayprop': 0,
-                'test:str': 0,
-            }, await layr.getFormCounts())
+            self.eq({}, await layr.getFormCounts())
 
-            self.eq(0, layr.layrslab.stat(db=layr.bybuidv3)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytag)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byprop)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byarray)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytagprop)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.indxdb)['entries'])
 
             self.eq(0, layr.dataslab.stat(db=layr.nodedata)['entries'])
             self.eq(0, layr.dataslab.stat(db=layr.dataname)['entries'])
@@ -753,15 +720,14 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
 
-            # can wipe push/pull/mirror layers
+            # can wipe through layer push/pull
 
             self.len(1, await core.nodes('test:str=chicken'))
-            baseoffs = await layr.getEditOffs()
+            baseoffs = layr.getEditIndx()
 
             async def waitPushOffs(core_, iden_, offs_):
-                gvar = f'push:{iden_}'
                 while True:
-                    if await core_.getStormVar(gvar, -1) >= offs_:
+                    if core_.layeroffs.get(iden_, -1) >= offs_:
                         return
                     await asyncio.sleep(0)
 
@@ -784,7 +750,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 await asyncio.wait_for(waitPushOffs(core2, puller_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
-                puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
+                puller_offs = core2.getLayer(iden=puller_layr).getEditIndx()
 
                 pushee_view, pushee_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
@@ -802,31 +768,15 @@ class ViewTest(s_t_utils.SynTest):
 
                 await asyncio.wait_for(waitPushOffs(core, pushee_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
-                pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
+                pushee_offs = core2.getLayer(iden=pushee_layr).getEditIndx()
 
-                mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
-                mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = ({'mirror': `{$baseurl}/{$baseiden}`})
-                    $lyr = $lib.layer.add(ldef=$ldef)
-                    $view = $lib.view.add(($lyr.iden,))
-                    return(($view.iden, $lyr.iden))
-                ''', opts=opts)
+                nexsoffs = await core.getNexsIndx()
+                await core.nodes('$lib.view.get().wipeLayer()')
 
-                self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
-
-                # wipe the mirror view which will writeback
-                # and then get pushed/pulled into the other layers
-
-                await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
-
-                self.len(0, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
                 self.len(0, await core.nodes('test:str=chicken'))
 
-                self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))
+                await core.waitNexsOffs(nexsoffs + 2, timeout=5)
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
-
-                self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(pushee_offs + 1, timeout=2))
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
 
     async def test_lib_view_merge_perms(self):
@@ -841,14 +791,14 @@ class ViewTest(s_t_utils.SynTest):
             useriden = user['iden']
             useropts = {'user': useriden}
 
-            await core.addUserRule(useriden, (True, ('view', 'add')))
+            await core.addUserRule(useriden, (True, ('view', 'fork')))
 
             forkview = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
             viewopts = {**useropts, 'view': forkview}
 
             q = '''
             [ test:str=foo
-                .seen = now
+                :seen = now
                 +#seen:score = 5
                 <(refs)+ { [ test:str=bar ] }
             ]
@@ -888,16 +838,17 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
-            nodes = await core.nodes('test:str=foo $node.data.load(foo)')
-            self.len(1, nodes)
-            self.nn(nodes[0].props.get('.seen'))
-            self.nn(nodes[0].tags.get('seen'))
-            self.nn(nodes[0].tagprops.get('seen'))
-            self.nn(nodes[0].tagprops['seen'].get('score'))
-            self.nn(nodes[0].nodedata.get('foo'))
+            msgs = await core.stormlist('test:str=foo $node.data.load(foo)')
+            podes = [n[1] for n in msgs if n[0] == 'node']
+            self.len(1, podes)
+            self.nn(podes[0][1]['props'].get('seen'))
+            self.nn(podes[0][1]['tags'].get('seen'))
+            self.nn(podes[0][1]['tagprops']['seen']['score'])
+            self.nn(podes[0][1]['nodedata'].get('foo'))
 
             await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
 
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'del', 'seen')), gateiden=baselayr)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
 
             await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
@@ -917,6 +868,530 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
+
+    async def test_addNodes(self):
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            ndefs = ()
+            self.len(0, await alist(view.addNodes(ndefs)))
+
+            ndefs = (
+                (('test:str', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
+            )
+            result = await alist(view.addNodes(ndefs))
+            self.len(1, result)
+
+            node = result[0]
+            self.eq(node.get('tick'), 3)
+            self.ge(node.get('.created', 0), 5)
+            self.eq(node.get('#cool'), (1, 2, 1))
+
+            nodes = await alist(view.nodesByPropValu('test:str', '=', 'hehe'))
+            self.len(1, nodes)
+            self.eq(nodes[0], node)
+
+            # Make sure that we can still add secondary props even if the node already exists
+            node2 = await view.addNode('test:str', 'hehe', props={'baz': 'test:guid:tick=2020'})
+            self.eq(node2, node)
+            self.nn(node2.get('baz'))
+
+    async def test_addNodesAuto(self):
+        '''
+        Secondary props that are forms when set make nodes
+        '''
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            node = await view.addNode('test:guid', '*')
+            await node.set('size', 42)
+            nodes = await alist(view.nodesByPropValu('test:int', '=', 42))
+            self.len(1, nodes)
+
+            # For good measure, set a secondary prop that is itself a comp type that has an element that
+            # is a form
+            node = await view.addNode('test:haspivcomp', 42)
+            await node.set('have', ('woot', 'rofl'))
+            nodes = await alist(view.nodesByPropValu('test:pivcomp', '=', ('woot', 'rofl')))
+            self.len(1, nodes)
+            nodes = await alist(view.nodesByProp('test:pivcomp:lulz'))
+            self.len(1, nodes)
+            nodes = await alist(view.nodesByPropValu('test:str', '=', 'rofl'))
+            self.len(1, nodes)
+
+            # Make sure the sodes didn't get misordered
+            node = await view.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            self.eq(node.ndef[0], 'inet:dns:a')
+
+    @contextlib.asynccontextmanager
+    async def _getTestCoreMultiLayer(self):
+        '''
+        Create a cortex with a second view which has an additional layer above the main layer.
+
+        Notes:
+            This method is broken out so subclasses can override.
+        '''
+        async with self.getTestCore() as core0:
+
+            view0 = core0.view
+            layr0 = view0.layers[0]
+
+            ldef1 = await core0.addLayer()
+            layr1 = core0.getLayer(ldef1.get('iden'))
+            vdef1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
+
+            yield view0, core0.getView(vdef1.get('iden'))
+
+    async def test_cortex_lift_layers_simple(self):
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            ''' Test that you can write to view0 and read it from view1 '''
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ip')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4')))
+            self.len(1, await alist(view1.eval('inet:ip:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ip +:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ip +#woot')))
+
+    async def test_cortex_lift_layers_bad_filter(self):
+        '''
+        Test a two layer cortex where a lift operation gives the wrong result
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ip#woot@=2014')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
+
+            self.len(0, await alist(view0.eval('inet:ip:asn=31337')))
+            self.len(1, await alist(view1.eval('inet:ip:asn=31337')))
+
+            self.len(1, await alist(view0.eval('inet:ip:asn=42')))
+            self.len(0, await alist(view1.eval('inet:ip:asn=42')))
+
+            self.len(1, await alist(view0.eval('[ test:arrayprop="*" :ints=(1, 2, 3) ]')))
+            self.len(1, await alist(view1.eval('test:int=2 -> test:arrayprop')))
+            self.len(1, await alist(view1.eval('test:arrayprop [ :ints=(4, 5, 6) ]')))
+
+            self.len(0, await alist(view0.eval('test:int=5 -> test:arrayprop')))
+            self.len(1, await alist(view1.eval('test:int=5 -> test:arrayprop')))
+
+            self.len(1, await alist(view0.eval('test:int=2 -> test:arrayprop')))
+            self.len(0, await alist(view1.eval('test:int=2 -> test:arrayprop')))
+
+            self.len(1, await alist(view1.eval('[ test:int=7 +#atag=2020 ]')))
+            self.len(1, await alist(view0.eval('[ test:int=7 +#atag=2021 ]')))
+
+            self.len(0, await alist(view0.eval('test:int#atag@=2020')))
+            self.len(1, await alist(view1.eval('test:int#atag@=2020')))
+
+            self.len(1, await alist(view0.eval('test:int#atag@=2021')))
+            self.len(0, await alist(view1.eval('test:int#atag@=2021')))
+
+    async def test_cortex_lift_layers_dup(self):
+        '''
+        Test a two layer cortex where a lift operation might give the same node twice incorrectly
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            # add to view1 first so we can cause creation in both...
+            self.len(1, await alist(view1.eval('[ inet:ip=1.2.3.4 :asn=42 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 ]')))
+
+            # lift by primary and ensure only one...
+            self.len(1, await alist(view1.eval('inet:ip')))
+
+            # lift by secondary and ensure only one...
+            self.len(1, await alist(view1.eval('inet:ip:asn=42')))
+
+            # now set one to a diff value that we will ask for but should be masked
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=99 ]')))
+            self.len(0, await alist(view1.eval('inet:ip:asn=99')))
+
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.5 :asn=43 ]')))
+            self.len(2, await alist(view1.eval('inet:ip:asn')))
+
+            await view0.core.addTagProp('score', ('int', {}), {})
+
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=99 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.5 [ +#foo:score=43 ]')))
+
+            nodes = await alist(view1.eval('#foo:score'))
+            self.len(2, await alist(view1.eval('#foo:score')))
+
+    async def test_clearcache(self):
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            original_node0 = await view.addNode('test:str', 'node0')
+            self.len(1, view.nodecache)
+            self.len(1, view.livenodes)
+            self.len(0, view.tagcache)
+            self.len(0, core.tagnorms)
+
+            await original_node0.addTag('foo.bar.baz')
+            self.len(4, view.nodecache)
+            self.len(4, view.livenodes)
+            self.len(3, core.tagnorms)
+
+            new_node0 = await view.getNodeByNdef(('test:str', 'node0'))
+            await new_node0.delTag('foo.bar.baz')
+            self.notin('foo.bar.baz', new_node0.getTags())
+            # Original reference is updated as well
+            self.notin('foo.bar.baz', original_node0.getTags())
+
+            # We rely on the layer's row cache to be correct in this test.
+
+            # Lift is cached..
+            same_node0 = await view.getNodeByNdef(('test:str', 'node0'))
+            self.eq(id(original_node0), id(same_node0))
+
+            # flush caches!
+            view.clearCache()
+            core.tagnorms.clear()
+
+            self.len(0, view.nodecache)
+            self.len(0, view.livenodes)
+            self.len(0, view.tagcache)
+            self.len(0, core.tagnorms)
+
+            # After clearing the cache and lifting nodes, the new node
+            # was lifted directly from the layer.
+            new_node0 = await view.getNodeByNdef(('test:str', 'node0'))
+            self.ne(id(original_node0), id(new_node0))
+            self.notin('foo.bar.baz', new_node0.getTags())
+
+    async def test_cortex_lift_layers_bad_filter_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation gives the wrong result, with tagprops
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view1.nodes('#woot:score=20'))
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=40 ]'))
+
+            self.len(0, await view0.nodes('#woot:score=40'))
+            self.len(1, await view1.nodes('#woot:score=40'))
+
+            self.len(1, await view0.nodes('#woot:score=20'))
+            self.len(0, await view1.nodes('#woot:score=20'))
+
+    async def test_cortex_lift_layers_dup_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation might give the same node twice incorrectly
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+
+            self.len(1, await view1.nodes('#woot:score=20'))
+
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=40 ]'))
+
+    async def test_cortex_lift_layers_ordering(self):
+
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('data', ('data', {}), {'doc': 'hi there'})
+
+            await view0.nodes('[ inet:ip=1.1.1.4 ]')
+            await view1.nodes('inet:ip=1.1.1.4 [+#tag]')
+            await view0.nodes('inet:ip=1.1.1.4 | delnode')
+            nodes = await view1.nodes('#tag | uniq')
+            self.len(0, nodes)
+
+            await view0.nodes('[ inet:ip=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
+            await view0.nodes('[ inet:ip=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
+            await view1.nodes('[ inet:ip=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
+            await view0.nodes('[ inet:ip=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
+
+            await view1.nodes('[ test:str=foo +#woot=2001 ]')
+            await view0.nodes('[ test:str=foo +#woot=2001 ]')
+            await view0.nodes('[ test:int=1 +#woot=2001 ]')
+            await view0.nodes('[ test:int=2 +#woot=2001 ]')
+
+            nodes = await view1.nodes('#woot')
+            self.len(7, nodes)
+
+            nodes = await view1.nodes('inet:ip')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                valu = node.ndef[1][1]
+                self.gt(valu, last)
+                last = valu
+
+            nodes = await view1.nodes('inet:ip:asn')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ip:asn>0')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ip:asn*in=(1,2,3,4)')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ip:asn*in=(4,3,2,1)')
+            self.len(4, nodes)
+            last = 5
+            for node in nodes:
+                asn = node.get('asn')
+                self.lt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('#woot:score')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.getTagProp('woot', 'score')
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score>0')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.getTagProp('woot', 'score')
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score*in=(1,2,3,4)')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.getTagProp('woot', 'score')
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score*in=(4,3,2,1)')
+            self.len(4, nodes)
+            last = 5
+            for node in nodes:
+                scor = node.getTagProp('woot', 'score')
+                self.lt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('yield $lib.lift.byNodeData(woot)')
+            self.len(4, nodes)
+
+            self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
+            nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
+            self.len(2, nodes)
+
+            self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
+            nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
+            self.len(4, nodes)
+
+            await view0.nodes('[ test:data=(123) :data=(123) +#woot:data=(123)]')
+            await view1.nodes('[ test:data=foo :data=foo +#woot:data=foo]')
+            await view0.nodes('[ test:data=(0) :data=(0) +#woot:data=(0)]')
+            await view0.nodes('[ test:data=bar :data=foo +#woot:data=foo]')
+
+            nodes = await view1.nodes('test:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('test:data=foo')
+            self.len(1, nodes)
+
+            nodes = await view1.nodes('test:data:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('test:data:data=foo')
+            self.len(2, nodes)
+
+            nodes = await view1.nodes('#woot:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('#woot:data=foo')
+            self.len(2, nodes)
+
+    async def test_node_editor(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'verbs': ('_pwns', '_foo')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('[ test:guid=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+            root = core.auth.rootuser
+
+            async with core.view.getEditor() as editor:
+                fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
+
+                self.true(s_common.isbuidhex(fqdn.iden()))
+
+                self.false(await news.addEdge('refs', fqdn.nid))
+                self.len(0, editor.getNodeEdits())
+
+                self.true(await news.addEdge('_pwns', fqdn.nid))
+                self.false(await news.addEdge('_pwns', fqdn.nid))
+                nodeedits = editor.getNodeEdits()
+                self.len(1, nodeedits)
+                self.len(1, nodeedits[0][2])
+
+                self.true(await news.delEdge('_pwns', fqdn.nid))
+                nodeedits = editor.getNodeEdits()
+                self.len(0, nodeedits)
+
+                self.true(await news.addEdge('_pwns', fqdn.nid))
+                nodeedits = editor.getNodeEdits()
+                self.len(1, nodeedits)
+                self.len(1, nodeedits[0][2])
+
+                self.false(await news.hasData('foo'))
+                await news.setData('foo', 'bar')
+                self.true(await news.hasData('foo'))
+
+                self.false(news.hasTagProp('foo', 'test'))
+                await news.setTagProp('foo', 'test', 'bar')
+                self.true(news.hasTagProp('foo', 'test'))
+
+            async with core.view.getEditor() as editor:
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
+
+                self.true(await news.delEdge('_pwns', fqdn.nid))
+                self.false(await news.delEdge('_pwns', fqdn.nid))
+                nodeedits = editor.getNodeEdits()
+                self.len(1, nodeedits)
+                self.len(1, nodeedits[0][2])
+
+                self.true(await news.addEdge('_pwns', fqdn.nid))
+                nodeedits = editor.getNodeEdits()
+                self.len(0, nodeedits)
+
+                self.true(await news.hasData('foo'))
+
+                self.true(news.hasTagProp('foo', 'test'))
+
+                await news.delTagProp('foo', 'test')
+                await news.setTagProp('foo', 'test', 'baz')
+                await news.setTagProp('foo', 'test', 'bar')
+                self.true(news.hasTagProp('foo', 'test'))
+
+                with self.raises(s_exc.NoSuchProp):
+                    await news.pop('newp')
+
+                with self.raises(s_exc.NoSuchTagProp):
+                    await news.delTagProp('newp', 'newp')
+
+            self.len(1, await core.nodes('test:guid -(_pwns)> *'))
+
+            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
+            self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:ro=foo [ :readable=newp ]')
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            addq = '''[
+            inet:ip=1.2.3.4
+                :asn=4
+                +#foo.tag=2024
+                +#bar.tag:score=5
+                +(_foo)> {[ it:dev:str=n2 ]}
+            ]
+            $node.data.set(foodata, bar)
+            '''
+            await core.nodes(addq)
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
+
+            n2node = (await core.nodes('it:dev:str=n2'))[0]
+            n2nid = n2node.nid
+
+            async with view2.getEditor() as editor:
+                node = await editor.getNodeByBuid(nodes[0].buid)
+                self.true(await node.delEdge('_foo', n2nid))
+                self.true(await node.addEdge('_foo', n2nid))
+                self.true(await node.delEdge('_foo', n2nid))
+
+                self.true(await node.setTagProp('cool.tag', 'score', 7))
+                self.isin('score', node.getTagProps('cool.tag'))
+                self.isin(('score', 0), node.getTagPropsWithLayer('cool.tag'))
+                self.eq(7, node.getTagProp('cool.tag', 'score'))
+                self.eq((7, 0), node.getTagPropWithLayer('cool.tag', 'score'))
+
+                self.true(await node.delTag('bar.tag'))
+                self.true(await node.delTag('baz.tag'))
+
+                self.none(node.getTag('bar.tag'))
+                self.none(node.getTagProp('bar.tag', 'score'))
+                self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+
+                self.true(await node.set('asn', 7))
+                self.true(await node.pop('asn'))
+                self.none(node.get('asn'))
+                self.eq((None, None), node.getWithLayer('asn'))
+
+                self.eq('bar', await node.popData('foodata'))
+
+                await core.nodes('for $verb in $lib.range(1001) { $lib.model.ext.addEdge(*, `_a{$verb}`, *, ({})) }')
+
+                manynode = await editor.addNode('it:dev:str', 'manyedges')
+                for x in range(1001):
+                    await manynode.addEdge(f'_a{str(x)}', node.nid)
+
+                self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', 'score'))
+
+            self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
+
+            async with view2.getEditor() as editor:
+                node = await editor.getNodeByBuid(nodes[0].buid)
+                self.false(await node.delEdge('_foo', n2nid))
+                await node.delEdgesN2()
+
+                self.true(await node.set('asn', 5))
+
+                n2node = await editor.getNodeByNid(n2nid)
+                await n2node.delEdgesN2()
+
+                self.false(node.istomb())
+                await node.delete()
+                self.true(node.istomb())
+                await node.delete()
+
+                newnode = await editor.addNode('it:dev:str', 'new')
+                self.false(newnode.istomb())
+                self.false(await newnode.delEdge('_foo', n2nid))
+
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(*)- *', opts=viewopts2))
+
+    async def test_subs_depth(self):
+
+        async with self.getTestCore() as core:
+            fqdn = '.'.join(['x' for x in range(300)]) + '.foo.com'
+            q = f'[ inet:fqdn="{fqdn}"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('zone'), 'foo.com')
 
     async def test_view_insert_parent_fork(self):
 
@@ -1026,3 +1501,150 @@ class ViewTest(s_t_utils.SynTest):
 
             opts['vars']['iden'] = view02.iden
             self.eq([], await core.callStorm(q, opts=opts))
+
+    async def test_view_propvaluescmpr(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+
+            await core.nodes('[meta:name=foo meta:name=bar meta:name=baz meta:name=faz]')
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((meta:name,), valu="ba", cmpr="^=")')
+            self.len(2, nodes)
+
+            forkopts = {'view': view01.iden}
+            await core.nodes('[meta:name=foo2 meta:name=bar2 meta:name=baz2 meta:name=faz2]', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(4, nodes)
+
+            await core.nodes('''[
+                (ou:conference=* :names=(bar, baz))
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="baz ship")
+            ]''')
+
+            await core.nodes('''[
+                (ou:conference=* :name=foo)
+                (ou:conference=* :name=bar)
+                (ou:conference=* :names=(foo, baz))
+                (ou:conference=* :names=(bar, bar2))
+                (transport:sea:vessel=* :name=bar)
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="awesome ship")
+            ]''', opts=forkopts)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            long1 = 'bar' * 100 + 'a'
+            long2 = 'bar' * 100 + 'b'
+            await core.nodes(f'''[
+                (ou:conference=* :names=({long1},))
+                (transport:sea:vessel=* :name={long2})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="^bar", cmpr="~=")', opts=forkopts)
+            self.len(4, nodes)
+            self.eq(['bar', 'bar2', long1, long2], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            with self.raises(s_exc.BadTypeValu):
+                async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
+                    pass
+
+            with self.raises(s_exc.NoSuchCmpr):
+                form = core.model.form('meta:name')
+                cmprvals = (('newp', None, form.type.stortype),)
+                async for item in view00.wlyr.iterPropValuesWithCmpr('meta:name', None, cmprvals):
+                    pass
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):
+                self.nn(None)
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '=', 5):
+                self.nn(None)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs(entity:goal:desc, valu=newp)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs((test:comp:hehe, test:int:type), valu=newp)')
+
+            await core.nodes('for $i in $lib.range(10) { [test:int=$i :type=bar] }')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=3, cmpr="=")', opts=forkopts)
+            self.len(1, nodes)
+            self.eq(('test:int', 3), nodes[0].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=(3, 5), cmpr="range=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq([3, 4, 5], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:int', node.form.name)
+
+    async def test_view_edge_counts(self):
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            nodes = await core.nodes('[ test:str=cool +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nid = nodes[0].nid
+            self.eq(1, view.getEdgeCount(nid))
+            self.eq(1, view.getEdgeCount(nid, n2=True))
+            self.eq(1, view.getEdgeCount(nid, verb='refs'))
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkview = core.getView(fork)
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2view = core.getView(fork2)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs'))
+
+            await core.nodes('test:int=2 | delnode', opts=forkopts)
+            await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            self.eq(0, fork2view.getEdgeCount(nid))
+            self.eq(0, fork2view.getEdgeCount(nid, verb='refs'))
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))

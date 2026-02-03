@@ -33,24 +33,3 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(snfo1.get('status'), 'nominal')
             self.eq(snfo1.get('iden'), core.getCellIden())
             comps = snfo1.get('components')
-            testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
-            self.eq(testdata,
-                    {'status': 'nominal',
-                     'name': 'testmodule',
-                     'mesg': 'Test module is healthy',
-                     'data': {'beep': 0}})
-
-            # The TestModule registers a syn:health event handler on the Cortex
-            mod = core.modules.get('synapse.tests.utils.TestModule')  # type: s_t_utils.TestModule
-            # Now force the module into a degraded state.
-            mod.healthy = False
-
-            snfo2 = await prox.getHealthCheck()
-            self.eq(snfo2.get('status'), 'failed')
-            comps = snfo2.get('components')
-            testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
-            self.eq(testdata,
-                    {'status': 'failed',
-                     'name': 'testmodule',
-                     'mesg': 'Test module is unhealthy',
-                     'data': {'beep': 1}})

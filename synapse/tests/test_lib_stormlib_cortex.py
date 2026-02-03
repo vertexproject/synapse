@@ -71,7 +71,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             adef = await core.getHttpExtApi(iden)
             self.nn(adef)
 
-            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
+            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden) )',
                                         opts={'vars': {'iden': testpath00}})
             self.eq(info.get('iden'), testpath00)
 
@@ -510,13 +510,13 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             q = '''
-            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($path)
+            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($pth)
             if $api { $ret = $api.iden}
             return ( $ret )
             '''
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
-            self.none(await core.callStorm(q, opts={'vars': {'path': 'newpnewpnewp'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/ohmy'}}))
+            self.none(await core.callStorm(q, opts={'vars': {'pth': 'newpnewpnewp'}}))
 
             # Order matters. The hehe/haha path occurs after the wildcard.
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
@@ -539,8 +539,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             msgs = await core.stormlist('cortex.httpapi.index $iden 1', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 1', msgs)
 
-            self.eq(iden1, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
+            self.eq(iden1, await core.callStorm(q, opts={'vars': {'pth': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/ohmy'}}))
 
             msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     | {iden1}', msgs)
@@ -1469,7 +1469,7 @@ for $i in $values {
                     self.false(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.true(adef.get('pool'))
 
@@ -1478,7 +1478,7 @@ for $i in $values {
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.false(adef.get('pool'))
 
@@ -1486,3 +1486,35 @@ for $i in $values {
                     self.eq(resp.status, http.HTTPStatus.OK)
                     self.false(data['opts'].get('mirror'))
                     data.clear()
+
+    async def test_libcortex_nids(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            nid = s_common.int64un(nodes[0].nid)
+            iden = nodes[0].iden()
+
+            self.eq(iden, await core.callStorm('return($lib.cortex.getIdenByNid($nid))', opts={'vars': {'nid': nid}}))
+            self.eq(nid, await core.callStorm('return($lib.cortex.getNidByIden($iden))', opts={'vars': {'iden': iden}}))
+
+            nodes = await core.nodes('yield $lib.cortex.getNidByIden($iden)', opts={'vars': {'iden': iden}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            opts = {'vars': {'nid': nid}}
+            ndef = await core.callStorm('return($lib.cortex.getNodeByNid($nid).ndef())', opts=opts)
+            self.eq(ndef, ('test:str', 'foo'))
+
+            opts = {'vars': {'nid': nid}}
+            ndef = await core.callStorm('return($lib.cortex.getNdefByNid($nid))', opts=opts)
+            self.eq(ndef, ('test:str', 'foo'))
+
+            buid = s_common.ehex(s_common.buid('newp'))
+            self.none(await core.callStorm('return($lib.cortex.getIdenByNid((99999)))'))
+            self.none(await core.callStorm(f'return($lib.cortex.getNidByIden({buid}))'))
+
+            self.len(0, await core.nodes('yield (99999)'))
+
+            ndef = await core.callStorm('return($lib.cortex.getNdefByIden($iden))', opts={'vars': {'iden': iden}})
+            self.eq(ndef, ('test:str', 'foo'))

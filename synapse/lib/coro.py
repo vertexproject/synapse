@@ -104,7 +104,7 @@ class Event(asyncio.Event):
             return True
 
         try:
-            await s_common.wait_for(self.wait(), timeout)
+            await asyncio.wait_for(self.wait(), timeout)
         except asyncio.TimeoutError:
             return False
 
@@ -122,7 +122,7 @@ async def event_wait(event: asyncio.Event, timeout=None):
         return True
 
     try:
-        await s_common.wait_for(event.wait(), timeout)
+        await asyncio.wait_for(event.wait(), timeout)
     except asyncio.TimeoutError:
         return False
     return True
@@ -137,7 +137,7 @@ async def waittask(task, timeout=None):
     futu = asyncio.get_running_loop().create_future()
     task.add_done_callback(futu.set_result)
     try:
-        await s_common.wait_for(futu, timeout=timeout)
+        await asyncio.wait_for(futu, timeout=timeout)
         return True
     except asyncio.TimeoutError:
         return False
@@ -182,48 +182,9 @@ async def await_bg_tasks(timeout=None):
 
     coro = asyncio.gather(*tuple(bgtasks), return_exceptions=True)
     try:
-        return await s_common.wait_for(coro, timeout)
+        return await asyncio.wait_for(coro, timeout)
     except (asyncio.CancelledError, asyncio.TimeoutError):
         return []
-
-class GenrHelp:
-
-    def __init__(self, genr):
-        assert genr is not None
-        self.genr = genr
-
-    def __aiter__(self):
-        return self.genr
-
-    def __iter__(self):
-
-        try:
-
-            while True:
-                item = s_glob.sync(self.genr.__anext__())
-                yield item
-
-        except StopAsyncIteration:
-            return
-
-        except GeneratorExit:
-            # Raised if a synchronous consumer exited an iterator early.
-            # Signal the generator to close down.
-            s_glob.sync(self.genr.aclose())
-            raise
-
-    async def spin(self):
-        async for x in self.genr:
-            pass
-
-    async def list(self):
-        return [x async for x in self.genr]
-
-def genrhelp(f):
-    @functools.wraps(f)
-    def func(*args, **kwargs):
-        return GenrHelp(f(*args, **kwargs))
-    return func
 
 def _exectodo(que, todo, logconf):
     # This is a new process: configure logging
@@ -291,7 +252,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
 
         coro = executor(execspawn)
 
-        retn = await s_common.wait_for(coro, timeout=timeout)
+        retn = await asyncio.wait_for(coro, timeout=timeout)
         if isinstance(retn, Exception):
             raise retn
 

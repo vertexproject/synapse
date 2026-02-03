@@ -1,18 +1,4 @@
-import logging
-
-import synapse.lib.module as s_module
-
-logger = logging.getLogger(__name__)
-
-sophenums = (
-    (10, 'very low'),
-    (20, 'low'),
-    (30, 'medium'),
-    (40, 'high'),
-    (50, 'very high'),
-)
-
-prioenums = (
+scoreenums = (
     (0, 'none'),
     (10, 'lowest'),
     (20, 'low'),
@@ -21,473 +7,548 @@ prioenums = (
     (50, 'highest'),
 )
 
-class BaseModule(s_module.CoreModule):
+modeldefs = (
+    ('base', {
+        'types': (
 
-    def getModelDefs(self):
+            ('date', ('time', {'precision': 'day'}), {
+                'doc': 'A date precision time value.'}),
 
-        return (('base', {
+            ('base:id', ('str', {}), {
+                'doc': 'A base type for ID strings.'}),
 
-            'types': (
+            ('meta:id', ('base:id', {}), {
+                'interfaces': (('entity:identifier', {}), ),
+                'doc': 'A case sensitive identifier string.'}),
 
-                ('meta:feed', ('guid', {}), {
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
-                            {'type': 'prop', 'opts': {'name': 'source::name'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
-                        ),
-                    },
-                    'doc': 'A data feed provided by a specific source.'}),
+            ('base:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A base type for case insensitive names.'}),
 
-                ('meta:feed:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A data feed type taxonomy.'}),
+            ('meta:name', ('base:name', {}), {
+                'prevnames': ('ou:name', 'ou:industryname',
+                              'ou:campname', 'ou:goalname', 'lang:name',
+                              'risk:vulnname', 'meta:name', 'entity:name',
+                              'geo:name'),
+                'doc': 'A name used to refer to an entity or event.'}),
 
-                ('meta:source', ('guid', {}), {
-                    'doc': 'A data source unique identifier.'}),
+            ('meta:topic', ('base:name', {}), {
+                'doc': 'A topic string.'}),
 
-                ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
-
-                ('meta:note', ('guid', {}), {
-                    'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
-
-                ('meta:note:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst note type taxonomy.'}),
-
-                ('meta:timeline', ('guid', {}), {
-                    'doc': 'A curated timeline of analytically relevant events.'}),
-
-                ('meta:timeline:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
-
-                ('meta:event', ('guid', {}), {
-                    'doc': 'An analytically relevant event in a curated timeline.'}),
-
-                ('meta:event:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of event types for meta:event nodes.'}),
-
-                ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for meta:ruleset types.'}),
-
-                ('meta:ruleset', ('guid', {}), {
-                    'doc': 'A set of rules linked with -(has)> edges.'}),
-
-                ('meta:rule:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for meta:rule types.'}),
-
-                ('meta:rule', ('guid', {}), {
-                    'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
-
-                ('graph:cluster', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
-                           'single node in the model.'}),
-
-                ('graph:node', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node used to represent objects outside the model.'}),
-
-                ('graph:event', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic event node to represent events outside the model.'}),
-
-                ('edge:refs', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
-
-                ('edge:has', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 has N2.'}),
-
-                ('edge:wentto', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
-
-                ('graph:edge', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph edge to show relationships outside the model.'}),
-
-                ('graph:timeedge', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph time edge to show relationships outside the model.'}),
-
-                ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                    'doc': 'A generic activity level enumeration.'}),
-
-                ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                    'doc': 'A generic priority enumeration.'}),
-
-                ('meta:severity', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                    'doc': 'A generic severity enumeration.'}),
-
-                ('meta:sophistication', ('int', {'enums': sophenums}), {
-                    'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
-
-                ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A type of item being counted in aggregate.'}),
-
-                ('meta:aggregate', ('guid', {}), {
-                    'display': {
-                        'columns': (
-                            {'type': 'prop', 'opts': {'name': 'time'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
-                            {'type': 'prop', 'opts': {'name': 'count'}},
-                        ),
-                    },
-                    'doc': 'A node which represents an aggregate count of a specific type.'}),
-
-                ('markdown', ('str', {}), {
-                    'doc': 'A markdown string.'}),
-            ),
-            'interfaces': (
-                ('meta:taxonomy', {
-                    'doc': 'Properties common to taxonomies.',
-                    'props': (
-                        ('title', ('str', {}), {
-                            'doc': 'A brief title of the definition.'}),
-
-                        ('summary', ('str', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use title/desc.',
-                            'disp': {'hint': 'text'}}),
-
-                        ('desc', ('str', {}), {
-                            'doc': 'A definition of the taxonomy entry.',
-                            'disp': {'hint': 'text'}}),
-
-                        ('sort', ('int', {}), {
-                            'doc': 'A display sort order for siblings.'}),
-
-                        ('base', ('taxon', {}), {
-                            'ro': True,
-                            'doc': 'The base taxon.'}),
-
-                        ('depth', ('int', {}), {
-                            'ro': True,
-                            'doc': 'The depth indexed from 0.'}),
-
-                        ('parent', ('$self', {}), {
-                            'ro': True,
-                            'doc': 'The taxonomy parent.'}),
+            ('meta:feed', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'source::name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
-                }),
-            ),
-            'edges': (
-                ((None, 'refs', None), {
-                    'doc': 'The source node contains a reference to the target node.'}),
+                },
+                'doc': 'A data feed provided by a specific source.'}),
 
-                ((None, 'linked', None), {
-                    'doc': 'The source node is linked to the target node.'}),
+            ('meta:feed:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A data feed type taxonomy.'}),
 
-                (('meta:source', 'seen', None), {
-                    'doc': 'The meta:source observed the target node.'}),
+            ('meta:source', ('guid', {}), {
+                'doc': 'A data source unique identifier.'}),
 
-                (('meta:feed', 'found', None), {
-                    'doc': 'The meta:feed produced the target node.'}),
+            ('meta:note', ('guid', {}), {
+                'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
-                (('meta:note', 'about', None), {
-                    'doc': 'The meta:note is about the target node.'}),
+            ('meta:note:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of note types.'}),
 
-                (('meta:ruleset', 'has', 'meta:rule'), {
-                    'doc': 'The meta:ruleset includes the meta:rule.'}),
+            ('meta:source:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of source types.'}),
 
-                (('meta:ruleset', 'has', 'inet:service:rule'), {
-                    'doc': 'The meta:ruleset includes the inet:service:rule.'}),
+            ('meta:timeline', ('guid', {}), {
+                'doc': 'A curated timeline of analytically relevant events.'}),
 
-                (('meta:ruleset', 'has', 'it:app:snort:rule'), {
-                    'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
+            ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of timeline types.'}),
 
-                (('meta:ruleset', 'has', 'it:app:yara:rule'), {
-                    'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
+            ('meta:event', ('guid', {}), {
+                'doc': 'An analytically relevant event in a curated timeline.'}),
 
-                (('meta:rule', 'matches', None), {
-                    'doc': 'The meta:rule has matched on target node.'}),
+            ('meta:event:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of event types.'}),
 
-                (('meta:rule', 'detects', None), {
-                    'doc': 'The meta:rule is designed to detect instances of the target node.'}),
+            ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy for meta:ruleset types.'}),
 
-                (('meta:rule', 'generated', 'risk:alert'), {
-                    'doc': 'The meta:rule generated the risk:alert node.'}),
+            ('meta:ruleset', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
+                ),
+                'doc': 'A set of rules linked with -(has)> edges.'}),
 
-                (('meta:rule', 'generated', 'it:log:event'), {
-                    'doc': 'The meta:rule generated the it:log:event node.'}),
+            ('meta:rule:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of rule types.'}),
 
-            ),
-            'forms': (
+            ('meta:rule', ('guid', {}), {
+                'interfaces': (
+                    ('meta:usable', {}),
+                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
+                ),
+                'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
-                ('meta:source', {}, (
+            ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
+                'doc': 'A generic score enumeration.'}),
 
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'A human friendly name for the source.'}),
+            ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A type of item being counted in aggregate.'}),
 
-                    # TODO - 3.0 move to taxonomy type
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group sources.'}),
+            ('meta:aggregate', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                        {'type': 'prop', 'opts': {'name': 'count'}},
+                    ),
+                },
+                'doc': 'A node which represents an aggregate count of a specific type.'}),
+
+            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
+                'doc': 'An item which may be possessed by an entity.'}),
+
+            ('meta:discoverable', ('ndef', {'interface': 'meta:discoverable'}), {
+                'doc': 'FIXME polyprop place holder'}),
+
+            ('text', ('str', {'strip': False}), {
+                'doc': 'A multi-line, free form text string.'}),
+
+            ('meta:technique', ('guid', {}), {
+                'template': {'title': 'technique'},
+                'doc': 'A specific technique used to achieve a goal.',
+                'interfaces': (
+                    ('meta:usable', {}),
+                    ('meta:reported', {}),
+                    ('risk:mitigatable', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                }}),
+
+            ('meta:technique:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique statuses.'}),
+
+            ('meta:technique:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique types.'}),
+        ),
+        'interfaces': (
+
+            ('meta:observable', {
+                'doc': 'Properties common to forms which can be observed.',
+                'template': {'title': 'node'},
+                'props': (
+                    ('seen', ('ival', {}), {
+                        'doc': 'The {title} was observed during the time interval.'}),
+                ),
+            }),
+
+            ('meta:havable', {
+                'doc': 'An interface used to describe items that can be possessed by an entity.',
+                'template': {'title': 'item'},
+                'props': (
+
+                    ('owner', ('entity:actor', {}), {
+                        'doc': 'The current owner of the {title}.'}),
+
+                    ('owner:name', ('entity:name', {}), {
+                        'doc': 'The name of the current owner of the {title}.'}),
+                ),
+            }),
+
+            ('meta:discoverable', {
+                'template': {'title': 'item'},
+                'props': (
+
+                    ('discoverer', ('entity:actor', {}), {
+                        'doc': 'The earliest known actor which discovered the {title}.'}),
+
+                    ('discovered', ('time', {}), {
+                        'doc': 'The earliest known time when the {title} was discovered.'}),
+                ),
+                'doc': 'An interface for items which can be discovered by an actor.',
+            }),
+
+
+            ('meta:reported', {
+                'doc': 'Properties common to forms which are created on a per-source basis.',
+                'template': {
+                    'title': 'item',
+                    'status': '{$self}:status:taxonomy',
+                },
+                'props': (
+
+                    ('id', ('meta:id', {}), {
+                        'alts': ('ids',),
+                        'doc': 'A unique ID given to the {title}.'}),
+
+                    ('ids', ('array', {'type': 'meta:id'}), {
+                        'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the meta source.'}),
+                        'doc': 'The URL for the {title}.'}),
 
-                    ('ingest:cursor', ('str', {}), {
-                        'doc': 'Used by ingest logic to capture the current ingest cursor within a feed.'}),
+                    ('name', ('meta:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The primary name of the {title}.'}),
 
-                    ('ingest:latest', ('time', {}), {
-                        'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
+                    ('names', ('array', {'type': 'meta:name'}), {
+                        'doc': 'A list of alternate names for the {title}.'}),
 
-                    ('ingest:offset', ('int', {}), {
-                        'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
-                )),
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
 
-                ('meta:seen', {}, (
+                    ('resolved', ('{$self}', {}), {
+                        'doc': 'The authoritative {title} which this reporting is about.'}),
 
-                    ('source', ('meta:source', {}), {'ro': True,
-                        'doc': 'The source which observed or provided the node.'}),
+                    ('reporter', ('entity:actor', {}), {
+                        'doc': 'The entity which reported on the {title}.'}),
 
-                    ('node', ('ndef', {}), {'ro': True,
-                        'doc': 'The node which was observed by or received from the source.'}),
-
-                )),
-
-                ('meta:feed:type:taxonomy', {}, ()),
-                ('meta:feed', {}, (
-                    ('id', ('str', {'strip': True}), {
-                        'doc': 'An identifier for the feed.'}),
-
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A name for the feed.'}),
-
-                    ('type', ('meta:feed:type:taxonomy', {}), {
-                        'doc': 'The type of data feed.'}),
-
-                    ('source', ('meta:source', {}), {
-                        'doc': 'The meta:source which provides the feed.'}),
-
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The URL of the feed API endpoint.'}),
-
-                    ('query', ('str', {}), {
-                        'doc': 'The query logic associated with generating the feed output.'}),
-
-                    ('opts', ('data', {}), {
-                        'doc': 'An opaque JSON object containing feed parameters and options.'}),
-
-                    ('period', ('ival', {}), {
-                        'doc': 'The time window over which results have been ingested.'}),
-
-                    ('latest', ('time', {}), {
-                        'doc': 'The time of the last record consumed from the feed.'}),
-
-                    ('offset', ('int', {}), {
-                        'doc': 'The offset of the last record consumed from the feed.'}),
-
-                    ('cursor', ('str', {'strip': True}), {
-                        'doc': 'A cursor used to track ingest offset within the feed.'}),
-                )),
-
-                ('meta:note:type:taxonomy', {}, ()),
-                ('meta:note', {}, (
-
-                    ('type', ('meta:note:type:taxonomy', {}), {
-                        'doc': 'The note type.'}),
-
-                    ('text', ('str', {}), {
-                        'disp': {'hint': 'text', 'syntax': 'markdown'},
-                        'doc': 'The analyst authored note text.'}),
-
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact information of the author.'}),
-
-                    ('creator', ('syn:user', {}), {
-                        'doc': 'The synapse user who authored the note.'}),
+                    ('reporter:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which reported on the {title}.'}),
 
                     ('created', ('time', {}), {
-                        'doc': 'The time the note was created.'}),
+                        'doc': 'The time when the {title} was created.'}),
 
                     ('updated', ('time', {}), {
-                        'doc': 'The time the note was updated.'}),
+                        'doc': 'The time when the {title} was last updated.'}),
 
-                    ('replyto', ('meta:note', {}), {
-                        'doc': 'The note is a reply to the specified note.'}),
-                )),
+                    ('published', ('time', {}), {
+                        'doc': 'The time when the reporter published the {title}.'}),
 
-                ('meta:timeline', {}, (
+                    ('superseded', ('time', {}), {
+                        'doc': 'The time when the {title} was superseded.'}),
+
+                    ('supersedes', ('array', {'type': '{$self}'}), {
+                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
+                ),
+            }),
+
+            ('meta:taxonomy', {
+                'doc': 'Properties common to taxonomies.',
+                'props': (
                     ('title', ('str', {}), {
-                        'ex': 'The history of the Vertex Project',
-                        'doc': 'A title for the timeline.'}),
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A prose summary of the timeline.'}),
-                    ('type', ('meta:timeline:taxonomy', {}), {
-                        'doc': 'The type of timeline.'}),
-                )),
+                        'doc': 'A brief title of the definition.'}),
 
-                ('meta:timeline:taxonomy', {}, ()),
+                    ('desc', ('text', {}), {
+                        'doc': 'A definition of the taxonomy entry.'}),
 
-                ('meta:event', {}, (
+                    ('sort', ('int', {}), {
+                        'doc': 'A display sort order for siblings.'}),
 
-                    ('timeline', ('meta:timeline', {}), {
-                        'doc': 'The timeline containing the event.'}),
+                    ('base', ('taxon', {}), {
+                        'computed': True,
+                        'doc': 'The base taxon.'}),
 
-                    ('title', ('str', {}), {
-                        'doc': 'A title for the event.'}),
+                    ('depth', ('int', {}), {
+                        'computed': True,
+                        'doc': 'The depth indexed from 0.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A prose summary of the event.'}),
+                    ('parent', ('{$self}', {}), {
+                        'computed': True,
+                        'doc': 'The taxonomy parent.'}),
+                ),
+            }),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the event occurred.'}),
+            ('meta:usable', {
+                'template': {'title': 'item'},
+                'props': (
+                    ('used', ('ival', {}), {
+                        'doc': 'The time interval when the {title} was being used.'}),
+                ),
+                'doc': 'An interface for forms which can be used by an actor.'}),
 
-                    ('index', ('int', {}), {
-                        'doc': 'The index of this event in a timeline without exact times.'}),
+            ('meta:matchish', {
+                'doc': 'Properties which are common to matches based on rules.',
+                'template': {'rule': 'rule', 'rule:type': 'rule:type',
+                             'target:type': 'ndef'},
+                'props': (
 
-                    ('duration', ('duration', {}), {
-                        'doc': 'The duration of the event.'}),
+                    ('rule', ('{rule:type}', {}), {
+                        'doc': 'The rule which matched the target node.'}),
 
-                    ('type', ('meta:event:taxonomy', {}), {
-                        'doc': 'Type of event.'}),
-                )),
+                    ('target', ('{target:type}', {}), {
+                        'doc': 'The target node which matched the {rule}.'}),
 
-                ('meta:event:taxonomy', {}, ()),
+                    ('version', ('it:version', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
 
-                ('meta:ruleset', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A name for the ruleset.'}),
+                    ('matched', ('time', {}), {
+                        'doc': 'The time that the rule was evaluated to generate the match.'}),
+                ),
+            }),
+        ),
+        'edges': (
+            ((None, 'linked', None), {
+                'doc': 'The source node is linked to the target node.'}),
 
-                    ('type', ('meta:ruleset:type:taxonomy', {}), {
-                        'doc': 'The ruleset type.'}),
+            ((None, 'refs', None), {
+                'doc': 'The source node contains a reference to the target node.'}),
 
-                    ('desc', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A description of the ruleset.'}),
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact information of the ruleset author.'}),
-                    ('created', ('time', {}), {
-                        'doc': 'The time the ruleset was initially created.'}),
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the ruleset was most recently modified.'}),
-                )),
+            (('meta:source', 'seen', None), {
+                'doc': 'The meta:source observed the target node.'}),
 
-                ('meta:rule:type:taxonomy', {}, ()),
-                ('meta:rule', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A name for the rule.'}),
-                    ('type', ('meta:rule:type:taxonomy', {}), {
-                        'doc': 'The rule type.'}),
-                    ('desc', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A description of the rule.'}),
-                    ('text', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'The text of the rule logic.'}),
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact information of the rule author.'}),
-                    ('created', ('time', {}), {
-                        'doc': 'The time the rule was initially created.'}),
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the rule was most recently modified.'}),
-                    ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the rule.'}),
-                    ('ext:id', ('str', {}), {
-                        'doc': 'An external identifier for the rule.'}),
-                )),
+            (('meta:feed', 'found', None), {
+                'doc': 'The meta:feed produced the target node.'}),
 
-                ('meta:aggregate:type:taxonomy', {}, ()),
-                ('meta:aggregate', {}, (
+            (('meta:note', 'about', None), {
+                'doc': 'The meta:note is about the target node.'}),
 
-                    ('type', ('meta:aggregate:type:taxonomy', {}), {
-                        'ex': 'casualties.civilian',
-                        'doc': 'The type of items being counted in aggregate.'}),
+            (('meta:note', 'has', 'file:attachment'), {
+                'doc': 'The note includes the file attachment.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the count was computed.'}),
+            (('meta:event', 'about', None), {
+                'doc': 'The event is about the target node.'}),
 
-                    ('count', ('int', {}), {
-                        'doc': 'The number of items counted in aggregate.'}),
-                )),
+            (('meta:timeline', 'has', 'meta:event'), {
+                'doc': 'The timeline includes the event.'}),
 
-                ('graph:cluster', {}, (
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'A human friendly name for the cluster.'}),
-                    ('desc', ('str', {'lower': True}), {
-                        'doc': 'A human friendly long form description for the cluster.'}),
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group clusters.'}),
-                )),
+            (('meta:ruleset', 'has', 'meta:rule'), {
+               'doc': 'The ruleset includes the rule.'}),
 
-                ('edge:has', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
+            (('meta:rule', 'matches', None), {
+                'doc': 'The rule matched on the target node.'}),
 
-                ('edge:refs', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
+            (('meta:rule', 'detects', 'meta:usable'), {
+                'doc': 'The rule is designed to detect the target node.'}),
 
-                ('edge:wentto', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
+            (('meta:rule', 'detects', 'meta:observable'), {
+                'doc': 'The rule is designed to detect the target node.'}),
 
-                    ('time', ('time', {}), {'ro': True}),
-                )),
+            (('meta:rule', 'generated', 'risk:alert'), {
+                'doc': 'The meta:rule generated the risk:alert node.'}),
 
-                ('graph:node', {}, (
+            (('meta:rule', 'generated', 'it:log:event'), {
+                'doc': 'The meta:rule generated the it:log:event node.'}),
 
-                    ('type', ('str', {}), {
-                        'doc': 'The type name for the non-model node.'}),
+            (('meta:usable', 'uses', 'meta:usable'), {
+                'doc': 'The source node uses the target node.'}),
 
-                    ('name', ('str', {}), {
-                        'doc': 'A human readable name for this record.'}),
+            (('meta:technique', 'addresses', 'meta:technique'), {
+                'doc': 'The technique addresses the technique.'}),
 
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the node.'}),
+            (('meta:technique', 'addresses', 'risk:vuln'), {
+                'doc': 'The technique addresses the vulnerability.'}),
+        ),
+        'forms': (
 
-                )),
+            ('meta:id', {}, ()),
+            ('meta:name', {}, ()),
+            ('meta:topic', {}, (
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the topic.'}),
+            )),
 
-                ('graph:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
+            ('meta:source:type:taxonomy', {}, ()),
+            ('meta:source', {}, (
 
-                ('graph:timeedge', {}, (
-                    ('time', ('time', {}), {'ro': True}),
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
+                ('name', ('meta:name', {}), {
+                    'doc': 'A human friendly name for the source.'}),
 
-                ('graph:event', {}, (
+                ('type', ('meta:source:type:taxonomy', {}), {
+                    'doc': 'The type of source.'}),
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time of the event.'}),
+                ('url', ('inet:url', {}), {
+                    'doc': 'A URL which documents the meta source.'}),
 
-                    ('type', ('str', {}), {
-                        'doc': 'A arbitrary type string for the event.'}),
+                ('ingest:cursor', ('str', {}), {
+                    'doc': 'Used by ingest logic to capture the current ingest cursor within a feed.'}),
 
-                    ('name', ('str', {}), {
-                        'doc': 'A name for the event.'}),
+                ('ingest:latest', ('time', {}), {
+                    'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
 
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the event.'}),
+                ('ingest:offset', ('int', {}), {
+                    'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
+            )),
 
-                )),
+            ('meta:feed:type:taxonomy', {}, ()),
+            ('meta:feed', {}, (
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the feed.'}),
 
-            ),
-        }),)
+                ('name', ('meta:name', {}), {
+                    'doc': 'A name for the feed.'}),
+
+                ('type', ('meta:feed:type:taxonomy', {}), {
+                    'doc': 'The type of data feed.'}),
+
+                ('source', ('meta:source', {}), {
+                    'doc': 'The meta:source which provides the feed.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL of the feed API endpoint.'}),
+
+                ('query', ('str', {}), {
+                    'doc': 'The query logic associated with generating the feed output.'}),
+
+                ('opts', ('data', {}), {
+                    'doc': 'An opaque JSON object containing feed parameters and options.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time window over which results have been ingested.'}),
+
+                ('latest', ('time', {}), {
+                    'doc': 'The time of the last record consumed from the feed.'}),
+
+                ('offset', ('int', {}), {
+                    'doc': 'The offset of the last record consumed from the feed.'}),
+
+                ('cursor', ('str', {}), {
+                    'doc': 'A cursor used to track ingest offset within the feed.'}),
+            )),
+
+            ('meta:note:type:taxonomy', {}, ()),
+            ('meta:note', {}, (
+
+                ('type', ('meta:note:type:taxonomy', {}), {
+                    'doc': 'The note type.'}),
+
+                ('text', ('text', {}), {
+                    'display': {'syntax': 'markdown'},
+                    'doc': 'The analyst authored note text.'}),
+
+                ('creator', ('entity:actor', {}), {
+                    'doc': 'The actor who authored the note.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The time the note was created.'}),
+
+                ('updated', ('time', {}), {
+                    'doc': 'The time the note was updated.'}),
+
+                ('replyto', ('meta:note', {}), {
+                    'doc': 'The note is a reply to the specified note.'}),
+            )),
+
+            ('meta:timeline', {}, (
+
+                ('title', ('str', {}), {
+                    'ex': 'The history of the Vertex Project',
+                    'doc': 'The title of the timeline.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the timeline.'}),
+
+                ('type', ('meta:timeline:type:taxonomy', {}), {
+                    'doc': 'The type of timeline.'}),
+            )),
+
+            ('meta:timeline:type:taxonomy', {
+                'prevnames': ('meta:timeline:taxonomy',)}, ()),
+
+            ('meta:event', {}, (
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period over which the event occurred.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'A title for the event.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the event.'}),
+
+                ('type', ('meta:event:type:taxonomy', {}), {
+                    'doc': 'Type of event.'}),
+            )),
+
+            ('meta:event:type:taxonomy', {
+                'prevnames': ('meta:event:taxonomy',)}, ()),
+
+            ('meta:ruleset', {}, (
+
+                ('name', ('base:id', {}), {
+                    'doc': 'A name for the ruleset.'}),
+
+                ('type', ('meta:ruleset:type:taxonomy', {}), {
+                    'doc': 'The ruleset type.'}),
+            )),
+
+            ('meta:rule:type:taxonomy', {}, ()),
+            ('meta:rule', {}, (
+
+                ('name', ('base:id', {}), {
+                    'doc': 'The rule name.'}),
+
+                ('type', ('meta:rule:type:taxonomy', {}), {
+                    'doc': 'The rule type.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'A URL which documents the {title}.'}),
+
+                ('enabled', ('bool', {}), {
+                    'doc': 'The enabled status of the {title}.'}),
+
+                ('text', ('text', {}), {
+                    'display': {'syntax': '{syntax}'},
+                    'doc': 'The text of the {title}.'})
+            )),
+
+            ('meta:aggregate:type:taxonomy', {}, ()),
+            ('meta:aggregate', {}, (
+
+                ('type', ('meta:aggregate:type:taxonomy', {}), {
+                    'ex': 'casualties.civilian',
+                    'doc': 'The type of items being counted in aggregate.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time that the count was computed.'}),
+
+                ('count', ('int', {}), {
+                    'doc': 'The number of items counted in aggregate.'}),
+            )),
+
+            ('meta:technique', {}, (
+
+                ('type', ('meta:technique:type:taxonomy', {}), {
+                    'doc': 'The taxonomy classification of the technique.'}),
+
+                ('sophistication', ('meta:score', {}), {
+                    'doc': 'The assessed sophistication of the technique.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+
+                ('parent', ('meta:technique', {}), {
+                    'doc': 'The parent technique for the technique.'}),
+            )),
+
+            ('meta:technique:type:taxonomy', {}, ()),
+
+        ),
+    }),
+)

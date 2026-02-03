@@ -28,9 +28,10 @@ def getFileMapCount(filename):
     return count
 
 class LmdbSlabTest(s_t_utils.SynTest):
-    def __init__(self, *args, **kwargs):
+
+    def setUp(self):
+        super().setUp()
         self._nowtime = 1000
-        s_t_utils.SynTest.__init__(self, *args, **kwargs)
 
     async def test_lmdbslab_scankeys(self):
 
@@ -46,14 +47,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((), list(slab.scanKeys(db=testdb)))
                 self.eq((), list(slab.scanByDupsBack(b'asdf', db=dupsdb)))
 
-                slab.put(b'hehe', b'haha', db=dupsdb)
-                slab.put(b'hehe', b'lolz', db=dupsdb)
-                slab.put(b'hoho', b'asdf', db=dupsdb)
+                await slab.put(b'hehe', b'haha', db=dupsdb)
+                await slab.put(b'hehe', b'lolz', db=dupsdb)
+                await slab.put(b'hoho', b'asdf', db=dupsdb)
 
                 self.eq((), list(slab.scanByDupsBack(b'h\x00', db=dupsdb)))
 
-                slab.put(b'hehe', b'haha', db=testdb)
-                slab.put(b'hoho', b'haha', db=testdb)
+                await slab.put(b'hehe', b'haha', db=testdb)
+                await slab.put(b'hoho', b'haha', db=testdb)
 
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=dupsdb)
@@ -63,7 +64,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 dupslist = [next(dupsgenr)]
                 nodupslist = [next(nodupsgenr)]
 
-                slab.put(b'derp', b'derp', db=editdb)
+                await slab.put(b'derp', b'derp', db=editdb)
 
                 # bump them both...
                 await s_lmdbslab.Slab.syncLoopOnce()
@@ -116,7 +117,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.BadArg, s_lmdbslab.Slab.anit(path, map_size=None))
 
-            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
+            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
 
             slabs = slab.getSlabsInDir(dirn)
             self.eq(slabs, [slab])
@@ -133,22 +134,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
             empty = slab.initdb('empty')
             barfixed = slab.initdb('barfixed', dupsort=True, dupfixed=True)
 
-            slab.put(b'\x00\x01', b'hehe', db=foo)
-            slab.put(b'\x00\x02', b'haha', db=foo)
-            slab.put(b'\x01\x03', b'hoho', db=foo)
+            await slab.put(b'\x00\x01', b'hehe', db=foo)
+            await slab.put(b'\x00\x02', b'haha', db=foo)
+            await slab.put(b'\x01\x03', b'hoho', db=foo)
 
             for db in (bar, barfixed):
-                slab.put(b'\x00\x01', b'hehe', dupdata=True, db=db)
-                slab.put(b'\x00\x02', b'haha', dupdata=True, db=db)
-                slab.put(b'\x00\x02', b'visi', dupdata=True, db=db)
-                slab.put(b'\x00\x02', b'zomg', dupdata=True, db=db)
-                slab.put(b'\x00\x03', b'hoho', dupdata=True, db=db)
+                await slab.put(b'\x00\x01', b'hehe', dupdata=True, db=db)
+                await slab.put(b'\x00\x02', b'haha', dupdata=True, db=db)
+                await slab.put(b'\x00\x02', b'visi', dupdata=True, db=db)
+                await slab.put(b'\x00\x02', b'zomg', dupdata=True, db=db)
+                await slab.put(b'\x00\x03', b'hoho', dupdata=True, db=db)
 
-            slab.put(b'\x00\x01', b'hehe', db=baz)
-            slab.put(b'\xff', b'haha', db=baz)
+            await slab.put(b'\x00\x01', b'hehe', db=baz)
+            await slab.put(b'\xff', b'haha', db=baz)
 
-            slab.put(b'\xff\xff', b'hoho', append=True, db=baz)  # Should succeed
-            slab.put(b'\xaa\xff', b'hoho', append=True, db=baz)  # Should fail (not the last key)
+            await slab.put(b'\xff\xff', b'hoho', append=True, db=baz)  # Should succeed
+            await slab.put(b'\xaa\xff', b'hoho', append=True, db=baz)  # Should fail (not the last key)
 
             self.true(slab.dirty)
 
@@ -300,7 +301,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Increase the size of the new source DB to trigger a resize on the next copydb
             foo2 = slab.initdb('foo2')
-            slab.put(b'bigkey', b'x' * 1024 * 1024, dupdata=True, db=foo2)
+            await slab.put(b'bigkey', b'x' * 1024 * 1024, dupdata=True, db=foo2)
 
             vardict = {}
 
@@ -337,18 +338,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slabs = s_lmdbslab.Slab.getSlabsInDir(dirn)
             self.len(0, slabs)
 
-            # Ensure that our envar override for memory locking is acknowledged
-            with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
-                async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
-                    self.false(slab.lockmemory)
-                    self.none(slab.memlocktask)
-
     def simplenow(self):
         self._nowtime += 1000
         return self._nowtime
 
     async def test_lmdbslab_commit_warn(self):
-        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1), \
                 patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
             with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
@@ -356,7 +351,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
                     for i in range(10):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                        await slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
                 self.true(await stream.wait(timeout=1))
 
             msgs = stream.jsonlines()
@@ -378,7 +373,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
         # Make sure that we don't confuse the periodic commit with the max replay log commit
         with (self.getTestDir() as dirn,
-              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1),
               patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 100)
               ):
             path = os.path.join(dirn, 'test.lmdb')
@@ -388,8 +383,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 byts = b'\x00' * 256
                 for i in range(1000):
-                    slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                    await asyncio.sleep(0)
+                    await slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
             # Let the slab close and then grab its stats
             stats = slab.statinfo()
@@ -414,7 +408,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     waiter = s_base.Waiter(slab, 1, 'commit')
 
                     for i in range(150):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                        slab._put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
                     self.true(slab.syncevnt.is_set())
 
@@ -435,7 +429,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DbOutOfSpace):
 
                     for i in range(400):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                        await slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
             # lets ensure our maxsize persisted and it caps the mapsize
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
@@ -458,8 +452,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 byts = b'\x00' * 256
                 for i in range(10):
-                    slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
-                    slab.put(s_common.int64en(i), byts, db=foo2)
+                    await slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
+                    await slab.put(s_common.int64en(i), byts, db=foo2)
 
                 iter1 = slab.scanByDups(multikey, db=foo)
                 iter2 = slab.scanByFull(db=foo2)
@@ -514,8 +508,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.raises(StopIteration, next, iterback5)
                 self.raises(StopIteration, next, iterback6)
 
-                slab.put(b'\x00', b'asdf', dupdata=True, db=bar)
-                slab.put(b'\x01', b'qwer', dupdata=True, db=bar)
+                await slab.put(b'\x00', b'asdf', dupdata=True, db=bar)
+                await slab.put(b'\x01', b'qwer', dupdata=True, db=bar)
                 iterback = slab.scanByRangeBack(b'\x00', db=bar)
                 self.eq((b'\x00', b'asdf'), next(iterback))
                 slab.delete(b'\x00', b'asdf', db=bar)
@@ -542,9 +536,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 dupndb = slab.initdb('ndup', dupsort=False)
 
                 for db in (dupndb, dupydb):
-                    slab.put(b'1', b'', db=db)
-                    slab.put(b'2', b'', db=db)
-                    slab.put(b'3', b'', db=db)
+                    await slab.put(b'1', b'', db=db)
+                    await slab.put(b'2', b'', db=db)
+                    await slab.put(b'3', b'', db=db)
 
                     # forwards, bump after 2nd entry
                     it = slab.scanByFull(db=db)
@@ -577,8 +571,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.delete(b'3', db=db)
                     self.raises(StopIteration, next, it)
 
-                    slab.put(b'2', b'', db=db)
-                    slab.put(b'3', b'', db=db)
+                    await slab.put(b'2', b'', db=db)
+                    await slab.put(b'3', b'', db=db)
 
                     # backwards, bump/delete after 2nd entry
                     it = slab.scanByFullBack(db=db)
@@ -598,11 +592,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', db=dupydb)
                 slab.delete(b'2', db=dupydb)
                 slab.delete(b'3', db=dupydb)
-                slab.put(b'0', b'', db=dupydb)
-                slab.put(b'1', b'1', db=dupydb)
-                slab.put(b'1', b'2', db=dupydb)
-                slab.put(b'1', b'3', db=dupydb)
-                slab.put(b'2', b'', db=dupydb)
+                await slab.put(b'0', b'', db=dupydb)
+                await slab.put(b'1', b'1', db=dupydb)
+                await slab.put(b'1', b'2', db=dupydb)
+                await slab.put(b'1', b'3', db=dupydb)
+                await slab.put(b'2', b'', db=dupydb)
 
                 # dupsort=yes, forwards, same keys, bump after 2nd entry
                 it = slab.scanByFull(db=dupydb)
@@ -633,8 +627,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((b'2', b''), next(it))
                 self.raises(StopIteration, next, it)
 
-                slab.put(b'1', b'2', db=dupydb)
-                slab.put(b'1', b'3', db=dupydb)
+                await slab.put(b'1', b'2', db=dupydb)
+                await slab.put(b'1', b'3', db=dupydb)
 
                 # dupsort=yes, backwards, same keys, bump after 2nd entry
                 it = slab.scanByFullBack(db=dupydb)
@@ -657,8 +651,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((b'0', b''), next(it))
                 self.raises(StopIteration, next, it)
 
-                slab.put(b'1', b'2', db=dupydb)
-                slab.put(b'1', b'3', db=dupydb)
+                await slab.put(b'1', b'2', db=dupydb)
+                await slab.put(b'1', b'3', db=dupydb)
 
                 # single key, forwards, bump after 2nd entry
                 it = slab.scanByDups(db=dupydb, lkey=b'1')
@@ -682,8 +676,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'3', db=dupydb)
                 self.raises(StopIteration, next, it)
 
-                slab.put(b'1', b'2', db=dupydb)
-                slab.put(b'1', b'3', db=dupydb)
+                await slab.put(b'1', b'2', db=dupydb)
+                await slab.put(b'1', b'3', db=dupydb)
 
                 # dupsort=yes, backwards, same keys, bump after 2nd entry
                 it = slab.scanByDupsBack(db=dupydb, lkey=b'1')
@@ -714,10 +708,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 foonodup = slab.initdb('foonodup', dupsort=False)
 
                 for db in (foodup, foonodup):
-                    slab.put(b'\x01', b'foo', db=db)
-                    slab.put(b'\x01\x01', b'bar', db=db)
-                    slab.put(b'\x01\x03', b'baz', db=db)
-                    slab.put(b'\x02', b'faz', db=db)
+                    await slab.put(b'\x01', b'foo', db=db)
+                    await slab.put(b'\x01\x01', b'bar', db=db)
+                    await slab.put(b'\x01\x03', b'baz', db=db)
+                    await slab.put(b'\x02', b'faz', db=db)
 
                 items = list(slab.scanByPrefBack(b'\x01', db=foonodup))
                 self.eq(items, (
@@ -728,7 +722,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq((), list(slab.scanByPrefBack(b'\x00', db=foonodup)))
 
-                slab.put(b'\x01\x03', b'waz', db=foodup)
+                await slab.put(b'\x01\x03', b'waz', db=foodup)
 
                 items = list(slab.scanByPrefBack(b'\x01', db=foodup))
                 self.eq(items, (
@@ -758,8 +752,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 byts = b'\x00' * 256
                 for i in range(100):
-                    slab.put(s_common.guid(i).encode('utf8'), byts, db=foo)
-                    slab.put(s_common.guid(1000 + i).encode('utf8'), byts, db=foo2)
+                    await slab.put(s_common.guid(i).encode('utf8'), byts, db=foo)
+                    await slab.put(s_common.guid(1000 + i).encode('utf8'), byts, db=foo2)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -787,7 +781,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # Write until we grow
                 while mapsize == slab.mapsize:
                     count += 1
-                    rv = slab.put(multikey, s_common.guid(count + 100000).encode('utf8') + byts, dupdata=True, db=foo)
+                    rv = await slab.put(multikey, s_common.guid(count + 100000).encode('utf8') + byts, dupdata=True, db=foo)
                     self.true(rv)
 
                 self.eq(50 + count, sum(1 for _ in iter))
@@ -810,7 +804,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 multikey = b'\xff\xff\xff\xff' + s_common.guid(i + 150000).encode('utf8')
                 for i in range(200):
-                    slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
+                    await slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
 
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
@@ -829,12 +823,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Make sure readonly is really readonly
                 self.raises(s_exc.IsReadOnly, newdb.dropdb, 'foo')
-                self.raises(s_exc.IsReadOnly, newdb.put, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
                 self.raises(s_exc.IsReadOnly, newdb.delete, b'1234')
                 with self.raises(s_exc.IsReadOnly):
                     await newdb.putmulti((b'1234', b'3456'))
+                    await newdb.put(b'1234', b'3456')
 
                 # While we have the DB open in readonly, have another process write a bunch of data to cause the
                 # map size to be increased
@@ -891,7 +885,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 key = b'foo'
                 for i in range(100):
-                    slab.put(key, s_common.guid(i).encode('utf8'), db=foo)
+                    await slab.put(key, s_common.guid(i).encode('utf8'), db=foo)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -909,7 +903,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 count = 0
                 while mapsize == slab.mapsize:
                     count += 1
-                    slab.put(multikey, s_common.guid(count).encode('utf8') + b'0' * 256, dupdata=True, db=foo)
+                    await slab.put(multikey, s_common.guid(count).encode('utf8') + b'0' * 256, dupdata=True, db=foo)
 
                 # we wrote 100, read 60.  We should read only another 40
                 self.len(40, list(iter))
@@ -964,17 +958,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
-                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+            async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
 
                 mapsize = slab.mapsize
                 [slab.initdb(str(i)) for i in range(10)]
                 self.gt(slab.mapsize, mapsize)
-
-                # Make sure there is still only one map
-                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
 
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
@@ -997,12 +987,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
             byts = b'\x00' * 256
 
             count = 0
-            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000, lockmemory=True) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 foo = slab.initdb('foo')
-                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
+                await slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
                 await asyncio.sleep(1.1)
                 count += 1
-                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
+                await slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
 
             # If we got here we're good
             self.true(True)
@@ -1111,8 +1101,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await mque.sets('woot', 1, ('lols',))
 
-                await mque.add('woot', {'some': 'info'})
-                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
+                qdef = {'name': 'woot', 'creator': s_common.guid(), 'some': 'info'}
+                await mque.add('woot', qdef)
+                await self.asyncraises(s_exc.DupName, mque.add('woot', qdef))
 
                 self.true(mque.exists('woot'))
 
@@ -1141,10 +1132,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 status = mque.list()
                 self.len(1, status)
                 self.eq(status[0], {'name': 'woot',
-                                    'meta': {'some': 'info'},
-                                    'size': 5,
-                                    'offs': 6,
+                                    'creator': qdef['creator'],
+                                    'some': 'info',
                                     })
+                self.eq(5, mque.size('woot'))
+                self.eq(6, mque.offset('woot'))
 
                 await mque.cull('woot', -1)
                 self.eq(mque.status('woot'), status[0])
@@ -1351,6 +1343,44 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
+                long1 = b'\x00' * 1024
+
+                valu = abrv.setBytsToAbrv(long1)
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
+
+                valu = abrv.bytsToAbrv(long1)
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
+
+                self.eq(long1, abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x03'))
+
+                # Fake a hash collision
+                long2 = b'\x00' * 1023 + b'\x01'
+                long3 = b'\x00' * 1023 + b'\x02'
+
+                def badhash(valu):
+                    return b'\x00' * 8
+
+                with patch('xxhash.xxh64_digest', badhash):
+                    valu = abrv.setBytsToAbrv(long2)
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x04')
+
+                    valu = abrv.setBytsToAbrv(long3)
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x05')
+
+                    self.eq(2, abrv.slab.count(b'\x00' * 256, db=abrv.name2abrv))
+
+                    allitems = [
+                        (long2, b'\x00\x00\x00\x00\x00\x00\x00\x04'),
+                        (long3, b'\x00\x00\x00\x00\x00\x00\x00\x05'),
+                        (long1, b'\x00\x00\x00\x00\x00\x00\x00\x03'),
+                        (b'haha', b'\x00\x00\x00\x00\x00\x00\x00\x01'),
+                        (b'hehe', b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+                        (b'hoho', b'\x00\x00\x00\x00\x00\x00\x00\x02'),
+                    ]
+                    self.eq(allitems, list(abrv.items()))
+
+                    self.eq(allitems[:3], list(abrv.iterByPref(b'\x00' * 248)))
+
     async def test_lmdbslab_hotkeyval(self):
         with self.getTestDir() as dirn:
 
@@ -1378,7 +1408,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab, \
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
                     await s_lmdbslab.HotCount.anit(slab, 'counts') as ctr:
                 self.eq(0, ctr.get('foo'))
                 self.eq({}, ctr.pack())
@@ -1403,6 +1433,35 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(1, [k for k, v in cache if k == b'foo'])
                 self.len(1, [k for k, v in cache if k == b'bar'])
 
+    async def test_lmdbslab_lruhotcount(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                async with await s_lmdbslab.LruHotCount.anit(slab, 'counts', size=5, commitsize=2) as ctr:
+
+                    self.len(0, ctr.cache)
+                    for valu in range(5):
+                        ctr.set(str(valu).encode(), 3)
+
+                    self.len(5, ctr.cache)
+                    self.eq(3, ctr.get('2'.encode()))
+                    self.len(5, ctr.cache)
+
+                    self.eq(5, ctr.set('5'.encode(), 5))
+                    self.len(4, ctr.cache)
+                    self.eq([b'3', b'4', b'2', b'5'], list(ctr.cache.keys()))
+
+                    self.eq(3, ctr.get('4'.encode()))
+                    self.eq(0, ctr.get('6'.encode()))
+                    self.eq(0, ctr.get('7'.encode()))
+                    self.len(4, ctr.cache)
+                    self.eq([b'5', b'4', b'6', b'7'], list(ctr.cache.keys()))
+
+                    self.eq(3, ctr.get('2'.encode()))
+
     async def test_lmdbslab_doubleopen(self):
 
         with self.getTestDir() as dirn:
@@ -1410,7 +1469,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 foo = slab.initdb('foo')
-                slab.put(b'\x00\x01', b'hehe', db=foo)
+                await slab.put(b'\x00\x01', b'hehe', db=foo)
 
             # Can close and re-open fine
             async with await s_lmdbslab.Slab.anit(path) as slab:
@@ -1429,7 +1488,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 foo = slab.initdb('foo')
-                slab.put(b'\x00\x01', b'hehe', db=foo)
+                await slab.put(b'\x00\x01', b'hehe', db=foo)
 
                 await slab.copyslab(copypath)
 
@@ -1451,14 +1510,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 foo = slab.initdb('foo')
 
-                slab.put(b'\x00\x01', b'hehe', db=foo)
-                slab.put(b'\x00\x02', b'haha', db=foo)
+                await slab.put(b'\x00\x01', b'hehe', db=foo)
+                await slab.put(b'\x00\x02', b'haha', db=foo)
                 await slab.sync()
 
                 stats = slab.statinfo()
-
-                self.false(stats['locking_memory'])
-                self.false(stats['prefaulting'])
 
                 commitstats = stats['commitstats']
                 self.len(2, commitstats)
@@ -1467,10 +1523,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
     async def test_lmdbslab_iter_and_delete(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab:
                 bar = slab.initdb('bar', dupsort=True)
-                slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
-                slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
+                await slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
+                await slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
                 scan = slab.scanByDups(b'\x00\x02', db=bar)
                 self.eq((b'\x00\x02', b'haha'), next(scan))
                 slab.delete(b'\x00\x01', b'hehe', db=bar)
@@ -1544,13 +1600,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(0, slab.count(b'newp', db=testdb))
                 self.eq(0, slab.count(b'newp', db=dupsdb))
 
-                slab.put(b'foo', b'bar', db=testdb)
+                await slab.put(b'foo', b'bar', db=testdb)
 
                 self.eq(1, slab.count(b'foo', db=testdb))
 
-                slab.put(b'foo', b'bar', db=dupsdb)
-                slab.put(b'foo', b'baz', db=dupsdb)
-                slab.put(b'foo', b'faz', db=dupsdb)
+                await slab.put(b'foo', b'bar', db=dupsdb)
+                await slab.put(b'foo', b'baz', db=dupsdb)
+                await slab.put(b'foo', b'faz', db=dupsdb)
 
                 self.eq(3, slab.count(b'foo', db=dupsdb))
 
@@ -1651,47 +1707,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.gt(slab.mapsize, mapsize)
 
-class LmdbSlabMemLockTest(s_t_utils.SynTest):
-
-    async def test_lmdbslabmemlock(self):
-        self.thisHostMust(hasmemlocking=True)
-
-        beforelockmem = s_thisplat.getCurrentLockedMemory()
-
-        with self.getTestDir() as dirn:
-
-            path = os.path.join(dirn, 'test.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as lmdbslab:
-
-                self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
-                lockmem = s_thisplat.getCurrentLockedMemory()
-                self.ge(lockmem - beforelockmem, 4000)
-
-    async def test_multiple_grow(self):
-        '''
-        Trigger multiple grow events rapidly and ensure memlock thread survives.
-        '''
-        self.thisHostMust(hasmemlocking=True)
-
-        with self.getTestDir() as dirn:
-
-            count = 0
-            byts = b'\x00' * 1024
-            path = os.path.join(dirn, 'test.lmdb')
-            mapsize = 10 * 1024 * 1024
-            async with await s_lmdbslab.Slab.anit(path, map_size=mapsize, growsize=5000, lockmemory=True) as slab:
-                foo = slab.initdb('foo')
-                while count < 8000:
-                    count += 1
-                    slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
-
-                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
-
-                lockmem = s_thisplat.getCurrentLockedMemory()
-
-                # TODO: make this test reliable
-                self.ge(lockmem, 0)
-
     async def test_math(self):
         self.eq(16, s_lmdbslab._florpo2(16))
         self.eq(16, s_lmdbslab._florpo2(17))
@@ -1715,5 +1730,5 @@ def _writeproc(path):
             count = 0
             while mapsize == slab.mapsize:
                 count += 1
-                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
+                await slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
     asyncio.run(lotsofwrites(path))

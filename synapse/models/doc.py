@@ -1,155 +1,280 @@
 import synapse.exc as s_exc
-import synapse.lib.module as s_module
 
-class DocModule(s_module.CoreModule):
+modeldefs = (
+    ('doc', {
+        'interfaces': (
 
-    def getModelDefs(self):
-        return (('doc', {
-            'interfaces': (
-                ('doc:document', {
+            ('doc:authorable', {
+                'doc': 'Properties common to authorable forms.',
+                'template': {'title': 'document'},
+                'props': (
 
-                    'doc': 'A common interface for documents.',
+                    ('id', ('meta:id', {}), {
+                        'doc': 'The {title} ID.'}),
 
-                    'template': {
-                        'type': 'NEWP',
-                        'document': 'document',
-                        'documents': 'documents'},
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the {title} is available.'}),
 
-                    'props': (
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
 
-                        ('id', ('str', {'strip': True}), {
-                            'doc': 'The {document} ID.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the {title} was created.'}),
 
-                        ('name', ('str', {'lower': True, 'onespace': True}), {
-                            'doc': 'The {document} name.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the {title} was last updated.'}),
 
-                        ('type', ('{type}', {}), {
-                            'doc': 'The type of {document}.'}),
+                    ('author', ('entity:actor', {}), {
+                        'doc': 'The contact information of the primary author.'}),
 
-                        ('text', ('str', {}), {
-                            'doc': 'The text of the {document}.'}),
+                    ('contributors', ('array', {'type': 'entity:actor'}), {
+                        'doc': 'An array of contacts which contributed to the {title}.'}),
 
-                        ('file', ('file:bytes', {}), {
-                            'doc': 'The file which contains the {document}.'}),
+                    ('version', ('it:version', {}), {
+                        'doc': 'The version of the {title}.'}),
 
-                        ('created', ('time', {}), {
-                            'doc': 'The time that the {document} was created.'}),
+                    ('supersedes', ('array', {'type': '{$self}'}), {
+                        'doc': 'An array of {title} versions which are superseded by this {title}.'}),
+                ),
+            }),
+            ('doc:document', {
 
-                        ('updated', ('time', {}), {
-                            'doc': 'The time that the {document} was last updated.'}),
+                'doc': 'A common interface for documents.',
+                'interfaces': (
+                    ('doc:authorable', {}),
+                ),
 
-                        ('author', ('ps:contact', {}), {
-                            'doc': 'The contact information of the primary author.'}),
+                'template': {
+                    'type': '{$self}:type:taxonomy',
+                    'syntax': '',
+                    'document': 'document'},
 
-                        ('contributors', ('array', {'type': 'ps:contact', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of contacts which contributed to the {document}.'}),
+                'props': (
 
-                        ('version', ('it:semver', {}), {
-                            'doc': 'The version of the {document}.'}),
+                    ('type', ('{type}', {}), {
+                        'doc': 'The type of {title}.'}),
 
-                        ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of {documents} which are superseded by this {document}.'}),
-                    ),
-                }),
-            ),
-            'types': (
+                    ('body', ('text', {}), {
+                        'display': {'hint': 'text', 'syntax': '{syntax}'},
+                        'doc': 'The text of the {title}.'}),
 
-                ('doc:policy:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of policy types.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'The title of the {title}.'}),
 
-                ('doc:policy', ('guid', {}), {
-                    'interfaces': ('doc:document',),
-                    'template': {
-                        'document': 'policy',
-                        'documents': 'policies',
-                        'type': 'doc:policy:type:taxonomy'},
-                    'doc': 'Guiding principles used to reach a set of goals.'}),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the {title} contents.'}),
 
-                ('doc:standard:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of standard types.'}),
+                    ('file:name', ('file:base', {}), {
+                        'doc': 'The name of the file containing the {title} contents.'}),
+                ),
+            }),
+        ),
+        'types': (
 
-                ('doc:standard', ('guid', {}), {
-                    'interfaces': ('doc:document',),
-                    'template': {
-                        'document': 'standard',
-                        'documents': 'standards',
-                        'type': 'doc:standard:type:taxonomy'},
-                    'doc': 'A group of requirements which define how to implement a policy or goal.'}),
+            ('doc:policy:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of policy types.'}),
 
-                ('doc:requirement:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of requirement types.'}),
+            ('doc:policy', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {
+                        'template': {
+                            'title': 'policy',
+                            'type': 'doc:policy:type:taxonomy'},
+                    }),
+                ),
+                'doc': 'Guiding principles used to reach a set of goals.'}),
 
-                ('doc:requirement', ('guid', {}), {
-                    'interfaces': ('doc:document',),
-                    'template': {
-                        'document': 'requirement',
-                        'documents': 'requirements',
-                        'type': 'doc:requirement:type:taxonomy'},
-                    'doc': 'A single requirement, often defined by a standard.'}),
+            ('doc:standard:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of standard types.'}),
 
-                ('doc:resume:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of resume types.'}),
+            ('doc:standard', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {
+                        'template': {
+                            'title': 'standard',
+                            'type': 'doc:standard:type:taxonomy'}}),
+                ),
+                'doc': 'A group of requirements which define how to implement a policy or goal.'}),
 
-                ('doc:resume', ('guid', {}), {
-                    'interfaces': ('doc:document',),
-                    'template': {
-                        'document': 'resume',
-                        'documents': 'resumes',
-                        'type': 'doc:resume:type:taxonomy'},
-                    'doc': 'A CV/resume document.'}),
-            ),
-            'forms': (
+            ('doc:requirement', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'title': 'requirement'}}),
+                ),
+                'doc': 'A single requirement, often defined by a standard.'}),
 
-                ('doc:policy:type:taxonomy', {}, ()),
-                ('doc:policy', {}, ()),
+            ('doc:resume:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of resume types.'}),
 
-                ('doc:standard:type:taxonomy', {}, ()),
-                ('doc:standard', {}, (
-                    ('policy', ('doc:policy', {}), {
-                        'doc': 'The policy which was used to derive the standard.'}),
-                )),
+            ('doc:resume', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {
+                        'template': {
+                            'title': 'resume',
+                            'type': 'doc:resume:type:taxonomy'}}),
+                ),
+                'doc': 'A CV/resume document.'}),
 
-                ('doc:requirement:type:taxonomy', {}, ()),
-                ('doc:requirement', {}, (
+            ('doc:report:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (('meta:taxonomy', {}),),
+                'doc': 'A taxonomy of report types.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A summary of the requirement definition.'}),
+            ('doc:report', ('guid', {}), {
+                'prevnames': ('media:news',),
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'title': 'report',
+                        'syntax': 'markdown',
+                        'type': 'doc:report:type:taxonomy'}}),
+                ),
+                'doc': 'A report.'}),
 
-                    ('optional', ('bool', {}), {
-                        'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
+            ('doc:contract', ('guid', {}), {
+                'prevnames': ('ou:contract',),
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'title': 'contract',
+                        'type': 'doc:contract:type:taxonomy'}}),
+                ),
+                'doc': 'A contract between multiple entities.'}),
 
-                    ('priority', ('meta:priority', {}), {
-                        'doc': 'The priority of the requirement as defined by the standard.'}),
+            ('doc:contract:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('ou:conttype',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of contract types.'}),
 
-                    ('standard', ('doc:standard', {}), {
-                        'doc': 'The standard which defined the requirement.'}),
-                )),
+            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
+                'doc': 'A node which implements the document interface.'}),
 
-                ('doc:resume:type:taxonomy', {}, ()),
-                ('doc:resume', {}, (
+            ('doc:reference', ('guid', {}), {
+                'doc': 'A reference included in a source.'}),
 
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'Contact information for subject of the resume.'}),
+        ),
+        'edges': (
+            (('doc:contract', 'has', 'doc:requirement'), {
+                'doc': 'The contract contains the requirement.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'The summary of qualifications from the resume.'}),
+            (('meta:technique', 'meets', 'doc:requirement'), {
+                'doc': 'Use of the source technique meets the target requirement.'}),
+        ),
+        'forms': (
 
-                    ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
-                        'doc': 'Work history described in the resume.'}),
+            ('doc:policy:type:taxonomy', {}, ()),
+            ('doc:policy', {}, ()),
 
-                    ('education', ('array', {'type': 'ps:education', 'sorted': True, 'uniq': True}), {
-                        'doc': 'Education experience described in the resume.'}),
+            ('doc:standard:type:taxonomy', {}, ()),
+            ('doc:standard', {}, (
+                ('policy', ('doc:policy', {}), {
+                    'doc': 'The policy which was used to derive the standard.'}),
+            )),
 
-                    ('achievements', ('array', {'type': 'ps:achievement', 'sorted': True, 'uniq': True}), {
-                        'doc': 'Achievements described in the resume.'}),
+            ('doc:requirement', {}, (
 
-                )),
-            ),
-            'edges': (),
-        }),)
+                ('text', ('text', {}), {
+                    'doc': 'The requirement definition.'}),
+
+                ('optional', ('bool', {}), {
+                    'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
+
+                ('priority', ('meta:score', {}), {
+                    'doc': 'The priority of the requirement as defined by the standard.'}),
+
+                ('standard', ('doc:standard', {}), {
+                    'doc': 'The standard which defined the requirement.'}),
+            )),
+
+            ('doc:resume:type:taxonomy', {}, ()),
+            ('doc:resume', {}, (
+
+                ('contact', ('entity:individual', {}), {
+                    'doc': 'Contact information for subject of the resume.'}),
+
+                ('summary', ('text', {}), {
+                    'doc': 'The summary of qualifications from the resume.'}),
+
+                ('skills', ('array', {'type': 'ps:skill'}), {
+                    'doc': 'The skills described in the resume.'}),
+
+                ('workhist', ('array', {'type': 'ps:workhist'}), {
+                    'doc': 'Work history described in the resume.'}),
+
+                ('education', ('array', {'type': 'ps:education'}), {
+                    'doc': 'Education experience described in the resume.'}),
+
+                ('achievements', ('array', {'type': 'ps:achievement'}), {
+                    'doc': 'Achievements described in the resume.'}),
+
+            )),
+            ('doc:report:type:taxonomy', {}, ()),
+            ('doc:report', {}, (
+
+                ('public', ('bool', {}), {
+                    'doc': 'Set to true if the report is publicly available.'}),
+
+                ('published', ('time', {}), {
+                    'doc': 'The time the report was published.'}),
+
+                ('publisher', ('entity:actor', {}), {
+                    'doc': 'The entity which published the report.'}),
+
+                ('publisher:name', ('entity:name', {}), {
+                    'doc': 'The name of the entity which published the report.'}),
+
+                ('topics', ('array', {'type': 'meta:topic'}), {
+                    'doc': 'The topics discussed in the report.'}),
+            )),
+
+            ('doc:contract:type:taxonomy', {}, ()),
+            ('doc:contract', {}, (
+
+                ('issuer', ('entity:actor', {}), {
+                    'prevnames': ('sponsor',),
+                    'doc': 'The contract sponsor.'}),
+
+                ('parties', ('array', {'type': 'entity:actor'}), {
+                    'doc': 'The entities bound by the contract.'}),
+
+                ('signers', ('array', {'type': 'entity:individual'}), {
+                    'doc': 'The individuals who signed the contract.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the contract is in effect.'}),
+
+                ('signed', ('time', {}), {
+                    'doc': 'The date that the contract signing was complete.'}),
+
+                ('completed', ('time', {}), {
+                    'doc': 'The date that the contract was completed.'}),
+
+                ('terminated', ('time', {}), {
+                    'doc': 'The date that the contract was terminated.'}),
+            )),
+
+            ('doc:reference', {}, (
+
+                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software',
+                                                 'entity:campaign', 'meta:technique', 'plan:phase')}), {
+                    'doc': 'The source which contains the reference.'}),
+
+                ('text', ('str', {}), {
+                    'doc': 'A reference string included in the source.'}),
+
+                ('doc', ('doc:document', {}), {
+                    'doc': 'The document which the reference refers to.'}),
+
+                ('doc:url', ('inet:url', {}), {
+                    'doc': 'A URL for the reference.'}),
+            )),
+        ),
+    }),
+)
