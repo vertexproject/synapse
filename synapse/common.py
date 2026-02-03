@@ -7,9 +7,7 @@ import http
 import stat
 import time
 import heapq
-import queue
 import types
-import atexit
 import base64
 import shutil
 import struct
@@ -18,12 +16,10 @@ import asyncio
 import decimal
 import fnmatch
 import hashlib
-import logging
 import tarfile
 import binascii
 import builtins
 import tempfile
-import warnings
 import functools
 import itertools
 import threading
@@ -39,8 +35,6 @@ import yaml
 import regex
 
 import synapse.exc as s_exc
-import synapse.lib.const as s_const
-import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
@@ -859,12 +853,14 @@ def config(conf, confdefs):
 @functools.lru_cache(maxsize=1024)
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'{name} is deprecated in {curv} and will be removed in {eolv}'
+    import synapse.lib.logging as s_logging
     logger.warning(mesg, extra=s_logging.getLogExtra(curv=curv, eolv=eolv))
     return mesg
 
 @functools.lru_cache(maxsize=1024)
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
+    import synapse.lib.logging as s_logging
     logger.warning(mesg, extra=s_logging.getLogExtra(eold=date))
     return mesg
 
