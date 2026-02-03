@@ -6505,7 +6505,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            # username and user here are logged twice.
+            # username and user here are logged twice; which represents a
+            # difference between the auth user who initiated the action
+            # and the target user who is executing the runtime.
             info['username'] = user.name
             info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
