@@ -743,7 +743,7 @@ class ItModule(s_module.CoreModule):
                         ('name', ('it:dev:str', {}), {
                             'doc': 'The name of the function.'}),
 
-                        ('desc', ('it:dev:str', {}), {
+                        ('desc', ('str', {}), {
                             'doc': 'A description of the function.'}),
                     ),
                     'doc': 'A function defined by code.'}),
