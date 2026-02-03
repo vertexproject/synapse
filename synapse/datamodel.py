@@ -862,6 +862,16 @@ class Model:
         # now we can load all the forms...
         for _, mdef in mods:
 
+            # Allow props declared directly on ctors to become forms...
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                if (props := info.get('props')) is not None:
+                    self.addForm(name, {}, props, checks=False)
+
+            # Allow props declared directly on types to become forms...
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                if (props := typeinfo.get('props')) is not None:
+                    self.addForm(typename, {}, props, checks=False)
+
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
