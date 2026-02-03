@@ -491,6 +491,15 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('$lib.trycast(newp, asdf)')
 
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm('return($lib.repr(newp, asdf))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.repr(taxonomy, (null)))')
+
+            self.eq('1234', await core.callStorm('return($lib.repr(str, 1234))'))
+            self.eq('1234', await core.callStorm('return($lib.repr(int, (1234)))'))
+
             self.eq(4, await core.callStorm('$x = asdf return($x.size())'))
             self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
             self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))

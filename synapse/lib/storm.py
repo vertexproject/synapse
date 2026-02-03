@@ -1,3 +1,4 @@
+import regex
 import types
 import pprint
 import asyncio
@@ -1867,6 +1868,9 @@ class Runtime(s_base.Base):
 
             pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
             pode[1]['path'] = await path.pack()
+
+            if path.display:
+                pode[1]['display'] = path.display
 
             if (nodedata := path.getData(node.nid)) is not None:
                 pode[1]['nodedata'] = nodedata
@@ -6152,3 +6156,181 @@ class IntersectCmd(Cmd):
                         path = runt.initPath(node)
                         path.vars.update(pathvars.get(nid))
                         yield (node, path)
+
+css4_colors = {
+    'aliceblue',
+    'antiquewhite',
+    'aqua',
+    'aquamarine',
+    'azure',
+    'beige',
+    'bisque',
+    'black',
+    'blanchedalmond',
+    'blue',
+    'blueviolet',
+    'brown',
+    'burlywood',
+    'cadetblue',
+    'chartreuse',
+    'chocolate',
+    'coral',
+    'cornflowerblue',
+    'cornsilk',
+    'crimson',
+    'cyan',
+    'darkblue',
+    'darkcyan',
+    'darkgoldenrod',
+    'darkgray',
+    'darkgreen',
+    'darkgrey',
+    'darkkhaki',
+    'darkmagenta',
+    'darkolivegreen',
+    'darkorange',
+    'darkorchid',
+    'darkred',
+    'darksalmon',
+    'darkseagreen',
+    'darkslateblue',
+    'darkslategray',
+    'darkslategrey',
+    'darkturquoise',
+    'darkviolet',
+    'deeppink',
+    'deepskyblue',
+    'dimgray',
+    'dimgrey',
+    'dodgerblue',
+    'firebrick',
+    'floralwhite',
+    'forestgreen',
+    'fuchsia',
+    'gainsboro',
+    'ghostwhite',
+    'gold',
+    'goldenrod',
+    'gray',
+    'green',
+    'greenyellow',
+    'grey',
+    'honeydew',
+    'hotpink',
+    'indianred',
+    'indigo',
+    'ivory',
+    'khaki',
+    'lavender',
+    'lavenderblush',
+    'lawngreen',
+    'lemonchiffon',
+    'lightblue',
+    'lightcoral',
+    'lightcyan',
+    'lightgoldenrodyellow',
+    'lightgray',
+    'lightgreen',
+    'lightgrey',
+    'lightpink',
+    'lightsalmon',
+    'lightseagreen',
+    'lightskyblue',
+    'lightslategray',
+    'lightslategrey',
+    'lightsteelblue',
+    'lightyellow',
+    'lime',
+    'limegreen',
+    'linen',
+    'magenta',
+    'maroon',
+    'mediumaquamarine',
+    'mediumblue',
+    'mediumorchid',
+    'mediumpurple',
+    'mediumseagreen',
+    'mediumslateblue',
+    'mediumspringgreen',
+    'mediumturquoise',
+    'mediumvioletred',
+    'midnightblue',
+    'mintcream',
+    'mistyrose',
+    'moccasin',
+    'navajowhite',
+    'navy',
+    'oldlace',
+    'olive',
+    'olivedrab',
+    'orange',
+    'orangered',
+    'orchid',
+    'palegoldenrod',
+    'palegreen',
+    'paleturquoise',
+    'palevioletred',
+    'papayawhip',
+    'peachpuff',
+    'peru',
+    'pink',
+    'plum',
+    'powderblue',
+    'purple',
+    'rebeccapurple',
+    'red',
+    'rosybrown',
+    'royalblue',
+    'saddlebrown',
+    'salmon',
+    'sandybrown',
+    'seagreen',
+    'seashell',
+    'sienna',
+    'silver',
+    'skyblue',
+    'slateblue',
+    'slategray',
+    'slategrey',
+    'snow',
+    'springgreen',
+    'steelblue',
+    'tan',
+    'teal',
+    'thistle',
+    'tomato',
+    'turquoise',
+    'violet',
+    'wheat',
+    'white',
+    'whitesmoke',
+    'yellow',
+    'yellowgreen',
+}
+
+hexcolor_regex = regex.compile('^#[0-9a-fA-F]{6}$')
+class ColorizeCmd(Cmd):
+    '''
+    Add metadata to nodes which can be used to colorize them during display.
+    '''
+    name = 'colorize'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax or a CSS color name.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:
+
+            color = await s_stormtypes.tostr(self.opts.color)
+            if color:
+                if color.lower() not in css4_colors and hexcolor_regex.match(color) is None:
+                    mesg = 'Color must be a CSS4 color name or a six digit hex color code prefixed with a #.'
+                    raise s_exc.BadArg(mesg=mesg)
+
+                path.display = {'color': color}
+
+            yield (node, path)

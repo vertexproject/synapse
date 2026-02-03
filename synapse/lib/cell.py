@@ -1343,7 +1343,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
-        # we inherit from Pusher to make the Cell a Base subclass
+
+        # First we teardown our activebase if it is set. This allows those tasks to be
+        # cancelled and do any cleanup that they may need to perform.
+        if self._wouldfini() and self.activebase:
+            await self.activebase.fini()
+
+        # we inherit from Pusher to make the Cell a Base subclass, so we tear it down through that.
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
@@ -4485,6 +4491,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if mirror is not None:
             mirror = s_urlhelp.sanitizeUrl(mirror)
 
+        nxfo = await self.nexsroot.getNexsInfo()
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4499,13 +4507,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'active': self.isactive,
                 'started': self.startmicros,
                 'safemode': self.safemode,
-                'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
-                'nexsindx': await self.getNexsIndx(),
-                'uplink': self.nexsroot.miruplink.is_set(),
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
@@ -4514,7 +4519,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 },
                 'network': {
                     'https': self.https_listeners,
-                }
+                },
+                'nexus': nxfo,
             },
             'features': self.features,
         }

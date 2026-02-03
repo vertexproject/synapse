@@ -1167,15 +1167,13 @@ class TeleTest(s_t_utils.SynTest):
 
     async def test_telepath_default_port(self):
         # Test default ports for dmon listening AND telepath connections.
+
+        # Note: This is the ONLY test that should be listening on a fixed port (27492 - the default telepath port)
+        # Relevant when testing with SYNDEV_AUDIT_PORT_BINDS and SYNDEV_AUDIT_PORT_BINDS_RAISE.
+
         async with await s_daemon.Daemon.anit() as dmon:
             url = 'tcp://127.0.0.1/'
-            try:
-                addr, port = await dmon.listen(url)
-            except OSError as e:
-                if e.errno == 98:
-                    self.skip('Port 27492 already bound, skipping test.')
-                else:
-                    raise
+            _, port = await dmon.listen(url)
             self.eq(port, 27492)
 
             foo = Foo()
@@ -1363,3 +1361,40 @@ class TeleTest(s_t_utils.SynTest):
                     # With the correct hostname on link.info we validate the subsequent link creation.
                     foo.link.set('hostname', sni)
                     self.eq('woot', await foo.echo('woot'))
+
+    async def test_telepath_getviewdef(self):
+
+        async with self.getTestCore() as core:
+
+            layr = await core.addLayer()
+            layriden = layr.get('iden')
+            view = await core.addView({'layers': (layriden,)})
+            viewiden = view.get('iden')
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef(viewiden)
+                self.nn(vdef)
+                self.eq(vdef.get('iden'), viewiden)
+                self.isin('layers', vdef)
+                self.isin('created', vdef)
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef('newp')
+                self.none(vdef)
+
+            testuser = await core.auth.addUser('testuser')
+            await testuser.setPasswd('secret')
+
+            layr2 = await core.addLayer()
+            layriden2 = layr2.get('iden')
+            view2 = await core.addView({'layers': (layriden2,)})
+            viewiden2 = view2.get('iden')
+
+            async with core.getLocalProxy(user='testuser') as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getViewDef(viewiden2)
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef(viewiden2)
+                self.nn(vdef)
+                self.eq(vdef.get('iden'), viewiden2)
