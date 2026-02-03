@@ -42,7 +42,6 @@ import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.structlog as s_structlog
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
