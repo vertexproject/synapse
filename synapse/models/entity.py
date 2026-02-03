@@ -19,7 +19,7 @@ modeldefs = (
                         'doc': 'The roles of the actor in the {title}.'}),
 
                 ),
-                'doc': 'Properties common to actions taken by entities.'}),
+                'doc': 'Properties common to actions taken by an individual actor.'}),
 
             # ('entity:affected', {
             #     'template': {'affected': 'affected'},

@@ -110,6 +110,7 @@ modeldefs = (
                     ('meta:reported', {}),
                 ),
                 'props': (
+
                     ('type', ('risk:attack:type:taxonomy', {}), {
                         'ex': 'cno.phishing',
                         'doc': 'A type for the attack, as a taxonomy entry.'}),
@@ -157,7 +158,6 @@ modeldefs = (
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    #('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
@@ -667,18 +667,19 @@ modeldefs = (
                 ('vector', ('risk:attack', {}), {
                     'doc': 'The attack assessed to be the initial compromise vector.'}),
 
-                ('target', ('entity:actor', {}), {
-                    'doc': 'Contact information representing the target.'}),
+                #('target', ('entity:actor', {}), {
+                    #'doc': 'Contact information representing the target.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The period over which the target was compromised.'}),
 
                 # FIXME - is this overfit being one-to-one?
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'The campaign that this compromise is part of.'}),
+                #('campaign', ('entity:campaign', {}), {
+                    #'doc': 'The campaign that this compromise is part of.'}),
 
-                ('detected', ('time', {}), {
-                    'doc': 'The first confirmed detection time of the compromise.'}),
+                # Is this the same as enetity:discovered?
+                # ('detected', ('time', {}), {
+                #     'doc': 'The first confirmed detection time of the compromise.'}),
 
                 ('loss:pii', ('int', {}), {
                     'doc': 'The number of records compromised which contain PII.'}),
