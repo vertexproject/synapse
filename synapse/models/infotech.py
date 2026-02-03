@@ -749,6 +749,47 @@ modeldefs = (
                 'ex': 'C0028',
             }),
 
+            ('it:dev:function', ('guid', {}), {
+                'props': (
+                    ('id', ('meta:id', {}), {
+                        'doc': 'An identifier for the function.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The name of the function.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the function.'}),
+
+                    ('impcalls', ('array', {'type': 'it:dev:str', 'typeopts': {'lower': True}}), {
+                        'doc': 'Calls to imported library functions within the scope of the function.'}),
+
+                    ('strings', ('array', {'type': 'it:dev:str'}), {
+                        'doc': 'An array of strings referenced within the function.'}),
+                ),
+                'doc': 'A function defined by code.'}),
+
+            ('it:dev:function:sample', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {'template': {'metadata': 'function'}}),
+                ),
+                'props': (
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file which contains the function.'}),
+
+                    ('function', ('it:dev:function', {}), {
+                        'doc': 'The function contained within the file.'}),
+
+                    ('va', ('int', {}), {
+                        'doc': 'The virtual address of the first codeblock of the function.'}),
+
+                    ('complexity', ('meta:score', {}), {
+                        'doc': 'The complexity of the function.'}),
+
+                    ('calls', ('array', {'type': 'it:dev:function:sample'}), {
+                        'doc': 'Other function calls within the scope of the function.'}),
+                ),
+                'doc': 'An instance of a function in an executable.'}),
+
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'string'}}),
@@ -1082,15 +1123,6 @@ modeldefs = (
 
             ('it:app:snort:target', ('ndef', {'forms': ('inet:flow',)}), {
                 'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
-
-            ('it:dev:function', ('guid', {}), {
-                'doc': 'A function inside an executable file.'}),
-
-            ('it:dev:function:sample', ('guid', {}), {
-                'interfaces': (
-                    ('file:mime:meta', {'template': {'metadata': 'function'}}),
-                ),
-                'doc': 'An instance of a function in an executable.'}),
 
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
@@ -2621,43 +2653,6 @@ modeldefs = (
                 ('target', ('ndef', {'forms': ('file:bytes', 'it:host:proc', 'inet:ip',
                                                'inet:fqdn', 'inet:url')}), {
                     'doc': 'The node which matched the YARA rule.'}),
-            )),
-
-            ('it:dev:function', {}, (
-
-                ('id', ('meta:id', {}), {
-                    'doc': 'An identifier for the function.'}),
-
-                ('name', ('it:dev:str', {}), {
-                    'doc': 'The name of the function.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the function.'}),
-
-                ('impcalls', ('array', {'type': 'it:dev:str',
-                        'typeopts': {'lower': True}}), {
-                    'doc': 'Calls to imported library functions within the scope of the function.'}),
-
-                ('strings', ('array', {'type': 'it:dev:str'}), {
-                    'doc': 'An array of strings referenced within the function.'}),
-            )),
-
-            ('it:dev:function:sample', {}, (
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file which contains the function.'}),
-
-                ('function', ('it:dev:function', {}), {
-                    'doc': 'The function contained within the file.'}),
-
-                ('va', ('int', {}), {
-                    'doc': 'The virtual address of the first codeblock of the function.'}),
-
-                ('complexity', ('meta:score', {}), {
-                    'doc': 'The complexity of the function.'}),
-
-                ('calls', ('array', {'type': 'it:dev:function:sample'}), {
-                    'doc': 'Other function calls within the scope of the function.'}),
             )),
 
             ('it:sec:c2:config', {}, (

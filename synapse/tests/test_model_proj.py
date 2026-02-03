@@ -15,6 +15,7 @@ class ProjModelTest(s_test.SynTest):
                     :type=dfir.case
                     :creator={[ syn:user=root ]}
                     :created=20250716
+                    :platform={[ inet:service:platform=* ]}
                 ]
             ''')
             self.eq(nodes[0].get('name'), 'woot')
@@ -22,6 +23,7 @@ class ProjModelTest(s_test.SynTest):
             self.eq(nodes[0].get('type'), 'dfir.case.')
             self.eq(nodes[0].get('creator'), ('syn:user', core.auth.rootuser.iden))
             self.eq(nodes[0].get('created'), 1752624000000000)
+            self.nn(nodes[0].get('platform'))
 
             nodes = await core.nodes('''
                 [ proj:sprint=*

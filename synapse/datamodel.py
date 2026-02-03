@@ -999,14 +999,37 @@ class Model:
         formnames = set()
         childforms = set()
 
+        allforms = []
+
         for _, mdef in mods:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 formnames.add(formname)
 
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                if (props := info.get('props')) is not None:
+                    formnames.add(name)
+
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                if (props := typeinfo.get('props')) is not None:
+                    formnames.add(typename)
+
+            # Allow props declared directly on ctors to become forms...
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                if (props := info.get('props')) is not None:
+                    allforms.append((name, {}, props))
+
+            # Allow props declared directly on types to become forms...
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                if (props := typeinfo.get('props')) is not None:
+                    allforms.append((typename, {}, props))
+
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-                if (ftyp := self.types.get(formname)) is not None and ftyp.subof in formnames:
-                    formchildren[ftyp.subof].append((formname, forminfo, propdefs))
-                    childforms.add(formname)
+                allforms.append((formname, forminfo, propdefs))
+
+        for formname, forminfo, propdefs in allforms:
+            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in formnames:
+                formchildren[ftyp.subof].append((formname, forminfo, propdefs))
+                childforms.add(formname)
 
         def addForms(infos, children=False):
             for formname, forminfo, propdefs in infos:
@@ -1019,8 +1042,7 @@ class Model:
                     addForms(cinfos, children=True)
 
         # now we can load all the forms...
-        for _, mdef in mods:
-            addForms(mdef.get('forms', ()))
+        addForms(allforms)
 
         # load form/prop hooks
         for _, mdef in mods:

@@ -1295,6 +1295,24 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
+                'props': (
+                    ('domain', ('inet:fqdn', {}), {
+                        'computed': True,
+                        'doc': 'The parent domain for the FQDN.'}),
+
+                    ('host', ('str', {'lower': True}), {
+                        'computed': True,
+                        'doc': 'The host part of the FQDN.'}),
+
+                    ('issuffix', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a suffix.'}),
+
+                    ('iszone', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a zone.'}),
+
+                    ('zone', ('inet:fqdn', {}), {
+                        'doc': 'The zone level parent for this FQDN.'}),
+                ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
@@ -2243,26 +2261,6 @@ modeldefs = (
 
                 ('client', ('inet:client', {}), {
                     'doc': 'The client address the host used as a network egress.'}),
-            )),
-
-            ('inet:fqdn', {}, (
-                ('domain', ('inet:fqdn', {}), {
-                    'computed': True,
-                    'doc': 'The parent domain for the FQDN.',
-                }),
-                ('host', ('str', {'lower': True}), {
-                    'computed': True,
-                    'doc': 'The host part of the FQDN.',
-                }),
-                ('issuffix', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a suffix.',
-                }),
-                ('iszone', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a zone.',
-                }),
-                ('zone', ('inet:fqdn', {}), {
-                    'doc': 'The zone level parent for this FQDN.',
-                }),
             )),
 
             ('inet:http:request:header', {}, (

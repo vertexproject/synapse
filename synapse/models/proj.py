@@ -120,6 +120,9 @@ modeldefs = (
 
                 ('created', ('time', {}), {
                     'doc': 'The time the project was created.'}),
+
+                ('platform', ('inet:service:platform', {}), {
+                    'doc': 'The platform where the project is hosted.'}),
             )),
 
             ('proj:sprint', {}, (
