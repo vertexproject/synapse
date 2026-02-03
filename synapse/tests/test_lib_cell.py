@@ -2627,7 +2627,7 @@ class CellTest(s_t_utils.SynTest):
                 log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     await core.nexsroot.addWriteHold(tmp_reason := 'something else')
-                    with self.raises(s_exc.SynErr):
+                    with self.raises(AssertionError):
                         await stream.expect(log_enable_writes, timeout=1)
                 stream.seek(0)
                 self.eq(stream.read(), '')
