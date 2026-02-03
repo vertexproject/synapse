@@ -36,7 +36,9 @@ modeldefs = (
             ('pol:term', ('guid', {}), {
                 'doc': 'A term in office held by a specific individual.'}),
 
-            ('pol:candidate', ('guid', {}), {
+            ('pol:candidacy', ('entity:activity', {}), {
+                'template': {'title': 'candidacy'},
+                'prevnames': ('pol:candidate',),
                 'doc': 'A candidate for office in a specific race.'}),
 
             ('pol:pollingplace', ('guid', {}), {
@@ -187,13 +189,17 @@ modeldefs = (
                 ('party', ('ou:org', {}), {
                     'doc': 'The political party of the person who held office during the term.'}),
             )),
-            ('pol:candidate', {}, (
+            # TODO pol:candidacy=<entity:activity>
+            ('pol:candidacy', {}, (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
 
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the candidate.'}),
+                # ('contact', ('entity:contact', {}), {
+                #     'doc': 'The contact information of the candidate.'}),
+
+                ('announced', ('time', {}), {
+                    'doc': 'The time when the candidacy was publicly announced.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),

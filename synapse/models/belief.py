@@ -14,7 +14,12 @@ modeldefs = (
             ('belief:tenet', ('guid', {}), {
                 'doc': 'A concrete tenet potentially shared by multiple belief systems.'}),
 
-            ('belief:subscriber', ('guid', {}), {
+            ('belief:subscriber', ('entity:activity', {}), {
+                'template': {'title': 'subscribed'},
+                'props': (
+                    ('system', ('belief:system', {}), {
+                        'doc': 'The belief system to which the contact subscribes.'}),
+                ),
                 'doc': 'A contact which subscribes to a belief system.'}),
         ),
         'forms': (
@@ -46,18 +51,6 @@ modeldefs = (
                     'doc': 'A description of the tenet.'}),
             )),
 
-            ('belief:subscriber', {}, (
-
-                ('contact', ('entity:individual', {}), {
-                    'doc': 'The individual who subscribes to the belief system.'}),
-
-                ('system', ('belief:system', {}), {
-                    'doc': 'The belief system to which the contact subscribes.'}),
-
-                ('period', ('ival', {}), {
-                    'prevnames': ('began', 'ended'),
-                    'doc': 'The time period when the contact subscribed to the belief system.'}),
-            )),
         ),
         'edges': (
 

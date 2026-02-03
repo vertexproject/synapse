@@ -1368,6 +1368,9 @@ class Model:
 
         self.ifaces[name] = info
 
+        # FIXME polyprops
+        self.addType(name, 'ndef', {'interface': name}, {'doc': 'FIXME POLYPROP PLACE HOLDER'})
+
     def reqTypeNotInUse(self, typename):
         if self.propsbytype.get(typename):
             mesg = f'Cannot delete type {typename} as it is still in use by properties.'

@@ -13,10 +13,10 @@ modeldefs = (
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
-            ('ps:education', ('guid', {}), {
+            ('ps:education', ('entity:activity', {}), {
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'student::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'institution::name'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
@@ -25,10 +25,10 @@ modeldefs = (
                 },
                 'doc': 'A period of education for an individual.'}),
 
-            ('ps:achievement', ('guid', {}), {
+            ('ps:achievement', ('entity:event', {}), {
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'awardee::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'award::name'}},
                         {'type': 'prop', 'opts': {'name': 'award::org::name'}},
                         {'type': 'prop', 'opts': {'name': 'awarded'}},
@@ -45,12 +45,12 @@ modeldefs = (
                 ),
                 'doc': 'A person or persona.'}),
 
-            ('ps:workhist', ('guid', {}), {
+            ('ps:workhist', ('entity:activity', {}), {
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
                         {'type': 'prop', 'opts': {'name': 'title'}},
-                        {'type': 'prop', 'opts': {'name': 'org:name'}},
+                        {'type': 'prop', 'opts': {'name': 'employer:name'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
@@ -111,19 +111,17 @@ modeldefs = (
 
             ('ps:workhist', {}, (
 
-                ('contact', ('entity:individual', {}), {
-                    'doc': 'The contact which has the work history.'}),
+                ('employer', ('entity:actor', {}), {
+                    'prevnames': ('org',),
+                    'doc': 'The employer.'}),
 
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org that this work history orgname refers to.'}),
-
-                ('org:name', ('entity:name', {}), {
+                ('employer:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
-                    'doc': 'The reported name of the org the contact worked for.'}),
+                    'doc': 'The name of the employer.'}),
 
-                ('org:fqdn', ('inet:fqdn', {}), {
+                ('employer:fqdn', ('inet:fqdn', {}), {
                     'prevnames': ('orgfqdn',),
-                    'doc': 'The reported fqdn of the org the contact worked for.'}),
+                    'doc': 'The FQDN of the employer.'}),
 
                 ('job:type', ('ou:job:type:taxonomy', {}), {
                     'doc': 'The type of job.',
@@ -145,7 +143,7 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
-                    'doc': 'The period of time that the contact worked for the organization.'}),
+                    'doc': 'The period of time that the actor worked for the employer.'}),
 
                 ('desc', ('str', {}), {
                     'doc': 'A description of the work done as part of the job.'}),
@@ -197,8 +195,8 @@ modeldefs = (
             )),
             ('ps:education', {}, (
 
-                ('student', ('entity:individual', {}), {
-                    'doc': 'The student who attended the educational institution.'}),
+                #('student', ('entity:individual', {}), {
+                    #'doc': 'The student who attended the educational institution.'}),
 
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
@@ -213,14 +211,14 @@ modeldefs = (
             )),
             ('ps:achievement', {}, (
 
-                ('awardee', ('entity:individual', {}), {
-                    'doc': 'The recipient of the award.'}),
+                #('awardee', ('entity:individual', {}), {
+                    #'doc': 'The recipient of the award.'}),
 
                 ('award', ('ou:award', {}), {
                     'doc': 'The award bestowed on the awardee.'}),
 
-                ('awarded', ('time', {}), {
-                    'doc': 'The date the award was granted to the awardee.'}),
+                #('awarded', ('time', {}), {
+                    #'doc': 'The date the award was granted to the awardee.'}),
 
                 ('expires', ('time', {}), {
                     'doc': 'The date the award or certification expires.'}),

@@ -158,16 +158,21 @@ modeldefs = (
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
-            ('ou:meeting', ('guid', {}), {
+            ('ou:meeting', ('meta:activity', {}), {
                 'prevnames': ('ou:meet',),
+                'template': {'title': 'meeting'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'meeting'}}),
+                    ('meta:attendable', {}),
                 ),
                 'doc': 'A meeting.'}),
 
-            ('ou:preso', ('guid', {}), {
+            ('ou:presentation', ('meta:activity', {}), {
+                'prevnames': ('ou:preso',),
+                'template': {'title': 'presentation'},
                 'interfaces': (
-                    ('ou:sponsored', {'template': {'title': 'presentation'}}),
+                    ('meta:promoted', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -178,10 +183,12 @@ modeldefs = (
                 },
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
-            ('ou:conference', ('guid', {}), {
+            ('ou:conference', ('meta:activity', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('meta:promoted', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -223,10 +230,12 @@ modeldefs = (
             #     ),
             #     'doc': 'A hierarchical taxonomy of contest types.'}),
 
-            ('ou:contest', ('guid', {}), {
+            ('ou:contest', ('meta:activity', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('meta:promoted', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 

@@ -78,7 +78,30 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the {title} occured.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of event.'}),
+                ),
                 'doc': 'An analytically relevant event.'}),
+
+            ('meta:activity', ('guid', {}), {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('period', ('time', {}), {
+                        'doc': 'The period over which the {activity} occured.'}),
+                ),
+                'doc': 'Analytically relevant activity.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -179,17 +202,28 @@ modeldefs = (
             }),
 
             # TODO: discuss interfaces which may only be implemented by a base form
+            ('meta:promoted', {
+                'props': (
+                    ('website', ('inet:url', {}), {
+                        'doc': 'The URL of the {title} website.'}),
+
+                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
+                        'doc': 'Social media accounts for the {title}.'}),
+                ),
+                'doc': 'Properties common to promoted events or activities.'}),
+
             ('meta:attendable', {
-                'doc': 'An interface implemented by events which may be attended.'}),
+                'doc': 'An interface implemented by activities which may be attended.'}),
 
             ('meta:sponsorable', {
-                'doc': 'An interface implemented by events which may be sponsored.'}),
+                'doc': 'An interface implemented by activities which may be sponsored.'}),
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
                 'template': {'title': 'item'},
                 'props': (
 
+                    # TODO - alliance / coalition / etc makes this workable...
                     ('owner', ('entity:actor', {}), {
                         'doc': 'The current owner of the {title}.'}),
 
@@ -292,6 +326,16 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:causal', {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+                ),
+                'doc': 'Properties common to events and activity.'}),
+
             ('meta:usable', {
                 'template': {'title': 'item'},
                 'props': (
@@ -365,6 +409,9 @@ modeldefs = (
 
             (('meta:technique', 'addresses', 'risk:vuln'), {
                 'doc': 'The technique addresses the vulnerability.'}),
+
+            (('meta:causal', 'leadto', 'meta:causal'), {
+                'doc': 'The source event lead to the target event.'}),
         ),
         'forms': (
 
@@ -472,26 +519,26 @@ modeldefs = (
             ('meta:timeline:type:taxonomy', {
                 'prevnames': ('meta:timeline:taxonomy',)}, ()),
 
-            ('meta:event', {}, (
+            # ('meta:event', {}, (
 
-                # FIXME discuss instant vs activity
-                ('period', ('ival', {}), {
-                    'doc': 'The period over which the {title} occurred.'}),
+            #     # FIXME discuss instant vs activity
+            #     #('period', ('ival', {}), {
+            #         #'doc': 'The period over which the {title} occurred.'}),
 
-                # FIXME redundant with :name / :names and should be removed
-                # ('title', ('str', {}), {
-                #     'doc': 'A title for the event.'}),
+            #     # FIXME redundant with :name / :names and should be removed
+            #     # ('title', ('str', {}), {
+            #     #     'doc': 'A title for the event.'}),
 
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the event.'}),
+            #     ('desc', ('text', {}), {
+            #         'doc': 'A description of the event.'}),
 
-                # FIXME conscious decision to fold all "event" types into one taxonomy
-                ('type', ('meta:event:type:taxonomy', {}), {
-                    'doc': 'Type of event.'}),
+            #     # FIXME conscious decision to fold all "event" types into one taxonomy
+            #     ('type', ('meta:event:type:taxonomy', {}), {
+            #         'doc': 'Type of event.'}),
 
-                #('parent', ('meta:event', {}), {
-                    #'doc': 'The parent event.'}),
-            )),
+            #     #('parent', ('meta:event', {}), {
+            #         #'doc': 'The parent event.'}),
+            # )),
 
             ('meta:event:type:taxonomy', {
                 'prevnames': ('meta:event:taxonomy',)}, ()),
