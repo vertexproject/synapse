@@ -106,7 +106,7 @@ def adminapi(log=False):
                                      user=self.user.iden, username=self.user.name)
             if log:
                 extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
-                logger.info(f'Admin API invoked', extra=extra)
+                logger.info(f'Admin API invoked api={func.__qualname__}', extra=extra)
 
             return func(self, *args, **kwargs)
 
