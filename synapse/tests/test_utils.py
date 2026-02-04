@@ -324,9 +324,11 @@ class TestUtils(s_t_utils.SynTest):
 
     async def test_propeq(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:str=foo :hehe=haha]')
+            nodes = await core.nodes('[test:str=foo :hehe=haha :tick=2020 ]')
             self.len(1, nodes)
             self.propeq(nodes[0], 'hehe', 'haha')
+            self.propeq(nodes[0], 'tick', 1577836800000000)
+            self.propeq(nodes[0], 'tick', '2020-01-01T00:00:00Z', repr=True)
             with self.raises(AssertionError):
                 self.propeq(nodes[0], 'hehe', 'newp')
             with self.raises(AssertionError):
