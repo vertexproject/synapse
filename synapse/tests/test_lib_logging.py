@@ -14,7 +14,10 @@ class LoggingTest(s_test.SynTest):
 
     async def test_lib_logging(self):
 
+        # Installs the logginghandlers
+        self.none(s_logging.StreamHandler._pump_task)
         s_logging.setup()
+        self.nn(s_logging.StreamHandler._pump_task)
 
         self.eq(10, s_logging.normLogLevel(' 10 '))
         self.eq(10, s_logging.normLogLevel(10))
@@ -77,3 +80,6 @@ class LoggingTest(s_test.SynTest):
             self.eq(mesg['error']['notes'], ('outer note',))
             self.eq(mesg['error']['context']['code'], 'SynErr')
             self.eq(mesg['error']['context']['notes'], ('inner note',))
+
+        s_logging.reset()
+        self.none(s_logging.StreamHandler._pump_task)

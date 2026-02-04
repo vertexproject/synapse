@@ -287,6 +287,8 @@ async def shutdown():
     before removing it and resetting log attributes. A StreamHandler
     is then re-installed on the root logger to allow for messages
     from sources like atexit handlers to be logged.
+
+    This should be called at service or tool teardown.
     '''
     # Give the pump task a small opportunity to drain its
     # queue of items and exit cleanly.
