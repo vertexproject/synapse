@@ -1,7 +1,7 @@
 import synapse.exc as s_exc
 
-import synapse.lib.processpool as s_processpool
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 import xml.etree.ElementTree as xml_et
 

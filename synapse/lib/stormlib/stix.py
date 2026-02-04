@@ -11,9 +11,9 @@ import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
-import synapse.lib.processpool as s_processpool
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 import stix2validator
 

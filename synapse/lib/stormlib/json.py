@@ -6,8 +6,8 @@ import synapse.exc as s_exc
 
 import synapse.lib.json as s_json
 import synapse.lib.config as s_config
-import synapse.lib.processpool as s_processpool
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 logger = logging.getLogger(__name__)
 

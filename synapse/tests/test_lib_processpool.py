@@ -1,11 +1,10 @@
-import sys
 import time
 import asyncio
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.processpool as s_processpool
+
 import synapse.tests.utils as s_t_utils
 
 class FakeError(Exception): pass
