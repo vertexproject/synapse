@@ -811,16 +811,21 @@ class CellTest(s_t_utils.SynTest):
                 info = await prox.getCellInfo()
                 # Cell information
                 cnfo = info.get('cell')
+                nxfo = cnfo.get('nexus')
                 snfo = info.get('synapse')
                 self.eq(cnfo.get('commit'), 'mycommit')
                 self.eq(cnfo.get('version'), (1, 2, 3))
                 self.eq(cnfo.get('verstring'), '1.2.3')
                 self.eq(cnfo.get('type'), 'cortex')
-                self.isin('nexsindx', cnfo)
-                self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
-                self.false(cnfo.get('uplink'))
                 self.none(cnfo.get('mirror', True))
+                # Nexus info
+                self.ge(nxfo.get('indx'), 0)
+                self.false(nxfo.get('uplink:ready'))
+                self.true(nxfo.get('ready'))
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
+
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -838,6 +843,21 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+                # Write hold information is reflected through cell info
+                await cell.nexsroot.addWriteHold('boop')
+                await cell.nexsroot.addWriteHold('beep')
+                info = await prox.getCellInfo()
+                nxfo = info.get('cell').get('nexus')
+                self.true(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [{'reason': 'beep'}, {'reason': 'boop'}])
+
+                await cell.nexsroot.delWriteHold('boop')
+                await cell.nexsroot.delWriteHold('beep')
+                info = await prox.getCellInfo()
+                nxfo = info.get('cell').get('nexus')
+                self.false(nxfo.get('readonly'))
+                self.eq(nxfo.get('holds'), [])
 
         # Mirrors & ready flags
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
@@ -857,18 +877,21 @@ class CellTest(s_t_utils.SynTest):
                 await cell01.sync()
 
                 cnfo0 = await cell00.getCellInfo()
+                nxfo0 = cnfo0['cell']['nexus']
                 cnfo1 = await cell01.getCellInfo()
-                self.true(cnfo0['cell']['ready'])
-                self.false(cnfo0['cell']['uplink'])
+                nxfo1 = cnfo1['cell']['nexus']
                 self.none(cnfo0['cell']['mirror'])
                 self.eq(cnfo0['cell']['version'], (1, 2, 3))
+                self.false(nxfo0.get('uplink:ready'))
+                self.true(nxfo0.get('ready'))
 
-                self.true(cnfo1['cell']['ready'])
-                self.true(cnfo1['cell']['uplink'])
                 self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
                 self.eq(cnfo1['cell']['version'], (1, 2, 3))
 
-                self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
+                self.true(nxfo1.get('uplink:ready'))
+                self.true(nxfo1.get('ready'))
+
+                self.eq(nxfo0['indx'], nxfo1['indx'])
 
     async def test_cell_dyncall(self):
 
@@ -1233,7 +1256,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('...cell API (https): 0', buf)
 
                 conf = {
-                    'dmon:listen': None,
+                    'dmon:listen': 'tcp://0.0.0.0:0',
                     'https:port': None,
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
@@ -1243,18 +1266,18 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin(f'...cell API (telepath): tcp://0.0.0.0:27492', buf)
+                self.isin('...cell API (telepath): tcp://0.0.0.0:0', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_initargv_conf(self):
         async with self.withSetLoggingMock():
             with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true',
-                                   SYN_CELL_DMON_LISTEN='null',
+                                   SYN_CELL_DMON_LISTEN='tcp://0.0.0.0:0',
                                    SYN_CELL_HTTPS_PORT='null',
                                    SYN_CELL_AUTH_PASSWD='notsecret',
                                    ):
                 with self.getTestDir() as dirn:
-                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
+                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:12345/',
                                        'aha:name': 'some:cell'},
                                       dirn, 'cell.yaml')
                     s_common.yamlsave({}, dirn, 'cell.mods.yaml')
@@ -1265,7 +1288,7 @@ class CellTest(s_t_utils.SynTest):
                         # 2) envars
                         # 3) cell.yaml
                         self.true(cell.conf.req('nexslog:en'))
-                        self.none(cell.conf.req('dmon:listen'))
+                        self.eq(cell.conf.req('dmon:listen'), 'tcp://0.0.0.0:0')
                         self.none(cell.conf.req('https:port'))
                         self.eq(cell.conf.req('aha:name'), 'some:cell')
                         root = cell.auth.rootuser
@@ -3323,3 +3346,47 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+    async def test_cell_fini_order(self):
+
+        with self.getTestDir() as dirn:
+
+            data = []
+            conf = {'nexslog:en': True}
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+
+                event00 = asyncio.Event()
+
+                async def coro():
+                    try:
+                        event00.set()
+                        await asyncio.sleep(100000)
+                    except asyncio.CancelledError:
+                        # nexus txn can run in a activeTask handler
+                        await cell.sync()
+                        data.append('activetask_cancelled')
+
+                async def bg_coro():
+                    self.true(await cell.waitfini(timeout=12))
+                    data.append('cell_fini')
+                    return True
+
+                bg_task = s_coro.create_task(bg_coro())
+                cell.runActiveTask(coro())
+                self.true(await asyncio.wait_for(event00.wait(), timeout=6))
+
+                # Perform a non-sync nexus txn then teardown the cell via __aexit__
+                self.nn(await cell.addUser('someuser'))
+
+            self.true(await asyncio.wait_for(bg_task, timeout=6))
+
+            self.eq(data, ['activetask_cancelled', 'cell_fini'])
+
+            async with self.getTestCell(dirn=dirn, conf=conf) as cell:
+                offs = await cell.getNexsIndx()
+                items = []
+                async for offs, item in cell.getNexusChanges(offs - 1, wait=False):
+                    items.append(item)
+                self.len(1, items)
+                self.eq('sync', items[0][1])

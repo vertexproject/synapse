@@ -1469,7 +1469,7 @@ class AhaTest(s_test.SynTest):
             self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
 
             async with aha0.getLocalProxy() as proxy0:
-                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link')
+                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link', port=0)
 
             conf1 = {'clone': purl}
             async with self.getTestAha(conf=conf1) as aha1:

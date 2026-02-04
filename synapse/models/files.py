@@ -305,6 +305,12 @@ modeldefs = (
                 'ex': 'text/plain',
                 'doc': 'A file mime name string.'}),
 
+            ('file:mime:pdf', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+                'doc': 'Metadata extracted from a Portable Document Format (PDF) file.'}),
+
             ('file:mime:msdoc', ('guid', {}), {
                 'interfaces': (
                     ('file:mime:msoffice', {}),
@@ -476,6 +482,39 @@ modeldefs = (
             )),
 
             ('file:mime', {}, ()),
+
+            ('file:mime:pdf', {}, (
+
+                ('id', ('str', {}), {
+                    'doc': 'The "DocumentID" field extracted from PDF metadata.'}),
+
+                ('title', ('text', {}), {
+                    'doc': 'The "Title" field extracted from PDF metadata.'}),
+
+                ('author:name', ('entity:name', {}), {
+                    'doc': 'The "Author" field extracted from PDF metadata.'}),
+
+                ('language:name', ('lang:name', {}), {
+                    'doc': 'The "Language" field extracted from PDF metadata.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The "CreatedDate" field extracted from PDF metadata.'}),
+
+                ('updated', ('time', {}), {
+                    'doc': 'The "ModifyDate" field extracted from PDF metadata.'}),
+
+                ('producer:name', ('it:softwarename', {}), {
+                    'doc': 'The "Producer" field extracted from PDF metadata.'}),
+
+                ('tool:name', ('it:softwarename', {}), {
+                    'doc': 'The "CreatorTool" field extracted from PDF metadata.'}),
+
+                ('subject', ('text', {}), {
+                    'doc': 'The "Subject" field extracted from PDF metadata.'}),
+
+                ('keywords', ('array', {'type': 'meta:topic'}), {
+                    'doc': 'The "Keywords" field extracted from PDF metadata.'}),
+            )),
 
             ('file:mime:msdoc', {}, ()),
             ('file:mime:msxls', {}, ()),

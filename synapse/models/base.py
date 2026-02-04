@@ -401,6 +401,12 @@ modeldefs = (
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
+            (('meta:rule', 'generated', 'risk:alert'), {
+                'doc': 'The meta:rule generated the risk:alert node.'}),
+
+            (('meta:rule', 'generated', 'it:log:event'), {
+                'doc': 'The meta:rule generated the it:log:event node.'}),
+
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
 

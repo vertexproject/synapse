@@ -469,6 +469,10 @@ class Base:
             for evnt in evnts:
                 self.off(evnt, func)
 
+    def _wouldfini(self):
+        '''Check if a Base would be fini() if fini() was called on it.'''
+        return self._syn_refs == 1
+
     async def waitfini(self, timeout=None):
         '''
         Wait for the base to fini()

@@ -721,6 +721,9 @@ modeldefs = (
 
                 ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the compromise.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'A tag used to associate nodes with the compromise.'}),
             )),
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
