@@ -1233,8 +1233,26 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An e-mail address.'}),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                        'doc': 'A Fully Qualified Domain Name (FQDN).',
-                        'ex': 'vertex.link'}),
+                        'props': (
+                            ('domain', ('inet:fqdn', {}), {
+                                'ro': True,
+                                'doc': 'The parent domain for the FQDN.'}),
+
+                            ('host', ('str', {'lower': True}), {
+                                'ro': True,
+                                'doc': 'The host part of the FQDN.'}),
+
+                            ('issuffix', ('bool', {}), {
+                                'doc': 'True if the FQDN is considered a suffix.'}),
+
+                            ('iszone', ('bool', {}), {
+                                'doc': 'True if the FQDN is considered a zone.'}),
+
+                            ('zone', ('inet:fqdn', {}), {
+                                'doc': 'The zone level parent for this FQDN.'}),
+                        ),
+                        'ex': 'vertex.link',
+                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
@@ -2316,26 +2334,6 @@ class InetModule(s_module.CoreModule):
 
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The client IPv6 address the host used as a network egress.'}),
-                    )),
-
-                    ('inet:fqdn', {}, (
-                        ('domain', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The parent domain for the FQDN.',
-                        }),
-                        ('host', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The host part of the FQDN.',
-                        }),
-                        ('issuffix', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a suffix.',
-                        }),
-                        ('iszone', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a zone.',
-                        }),
-                        ('zone', ('inet:fqdn', {}), {
-                            'doc': 'The zone level parent for this FQDN.',
-                        }),
                     )),
 
                     ('inet:group', {}, ()),
