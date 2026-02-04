@@ -1,4 +1,5 @@
 import os
+import pprint
 import signal
 import asyncio
 import logging
@@ -20,6 +21,10 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
     tasks = asyncio.all_tasks(_glob_loop)
     for task in tasks:
         task.print_stack()
+        if hasattr(task, '_syn_task'):
+            st = task._syn_task
+            print(f'Task is a syn task with the following information: iden={st.iden} user={st.user.iden} username={st.user.name}')
+            pprint.pprint(st.info)
     print(80 * '*')
     print('Faulthandler stack frames per thread:')
     faulthandler.dump_traceback()
