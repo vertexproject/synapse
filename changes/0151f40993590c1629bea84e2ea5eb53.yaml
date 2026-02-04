@@ -1,5 +1,5 @@
 ---
-desc: Move process related functions from ``synapse.lib.coro`` into ``synapse.lib.process``.
+desc: Move process related functions from ``synapse.lib.coro`` into ``synapse.lib.process`` and ``synapse.lib.processpool``.
 desc:literal: false
 prs: []
 type: note

@@ -10,7 +10,7 @@ import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
-import synapse.lib.process as s_process
+import synapse.lib.processpool as s_processpool
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
@@ -627,10 +627,10 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return await s_process._parserforked(parseQuery, args[0], mode=args[1])
+    return await s_processpool._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
-    return await s_process._parserforked(parseEval, text)
+    return await s_processpool._parserforked(parseEval, text)
 
 evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)

@@ -6,9 +6,9 @@ import regex
 import synapse.common as s_common
 
 import synapse.lib.scrape as s_scrape
-import synapse.lib.process as s_process
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ class LibScrape(s_stormtypes.Lib):
         if fangs:
             _fangs = {src: dst for (src, dst) in fangs}
             _fangre = s_scrape.genFangRegex(_fangs)
-            scrape_text, offsets = await s_process.semafork(s_scrape.refang_text2, text, re=_fangre, fangs=_fangs)
+            scrape_text, offsets = await s_processpool.semafork(s_scrape.refang_text2, text, re=_fangre, fangs=_fangs)
 
         async for info in s_scrape.genMatchesAsync(scrape_text, regx, opts=opts):
             valu = info.pop('valu')

@@ -1,6 +1,6 @@
 import synapse.exc as s_exc
 
-import synapse.lib.process as s_process
+import synapse.lib.processpool as s_processpool
 import synapse.lib.stormtypes as s_stormtypes
 
 import xml.etree.ElementTree as xml_et
@@ -93,7 +93,7 @@ class LibXml(s_stormtypes.Lib):
     async def parse(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
-            root = await s_process.semafork(xml_et.fromstring, valu)
+            root = await s_processpool.semafork(xml_et.fromstring, valu)
             return XmlElement(self.runt, root)
         except xml_et.ParseError as e:
             raise s_exc.BadArg(mesg=f'Invalid XML text: {str(e)}')

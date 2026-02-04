@@ -11,7 +11,7 @@ import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
-import synapse.lib.process as s_process
+import synapse.lib.processpool as s_processpool
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -661,7 +661,7 @@ class LibStix(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await s_process.semafork(validateStix, bundle)
+        return await s_processpool.semafork(validateStix, bundle)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def liftBundle(self, bundle):
