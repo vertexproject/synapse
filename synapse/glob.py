@@ -23,7 +23,10 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
         task.print_stack()
         if hasattr(task, '_syn_task'):
             st = task._syn_task
-            print(f'Task is a syn task with the following information: iden={st.iden} user={st.user.iden} username={st.user.name}')
+            root = None
+            if st.root is not None:
+                root = st.root.iden
+            print(f'Task is a syn task with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
             pprint.pprint(st.info)
     print(80 * '*')
     print('Faulthandler stack frames per thread:')
