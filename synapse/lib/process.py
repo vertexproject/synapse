@@ -112,10 +112,10 @@ if multiprocessing.current_process().name == 'MainProcess':
         max_workers = None
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
-def _runtodo(todo):
+def _runtodo(todo):  # pragma: no cover
     return todo[0](*todo[1], **todo[2])
 
-def _init_pool_worker(logger_, logconf):
+def _init_pool_worker(logger_, logconf):  # prama: no cover
     s_common.setlogging(logger_, **logconf)
     p = multiprocessing.current_process()
     logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
