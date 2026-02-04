@@ -37,6 +37,7 @@ class PlanModelTest(s_t_utils.SynTest):
                     :created=20240202
                     :updated=20240203
                     :version=1.0.0
+                    +(uses)> {[ meta:technique=({"id": "id00"}) ]}
                 ]
             ''')
 

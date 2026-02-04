@@ -40,7 +40,7 @@ modeldefs = (
                     ('sprint', ('proj:sprint', {}), {
                         'doc': 'The sprint that contains the {task}.'}),
 
-                    ('priority', ('meta:priority', {}), {
+                    ('priority', ('meta:score', {}), {
                         'doc': 'The priority of the {task}.'}),
 
                     ('created', ('time', {}), {
@@ -120,6 +120,9 @@ modeldefs = (
 
                 ('created', ('time', {}), {
                     'doc': 'The time the project was created.'}),
+
+                ('platform', ('inet:service:platform', {}), {
+                    'doc': 'The platform where the project is hosted.'}),
             )),
 
             ('proj:sprint', {}, (

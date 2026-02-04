@@ -127,6 +127,43 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq(offs, nexsindx)
                     self.eq(item[1], 'thing:doathing')
 
+    async def test_nexus_fini(self):
+
+        conf = {'nexslog:en': True}
+        async with self.getTestCell(conf=conf) as cell:
+            await cell.sync()
+
+        # Cannot issue new items to the nexusroot after fini
+        with self.raises(s_exc.IsFini) as cm:
+            await cell.sync()
+        self.isin('Nexus has been shutdown, cannot propose', cm.exception.get('mesg'))
+        self.false(cell.nexslock.locked())
+
+        # Cannot iterate over the log after fini
+        with self.raises(s_exc.IsFini) as cm:
+            async for item in cell.getNexusChanges(0, wait=False):
+                pass
+        self.isin('Nexus has been shutdown, cannot iterate changes.', cm.exception.get('mesg'))
+
+        # Patch to delay the execution _eat so we can fini the service
+        # AFTER the lock has been obtained and BEFORE the apply task
+        # has started to execute.
+
+        async with self.getTestCell(conf=conf) as cell:
+            await cell.sync()
+
+            orig_eat = cell.nexsroot._eat
+            async def func(item, indx=None):
+                await cell.fini()
+                await orig_eat(item, indx=indx)
+
+            with mock.patch('synapse.lib.nexus.NexsRoot._eat', func):
+                with self.assertRaises(s_exc.IsFini) as cm:
+                    await cell.sync()
+                self.isin('Nexus has been shutdown, cannot apply', cm.exception.get('mesg'))
+            self.true(cell.isfini)
+            self.false(cell.nexslock.locked())
+
     async def test_nexus_modroot(self):
 
         async with self.getTestCell() as cell:
@@ -336,7 +373,7 @@ class NexusTest(s_t_utils.SynTest):
                 async def delWriteHold(self, reason):
                     nonlocal seen
                     nonlocal restarted
-                    if not seen:
+                    if not seen and reason == s_nexus.leaderversion:
                         seen = True
                         raise Exception('Knock over the nexus setup.')
 
@@ -520,3 +557,71 @@ class NexusTest(s_t_utils.SynTest):
                                 await core02.addView(vdef)
 
                             self.eq(strt, await core02.nexsroot.index())
+
+    async def test_nexus_mirror_connect_timeout(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.genpath(dirn, 'core00')
+            path01 = s_common.genpath(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                pass
+
+            s_backup.backup(path00, path01)
+
+            with mock.patch('synapse.lib.nexus.FOLLOWER_CONNECT_WAIT_S', 0.05):
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+                    await asyncio.sleep(0.1)
+
+                    # We weren't able to connect to the leader within the timeout so we're readonly
+                    self.true(core01.nexsroot.readonly)
+                    self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
+
+                    evnt1 = asyncio.Event()
+                    orig = s_nexus.NexsRoot._eat
+                    async def hookEat(self, item, indx=None):
+                        evnt1.set()
+                        return await orig(self, item, indx=indx)
+
+                    with mock.patch('synapse.lib.nexus.NexsRoot._eat', hookEat):
+                        async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+
+                            await asyncio.wait_for(core01.nexsroot.miruplink.wait(), 1)
+
+                            self.false(core01.nexsroot.readonly)
+                            self.len(0, core01.nexsroot.writeholds)
+
+                            self.len(1, core00.views)
+                            self.len(1, core01.views)
+
+                            deflayr = (await core00.getLayerDef()).get('iden')
+                            vdef = {'layers': (deflayr,), 'name': 'nextview'}
+                            coro = core01.schedCoro(core01.addView(vdef))
+
+                            await evnt1.wait()
+
+                    # Our task should be cancelled by the reconnect timeout
+                    with self.raises(s_exc.LinkErr) as cm:
+                        await coro
+
+                    self.true(cm.exception.get('mesg').startswith('Unable to connect to leader'))
+                    self.true(core01.nexsroot.readonly)
+                    self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
+
+                    # We didn't get the event from the leader yet
+                    self.len(1, core01.views)
+
+                    async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+
+                        await asyncio.wait_for(core01.nexsroot.miruplink.wait(), 1)
+
+                        self.false(core01.nexsroot.readonly)
+                        self.len(0, core01.nexsroot.writeholds)
+
+                        await core01.sync()
+
+                        # Now we're sync'ed and caught back up
+                        self.len(2, core00.views)
+                        self.len(2, core01.views)

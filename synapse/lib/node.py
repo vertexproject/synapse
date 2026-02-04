@@ -1404,6 +1404,7 @@ class Path:
             'node': self.node,
         }
 
+        self.display = None
         self.metadata = {}
         self.nodedata = collections.defaultdict(dict)
 

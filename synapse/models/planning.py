@@ -42,6 +42,8 @@ modeldefs = (
         'edges': (
             (('plan:procedure:step', 'uses', 'meta:usable'), {
                 'doc': 'The step in the procedure makes use of the target node.'}),
+            (('plan:phase', 'uses', 'meta:usable'), {
+                'doc': 'The plan phase makes use of the target node.'}),
         ),
 
         'forms': (
