@@ -2,8 +2,8 @@ import logging
 
 import synapse.exc as s_exc
 
-import synapse.lib.coro as s_coro
 import synapse.lib.parser as s_parser
+import synapse.lib.process as s_process
 
 import synapse.tests.utils as s_t_utils
 
@@ -44,7 +44,7 @@ class ExcTest(s_t_utils.SynTest):
 
         # init() pattern
         with self.raises(s_exc.NoSuchForm) as cm:
-            _ = await s_coro.forked(raiseNoSuchForm, 'test:newp', mesg='test:newp pickle!')
+            await s_process.forked(raiseNoSuchForm, 'test:newp', mesg='test:newp pickle!')
         self.isin('NoSuchForm', str(cm.exception))
         self.isin('test:newp pickle', str(cm.exception))
 

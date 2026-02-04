@@ -49,6 +49,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.process as s_process
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
@@ -4465,7 +4466,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'Error while bootstrapping cell config.')
             raise
 
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+        s_process.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)

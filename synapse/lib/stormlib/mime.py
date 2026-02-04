@@ -1,6 +1,6 @@
 import bs4
 
-import synapse.lib.coro as s_coro
+import synapse.lib.process as s_process
 import synapse.lib.stormtypes as s_stormtypes
 
 def htmlToText(html, separator='\n', strip=True):
@@ -42,4 +42,4 @@ class LibMimeHtml(s_stormtypes.Lib):
         if separator is None:
             separator = ''
 
-        return await s_coro.semafork(htmlToText, html, separator, strip)
+        return await s_process.semafork(htmlToText, html, separator, strip)
