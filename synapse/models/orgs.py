@@ -166,8 +166,7 @@ modeldefs = (
                 ),
                 'doc': 'A meeting.'}),
 
-            ('ou:presentation', ('meta:activity', {}), {
-                'prevnames': ('ou:preso',),
+            ('ou:preso', ('meta:activity', {}), {
                 'template': {'title': 'presentation'},
                 'interfaces': (
                     ('meta:promoted', {}),

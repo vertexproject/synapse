@@ -973,9 +973,29 @@ class Model:
                 ctors[name] = (name, ctor, opts, info)
 
         # load all the types in order...
+        typetodo = {}
         for _, mdef in mods:
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+            for typename, basetype, typeopts in mdef.get('types', ()):
+                typetodo[typename] = (basetype, typeopts)
+
+        def _addType(typename, basetype, typeinfo):
+
+            if self.types.get(typename) is not None:
+                return
+
+            # see if we can resolve our base type if it's not loaded yet
+            if self.types.get(basetype[0]) is None:
+                todo = typetodo.get(basetype[0])
+                if todo is None:
+                    mesg = 'No such base type {basetype[0] for type {typename}.'
+                    raise s_exc.NoSuchType(mesg=mesg)
+
+                _addType(basetype[0], todo[0], todo[1])
+
+            self.addType(typename, basetype[0], basetype[1], typeinfo, skipinit=True)
+
+        for (typename, (basetype, typeinfo)) in typetodo.items():
+            _addType(typename, basetype, typeinfo)
 
         # finish initializing types
         for name, tobj in self.types.items():
@@ -1061,6 +1081,7 @@ class Model:
 
     def addEdge(self, edgetype, edgeinfo):
 
+        print(edgetype)
         n1form, verb, n2form = edgetype
 
         if not isinstance(verb, str):
@@ -1130,7 +1151,8 @@ class Model:
 
         base = self.types.get(basename)
         if base is None:
-            raise s_exc.NoSuchType(name=basename)
+            mesg = f'No such base type: {basename} for type {typename}.'
+            raise s_exc.NoSuchType(mesg=mesg, name=basename)
 
         newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
@@ -1178,6 +1200,7 @@ class Model:
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
+        print(f'{formname} {forminfo}')
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
@@ -1369,7 +1392,8 @@ class Model:
         self.ifaces[name] = info
 
         # FIXME polyprops
-        self.addType(name, 'ndef', {'interface': name}, {'doc': 'FIXME POLYPROP PLACE HOLDER'})
+        if self.types.get(name) is None:
+            self.addType(name, 'ndef', {'interface': name}, {'doc': 'FIXME POLYPROP PLACE HOLDER'})
 
     def reqTypeNotInUse(self, typename):
         if self.propsbytype.get(typename):

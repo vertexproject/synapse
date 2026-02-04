@@ -154,10 +154,11 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of compromise statuses.'}),
 
-            ('risk:compromise', ('guid', {}), {
+            ('risk:compromise', ('meta:activity', {}), {
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('risk:victimized', {}),
                 ),
                 'display': {
                     'columns': (
@@ -298,6 +299,10 @@ modeldefs = (
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+            #('risk:demanded', ('entity:event', {}), {
+            #('risk:threatened'
+            #('risk:theft
+
             ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -318,10 +323,11 @@ modeldefs = (
                 'props': (),
                 'doc': 'An outage type taxonomy.'}),
 
-            ('risk:outage', ('entity:affected', {}), {
+            ('risk:outage', ('meta:activity', {}), {
                 'template': {'title': 'outage'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    #('entity:affected', {}),
                 ),
                 'display': {
                     'columns': (
@@ -355,6 +361,11 @@ modeldefs = (
         ),
         'interfaces': (
 
+            ('risk:victimized', {
+                'interfaces': (
+                    ('entity:affected', {}),
+                ),
+            }),
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.',
             }),
