@@ -3,6 +3,7 @@ import pprint
 import signal
 import asyncio
 import logging
+import datetime
 import threading
 import faulthandler
 
@@ -12,12 +13,19 @@ _glob_loop = None
 _glob_thrd = None
 
 
+def _get_ts(dt=None):
+    if dt is None:
+        datetime.datetime.now(datetime.timezone.utc)
+    millis = dt.microsecond / 1000
+    return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+
 def _asynciostacks(*args, **kwargs):  # pragma: no cover
     '''
     A signal handler used to print asyncio task stacks and thread stacks.
     '''
+    ts = _get_ts()
     print(80 * '*')
-    print('Asyncio task stacks:')
+    print(f'Asyncio task stacks @ {ts}:')
     tasks = asyncio.all_tasks(_glob_loop)
     for task in tasks:
         task.print_stack()
@@ -29,7 +37,7 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
             print(f'Task is a syntask with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
             print(pprint.pformat(st.info))
     print(80 * '*')
-    print('Faulthandler stack frames per thread:')
+    print(f'Faulthandler stack frames per thread @ {ts}:')
     faulthandler.dump_traceback()
     print(80 * '*')
 
@@ -37,8 +45,9 @@ def _threadstacks(*args, **kwargs):  # pragma: no cover
     '''
     A signal handler used to print thread stacks.
     '''
+    ts = _get_ts()
     print(80 * '*')
-    print('Faulthandler stack frames per thread:')
+    print(f'Faulthandler stack frames per thread @ {ts}:')
     faulthandler.dump_traceback()
     print(80 * '*')
 
