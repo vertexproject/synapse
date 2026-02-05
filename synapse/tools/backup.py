@@ -1,3 +1,4 @@
+# pragma: no cover
 import synapse.common as s_common
 
 import synapse.lib.cmd as s_cmd
