@@ -31,9 +31,9 @@ import time
 import random
 import socket
 import datetime
-import urllib.parse
+import urllib.parse  # noqa: F401
 
-from synapse.vendor.cpython.lib.email._parseaddr import quote
+from synapse.vendor.cpython.lib.email._parseaddr import quote  # noqa: F401
 from synapse.vendor.cpython.lib.email._parseaddr import AddressList as _AddressList
 from synapse.vendor.cpython.lib.email._parseaddr import mktime_tz
 

@@ -2,7 +2,6 @@ import os
 import http
 import asyncio
 import logging
-import subprocess
 
 import yaml
 import aiohttp

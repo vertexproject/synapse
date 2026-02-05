@@ -27,7 +27,7 @@ from typing import Optional
 import base58
 from hashlib import blake2b
 
-from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
+from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration  # noqa: F401
 
 
 def ss58_decode(address: str, valid_ss58_format: Optional[int] = None, valid_address_type=None) -> str:

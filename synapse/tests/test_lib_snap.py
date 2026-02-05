@@ -365,7 +365,6 @@ class SnapTest(s_t_utils.SynTest):
 
         # Type hinting since we dont do the type hinting
         # properly in the Cortex anymore... :(
-        import synapse.lib.snap as s_snap
 
         async with self.getTestCore() as core:
             async with await core.snap() as snap0:  # type: s_snap.Snap
