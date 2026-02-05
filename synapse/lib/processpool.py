@@ -14,7 +14,6 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.logging as s_logging
 import synapse.lib.process as s_process
 

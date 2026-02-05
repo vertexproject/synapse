@@ -932,7 +932,7 @@ class ModelRev:
                     oldm = e.errinfo.get('mesg')
                     iden = s_common.ehex(buid)
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                                   extra=self.core.getLogExtra(node=iden, layer=layr.iden))
                     continue
 
                 if norm == propvalu:
@@ -1001,7 +1001,7 @@ class ModelRev:
                         oldm = e.errinfo.get('mesg')
                         iden = s_common.ehex(buid)
                         logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                                       extra=self.core.getLogExtra(node=iden, layer=layr.iden))
                         continue
 
                     nodeedits.append(
