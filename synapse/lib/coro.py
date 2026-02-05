@@ -1,21 +1,14 @@
 '''
 Async/Coroutine related utilities.
 '''
-import os
-import math
-import queue
-import atexit
 import asyncio
 import inspect
 import logging
 import functools
 import contextlib
-import multiprocessing
-import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
