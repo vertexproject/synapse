@@ -440,6 +440,18 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000, nodes[0].get('valid_from'))
             self.eq(1723680000000, nodes[0].get('valid_until'))
 
+            nodes = await core.nodes('''
+                [ it:dev:function:sample=*
+                    :function={[ it:dev:function=* :id=VISI-10 :name=foobar :desc=Woot ]}
+                    :file=*
+                    :file:offs=10
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('function'))
+            self.eq(nodes[0].get('file:offs'), 10)
+            self.len(1, await core.nodes('it:dev:function:sample -> it:dev:function +:name=foobar'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:

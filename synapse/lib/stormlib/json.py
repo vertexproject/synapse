@@ -4,10 +4,10 @@ import logging
 
 import synapse.exc as s_exc
 
-import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class JsonSchema(s_stormtypes.StormType):
         item = await s_stormtypes.toprim(item)
 
         try:
-            result = await s_coro.semafork(runJsSchema, self.schema, item, use_default=self.use_default)
+            result = await s_processpool.semafork(runJsSchema, self.schema, item, use_default=self.use_default)
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -138,7 +138,7 @@ class JsonLib(s_stormtypes.Lib):
         use_default = await s_stormtypes.tobool(use_default)
         # We have to ensure that we have a valid schema for making the object.
         try:
-            await s_coro.semafork(compileJsSchema, schema, use_default=use_default)
+            await s_processpool.semafork(compileJsSchema, schema, use_default=use_default)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
