@@ -17,7 +17,7 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
     A signal handler used to print asyncio task stacks and thread stacks.
     '''
     print(80 * '*')
-    print('Asyncio tasks stacks:')
+    print('Asyncio task stacks:')
     tasks = asyncio.all_tasks(_glob_loop)
     for task in tasks:
         task.print_stack()
@@ -26,8 +26,8 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
             root = None
             if st.root is not None:
                 root = st.root.iden
-            print(f'Task is a syn task with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
-            pprint.pprint(st.info)
+            print(f'Task is a syntask with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
+            print(pprint.pformat(st.info))
     print(80 * '*')
     print('Faulthandler stack frames per thread:')
     faulthandler.dump_traceback()
