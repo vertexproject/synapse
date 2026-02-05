@@ -363,8 +363,6 @@ class SnapTest(s_t_utils.SynTest):
 
     async def test_clearcache(self):
 
-        # Type hinting since we dont do the type hinting
-        # properly in the Cortex anymore... :(
 
         async with self.getTestCore() as core:
             async with await core.snap() as snap0:
