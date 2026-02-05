@@ -367,7 +367,7 @@ class SnapTest(s_t_utils.SynTest):
         # properly in the Cortex anymore... :(
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap0:  # type: s_snap.Snap
+            async with await core.snap() as snap0:
 
                 original_node0 = await snap0.addNode('test:str', 'node0')
                 self.len(1, snap0.buidcache)
