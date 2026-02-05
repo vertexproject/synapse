@@ -97,7 +97,7 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
-                    self.false((await core00.getCellInfo())['cell']['uplink'])
+                    self.false((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
                     self.none((await core00.getCellInfo())['cell']['mirror'])
 
                     # provision with the new hostname and mirror config
@@ -119,8 +119,8 @@ class CortexTest(s_t_utils.SynTest):
                         self.false(core01.isactive)
 
                         self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
-                        self.false((await core00.getCellInfo())['cell']['uplink'])
-                        self.true((await core01.getCellInfo())['cell']['uplink'])
+                        self.false((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
+                        self.true((await core01.getCellInfo())['cell']['nexus']['uplink:ready'])
                         self.none((await core00.getCellInfo())['cell']['mirror'])
                         self.eq((await core01.getCellInfo())['cell']['mirror'], 'aha://root@00.cortex...')
 
@@ -133,8 +133,8 @@ class CortexTest(s_t_utils.SynTest):
                         self.false(core00.isactive)
 
                         self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
-                        self.true((await core00.getCellInfo())['cell']['uplink'])
-                        self.false((await core01.getCellInfo())['cell']['uplink'])
+                        self.true((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
+                        self.false((await core01.getCellInfo())['cell']['nexus']['uplink:ready'])
                         # Note: The following mirror may change when SYN-7659 is addressed and greater
                         # control over the topology update is available during the promotion process.
                         self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://root@cortex...')
@@ -171,9 +171,9 @@ class CortexTest(s_t_utils.SynTest):
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
                             self.true(await s_coro.event_wait(core02.nexsroot.miruplink, timeout=2))
-                            self.true((await core00.getCellInfo())['cell']['uplink'])
-                            self.false((await core01.getCellInfo())['cell']['uplink'])
-                            self.true((await core02.getCellInfo())['cell']['uplink'])
+                            self.true((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
+                            self.false((await core01.getCellInfo())['cell']['nexus']['uplink:ready'])
+                            self.true((await core02.getCellInfo())['cell']['nexus']['uplink:ready'])
 
     async def test_cortex_usernotifs(self):
 
@@ -7510,7 +7510,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                 vault['scope'] = None
                 vault['owner'] = visi1.iden
                 await core.addVault(vault)
-            self.eq('Vault global1 already exists.', exc.exception.get('mesg'))
+            self.eq('A config already exists with the name global1.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.DupName) as exc:
+                # name collision
+                vault = s_msgpack.deepcopy(gvault)
+                vault['scope'] = 'global'
+                vault['owner'] = visi1.iden
+                vault['type'] = 'vtest2'
+                await core.addVault(vault)
+            self.eq('A global config already exists with the name global1.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Non-existent vault name

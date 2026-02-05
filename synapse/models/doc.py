@@ -153,6 +153,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
+            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
+                'doc': 'A node which implements the document interface.'}),
+
+            ('doc:reference', ('guid', {}), {
+                'doc': 'A reference included in a source.'}),
+
         ),
         'edges': (
             (('doc:contract', 'has', 'doc:requirement'), {
@@ -180,7 +186,7 @@ modeldefs = (
                 ('optional', ('bool', {}), {
                     'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of the requirement as defined by the standard.'}),
 
                 ('standard', ('doc:standard', {}), {
@@ -252,6 +258,22 @@ modeldefs = (
 
                 ('terminated', ('time', {}), {
                     'doc': 'The date that the contract was terminated.'}),
+            )),
+
+            ('doc:reference', {}, (
+
+                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software',
+                                                 'entity:campaign', 'meta:technique', 'plan:phase')}), {
+                    'doc': 'The source which contains the reference.'}),
+
+                ('text', ('str', {}), {
+                    'doc': 'A reference string included in the source.'}),
+
+                ('doc', ('doc:document', {}), {
+                    'doc': 'The document which the reference refers to.'}),
+
+                ('doc:url', ('inet:url', {}), {
+                    'doc': 'A URL for the reference.'}),
             )),
         ),
     }),

@@ -41,6 +41,9 @@ modeldefs = (
             ('entity:contactable', {
 
                 'template': {'title': 'entity'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -119,9 +122,6 @@ modeldefs = (
                 'doc': 'An interface for forms which contain contact info.'}),
 
             ('entity:actor', {
-                'interfaces': (
-                    ('geo:locatable', {}),
-                ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:singular', {
@@ -145,8 +145,6 @@ modeldefs = (
                 'doc': 'Properties which apply to entities which may represent a person.'}),
 
             ('entity:multiple', {
-                'props': (
-                ),
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
             ('entity:abstract', {
@@ -474,7 +472,8 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                # TODO: should we create risk:campaign and define this there
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {

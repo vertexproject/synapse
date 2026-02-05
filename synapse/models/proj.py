@@ -40,7 +40,7 @@ modeldefs = (
                     ('sprint', ('proj:sprint', {}), {
                         'doc': 'The sprint that contains the {task}.'}),
 
-                    ('priority', ('meta:priority', {}), {
+                    ('priority', ('meta:score', {}), {
                         'doc': 'The priority of the {task}.'}),
 
                     ('created', ('time', {}), {
@@ -55,17 +55,11 @@ modeldefs = (
                     ('completed', ('time', {}), {
                         'doc': 'The time the {task} was completed.'}),
 
-                    ('creator', ('syn:user', {}), {
-                        'doc': 'The user which created the {task}.'}),
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The actor who created the {task}.'}),
 
-                    ('assignee', ('syn:user', {}), {
-                        'doc': 'The user assigned to complete the {task}.'}),
-
-                    ('ext:creator', ('entity:contact', {}), {
-                        'doc': 'The contact information of the creator from an external system.'}),
-
-                    ('ext:assignee', ('entity:contact', {}), {
-                        'doc': 'The contact information of the assignee from an external system.'}),
+                    ('assignee', ('entity:actor', {}), {
+                        'doc': 'The actor who is assigned to complete the {task}.'}),
                 ),
             }),
         ),
@@ -103,9 +97,6 @@ modeldefs = (
 
         'edges': (
 
-            (('meta:note', 'about', 'proj:task'), {
-                'doc': 'The note is a comment about the task.'}),
-
             (('proj:doable', 'has', 'file:attachment'), {
                 'doc': 'The task includes the file attachment.'}),
         ),
@@ -124,11 +115,14 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'The project description.'}),
 
-                ('creator', ('syn:user', {}), {
-                    'doc': 'The synapse user who created the project.'}),
+                ('creator', ('entity:actor', {}), {
+                    'doc': 'The actor who created the project.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The time the project was created.'}),
+
+                ('platform', ('inet:service:platform', {}), {
+                    'doc': 'The platform where the project is hosted.'}),
             )),
 
             ('proj:sprint', {}, (
@@ -142,8 +136,8 @@ modeldefs = (
                 ('project', ('proj:project', {}), {
                     'doc': 'The project containing the sprint.'}),
 
-                ('creator', ('syn:user', {}), {
-                    'doc': 'The synapse user who created the sprint.'}),
+                ('creator', ('entity:actor', {}), {
+                    'doc': 'The actor who created the sprint.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The date the sprint was created.'}),

@@ -748,3 +748,40 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
             self.len(1, await core.nodes('file:attachment -> file:path'))
+
+    async def test_model_file_mime_pdf(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ file:mime:pdf=*
+                    :id=Foo-10
+                    :file=*
+                    :title="Synapse Sizing Guide"
+                    :subject="How to size a Synapse deployment."
+                    :author:name=Vertex
+                    :created=20260115
+                    :updated=20260115
+                    :language:name=Klingon
+                    :tool:name="Google Docs Renderer"
+                    :producer:name="Zip Zop Software"
+                    :keywords=(foo, bar)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'Foo-10')
+            self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
+            self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
+            self.eq(nodes[0].get('keywords'), ('bar', 'foo'))
+            self.eq(nodes[0].get('tool:name'), 'google docs renderer')
+            self.eq(nodes[0].get('author:name'), 'vertex')
+            self.eq(nodes[0].get('language:name'), 'klingon')
+            self.eq(nodes[0].get('producer:name'), 'zip zop software')
+            self.eq(nodes[0].get('created'), 1768435200000000)
+            self.eq(nodes[0].get('updated'), 1768435200000000)
+            self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
+            self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
+            self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))
+            self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:softwarename'))
+            self.len(1, await core.nodes('file:mime:pdf :producer:name -> it:softwarename'))
+            self.len(2, await core.nodes('file:mime:pdf :keywords -> meta:topic'))

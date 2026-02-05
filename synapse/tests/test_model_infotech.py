@@ -221,12 +221,25 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :seen=20251113
                 ]
             ''')
+
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
             self.eq(nodes[0].get('url'), 'https://vertex.link')
             self.eq(nodes[0].get('seen'), (1762992000000000, 1762992000000001, 1))
             self.len(1, await core.nodes('it:host:hosted:url -> it:host'))
             self.len(1, await core.nodes('it:host:hosted:url -> inet:url'))
+
+            nodes = await core.nodes('''
+                [ it:dev:function:sample=*
+                    :function={[ it:dev:function=* :id=VISI-10 :name=foobar :desc=Woot ]}
+                    :file=*
+                    :file:offs=10
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('function'))
+            self.eq(nodes[0].get('file:offs'), 10)
+            self.len(1, await core.nodes('it:dev:function:sample -> it:dev:function +:name=foobar'))
 
     async def test_infotech_android(self):
 
@@ -536,6 +549,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/products/balloonmaker
                     :version=V1.0.1-beta+exp.sha.5114f85
                     :released="2018-04-03 08:44:22"
+                    :risk:score=highest
                     +(runson)> {[ it:software=({"name": "linux"}) ]}
                     +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
             ]''')
@@ -547,6 +561,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'), 'https://vertex.link/products/balloonmaker')
             self.eq(node.get('released'), 1522745062000000)
             self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
+            self.eq(node.get('risk:score'), 50)
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
             self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
@@ -1499,10 +1514,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
                     :offset=99
-                    :synuser=$root
-                    // we can assume the rest of the interface props work
-                    :service:platform = *
-                    :service:account = *
+                    :account={[ syn:user=root ]}
+                    :platform = *
                 ]
             ''', opts=opts)
             self.eq(1658275200000000, nodes[0].get('time'))
@@ -1510,11 +1523,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
-            self.eq(core.auth.rootuser.iden, nodes[0].get('synuser'))
+            self.eq(nodes[0].get('account'), ('syn:user', core.auth.rootuser.iden))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
 
-            self.len(1, await core.nodes('it:exec:query :service:account -> inet:service:account'))
-            self.len(1, await core.nodes('it:exec:query :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('it:exec:query :account -> syn:user'))
+            self.len(1, await core.nodes('it:exec:query :platform -> inet:service:platform'))
 
     async def test_infotech_softid(self):
 

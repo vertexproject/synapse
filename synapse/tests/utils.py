@@ -2048,6 +2048,15 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             with mock.patch('synapse.lib.certdir.certdir', certdir):
                 yield certdir
 
+    def propeq(self, n, prop, valu, form=None, repr=False, msg=None):
+        '''
+        Assert a node property is equal to valu.
+        '''
+        # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
+        # TOOD: If polyprop and valu is None assert that prop is not set
+        pval = n.repr(prop) if repr else n.get(prop)
+        self.eq(pval, valu, msg=msg)
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y

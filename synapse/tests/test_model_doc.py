@@ -135,3 +135,29 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
             self.len(1, nodes)
             self.eq(('bar', 'foo'), nodes[0].get('topics'))
+
+            nodes = await core.nodes('''[
+                doc:reference=*
+                    :source={[ doc:report=* :title="an article about mars" ]}
+                    :text="(Lee, 2020, para. 15)"
+                    :doc={[ doc:report=* :title="nasa mars report" :author={[ ps:person=* :name="bruce lee" ]} ]}
+                    :doc:url=https://nasa.gov/2020-mars
+                    +#test00
+            ]''')
+            self.len(1, nodes)
+            self.eq('(Lee, 2020, para. 15)', nodes[0].get('text'))
+            self.eq('https://nasa.gov/2020-mars', nodes[0].get('doc:url'))
+            self.len(1, await core.nodes('doc:reference#test00 :source -> doc:report'))
+            self.len(1, await core.nodes('doc:reference#test00 :doc -> doc:report'))
+
+            nodes = await core.nodes('''[
+                doc:reference=*
+                    :source={[ risk:vuln=* :cve=cve-2025-12345 ]}
+                    :text="an exploit example"
+                    :doc:url=https://github.com/foo/bar/exploit.py
+                    +#test01
+            ]''')
+            self.len(1, nodes)
+            self.eq('an exploit example', nodes[0].get('text'))
+            self.eq('https://github.com/foo/bar/exploit.py', nodes[0].get('doc:url'))
+            self.len(1, await core.nodes('doc:reference#test01 :source -> risk:vuln'))

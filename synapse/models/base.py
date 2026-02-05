@@ -1,12 +1,4 @@
-sophenums = (
-    (10, 'very low'),
-    (20, 'low'),
-    (30, 'medium'),
-    (40, 'high'),
-    (50, 'very high'),
-)
-
-prioenums = (
+scoreenums = (
     (0, 'none'),
     (10, 'lowest'),
     (20, 'low'),
@@ -119,17 +111,8 @@ modeldefs = (
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
-            ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                'doc': 'A generic activity level enumeration.'}),
-
-            ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                'doc': 'A generic priority enumeration.'}),
-
-            ('meta:severity', ('int', {'enums': prioenums, 'enums:strict': False}), {
-                'doc': 'A generic severity enumeration.'}),
-
-            ('meta:sophistication', ('int', {'enums': sophenums}), {
-                'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
+            ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
+                'doc': 'A generic score enumeration.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -232,20 +215,23 @@ modeldefs = (
 
                     ('id', ('meta:id', {}), {
                         'alts': ('ids',),
-                        'doc': 'A unique ID given to the {title} by the source.'}),
+                        'doc': 'A unique ID given to the {title}.'}),
 
                     ('ids', ('array', {'type': 'meta:id'}), {
-                        'doc': 'An array of alternate IDs given to the {title} by the source.'}),
+                        'doc': 'An array of alternate IDs given to the {title}.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL for the {title}.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {title} according to the source.'}),
+                        'doc': 'The primary name of the {title}.'}),
 
                     ('names', ('array', {'type': 'meta:name'}), {
-                        'doc': 'A list of alternate names for the {title} according to the source.'}),
+                        'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}, according to the source.'}),
+                        'doc': 'A description of the {title}.'}),
 
                     ('resolved', ('{$self}', {}), {
                         'doc': 'The authoritative {title} which this reporting is about.'}),
@@ -256,17 +242,14 @@ modeldefs = (
                     ('reporter:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which reported on the {title}.'}),
 
-                    ('reporter:created', ('time', {}), {
-                        'doc': 'The time when the reporter first created the {title}.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time when the {title} was created.'}),
 
-                    ('reporter:updated', ('time', {}), {
-                        'doc': 'The time when the reporter last updated the {title}.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time when the {title} was last updated.'}),
 
-                    ('reporter:published', ('time', {}), {
+                    ('published', ('time', {}), {
                         'doc': 'The time when the reporter published the {title}.'}),
-
-                    ('reporter:url', ('inet:url', {}), {
-                        'doc': 'The reporter URL for the {title}.'}),
 
                     ('superseded', ('time', {}), {
                         'doc': 'The time when the {title} was superseded.'}),
@@ -367,6 +350,12 @@ modeldefs = (
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
+            (('meta:rule', 'generated', 'risk:alert'), {
+                'doc': 'The meta:rule generated the risk:alert node.'}),
+
+            (('meta:rule', 'generated', 'it:log:event'), {
+                'doc': 'The meta:rule generated the it:log:event node.'}),
+
             (('meta:usable', 'uses', 'meta:usable'), {
                 'doc': 'The source node uses the target node.'}),
 
@@ -453,11 +442,8 @@ modeldefs = (
                     'display': {'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact information of the author.'}),
-
-                ('creator', ('syn:user', {}), {
-                    'doc': 'The synapse user who authored the note.'}),
+                ('creator', ('entity:actor', {}), {
+                    'doc': 'The actor who authored the note.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The time the note was created.'}),
@@ -551,7 +537,7 @@ modeldefs = (
                 ('type', ('meta:technique:type:taxonomy', {}), {
                     'doc': 'The taxonomy classification of the technique.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the technique.'}),
 
                 ('tag', ('syn:tag', {}), {
