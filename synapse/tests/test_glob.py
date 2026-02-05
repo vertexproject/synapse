@@ -35,11 +35,14 @@ class GlobTest(s_t_utils.SynTest):
             q = 'while (true) { $lib.time.sleep(60) }'
             event = asyncio.Event()
 
-            async def coro():
-                async for _ in core.storm(q):
+            async def coro(info):
+                async for mesg in core.storm(q):
+                    if mesg[0] == 'init':
+                        info |= mesg[1]
                     event.set()
 
-            fut = core.schedCoro(coro())
+            init_mesg = {}
+            fut = core.schedCoro(coro(init_mesg))
 
             self.true(await asyncio.wait_for(event.wait(), timeout=12))
 
@@ -52,4 +55,6 @@ class GlobTest(s_t_utils.SynTest):
         self.isin('Asyncio task stacks', text)
         self.isin('Task is a syntask with the following information', text)
         self.isin(q, text)
+        self.isin('root=None', text)
+        self.isin(f'root={init_mesg.get("task", "newp")}', text)
         self.isin('Faulthandler stack frames per thread', text)
