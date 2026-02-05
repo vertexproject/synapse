@@ -1,5 +1,4 @@
 import string
-import asyncio
 import logging
 import pathlib
 import functools
@@ -14,9 +13,7 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
-import synapse.lib.coro as s_coro
-import synapse.lib.link as s_link
-import synapse.lib.msgpack as s_msgpack
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.coin as s_coin
 
@@ -575,7 +572,7 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     Yields:
         dict: A dictionary of match results.
     '''
-    matches = await s_coro.semafork(_genMatchList, text, regx, opts)
+    matches = await s_processpool.semafork(_genMatchList, text, regx, opts)
     for info in matches:
         yield info
 
@@ -687,7 +684,7 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
     Returns:
         (dict): Yield info dicts of results.
     '''
-    matches = await s_coro.semafork(_contextScrapeList, text, form=form, refang=refang, first=first)
+    matches = await s_processpool.semafork(_contextScrapeList, text, form=form, refang=refang, first=first)
     for info in matches:
         yield info
 
@@ -704,6 +701,6 @@ async def scrapeAsync(text, ptype=None, refang=True, first=False):
     Returns:
         (str, object): Yield tuples of node ndef values.
     '''
-    matches = await s_coro.semafork(_contextScrapeList, text, form=ptype, refang=refang, first=first)
+    matches = await s_processpool.semafork(_contextScrapeList, text, form=ptype, refang=refang, first=first)
     for info in matches:
         yield info.get('form'), info.get('valu')

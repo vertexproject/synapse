@@ -56,6 +56,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
 

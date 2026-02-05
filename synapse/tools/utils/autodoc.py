@@ -43,6 +43,7 @@ info_ignores = (
     'template',
     'display',
     'deprecated',
+    'props',
 )
 
 raw_back_slash_colon = r'\:'
