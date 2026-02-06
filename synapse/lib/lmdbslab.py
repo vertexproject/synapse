@@ -1603,7 +1603,7 @@ class Slab(s_base.Base):
                 fullpref = first[0][:preflen]
 
                 for item in genr:
-                    if (fval[0][preflen:size] != byts) or not item[0].startswith(fullpref):
+                    if (item[0][preflen:size] != byts) or not item[0].startswith(fullpref):
                         return
                     yield item
 
@@ -1676,7 +1676,7 @@ class Slab(s_base.Base):
                 fullpref = first[0][:preflen]
 
                 for item in genr:
-                    if (lmax is not None and fval[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
+                    if (lmax is not None and item[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
                         return
                     yield item
 

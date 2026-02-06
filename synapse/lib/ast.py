@@ -3851,10 +3851,6 @@ class AbsPropCond(Cond):
             if (val1 := node.get(prop.name)) is None:
                 return False
 
-            # TODO also check form if valid?
-            if prop.type.ispoly:
-                val1 = val1[1]
-
             val2 = await self.kids[2].compute(runt, path)
             return await (await ctor(val2))(val1)
 

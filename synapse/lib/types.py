@@ -2278,6 +2278,7 @@ class PolyProp(Type):
                     pass
 
             async def cmprfunc(val2):
+                val2 = val2[1]
                 for cmpr in cmprs.values():
                     if await cmpr(val2):
                         return True
