@@ -10,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
+import synapse.lib.process as s_process
 
 import synapse.tests.utils as s_t_utils
 
@@ -44,6 +45,14 @@ class Hehe(s_base.Base):
         self.posted = True
         if self.foo == -1:
             raise s_exc.BadArg(mesg='boom')
+
+class Haha(s_base.Base, s_process.ProcessMixin):
+
+    async def __anit__(self):
+        await s_base.Base.__anit__(self)
+
+    async def fini(self):
+        await s_base.Base.fini(self)
 
 class BaseTest(s_t_utils.SynTest):
 
@@ -581,3 +590,29 @@ class BaseTest(s_t_utils.SynTest):
 
         # The scope data set in the task is not present outside of it.
         self.none(s_scope.get('hehe'))
+
+    async def test_base_spawner_fini(self):
+
+        # Test proxy fini, base should fini
+        base = await s_base.Base.anit()
+        spawner = Haha.spawner(base=base)
+        proxy = await spawner()
+
+        self.false(proxy.isfini)
+        self.false(base.isfini)
+
+        await proxy.fini()
+        self.true(proxy.isfini)
+        self.true(base.isfini)
+
+        # Test base fini, proxy should fini
+        base = await s_base.Base.anit()
+        spawner = Haha.spawner(base=base)
+        proxy = await spawner()
+
+        self.false(proxy.isfini)
+        self.false(base.isfini)
+
+        await base.fini()
+        self.true(base.isfini)
+        self.true(proxy.isfini)
