@@ -719,6 +719,77 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
+            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Group ID.',
+                'ex': 'G0100',
+            }),
+
+            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Tactic ID.',
+                'ex': 'TA0040',
+            }),
+
+            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+                'doc': 'A MITRE ATT&CK Technique ID.',
+                'ex': 'T1548',
+            }),
+
+            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Mitigation ID.',
+                'ex': 'M1036',
+            }),
+
+            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Software ID.',
+                'ex': 'S0154',
+            }),
+
+            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+                'doc': 'A MITRE ATT&CK Campaign ID.',
+                'ex': 'C0028',
+            }),
+
+            ('it:dev:function', ('guid', {}), {
+                'props': (
+                    ('id', ('meta:id', {}), {
+                        'doc': 'An identifier for the function.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The name of the function.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the function.'}),
+
+                    ('impcalls', ('array', {'type': 'it:dev:str', 'typeopts': {'lower': True}}), {
+                        'doc': 'Calls to imported library functions within the scope of the function.'}),
+
+                    ('strings', ('array', {'type': 'it:dev:str'}), {
+                        'doc': 'An array of strings referenced within the function.'}),
+                ),
+                'doc': 'A function defined by code.'}),
+
+            ('it:dev:function:sample', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {'template': {'metadata': 'function'}}),
+                ),
+                'props': (
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file which contains the function.'}),
+
+                    ('function', ('it:dev:function', {}), {
+                        'doc': 'The function contained within the file.'}),
+
+                    ('va', ('int', {}), {
+                        'doc': 'The virtual address of the first codeblock of the function.'}),
+
+                    ('complexity', ('meta:score', {}), {
+                        'doc': 'The complexity of the function.'}),
+
+                    ('calls', ('array', {'type': 'it:dev:function:sample'}), {
+                        'doc': 'Other function calls within the scope of the function.'}),
+                ),
+                'doc': 'An instance of a function in an executable.'}),
+
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'string'}}),
@@ -729,11 +800,17 @@ modeldefs = (
                 'doc': 'A developer selected integer constant.'}),
 
             ('it:os:windows:registry:key', ('str', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registry key'}}),
+                ),
                 'prevnames': ('it:dev:regkey',),
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
                 'doc': 'A Windows registry key.'}),
 
             ('it:os:windows:registry:entry', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registry entry'}}),
+                ),
                 'prevnames': ('it:dev:regval',),
                 'doc': 'A Windows registry key, name, and value.'}),
 
@@ -805,12 +882,13 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
-                'prevnames': ('it:prod:soft', 'it:prod:softver'),
+                'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
-                'doc': 'A software product.'}),
+                'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
                 'prevnames': ('it:prod:softname',),
@@ -963,10 +1041,6 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
 
-             ('it:host:filepath', ('guid', {}), {
-                'prevnames': ('it:fs:file',),
-                 'doc': 'A file on a host.'}),
-
             ('it:exec:file:add', ('guid', {}), {
                 'interfaces': (
                     ('it:host:activity', {}),
@@ -1055,15 +1129,6 @@ modeldefs = (
 
             ('it:app:snort:target', ('ndef', {'forms': ('inet:flow',)}), {
                 'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
-
-            ('it:dev:function', ('guid', {}), {
-                'doc': 'A function inside an executable file.'}),
-
-            ('it:dev:function:sample', ('guid', {}), {
-                'interfaces': (
-                    ('file:mime:meta', {'template': {'metadata': 'function'}}),
-                ),
-                'doc': 'An instance of a function in an executable.'}),
 
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
@@ -1156,8 +1221,8 @@ modeldefs = (
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
+            (('it:software', 'creates', 'file:exemplar:entry'), {
+                'doc': 'The software creates the file entry.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
                 'doc': 'The software creates the Microsoft Windows registry entry.'}),
@@ -1382,6 +1447,9 @@ modeldefs = (
 
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period where the account existed.'}),
 
                 ('contact', ('entity:contact', {}), {
                     'doc': 'Additional contact information associated with this account.'}),
@@ -1651,12 +1719,19 @@ modeldefs = (
                 ('mitigated', ('time', {}), {
                     'doc': 'The time that the vulnerability in the asset was mitigated.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of mitigating the vulnerability.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
+
+            ('it:mitre:attack:group:id', {}, ()),
+            ('it:mitre:attack:tactic:id', {}, ()),
+            ('it:mitre:attack:technique:id', {}, ()),
+            ('it:mitre:attack:mitigation:id', {}, ()),
+            ('it:mitre:attack:software:id', {}, ()),
+            ('it:mitre:attack:campaign:id', {}, ()),
 
             ('it:dev:int', {}, ()),
             ('it:os:windows:registry:key', {}, (
@@ -1671,7 +1746,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', ('str', {}), {
+                ('value', ('ndef', {'forms': ('file:bytes', 'it:dev:int', 'it:dev:str')}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),
@@ -1983,6 +2058,9 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
 
+                ('risk:score', ('meta:score', {}), {
+                    'doc': 'The risk posed by the software.'}),
+
             )),
 
             ('it:host:installed', {}, (
@@ -2058,8 +2136,8 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('host:account', ('it:host:account', {}), {
-                    'doc': 'The host account which executed the commands in the session.'}),
+                ('account', ('ndef', {'forms': ('it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
 
@@ -2173,14 +2251,11 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('synuser', ('syn:user', {}), {
-                    'doc': 'The synapse user who executed the query.'}),
+                ('account', ('ndef', {'forms': ('syn:user', 'it:host:account', 'inet:service:account')}), {
+                    'doc': 'The account which executed the query.'}),
 
-                ('service:platform', ('inet:service:platform', {}), {
+                ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which ran the query.'}),
             )),
             ('it:exec:thread', {}, (
 
@@ -2361,35 +2436,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:host:filepath', {}, (
 
-                ('host', ('it:host', {}), {
-                    'doc': 'The host containing the file.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path for the file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file on the host.'}),
-
-                ('created', ('time', {}), {
-                    'prevnames': ('ctime',),
-                    'doc': 'The file creation time.'}),
-
-                ('modified', ('time', {}), {
-                    'prevnames': ('mtime',),
-                    'doc': 'The file modification time.'}),
-
-                ('accessed', ('time', {}), {
-                    'prevnames': ('atime',),
-                    'doc': 'The file access time.'}),
-
-                ('user', ('it:host:account', {}), {
-                    'doc': 'The owner of the file.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group owner of the file.'}),
-            )),
             ('it:exec:file:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
@@ -2612,43 +2659,6 @@ modeldefs = (
                 ('target', ('ndef', {'forms': ('file:bytes', 'it:host:proc', 'inet:ip',
                                                'inet:fqdn', 'inet:url')}), {
                     'doc': 'The node which matched the YARA rule.'}),
-            )),
-
-            ('it:dev:function', {}, (
-
-                ('id', ('meta:id', {}), {
-                    'doc': 'An identifier for the function.'}),
-
-                ('name', ('it:dev:str', {}), {
-                    'doc': 'The name of the function.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the function.'}),
-
-                ('impcalls', ('array', {'type': 'it:dev:str',
-                        'typeopts': {'lower': True}}), {
-                    'doc': 'Calls to imported library functions within the scope of the function.'}),
-
-                ('strings', ('array', {'type': 'it:dev:str'}), {
-                    'doc': 'An array of strings referenced within the function.'}),
-            )),
-
-            ('it:dev:function:sample', {}, (
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file which contains the function.'}),
-
-                ('function', ('it:dev:function', {}), {
-                    'doc': 'The function contained within the file.'}),
-
-                ('va', ('int', {}), {
-                    'doc': 'The virtual address of the first codeblock of the function.'}),
-
-                ('complexity', ('meta:priority', {}), {
-                    'doc': 'The complexity of the function.'}),
-
-                ('calls', ('array', {'type': 'it:dev:function:sample'}), {
-                    'doc': 'Other function calls within the scope of the function.'}),
             )),
 
             ('it:sec:c2:config', {}, (

@@ -50,6 +50,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('risk:targetable', {}),
                     ('risk:mitigatable', {}),
+                    ('meta:discoverable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -81,6 +82,7 @@ modeldefs = (
                 'template': {'title': 'threat'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:discoverable', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
                     ('entity:contactable', {}),
@@ -404,10 +406,10 @@ modeldefs = (
                 ('active', ('ival', {}), {
                     'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
-                ('activity', ('meta:activity', {}), {
+                ('activity', ('meta:score', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
 
             )),
@@ -438,7 +440,7 @@ modeldefs = (
                 ('availability', ('risk:availability', {}), {
                     'doc': "The source's assessed availability of the tool."}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': "The source's assessed sophistication of the tool."}),
 
                 ('software', ('it:software', {}), {
@@ -457,10 +459,10 @@ modeldefs = (
                 ('type', ('risk:vuln:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the vulnerability.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'The severity of the vulnerability.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of the vulnerability.'}),
 
                 ('mitigated', ('bool', {}), {
@@ -468,10 +470,6 @@ modeldefs = (
 
                 ('exploited', ('bool', {}), {
                     'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
-
-                ('discovered', ('time', {}), {
-                    'prevnames': ('timeline:discovered',),
-                    'doc': 'The earliest known discovery time for the vulnerability.'}),
 
                 ('published', ('time', {}), {
                     'prevnames': ('timeline:published',),
@@ -591,21 +589,18 @@ modeldefs = (
                 ('benign', ('bool', {}), {
                     'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'A priority rank for the alert.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the alert.'}),
 
                 ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                     'ex': 'benign.false_positive',
                     'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
-                ('assignee', ('syn:user', {}), {
-                    'doc': 'The Synapse user who is assigned to investigate the alert.'}),
-
-                ('ext:assignee', ('entity:contact', {}), {
-                    'doc': 'The alert assignee contact information from an external system.'}),
+                ('assignee', ('entity:actor', {}), {
+                    'doc': 'The actor who is assigned to investigate the alert.'}),
 
                 ('engine', ('it:software', {}), {
                     'doc': 'The software that generated the alert.'}),
@@ -687,8 +682,11 @@ modeldefs = (
                 ('econ:currency', ('econ:currency', {}), {
                     'doc': 'The currency type for the econ:price fields.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the compromise.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'A tag used to associate nodes with the compromise.'}),
             )),
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
@@ -715,10 +713,10 @@ modeldefs = (
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'A compromise that this attack contributed to.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the attack.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the attack.'}),
 
                 ('prev', ('risk:attack', {}), {

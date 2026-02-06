@@ -15,9 +15,9 @@ class AuthModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('auth:passwd', '2Cool4u'))
-            self.eq(node.get('md5'), '91112d75297841c12ca655baafc05104')
-            self.eq(node.get('sha1'), '2984ab44774294be9f7a369bbd73b52021bf0bb4')
-            self.eq(node.get('sha256'), '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
+            self.propeq(node, 'md5', '91112d75297841c12ca655baafc05104')
+            self.propeq(node, 'sha1', '2984ab44774294be9f7a369bbd73b52021bf0bb4')
+            self.propeq(node, 'sha256', '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
 
             nodes = await core.nodes('[ auth:passwd=" Woot " ]')
             self.eq(nodes[0].ndef, ('auth:passwd', ' Woot '))

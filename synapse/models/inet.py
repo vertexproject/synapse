@@ -1245,17 +1245,6 @@ async def _onSetFqdnZone(node):
 
                 todo.append(child.ndef)
 
-async def _onSetWhoisText(node):
-
-    text = node.get('text')
-    if (fqdn := node.get('fqdn')) is None:
-        return
-
-    for form, valu in s_scrape.scrape(text):
-
-        if form == 'inet:email':
-            await node.view.addNode('inet:whois:email', (fqdn, valu))
-
 modeldefs = (
     ('inet', {
         'ctors': (
@@ -1303,6 +1292,24 @@ modeldefs = (
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
+                ),
+                'props': (
+                    ('domain', ('inet:fqdn', {}), {
+                        'computed': True,
+                        'doc': 'The parent domain for the FQDN.'}),
+
+                    ('host', ('str', {'lower': True}), {
+                        'computed': True,
+                        'doc': 'The host part of the FQDN.'}),
+
+                    ('issuffix', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a suffix.'}),
+
+                    ('iszone', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a zone.'}),
+
+                    ('zone', ('inet:fqdn', {}), {
+                        'doc': 'The zone level parent for this FQDN.'}),
                 ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
@@ -1365,6 +1372,9 @@ modeldefs = (
                 'doc': 'A historical record of an IP address being assigned to an AS.'}),
 
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'address range'}}),
+                ),
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
@@ -1411,6 +1421,9 @@ modeldefs = (
                 'doc': 'An HTTP protocol header key/value.'}),
 
             ('inet:http:request:header', ('inet:http:header', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'HTTP request header'}}),
+                ),
                 'doc': 'An HTTP request header.'}),
 
             ('inet:http:response:header', ('inet:http:header', {}), {
@@ -1511,19 +1524,19 @@ modeldefs = (
                 'doc': 'A single result from a web search.'}),
 
             ('inet:whois:record', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'prevnames': ('inet:whois:rec',),
                 'doc': 'An FQDN whois registration record.'}),
-
-            ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'whois email address'}}),
-                ),
-                'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
                 'doc': 'Query details used to retrieve an IP record.'}),
 
             ('inet:whois:iprecord', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
@@ -1551,10 +1564,10 @@ modeldefs = (
                 'doc': 'An email header name.'}),
 
             ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'email header'}}),
+                ),
                 'doc': 'A unique email message header.'}),
-
-            ('inet:email:message:attachment', ('guid', {}), {
-                'doc': 'A file which was attached to an email message.'}),
 
             ('inet:email:message:link', ('guid', {}), {
                 'doc': 'A url/link embedded in an email message.'}),
@@ -1697,9 +1710,6 @@ modeldefs = (
 
             ('inet:service:message:link', ('guid', {}), {
                 'doc': 'A URL link included within a message.'}),
-
-            ('inet:service:message:attachment', ('guid', {}), {
-                'doc': 'A file attachment included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -2066,7 +2076,7 @@ modeldefs = (
                 ('links', ('array', {'type': 'inet:email:message:link'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
-                ('attachments', ('array', {'type': 'inet:email:message:attachment'}), {
+                ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files attached to the email message.'}),
             )),
 
@@ -2077,13 +2087,6 @@ modeldefs = (
                 ('value', ('str', {}), {
                     'computed': True,
                     'doc': 'The value of the email header.'}),
-            )),
-
-            ('inet:email:message:attachment', {}, (
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The attached file.'}),
-                ('name', ('file:path', {}), {
-                    'doc': 'The name of the attached file.'}),
             )),
 
             ('inet:email:message:link', {}, (
@@ -2271,26 +2274,6 @@ modeldefs = (
 
                 ('client', ('inet:client', {}), {
                     'doc': 'The client address the host used as a network egress.'}),
-            )),
-
-            ('inet:fqdn', {}, (
-                ('domain', ('inet:fqdn', {}), {
-                    'computed': True,
-                    'doc': 'The parent domain for the FQDN.',
-                }),
-                ('host', ('str', {'lower': True}), {
-                    'computed': True,
-                    'doc': 'The host part of the FQDN.',
-                }),
-                ('issuffix', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a suffix.',
-                }),
-                ('iszone', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a zone.',
-                }),
-                ('zone', ('inet:fqdn', {}), {
-                    'doc': 'The zone level parent for this FQDN.',
-                }),
             )),
 
             ('inet:http:request:header', {}, (
@@ -2644,15 +2627,6 @@ modeldefs = (
                 ('nameservers', ('array', {'type': 'inet:fqdn', 'uniq': False, 'sorted': False}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
 
-            )),
-
-            ('inet:whois:email', {}, (
-
-                ('fqdn', ('inet:fqdn', {}), {'computed': True,
-                    'doc': 'The domain with a whois record containing the email address.'}),
-
-                ('email', ('inet:email', {}), {'computed': True,
-                    'doc': 'The email address associated with the domain whois record.'}),
             )),
 
             ('inet:whois:ipquery', {}, (
@@ -3084,7 +3058,7 @@ modeldefs = (
                 ('links', ('array', {'type': 'inet:service:message:link'}), {
                     'doc': 'An array of links contained within the message.'}),
 
-                ('attachments', ('array', {'type': 'inet:service:message:attachment'}), {
+                ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files attached to the message.'}),
 
                 ('hashtags', ('array', {'type': 'lang:hashtag', 'split': ','}), {
@@ -3120,18 +3094,6 @@ modeldefs = (
 
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL contained within the message.'}),
-            )),
-
-            ('inet:service:message:attachment', {}, (
-
-                ('name', ('file:path', {}), {
-                    'doc': 'The name of the attached file.'}),
-
-                ('text', ('str', {}), {
-                    'doc': 'Any text associated with the file such as alt-text for images.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file which was attached to the message.'}),
             )),
 
             ('inet:service:emote', {}, (
@@ -3254,7 +3216,6 @@ modeldefs = (
                     ('inet:fqdn:zone', _onSetFqdnZone),
                     ('inet:fqdn:iszone', _onSetFqdnIsZone),
                     ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                    ('inet:whois:record:text', _onSetWhoisText),
                 )
             }
         },

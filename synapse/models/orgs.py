@@ -73,6 +73,7 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'template': {'title': 'organization'},
                 'interfaces': (
+                    ('meta:havable', {}),
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
                     ('risk:targetable', {}),
@@ -598,8 +599,8 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry'}), {
                     'doc': 'The industries associated with the org.'}),
 
-                ('subs', ('array', {'type': 'ou:org'}), {
-                    'doc': 'An set of sub-organizations.'}),
+                ('parent', ('ou:org', {}), {
+                    'doc': 'The parent organization.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
@@ -639,16 +640,16 @@ modeldefs = (
                 ('type', ('ou:asset:type:taxonomy', {}), {
                     'doc': 'The asset type.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The overall priority of protecting the asset.'}),
 
-                ('priority:confidentiality', ('meta:priority', {}), {
+                ('priority:confidentiality', ('meta:score', {}), {
                     'doc': 'The priority of protecting the confidentiality of the asset.'}),
 
-                ('priority:integrity', ('meta:priority', {}), {
+                ('priority:integrity', ('meta:score', {}), {
                     'doc': 'The priority of protecting the integrity of the asset.'}),
 
-                ('priority:availability', ('meta:priority', {}), {
+                ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
                 ('node', ('ndef', {}), {

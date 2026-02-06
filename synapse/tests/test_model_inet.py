@@ -213,7 +213,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
             self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
-            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')
+            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) :seen=2022 ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
@@ -221,6 +221,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('net'), ((4, 0x01020304), (4, 0x05060708)))
             self.eq(node.get('net:min'), (4, 0x01020304))
             self.eq(node.get('net:max'), (4, 0x05060708))
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4'))
             self.len(1, await core.nodes('inet:ip=5.6.7.8'))
 
@@ -381,7 +382,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:txcount=33
                     :server:txbytes=2
                     :server:handshake="OHai!"
-                    :server:txfiles={[ file:attachment=* :name=bar.exe ]}
+                    :server:txfiles={[ file:attachment=* :path=bar.exe ]}
                     :server:softnames=(FooBar, bazfaz)
                     :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -391,7 +392,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :client:txcount=30
                     :client:txbytes=1
                     :client:handshake="Hello There"
-                    :client:txfiles={[ file:attachment=* :name=foo.exe ]}
+                    :client:txfiles={[ file:attachment=* :path=foo.exe ]}
                     :client:softnames=(HeHe, haha)
                     :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
@@ -431,8 +432,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:flow :client:proc -> it:exec:proc'))
             self.len(1, await core.nodes('inet:flow :server:proc -> it:exec:proc'))
 
-            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:name=foo.exe'))
-            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:name=bar.exe'))
+            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:path=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:path=bar.exe'))
 
             self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
             self.len(1, await core.nodes('inet:flow :sandbox:file -> file:bytes'))
@@ -728,12 +729,13 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_http_request_header(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:http:request:header=(Cool, Cooler)]')
+            nodes = await core.nodes('[inet:http:request:header=(Cool, Cooler) :seen=2022]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:http:request:header', ('cool', 'Cooler')))
             self.eq(node.get('name'), 'cool')
             self.eq(node.get('value'), 'Cooler')
+            self.nn(node.get('seen'))
 
     async def test_http_response_header(self):
         async with self.getTestCore() as core:
@@ -2351,6 +2353,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :text="YELLING AT pennywise@vertex.link LOUDLY"
                     :registrar=' cool REGISTRAR'
                     :registrant=' cool REGISTRANT'
+                    :seen=2022
                 ]
             ''')
             self.len(1, nodes)
@@ -2360,10 +2363,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
-
-            nodes = await core.nodes('inet:whois:email')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
+            self.nn(node.get('seen'))
 
             with self.getLoggerStream('synapse.datamodel') as stream:
                 nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
@@ -2398,7 +2398,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
-                :links=$p.links)]'''
+                :links=$p.links :seen=2022)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2419,6 +2419,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('status'), 'validated')
             self.eq(node.get('type'), 'direct allocation')
             self.eq(node.get('links'), ('http://rdap.com/foo', 'http://rdap.net/bar'))
+            self.nn(node.get('seen'))
 
             rec_ipv6 = s_common.guid()
             props = {
@@ -2591,9 +2592,9 @@ class InetModelTest(s_t_utils.SynTest):
                         :text=Vertex
                 ]}
                 :attachments={[
-                    inet:email:message:attachment=*
+                    file:attachment=*
                         :file=*
-                        :name=sploit.exe
+                        :path=sploit.exe
                 ]}
             ]
             '''
@@ -2614,12 +2615,14 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:attachment +:path=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
             self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
-            self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
+            self.len(1, await core.nodes('inet:email:message -> file:attachment +:path=sploit.exe +:file'))
+
+            self.len(1, await core.nodes('inet:email:header limit 1 | [:seen=2022]'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:
@@ -3042,19 +3045,6 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('platform'), platform.ndef[1])
                 self.eq(node.get('of'), gnrlchan.ndef)
 
-            nodes = await core.nodes('''
-            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
-                :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
-                :name=pbjtime.gif
-                :text="peanut butter jelly time"
-            ]
-            ''')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'pbjtime.gif')
-            self.eq(nodes[0].get('text'), 'peanut butter jelly time')
-            self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
-            attachment = nodes[0]
-
             q = '''
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
@@ -3073,7 +3063,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
-                    :mentions?=((inet:service:message:attachment, $atchiden),)
+                    :mentions?=((file:attachment, *),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
@@ -3085,7 +3075,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :account=$blckiden
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                 :links+=$linkiden
-                :attachments+=$atchiden
+                :attachments+={[ file:attachment=* ]}
 
                 :place:name=nyc
                 :place = { gen.geo.place nyc }
@@ -3101,7 +3091,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'devsiden': devsgrp.ndef[1],
                 'gnrliden': gnrlchan.ndef[1],
                 'linkiden': msglink.ndef[1],
-                'atchiden': attachment.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)

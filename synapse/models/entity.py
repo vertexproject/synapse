@@ -41,6 +41,9 @@ modeldefs = (
             ('entity:contactable', {
 
                 'template': {'title': 'entity'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -119,9 +122,6 @@ modeldefs = (
                 'doc': 'An interface for forms which contain contact info.'}),
 
             ('entity:actor', {
-                'interfaces': (
-                    ('geo:locatable', {}),
-                ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:singular', {
@@ -145,8 +145,6 @@ modeldefs = (
                 'doc': 'Properties which apply to entities which may represent a person.'}),
 
             ('entity:multiple', {
-                'props': (
-                ),
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
             ('entity:abstract', {
@@ -219,6 +217,9 @@ modeldefs = (
                     ('entity:contactable', {}),
                 ),
                 'doc': 'Historical contact information about another contact.'}),
+
+            ('entity:contactlist', ('guid', {}), {
+                'doc': 'A list of contacts.'}),
 
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -320,6 +321,9 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
+            ('entity:discovery', ('guid', {}), {
+                'doc': 'A discovery made by an actor.'}),
+
         ),
 
         'edges': (
@@ -331,6 +335,9 @@ modeldefs = (
 
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
+
+            (('entity:contactlist', 'has', 'entity:contact'), {
+                'doc': 'The contact list contains the contact.'}),
 
             (('entity:action', 'used', 'meta:usable'), {
                 'doc': 'The action was taken using the target node.'}),
@@ -366,6 +373,15 @@ modeldefs = (
 
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
+            )),
+
+            ('entity:contactlist', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the contact list.'}),
+
+                ('source', ('ndef', {'forms': ('it:host', 'inet:service:account', 'file:bytes')}), {
+                    'doc': 'The source that the contact list was extracted from.'}),
             )),
 
             ('entity:had:type:taxonomy', {}, ()),
@@ -456,12 +472,9 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                # TODO: should we create risk:campaign and define this there
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
-
-                # FIXME meta:timeline interface...
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the campaign.',
@@ -506,15 +519,13 @@ modeldefs = (
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),
-
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('entity:contribution', {}, (
 
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
+                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 
@@ -523,6 +534,18 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
+            )),
+
+            ('entity:discovery', {}, (
+
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The actor who made the discovery.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time when the discovery was made.'}),
+
+                ('item', ('meta:discoverable', {}), {
+                    'doc': 'The item which was discovered.'}),
             )),
 
         ),

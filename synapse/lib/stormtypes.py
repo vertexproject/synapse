@@ -930,8 +930,6 @@ class LibService(Lib):
             'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
         {'perm': ('service', 'get'), 'gate': 'cortex',
             'desc': 'Controls the ability to get the Service object for any Storm Service.'},
-        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
          'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
     )
@@ -1385,17 +1383,17 @@ class LibBase(Lib):
 
         {'perm': ('globals', 'get'), 'gate': 'cortex',
             'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
+        {'perm': ('globals', 'get', '<varname>'), 'gate': 'cortex',
             'desc': 'Used to control read access to a specific global variable.'},
 
         {'perm': ('globals', 'set'), 'gate': 'cortex',
             'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
+        {'perm': ('globals', 'set', '<varname>'), 'gate': 'cortex',
             'desc': 'Used to control edit access to a specific global variable.'},
 
         {'perm': ('globals', 'del'), 'gate': 'cortex',
             'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'del', '<name>'), 'gate': 'cortex',
+        {'perm': ('globals', 'del', '<varname>'), 'gate': 'cortex',
             'desc': 'Used to control delete access to a specific global variable.'},
     )
 
@@ -1568,11 +1566,16 @@ class LibBase(Lib):
         parts = name.strip().split('.')
         name = parts[0]
 
-        typeitem = self._reqTypeByName(name)
-        if len(parts) > 1:
-            typeitem = typeitem.getVirtType(parts[1:])
+        try:
+            typeitem = self._reqTypeByName(name)
+            if len(parts) > 1:
+                typeitem = typeitem.getVirtType(parts[1:])
 
-        return typeitem.repr(valu)
+            return typeitem.repr(valu)
+        except s_exc.SynErr:
+            raise
+        except Exception as e:
+            raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
@@ -3981,9 +3984,7 @@ class LibTelepath(Lib):
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
         {'perm': ('telepath', 'open'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
-        {'perm': ('telepath', 'open', '<scheme>'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+         'desc': 'Controls the ability to open a telepath URL. USE WITH CAUTION.'},
     )
 
     def getObjLocals(self):

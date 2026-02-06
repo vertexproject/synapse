@@ -940,6 +940,9 @@ class Model:
 
         typename, typeinfo = typedef
 
+        if typename in self.formnames:
+            typename = (typename,)
+
         if isinstance(typename, tuple):
             typeinfo = dict(typeinfo)
             typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
@@ -1071,16 +1074,40 @@ class Model:
                 self.addTagProp(tpname, typedef, tpinfo)
 
         formchildren = collections.defaultdict(list)
+        self.formnames = set()
         childforms = set()
+
+        allforms = []
 
         for _, mdef in mods:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.formnames.add(formname)
 
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                if (props := info.get('props')) is not None:
+                    self.formnames.add(name)
+
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                if (props := typeinfo.get('props')) is not None:
+                    self.formnames.add(typename)
+
+            # Allow props declared directly on ctors to become forms...
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                if (props := info.get('props')) is not None:
+                    allforms.append((name, {}, props))
+
+            # Allow props declared directly on types to become forms...
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                if (props := typeinfo.get('props')) is not None:
+                    allforms.append((typename, {}, props))
+
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-                if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames:
-                    formchildren[ftyp.subof].append((formname, forminfo, propdefs))
-                    childforms.add(formname)
+                allforms.append((formname, forminfo, propdefs))
+
+        for formname, forminfo, propdefs in allforms:
+            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames:
+                formchildren[ftyp.subof].append((formname, forminfo, propdefs))
+                childforms.add(formname)
 
         def addForms(infos, children=False):
             for formname, forminfo, propdefs in infos:
@@ -1093,8 +1120,7 @@ class Model:
                     addForms(cinfos, children=True)
 
         # now we can load all the forms...
-        for _, mdef in mods:
-            addForms(mdef.get('forms', ()))
+        addForms(allforms)
 
         # load form/prop hooks
         for _, mdef in mods:
@@ -1251,13 +1277,18 @@ class Model:
         return tuple(virts)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
-        assert formname not in self.forms, f'{formname} form already present in model'
 
         self.formnames.add(formname)
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
+
+        if self.forms.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing form: {formname}')
+
+        if self.ifaces.get(formname) is not None:
+            raise s_exc.DupName(mesg=f'Form name conflicts with existing interface: {formname}')
 
         if (_type := self.types.get(formname)) is None:
             raise s_exc.NoSuchType(name=formname)
@@ -1272,7 +1303,19 @@ class Model:
                 if len(propdef) != 3:
                     mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
                     raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
-                ptypes[propdef[0]] = propdef[1]
+
+                # TODO: probably handle polyprop detection earlier?
+                typename, typeinfo = propdef[1]
+
+                if typename in self.formnames:
+                    typename = (typename,)
+
+                if isinstance(typename, tuple):
+                    typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
+                    typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+                    typename = 'polyprop'
+
+                ptypes[propdef[0]] = (typename, typeinfo)
 
             for prop in pform.props.values():
                 if prop.ifaces:
@@ -1435,7 +1478,12 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
-        assert name not in self.ifaces, f'{name} interface already present in model'
+        if self.forms.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing form: {name}')
+
+        if self.ifaces.get(name) is not None:
+            raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
+
         self.ifaces[name] = info
 
     def reqTypeNotInUse(self, typename):
