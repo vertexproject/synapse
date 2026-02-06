@@ -51,7 +51,7 @@ class GlobTest(s_t_utils.SynTest):
 
             fut.cancel()
 
-        text = ''.join(lines)
+        text = '\n'.join(lines)
         self.isin('Asyncio task stacks', text)
         self.isin('Task is a syntask with the following information', text)
         self.isin(q, text)

@@ -15,7 +15,7 @@ _glob_thrd = None
 
 def _get_ts(dt=None):
     if dt is None:
-        datetime.datetime.now(datetime.timezone.utc)
+        dt = datetime.datetime.now(datetime.timezone.utc)
     millis = dt.microsecond / 1000
     return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
 
