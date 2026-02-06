@@ -228,23 +228,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if fireedits is not None:
                         virts = {}
-                        if vvals is not None:
-                            for vname, vval in vvals.items():
-                                virts[vname] = vval[0]
-
-                        edit = (etyp, (name, valu, stype, virts))
-
                         if stype & s_layer.STOR_FLAG_ARRAY:
+                            if vvals is not None:
+                                virts = dict(vvals)
+
                             virts['size'] = len(valu)
                             if (svirts := s_node.storvirts.get(stype & 0x7fff)) is not None:
                                 for vname, getr in svirts.items():
                                     virts[vname] = [getr(v) for v in valu]
                         else:
+                            if vvals is not None:
+                                for vname, vval in vvals.items():
+                                    virts[vname] = vval[0]
+
                             if (svirts := s_node.storvirts.get(stype)) is not None:
                                 for vname, getr in svirts.items():
                                     virts[vname] = getr(valu)
 
-                        editset.append(edit)
+                        editset.append((etyp, (name, valu, stype, virts)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_TOMB_DEL:
@@ -3418,13 +3419,23 @@ class View(s_nexus.Pusher):  # type: ignore
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
+        norm = (await _type.norm(valu))[0]
+
         for prop in self.core.model.getPropsByType(name):
-            async for node in self.nodesByPropValu(prop.full, cmpr, valu):
-                yield node
+            if prop.type.ispoly:
+                async for node in self.nodesByPropValu(prop.full, cmpr, (name, valu), virts=['ndef']):
+                    yield node
+            else:
+                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=False):
+                    yield node
 
         for prop in self.core.model.getArrayPropsByType(name):
-            async for node in self.nodesByPropArray(prop.full, cmpr, valu):
-                yield node
+            if prop.type.arraytype.ispoly:
+                async for node in self.nodesByPropArray(prop.full, cmpr, (name, valu), virts=['ndef']):
+                    yield node
+            else:
+                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=False):
+                    yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 
@@ -3443,10 +3454,7 @@ class View(s_nexus.Pusher):  # type: ignore
             cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)
 
         if prop.type.isuniq and not virts:
-            if prop.isform:
-                genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse, virts=virts)
-            else:
-                genr = self.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+            genr = self.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
 
             async for nid, srefs in genr:
                 node = await self._joinSodes(nid, srefs)
@@ -3458,49 +3466,234 @@ class View(s_nexus.Pusher):  # type: ignore
             async for indx, nid, _ in genr:
                 yield indx, nid, lidx
 
-        last = None
-        genrs = []
-        stortype = self.layers[0].stortypes[cmprvals[0][-1]]
+        if not virts and not prop.type.arraytype.ispoly:
+            last = None
+            genrs = []
+            stortype = self.layers[0].stortypes[cmprvals[0][-1]]
 
-        vgetr = None
-        if virts is not None and prop.type.arraytype.getVirtIndx(virts) is not None:
-            vgetr = prop.type.arraytype.getVirtGetr(virts)
-
-        for lidx, layr in enumerate(self.layers):
-            if prop.isform:
-                genr = layr.liftByPropArray(prop.name, None, cmprvals, reverse=reverse, virts=virts)
-            else:
+            for lidx, layr in enumerate(self.layers):
                 genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                genrs.append(wrapgenr(lidx, genr))
 
-            genrs.append(wrapgenr(lidx, genr))
+            async for indx, nid, lidx in s_common.merggenr2(genrs):
+                if (indx, nid) == last:
+                    continue
 
-        async for indx, nid, lidx in s_common.merggenr2(genrs):
-            if (indx, nid) == last:
-                continue
+                last = (indx, nid)
 
-            last = (indx, nid)
+                if (node := await self.getNodeByNid(nid)) is None:
+                    continue
 
-            if (node := await self.getNodeByNid(nid)) is None:
-                continue
-
-            if prop.isform:
-                valu = node.valu(virts=vgetr)
-            else:
-                (valu, valulayr) = node.getWithLayer(prop.name, virts=vgetr)
+                (valu, valulayr) = node.getWithLayer(prop.name)
                 if lidx != valulayr:
                     continue
 
-            if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                for sval in valu:
-                    if stortype.indx(sval)[0] == indx:
-                        aval = sval
-                        break
+                if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                    for sval in valu:
+                        if stortype.indx(sval)[0] == indx:
+                            aval = sval
+                            break
+                    else:
+                        continue
+
+                for _ in range(valu.count(aval)):
+                    yield node
+                    await asyncio.sleep(0)
+
+        elif not virts:
+            for cmpr, valu, stortype in cmprvals:
+                last = None
+                genrs = []
+
+                if (poly := stortype & s_layer.STOR_FLAG_POLYPROP):
+                    realtype = self.layers[0].stortypes[stortype & s_layer.STOR_MASK_POLYPROP]
                 else:
+                    realtype = self.layers[0].stortypes[stortype]
+
+                for lidx, layr in enumerate(self.layers):
+                    genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                    genrs.append(wrapgenr(lidx, genr))
+
+                async for indx, nid, lidx in s_common.merggenr2(genrs):
+                    if (indx, nid) == last:
+                        continue
+
+                    last = (indx, nid)
+
+                    if (node := await self.getNodeByNid(nid)) is None:
+                        continue
+
+                    (pvalu, valulayr) = node.getWithLayer(prop.name)
+                    if lidx != valulayr:
+                        continue
+
+                    if (aval := realtype.decodeIndx(indx)) is s_common.novalu:
+                        for sval in pvalu:
+                            if realtype.indx(sval)[0] == indx:
+                                aval = sval
+                                break
+                        else:
+                            continue
+
+                    if poly:
+                        for item in pvalu:
+                            if item[1] == aval:
+                                yield node
+                                await asyncio.sleep(0)
+                    else:
+                        for _ in range(pvalu.count(aval)):
+                            yield node
+                            await asyncio.sleep(0)
+
+        elif prop.type.arraytype.ispoly:
+            for cmpr, valu, stortype in cmprvals:
+                last = None
+                genrs = []
+
+                vgetr = None
+                if (vinfo := prop.type.arraytype.virts.get(virts[0])) is not None:
+                    vgetr = vinfo[1]
+                    stortype = self.layers[0].polytype
+                else:
+                    realtype = stortype & s_layer.STOR_MASK_POLYPROP
+                    stortype = self.layers[0].stortypes[realtype]
+
+                for lidx, layr in enumerate(self.layers):
+                    genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                    genrs.append(wrapgenr(lidx, genr))
+
+                async for indx, nid, lidx in s_common.merggenr2(genrs):
+                    if (indx, nid) == last:
+                        continue
+
+                    last = (indx, nid)
+
+                    if (node := await self.getNodeByNid(nid)) is None:
+                        continue
+
+                    if vgetr is not None:
+                        (pvalu, valulayr) = node.getWithLayer(prop.name, virts=(vgetr,))
+                        if lidx != valulayr:
+                            continue
+
+                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                            for vval in pvalu:
+                                if stortype.indx(vval)[0] == indx:
+                                    aval = vval
+                                    break
+                            else:
+                                continue
+
+                        vcnt = pvalu.count(aval)
+
+                    else:
+                        (pvalu, valulayr) = node.getRawWithLayer(prop.name)
+                        if lidx != valulayr:
+                            continue
+
+                        if (vinfo := pvalu[2].get(virts[0])) is None:
+                            continue
+
+                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                            for (vval, vtyp) in vinfo:
+                                if vtyp != realtype:
+                                    continue
+
+                                if stortype.indx(vval)[0] == indx:
+                                    aval = vval
+                                    break
+                            else:
+                                continue
+
+                        if (vcnt := vinfo.get((aval, realtype))) is None:
+                            continue
+
+                    for _ in range(vcnt):
+                        yield node
+                        await asyncio.sleep(0)
+
+        else:
+            last = None
+            genrs = []
+            realtype = cmprvals[0][-1]
+            stortype = self.layers[0].stortypes[realtype]
+
+            for lidx, layr in enumerate(self.layers):
+                genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                genrs.append(wrapgenr(lidx, genr))
+
+            async for indx, nid, lidx in s_common.merggenr2(genrs):
+                if (indx, nid) == last:
                     continue
 
-            for _ in range(valu.count(aval)):
-                yield node
-                await asyncio.sleep(0)
+                last = (indx, nid)
+
+                if (node := await self.getNodeByNid(nid)) is None:
+                    continue
+
+                (valu, valulayr) = node.getRawWithLayer(prop.name)
+                if lidx != valulayr:
+                    continue
+
+                if (vinfo := valu[2].get(virts[0])) is None:
+                    continue
+
+                if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                    for (vval, vtyp) in vinfo:
+                        # dont actually need to check stortype
+                        if vtyp != realtype:
+                            continue
+
+                        if stortype.indx(vval)[0] == indx:
+                            aval = vval
+                            break
+                    else:
+                        continue
+
+                if (vcnt := vinfo.get((aval, realtype))) is None:
+                    continue
+
+                for _ in range(vcnt):
+                    yield node
+                    await asyncio.sleep(0)
+
+
+#        last = None
+#        genrs = []
+#        stortype = self.layers[0].stortypes[cmprvals[0][-1]]
+#
+#        vgetr = None
+#        if virts is not None and prop.type.arraytype.getVirtIndx(virts) is not None:
+#            vgetr = prop.type.arraytype.getVirtGetr(virts)
+#
+#        for lidx, layr in enumerate(self.layers):
+#            genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+#            genrs.append(wrapgenr(lidx, genr))
+#
+#        async for indx, nid, lidx in s_common.merggenr2(genrs):
+#            if (indx, nid) == last:
+#                continue
+#
+#            last = (indx, nid)
+#
+#            if (node := await self.getNodeByNid(nid)) is None:
+#                continue
+#
+#            (valu, valulayr) = node.getWithLayer(prop.name, virts=vgetr)
+#            if lidx != valulayr:
+#                continue
+#
+#            if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+#                for sval in valu:
+#                    if stortype.indx(sval)[0] == indx:
+#                        aval = sval
+#                        break
+#                else:
+#                    continue
+#
+#            for _ in range(valu.count(aval)):
+#                yield node
+#                await asyncio.sleep(0)
 
     async def nodesByTagProp(self, form, tag, name, reverse=False, virts=None):
         prop = self.core.model.reqTagProp(name)

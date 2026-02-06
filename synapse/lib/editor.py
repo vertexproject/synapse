@@ -484,7 +484,7 @@ class ProtoNode(s_node.NodeBase):
 
         tagup = tagnode.get('up')
         if tagup:
-            await self.addTag(tagup)
+            await self.addTag(tagup[1])
 
         curv = self.getTag(tagnode.valu)
         if curv == valu:

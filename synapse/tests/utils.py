@@ -461,14 +461,11 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface'), {
+                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server'), {
                     'default_forms': ('test:int', 'test:str')}), {}),
                 ('polyarry', ('array', {
-                    'type': 'polyprop',
-                    'typeopts': {
-                        'default_forms': ('test:int', 'test:str'),
-                        'forms': ('test:str', 'test:int', 'test:lowstr'),
-                        'interfaces': ('test:interface',)}}), {}),
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -2061,6 +2058,27 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         Assert X is equal to Y
         '''
+        nx = norm(x)
+        ny = norm(y)
+        if nx == ny:
+            return
+
+        if isinstance(nx, tuple):
+            if len(nx) > 1 and nx[1] == ny:
+                return
+
+            if isinstance(nx[0], tuple):
+                if tuple(nx[1] for nx in x) == ny:
+                    return
+
+        if isinstance(ny, tuple):
+            if len(ny) > 1 and ny[1] == nx:
+                return
+
+            if isinstance(ny[0], tuple):
+                if tuple(ny[1] for ny in y) == nx:
+                    return
+
         self.assertEqual(norm(x), norm(y), msg=msg)
 
     def eqOrNan(self, x, y, msg=None):

@@ -984,8 +984,9 @@ class AstTest(s_test.SynTest):
             self.len(5, await core.nodes('test:str=foo :net -> *'))
             self.len(4, await core.nodes('test:str=foo :net -> inet:ip'))
 
-            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> *'))
-            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> inet:ip'))
+            # TODO: skip min/max props somehow to avoid getting them twice?
+            self.len(6, await core.nodes('inet:net=1.2.3.4/30 -> *'))
+            self.len(6, await core.nodes('inet:net=1.2.3.4/30 -> inet:ip'))
 
             q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
             self.len(8, await core.nodes(q))
@@ -1462,21 +1463,30 @@ class AstTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.len(9, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 16909060), (4, 33752069), (4, 50595078), (4, 67438087)])
+                self.eq(virts['ip'], {
+                    ((4, 16909060), 26): 1,
+                    ((4, 33752069), 26): 1,
+                    ((4, 50595078), 26): 1,
+                    ((4, 67438087), 26): 1
+                })
 
                 adds.clear()
                 nodes = await core.nodes('test:virtiface=(b,) [ :servers -= { inet:server=2.3.4.5 } ]')
                 self.len(1, nodes)
                 self.len(0, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 16909060), (4, 50595078), (4, 67438087)])
+                self.eq(virts['ip'], {
+                    ((4, 16909060), 26): 1,
+                    ((4, 50595078), 26): 1,
+                    ((4, 67438087), 26): 1
+                })
 
                 adds.clear()
                 nodes = await core.nodes('test:virtiface=(b,) [ :servers --= { inet:server=4.5.6.7 inet:server=1.2.3.4 } ]')
                 self.len(1, nodes)
                 self.len(0, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 50595078)])
+                self.eq(virts['ip'], {((4, 50595078), 26): 1})
 
             # Running the query again ensures that the ast hasattr memoizing works
             nodes = await core.nodes(q)

@@ -1166,24 +1166,24 @@ async def _onAddFqdn(node):
         if protonode.get('issuffix') is None:
             await protonode.set('issuffix', False)
 
-        parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.view.getNodeByNdef(domain)
         if parent is None:
-            parent = await editor.addNode('inet:fqdn', domain)
+            parent = await editor.addNode('inet:fqdn', domain[1])
 
         if parent.get('issuffix'):
             await protonode.set('iszone', True)
-            await protonode.set('zone', fqdn)
+            await protonode.set('zone', node.ndef[1])
             return
 
         await protonode.set('iszone', False)
 
         if parent.get('iszone'):
-            await protonode.set('zone', domain)
+            await protonode.set('zone', domain[1])
             return
 
         zone = parent.get('zone')
         if zone is not None:
-            await protonode.set('zone', zone)
+            await protonode.set('zone', zone[1])
 
 async def _onSetFqdnIsSuffix(node):
 
@@ -1203,11 +1203,9 @@ async def _onSetFqdnIsSuffix(node):
 
 async def _onSetFqdnIsZone(node):
 
-    fqdn = node.ndef[1]
-
     iszone = node.get('iszone')
     if iszone:
-        await node.set('zone', fqdn)
+        await node.set('zone', node.ndef[1])
         return
 
     # we are not a zone...
@@ -1217,24 +1215,24 @@ async def _onSetFqdnIsZone(node):
         await node.pop('zone')
         return
 
-    parent = await node.view.addNode('inet:fqdn', domain)
+    parent = await node.view.addNode('inet:fqdn', domain[1])
 
     zone = parent.get('zone')
     if zone is None:
         await node.pop('zone')
         return
 
-    await node.set('zone', zone)
+    await node.set('zone', zone[1])
 
 async def _onSetFqdnZone(node):
 
-    todo = collections.deque([node.ndef[1]])
+    todo = collections.deque([node.ndef])
     zone = node.get('zone')
 
     async with node.view.getEditor() as editor:
         while todo:
             fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn, virts=['ndef']):
                 await asyncio.sleep(0)
 
                 # if they are their own zone level, skip
@@ -1243,9 +1241,9 @@ async def _onSetFqdnZone(node):
 
                 # the have the same zone we do
                 protonode = editor.loadNode(child)
-                await protonode.set('zone', zone)
+                await protonode.set('zone', zone[1])
 
-                todo.append(child.ndef[1])
+                todo.append(child.ndef)
 
 async def _onSetWhoisText(node):
 

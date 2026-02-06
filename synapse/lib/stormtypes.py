@@ -6056,9 +6056,9 @@ class Ndef(Prim):
     '''
     _storm_locals = (
         {'name': 'form', 'desc': 'Get the form of the tuple.',
-         'type': {'type': 'str'}},
+         'type': 'str'},
         {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
-         'type': {'type': 'str'}},
+         'type': 'str'},
         {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
          'type': {'type': 'function', '_funcname': '_methNdefIsForm',
                   'args': (
@@ -6072,11 +6072,27 @@ class Ndef(Prim):
     _ismutable = False
 
     def __init__(self, valu, path=None):
+        valu, virts = valu
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
 
+        self.exists = None
+        self.virts = virts
+
     def __hash__(self):
         return hash((self._storm_typename, self.valu))
+
+    def __int__(self):
+        valu = self.valu[1]
+        if isinstance(valu, str):
+            return int(valu, 0)
+        return int(valu)
+
+    def __str__(self):
+        return str(self.valu[1])
+
+    def __len__(self):
+        return len(self.valu[1])
 
     def getObjLocals(self):
         return {
@@ -6085,8 +6101,20 @@ class Ndef(Prim):
             'isform': self._methNdefIsForm,
         }
 
+    async def stormrepr(self):
+        return self.valu[1]
+
     def value(self):
         return self.valu[1]
+
+    @stormfunc(readonly=True)
+    async def _derefGet(self, name):
+        if self.virts is None:
+            return
+
+        name = await tostr(name)
+        if (valu := self.virts.get(name)) is not None:
+            return valu[0]
 
     @stormfunc(readonly=True)
     async def _methNdefIsForm(self, name):

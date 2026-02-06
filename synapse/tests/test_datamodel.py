@@ -847,25 +847,30 @@ class DataModelTest(s_t_utils.SynTest):
                 (test:str=bar :poly={[ test:int=3 ]})
                 (test:str=baz :poly={[ test:hasiface=p2 ]})
                 (test:str=faz :poly={[ test:lowstr=p1 ]})
+                (test:str=nop :poly={[ test:int=1 ]})
             ]''')
 
+            print('int gt')
             nodes = await core.nodes('test:str:poly>2')
             for n in nodes:
                 print(n)
 
+            print('int eq')
             nodes = await core.nodes('test:str:poly=3')
             for n in nodes:
                 print(n)
 
+            print('str eq')
             nodes = await core.nodes('test:str:poly=p2')
             for n in nodes:
                 print(n)
 
+            print('str eq')
             nodes = await core.nodes('test:str:poly=p1')
             for n in nodes:
                 print(n)
 
-            print('ast')
+            print('pref')
             nodes = await core.nodes('test:str:poly^=p')
             for n in nodes:
                 print(n)
@@ -875,10 +880,10 @@ class DataModelTest(s_t_utils.SynTest):
             for n in nodes:
                 print(n)
 
-#            print('regx')
-#            nodes = await core.nodes('test:str:poly~=P')
-#            for n in nodes:
-#                print(n)
+            print('regx')
+            nodes = await core.nodes('test:str:poly~=P')
+            for n in nodes:
+                print(n)
 
             print('piv')
             nodes = await core.nodes('test:str:poly^=P :poly -> *')
@@ -907,11 +912,6 @@ class DataModelTest(s_t_utils.SynTest):
             for n in nodes:
                 print(n)
 
-            print('pivin')
-            nodes = await core.nodes('test:hasiface=p2 <- *')
-            for n in nodes:
-                print(n)
-
             print('defadd')
             nodes = await core.nodes('''[
                 (test:str=def1 :poly=p3)
@@ -931,8 +931,81 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 (test:str=a1 :polyarry={[ test:str=p10 test:int=5 test:hasiface=p11 test:lowstr=p10 ]})
-                (test:str=a2 :polyarry=(p10, 5, p11, p10))
+                (test:str=a2 :polyarry=(p10, 5, p11, p10, 2))
             ]''')
 
+            print('arraylift')
             for x in await core.nodes('test:str:polyarry*[=p10]'):
                 print(x)
+
+            print('arraylift2')
+            for x in await core.nodes('test:str:polyarry*[>4]'):
+                print(x)
+
+            print('ndeflift')
+            for x in await core.nodes('test:str:poly={test:lowstr=p1}'):
+                print(x)
+
+            print('ndeflift2')
+            for x in await core.nodes('test:str:poly.ndef=(test:lowstr, p1)'):
+                print(x)
+
+            print('formlift')
+            for x in await core.nodes('test:str:poly.form=test:lowstr'):
+                print(x)
+
+            print('arrayndeflift')
+            for x in await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'):
+                print(x)
+
+            print('arrayndeflift2')
+            for x in await core.nodes('test:str:polyarry*[.ndef=(test:lowstr, p10)]'):
+                print(x)
+
+            print('arrayformlift')
+            for x in await core.nodes('test:str:polyarry*[.form=test:lowstr]'):
+                print(x)
+
+            print('arrayformlift2')
+            for x in await core.nodes('test:str:polyarry*[.form=test:str]'):
+                print(x)
+
+            print('pivin')
+            nodes = await core.nodes('test:hasiface=p2 <- *')
+            for n in nodes:
+                print(n)
+
+            print('pivin2')
+            nodes = await core.nodes('test:hasiface=p11 <- *')
+            for n in nodes:
+                print(n)
+
+            print('virts')
+            nodes = await core.nodes('[ test:str=ip :poly={[inet:server=tcp://1.2.3.4:80]} ]')
+            print(nodes)
+
+            for m in await core.stormlist('test:str=ip $foo=:poly $lib.print($foo.port)'):
+                print(m)
+
+            for m in await core.stormlist('test:str=ip $foo=:poly [(test:str=ip2 :poly=$foo)]'):
+                print(m)
+
+            for m in await core.stormlist('test:str=ip2 $foo=:poly $lib.print($foo.port)'):
+                print(m)
+
+            print('magic')
+            for m in await core.stormlist('test:str=ip $lib.print(:poly.port)'):
+                print(m)
+
+            print('vlift')
+            nodes = await core.nodes('test:str:poly.port=80')
+            for n in nodes:
+                print(n)
+
+            nodes = await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
+            print(nodes)
+
+            print('vliftarry')
+            nodes = await core.nodes('test:str:polyarry*[.port=80]')
+            for n in nodes:
+                print(n)

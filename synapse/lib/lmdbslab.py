@@ -1525,6 +1525,176 @@ class Slab(s_base.Base):
 
                 yield lkey, lval
 
+    async def multiScanByDups(self, pref, multilen, lkey, db=None):
+
+        with Scan(self, db) as scan:
+
+            pval = 0
+            skey = pval.to_bytes(multilen, 'big')
+
+            while True:
+                if not scan.set_range(pref + skey + lkey):
+                    return
+
+                sgen = scan.iternext()
+                try:
+                    fkey, fval = next(sgen)
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):len(pref) + multilen]
+                    if fkey[len(pref) + multilen:] < lkey:
+                        continue
+
+                except StopIteration:
+                    return
+
+                if (fullkey := pref + skey + lkey) == fkey:
+                    yield (fkey, fval)
+
+                    for item in sgen:
+                        if not item[0] == fullkey:
+                            break
+                        yield item
+
+                pval = int.from_bytes(skey, 'big') + 1
+                skey = pval.to_bytes(multilen, 'big')
+
+    async def multiScanByPref(self, pref, multilen, byts, startkey=None, startvalu=None, db=None):
+        if startkey is None:
+            startkey = b''
+
+        def scangenr(pval):
+            with Scan(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                if not scan.set_range(pref + skey + byts + startkey, valu=startvalu):
+                    return
+
+                for item in scan.iternext():
+                    yield item
+
+        pval = 0
+        genrs = []
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
+
+        while True:
+            await asyncio.sleep(0)
+
+            sgen = scangenr(pval)
+
+            try:
+                fval = next(sgen)
+                if not fval[0].startswith(pref):
+                    break
+
+                skey = fval[0][len(pref):preflen]
+                pval = int.from_bytes(skey, 'big') + 1
+            except StopIteration:
+                break
+
+            if fval[0][preflen:size] != byts:
+                continue
+
+            async def pullgenr(first, genr):
+                yield first
+
+                fullpref = first[0][:preflen]
+
+                for item in genr:
+                    if (fval[0][preflen:size] != byts) or not item[0].startswith(fullpref):
+                        return
+                    yield item
+
+            genrs.append(pullgenr(fval, sgen))
+
+        if not genrs:
+            return
+
+        if len(genrs) == 1:
+            async for item in genrs[0]:
+                yield item
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in s_common.merggenr2(genrs, cmprkey):
+            yield item
+
+    async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None):
+
+        def scangenr(pval):
+            with Scan(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+                if not scan.set_range(pref + skey + lmin):
+                    return
+
+                genr = scan.iternext()
+                fval = next(genr)
+                skey = fval[0][len(pref):preflen]
+
+                if not fval[0].startswith(pref):
+                    return
+
+                if fval[0][preflen:size] < lmin:
+                    if not scan.set_range(pref + skey + lmin):
+                        return
+                    yield scan.atitem
+                else:
+                    yield fval
+
+                for item in genr:
+                    yield item
+
+        pval = 0
+        genrs = []
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmax)) if lmax is not None else None
+
+        while True:
+            await asyncio.sleep(0)
+
+            sgen = scangenr(pval)
+
+            try:
+                fval = next(sgen)
+                if not fval[0].startswith(pref):
+                    break
+
+                skey = fval[0][len(pref):preflen]
+                pval = int.from_bytes(skey, 'big') + 1
+            except StopIteration:
+                break
+
+            if lmax is not None and fval[0][preflen:size] > lmax:
+                continue
+
+            async def pullgenr(first, genr):
+                yield first
+
+                fullpref = first[0][:preflen]
+
+                for item in genr:
+                    if (lmax is not None and fval[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
+                        return
+                    yield item
+
+            genrs.append(pullgenr(fval, sgen))
+
+        if not genrs:
+            return
+
+        if len(genrs) == 1:
+            async for item in genrs[0]:
+                yield item
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in s_common.merggenr2(genrs, cmprkey):
+            yield item
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:
@@ -1842,7 +2012,6 @@ class Scan:
         try:
 
             while True:
-
                 yield self.atitem
 
                 if self.bumped:

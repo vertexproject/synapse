@@ -289,7 +289,6 @@ INDX_NDEF = b'\x00\x0e'
 INDX_FORM = b'\x00\x0f'
 
 INDX_VIRTUAL = b'\x00\x10'
-INDX_VIRTUAL_ARRAY = b'\x00\x11'
 INDX_VIRTUAL_TAGPROP = b'\x00\x12'
 
 INDX_NODEPROP = b'\x00\x13'
@@ -312,23 +311,32 @@ class IndxBy:
     def getStorType(self):
         raise s_exc.NoSuchImpl(name='getStorType')
 
-    def keyNidsByDups(self, indx, reverse=False):
+    async def keyNidsByDups(self, indx, reverse=False):
         if reverse:
-            yield from self.layr.layrslab.scanByDupsBack(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByDupsBack(self.abrv + indx, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
 
-    def keyNidsByPref(self, indx=b'', reverse=False):
-        if reverse:
-            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+        for item in genr:
+            yield item
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByPref(self, indx=b'', reverse=False):
         if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
+            genr = self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db)
+            genr = self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+
+        for item in genr:
+            yield item
+
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        if reverse:
+            genr = self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
+        else:
+            genr = self.layr.layrslab.scanByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db)
+
+        for item in genr:
+            yield item
 
     def hasIndxNid(self, indx, nid):
         return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
@@ -408,16 +416,16 @@ class IndxByPropKeys(IndxByProp):
     '''
     IndxBy sub-class for retrieving unique property values.
     '''
-    def keyNidsByDups(self, indx, reverse=False):
+    async def keyNidsByDups(self, indx, reverse=False):
         lkey = self.abrv + indx
         if self.layr.layrslab.has(lkey, db=self.db):
             yield lkey, None
 
-    def keyNidsByPref(self, indx=b'', reverse=False):
+    async def keyNidsByPref(self, indx=b'', reverse=False):
         for lkey in self.layr.layrslab.scanKeysByPref(self.abrv + indx, db=self.db, nodup=True):
             yield lkey, None
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         for lkey in self.layr.layrslab.scanKeysByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
             yield lkey, None
 
@@ -472,12 +480,18 @@ class IndxByPolyProp(IndxBy):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = layr.core.getIndxAbrv(INDX_PROP, form, prop) + stortype.to_bytes(2, 'big')
+        self.stortype = stortype.to_bytes(2, 'big')
+        abrv = layr.core.getIndxAbrv(INDX_PROP, form, prop) + self.stortype
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.multilen = 8
 
         self.form = form
         self.prop = prop
-        self.stortype = stortype.to_bytes(2, 'big')
+        self.abrvlen += self.multilen
+
+    def getStorType(self):
+        return self.layr.polytype
 
     def getSodeValu(self, sode):
         valt = sode['props'].get(self.prop)
@@ -486,21 +500,58 @@ class IndxByPolyProp(IndxBy):
 
         return s_common.novalu
 
+    async def keyNidsByDups(self, indx, reverse=False):
+        if reverse:
+            # TODO: reverse multiscans
+            genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db)
+        else:
+            genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db)
+
+        async for item in genr:
+            yield item
+
+    async def keyNidsByPref(self, indx=b'', reverse=False):
+        if reverse:
+            # TODO: reverse multiscans
+            genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
+        else:
+            genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
+
+        async for item in genr:
+            yield item
+
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        if reverse:
+            # TODO: reverse multiscans
+            genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db)
+        else:
+            genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db)
+
+        async for item in genr:
+            yield item
+
+    def hasIndxNid(self, indx, nid):
+        return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
+
     def __repr__(self):
         return f'IndxByPolyProp: {self.form}:{self.prop}'
 
-class IndxByPolyPropArray(IndxBy):
+class IndxByPolyPropArray(IndxByPolyProp):
 
     def __init__(self, layr, form, prop, stortype):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop) + stortype.to_bytes(2, 'big')
+        self.stortype = stortype.to_bytes(2, 'big')
+
+        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop) + self.stortype
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.multilen = 8
 
         self.form = form
         self.prop = prop
-        self.stortype = stortype.to_bytes(2, 'big')
+        self.abrvlen += self.multilen
 
     def getSodeValu(self, sode):
         valt = sode['props'].get(self.prop)
@@ -528,21 +579,25 @@ class IndxByVirt(IndxBy):
     def __repr__(self):
         return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
 
-class IndxByVirtArray(IndxBy):
+class IndxByPolyVirt(IndxBy):
 
-    def __init__(self, layr, form, prop, virts):
+    def __init__(self, layr, form, prop, virts, stortype):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, *virts)
+        self.stortype = stortype.to_bytes(2, 'big')
+
+        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL, form, prop, *virts) + self.stortype
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
         self.prop = prop
         self.virts = virts
+#        self.abrv += self.stortype
+#        self.abrvlen += 2
 
     def __repr__(self):
-        return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
+        return f'IndxByPolyVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByTagPropVirt(IndxBy):
 
@@ -607,43 +662,55 @@ class IndxByPropArrayValu(IndxByProp):
     def __repr__(self):
         return f'IndxByPropArrayValu: {self.form}:{self.prop}'
 
-    def keyNidsByDups(self, indx, reverse=False):
+    async def keyNidsByDups(self, indx, reverse=False):
         indxvalu = len(indx).to_bytes(4, 'big') + s_common.buid(indx)
         if reverse:
-            yield from self.layr.layrslab.scanByDupsBack(self.abrv + indxvalu, db=self.db)
+            genr = self.layr.layrslab.scanByDupsBack(self.abrv + indxvalu, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByDups(self.abrv + indxvalu, db=self.db)
+            genr = self.layr.layrslab.scanByDups(self.abrv + indxvalu, db=self.db)
+
+        for item in genr:
+            yield item
 
 class IndxByPropArraySize(IndxByProp):
 
     def __repr__(self):
         return f'IndxByPropArraySize: {self.form}:{self.prop}'
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
 
         strt = self.abrv + minindx + (b'\x00' * 16)
         stop = self.abrv + maxindx + (b'\xff' * 16)
         if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
 
-    def keyNidsByDups(self, indx, reverse=False):
+        for item in genr:
+            yield item
+
+    async def keyNidsByDups(self, indx, reverse=False):
         indx = indx.to_bytes(4, 'big')
         if reverse:
-            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+
+        for item in genr:
+            yield item
 
 class IndxByPropIvalMin(IndxByProp):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
         if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+        for item in genr:
+            yield item
 
 class IndxByPropIvalMax(IndxBy):
 
@@ -683,13 +750,16 @@ class IndxByTagIval(IndxBy):
 
 class IndxByTagIvalMin(IndxByTagIval):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
         if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+        for item in genr:
+            yield item
 
 class IndxByTagIvalMax(IndxBy):
 
@@ -732,15 +802,19 @@ class IndxByTagProp(IndxBy):
         typeindx = self.layr.core.model.getTagProp(self.prop).type.stortype
         return self.layr.stortypes[typeindx]
 
-    def keyNidsByDups(self, indx, reverse=False):
+    async def keyNidsByDups(self, indx, reverse=False):
         if self.tag is not None:
-            yield from IndxBy.keyNidsByDups(self, indx, reverse=reverse)
+            async for item in IndxBy.keyNidsByDups(self, indx, reverse=reverse):
+                yield item
             return
 
         if reverse:
-            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+            genr = self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+
+        for item in genr:
+            yield item
 
     def getSodeValu(self, sode):
 
@@ -760,13 +834,16 @@ class IndxByTagProp(IndxBy):
 
 class IndxByTagPropIvalMin(IndxByTagProp):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
         if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
         else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+        for item in genr:
+            yield item
 
 class IndxByTagPropIvalMax(IndxBy):
 
@@ -846,7 +923,7 @@ class StorType:
     async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             if virts:
-                indxby = IndxByVirtArray(self.layr, form, prop, virts)
+                indxby = IndxByVirt(self.layr, form, prop, virts)
             else:
                 indxby = IndxByPropArray(self.layr, form, prop)
 
@@ -875,64 +952,43 @@ class StorType:
     def decodeIndx(self, valu):  # pragma: no cover
         return s_common.novalu
 
-    def getVirtIndxVals(self, nid, form, prop, virts):
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
 
         layr = self.layr
         kvpairs = []
 
         for name, valu in virts.items():
-            if name[0] == '_':
-                continue
-
-            valu, vtyp = valu
-
             abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
 
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in layr.getStorIndx(vtyp, valu):
-                    kvpairs.append((arryabrv + indx, nid))
-                    layr.indxcounts.inc(arryabrv)
-
-                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
-                    kvpairs.append((abrv + indx, nid))
-                    layr.indxcounts.inc(abrv)
+            if isarray:
+                for aval, vtyp in valu:
+                    for indx in layr.getStorIndx(vtyp, aval):
+                        kvpairs.append((abrv + indx, nid))
+                        layr.indxcounts.inc(abrv)
 
             else:
+                valu, vtyp = valu
                 for indx in layr.getStorIndx(vtyp, valu):
                     kvpairs.append((abrv + indx, nid))
                     layr.indxcounts.inc(abrv)
 
         return kvpairs
 
-    def delVirtIndxVals(self, nid, form, prop, virts):
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
 
         layr = self.layr
 
         for name, valu in virts.items():
-
-            if name[0] == '_':
-                continue
-
-            valu, vtyp = valu
-
             abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
 
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in layr.getStorIndx(vtyp, valu):
-                    layr.layrslab.delete(arryabrv + indx, nid, db=layr.indxdb)
-                    layr.indxcounts.inc(arryabrv, -1)
-
-                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
-                    layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
-                    layr.indxcounts.inc(abrv, -1)
+            if isarray:
+                for aval, vtyp in valu:
+                    for indx in layr.getStorIndx(vtyp, aval):
+                        layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
+                        layr.indxcounts.inc(abrv, -1)
 
             else:
+                valu, vtyp = valu
                 for indx in layr.getStorIndx(vtyp, valu):
                     layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
                     layr.indxcounts.inc(abrv, -1)
@@ -985,7 +1041,7 @@ class StorType:
         abrvlen = liftby.abrvlen
         isarray = isinstance(liftby, IndxByPropArray)
 
-        for lkey, nid in liftby.keyNidsByPref(reverse=reverse):
+        async for lkey, nid in liftby.keyNidsByPref(reverse=reverse):
 
             await asyncio.sleep(0)
 
@@ -1029,18 +1085,18 @@ class StorTypeUtf8(StorType):
 
     async def _liftUtf8Eq(self, liftby, valu, reverse=False):
         indx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftUtf8Range(self, liftby, valu, reverse=False):
         minindx = self._getIndxByts(valu[0])
         maxindx = self._getIndxByts(valu[1])
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftUtf8Prefix(self, liftby, valu, reverse=False):
         indx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        async for item in liftby.keyNidsByPref(indx, reverse=reverse):
             yield item
 
     def _getIndxByts(self, valu):
@@ -1087,12 +1143,12 @@ class StorTypeHier(StorType):
 
     async def _liftHierEq(self, liftby, valu, reverse=False):
         indx = self.getHierIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftHierPref(self, liftby, valu, reverse=False):
         indx = self.getHierIndx(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        async for item in liftby.keyNidsByPref(indx, reverse=reverse):
             yield item
 
 class StorTypeLoc(StorTypeHier):
@@ -1127,7 +1183,7 @@ class StorTypeFqdn(StorTypeUtf8):
 
         if valu[0] == '*':
             indx = self._getIndxByts(valu[1:][::-1])
-            for item in liftby.keyNidsByPref(indx, reverse=reverse):
+            async for item in liftby.keyNidsByPref(indx, reverse=reverse):
                 yield item
             return
 
@@ -1163,14 +1219,14 @@ class StorTypeIpv6(StorType):
 
     async def _liftIPv6Eq(self, liftby, valu, reverse=False):
         indx = self.getIPv6Indx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftIPv6Range(self, liftby, valu, reverse=False):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIPv6Lt(self, liftby, norm, reverse=False):
@@ -1178,7 +1234,7 @@ class StorTypeIpv6(StorType):
         maxindx = self.getIPv6Indx(norm)
         maxindx = (int.from_bytes(maxindx) - 1).to_bytes(16)
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIPv6Gt(self, liftby, norm, reverse=False):
@@ -1186,21 +1242,21 @@ class StorTypeIpv6(StorType):
         minindx = (int.from_bytes(minindx) + 1).to_bytes(16)
         maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIPv6Le(self, liftby, norm, reverse=False):
         minindx = self.getIPv6Indx('::')
         maxindx = self.getIPv6Indx(norm)
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIPv6Ge(self, liftby, norm, reverse=False):
         minindx = self.getIPv6Indx(norm)
         maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
 class StorTypeInt(StorType):
@@ -1245,7 +1301,7 @@ class StorTypeInt(StorType):
             return
 
         pkey = indx.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByDups(pkey, reverse=reverse):
+        async for item in liftby.keyNidsByDups(pkey, reverse=reverse):
             yield item
 
     async def _liftIntGt(self, liftby, valu, reverse=False):
@@ -1261,7 +1317,7 @@ class StorTypeInt(StorType):
 
         minindx = minv.to_bytes(self.size, 'big')
         maxindx = self.fullbyts
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIntLt(self, liftby, valu, reverse=False):
@@ -1277,7 +1333,7 @@ class StorTypeInt(StorType):
 
         minindx = self.zerobyts
         maxindx = maxv.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftIntRange(self, liftby, valu, reverse=False):
@@ -1291,7 +1347,7 @@ class StorTypeInt(StorType):
 
         minindx = minv.to_bytes(self.size, 'big')
         maxindx = maxv.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
 class StorTypeHugeNum(StorType):
@@ -1328,7 +1384,7 @@ class StorTypeHugeNum(StorType):
 
     async def _liftHugeEq(self, liftby, valu, reverse=False):
         indx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftHugeGt(self, liftby, valu, reverse=False):
@@ -1343,18 +1399,18 @@ class StorTypeHugeNum(StorType):
 
     async def _liftHugeGe(self, liftby, valu, reverse=False):
         minindx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByRange(minindx, self.fullbyts, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, self.fullbyts, reverse=reverse):
             yield item
 
     async def _liftHugeLe(self, liftby, valu, reverse=False):
         maxindx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
             yield item
 
     async def _liftHugeRange(self, liftby, valu, reverse=False):
         minindx = self.getHugeIndx(valu[0])
         maxindx = self.getHugeIndx(valu[1])
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
 class StorTypeFloat(StorType):
@@ -1389,7 +1445,7 @@ class StorTypeFloat(StorType):
         return self.FloatPacker.unpack(bytz)[0]
 
     async def _liftFloatEq(self, liftby, valu, reverse=False):
-        for item in liftby.keyNidsByDups(self.fpack(valu), reverse=reverse):
+        async for item in liftby.keyNidsByDups(self.fpack(valu), reverse=reverse):
             yield item
 
     async def _liftFloatGeCommon(self, liftby, valu, reverse=False):
@@ -1400,21 +1456,21 @@ class StorTypeFloat(StorType):
 
         if reverse:
             if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, self.FloatPackPosMax, reverse=True):
+                async for item in liftby.keyNidsByRange(self.FloatPackPosMin, self.FloatPackPosMax, reverse=True):
                     yield item
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack):
+                async for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack):
                     yield item
             else:
-                for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax, reverse=True):
+                async for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax, reverse=True):
                     yield item
 
         else:
             if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack, reverse=True):
+                async for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack, reverse=True):
                     yield item
                 valupack = self.FloatPackPosMin
 
-            for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax):
+            async for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax):
                 yield item
 
     async def _liftFloatGe(self, liftby, valu, reverse=False):
@@ -1437,20 +1493,20 @@ class StorTypeFloat(StorType):
 
         if reverse:
             if math.copysign(1.0, valu) > 0.0:
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack, reverse=True):
+                async for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack, reverse=True):
                     yield item
                 valupack = self.FloatPackNegMax
 
-            for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin):
+            async for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin):
                 yield item
         else:
             if math.copysign(1.0, valu) > 0.0:
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, self.FloatPackNegMin, reverse=True):
+                async for item in liftby.keyNidsByRange(self.FloatPackNegMax, self.FloatPackNegMin, reverse=True):
                     yield item
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack):
+                async for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack):
                     yield item
             else:
-                for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin, reverse=True):
+                async for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin, reverse=True):
                     yield item
 
     async def _liftFloatLe(self, liftby, valu, reverse=False):
@@ -1477,32 +1533,32 @@ class StorTypeFloat(StorType):
 
         if math.copysign(1.0, valumin) > 0.0:
             # Entire range is nonnegative
-            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+            async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
                 yield item
             return
 
         if math.copysign(1.0, valumax) < 0.0:  # negative values and -0.0
             # Entire range is negative
-            for item in liftby.keyNidsByRange(pkeymax, pkeymin, reverse=(not reverse)):
+            async for item in liftby.keyNidsByRange(pkeymax, pkeymin, reverse=(not reverse)):
                 yield item
             return
 
         if reverse:
             # Yield all values between max and 0
-            for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax, reverse=True):
+            async for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax, reverse=True):
                 yield item
 
             # Yield all values between -0 and min
-            for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin):
+            async for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin):
                 yield item
 
         else:
             # Yield all values between min and -0
-            for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin, reverse=True):
+            async for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin, reverse=True):
                 yield item
 
             # Yield all values between 0 and max
-            for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax):
+            async for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax):
                 yield item
 
 class StorTypeGuid(StorType):
@@ -1516,12 +1572,12 @@ class StorTypeGuid(StorType):
 
     async def _liftGuidPref(self, liftby, byts, reverse=False):
         # valu is already bytes of the guid prefix
-        for item in liftby.keyNidsByPref(byts, reverse=reverse):
+        async for item in liftby.keyNidsByPref(byts, reverse=reverse):
             yield item
 
     async def _liftGuidEq(self, liftby, valu, reverse=False):
         indx = s_common.uhex(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     def indx(self, valu):
@@ -1543,10 +1599,10 @@ class StorTypeTime(StorTypeInt):
             '@=': self._liftAtIval,
         })
 
-    def getVirtIndxVals(self, nid, form, prop, virts):
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
         return ()
 
-    def delVirtIndxVals(self, nid, form, prop, virts):
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
         return
 
     def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
@@ -1558,7 +1614,7 @@ class StorTypeTime(StorTypeInt):
     async def _liftAtIval(self, liftby, valu, reverse=False):
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
 class StorTypeIval(StorType):
@@ -1669,7 +1725,7 @@ class StorTypeIval(StorType):
 
     async def _liftIvalEq(self, liftby, valu, reverse=False):
         indx = self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftIvalAt(self, liftby, valu, reverse=False):
@@ -1679,7 +1735,7 @@ class StorTypeIval(StorType):
         pkeymin = self.timetype.zerobyts * 2
         pkeymax = maxindx + self.timetype.fullbyts
 
-        for lkey, nid in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        async for lkey, nid in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
 
             # check for non-overlap right
             if lkey[-8:] <= minindx:
@@ -1689,7 +1745,7 @@ class StorTypeIval(StorType):
 
     async def _liftIvalPartEq(self, liftby, valu, reverse=False):
         indx = self.timetype.getIntIndx(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        async for item in liftby.keyNidsByPref(indx, reverse=reverse):
             yield item
 
     async def _liftIvalPartGt(self, liftby, valu, reverse=False):
@@ -1699,7 +1755,7 @@ class StorTypeIval(StorType):
     async def _liftIvalPartGe(self, liftby, valu, reverse=False):
         pkeymin = self.timetype.getIntIndx(max(valu, 0))
         pkeymax = self.timetype.maxbyts
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalPartLt(self, liftby, valu, reverse=False):
@@ -1711,13 +1767,13 @@ class StorTypeIval(StorType):
 
         pkeymin = self.timetype.zerobyts
         pkeymax = self.timetype.getIntIndx(maxv)
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalPartAt(self, liftby, valu, reverse=False):
         pkeymin = self.timetype.getIntIndx(valu[0])
         pkeymax = self.timetype.getIntIndx(valu[1] - 1)
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalDurationEq(self, liftby, valu, reverse=False):
@@ -1734,7 +1790,7 @@ class StorTypeIval(StorType):
             indxs = (duraindx,)
 
         for indx in indxs:
-            for item in liftby.keyNidsByPref(indx, reverse=reverse):
+            async for item in liftby.keyNidsByPref(indx, reverse=reverse):
                 yield item
 
     async def _liftIvalDurationGt(self, liftby, valu, reverse=False):
@@ -1763,7 +1819,7 @@ class StorTypeIval(StorType):
             indxs = ((byts, byts),)
 
         for (pkeymin, pkeymax) in indxs:
-            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+            async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
                 yield item
 
     async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
@@ -1792,7 +1848,7 @@ class StorTypeIval(StorType):
             indxs = ((byts, byts),)
 
         for (pkeymin, pkeymax) in indxs:
-            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+            async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
                 yield item
 
     def indx(self, valu):
@@ -1820,10 +1876,10 @@ class StorTypeIval(StorType):
 
         return self.futdurabyts + (self.unkdura - (valu[0] + self.timetype.offset)).to_bytes(8, 'big')
 
-    def getVirtIndxVals(self, nid, form, prop, virts):
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
         return ()
 
-    def delVirtIndxVals(self, nid, form, prop, virts):
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
         return
 
     def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
@@ -1843,7 +1899,7 @@ class StorTypeMsgp(StorType):
 
     async def _liftMsgpEq(self, liftby, valu, reverse=False):
         indx = s_common.buid(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     def indx(self, valu):
@@ -1885,7 +1941,7 @@ class StorTypeArray(StorType):
         return (len(valu).to_bytes(4, 'big') + s_common.buid(valu),)
 
     async def _liftArrayEq(self, liftby, valu, reverse=False):
-        for item in liftby.keyNidsByDups(valu, reverse=reverse):
+        async for item in liftby.keyNidsByDups(valu, reverse=reverse):
             yield item
 
 class StorTypeNdef(StorType):
@@ -1926,7 +1982,7 @@ class StorTypeNdef(StorType):
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByDups(formabrv + s_common.buid(valu), reverse=reverse):
+        async for item in liftby.keyNidsByDups(formabrv + s_common.buid(valu), reverse=reverse):
             yield item
 
     async def _liftNdefFormEq(self, liftby, valu, reverse=False):
@@ -1935,7 +1991,7 @@ class StorTypeNdef(StorType):
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
+        async for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
             yield item
 
 class StorTypePolyProp(StorType):
@@ -1943,52 +1999,138 @@ class StorTypePolyProp(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_POLYPROP)
         self.lifters |= {
-            '=': self._liftNdefEq,
-            'form=': self._liftNdefFormEq,
+            'form=': self._liftFormEq,
+            'ndef=': self._liftNdefEq,
         }
 
     def indx(self, valu):
-        # add in middle? formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
-        return (stortype + valu,)
+        realtype = self.layr.core.model.form(valu[0]).type.stortype
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+
+        byts = self.layr.stortypes[realtype].indx(valu[1])[0]
+
+        return (realtype.to_bytes(2, 'big') + formabrv + byts,)
+
+    def decodeIndx(self, bytz):
+        realtype = int.from_bytes(bytz[:2], 'big')
+        form = self.layr.core.getAbrvIndx(bytz[2:10])[0]
+
+        if (valu := self.layr.stortypes[realtype].decodeIndx(bytz[10:])) is s_common.novalu:
+            return s_common.novalu
+
+        return (form, valu)
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None, stortype=None):
-        realtype = stortype & STOR_MASK_POLYPROP
         try:
-            indxby = IndxByPolyProp(self.layr, form, prop, realtype)
+            if (lift := self.lifters.get(cmpr)) is not None:
+                indxby = IndxByProp(self.layr, form, prop)
+
+                async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+                    yield item
+            else:
+                realtype = stortype & STOR_MASK_POLYPROP
+                if virts:
+                    indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
+                else:
+                    indxby = IndxByPolyProp(self.layr, form, prop, realtype)
+
+                async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
+                    yield item
+
         except s_exc.NoSuchAbrv:
             return
-
-        async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
-            yield item
 
     async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virts=None, stortype=None):
-        realtype = stortype & STOR_MASK_POLYPROP
         try:
-            indxby = IndxByPolyPropArray(self.layr, form, prop, realtype)
+            if (lift := self.lifters.get(cmpr)) is not None:
+                indxby = IndxByPropArray(self.layr, form, prop)
+
+                async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+                    yield item
+            else:
+                realtype = stortype & STOR_MASK_POLYPROP
+                if virts:
+                    indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
+                else:
+                    indxby = IndxByPolyPropArray(self.layr, form, prop, realtype)
+
+                async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
+                    yield item
 
         except s_exc.NoSuchAbrv:
             return
-
-        async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
-            yield item
 
     async def _liftNdefEq(self, liftby, valu, reverse=False):
+        formname, valu = valu
         try:
-            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu[0], None)
+            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, formname, None)
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByDups(formabrv + s_common.buid(valu), reverse=reverse):
+        form = self.layr.core.model.form(formname)
+        stortype = form.type.stortype
+        byts = self.layr.stortypes[stortype].indx(valu)[0]
+
+        async for item in liftby.keyNidsByDups(stortype.to_bytes(2, 'big') + formabrv + byts, reverse=reverse):
             yield item
 
-    async def _liftNdefFormEq(self, liftby, valu, reverse=False):
+    async def _liftFormEq(self, liftby, valu, reverse=False):
         try:
             formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
+        form = self.layr.core.model.form(valu)
+
+        async for item in liftby.keyNidsByPref(form.type.stortype.to_bytes(2, 'big') + formabrv, reverse=reverse):
             yield item
+
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
+
+        layr = self.layr
+        kvpairs = []
+
+        for name, valu in virts.items():
+            if name[0] == '_':
+                continue
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if isarray:
+                for aval, vtyp in valu:
+                    for indx in layr.getStorIndx(vtyp, aval):
+                        kvpairs.append((abrv + vtyp.to_bytes(2, 'big') + indx, nid))
+                        layr.indxcounts.inc(abrv)
+
+            else:
+                valu, vtyp = valu
+                for indx in layr.getStorIndx(vtyp, valu):
+                    kvpairs.append((abrv + vtyp.to_bytes(2, 'big') + indx, nid))
+                    layr.indxcounts.inc(abrv)
+
+        return kvpairs
+
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
+
+        layr = self.layr
+
+        for name, valu in virts.items():
+            if name[0] == '_':
+                continue
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if isarray:
+                for aval, vtyp in valu:
+                    for indx in layr.getStorIndx(vtyp, aval):
+                        layr.layrslab.delete(abrv + vtyp.to_bytes(2, 'big') + indx, nid, db=layr.indxdb)
+                        layr.indxcounts.inc(abrv, -1)
+
+            else:
+                valu, vtyp = valu
+                for indx in layr.getStorIndx(vtyp, valu):
+                    layr.layrslab.delete(abrv + vtyp.to_bytes(2, 'big') + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(abrv, -1)
 
 class StorTypeLatLon(StorType):
 
@@ -2006,7 +2148,7 @@ class StorTypeLatLon(StorType):
 
     async def _liftLatLonEq(self, liftby, valu, reverse=False):
         indx = self._getLatLonIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     async def _liftLatLonNear(self, liftby, valu, reverse=False):
@@ -2025,7 +2167,7 @@ class StorTypeLatLon(StorType):
         latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
         # scan by lon range and down-select the results to matches.
-        for lkey, nid in liftby.keyNidsByRange(lonminindx, lonmaxindx, reverse=reverse):
+        async for lkey, nid in liftby.keyNidsByRange(lonminindx, lonmaxindx, reverse=reverse):
 
             # lkey = <abrv> <lonindx> <latindx>
 
@@ -2078,7 +2220,7 @@ class StorTypeIPAddr(StorType):
 
     async def _liftAddrEq(self, liftby, valu, reverse=False):
         indx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
             yield item
 
     def _getMaxIndx(self, valu):
@@ -2101,7 +2243,7 @@ class StorTypeIPAddr(StorType):
 
         minindx = self._getMinIndx(valu)
         maxindx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftAddrGe(self, liftby, valu, reverse=False):
@@ -2110,7 +2252,7 @@ class StorTypeIPAddr(StorType):
 
         minindx = self._getIndxByts(valu)
         maxindx = self._getMaxIndx(valu)
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     async def _liftAddrLt(self, liftby, valu, reverse=False):
@@ -2125,7 +2267,7 @@ class StorTypeIPAddr(StorType):
 
         minindx = self._getIndxByts(valu[0])
         maxindx = self._getIndxByts(valu[1])
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        async for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
             yield item
 
     def indx(self, valu):
@@ -2139,8 +2281,13 @@ class StorTypeIPAddr(StorType):
         if valu[0] == 6:
             return b'\x06' + valu[1].to_bytes(16, 'big')
 
-        mesg = 'Invalid STOR_TYPE_IPADDR: {valu}'
+        mesg = f'Invalid STOR_TYPE_IPADDR: {valu}'
         raise s_exc.BadTypeValu(mesg=mesg)
+
+    def decodeIndx(self, bytz):
+        if bytz[0] == 4:
+            return (4, int.from_bytes(bytz[1:], 'big'))
+        return (6, int.from_bytes(bytz[1:], 'big'))
 
 class StorTypeNodeProp(StorType):
 
@@ -2179,7 +2326,7 @@ class StorTypeNodeProp(StorType):
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByDups(propabrv + s_common.buid(valu), reverse=reverse):
+        async for item in liftby.keyNidsByDups(propabrv + s_common.buid(valu), reverse=reverse):
             yield item
 
     async def _liftNodePropNameEq(self, liftby, valu, reverse=False):
@@ -2188,7 +2335,7 @@ class StorTypeNodeProp(StorType):
         except s_exc.NoSuchAbrv:
             return
 
-        for item in liftby.keyNidsByPref(propabrv, reverse=reverse):
+        async for item in liftby.keyNidsByPref(propabrv, reverse=reverse):
             yield item
 
 class SodeEnvl:
@@ -4360,7 +4507,7 @@ class Layer(s_nexus.Pusher):
 
         if oldv is not None:
 
-            if oldt & STOR_FLAG_ARRAY:
+            if (isarray := oldt & STOR_FLAG_ARRAY):
 
                 realtype = oldt & STOR_MASK_ARRAY
 
@@ -4406,7 +4553,10 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(maxabrv + oldi[8:], nid, db=self.indxdb)
 
             if oldvirts is not None:
-                self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts)
+                if realtype & STOR_FLAG_POLYPROP:
+                    self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
+                else:
+                    self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
 
         if (antiprops := sode.get('antiprops')) is not None:
             tomb = antiprops.pop(prop, None)
@@ -4423,15 +4573,13 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
-        if stortype & STOR_FLAG_ARRAY:
+        if (isarray := stortype & STOR_FLAG_ARRAY):
 
             realtype = stortype & STOR_MASK_ARRAY
 
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
 
-            print('this?')
             for indx in self.getStorIndx(stortype, valu, virts=virts):
-                print('loop')
                 kvpairs.append((arryabrv + indx, nid))
                 self.indxcounts.inc(arryabrv)
 
@@ -4470,7 +4618,12 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
-            if (virtkeys := self.stortypes[realtype].getVirtIndxVals(nid, form, prop, virts)):
+            if realtype & STOR_FLAG_POLYPROP:
+                virtkeys = self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
+            else:
+                virtkeys = self.stortypes[realtype].getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
+
+            if virtkeys:
                 kvpairs.extend(virtkeys)
 
         return kvpairs
@@ -4484,25 +4637,23 @@ class Layer(s_nexus.Pusher):
             return ()
 
         valu, stortype, virts = valt
-
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
 
-        if stortype & STOR_FLAG_ARRAY:
+        if (isarray := stortype & STOR_FLAG_ARRAY):
 
             realtype = stortype & STOR_MASK_ARRAY
 
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
             self.indxcounts.inc(arryabrv, len(valu) * -1)
 
-            for aval in valu:
-                for indx in self.getStorIndx(realtype, aval):
-                    self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
+            for oldi in self.getStorIndx(stortype, valu, virts=virts):
+                self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
 
-                    if realtype == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + indx[8:] + abrv, nid, db=self.indxdb)
+                if realtype == STOR_TYPE_NDEF:
+                    self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
-                    elif realtype == STOR_TYPE_NODEPROP:
-                        self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv, nid, db=self.indxdb)
+                elif realtype == STOR_TYPE_NODEPROP:
+                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
                 await asyncio.sleep(0)
 
@@ -4533,7 +4684,10 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
 
         if virts is not None:
-            self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts)
+            if realtype & STOR_FLAG_POLYPROP:
+                self.polytype.delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
+            else:
+                self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -5343,9 +5497,11 @@ class Layer(s_nexus.Pusher):
             realtype = stortype & STOR_MASK_POLYPROP
 
             sbyts = realtype.to_bytes(2, 'big')
+            formabrv = self.core.setIndxAbrv(INDX_PROP, valu[0], None)
+
             retn = []
             for indx in self.getStorIndx(realtype, valu[1]):
-                retn.append(sbyts + indx)
+                retn.append(sbyts + formabrv + indx)
 
             return retn
 

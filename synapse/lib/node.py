@@ -766,6 +766,32 @@ class Node(NodeBase):
 
         return defv, None
 
+    def getRawWithLayer(self, name, defv=None):
+        '''
+        Return a secondary property with virtual property information from the Node and the index of the sode.
+
+        Args:
+            name (str): The name of a secondary property.
+
+        Returns:
+            (tuple): The secondary property and virtual property information or (defv, None).
+            (int): Index of the sode or None.
+        '''
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return (defv, None), None
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return (defv, None), None
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt, indx
+
+        return (defv, None), None
+
     def getFromLayers(self, name, strt=0, stop=None, defv=None):
         for sode in self.sodes[strt:stop]:
             if sode.get('antivalu') is not None:
