@@ -288,6 +288,10 @@ modeldefs = (
                 'doc': 'A file entry contained by an archive file.'}),
 
             ('file:mime:rar:entry', ('file:archive:entry', {}), {
+                'props': (
+                    ('extra:posix:perms', ('int', {}), {
+                        'doc': 'The POSIX permissions mask of the archived file.'}),
+                ),
                 'template': {'title': 'RAR archive file entry'},
                 'doc': 'A file entry contained by a RAR archive file.'}),
 
@@ -672,12 +676,6 @@ modeldefs = (
             ('file:archive:entry', {}, (
                 ('archived:size', ('int', {'min': 0}), {
                     'doc': 'The storage size of the file within the archive.'}),
-            )),
-
-            ('file:mime:rar:entry', {}, (
-
-                ('extra:posix:perms', ('int', {}), {
-                    'doc': 'The POSIX permissions mask of the archived file.'}),
             )),
 
             ('file:mime:zip:entry', {}, (
