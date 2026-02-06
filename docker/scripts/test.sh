@@ -33,7 +33,7 @@ docker run --rm -it --entrypoint /usr/bin/git vertexproject/synapse-ci:${TAG} --
 dstatus01=$?
 if [ $dstatus01 != "0" ]; then exit 1; fi
 
-docker run --rm -it --entrypoint /usr/bin/xvfb-run vertexproject/synapse-ci:${TAG}-browsers --help
+docker run --rm -it --entrypoint /usr/local/bin/node vertexproject/synapse-ci:${TAG}-browsers --help
 dstatus02=$?
 if [ $dstatus02 != "0" ]; then exit 1; fi
 
