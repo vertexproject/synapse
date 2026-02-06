@@ -31,7 +31,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'award::name'}},
                         {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-                        {'type': 'prop', 'opts': {'name': 'awarded'}},
+                        # {'type': 'prop', 'opts': {'name': 'time'}},
                     ),
                 },
                 'doc': 'An instance of an individual receiving an award.'}),

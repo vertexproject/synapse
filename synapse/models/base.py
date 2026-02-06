@@ -77,12 +77,48 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
+            ('meta:activity', ('guid', {}), {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('period', ('time', {}), {
+                        'doc': 'The period over which the {title} occured.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Analytically relevant activity.'}),
+
+            ('meta:event:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('meta:event:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A hierarchical taxonomy of event types.'}),
+
             ('meta:event', ('guid', {}), {
                 'template': {'title': 'event'},
                 'interfaces': (
                     ('meta:causal', {}),
                 ),
                 'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
 
                     ('time', ('time', {}), {
                         'doc': 'The time that the {title} occured.'}),
@@ -91,23 +127,6 @@ modeldefs = (
                         'doc': 'The type of event.'}),
                 ),
                 'doc': 'An analytically relevant event.'}),
-
-            ('meta:activity', ('guid', {}), {
-                'template': {'title': 'activity'},
-                'interfaces': (
-                    ('meta:causal', {}),
-                ),
-                'props': (
-                    ('period', ('time', {}), {
-                        'doc': 'The period over which the {activity} occured.'}),
-                ),
-                'doc': 'Analytically relevant activity.'}),
-
-            ('meta:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -254,21 +273,21 @@ modeldefs = (
                 },
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL for the {title}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('base:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'base:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -327,14 +346,7 @@ modeldefs = (
             }),
 
             ('meta:causal', {
-                'props': (
-                    ('name', ('base:name', {}), {
-                        'doc': 'The name of the {title}.'}),
-
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
-                ),
-                'doc': 'Properties common to events and activity.'}),
+                'doc': 'Implemented by events and activity which can lead to effects.'}),
 
             ('meta:usable', {
                 'template': {'title': 'item'},
@@ -524,30 +536,6 @@ modeldefs = (
 
             ('meta:timeline:type:taxonomy', {
                 'prevnames': ('meta:timeline:taxonomy',)}, ()),
-
-            # ('meta:event', {}, (
-
-            #     # FIXME discuss instant vs activity
-            #     #('period', ('ival', {}), {
-            #         #'doc': 'The period over which the {title} occurred.'}),
-
-            #     # FIXME redundant with :name / :names and should be removed
-            #     # ('title', ('str', {}), {
-            #     #     'doc': 'A title for the event.'}),
-
-            #     ('desc', ('text', {}), {
-            #         'doc': 'A description of the event.'}),
-
-            #     # FIXME conscious decision to fold all "event" types into one taxonomy
-            #     ('type', ('meta:event:type:taxonomy', {}), {
-            #         'doc': 'Type of event.'}),
-
-            #     #('parent', ('meta:event', {}), {
-            #         #'doc': 'The parent event.'}),
-            # )),
-
-            ('meta:event:type:taxonomy', {
-                'prevnames': ('meta:event:taxonomy',)}, ()),
 
             ('meta:ruleset', {}, (
 

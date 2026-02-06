@@ -54,6 +54,37 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of product types.'}),
+
+            ('biz:asked', ('entity:event', {}), {
+                'template': {'title': 'ask'},
+                'doc': 'An event where an actor made an ask as part of a negotiation.'}),
+
+            ('biz:offered', ('entity:event', {}), {
+                'template': {'title': 'offer'},
+                'doc': 'An event where an actor made an offer as part of a negotiation.'}),
+        ),
+
+        'interfaces': (
+
+            ('biz:negotiable', {
+                # TODO restrict to being implemented on meta:activity sub-forms
+                'doc': 'An interface implemented by activities which involve negotiation.'}),
+
+            ('biz:position', {
+                'template': {'title': 'position'},
+                'props': (
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The total price of the {title}.'}),
+
+                    ('expires', ('time', {}), {
+                        'doc': 'The time that the {title} expires.'}),
+
+                    ('activity', ('biz:negotiable', {}), {
+                        'doc': 'The negotiation that prompted the {title}.'}),
+                ),
+                # :via=<meta:comms>?
+                # -(used)> meta:comms (interface for all quanta of comms?)
+                'doc': 'An interface implemented by actors taking a position during a negotiation.'}),
         ),
 
         'edges': (

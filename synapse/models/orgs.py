@@ -175,9 +175,8 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),

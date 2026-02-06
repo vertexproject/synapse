@@ -231,6 +231,25 @@ modeldefs = (
                 ),
                 'doc': 'Historical contact information about another contact.'}),
 
+            ('entity:alliance', ('guid', {}), {
+                'template': {'title': 'alliance'},
+                'interfaces': (
+                    ('entity:actor', {}),
+                    ('meta:reported', {}),
+                ),
+                'props': (
+                    ('name', ('entity:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The primary name of the {title}.'}),
+
+                    ('names', ('array', {'type': 'entity:name'}), {
+                        'doc': 'A list of alternate names for the {title}.'}),
+
+                    ('members', ('array', {'interface': 'entity:actor'}), {
+                        'doc': 'The actors who are working together.'}),
+                ),
+                'doc': 'An alliance of otherwise distinct actors working together.'}),
+
             ('entity:contactlist', ('guid', {}), {
                 'doc': 'A list of contacts.'}),
 
@@ -335,7 +354,7 @@ modeldefs = (
             ('entity:conflict', ('meta:activity', {}), {
                 'props': (
                      ('adversaries', ('array', {'type': 'entity:actor'}), {
-                         'doc': 'The primary adversaries in conflict with one another.'}),
+                         'doc': 'The primary adversaries in conflict.'}),
                 ),
                 'doc': 'Represents a conflict where two or more actors have mutually exclusive goals.'}),
 
@@ -566,96 +585,101 @@ modeldefs = (
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
             )),
 
-            # ('entity:conflict', {}, (
+            # Something must occur in time to be causal...
+            # (meta:causal) - An interface implemented by nodes which are causal.
+            # <meta:causal> -(leadto)> <meta:causal>
 
-            #     ('name', ('meta:name', {}), {
-            #         'doc': 'The name of the conflict.'}),
+            # meta:event=<guid> (meta:causal)
+            #   :time=<time>
+            #   :name=<base:name>
 
-            #     ('period', ('ival', {}), {
-            #         'doc': 'The period of time when the conflict was ongoing.'}),
+            # meta:activity=<guid> (meta:causal)
+            #   :period=<ival>
+            #   :name=<base:name>
 
-            #     ('adversaries', ('array', {'type': 'entity:actor'}), {
-            #         'doc': 'The primary adversaries in conflict with one another.'}),
-            # )),
+            # (e:action)
+            #   :actor=<e:actor> - The actor who carried out the {title}.
+            #   :actor:name=<e:name> - The name of the actor who carried out the {title}.
 
-            # other terse entity nouns: subject, party, target
-            # entity:affected
-            #     :event=<event>
-            #     :party=<entity:actor
+            # e:event=<meta:event> (e:action)
+            # e:activity=<meta:activity> (e:action)
 
-            #   entity:observed
-            #       :event=<event>
-            #       :party=<entity:actor>
+            # e:campaign=<e:activity>
+            # e:conflict=<meta:activity>
+            #   :adversaries=[<e:actor>]
 
+            # e:tookpart=<e:activity>
+            # e:attended=<e:tookpart>
+            #   (:actor :actor:name :period)
+            #   (:activity)=<meta:attendable> - The activity which was attended by the actor.
 
-            # entity:activity
-            #   :role=attacker
+            # e:contributed=<e:activity> - The actor contributed material support to the activity.
+            #   (:actor :period :activity)
+            #   :value=<econ:price> - The total value of the contribution.
 
-            #   entity:attended
-            #       :period
-            #       :actor=<entity:actor>
-            #       :event=<entity:attendable>
+            # e:registered=<e:event>
+            #   (:actor :actor:name :time)
+            #   (:activity)=<meta:attendable> - The activity which the actor registered for.
 
-            #   entity:registered
-            #       :time
-            #       :actor=<entity:actor>
-            #       :event=<entity:attendable>
+            # e:education=<e:activity>
+            #   (:actor :period)
+            #   :educator=<entity:actor>
+            #   :awarded=<e:awarded>
 
-            #   entity:contributed
-            #   entity:participated
-            #       :actor=<entity:actor>
-            #       :event=<entity:action>
+            # e:awarded=<e:event>
+            #   (:time :activity)
+            #   :award=<e:award>
 
-            # ('entity:support', {}, (
-            #     ('event', ('entity:action', {}), {
-            #         'doc': 'The action which the actor {supported}.'}),
-            # )),
+            # e:workhist=<e:activity>
+            # e:proficiency=<e:activity>
+            #   :skill=e:skill? edu:skill?
 
-            # ('entity:contribution', ('entity:activity', {}), {
-            #     'props': (
+            # e:discovery=<e:event>
+            #   (:actor :time)
+            #   :item=<meta:discoverable>
 
-            #         ('event', ('meta:causal', {}), {
-            #             'doc': 'The activity supported by the actor.'}),
+            # lang:statement=<e:event> perhaps e:said?
+            #   (:actor :time)
+            #   :activity=<lang:transacript>
 
-            #         ('value', ('econ:price', {}), {
-            #             'doc': 'The assessed value of the contribution.'}),
+            # (risk:victimized)
+            #   :victim=<e:actor>
+            #   :victim:name=<e:name>
 
-            #         ('currency', ('econ:currency', {}), {
-            #             'doc': 'The currency used for the assessed value.'}),
-            #     ),
-            #     'doc': 'An instance of an entity contributing to an event.'}),
+            # risk:attack=<e:event> (risk:victimized)
+            #   (:actor :victim :time :activity)
 
-            # ('entity:participated', ('meta:activity', {}), {
-            #     'props': (
-            #         ('event', ('meta:causal', {}), {
-            #             'doc': 'The event that the actor participated in.'}),
-            #     ),
-            #     'doc': 'An instance of an entity actively participating in an event.'}),
+            # risk:extortion=<e:activity> (risk:victimized, biz:negotiable)
+            # biz:asked=<e:event>
+            #   (:activity)=<biz:negotiable>
+            #   :price=<econ:price>
+            #   :expires=<time>
+            # biz:offered=<e:event>
 
-            # ('entity:sponsored', ('entity:activity', {}), {
-            #     'props': (
-            #         ('event', ('meta:sponsorable', {}), {
-            #             'doc': 'The event which was sponsored by the actor.'}),
+            # NEW POSSIBILITIES...
 
-            #         ('value', ('econ:price', {}), {
-            #             'doc': 'The assessed value of the contribution.'}),
-            #     ),
-            #     'doc': 'An instance of an actor sponsoring an event.'}),
+            # e:research=<e:activity>
+            # (as a potential :activity for an e:discovered)
 
-            # ('entity:attended', ('entity:activity', {}), {
-            #     'props': (
-            #         ('event', ('meta:attendable', {}), {
-            #             'doc': 'The event which the actor attended.'}),
-            #     ),
-            #     'doc': 'An intance of an entity attending an organized event.'}),
+            # (e:affected)
+            #   :party=<e:actor>
+            #   :party:name=<e:name>
 
-            # ('entity:registered', ('entity:event', {}), {
-            #     'props': (
-            #         ('event', ('meta:attendable', {}), {
-            #             'doc': 'The event which the actor registered attended.'}),
-            #     ),
-            #     'doc': 'An instance of an entity registering for an organized event.'}),
+            # e:witnessed=<meta:event> (e:affected)
+            #   (:activity=<meta:causal>) - The activity witnessed by the party.
+            #   :party=<e:actor> - The party who witnessed the activity.
 
+            # e:alliance=<guid> (meta:reported)
+            #   :members=[<e:actor>]
+
+            # e:operated=<e:activity> ??e:drove? e:flew?
+            #   :item=<transport:
+
+            # e:motiv=<meta:activity>
+            #   (:actor :period)
+            #   :goal=<meta:goal>
+
+            # sci:weather:period=<meta:activity>
         ),
     }),
 )
