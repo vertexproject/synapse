@@ -287,6 +287,14 @@ modeldefs = (
                 'template': {'title': 'archive file entry'},
                 'doc': 'A file entry contained by an archive file.'}),
 
+            ('file:mime:rar:entry', ('file:archive:entry', {}), {
+                'props': (
+                    ('extra:posix:perms', ('int', {}), {
+                        'doc': 'The POSIX permissions mask of the archived file.'}),
+                ),
+                'template': {'title': 'RAR archive file entry'},
+                'doc': 'A file entry contained by a RAR archive file.'}),
+
             ('file:mime:zip:entry', ('file:archive:entry', {}), {
                 'template': {'title': 'ZIP archive file entry'},
                 'doc': 'A file entry contained by a ZIP archive file.'}),

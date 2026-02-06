@@ -157,6 +157,32 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:mime:zip:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:zip:entry :parent -> file:bytes'))
 
+            nodes = await core.nodes('''[
+                file:mime:rar:entry=*
+                    :parent={file:bytes}
+                    :file={file:bytes}
+                    :path=foo/006.exe
+                    :added=20260126
+                    :created=20260126
+                    :modified=20260126
+                    :accessed=20260126
+                    :archived:size=200
+                    :extra:posix:perms=0x7f
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+            self.propeq(nodes[0], 'path', 'foo/006.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
+            self.propeq(nodes[0], 'archived:size', 200)
+            self.propeq(nodes[0], 'extra:posix:perms', 127)
+            self.len(1, await core.nodes('file:mime:rar:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:mime:rar:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:mime:rar:entry :parent -> file:bytes'))
+
             self.len(7, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
 
     async def test_model_file_mime_exe(self):
