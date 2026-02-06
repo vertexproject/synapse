@@ -1792,9 +1792,9 @@ class Runtime(s_base.Base):
                 async for item in nodegenr:
                     yield item
 
-        except RecursionError:
+        except RecursionError as e:
             mesg = 'Maximum Storm pipeline depth exceeded.'
-            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
+            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from e
 
     async def _snapFromOpts(self, opts):
 
