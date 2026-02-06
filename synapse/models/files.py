@@ -140,10 +140,16 @@ modeldefs = (
         'ctors': (
 
             ('file:base', 'synapse.models.files.FileBase', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file name'}}),
+                ),
                 'doc': 'A file name with no path.',
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file path'}}),
+                ),
                 'virts': (
                     ('ext', ('str', {}), {
                         'computed': True,
@@ -264,6 +270,9 @@ modeldefs = (
 
             ('file:entry', ('guid', {}), {
                 'template': {'title': 'file entry'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'doc': 'A file entry containing a file and metadata.'}),
 
             ('file:exemplar:entry', ('file:entry', {}), {
@@ -287,11 +296,23 @@ modeldefs = (
                 'template': {'title': 'archive file entry'},
                 'doc': 'A file entry contained by an archive file.'}),
 
+            ('file:mime:rar:entry', ('file:archive:entry', {}), {
+                'props': (
+                    ('extra:posix:perms', ('int', {}), {
+                        'doc': 'The POSIX permissions mask of the archived file.'}),
+                ),
+                'template': {'title': 'RAR archive file entry'},
+                'doc': 'A file entry contained by a RAR archive file.'}),
+
             ('file:mime:zip:entry', ('file:archive:entry', {}), {
                 'template': {'title': 'ZIP archive file entry'},
                 'doc': 'A file entry contained by a ZIP archive file.'}),
 
             ('file:attachment', ('file:entry', {}), {
+                'template': {'title': 'file attachment'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'path'}},
