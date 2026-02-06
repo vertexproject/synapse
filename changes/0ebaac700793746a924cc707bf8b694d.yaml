@@ -1,6 +1,0 @@
----
-desc: Add missing exception information to the RecursionLimitError.
-desc:literal: false
-prs: []
-type: bug
-...
