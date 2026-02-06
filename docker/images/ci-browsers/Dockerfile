@@ -23,9 +23,7 @@
 # SOFTWARE.
 #
 # Items coveraed by the MIT License include:
-# - xvfb entrypoint creation in boostrap.sh
 # - node.js package installation pattern in bootstrap.sh
-# - xvfb entrypoint configuration in DOCKERFILE
 
 ARG CI_BASE_IMAGE
 
@@ -37,7 +35,3 @@ COPY docker/images/ci-browsers /build/ci-browsers
 
 RUN /build/ci-browsers/bootstrap.sh
 
-# Use the xvfb entrypoint
-LABEL com.circleci.preserve-entrypoint=true
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/bin/sh"]

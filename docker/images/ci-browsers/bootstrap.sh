@@ -2,12 +2,7 @@
 
 set -ex
 
-# Install xvfb; prepare a docker entrypoint to allow it to run
 apt update
-apt-get install -y \
-  xvfb
-printf '#!/bin/sh\nXvfb :99 -screen 0 1280x1024x24 &\nexec "$@"\n' | tee /docker-entrypoint.sh && \
-  chmod +x /docker-entrypoint.sh
 
 # Playwright chromium related dependencies
 apt-get install -y \
