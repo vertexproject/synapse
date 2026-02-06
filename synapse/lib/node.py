@@ -476,8 +476,8 @@ class Node(NodeBase):
                 return None
 
             if prop.modl.form(prop.type.name) is not None:
-                buid = s_common.buid((prop.type.name, valu))
-            elif 'ndef' in prop.type.types:
+                ndef = s_common.buid((prop.type.name, valu))
+            elif prop.type.ispoly or 'ndef' in prop.type.types:
                 buid = s_common.buid(valu)
             else:
                 return None

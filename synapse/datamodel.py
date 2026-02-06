@@ -1074,7 +1074,6 @@ class Model:
                 self.addTagProp(tpname, typedef, tpinfo)
 
         formchildren = collections.defaultdict(list)
-        self.formnames = set()
         childforms = set()
 
         allforms = []
@@ -1105,7 +1104,7 @@ class Model:
                 allforms.append((formname, forminfo, propdefs))
 
         for formname, forminfo, propdefs in allforms:
-            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames:
+            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames and self.form(ftyp.subof) is None:
                 formchildren[ftyp.subof].append((formname, forminfo, propdefs))
                 childforms.add(formname)
 

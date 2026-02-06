@@ -2239,7 +2239,7 @@ class PolyProp(Type):
         else:
             for form in self.defaultforms:
                 if form not in self.forms:
-                    mesg = 'Default forms must be all be allowed {self.name}.'
+                    mesg = f'Default forms must be all be allowed on {self.name}.'
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
 
     def reqFormAllowed(self, form):
