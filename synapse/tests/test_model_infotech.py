@@ -1168,7 +1168,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :enabled=true :text=gronk
                     :author={[ entity:contact=* ]}
                     :name=foo :version=1.2.3
-                    +(detects)> {[ it:softwarename=woot ]}
+                    +(detects)> {[ it:softwarename=woot :seen=2022 ]}
                 ]
             ''')
 
@@ -1184,7 +1184,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
-            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename +:seen'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
@@ -1940,11 +1940,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :key=foo/bar/baz
                     :name=faz
                     :value={[ it:dev:int=0xf0 ]}
+                    :seen=2022
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].get('key'), 'foo/bar/baz')
             self.eq(nodes[0].get('name'), 'faz')
             self.eq(nodes[0].get('value'), ('it:dev:int', 0xf0))
+            self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))

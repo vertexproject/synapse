@@ -800,11 +800,17 @@ modeldefs = (
                 'doc': 'A developer selected integer constant.'}),
 
             ('it:os:windows:registry:key', ('str', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registry key'}}),
+                ),
                 'prevnames': ('it:dev:regkey',),
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
                 'doc': 'A Windows registry key.'}),
 
             ('it:os:windows:registry:entry', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registry entry'}}),
+                ),
                 'prevnames': ('it:dev:regval',),
                 'doc': 'A Windows registry key, name, and value.'}),
 

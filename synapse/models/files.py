@@ -140,10 +140,16 @@ modeldefs = (
         'ctors': (
 
             ('file:base', 'synapse.models.files.FileBase', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file name'}}),
+                ),
                 'doc': 'A file name with no path.',
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file path'}}),
+                ),
                 'virts': (
                     ('ext', ('str', {}), {
                         'computed': True,
@@ -264,6 +270,9 @@ modeldefs = (
 
             ('file:entry', ('guid', {}), {
                 'template': {'title': 'file entry'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'doc': 'A file entry containing a file and metadata.'}),
 
             ('file:exemplar:entry', ('file:entry', {}), {
@@ -300,6 +309,10 @@ modeldefs = (
                 'doc': 'A file entry contained by a ZIP archive file.'}),
 
             ('file:attachment', ('file:entry', {}), {
+                'template': {'title': 'file attachment'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'path'}},
