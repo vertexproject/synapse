@@ -32,7 +32,7 @@ def _ioWorkProc(todo, sockpath):
 
     asyncio.run(workloop())
 
-class ProcessMixin:
+class SpawnerMixin:
 
     @classmethod
     def spawner(cls, base=None, sockpath=None):

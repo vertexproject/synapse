@@ -10,7 +10,7 @@ import synapse.exc as s_exc
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
-import synapse.lib.process as s_process
+import synapse.lib.spawner as s_spawner
 
 import synapse.tests.utils as s_t_utils
 
@@ -46,7 +46,7 @@ class Hehe(s_base.Base):
         if self.foo == -1:
             raise s_exc.BadArg(mesg='boom')
 
-class Haha(s_base.Base, s_process.ProcessMixin):
+class Haha(s_base.Base, s_spawner.SpawnerMixin):
 
     async def __anit__(self):
         await s_base.Base.__anit__(self)
