@@ -7,7 +7,6 @@ import asyncio
 import inspect
 import logging
 import weakref
-import tempfile
 import contextlib
 import collections
 
@@ -60,28 +59,6 @@ def _fini_atexit():  # pragma: no cover
             logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
-
-def _ioWorkProc(todo, sockpath):
-
-    async def workloop():
-
-        import synapse.daemon as s_daemon
-
-        async with await s_daemon.Daemon.anit() as dmon:
-
-            func, args, kwargs = todo
-
-            item = await func(*args, **kwargs)
-
-            dmon.share('dmon', dmon)
-            dmon.share('item', item)
-
-            # bind last so we're ready to go...
-            await dmon.listen(f'unix://{sockpath}')
-            await item.waitfini()
-
-    asyncio.run(workloop())
-    sys.exit(0)
 
 class Base:
     '''
@@ -136,60 +113,6 @@ class Base:
             raise
 
         return self
-
-    @classmethod
-    async def spawn(cls, *args, **kwargs):
-        return await cls._spawn(args, kwargs)
-
-    @classmethod
-    def spawner(cls, base=None, sockpath=None):
-        async def _spawn(*args, **kwargs):
-            return await cls._spawn(args, kwargs, base=base, sockpath=sockpath)
-        return _spawn
-
-    @classmethod
-    async def _spawn(cls, args, kwargs, base=None, sockpath=None):
-
-        # avoid circular imports... *shrug*
-        import synapse.common as s_common
-        import synapse.telepath as s_telepath
-        import synapse.lib.link as s_link
-
-        todo = (cls.anit, args, kwargs)
-
-        iden = s_common.guid()
-
-        if sockpath is None:
-            tmpdir = tempfile.gettempdir()
-            sockpath = s_common.genpath(tmpdir, iden)
-
-        if base is None:
-            base = await Base.anit()
-
-        base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
-
-        await s_link.unixwait(sockpath)
-
-        proxy = await s_telepath.openurl(f'unix://{sockpath}:item')
-
-        async def fini():
-
-            try:
-                async with await s_telepath.openurl(f'unix://{sockpath}:item') as finiproxy:
-                    await finiproxy.taskv2(('fini', (), {}))
-            except Exception:
-                # This can fail if the subprocess was terminated from outside...
-                pass
-
-            if not base.isfini:
-                logger.error(f'IO Worker Socket Closed: {sockpath}')
-
-            # FIXME should we bind the proxy to fini the base (cell?) since it's borked?
-            await base.fini()
-
-        proxy.onfini(fini)
-
-        return proxy
 
     async def __anit__(self):
 

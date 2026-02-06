@@ -157,7 +157,6 @@ class AgendaTest(s_t_utils.SynTest):
         self.eq(newts, datetime.datetime(year=2018, month=12, day=5, hour=7, minute=2, tzinfo=tz.utc).timestamp())
 
     async def test_agenda_base(self):
-        self.skip('FIXME - agenda strikes again!')
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
 
@@ -167,10 +166,10 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore() as core:
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)

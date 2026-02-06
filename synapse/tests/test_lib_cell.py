@@ -28,6 +28,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
@@ -752,9 +753,8 @@ class CellTest(s_t_utils.SynTest):
         # This is similar to the DaemonTest::test_unixsock_longpath
         # but exercises the long-path failure inside of the cell's daemon
         # instead.
-        self.skip('FIXME - what do we do if a long path causes it to break?')
         with self.getTestDir() as dirn:
-            extrapath = 108 * 'A'
+            extrapath = s_const.UNIX_PATH_MAX * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
             with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
                 async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:

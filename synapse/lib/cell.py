@@ -1686,6 +1686,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
         sockpath = s_common.genpath(self.sockdirn, 'drive')
 
+        if len(sockpath) > s_const.UNIX_PATH_MAX:
+            sockpath = None
+
         spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
 
         self.drive = await spawner(path)
@@ -1896,11 +1899,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
             logging.exception('Unknown dmon listen error.')
-
-        turl = self._getDmonListen()
-        if turl is not None:
-            logger.info(f'dmon listening: {turl}')
-            self.sockaddr = await self.dmon.listen(turl)
+        else:
+            turl = self._getDmonListen()
+            if turl is not None:
+                logger.info(f'dmon listening: {turl}')
+                self.sockaddr = await self.dmon.listen(turl)
 
     async def initServiceNetwork(self):
 

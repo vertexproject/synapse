@@ -9,6 +9,7 @@ import synapse.lib.config as s_config
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
+import synapse.lib.spawner as s_spawner
 
 nameregex = regex.compile(s_schemas.re_drivename)
 def reqValidName(name):
@@ -611,7 +612,7 @@ class Drive(s_base.Base):
     async def reqValidData(self, typename, item):
         return (await self.reqTypeValidator(typename))(item)
 
-class FileDrive(Drive):
+class FileDrive(Drive, s_spawner.SpawnerMixin):
 
     async def __anit__(self, path):
         import synapse.lib.lmdbslab as s_lmdbslab
