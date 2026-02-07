@@ -49,6 +49,12 @@ class Spooled(s_base.Base):
 
         slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
 
+        if self.cell is not None:
+            # Wake the host cell and give it the opportunity to check openfd counts.
+            # This will not stop the spooled set creation but may prevent downstream
+            # activity from causing an issue.
+            self.cell.checkOpenFd()
+
         self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=DEFAULT_MAPSIZE)
         if self.cell is not None:
             self.slab.addResizeCallback(self.cell.checkFreeSpace)

@@ -1402,6 +1402,7 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        self.core.checkOpenFd()
         return await self._push('view:forkparent', ldef, vdef)
 
     @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
