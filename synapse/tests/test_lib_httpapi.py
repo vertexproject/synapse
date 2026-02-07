@@ -1054,6 +1054,7 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
                     await core.callStorm('cron.move $cron $view', opts=opts)
                     await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.mod $cron --period daily@10:00', opts=opts)
                     await core.callStorm('cron.disable $cron', opts=opts)
                     await core.callStorm('cron.enable $cron', opts=opts)
                     await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
@@ -1084,6 +1085,7 @@ class HttpApiTest(s_tests.SynTest):
                         'layer:set',
                         'cron:move',
                         'cron:edit:query',
+                        'cron:edit:period',
                         'cron:disable',
                         'cron:enable',
                         'cron:edit:name',
