@@ -115,7 +115,7 @@ class Scope:
 globscope = Scope(dict())
 
 
-def _task_scope() -> Scope:
+def _task_scope():
     '''
     Get the current task scope. If the _syn_scope is not set, set it to a new scope
     that inherits from the globscope.
@@ -126,7 +126,15 @@ def _task_scope() -> Scope:
     Returns:
         Scope: A Scope object.
     '''
-    task = asyncio.current_task()
+    try:
+        task = asyncio.current_task()
+    except RuntimeError:
+        # no running loop
+        return None
+
+    if task is None:
+        return None
+
     scope = getattr(task, '_syn_scope', None)
 
     # no need to lock because it's per-task...
@@ -140,7 +148,11 @@ def get(name, defval=None):
     '''
     Access this task's scope with default values from glob.
     '''
-    return _task_scope().get(name, defval=defval)
+    scope = _task_scope()
+    if scope is None:
+        return defval
+
+    return scope.get(name, defval=defval)
 
 def set(name, valu):
     '''

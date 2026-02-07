@@ -45,14 +45,14 @@ class ConfTest(s_test.SynTest):
         # We can make an argparser that has config options populated in it
         # We explicitly skip boolean options without a default value so we
         # done end up in a ambiguous toggle case down the road.
-        mesg = 'Boolean type is missing default information. ' \
-               'Will not form argparse for [key:bool:nodefval]'
         pars = argparse.ArgumentParser('synapse.tests.test_lib_config.basics')
         pars.add_argument('--beep', type=str, help='beep option', default='beep.sys')
-        with self.getLoggerStream('synapse.lib.config', mesg) as stream:
+        with self.getLoggerStream('synapse.lib.config') as stream:
             for optname, optinfo in conf.getArgParseArgs():
                 pars.add_argument(optname, **optinfo)
-            self.true(stream.wait(3))
+            await stream.expect('Boolean type is missing default information.', timeout=3)
+            await stream.expect('Will not form argparse for [key:bool:nodefval]', timeout=3)
+
         hmsg = pars.format_help()
 
         # Undo pretty-printing
@@ -239,10 +239,10 @@ class ConfTest(s_test.SynTest):
             s_common.yamlsave({'key:integer': 5678, 'key:string': 'haha'},
                               dirn, '3.yaml')
             fp = s_common.genpath(dirn, '3.yaml')
-            with self.getAsyncLoggerStream('synapse.lib.config') as stream:
+            with self.getLoggerStream('synapse.lib.config') as stream:
                 conf3.setConfFromFile(fp, force=True)
-            stream.seek(0)
-            buf = stream.read()
+
+            buf = stream.getvalue()
             self.isin('Set configuration override for [key:integer]', buf)
             self.notin('Set configuration override for [key:string]', buf)
             self.eq(conf3.get('key:integer'), 5678)
