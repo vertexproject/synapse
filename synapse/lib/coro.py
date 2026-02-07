@@ -105,7 +105,7 @@ class Event(asyncio.Event):
 
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
-    Wait on an an asyncio event with an optional timeout
+    Wait on an asyncio event with an optional timeout
 
     Returns:
         true if the event got set, False if timed out
@@ -182,6 +182,7 @@ async def await_bg_tasks(timeout=None):
 class GenrHelp:
 
     def __init__(self, genr):
+        s_common.deprecated('synapse.coro.GenrHelp()')
         assert genr is not None
         self.genr = genr
 
@@ -213,6 +214,7 @@ class GenrHelp:
         return [x async for x in self.genr]
 
 def genrhelp(f):
+    s_common.deprecated('synapse.coro.genrhelp()')
     @functools.wraps(f)
     def func(*args, **kwargs):
         return GenrHelp(f(*args, **kwargs))

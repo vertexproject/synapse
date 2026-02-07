@@ -2011,7 +2011,7 @@ class LibStr(Lib):
     '''
     _storm_locals = (
         {'name': 'join', 'desc': 'Join items into a string using a separator.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``('').join($foo, $bar, $baz, ....)`` instead.'},
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``('').join($foo, $bar, $baz, ....)`` instead.'},
          'type': {'type': 'function', '_funcname': 'join',
                   'args': (
                       {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
@@ -2019,14 +2019,14 @@ class LibStr(Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
         {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': "Use ``('').join($foo, $bar, $baz, ....)`` instead."},
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': "Use ``('').join($foo, $bar, $baz, ....)`` instead."},
          'type': {'type': 'function', '_funcname': 'concat',
                   'args': (
                       {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
         {'name': 'format', 'desc': 'Format a text string.',
-         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``$mystr.format(foo=$bar)`` instead.'},
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``$mystr.format(foo=$bar)`` instead.'},
          'type': {'type': 'function', '_funcname': 'format',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
@@ -2037,9 +2037,9 @@ class LibStr(Lib):
     )
     _storm_lib_path = ('str',)
 
-    # _lib_str_join_depr_mesg = '$lib.str.join(), use "$sepr.join($items)" instead.'
-    # _lib_str_concat_depr_mesg = "$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead."
-    # _lib_str_format_depr_mesg = '$lib.str.format(), use "$mystr.format(foo=$bar)" instead.'
+    _lib_str_join_depr_mesg = '$lib.str.join(), use "$sepr.join($items)" instead.'
+    _lib_str_concat_depr_mesg = "$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead."
+    _lib_str_format_depr_mesg = '$lib.str.format(), use "$mystr.format(foo=$bar)" instead.'
 
     def getObjLocals(self):
         return {
@@ -2050,29 +2050,29 @@ class LibStr(Lib):
 
     @stormfunc(readonly=True)
     async def concat(self, *args):
-        # s_common.deprecated(self._lib_str_concat_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_concat_depr_mesg)
+        s_common.deprecated(self._lib_str_concat_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_concat_depr_mesg)
         strs = [await tostr(a) for a in args]
         return ''.join(strs)
 
     @stormfunc(readonly=True)
     async def format(self, text, **kwargs):
-        # s_common.deprecated(self._lib_str_format_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_format_depr_mesg)
+        s_common.deprecated(self._lib_str_format_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_format_depr_mesg)
         text = await kwarg_format(text, **kwargs)
 
         return text
 
     @stormfunc(readonly=True)
     async def join(self, sepr, items):
-        # s_common.deprecated(self._lib_str_join_depr_mesg)
-        # runt = s_scope.get('runt')
-        # if runt:
-        #     await runt.snap.warnonce(self._lib_str_join_depr_mesg)
+        s_common.deprecated(self._lib_str_join_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_join_depr_mesg)
         strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
 
