@@ -1,0 +1,7 @@
+---
+desc: Added information about ``SynTask`` data when printing asyncio tasks in response
+  to receving a ``SIGUSR2`` signal.
+desc:literal: false
+prs: []
+type: note
+...
