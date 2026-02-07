@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 
-import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.stormlib.cell as s_stormlib_cell
