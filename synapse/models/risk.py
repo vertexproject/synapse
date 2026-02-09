@@ -366,21 +366,20 @@ modeldefs = (
             ('risk:victimized', {
                 'props': (
                     ('victim', ('entity:actor', {}), {
-                        'doc': 'The victim of the {title}.'},
+                        'doc': 'The victim of the {title}.'}),
 
                     ('victim:name', ('entity:name', {}), {
-                        'doc': 'The name of the victim of the {title}.'},
+                        'doc': 'The name of the victim of the {title}.'}),
                 ),
                 'doc': 'An interface for events which affect a victim.'}),
-            }),
+
             # TODO: risk:impacted=<meta:event>(risk:victimized)
 
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.'}),
 
             ('risk:targetable', {
-                'doc': 'A common interface for nodes which may target selection criteria for threats.',
-            }),
+                'doc': 'A common interface for nodes which may target selection criteria for threats.'}),
         ),
         'edges': (
             # some explicit examples...

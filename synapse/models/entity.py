@@ -253,14 +253,16 @@ modeldefs = (
             ('entity:contactlist', ('guid', {}), {
                 'doc': 'A list of contacts.'}),
 
-            ('entity:event', ('base:event', {}), {
+            ('entity:event', ('guid', {}), {
                 'interfaces': (
+                    ('base:event', {}),
                     ('entity:action', {}),
                 ),
                 'doc': 'An event carried out by an actor.'}),
 
-            ('entity:activity', ('base:activity', {}), {
+            ('entity:activity', ('guid', {}), {
                 'interfaces': (
+                    ('base:activity', {}),
                     ('entity:action', {}),
                 ),
                 'props': (),
@@ -291,6 +293,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of types of possession.'}),
 
+            # TODO entity:activity
             ('entity:had', ('guid', {}), {
                 'doc': 'An item which was possessed by an actor.'}),
 
@@ -420,7 +423,6 @@ modeldefs = (
                 'doc': 'A belief held by an actor.'}),
 
             ('entity:awarded', ('entity:event', {}), {
-                'prevnames': ('ps:achievement',)
                 'props': (
                     ('award', ('meta:awardable', {})),
                 ),
@@ -430,7 +432,7 @@ modeldefs = (
                 'prevnames': ('ou:contest:result',),
                 'props': (
                     ('activity', ('meta:competition', {}), {
-                        'doc': 'The competition that the actor competed in.'},
+                        'doc': 'The competition that the actor competed in.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the actors results.'}),
@@ -443,6 +445,9 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor competed in an organized competition.'}),
 
+            #('entity:attended', ('entity:activity', {}), {
+            #('entity:educated', ('entity:activity', {}), {
+            #('entity:registered', ('entity:event', {}), {
         ),
 
         'edges': (

@@ -987,7 +987,7 @@ class Model:
             if self.types.get(basetype[0]) is None:
                 todo = typetodo.get(basetype[0])
                 if todo is None:
-                    mesg = 'No such base type {basetype[0] for type {typename}.'
+                    mesg = f'No such base type {basetype[0]} for type {typename}.'
                     raise s_exc.NoSuchType(mesg=mesg)
 
                 _addType(basetype[0], todo[0], todo[1])

@@ -80,35 +80,11 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
-            ('base:event', {
-                'template': {'title': 'event'},
-                'interfaces': (
-                    ('meta:causal', {}),
-                ),
-                'props': (
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the {title} occurred.'}),
-
-                    ('activity', ('meta:activity', {}), {
-                        'doc': 'A parent activity which includes this {title}.'}),
-                ),
-                'doc': 'Properties common to an event.'}),
-
-            ('base:activity', {
+            ('meta:activity', ('guid', {}), {
                 'template': {'title': 'activity'},
                 'interfaces': (
-                    ('meta:causal', {}),
+                    ('base:activity', {}),
                 ),
-                'props': (
-                    ('period', {}), {
-                        'doc': 'The period over which the {title} occurred.'}),
-
-                    ('activity', ('meta:activity', {}), {
-                        'doc': 'A parent activity which includes this {title}.'}),
-                ),
-                'doc': 'Properties common to activity which occurs over a period.'})
-
-            ('meta:activity', ('base:activity', {}), {
                 'props': (
                     ('name', ('base:name', {}), {
                         'doc': 'The name of the {title}.'}),
@@ -127,8 +103,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:event', ('guid', {}), {
+                'template': {'title': 'event'},
                 'interfaces': (
-                    ('meta:causal', {}),
+                    ('base:event', {}),
                 ),
                 'props': (
                     ('name', ('base:name', {}), {
@@ -354,6 +331,34 @@ modeldefs = (
 
             ('meta:causal', {
                 'doc': 'Implemented by events and activity which can lead to effects.'}),
+
+            ('base:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to an event.'}),
+
+            ('base:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to activity which occurs over a period.'}),
 
             ('meta:usable', {
                 'template': {'title': 'item'},

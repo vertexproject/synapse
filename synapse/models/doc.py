@@ -221,7 +221,7 @@ modeldefs = (
                 ('education', ('array', {'type': 'ps:education'}), {
                     'doc': 'Education experience described in the resume.'}),
 
-                ('achievements', ('array', {'type': 'ps:achievement'}), {
+                ('achievements', ('array', {'type': 'entity:awarded'}), {
                     'doc': 'Achievements described in the resume.'}),
 
             )),

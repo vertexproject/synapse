@@ -26,17 +26,6 @@ modeldefs = (
                 },
                 'doc': 'A period of education for an individual.'}),
 
-            # ('ps:achievement', ('entity:event', {}), {
-            #     'display': {
-            #         'columns': (
-            #             {'type': 'prop', 'opts': {'name': 'actor::name'}},
-            #             {'type': 'prop', 'opts': {'name': 'award::name'}},
-            #             {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-            #             # {'type': 'prop', 'opts': {'name': 'time'}},
-            #         ),
-            #     },
-            #     'doc': 'An instance of an individual receiving an award.'}),
-
             ('ps:person', ('guid', {}), {
                 'template': {'title': 'person'},
                 'interfaces': (
@@ -195,22 +184,22 @@ modeldefs = (
                 ('virtual:provider', ('entity:actor', {}), {
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
             )),
-            ('ps:education', {}, (
+            # ('ps:education', {}, (
 
-                ('student', ('entity:individual', {}), {
-                    'doc': 'The student who attended the educational institution.'}),
+            #     ('student', ('entity:individual', {}), {
+            #         'doc': 'The student who attended the educational institution.'}),
 
-                ('institution', ('ou:org', {}), {
-                    'doc': 'The organization providing educational services.'}),
+            #     ('institution', ('ou:org', {}), {
+            #         'doc': 'The organization providing educational services.'}),
 
-                ('period', ('ival', {'precision': 'day'}), {
-                    'prevnames': ('attended:first', 'attended:last'),
-                    'doc': 'The period of time when the student attended the institution.'}),
+            #     ('period', ('ival', {'precision': 'day'}), {
+            #         'prevnames': ('attended:first', 'attended:last'),
+            #         'doc': 'The period of time when the student attended the institution.'}),
 
-                ('achievement', ('ps:achievement', {}), {
-                    'doc': 'The degree or certificate awarded to the individual.'}),
+            #     ('achievement', ('ps:achievement', {}), {
+            #         'doc': 'The degree or certificate awarded to the individual.'}),
 
-            )),
+            # )),
             # ('ps:achievement', {}, (
 
             #     ('awardee', ('entity:individual', {}), {
