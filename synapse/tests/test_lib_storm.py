@@ -1238,6 +1238,7 @@ class StormTest(s_t_utils.SynTest):
                 (test:str=foo :seen=2020 :bar={[test:str=bar]})
                 (test:str=baz :seen=(2020, ?) :ndefs={[test:str=1 test:str=2]})
                 (test:str=faz :seen=(2020, *))
+                (test:str=multi :poly={[test:int=5]})
             ]'''
             msgs = await core.stormlist(q, opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']

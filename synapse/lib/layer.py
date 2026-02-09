@@ -502,6 +502,17 @@ class IndxByPolyProp(IndxBy):
 
         return s_common.novalu
 
+    def getNodeValu(self, nid, lkey=None):
+
+        if lkey is not None:
+            if (valu := self.indxToValu(lkey[8:])) is not s_common.novalu:
+                return valu
+
+        if (sode := self.layr._getStorNode(nid)) is None:
+            return s_common.novalu
+
+        return self.getSodeValu(sode)
+
     async def keyNidsByDups(self, indx, reverse=False):
         if reverse:
             # TODO: reverse multiscans

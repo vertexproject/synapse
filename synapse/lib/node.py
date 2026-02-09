@@ -982,6 +982,10 @@ class Node(NodeBase):
                     if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
                         for vname, getr in svirts.items():
                             retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+
+                elif stortype & s_layer.STOR_FLAG_POLYPROP:
+                    retn[f'{name}.form'] = valu[0]
+
                 else:
                     if (svirts := storvirts.get(stortype)) is not None:
                         for vname, getr in svirts.items():
