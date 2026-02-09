@@ -16,9 +16,9 @@ class SciModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq('physics.quantum.', nodes[0].get('type'))
-            self.eq('light travels as a wave', nodes[0].get('name'))
-            self.eq('Light travels as a wave not a particle.', nodes[0].get('desc'))
+            self.propeq(nodes[0], 'type', 'physics.quantum.')
+            self.propeq(nodes[0], 'name', 'light travels as a wave')
+            self.propeq(nodes[0], 'desc', 'Light travels as a wave not a particle.')
 
             nodes = await core.nodes('''
                 [ sci:experiment=*
@@ -29,9 +29,9 @@ class SciModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq('lab.light.', nodes[0].get('type'))
-            self.eq('double-slit', nodes[0].get('name'))
-            self.eq('Foo bar baz.', nodes[0].get('desc'))
+            self.propeq(nodes[0], 'type', 'lab.light.')
+            self.propeq(nodes[0], 'name', 'double-slit')
+            self.propeq(nodes[0], 'desc', 'Foo bar baz.')
             self.eq((1710806400000000, 1710892800000000, 86400000000), nodes[0].get('period'))
 
             nodes = await core.nodes('''
@@ -49,11 +49,11 @@ class SciModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('hypothesis'))
             self.nn(nodes[0].get('observation'))
-            self.eq(False, nodes[0].get('refutes'))
-            self.eq("Shadows in wave diffusion pattern support the hypothesis.", nodes[0].get('desc'))
+            self.propeq(nodes[0], 'refutes', False)
+            self.propeq(nodes[0], 'desc', "Shadows in wave diffusion pattern support the hypothesis.")
 
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)
             self.nn(nodes[0].get('experiment'))
-            self.eq(1710806400000000, nodes[0].get('time'))
-            self.eq("Shadows cast on the wall in a diffusion pattern.", nodes[0].get('desc'))
+            self.propeq(nodes[0], 'time', 1710806400000000)
+            self.propeq(nodes[0], 'desc', "Shadows cast on the wall in a diffusion pattern.")

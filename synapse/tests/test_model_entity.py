@@ -20,14 +20,14 @@ class EntityModelTest(s_t_utils.SynTest):
                     :place:address:city="  new York  city "
             ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'visi')
-            self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
-            self.eq(nodes[0].get('email'), 'visi@vertex.link')
-            self.eq(nodes[0].get('creds'), (('auth:passwd', 'cool'),))
-            self.eq(nodes[0].get('websites'), ('https://vertex.link',))
-            self.eq(nodes[0].get('birth:place:country:code'), 'us')
-            self.eq(nodes[0].get('death:place:country:code'), 'zz')
-            self.eq(nodes[0].get('place:address:city'), 'new york city')
+            self.propeq(nodes[0], 'name', 'visi')
+            self.propeq(nodes[0], 'names', ('visi k', 'visi stark'))
+            self.propeq(nodes[0], 'email', 'visi@vertex.link')
+            self.propeq(nodes[0], 'creds', (('auth:passwd', 'cool'),))
+            self.propeq(nodes[0], 'websites', ('https://vertex.link',))
+            self.propeq(nodes[0], 'birth:place:country:code', 'us')
+            self.propeq(nodes[0], 'death:place:country:code', 'zz')
+            self.propeq(nodes[0], 'place:address:city', 'new york city')
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
 
@@ -42,9 +42,9 @@ class EntityModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('type'), 'owner.')
-            self.eq(nodes[0].get('percent'), '50')
-            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
+            self.propeq(nodes[0], 'type', 'owner.')
+            self.propeq(nodes[0], 'percent', '50')
+            self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
             self.len(1, await core.nodes('entity:had :item -> transport:air:craft'))
 
@@ -57,10 +57,10 @@ class EntityModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'entity:goal')
-            self.eq(nodes[0].get('name'), 'mygoal')
-            self.eq(nodes[0].get('names'), ('bar goal', 'foo goal'))
-            self.eq(nodes[0].get('type'), 'foo.bar.')
-            self.eq(nodes[0].get('desc'), 'MyDesc')
+            self.propeq(nodes[0], 'name', 'mygoal')
+            self.propeq(nodes[0], 'names', ('bar goal', 'foo goal'))
+            self.propeq(nodes[0], 'type', 'foo.bar.')
+            self.propeq(nodes[0], 'desc', 'MyDesc')
 
             ndef = nodes[0].ndef
             self.len(1, nodes := await core.nodes('[ entity:goal=({"name": "foo goal"}) ]'))
@@ -76,7 +76,7 @@ class EntityModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(('staff',), nodes[0].get('roles'))
-            self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000, 2505600000000))
+            self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
             self.len(1, await core.nodes('entity:attendee -> ps:person'))
 
@@ -103,18 +103,18 @@ class EntityModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('id'), 'Foo')
-            self.eq(nodes[0].get('ids'), ('Bar',))
-            self.eq(nodes[0].get('tag'), 'cno.camp.31337')
-            self.eq(nodes[0].get('name'), 'myname')
-            self.eq(nodes[0].get('names'), ('bar', 'foo'))
-            self.eq(nodes[0].get('type'), 'mytype.')
-            self.eq(nodes[0].get('desc'), 'MyDesc')
-            self.eq(nodes[0].get('success'), 1)
-            self.eq(nodes[0].get('sophistication'), 40)
+            self.propeq(nodes[0], 'id', 'Foo')
+            self.propeq(nodes[0], 'ids', ('Bar',))
+            self.propeq(nodes[0], 'tag', 'cno.camp.31337')
+            self.propeq(nodes[0], 'name', 'myname')
+            self.propeq(nodes[0], 'names', ('bar', 'foo'))
+            self.propeq(nodes[0], 'type', 'mytype.')
+            self.propeq(nodes[0], 'desc', 'MyDesc')
+            self.propeq(nodes[0], 'success', 1)
+            self.propeq(nodes[0], 'sophistication', 40)
             self.nn(nodes[0].get('reporter'))
-            self.eq(nodes[0].get('reporter:name'), 'vertex')
-            self.eq(nodes[0].get('slogan'), 'For The People')
+            self.propeq(nodes[0], 'reporter:name', 'vertex')
+            self.propeq(nodes[0], 'slogan', 'For The People')
 
             self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:campaign=({"id": "Bar"})})'))
 
@@ -140,15 +140,15 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('reporter'))
-            self.eq('woot', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'woot')
             self.eq(('bar', 'foo'), nodes[0].get('names'))
-            self.eq('Hehe', nodes[0].get('desc'))
-            self.eq('lol.woot.', nodes[0].get('type'))
-            self.eq('woot.woot', nodes[0].get('tag'))
-            self.eq('Foo', nodes[0].get('id'))
-            self.eq(40, nodes[0].get('sophistication'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq(nodes[0].get('used'), (1735689600000000, 1769212800000000, 33523200000000))
+            self.propeq(nodes[0], 'desc', 'Hehe')
+            self.propeq(nodes[0], 'type', 'lol.woot.')
+            self.propeq(nodes[0], 'tag', 'woot.woot')
+            self.propeq(nodes[0], 'id', 'Foo')
+            self.propeq(nodes[0], 'sophistication', 40)
+            self.propeq(nodes[0], 'reporter:name', 'vertex')
+            self.propeq(nodes[0], 'used', (1735689600000000, 1769212800000000, 33523200000000))
             self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
@@ -156,7 +156,7 @@ class EntityModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('meta:technique :parent -> *')
             self.len(1, nodes)
-            self.eq('metawoot', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'metawoot')
 
             nodes = await core.nodes('''
                 [ entity:contribution=*
@@ -167,9 +167,9 @@ class EntityModelTest(s_t_utils.SynTest):
                     :campaign={[ entity:campaign=({"name": "good guys"}) ]}
                 ]
             ''')
-            self.eq(1658102400000000, nodes[0].get('time'))
-            self.eq('10', nodes[0].get('value'))
-            self.eq('usd', nodes[0].get('currency'))
+            self.propeq(nodes[0], 'time', 1658102400000000)
+            self.propeq(nodes[0], 'value', '10')
+            self.propeq(nodes[0], 'currency', 'usd')
             self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
             self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
 
@@ -179,8 +179,8 @@ class EntityModelTest(s_t_utils.SynTest):
                     :period=2049*
                 ]
             ''')
-            self.eq(nodes[0].get('name'), 'world war iii')
-            self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001, 1))
+            self.propeq(nodes[0], 'name', 'world war iii')
+            self.propeq(nodes[0], 'period', (2493072000000000, 2493072000000001, 1))
 
             nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={entity:conflict} ]')
             self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
@@ -193,7 +193,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     +(has)> {[ entity:contact=* entity:contact=* ]}
             ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'foo bar')
+            self.propeq(nodes[0], 'name', 'foo bar')
             self.eq(nodes[0].get('source')[0], 'it:host')
             self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
             self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
@@ -213,11 +213,11 @@ class EntityModelTest(s_t_utils.SynTest):
             ]''')
 
             self.len(1, nodes)
-            self.eq(nodes[0].get('type'), 'tasks.')
-            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
-            self.eq(nodes[0].get('target'), ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))
+            self.propeq(nodes[0], 'type', 'tasks.')
+            self.propeq(nodes[0], 'period', (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
+            self.propeq(nodes[0], 'source', ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
+            self.propeq(nodes[0], 'target', ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))
 
             self.nn(nodes[0].get('reporter'))
-            self.eq(nodes[0].get('reporter:name'), 'vertex')
+            self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.len(1, await core.nodes('entity:relationship :reporter -> ou:org'))
