@@ -154,9 +154,9 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
 
-            self.eq(node.get('up'), 'foo.bar')
-            self.eq(node.get('depth'), 2)
-            self.eq(node.get('base'), 'baz')
+            self.propeq(node, 'up', 'foo.bar')
+            self.propeq(node, 'depth', 2)
+            self.propeq(node, 'base', 'baz')
 
             nodes = await core.nodes('syn:tag=foo.bar')
             self.len(1, nodes)
@@ -194,8 +194,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:type', 'comp'), node.ndef)
             self.none(node.get('subof'))
             self.eq({'sepr': None, 'fields': ()}, node.get('opts'))
-            self.eq('synapse.lib.types.Comp', node.get('ctor'))
-            self.eq('The base type for compound node fields.', node.get('doc'))
+            self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
+            self.propeq(node, 'doc', 'The base type for compound node fields.')
 
             nodes = await core.nodes('syn:type=test:comp')
             self.len(1, nodes)
@@ -203,9 +203,9 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:type', 'test:comp'), node.ndef)
             self.eq({'fields': (('hehe', 'test:int'), ('haha', 'test:lower')), 'sepr': None},
                     node.get('opts'))
-            self.eq('comp', node.get('subof'))
-            self.eq('synapse.lib.types.Comp', node.get('ctor'))
-            self.eq('A fake comp type.', node.get('doc'))
+            self.propeq(node, 'subof', 'comp')
+            self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
+            self.propeq(node, 'doc', 'A fake comp type.')
 
             nodes = await core.nodes('syn:type:ctor="synapse.lib.types.Int"')
             self.gt(len(nodes), 1)
@@ -225,17 +225,16 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:form', 'test:comp'), node.ndef)
             self.nn(node.get('runt'))
             self.false(node.get('runt'))
-            self.eq('test:comp', node.get('type'))
-            self.eq('A fake comp type.', node.get('doc'))
+            self.propeq(node, 'type', 'test:comp')
+            self.propeq(node, 'doc', 'A fake comp type.')
 
             nodes = await core.nodes('syn:form=syn:form')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:form', 'syn:form'), node.ndef)
             self.true(node.get('runt'))
-            self.eq('syn:form', node.get('type'))
-            self.eq('A Synapse form used for representing nodes in the graph.',
-                    node.get('doc'))
+            self.propeq(node, 'type', 'syn:form')
+            self.propeq(node, 'doc', 'A Synapse form used for representing nodes in the graph.')
 
             # We can even inspect which forms are runtime-online forms
             nodes = await core.nodes('syn:form:runt=1')
@@ -257,11 +256,11 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
             self.nn(node.get('computed'))
             self.false(node.get('computed'))
-            self.eq('int', node.get('type'))
-            self.eq('test:type10', node.get('form'))
-            self.eq('', node.get('doc'))
-            self.eq('intprop', node.get('relname'))
-            self.eq('intprop', node.get('base'))
+            self.propeq(node, 'type', 'int')
+            self.propeq(node, 'form', 'test:type10')
+            self.propeq(node, 'doc', '')
+            self.propeq(node, 'relname', 'intprop')
+            self.propeq(node, 'base', 'intprop')
             self.false(node.get('extmodel'))
 
             # Ensure that extmodel formprops are seen
@@ -275,15 +274,15 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'inet:flow:server:host'), node.ndef)
-            self.eq('host', node.get('base'))
-            self.eq('server:host', node.get('relname'))
+            self.propeq(node, 'base', 'host')
+            self.propeq(node, 'relname', 'server:host')
 
             # forms are also props but have some slightly different keys populated
             nodes = await core.nodes('syn:prop="test:type10"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10'), node.ndef)
-            self.eq('test:type10', node.get('form'))
+            self.propeq(node, 'form', 'test:type10')
 
             self.none(node.get('computed'))
             self.none(node.get('base'))
@@ -294,8 +293,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:tagprop', 'beep'), node.ndef)
-            self.eq(node.get('doc'), 'words')
-            self.eq(node.get('type'), 'int')
+            self.propeq(node, 'doc', 'words')
+            self.propeq(node, 'type', 'int')
 
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.nodes('syn:form=test:comp -> syn:prop:form')
@@ -491,7 +490,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'help'))
-                self.eq(nodes[0].get('doc'), 'List available information about Storm and'
+                self.propeq(nodes[0], 'doc', 'List available information about Storm and'
                                              ' brief descriptions of different items.')
 
                 self.none(nodes[0].get('package'))
@@ -510,34 +509,34 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(5, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
-                self.eq(nodes[0].get('doc'), 'foobar is a great service')
-                self.eq(nodes[0].get('package'), 'foo')
-                self.eq(nodes[0].get('svciden'), iden)
+                self.propeq(nodes[0], 'doc', 'foobar is a great service')
+                self.propeq(nodes[0], 'package', 'foo')
+                self.propeq(nodes[0], 'svciden', iden)
                 self.none(nodes[0].get('deprecated'))
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
-                self.eq(nodes[1].get('doc'), 'No description')
-                self.eq(nodes[1].get('package'), 'foo')
-                self.eq(nodes[1].get('svciden'), iden)
+                self.propeq(nodes[1], 'doc', 'No description')
+                self.propeq(nodes[1], 'package', 'foo')
+                self.propeq(nodes[1], 'svciden', iden)
                 self.none(nodes[1].get('deprecated'))
 
                 self.eq(nodes[2].ndef, ('syn:cmd', 'deprvers'))
                 self.true(nodes[2].get('deprecated'))
-                self.eq(nodes[2].get('deprecated:version'), s_version.packVersion(3, 0, 0))
+                self.propeq(nodes[2], 'deprecated:version', s_version.packVersion(3, 0, 0))
                 self.none(nodes[2].get('deprecated:date'))
                 self.none(nodes[2].get('deprecated:mesg'))
 
                 self.eq(nodes[3].ndef, ('syn:cmd', 'deprdate'))
                 self.true(nodes[3].get('deprecated'))
                 self.none(nodes[3].get('deprecated:version'))
-                self.eq(nodes[3].get('deprecated:date'), s_time.parse('2099-01-01'))
+                self.propeq(nodes[3], 'deprecated:date', s_time.parse('2099-01-01'))
                 self.none(nodes[3].get('deprecated:mesg'))
 
                 self.eq(nodes[4].ndef, ('syn:cmd', 'deprmesg'))
                 self.true(nodes[4].get('deprecated'))
                 self.none(nodes[4].get('deprecated:version'))
-                self.eq(nodes[4].get('deprecated:date'), s_time.parse('2099-01-01'))
-                self.eq(nodes[4].get('deprecated:mesg'), 'Please use ``ohhai``.')
+                self.propeq(nodes[4], 'deprecated:date', s_time.parse('2099-01-01'))
+                self.propeq(nodes[4], 'deprecated:mesg', 'Please use ``ohhai``.')
 
                 nodes = await core.nodes('syn:cmd:deprecated')
                 self.len(3, nodes)
@@ -631,7 +630,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq('inet:ip', node.ndef[1][0])
                 self.eq(('inet:ip', (4, 16909060)), node.valu())
                 self.gt(node.intnid(), 0)
-                self.eq(node.get('nid'), node.intnid())
+                self.propeq(node, 'nid', node.intnid())
                 sodes = node.get('sodes')
                 self.len(2, sodes)
                 self.true(sodes[0]['antivalu'])
