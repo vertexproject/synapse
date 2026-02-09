@@ -3,6 +3,9 @@ modeldefs = (
         'types': (
 
             ('belief:system', ('guid', {}), {
+                'interfaces': (
+                    ('meta:believable', {}),
+                ),
                 'doc': 'A belief system such as an ideology, philosophy, or religion.'}),
 
             ('belief:system:type:taxonomy', ('taxonomy', {}), {
@@ -12,15 +15,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of belief system types.'}),
 
             ('belief:tenet', ('guid', {}), {
-                'doc': 'A concrete tenet potentially shared by multiple belief systems.'}),
-
-            ('belief:subscriber', ('entity:activity', {}), {
-                'template': {'title': 'subscribed'},
-                'props': (
-                    ('system', ('belief:system', {}), {
-                        'doc': 'The belief system to which the contact subscribes.'}),
+                'interfaces': (
+                    ('meta:believable', {}),
                 ),
-                'doc': 'A contact which subscribes to a belief system.'}),
+                'doc': 'A concrete tenet potentially shared by multiple belief systems.'}),
         ),
         'forms': (
 
@@ -37,7 +35,6 @@ modeldefs = (
 
                 ('began', ('time', {}), {
                     'doc': 'The time that the belief system was first observed.'}),
-
             )),
 
             ('belief:system:type:taxonomy', {}, ()),
@@ -56,9 +53,6 @@ modeldefs = (
 
             (('belief:system', 'has', 'belief:tenet'), {
                 'doc': 'The belief system includes the tenet.'}),
-
-            (('belief:subscriber', 'follows', 'belief:tenet'), {
-                'doc': 'The subscriber is assessed to generally adhere to the specific tenet.'}),
         ),
     }),
 )

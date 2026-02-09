@@ -80,23 +80,41 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
-            ('meta:activity', ('guid', {}), {
+            ('base:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to an event.'}),
+
+            ('base:activity', {
                 'template': {'title': 'activity'},
                 'interfaces': (
                     ('meta:causal', {}),
                 ),
+                'props': (
+                    ('period', {}), {
+                        'doc': 'The period over which the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to activity which occurs over a period.'})
+
+            ('meta:activity', ('base:activity', {}), {
                 'props': (
                     ('name', ('base:name', {}), {
                         'doc': 'The name of the {title}.'}),
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
-
-                    ('period', ('time', {}), {
-                        'doc': 'The period over which the {title} occured.'}),
-
-                    ('activity', ('meta:activity', {}), {
-                        'doc': 'A parent activity which includes this {title}.'}),
                 ),
                 'doc': 'Analytically relevant activity.'}),
 
@@ -109,7 +127,6 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:event', ('guid', {}), {
-                'template': {'title': 'event'},
                 'interfaces': (
                     ('meta:causal', {}),
                 ),
@@ -119,12 +136,6 @@ modeldefs = (
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
-
-                    ('activity', ('meta:activity', {}), {
-                        'doc': 'A parent activity which includes this {title}.'}),
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the {title} occured.'}),
 
                     ('type', ('meta:event:type:taxonomy', {}), {
                         'doc': 'The type of event.'}),
@@ -174,12 +185,6 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
-
-            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
-                'doc': 'An item which may be possessed by an entity.'}),
-
-            ('meta:discoverable', ('ndef', {'interface': 'meta:discoverable'}), {
-                'doc': 'FIXME polyprop place holder'}),
 
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
@@ -245,7 +250,6 @@ modeldefs = (
                 'template': {'title': 'item'},
                 'props': (
 
-                    # TODO - alliance / coalition / etc makes this workable...
                     ('owner', ('entity:actor', {}), {
                         'doc': 'The current owner of the {title}.'}),
 
@@ -358,6 +362,15 @@ modeldefs = (
                         'doc': 'The time interval when the {title} was being used.'}),
                 ),
                 'doc': 'An interface for forms which can be used by an actor.'}),
+
+            ('meta:competitive', {
+                'doc': 'An interface implemented by organized competitive activities.'}),
+
+            ('meta:awardable', {
+                'doc': 'An interface implemented by forms which may be awarded to an actor.'}),
+
+            ('meta:believable', {
+                'doc': 'An interface for forms which may be believed in by an actor.'}),
 
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',

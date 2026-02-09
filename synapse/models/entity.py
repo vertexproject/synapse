@@ -29,7 +29,7 @@ modeldefs = (
                     ('party:name', ('entity:name', {}), {
                         'doc': 'The name of the party which was affected.'}),
                 ),
-                'doc': 'Properties common to affected entities.'}),
+                'doc': 'An interface used for events which have an affected entity.'}),
 
             # ('entity:affected', {
             #     'template': {'affected': 'affected'},
@@ -253,16 +253,17 @@ modeldefs = (
             ('entity:contactlist', ('guid', {}), {
                 'doc': 'A list of contacts.'}),
 
-            ('entity:event', ('meta:event', {}), {
+            ('entity:event', ('base:event', {}), {
                 'interfaces': (
                     ('entity:action', {}),
                 ),
                 'doc': 'An event carried out by an actor.'}),
 
-            ('entity:activity', ('meta:activity', {}), {
+            ('entity:activity', ('base:activity', {}), {
                 'interfaces': (
                     ('entity:action', {}),
                 ),
+                'props': (),
                 'doc': 'Activity carried out by an actor.'}),
 
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
@@ -293,8 +294,8 @@ modeldefs = (
             ('entity:had', ('guid', {}), {
                 'doc': 'An item which was possessed by an actor.'}),
 
-            ('entity:conversation', ('guid', {}), {
-                'doc': 'A conversation between entities.'}),
+            #('entity:conversation', ('guid', {}), {
+                #'doc': 'A conversation between entities.'}),
 
             # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
             # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
@@ -305,6 +306,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
 
+            # FIXME :status properties need some review
             ('entity:goal:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -358,9 +360,6 @@ modeldefs = (
                 ),
                 'doc': 'Represents a conflict where two or more actors have mutually exclusive goals.'}),
 
-            # TODO - belief:subscriber=<entity:activity>
-
-
             # ('entity:affected', ('meta:activity', {}), {
             #     'props': (
             #         ('party', ('entity:actor', {}), {
@@ -382,34 +381,27 @@ modeldefs = (
             #     ),
             #     'doc': 'Passive observation of an event by an entity.'}),
 
-            ('entity:involved', ('entity:activity', {}), {
+            ('entity:tookpart', ('entity:activity', {}), {
                 'props': (
                     ('event', ('meta:causal', {}), {
                         'doc': 'The event or activity the actor was involved in.'}),
                 ),
                 'doc': "Represents an actor's active involvement with an event."}),
 
-            ('entity:support', ('entity:involved', {}), {
-                'template': {'title': 'support'},
-                'doc': 'Represents an actor having materially supported an event.'}),
+            #('entity:support', ('entity:involved', {}), {
+                #'template': {'title': 'support'},
+                #'doc': 'Represents an actor having materially supported an event.'}),
                 
             #('entity:contribution:type:taxonomy', ('taxonomy', {}), {
                 #'doc': 'A hierarchical taxonomy of contribution types.'}),
 
-            ('entity:contribution', ('entity:support', {}), {
+            ('entity:contributed', ('entity:activity', {}), {
                 'template': {'title': 'contribution'},
                 'props': (
                     ('value', ('econ:price', {}), {
                         'doc': 'The total value of the actors contribution.'}),
                 ),
                 'doc': 'An actor providing support for an event or activity.'}),
-
-            ('entity:participation', ('entity:involved', {}), {
-                'template': {'title': 'participation'},
-                'props': (
-                    # TODO - :level=<meta:score>?
-                ),
-                'doc': 'An actor actively participating in an event or activity.'}),
 
             ('entity:discovered', ('entity:event', {}), {
                 'templates': {'title': 'discovery'},
@@ -418,6 +410,38 @@ modeldefs = (
                         'doc': 'The item which was discovered.'}),
                 ),
                 'doc': 'A discovery made by an actor.'}),
+
+            ('entity:believed', ('entity:activity', {}), {
+                'prevnames': ('belief:subscriber',),
+                'props': (
+                    ('belief', ('meta:believable', {}), {
+                        'doc': 'The belief held by the actor.'}),
+                ),
+                'doc': 'A belief held by an actor.'}),
+
+            ('entity:awarded', ('entity:event', {}), {
+                'prevnames': ('ps:achievement',)
+                'props': (
+                    ('award', ('meta:awardable', {})),
+                ),
+                'doc': 'An event where an actor was granted an award.'}),
+
+            ('entity:competed', ('entity:activity', {}), {
+                'prevnames': ('ou:contest:result',),
+                'props': (
+                    ('activity', ('meta:competition', {}), {
+                        'doc': 'The competition that the actor competed in.'},
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the actors results.'}),
+
+                    ('rank', ('int', {}), {
+                        'doc': "The actor's rank order in the contest."}),
+
+                    ('score', ('int', {}), {
+                        'doc': "The actor's final score in the contest."}),
+                ),
+                'doc': 'An event where an actor competed in an organized competition.'}),
 
         ),
 

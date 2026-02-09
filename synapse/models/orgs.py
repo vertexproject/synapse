@@ -234,11 +234,9 @@ modeldefs = (
                     ('meta:promoted', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
+                    ('meta:competitive', {}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
-
-            ('ou:contest:result', ('guid', {}), {
-                'doc': 'The results from a single contest participant.'}),
 
             ('ou:id', ('guid', {}), {
                 'interfaces': (
@@ -758,26 +756,6 @@ modeldefs = (
                     #'ex': 'cyber.ctf',
                     #'doc': 'The type of contest.'}),
 
-            )),
-            ('ou:contest:result', {}, (
-
-                ('contest', ('ou:contest', {}), {
-                    'doc': 'The contest that the participant took part in.'}),
-
-                ('participant', ('entity:actor', {}), {
-                    'doc': 'The participant in the contest.'}),
-
-                ('rank', ('int', {}), {
-                    'doc': "The participant's rank order in the contest."}),
-
-                ('score', ('int', {}), {
-                    'doc': "The participant's final score in the contest."}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period of time when the participant competed in the contest.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': "A URL which documents the participant's results."}),
             )),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (

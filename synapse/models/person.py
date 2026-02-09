@@ -8,8 +8,9 @@ modeldefs = (
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {
+                'template': {'title': 'class'},
                 'interfaces': (
-                    ('meta:attendable', {'template': {'title': 'class'}}),
+                    ('meta:attendable', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
@@ -25,16 +26,16 @@ modeldefs = (
                 },
                 'doc': 'A period of education for an individual.'}),
 
-            ('ps:achievement', ('entity:event', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-                        # {'type': 'prop', 'opts': {'name': 'time'}},
-                    ),
-                },
-                'doc': 'An instance of an individual receiving an award.'}),
+            # ('ps:achievement', ('entity:event', {}), {
+            #     'display': {
+            #         'columns': (
+            #             {'type': 'prop', 'opts': {'name': 'actor::name'}},
+            #             {'type': 'prop', 'opts': {'name': 'award::name'}},
+            #             {'type': 'prop', 'opts': {'name': 'award::org::name'}},
+            #             # {'type': 'prop', 'opts': {'name': 'time'}},
+            #         ),
+            #     },
+            #     'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
                 'template': {'title': 'person'},
@@ -174,6 +175,7 @@ modeldefs = (
                 ('course', ('edu:course', {}), {
                     'doc': 'The course being taught in the class.'}),
 
+                # TODO: should these become entity:participated to capture times?
                 ('instructor', ('entity:individual', {}), {
                     'doc': 'The primary instructor for the class.'}),
 
@@ -195,8 +197,8 @@ modeldefs = (
             )),
             ('ps:education', {}, (
 
-                #('student', ('entity:individual', {}), {
-                    #'doc': 'The student who attended the educational institution.'}),
+                ('student', ('entity:individual', {}), {
+                    'doc': 'The student who attended the educational institution.'}),
 
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
@@ -209,24 +211,24 @@ modeldefs = (
                     'doc': 'The degree or certificate awarded to the individual.'}),
 
             )),
-            ('ps:achievement', {}, (
+            # ('ps:achievement', {}, (
 
-                #('awardee', ('entity:individual', {}), {
-                    #'doc': 'The recipient of the award.'}),
+            #     ('awardee', ('entity:individual', {}), {
+            #         'doc': 'The recipient of the award.'}),
 
-                ('award', ('ou:award', {}), {
-                    'doc': 'The award bestowed on the awardee.'}),
+            #     ('award', ('ou:award', {}), {
+            #         'doc': 'The award bestowed on the awardee.'}),
 
-                #('awarded', ('time', {}), {
-                    #'doc': 'The date the award was granted to the awardee.'}),
+            #     ('awarded', ('time', {}), {
+            #         'doc': 'The date the award was granted to the awardee.'}),
 
-                ('expires', ('time', {}), {
-                    'doc': 'The date the award or certification expires.'}),
+            #     ('expires', ('time', {}), {
+            #         'doc': 'The date the award or certification expires.'}),
 
-                ('revoked', ('time', {}), {
-                    'doc': 'The date the award was revoked by the org.'}),
+            #     ('revoked', ('time', {}), {
+            #         'doc': 'The date the award was revoked by the org.'}),
 
-            )),
+            # )),
 
             ('ps:person', {}, (
                 ('vitals', ('ps:vitals', {}), {
