@@ -986,7 +986,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ip=11.22.33.44')
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo'))
-            self.eq(99, nodes[0].get('asn'))
+            self.propeq(nodes[0], 'asn', 99)
 
             bylayer = await core.callStorm('inet:ip=11.22.33.44 return($node.getByLayer())', opts=opts)
             self.ne(bylayer['ndef'], layr)
@@ -1346,19 +1346,19 @@ class StormTest(s_t_utils.SynTest):
             altro = {'view': viewiden, 'readonly': True}
             nodes = await core.nodes('diff | +ou:org', opts=altro)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'haha')
+            self.propeq(nodes[0], 'name', 'haha')
 
             nodes = await core.nodes('diff --prop ou:org', opts=altview)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'haha')
+            self.propeq(nodes[0], 'name', 'haha')
 
             nodes = await core.nodes('diff --prop ou:org:name', opts=altview)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'haha')
+            self.propeq(nodes[0], 'name', 'haha')
 
             nodes = await core.nodes('diff --tag haha', opts=altview)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'haha')
+            self.propeq(nodes[0], 'name', 'haha')
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('diff --prop foo:bar', opts=altview)
@@ -1370,7 +1370,7 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('diff | +ou:org', opts=altview)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'haha')
+            self.propeq(nodes[0], 'name', 'haha')
 
             self.len(3, await core.nodes('ou:org | diff | +ou:org', opts=altview))
             nodes = await core.nodes('diff | merge --no-tags --apply', opts=altview)
@@ -1590,8 +1590,8 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
-            self.eq(nodes[0].get('name'), 'haha')
-            self.eq(nodes[0].get('desc'), 'cool')
+            self.propeq(nodes[0], 'name', 'haha')
+            self.propeq(nodes[0], 'desc', 'cool')
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('lifespan'))
             self.eq(nodes[0].getTagProp('three', 'score'), 3)
@@ -1599,7 +1599,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807, 0xffffffffffffffff))
+            self.propeq(nodes[0], 'lifespan', (1609459200000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[0].get('url'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
@@ -2897,12 +2897,12 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=hehe')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('isnow'), 'woot')
+            self.propeq(node, 'isnow', 'woot')
 
             nodes = await core.nodes('syn:tag=hehe.haha')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('isnow'), 'woot.haha')
+            self.propeq(node, 'isnow', 'woot.haha')
 
             # test isnow plumbing
             nodes = await core.nodes('[test:str=bar +#hehe.haha]')
@@ -2926,8 +2926,8 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=woot')
             self.len(1, nodes)
             newt = nodes[0]
-            self.eq(newt.get('doc'), 'haha doc')
-            self.eq(newt.get('doc:url'), 'http://haha.doc.com')
+            self.propeq(newt, 'doc', 'haha doc')
+            self.propeq(newt, 'doc:url', 'http://haha.doc.com')
 
         # Test moving a tag which has tags on it.
         async with self.getTestCore() as core:
@@ -3040,12 +3040,12 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=existing')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('isnow'), 'cycle')
+            self.propeq(node, 'isnow', 'cycle')
 
             nodes = await core.nodes('syn:tag=cycle')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('isnow'), 'breaker')
+            self.propeq(node, 'isnow', 'breaker')
 
             nodes = await core.nodes('syn:tag=breaker')
             self.len(1, nodes)
@@ -3255,31 +3255,31 @@ class StormTest(s_t_utils.SynTest):
             # Relative paths
             nodes = await core.nodes('test:guid | max :tick')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), maxval)
+            self.propeq(nodes[0], 'tick', maxval)
 
             nodes = await core.nodes('test:guid | min :tick')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
+            self.propeq(nodes[0], 'tick', minval)
 
             # Virtual prop for relative path
             nodes = await core.nodes('.created>=$minc | max .created',
                                      {'vars': {'minc': minc}})
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
+            self.propeq(nodes[0], 'tick', midval)
 
             nodes = await core.nodes('.created>=$minc | min .created',
                                      {'vars': {'minc': minc}})
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
+            self.propeq(nodes[0], 'tick', minval)
 
             # Variables nodesuated
             nodes = await core.nodes('test:guid ($tick, $tock) = :seen | min $tick')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
+            self.propeq(nodes[0], 'tick', minval)
 
             nodes = await core.nodes('test:guid ($tick, $tock) = :seen | max $tock')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), maxval)
+            self.propeq(nodes[0], 'tick', maxval)
 
             text = '''[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 ]
                       { +inet:ip=1.2.3.4 [ :asn=10 ] }
@@ -5452,7 +5452,7 @@ class StormTest(s_t_utils.SynTest):
             ]'''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), '1234')
+            self.propeq(nodes[0], 'hehe', '1234')
             self.nn(nodes[0].get('seen'))
 
             case = [
@@ -5730,7 +5730,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
 
             nodes = await core.nodes('test:ro=bad', opts=opts)
-            self.eq(nodes[0].get('readable'), 'foo')
+            self.propeq(nodes[0], 'readable', 'foo')
 
     async def test_lib_storm_delnode(self):
         async with self.getTestCore() as core:
