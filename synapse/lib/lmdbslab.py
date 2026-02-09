@@ -1695,6 +1695,66 @@ class Slab(s_base.Base):
         async for item in s_common.merggenr2(genrs, cmprkey):
             yield item
 
+    async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False):
+
+        def scangenr(pval):
+            with ScanKeys(self, db, nodup=nodup) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                if not scan.set_range(pref + skey + byts):
+                    return
+
+                for item in scan.iternext():
+                    yield item
+
+        pval = 0
+        genrs = []
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
+
+        while True:
+            await asyncio.sleep(0)
+
+            sgen = scangenr(pval)
+
+            try:
+                fval = next(sgen)
+                if not fval.startswith(pref):
+                    break
+
+                skey = fval[len(pref):preflen]
+                pval = int.from_bytes(skey, 'big') + 1
+            except StopIteration:
+                break
+
+            if fval[preflen:size] != byts:
+                continue
+
+            async def pullgenr(first, genr):
+                yield first
+
+                fullpref = first[:preflen]
+
+                for item in genr:
+                    if (item[preflen:size] != byts) or not item.startswith(fullpref):
+                        return
+                    yield item
+
+            genrs.append(pullgenr(fval, sgen))
+
+        if not genrs:
+            return
+
+        if len(genrs) == 1:
+            async for item in genrs[0]:
+                yield item
+
+        def cmprkey(valu):
+            return valu[preflen:]
+
+        async for item in s_common.merggenr2(genrs, cmprkey):
+            yield item
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:

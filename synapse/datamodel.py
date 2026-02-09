@@ -940,7 +940,7 @@ class Model:
 
         typename, typeinfo = typedef
 
-        if typename in self.formnames:
+        if typename in self.formnames and not typeinfo:
             typename = (typename,)
 
         if isinstance(typename, tuple):
@@ -1306,10 +1306,11 @@ class Model:
                 # TODO: probably handle polyprop detection earlier?
                 typename, typeinfo = propdef[1]
 
-                if typename in self.formnames:
+                if typename in self.formnames and not typeinfo:
                     typename = (typename,)
 
                 if isinstance(typename, tuple):
+                    typeinfo = dict(typeinfo)
                     typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
                     typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
                     typename = 'polyprop'
@@ -1435,8 +1436,6 @@ class Model:
         if form is None:
             return
 
-        self.formnames.remove(formname)
-
         ifaceprops = set()
         for iface in form.ifaces.values():
             for prop in iface.get('props', ()):
@@ -1467,6 +1466,7 @@ class Model:
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
+        self.formnames.remove(formname)
 
         self.typesetcache.clear()
         self.childformcache.clear()
@@ -1529,10 +1529,11 @@ class Model:
 
         (typename, typeinfo) = tdef
 
-        if typename in self.formnames:
+        if typename in self.formnames and not typeinfo:
             typename = (typename,)
 
         if isinstance(typename, tuple):
+            typeinfo = dict(typeinfo)
             typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
             typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
             typename = 'polyprop'

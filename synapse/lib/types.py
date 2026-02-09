@@ -2271,13 +2271,21 @@ class PolyProp(Type):
 
         async def ctor(val1):
             cmprs = {}
+
+            realv = val1
+            if (ndefcmpr := bool(isinstance(val1, s_stormtypes.Ndef))):
+                realv = val1.valu[1]
+
             for ctor in ctors.values():
                 try:
-                    cmprs[ntyp.typehash] = await ctor(val1)
+                    cmprs[ntyp.typehash] = await ctor(realv)
                 except s_exc.BadTypeValu:
                     pass
 
             async def cmprfunc(val2):
+                if ndefcmpr and val1 == val2:
+                    return True
+
                 val2 = val2[1]
                 for cmpr in cmprs.values():
                     if await cmpr(val2):
@@ -2370,14 +2378,16 @@ class PolyProp(Type):
                     return (('=', valu.ndef[1], valu.form.type.stortype | s_layer.STOR_FLAG_POLYPROP),)
                 valu = valu.ndef[1]
 
-        cmprs = set()
+        cmprs = {}
         isvalid = False
         novirts = False
         badtype = False
 
         for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
             try:
-                cmprs.update(await ntyp.getStorCmprs(cmpr, valu, virts=virts))
+                # TODO: better way to keep these ordered?
+                for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
+                    cmprs[ncmpr] = True
                 isvalid = True
             except s_exc.NoSuchVirt:
                 novirts = True
@@ -2452,13 +2462,13 @@ class PolyProp(Type):
                 valu.exists = True
                 return valu.valu, {'skipadd': True, 'virts': valu.virts}
             else:
-                norm, forminfo = await form.norm(valu.valu[1], view=view)
-                info = {'adds': ((formname, formnorm, forminfo),)}
+                norm, forminfo = await form.type.norm(valu.valu[1], view=view)
+                info = {'adds': ((formname, norm, forminfo),)}
 
                 if (virts := forminfo.get('virts')) is not None:
                     info['virts'] = dict(virts)
 
-                return (formname, norm), {'adds': adds}
+                return (formname, norm), info
 
         return await self.norm(valu.valu[1], view=view)
 

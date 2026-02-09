@@ -2698,7 +2698,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if self.runt.model.form(form) is None:
+        if not ptyp.ispoly and self.runt.model.form(form) is None:
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 
@@ -2716,7 +2716,11 @@ class LibLift(Lib):
                 continue
 
             lastvalu = valu
-            yield await self.runt.view.getNodeByNdef((form, valu))
+
+            if ptyp.ispoly:
+                yield await self.runt.view.getNodeByNdef(valu)
+            else:
+                yield await self.runt.view.getNodeByNdef((form, valu))
 
     @stormfunc(readonly=True)
     async def _byPropsDict(self, form, props, errok=False):

@@ -1134,7 +1134,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1142,7 +1142,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1150,7 +1150,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1158,7 +1158,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 5
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.lt(asn, last)
                 last = asn
 

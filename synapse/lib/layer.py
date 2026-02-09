@@ -345,10 +345,10 @@ class IndxBy:
         stortype = self.getStorType()
         return stortype.decodeIndx(indx)
 
-    def getNodeValu(self, nid, indx=None):
+    def getNodeValu(self, nid, lkey=None):
 
-        if indx is not None:
-            valu = self.indxToValu(indx)
+        if lkey is not None:
+            valu = self.indxToValu(lkey[self.abrvlen:])
             if valu is not s_common.novalu:
                 return valu
 
@@ -429,10 +429,12 @@ class IndxByPropKeys(IndxByProp):
         for lkey in self.layr.layrslab.scanKeysByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
             yield lkey, None
 
-    def getNodeValu(self, nid, indx=None):
+    def getNodeValu(self, nid, lkey=None):
 
-        if indx is None:  # pragma: no cover
+        if lkey is None:  # pragma: no cover
             return s_common.novalu
+
+        indx = lkey[self.abrvlen:]
 
         if (valu := self.indxToValu(indx)) is not s_common.novalu:
             return valu
@@ -563,6 +565,93 @@ class IndxByPolyPropArray(IndxByPolyProp):
     def __repr__(self):
         return f'IndxByPolyPropArray: {self.form}:{self.prop}'
 
+class IndxByPolyPropKeys(IndxByPolyProp):
+    '''
+    IndxBy sub-class for retrieving unique property values.
+    '''
+    async def keyNidsByDups(self, indx, reverse=False):
+        lkey = self.abrv + indx
+        if self.layr.layrslab.has(lkey, db=self.db):
+            yield lkey, None
+
+    async def keyNidsByPref(self, indx=b'', reverse=False):
+        async for lkey in self.layr.layrslab.multiScanKeysByPref(self.abrv, self.multilen, indx, db=self.db, nodup=True):
+            yield lkey, None
+
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        async for lkey in self.layr.layrslab.multiScanKeysByRange(self.abrv, self.multilen, minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
+            yield lkey, None
+
+    def getNodeValu(self, nid, lkey=None):
+
+        if lkey is None:  # pragma: no cover
+            return s_common.novalu
+
+        indx = lkey[8:]
+
+        if (valu := self.indxToValu(indx)) is not s_common.novalu:
+            return valu
+
+        if (nid := self.layr.layrslab.get(lkey, db=self.db)) is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (sode := self.layr._getStorNode(nid)) is not None:
+            if self.prop is None:
+                valt = sode.get('valu')
+            else:
+                valt = sode['props'].get(self.prop)
+
+            if valt is not None:
+                return valt[0]
+
+        return s_common.novalu
+
+class IndxByPolyPropArrayKeys(IndxByPolyPropKeys):
+    '''
+    IndxBy sub-class for retrieving unique property array values.
+    '''
+    def __init__(self, layr, form, prop, stortype):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        self.stortype = stortype.to_bytes(2, 'big')
+
+        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop) + self.stortype
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.multilen = 8
+
+        self.form = form
+        self.prop = prop
+        self.abrvlen += self.multilen
+
+    def getNodeValu(self, nid, lkey=None):
+
+        if lkey is None:  # pragma: no cover
+            return s_common.novalu
+
+        indx = lkey[8:]
+
+        if (valu := self.indxToValu(indx)) is not s_common.novalu:
+            return valu
+
+        if (nid := self.layr.layrslab.get(lkey, db=self.db)) is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (sode := self.layr._getStorNode(nid)) is not None:
+            valt = sode['props'].get(self.prop)
+
+            if valt is not None:
+                indx = indx[10:]
+                for atyp, aval in zip(valt[2]['_stortypes'], valt[0]):
+                    if self.layr.stortypes[atyp & STOR_MASK_POLYPROP].indx(aval[1])[0] == indx:
+                        return aval
+
+        return s_common.novalu
+
+    def __repr__(self):
+        return f'IndxByPolyPropArrayKeys: {self.form}:{self.prop}'
+
 class IndxByVirt(IndxBy):
 
     def __init__(self, layr, form, prop, virts):
@@ -593,8 +682,6 @@ class IndxByPolyVirt(IndxBy):
         self.form = form
         self.prop = prop
         self.virts = virts
-#        self.abrv += self.stortype
-#        self.abrvlen += 2
 
     def __repr__(self):
         return f'IndxByPolyVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
@@ -639,7 +726,7 @@ class IndxByPropArray(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, nid, indx=None):
+    def getNodeValu(self, nid, lkey=None):
         sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
             return s_common.novalu
@@ -1047,9 +1134,10 @@ class StorType:
 
             indx = lkey[abrvlen:]
 
-            if (storvalu := liftby.getNodeValu(nid, indx=indx)) is s_common.novalu:
+            if (storvalu := liftby.getNodeValu(nid, lkey=lkey)) is s_common.novalu:
                 continue
 
+            # TODO get rid of this since getNodeValu can handle it?
             if isarray:
                 for sval in storvalu:
                     if self.indx(sval)[0] == indx:
@@ -3397,11 +3485,20 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        abrvlen = indxby.abrvlen
-
         for cmpr, valu, kind in cmprvals:
 
-            styp = self.stortypes[kind]
+            if kind & STOR_FLAG_POLYPROP:
+                kind = kind & STOR_MASK_POLYPROP
+                if array:
+                    indxby = IndxByPolyPropArrayKeys(self, form, prop, kind)
+                else:
+                    indxby = IndxByPolyPropKeys(self, form, prop, kind)
+                realtype = self.polytype
+                styp = self.stortypes[kind]
+                abrvlen = indxby.abrvlen - 10
+            else:
+                styp = realtype = self.stortypes[kind]
+                abrvlen = indxby.abrvlen
 
             if (func := styp.lifters.get(cmpr)) is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr)
@@ -3409,7 +3506,7 @@ class Layer(s_nexus.Pusher):
             async for lkey, _ in func(indxby, valu):
 
                 indx = lkey[abrvlen:]
-                pval = styp.decodeIndx(indx)
+                pval = realtype.decodeIndx(indx)
                 if pval is not s_common.novalu:
                     yield indx, pval
                     continue
@@ -3426,7 +3523,7 @@ class Layer(s_nexus.Pusher):
                 if valt is not None:
                     if array:
                         for aval in valt[0]:
-                            if styp.indx(aval)[0] == indx:
+                            if realtype.indx(aval)[0] == indx:
                                 yield indx, aval
                                 break
                     else:
@@ -5701,9 +5798,7 @@ class Layer(s_nexus.Pusher):
 
             await asyncio.sleep(0)
 
-            indx = key[abrvlen:]
-
-            valu = indxby.getNodeValu(nid, indx=indx)
+            valu = indxby.getNodeValu(nid, lkey=key)
             if valu is s_common.novalu:
                 continue
 

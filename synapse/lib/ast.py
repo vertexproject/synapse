@@ -4068,13 +4068,18 @@ class RelPropCond(Cond):
         valukid = self.kids[2]
 
         async def cond(node, path):
-            ptyp, valu, _ = await self.kids[0].getTypeValuProp(runt, path)
+            ptyp, valu, _ = await self.kids[0].getTypeValuProp(runt, path, resolvepoly=False)
 
             xval = await valukid.compute(runt, path)
             xval = await s_stormtypes.tostor(xval)
 
             if xval is None or valu is None:
                 return False
+
+            if ptyp.ispoly:
+                if valu == (None, None):
+                    return False
+                valu = valu[0]
 
             # TODO does this make sense
 #            if isinstance(xval, s_stormtypes.Ndef):

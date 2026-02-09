@@ -953,10 +953,10 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
             self.eq((1577836800000000, 1577836800000001, 1), sodes[0]['tags']['foo'])
-            self.eq((99, 9, None), sodes[0]['props']['asn'])
+            self.eq((('inet:asn', 99), 16393, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
             self.eq(('unicast', 1, None), sodes[1]['props']['type'])
-            self.eq((56, 9, None), sodes[1]['props']['asn'])
+            self.eq((('inet:asn', 56), 16393, None), sodes[1]['props']['asn'])
 
             nodes = await core.nodes('[inet:ip=11.22.33.44 +#bar:score=200]')
 

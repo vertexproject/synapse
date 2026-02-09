@@ -3664,7 +3664,7 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                for name, (valu, stortype, _) in sode.get('props', {}).items():
+                for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
@@ -3692,6 +3692,9 @@ class MergeCmd(Cmd):
                         valurepr = prop.type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
+                        if prop.type.ispoly:
+                            valu = s_stormtypes.Ndef((valu, virts)
+)
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
                             subs.append((s_layer.EDIT_PROP_DEL, (name,)))

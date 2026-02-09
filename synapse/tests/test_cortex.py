@@ -3254,7 +3254,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pnfo = fnfo['props'].get('asn')
 
             self.nn(pnfo)
-            self.eq(pnfo['type'][0], 'inet:asn')
+            self.eq(pnfo['type'][0], 'polyprop')
 
             modelt = model['types']
 
