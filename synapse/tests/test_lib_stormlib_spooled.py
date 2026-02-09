@@ -34,7 +34,7 @@ class StormlibSpooledTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('data'), ())
+            self.propeq(nodes[0], 'data', ())
 
             q = '''
                 $set = $lib.spooled.set()

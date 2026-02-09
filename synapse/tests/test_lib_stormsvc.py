@@ -627,10 +627,10 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('[ inet:ip=5.5.5.5 ] | ohhai')
 
                     self.len(2, nodes)
-                    self.eq(nodes[0].get('asn'), 20)
+                    self.propeq(nodes[0], 'asn', 20)
                     self.eq(nodes[0].ndef, ('inet:ip', (4, 0x05050505)))
 
-                    self.eq(nodes[1].get('asn'), 20)
+                    self.propeq(nodes[1], 'asn', 20)
                     self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ip=$ipv4] }')
@@ -719,10 +719,10 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
 
                     self.len(2, nodes)
-                    self.eq(nodes[0].get('asn'), 20)
+                    self.propeq(nodes[0], 'asn', 20)
                     self.eq(nodes[0].ndef, ('inet:ip', (4, 0x06060606)))
 
-                    self.eq(nodes[1].get('asn'), 20)
+                    self.propeq(nodes[1], 'asn', 20)
                     self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
                     # reach in and close the proxies

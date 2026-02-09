@@ -152,7 +152,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.eq('apt1', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'apt1')
 
             nodes = await core.nodes('', opts={'mode': 'search'})
             self.len(0, nodes)
@@ -181,10 +181,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000000)
+            self.propeq(nodes[0], 'tick', 1546300800000000)
             nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000000)
+            self.propeq(nodes[0], 'tick', 1546300800000000)
 
     async def test_ast_autoadd(self):
 
@@ -311,13 +311,13 @@ class AstTest(s_test.SynTest):
             q = '$var=hehe [test:str=foo :$var=heval]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             # filter
             q = '[test:str=heval] test:str $var=hehe +:$var'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             # prop del
             q = '[test:str=foo :tick=2019] $var=tick [-:$var]'
@@ -345,17 +345,17 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(('neato', 'burrito'), nodes[0].get('strs'))
+            self.propeq(nodes[0], 'strs', ('neato', 'burrito'))
 
             q = '$pvar=ints $avar=4 test:arrayprop +:$pvar*[=$avar]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq((1, 2, 3, 4, 5), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (1, 2, 3, 4, 5))
 
             q = '$pvar=strs $avar=burr test:arrayprop +:$pvar*[^=$avar]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(('neato', 'burrito'), nodes[0].get('strs'))
+            self.propeq(nodes[0], 'strs', ('neato', 'burrito'))
 
             # Sad paths
             q = '[test:str=newp -:newp]'
@@ -385,22 +385,22 @@ class AstTest(s_test.SynTest):
             q = '$var=hehe $foo=unset [test:str=foo :$var*unset=heval]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             q = '$var=hehe $foo=unset [test:str=foo :$var*unset=newp]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=newp]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             q = '$var=hehe $foo=always [test:str=foo :$var*$foo=yep]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('yep', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'yep')
 
             q = '[test:str=foo -:hehe]'
             nodes = await core.nodes(q)
@@ -415,7 +415,7 @@ class AstTest(s_test.SynTest):
             q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=heval]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('heval', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'heval')
 
             with self.raises(s_exc.BadTypeValu):
                 q = '$var=tick $foo=always [test:str=foo :$var*$foo=heval]'
@@ -434,7 +434,7 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('newv', nodes[0].get('hehe'))
+            self.propeq(nodes[0], 'hehe', 'newv')
             tick = nodes[0].get('tick')
             self.nn(tick)
 
@@ -446,8 +446,8 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq('newv', nodes[0].get('hehe'))
-            self.eq(tick, nodes[0].get('tick'))
+            self.propeq(nodes[0], 'hehe', 'newv')
+            self.propeq(nodes[0], 'tick', tick)
 
             q = '$foo=always [test:str=foo :tick*$foo?=2021]'
             nodes = await core.nodes(q)
@@ -470,44 +470,44 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1,) ]')
-            self.eq(nodes[0].get('ints'), (1,))
+            self.propeq(nodes[0], 'ints', (1,))
 
             nodes = await core.nodes('test:arrayprop [ :ints++=([3, 4]) ]')
-            self.eq(nodes[0].get('ints'), (1, 3, 4))
+            self.propeq(nodes[0], 'ints', (1, 3, 4))
 
             nodes = await core.nodes('test:arrayprop [ :ints++=(null) ]')
-            self.eq(nodes[0].get('ints'), (1, 3, 4))
+            self.propeq(nodes[0], 'ints', (1, 3, 4))
 
             nodes = await core.nodes('test:arrayprop [ :ints--=(null) ]')
-            self.eq(nodes[0].get('ints'), (1, 3, 4))
+            self.propeq(nodes[0], 'ints', (1, 3, 4))
 
             nodes = await core.nodes('test:arrayprop [ :strs++=(foo, bar, baz) ]')
-            self.eq(nodes[0].get('strs'), ('foo', 'bar', 'baz'))
+            self.propeq(nodes[0], 'strs', ('foo', 'bar', 'baz'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:arrayprop [ :ints++=(["newp", 5, 6]) ]')
 
             nodes = await core.nodes('test:arrayprop [ :ints?++=(["newp", 5, 6]) ]')
-            self.eq(nodes[0].get('ints'), (1, 3, 4, 5, 6))
+            self.propeq(nodes[0], 'ints', (1, 3, 4, 5, 6))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:arrayprop [ :ints--=(["newp", 5, 6]) ]')
 
             nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6, 7]) ]')
-            self.eq(nodes[0].get('ints'), (1, 3, 4))
+            self.propeq(nodes[0], 'ints', (1, 3, 4))
 
             nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
-            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
 
             nodes = await core.nodes('test:str=foo  [ :ndefs++={[ test:str=baz test:str=faz ]} ]')
-            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
+            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
 
             nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
-            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
 
             await core.nodes('[ test:int=5 :types=(a, b) ]')
             nodes = await core.nodes('test:int=5 [ :types++=(d, c, d) ]')
-            self.eq(nodes[0].get('types'), ('a', 'b', 'c', 'd'))
+            self.propeq(nodes[0], 'types', ('a', 'b', 'c', 'd'))
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop [ :newp++=(["newp", 5, 6]) ]')
@@ -541,8 +541,8 @@ class AstTest(s_test.SynTest):
 
             # :hehe doesn't get applied to nodes incoming to editparens
             self.none(nodes[0].get('hehe'))
-            self.eq('zoo', nodes[1].get('hehe'))
-            self.eq('zoo', nodes[2].get('hehe'))
+            self.propeq(nodes[1], 'hehe', 'zoo')
+            self.propeq(nodes[2], 'hehe', 'zoo')
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('[ (newp:newp=20 :hehe=10) ]')
@@ -568,7 +568,7 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
             self.eq(nodes[1].ndef[0], 'ps:person')
-            self.eq(nodes[1].get('name'), 'visi')
+            self.propeq(nodes[1], 'name', 'visi')
             self.none(nodes[1].getTag('foo'))
 
             self.eq(nodes[2].ndef[0], 'entity:contact')
@@ -1271,11 +1271,11 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('test:arrayprop:ints*[ range=(50,100) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('ints'), (100, 101, 102))
+            self.propeq(nodes[0], 'ints', (100, 101, 102))
 
             nodes = await core.nodes('test:arrayprop +:ints*[ range=(50,100) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('ints'), (100, 101, 102))
+            self.propeq(nodes[0], 'ints', (100, 101, 102))
 
             nodes = await core.nodes('test:arrayprop:ints=(1, 2, 3) | limit 1 | [ -:ints ]')
             self.len(1, nodes)
@@ -1283,7 +1283,7 @@ class AstTest(s_test.SynTest):
             # test filter case where field is None
             nodes = await core.nodes('test:arrayprop +:ints*[=100]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('ints'), (100, 101, 102))
+            self.propeq(nodes[0], 'ints', (100, 101, 102))
 
     async def test_ast_array_addsub(self):
 
@@ -1294,21 +1294,21 @@ class AstTest(s_test.SynTest):
 
             # test starting with the property unset
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=99 ]')
-            self.eq((99,), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (99,))
 
             # test that removing a non-existant item is ok...
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=22 ]')
 
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=99 ]')
-            self.eq((), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', ())
 
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints=(1, 2, 3) ]')
 
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=4 ]')
-            self.eq((1, 2, 3, 4), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (1, 2, 3, 4))
 
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=3 ]')
-            self.eq((1, 2, 4), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (1, 2, 4))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes(f'test:arrayprop={guid} [ :ints+=asdf ]')
@@ -1317,10 +1317,10 @@ class AstTest(s_test.SynTest):
                 await core.nodes(f'test:arrayprop={guid} [ :ints-=asdf ]')
 
             await core.nodes(f'test:arrayprop={guid} [ :ints?-=asdf ]')
-            self.eq((1, 2, 4), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (1, 2, 4))
 
             await core.nodes(f'test:arrayprop={guid} [ :ints?+=asdf ]')
-            self.eq((1, 2, 4), nodes[0].get('ints'))
+            self.propeq(nodes[0], 'ints', (1, 2, 4))
 
             # ensure that we get a proper exception when using += (et al) on non-array props
             with self.raises(s_exc.StormRuntimeError):
@@ -2246,9 +2246,9 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'init1'))
-            self.eq(nodes[0].get('hehe'), 'hi')
+            self.propeq(nodes[0], 'hehe', 'hi')
             self.eq(nodes[1].ndef, ('test:str', 'init2'))
-            self.eq(nodes[1].get('hehe'), 'hi')
+            self.propeq(nodes[1], 'hehe', 'hi')
 
             # Non-runtsafe values allowed in init
             q = '''
@@ -2292,9 +2292,9 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'fini1'))
-            self.eq(nodes[0].get('hehe'), 'bye')
+            self.propeq(nodes[0], 'hehe', 'bye')
             self.eq(nodes[1].ndef, ('test:str', 'fini2'))
-            self.eq(nodes[1].get('hehe'), 'hehe')
+            self.propeq(nodes[1], 'hehe', 'hehe')
 
             # Non-runtsafe fini example
             q = '''
@@ -2307,7 +2307,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(2, nodes)
             for node in nodes:
-                self.eq('number3', node.get('hehe'))
+                self.propeq(node, 'hehe', 'number3')
 
             # Tally use - case example for counting
             q = '''
@@ -4075,37 +4075,37 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=bar :seen=(2020, 2022)]')
             nodes = await core.nodes('[test:str=bar :seen.min=2021]')
-            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (1609459200000000, 1640995200000000, 31536000000000))
 
             nodes = await core.nodes('[test:str=bar :seen.min=2027]')
-            self.eq((1798761600000000, 1798761600000001, 1), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (1798761600000000, 1798761600000001, 1))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.min=2027]')
-            self.eq((1798761600000000, ival.unksize, ival.duratype.unkdura), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (1798761600000000, ival.unksize, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar :seen=(2022, 2027)]')
             nodes = await core.nodes('[test:str=bar :seen.max=2024]')
-            self.eq((1640995200000000, 1704067200000000, 63072000000000), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (1640995200000000, 1704067200000000, 63072000000000))
 
             nodes = await core.nodes('[test:str=bar :seen.max=2019]')
-            self.eq((1546300799999999, 1546300800000000, 1), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (1546300799999999, 1546300800000000, 1))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.max=2019]')
-            self.eq((ival.unksize, 1546300800000000, ival.duratype.unkdura), nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', (ival.unksize, 1546300800000000, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('[test:str=bar +#(foo).min=2022]')
-            self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('#foo'))
+            self.propeq(nodes[0], '#foo', (1640995200000000, 1672531200000000, 31536000000000))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).min=2022]')
-            self.eq((1640995200000000, ival.unksize, ival.duratype.unkdura), nodes[0].get('#foo'))
+            self.propeq(nodes[0], '#foo', (1640995200000000, ival.unksize, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('$var=foo $virt=max [test:str=bar +#($var).$virt=2022]')
-            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('#foo'))
+            self.propeq(nodes[0], '#foo', (1609459200000000, 1640995200000000, 31536000000000))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).max=2022]')
-            self.eq((ival.unksize, 1640995200000000, ival.duratype.unkdura), nodes[0].get('#foo'))
+            self.propeq(nodes[0], '#foo', (ival.unksize, 1640995200000000, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar +?#(bar).max=newp]')
             self.none(nodes[0].get('#bar'))
@@ -4173,12 +4173,12 @@ class AstTest(s_test.SynTest):
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
+            self.propeq(nodes[0], 'opts', {'foo': 'bar'})
 
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.propeq(nodes[0], 'opts', {'foo': 'bar', 'bar': 'baz'})
 
             msgs = await core.stormlist('[ it:exec:query=(test2,) :opts=({"foo": "bar"}) ]')
             self.stormHasNoWarnErr(msgs)
@@ -4187,12 +4187,12 @@ class AstTest(s_test.SynTest):
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
+            self.propeq(nodes[0], 'opts', {'foo': 'bar'})
 
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.propeq(nodes[0], 'opts', {'foo': 'bar', 'bar': 'baz'})
 
             # Create node for the lift below
             q = '''
@@ -4208,7 +4208,7 @@ class AstTest(s_test.SynTest):
                 test:str $raw = :gprop::raw $raw.baz="box" | spin | test:guid
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('raw'), {'foo': 'bar'})
+            self.propeq(nodes[0], 'raw', {'foo': 'bar'})
 
             nodes = await core.nodes('''
                 test:str
@@ -4217,7 +4217,7 @@ class AstTest(s_test.SynTest):
                 test:guid [ :raw=$raw ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
+            self.propeq(nodes[0], 'raw', {'foo': 'bar', 'baz': 'box'})
 
     async def test_ast_subrunt_safety(self):
 

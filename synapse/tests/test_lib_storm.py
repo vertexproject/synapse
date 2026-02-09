@@ -2890,7 +2890,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((20, 30, 10), node.get('#woot.haha'))
+            self.propeq(node, '#woot.haha', (20, 30, 10))
             self.none(node.get('#hehe'))
             self.none(node.get('#hehe.haha'))
 
@@ -5721,7 +5721,7 @@ class StormTest(s_t_utils.SynTest):
 
             oldn = await core.nodes('inet:ip=2.2.2.2', opts=opts)
 
-            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
+            self.propeq(oldn[0], '.created', newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
             await core.nodes('[ test:ro=bad :readable=bar ]')

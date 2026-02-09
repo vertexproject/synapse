@@ -600,7 +600,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
 
-            self.eq(created00, nodes[0].get('.created'))
+            self.propeq(nodes[0], '.created', created00)
 
             await core.nodes('test:int=1 | delnode')
             self.len(0, await core.nodes('test:int'))
@@ -618,10 +618,10 @@ class LayerTest(s_t_utils.SynTest):
             # edits with the same node has the same .created
             await asyncio.sleep(0.01)
             nodes = await core.nodes('[ test:int=1 ]')
-            self.eq(created01, nodes[0].get('.created'))
+            self.propeq(nodes[0], '.created', created01)
 
             nodes = await core.nodes('[ test:int=1 :loc=us +#foo]')
-            self.eq(created01, nodes[0].get('.created'))
+            self.propeq(nodes[0], '.created', created01)
 
             await core.nodes('test:int=1 | delnode')
             self.len(0, await core.nodes('test:int'))
@@ -634,7 +634,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
 
-            self.eq(created02, nodes[0].get('.created'))
+            self.propeq(nodes[0], '.created', created02)
 
             await core.nodes('test:int=1 | delnode')
             self.len(0, await core.nodes('test:int'))
@@ -646,7 +646,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
 
-            self.eq(created03, nodes[0].get('.created'))
+            self.propeq(nodes[0], '.created', created03)
 
     async def test_layer_nodeedits(self):
 
@@ -876,10 +876,10 @@ class LayerTest(s_t_utils.SynTest):
             self.none(nodes[0].get('asn'))
 
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(4, nodes[0].get('asn'))
+            self.propeq(nodes[0], 'asn', 4)
 
             nodes = await core.nodes('inet:ip=1.2.3.4 [ :asn=5 ]', opts=viewopts2)
-            self.eq(5, nodes[0].get('asn'))
+            self.propeq(nodes[0], 'asn', 5)
 
             nodes = await core.nodes('inet:ip=1.2.3.4 [ -:asn ]', opts=viewopts2)
             self.none(nodes[0].get('asn'))
@@ -1125,7 +1125,7 @@ class LayerTest(s_t_utils.SynTest):
             self.true(await view2.waitfini(timeout=5))
 
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(nodes[0].get('place:loc'), 'us')
+            self.propeq(nodes[0], 'place:loc', 'us')
             self.none(nodes[0].get('asn'))
             await notombs()
 
@@ -2499,7 +2499,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(nodes[0].valu(), 'tcp://[::1]:12341')
 
             self.eq((4, 2130706433), await core.callStorm('inet:server.ip return(.ip)'))
-            self.eq((4, 2130706433), (await core.nodes('inet:server.ip'))[0].get('.ip'))
+            self.propeq((await core.nodes('inet:server.ip'))[0], '.ip', (4, 2130706433))
 
             self.len(6, await core.nodes('inet:ip -> inet:http:request:server.ip'))
 
@@ -2975,8 +2975,8 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid:_custom:risk:severity')
             self.len(1, nodes)
             self.eq(nodes[0].iden(), testnode00[1]['iden'])
-            self.eq(nodes[0].get('name'), testnode00[1]['props']['name'])
-            self.eq(nodes[0].get('_custom:risk:severity'), testnode00[1]['props']['_custom:risk:level'])
+            self.propeq(nodes[0], 'name', testnode00[1]['props']['name'])
+            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'])
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
             inview = {'view': view00}
@@ -2984,12 +2984,12 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid:name=test1', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
-            self.eq(nodes[0].get('_custom:risk:severity'), 10)
+            self.propeq(nodes[0], '_custom:risk:severity', 10)
 
             nodes = await core.nodes('test:guid:name=test0', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
-            self.eq(nodes[0].get('_custom:risk:severity'), 20)
+            self.propeq(nodes[0], '_custom:risk:severity', 20)
             self.eq(await s_t_utils.alist(nodes[0].iterData()), [('baz', 'baz')])
             self.eq(await s_t_utils.alist(nodes[0].iterEdgesN1()), [('refs', refs.nid)])
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
@@ -2999,7 +2999,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid:name=test0', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
-            self.eq(nodes[0].get('_custom:risk:severity'), 30)
+            self.propeq(nodes[0], '_custom:risk:severity', 30)
             self.len(0, await s_t_utils.alist(nodes[0].iterData()))
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN1()))
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
