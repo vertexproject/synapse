@@ -99,6 +99,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :actor={[ entity:contact=* ]}
                     :actors={[ entity:contact=* ]}
+                    :seen=2022
                     +(had)> {[ entity:goal=* ]}
                 ]
             ''')
@@ -115,6 +116,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'slogan', 'For The People')
+            self.nn(nodes[0].get('seen'))
 
             self.eq(nodes[0].ndef[1], await core.callStorm('return({entity:campaign=({"id": "Bar"})})'))
 

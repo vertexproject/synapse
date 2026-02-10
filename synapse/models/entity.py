@@ -299,6 +299,7 @@ modeldefs = (
                 'interfaces': (
                     ('entity:action', {}),
                     ('meta:reported', {}),
+                    ('meta:observable', {}),
                 ),
                 'display': {
                     'columns': (
