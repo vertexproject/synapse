@@ -5348,7 +5348,7 @@ class List(Prim):
         return ret
 
     async def _methListRemove(self, item, all=False):
-        item = await toprim(item)
+        item = await toprim(item, use_list=True)
         all = await tobool(all)
 
         if item not in self.valu:
@@ -6114,12 +6114,13 @@ class Ndef(Prim):
 
     @stormfunc(readonly=True)
     async def _derefGet(self, name):
-        if self.virts is None:
-            return
-
         name = await tostr(name)
-        if (valu := self.virts.get(name)) is not None:
-            return valu[0]
+
+        if self.virts is not None:
+            if (valu := self.virts.get(name)) is not None:
+                return valu[0]
+
+        return await fromprim(self.valu[1]).deref(name)
 
     @stormfunc(readonly=True)
     async def _methNdefIsForm(self, name):

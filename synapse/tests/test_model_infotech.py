@@ -146,7 +146,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('time'), 1700179200000000)
             self.eq(nodes[0].get('verdict'), 30)
             self.eq(nodes[0].get('scanner:name'), 'visi scan')
-            self.eq(nodes[0].get('target'), ('file:bytes', '09d214b60cdc6378a45de889fbb084cc'))
+            self.eq(nodes[0].get('target'), ('file:bytes', 'fa1caa2924199d7b4bab0f57ebdbb7ec'))
             self.eq(nodes[0].get('signame'), 'omgwtfbbq')
             self.eq(nodes[0].get('categories'), ('baz faz', 'foo bar'))
 

@@ -2801,7 +2801,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if tagnode is not None:
             isnow = tagnode.get('isnow')
             while isnow is not None:
-                tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', isnow)))
+                tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', isnow[1])))
                 isnow = tagnode.get('isnow')
 
         if tagnode is None:

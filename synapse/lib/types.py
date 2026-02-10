@@ -790,16 +790,18 @@ class Comp(Type):
             _type = self.fieldtypes[name]
 
             norm, info = await _type.norm(valu[i], view=view)
-
-            subs[name] = (_type.typehash, norm, info)
             norms.append(norm)
+
+            if (typeform := self.modl.form(_type.name)) is not None:
+                adds.append((typeform.name, norm, info))
+                # TODO return an ndef to potentially avoid renorm?
+                # ndef = s_stormtypes.Ndef(((_type.name, norm), info.get('virts')))
+                subs[name] = (_type.typehash, norm, info)
+            else:
+                subs[name] = (_type.typehash, norm, info)
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
-
-            typeform = self.modl.form(_type.name)
-            if typeform is not None:
-                adds.append((typeform.name, norm, info))
 
             adds.extend(info.get('adds', ()))
 
@@ -2427,6 +2429,9 @@ class PolyProp(Type):
                 try:
                     norm, forminfo = await form.type.norm(valu, view=view)
                     info = {'adds': ((formname, norm, forminfo),)}
+
+                    if (subs := forminfo.get('subs')) is not None:
+                        info['subs'] = subs
 
                     if (virts := forminfo.get('virts')) is not None:
                         info['virts'] = dict(virts)

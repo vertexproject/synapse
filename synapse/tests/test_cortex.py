@@ -4768,7 +4768,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
-            with self.raises(s_exc.IsDeprLocked):
+            # TODO: we skip locked forms when attempting to norm
+            # should we raise IsDeprLocked if there are locked forms and no unlocked forms norm successfully??
+            with self.raises(s_exc.BadTypeValu):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
@@ -8600,7 +8602,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
             self.len(1, await core.nodes(q))
 
-            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
+            # TODO: this is a little weird, should removing "baz" work here or is that too much magic?
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem((test:str, baz)) return(($r, $l))'
             valu = await core.callStorm(q)
             self.true(valu[0])
             self.sorteq(valu[1], ['foo', 'bar'])

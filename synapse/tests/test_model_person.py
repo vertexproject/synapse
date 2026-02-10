@@ -74,7 +74,7 @@ class PsModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
 
-            course = nodes[0].get('course')
+            course = nodes[0].get('course')[1]
             opts = {'vars': {'course': course}}
 
             nodes = await core.nodes('''

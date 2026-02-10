@@ -258,8 +258,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasused'), 10)
             self.eq(node.get('eth:gaslimit'), 20)
             self.eq(node.get('eth:gasprice'), '0.001')
-            self.eq(node.get('contract:input'), 'e8691a37075634ad4c10037e46f8cdc2')
-            self.eq(node.get('contract:output'), '6abdf11bc1f8516aa04984e12d500a1f')
+            self.eq(node.get('contract:input'), 'c7b0fb6229283d0f30a360f8b81d63e5')
+            self.eq(node.get('contract:output'), '074ce17fabf0f083843f83246533deb3')
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)
@@ -292,7 +292,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('transaction'))
-            self.eq(node.get('bytecode'), 'e8691a37075634ad4c10037e46f8cdc2')
+            self.eq(node.get('bytecode'), 'c7b0fb6229283d0f30a360f8b81d63e5')
             self.eq(node.get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('token:name'), 'Foo')
             self.eq(node.get('token:symbol'), 'Bar')
