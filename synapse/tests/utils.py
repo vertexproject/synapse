@@ -1058,7 +1058,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
-        [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
+        [self.propeq(node, k, v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
         diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
@@ -2063,14 +2063,17 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         parts = prop.split('.')
 
         if parts[0]:
-            ptyp = n.form.prop(parts[0]).type
+            ptyp = n.form.reqProp(parts[0]).type
         else:
             ptyp = n.form.type
 
         if len(parts) > 1:
-            ptyp = ptyp.getVirtType(parts[1:])
+            if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
+                ptyp = mtyp
+            else:
+                ptyp = ptyp.getVirtType(parts[1:])
 
-        if valu is not None:
+        if valu is not None and pval is not None:
             if ptyp.ispoly:
                 if form is not None:
                     self.eq(pval, (form, valu), msg=msg)

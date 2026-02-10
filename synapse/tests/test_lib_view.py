@@ -886,7 +886,7 @@ class ViewTest(s_t_utils.SynTest):
             node = result[0]
             self.propeq(node, 'tick', 3)
             self.ge(node.get('.created', 0), 5)
-            self.propeq(node, '#cool', (1, 2, 1))
+            self.eq(node.get('#cool'), (1, 2, 1))
 
             nodes = await alist(view.nodesByPropValu('test:str', '=', 'hehe'))
             self.len(1, nodes)

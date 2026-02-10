@@ -2775,10 +2775,10 @@ class FormPivot(PivotOper):
             async def pgenr(node, strict=True):
                 if prop.type.isarray:
                     if prop.type.arraytype.ispoly:
-                        # TODO: renorm if nomatch
                         if not prop.type.arraytype.formfilter(node.form):
-                            return
-                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
+                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], virts=virts)
+                        else:
+                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
 
                     elif isinstance(prop.type.arraytype, (s_types.Ndef, s_types.NodeProp)):
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
@@ -2790,8 +2790,9 @@ class FormPivot(PivotOper):
 
                 elif prop.type.ispoly and not virts:
                     if not prop.type.formfilter(node.form):
-                        return
-                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node)
+                        ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
+                    else:
+                        ngenr = runt.view.nodesByPropValu(prop.full, '=', node)
 
                 else:
                     cmpr = '='

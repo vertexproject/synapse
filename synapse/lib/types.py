@@ -2439,7 +2439,9 @@ class PolyProp(Type):
                     return (formname, norm), info
 
                 except s_exc.BadTypeValu:
-                    continue
+                    if len(self.defaultforms) > 1:
+                        continue
+                    raise
 
         raise s_exc.BadTypeValu(name=self.name, mesg=f'no norm for type: {vtyp}.')
 

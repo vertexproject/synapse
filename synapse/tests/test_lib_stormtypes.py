@@ -527,7 +527,7 @@ class StormTypesTest(s_test.SynTest):
 
             self.true(await core.callStorm('return($lib.trycast(test:guid:size, 1234).0)'))
             self.false(await core.callStorm('return($lib.trycast(test:guid:size, newp).0)'))
-            self.eq(1234, await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
+            self.eq(('test:int', 1234), await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
 
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
@@ -6175,7 +6175,8 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.asn)'))
             props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
-            self.eq(20, props.get('asn'))
+            # TODO: is this how we want to handle returning NodeProps?
+            self.eq(('inet:asn', 20), props.get('asn'))
 
             fakeuser = await core.auth.addUser('fakeuser')
             opts = {'user': fakeuser.iden}
@@ -6188,14 +6189,11 @@ class StormTypesTest(s_test.SynTest):
             await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
 
             node = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(node[0].get('dns:rev'), 'vertex.link')
+            self.propeq(node[0], 'dns:rev', 'vertex.link')
 
             await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "foo.bar.com"', opts=opts)
             node = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(node[0].get('dns:rev'), 'foo.bar.com')
-
-            props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
-            self.eq(20, props['asn'])
+            self.propeq(node[0], 'dns:rev', 'foo.bar.com')
 
             self.eq((4, 0x01020304), await core.callStorm('inet:ip=1.2.3.4 return($node)'))
 
@@ -6206,9 +6204,10 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
             self.propeq(nodes[0], 'size', 12)
 
+            # TODO: should iter produce medium weight nodes?
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
-            self.eq(12, props.get('size'))
+            self.eq(('test:int', 12), props.get('size'))
 
             with self.raises(s_exc.NoSuchProp):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
@@ -6571,15 +6570,15 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             opts = {'vars': {'prop': 'test:guid:name'}}
-            uniqvals = list(set(layr1vals))
+            uniqvals = list(('test:str', v) for v in set(layr1vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
             opts['view'] = forkview
-            uniqvals = list(set(layr2vals))
+            uniqvals = list(('test:str', v) for v in set(layr2vals))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
-            uniqvals = list(set(layr1vals) | set(layr2vals))
+            uniqvals = list(('test:str', v) for v in (set(layr1vals) | set(layr2vals)))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             opts = {'vars': {'prop': 'test:guid:seen'}}
@@ -6656,7 +6655,10 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('for $val in $vals {[ transport:rail:consist=* :cars=$val ]}', opts=opts)
 
             opts = {'vars': {'prop': 'transport:rail:consist:cars'}}
-            uniqvals = list(set(arryvals))
+            uniqvals = []
+            for aval in set(arryvals):
+                uniqvals.append([('transport:rail:car', v) for v in aval])
+
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
@@ -6681,7 +6683,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ entity:contact=(bar,) :name=bar ]')
 
             opts = {'view': forkview2, 'vars': {'prop': 'entity:contact:name'}}
-            self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
+            self.eq([('entity:name', 'bar'), ('entity:name', 'foo')], await core.callStorm(viewq, opts=opts))
 
             self.eq([], await alist(core.getLayer().iterPropIndxNids('newp', 'newp', 'newp')))
 
@@ -6957,7 +6959,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
-            sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
+            sha256, size, created = nodes[0].get('sha256')[1], nodes[0].get('size'), nodes[0].get('.created')
 
             items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.eq([(0, sha256, size)], items)

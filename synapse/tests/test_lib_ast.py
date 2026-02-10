@@ -4107,17 +4107,17 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('[test:str=bar +#(foo).min=2022]')
-            self.propeq(nodes[0], '#foo', (1640995200000000, 1672531200000000, 31536000000000))
+            self.eq(nodes[0].get('#foo'), (1640995200000000, 1672531200000000, 31536000000000))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).min=2022]')
-            self.propeq(nodes[0], '#foo', (1640995200000000, ival.unksize, ival.duratype.unkdura))
+            self.eq(nodes[0].get('#foo'), (1640995200000000, ival.unksize, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('$var=foo $virt=max [test:str=bar +#($var).$virt=2022]')
-            self.propeq(nodes[0], '#foo', (1609459200000000, 1640995200000000, 31536000000000))
+            self.eq(nodes[0].get('#foo'), (1609459200000000, 1640995200000000, 31536000000000))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).max=2022]')
-            self.propeq(nodes[0], '#foo', (ival.unksize, 1640995200000000, ival.duratype.unkdura))
+            self.eq(nodes[0].get('#foo'), (ival.unksize, 1640995200000000, ival.duratype.unkdura))
 
             nodes = await core.nodes('[test:str=bar +?#(bar).max=newp]')
             self.none(nodes[0].get('#bar'))

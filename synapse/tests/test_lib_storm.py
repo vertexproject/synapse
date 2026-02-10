@@ -1153,12 +1153,12 @@ class StormTest(s_t_utils.SynTest):
                 url = await subcore.nodes('inet:url')
                 self.len(1, url)
                 url = url[0]
-                self.eq('https', url.get('proto'))
-                self.eq('/api/v1/exptest/neat', url.get('path'))
-                self.eq('', url.get('params'))
-                self.eq((4, 2130706433), url.get('ip'))
-                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.get('base'))
-                self.eq(port, url.get('port'))
+                self.propeq(url, 'proto', 'https')
+                self.propeq(url, 'path', '/api/v1/exptest/neat')
+                self.propeq(url, 'params', '')
+                self.propeq(url, 'ip', (4, 2130706433))
+                self.propeq(url, 'base', f'https://127.0.0.1:{port}/api/v1/exptest/neat')
+                self.propeq(url, 'port', port)
 
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
@@ -1408,7 +1408,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ entity:contact=* :name=con1 +#con1 +#conalt ]', opts=altview)
 
             nodes = await core.nodes('diff --tag conalt con1 con0.foo con0 newp', opts=altview)
-            self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
+            self.sorteq(['con0', 'con1'], [n.get('name')[1] for n in nodes])
 
             q = '''
             [ test:str=foo +(refs)> {[ test:str=bar ]} ]
@@ -1984,14 +1984,14 @@ class StormTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
-            self.eq('hehe', node[1]['embeds']['asn']['owner:name'])
+            self.eq('hehe', node[1]['embeds']['asn']['owner:name'][1])
 
             opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
-            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'])
+            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'][1])
             self.eq(6, node[1]['embeds']['email::fqdn']['$nid'])
             self.eq('inet:fqdn', node[1]['embeds']['email::fqdn']['$form'])
 
@@ -2029,19 +2029,19 @@ class StormTest(s_t_utils.SynTest):
             self.nn(bot)
 
             self.nn(top.get('place:country::flag::md5'))
-            self.eq(top['place:country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.eq(top['place:country::flag::md5'][0][1], '12345a5758eea935f817dd1490a322a5')
 
             self.nn(top.get('place:country::flag::sha1'))
-            self.eq(top['place:country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+            self.eq(top['place:country::flag::sha1'][0][1], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
             self.nn(top.get('place:country::tld::domain'))
-            self.eq(top['place:country::tld::domain'][0], 'uk')
+            self.eq(top['place:country::tld::domain'][0][1], 'uk')
 
             self.nn(bot.get('email::fqdn::zone'))
-            self.eq(bot['email::fqdn::zone'][0], 'vertex.link')
+            self.eq(bot['email::fqdn::zone'][0][1], 'vertex.link')
 
             self.nn(bot.get('place:country::flag::md5'))
-            self.eq(bot['place:country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.eq(bot['place:country::flag::md5'][0][1], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = empty
@@ -2060,19 +2060,19 @@ class StormTest(s_t_utils.SynTest):
             self.nn(bot)
 
             self.nn(mid.get('place:country::flag::md5'))
-            self.eq(mid['place:country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.eq(mid['place:country::flag::md5'][0][1], '12345a5758eea935f817dd1490a322a5')
 
             self.nn(mid.get('place:country::flag::sha1'))
-            self.eq(mid['place:country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+            self.eq(mid['place:country::flag::sha1'][0][1], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
             self.nn(mid.get('place:country::tld::domain'))
-            self.eq(mid['place:country::tld::domain'][0], 'uk')
+            self.eq(mid['place:country::tld::domain'][0][1], 'uk')
 
             self.nn(bot.get('email::fqdn::zone'))
-            self.eq(bot['email::fqdn::zone'][0], 'vertex.link')
+            self.eq(bot['email::fqdn::zone'][0][1], 'vertex.link')
 
             self.nn(bot.get('place:country::flag::md5'))
-            self.eq(bot['place:country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.eq(bot['place:country::flag::md5'][0][1], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             await core.nodes('''
                 [ inet:service:rule=*
@@ -2112,10 +2112,10 @@ class StormTest(s_t_utils.SynTest):
             self.eq(None, embeds['object']['newp'])
 
             self.eq('inet:service:account', embeds['object::creator']['$form'])
-            self.eq('visi', embeds['object::creator']['name'])
+            self.eq('visi', embeds['object::creator']['name'][1])
             self.eq(None, embeds['object::creator']['newp'])
             self.eq('inet:service:account', embeds['grantee']['$form'])
-            self.eq('foocon', embeds['grantee']['id'])
+            self.eq('foocon', embeds['grantee']['id'][1])
             self.eq(None, embeds['grantee']['newp'])
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
@@ -2138,7 +2138,7 @@ class StormTest(s_t_utils.SynTest):
 
             embeds = node[1]['embeds']
             self.nn(embeds['payer:instrument']['$nid'])
-            self.eq('infime', embeds['payer:instrument']['name'])
+            self.eq('infime', embeds['payer:instrument']['name'][1])
 
             # embeds include virtual prop values
             await core.nodes('''[
@@ -2156,7 +2156,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('test:str', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq('tcp://1.2.3.4:80', embeds['gprop']['server'])
+            self.eq('tcp://1.2.3.4:80', embeds['gprop']['server'][1])
             self.eq((4, 16909060), embeds['gprop']['server.ip'])
             self.eq(80, embeds['gprop']['server.port'])
 
@@ -2175,7 +2175,7 @@ class StormTest(s_t_utils.SynTest):
             for m in mesgs:
                 if m[0] == 'node' and m[1][0][0] == 'file:bytes':
                     node = m[1]
-                    sha = node[1]['props']['sha256']
+                    sha = node[1]['props']['sha256'][1]
 
             buf = b''
             async for bytz in core.axon.get(s_common.uhex(sha)):
@@ -2891,7 +2891,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, '#woot.haha', (20, 30, 10))
+            self.eq(node.get('#woot.haha'), (20, 30, 10))
             self.none(node.get('#hehe'))
             self.none(node.get('#hehe.haha'))
 
@@ -3662,14 +3662,16 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('parallel { [ou:org=foo] }')
 
             nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
-            self.true(all([n.get('name') == 'foo' for n in nodes]))
+            for node in nodes:
+                self.propeq(node, 'name', 'foo')
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
-            self.true(all([n.get('name') == 'bar' for n in nodes]))
+            for node in nodes:
+                self.propeq(node, 'name', 'bar')
 
             orig = s_storm.ParallelCmd.pipeline
             tsks = {'cnt': 0}
@@ -3682,23 +3684,26 @@ class StormTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('ou:org parallel --size 4 {[ :name=bar ]}')
                 self.len(5, nodes)
-                self.true(all([n.get('name') == 'bar' for n in nodes]))
                 self.eq(4, tsks['cnt'])
+                for node in nodes:
+                    self.propeq(node, 'name', 'bar')
 
                 tsks['cnt'] = 0
 
                 nodes = await core.nodes('ou:org parallel --size 5 {[ :name=bar ]}')
                 self.len(5, nodes)
-                self.true(all([n.get('name') == 'bar' for n in nodes]))
                 self.eq(5, tsks['cnt'])
+                for node in nodes:
+                    self.propeq(node, 'name', 'bar')
 
                 tsks['cnt'] = 0
 
                 # --size greater than number of nodes only creates a pipeline for each node
                 nodes = await core.nodes('ou:org parallel --size 10 {[ :name=foo ]}')
                 self.len(5, nodes)
-                self.true(all([n.get('name') == 'foo' for n in nodes]))
                 self.eq(5, tsks['cnt'])
+                for node in nodes:
+                    self.propeq(node, 'name', 'foo')
 
                 tsks['cnt'] = 0
 

@@ -63,14 +63,18 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             # IP property
             self.isin('''* - ``:asn``
-        - :ref:`dm-type-inet-asn`
+        - | :ref:`dm-type-polyprop`
+          | forms: ``(\'inet:asn\',)``
+          | interfaces: ``()``
         - The ASN to which the IP address is currently assigned.''', s)
 
             # Readonly inet:form:password:md5 value
             self.isin('''* - ``:md5``
-        - :ref:`dm-type-crypto-hash-md5`
+        - | :ref:`dm-type-polyprop`
+          | forms: ``(\'crypto:hash:md5\',)``
+          | interfaces: ``()``
         - The MD5 hash of the password.
-        - Computed: ``True``''', s)
+        - | Computed: ``True``''', s)
 
             # Refs edges def
             self.isin('''      * - ``*``

@@ -441,10 +441,10 @@ class StormLibStixTest(s_test.SynTest):
 
             file = await core.nodes('file:bytes:sha1=669a1e53b9dd9df3474300d3d959bb85bad75945', opts=opts)
             self.len(1, file)
-            self.eq(file[0].get('md5'), 'fa818a259cbed7ce8bc2a22d35a464fc')
-            self.eq(file[0].get('sha512'), '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
-            self.eq(file[0].get('name'), 'license')
-            self.eq(file[0].get('size'), 11358)
+            self.propeq(file[0], 'md5', 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.propeq(file[0], 'sha512', '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
+            self.propeq(file[0], 'name', 'license')
+            self.propeq(file[0], 'size', 11358)
 
             ipv4 = await core.nodes('inet:ip +:version=4', opts=opts)
             self.len(1, ipv4)
@@ -463,12 +463,12 @@ class StormLibStixTest(s_test.SynTest):
 
             place = await core.nodes('geo:place:loc=cn', opts=opts)
             self.len(1, place)
-            self.eq(place[0].get('name'), 'china')
+            self.propeq(place[0], 'name', 'china')
 
             addr = await core.nodes('geo:place:address', opts=opts)
             self.len(1, addr)
-            self.eq(addr[0].get('address'), '1234 jefferson drive')
-            self.eq(addr[0].get('desc'), "It's a magical place!")
+            self.propeq(addr[0], 'address', '1234 jefferson drive')
+            self.propeq(addr[0], 'desc', "It's a magical place!")
 
             latlong = await core.nodes('geo:place:latlong', opts=opts)
             self.len(1, latlong)

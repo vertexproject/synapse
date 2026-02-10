@@ -5871,7 +5871,12 @@ class NodeProps(Prim):
 
     async def _derefGet(self, name):
         name = await tostr(name)
-        return self.valu.get(name)
+        prop = self.valu.form.reqProp(name)
+
+        if prop.type.ispoly:
+            return await prop.type.tostorm(self.valu.getWithVirts(name))
+
+        return await prop.type.tostorm(self.valu.get(name))
 
     async def setitem(self, name, valu):
         '''
@@ -6107,7 +6112,9 @@ class Ndef(Prim):
         }
 
     async def stormrepr(self):
-        return self.valu[1]
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        return form.type.repr(self.valu[1])
 
     def value(self):
         return self.valu[1]
@@ -6129,7 +6136,8 @@ class Ndef(Prim):
         if not isinstance(names, (list, tuple)):
             names = (name,)
 
-        form = self.runt.core.model.reqForm(self.valu[0])
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
         for name in names:
             if name in form.formtypes:
                 return True
@@ -7272,6 +7280,9 @@ class Layer(Prim):
                 return
 
             norm, info = await prop.type.norm(propvalu, view=False)
+            if prop.type.ispoly:
+                norm = norm[1]
+
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield nid, sref
