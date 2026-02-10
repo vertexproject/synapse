@@ -29,7 +29,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ file:entry=* :path=foo/000.exe :file=* :seen=2022 ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('path'), 'foo/000.exe')
+            self.propeq(nodes[0], 'path', 'foo/000.exe')
             self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('file:entry :path -> file:path'))
             self.len(1, await core.nodes('file:entry :file -> file:bytes'))
@@ -37,7 +37,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file={file:bytes} :seen=2022 ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('path'), 'foo/001.exe')
+            self.propeq(nodes[0], 'path', 'foo/001.exe')
             self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('file:exemplar:entry :path -> file:path'))
             self.len(1, await core.nodes('file:exemplar:entry :file -> file:bytes'))
@@ -53,11 +53,11 @@ class FileTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('path'), 'foo/002.exe')
-            self.eq(nodes[0].get('added'), 1769385600000000)
-            self.eq(nodes[0].get('created'), 1769385600000000)
-            self.eq(nodes[0].get('modified'), 1769385600000000)
-            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.propeq(nodes[0], 'path', 'foo/002.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
             self.len(1, await core.nodes('file:stored:entry :path -> file:path'))
             self.len(1, await core.nodes('file:stored:entry :file -> file:bytes'))
 
@@ -74,11 +74,11 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('path'), 'foo/003.exe')
-            self.eq(nodes[0].get('added'), 1769385600000000)
-            self.eq(nodes[0].get('created'), 1769385600000000)
-            self.eq(nodes[0].get('modified'), 1769385600000000)
-            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.propeq(nodes[0], 'path', 'foo/003.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
             self.len(1, await core.nodes('file:system:entry :host -> it:host'))
             self.len(1, await core.nodes('file:system:entry :path -> file:path'))
             self.len(1, await core.nodes('file:system:entry :file -> file:bytes'))
@@ -96,11 +96,11 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
-            self.eq(nodes[0].get('path'), 'foo/004.exe')
-            self.eq(nodes[0].get('added'), 1769385600000000)
-            self.eq(nodes[0].get('created'), 1769385600000000)
-            self.eq(nodes[0].get('modified'), 1769385600000000)
-            self.eq(nodes[0].get('accessed'), 1769385600000000)
+            self.propeq(nodes[0], 'path', 'foo/004.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
             self.len(1, await core.nodes('file:subfile:entry :path -> file:path'))
             self.len(1, await core.nodes('file:subfile:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:subfile:entry :parent -> file:bytes'))
@@ -119,12 +119,12 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
-            self.eq(nodes[0].get('path'), 'foo/005.exe')
-            self.eq(nodes[0].get('added'), 1769385600000000)
-            self.eq(nodes[0].get('created'), 1769385600000000)
-            self.eq(nodes[0].get('modified'), 1769385600000000)
-            self.eq(nodes[0].get('accessed'), 1769385600000000)
-            self.eq(nodes[0].get('archived:size'), 200)
+            self.propeq(nodes[0], 'path', 'foo/005.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
+            self.propeq(nodes[0], 'archived:size', 200)
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
@@ -146,15 +146,15 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
-            self.eq(nodes[0].get('path'), 'foo/006.exe')
-            self.eq(nodes[0].get('added'), 1769385600000000)
-            self.eq(nodes[0].get('created'), 1769385600000000)
-            self.eq(nodes[0].get('modified'), 1769385600000000)
-            self.eq(nodes[0].get('accessed'), 1769385600000000)
-            self.eq(nodes[0].get('archived:size'), 200)
-            self.eq(nodes[0].get('comment'), 'Hiya')
-            self.eq(nodes[0].get('extra:posix:uid'), 0)
-            self.eq(nodes[0].get('extra:posix:gid'), 0)
+            self.propeq(nodes[0], 'path', 'foo/006.exe')
+            self.propeq(nodes[0], 'added', 1769385600000000)
+            self.propeq(nodes[0], 'created', 1769385600000000)
+            self.propeq(nodes[0], 'modified', 1769385600000000)
+            self.propeq(nodes[0], 'accessed', 1769385600000000)
+            self.propeq(nodes[0], 'archived:size', 200)
+            self.propeq(nodes[0], 'comment', 'Hiya')
+            self.propeq(nodes[0], 'extra:posix:uid', 0)
+            self.propeq(nodes[0], 'extra:posix:gid', 0)
             self.len(1, await core.nodes('file:mime:zip:entry :path -> file:path'))
             self.len(1, await core.nodes('file:mime:zip:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:zip:entry :parent -> file:bytes'))
@@ -220,17 +220,17 @@ class FileTest(s_t_utils.SynTest):
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('file'), fileiden)
-            self.eq(nodes[0].get('imphash'), imphash)
-            self.eq(nodes[0].get('richheader'), richheader)
-            self.eq(nodes[0].get('pdbpath'), 'c:/this/is/my/pdbstring')
-            self.eq(nodes[0].get('exports:time'), 1514773980000000)
-            self.eq(nodes[0].get('exports:libname'), 'ohgood')
-            self.eq(nodes[0].get('versioninfo'), (('baz', 'faz'), ('foo', 'bar')))
+            self.propeq(nodes[0], 'file', fileiden)
+            self.propeq(nodes[0], 'imphash', imphash)
+            self.propeq(nodes[0], 'richheader', richheader)
+            self.propeq(nodes[0], 'pdbpath', 'c:/this/is/my/pdbstring')
+            self.propeq(nodes[0], 'exports:time', 1514773980000000)
+            self.propeq(nodes[0], 'exports:libname', 'ohgood')
+            self.propeq(nodes[0], 'versioninfo', (('baz', 'faz'), ('foo', 'bar')))
             self.len(2, await core.nodes('file:mime:pe -> file:mime:pe:vsvers:keyval'))
 
-            self.eq(nodes[0].get('packer:name'), 'foobar')
-            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.propeq(nodes[0], 'packer:name', 'foobar')
+            self.propeq(nodes[0], 'compiler:name', 'bazfaz')
             self.len(1, await core.nodes('file:mime:pe :packer -> it:software'))
             self.len(1, await core.nodes('file:mime:pe :compiler -> it:software'))
 
@@ -245,10 +245,10 @@ class FileTest(s_t_utils.SynTest):
             opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('type'), 2)
-            self.eq(nodes[0].get('langid'), 0x409)
-            self.eq(nodes[0].get('sha256'), 'f' * 64)
-            self.eq(nodes[0].get('file'), fileiden)
+            self.propeq(nodes[0], 'type', 2)
+            self.propeq(nodes[0], 'langid', 0x409)
+            self.propeq(nodes[0], 'sha256', 'f' * 64)
+            self.propeq(nodes[0], 'file', fileiden)
             self.eq(nodes[0].repr('langid'), 'en-US')
             self.eq(nodes[0].repr('type'), 'RT_BITMAP')
 
@@ -262,15 +262,15 @@ class FileTest(s_t_utils.SynTest):
             opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'wootwoot')
-            self.eq(nodes[0].get('sha256'), 'f' * 64)
-            self.eq(nodes[0].get('file'), fileiden)
+            self.propeq(nodes[0], 'name', 'wootwoot')
+            self.propeq(nodes[0], 'sha256', 'f' * 64)
+            self.propeq(nodes[0], 'file', fileiden)
 
             # unknown langid
             nodes = await core.nodes('[file:mime:pe:resource=* :langid=0x1804]')
             self.len(1, nodes)
             rnode = nodes[0]
-            self.eq(rnode.get('langid'), 0x1804)
+            self.propeq(rnode, 'langid', 0x1804)
 
             q = '''
             [ file:mime:pe:export=*
@@ -282,9 +282,9 @@ class FileTest(s_t_utils.SynTest):
             opts = {'vars': {'file': fileiden}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('rva'), 0x20202020)
-            self.eq(nodes[0].get('file'), fileiden)
-            self.eq(nodes[0].get('name'), 'WootWoot')
+            self.propeq(nodes[0], 'rva', 0x20202020)
+            self.propeq(nodes[0], 'file', fileiden)
+            self.propeq(nodes[0], 'name', 'WootWoot')
 
             self.len(1, await core.nodes('file:mime:pe:export -> it:dev:str'))
 
@@ -303,8 +303,8 @@ class FileTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('packer:name'), 'foobar')
-            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.propeq(nodes[0], 'packer:name', 'foobar')
+            self.propeq(nodes[0], 'compiler:name', 'bazfaz')
             self.len(1, await core.nodes('file:mime:macho :packer -> it:software'))
             self.len(1, await core.nodes('file:mime:macho :compiler -> it:software'))
 
@@ -319,8 +319,8 @@ class FileTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('packer:name'), 'foobar')
-            self.eq(nodes[0].get('compiler:name'), 'bazfaz')
+            self.propeq(nodes[0], 'packer:name', 'foobar')
+            self.propeq(nodes[0], 'compiler:name', 'bazfaz')
             self.len(1, await core.nodes('file:mime:elf :packer -> it:software'))
             self.len(1, await core.nodes('file:mime:elf :compiler -> it:software'))
 
@@ -337,9 +337,9 @@ class FileTest(s_t_utils.SynTest):
                     :file:size=123456
             ]''', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('type'), 27)
-            self.eq(nodes[0].get('file'), fileguid)
-            self.eq(nodes[0].get('file:size'), 123456)
+            self.propeq(nodes[0], 'type', 27)
+            self.propeq(nodes[0], 'file', fileguid)
+            self.propeq(nodes[0], 'file:size', 123456)
 
             # uuid
             nodes = await core.nodes('''[
@@ -350,9 +350,9 @@ class FileTest(s_t_utils.SynTest):
                     :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
             ]''', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('file'), fileguid)
-            self.eq(nodes[0].get('file:size'), 32)
-            self.eq(nodes[0].get('uuid'), 'bcaa4a0bbf703a5dbcf972f39780eb67')
+            self.propeq(nodes[0], 'file', fileguid)
+            self.propeq(nodes[0], 'file:size', 32)
+            self.propeq(nodes[0], 'uuid', 'bcaa4a0bbf703a5dbcf972f39780eb67')
 
             # version
             nodes = await core.nodes('''[
@@ -363,10 +363,10 @@ class FileTest(s_t_utils.SynTest):
                     :version="7605.1.33.1.4"
             ]''', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('version'), '7605.1.33.1.4')
-            self.eq(nodes[0].get('type'), 42)
-            self.eq(nodes[0].get('file'), fileguid)
-            self.eq(nodes[0].get('file:size'), 32)
+            self.propeq(nodes[0], 'version', '7605.1.33.1.4')
+            self.propeq(nodes[0], 'type', 42)
+            self.propeq(nodes[0], 'file', fileguid)
+            self.propeq(nodes[0], 'file:size', 32)
 
             # segment
             seghash = 'e' * 64
@@ -383,14 +383,14 @@ class FileTest(s_t_utils.SynTest):
                     :sha256=$sha256
             ]''', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('file'), fileguid)
-            self.eq(nodes[0].get('type'), 1)
-            self.eq(nodes[0].get('file:size'), 48)
-            self.eq(nodes[0].get('file:offs'), 1234)
-            self.eq(nodes[0].get('name'), '__TEXT')
-            self.eq(nodes[0].get('memsize'), 4092)
-            self.eq(nodes[0].get('disksize'), 8192)
-            self.eq(nodes[0].get('sha256'), seghash)
+            self.propeq(nodes[0], 'file', fileguid)
+            self.propeq(nodes[0], 'type', 1)
+            self.propeq(nodes[0], 'file:size', 48)
+            self.propeq(nodes[0], 'file:offs', 1234)
+            self.propeq(nodes[0], 'name', '__TEXT')
+            self.propeq(nodes[0], 'memsize', 4092)
+            self.propeq(nodes[0], 'disksize', 8192)
+            self.propeq(nodes[0], 'sha256', seghash)
 
             # section
             nodes = await core.nodes('''[
@@ -403,10 +403,10 @@ class FileTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('segment'))
-            self.eq(nodes[0].get('name'), "__text")
-            self.eq(nodes[0].get('type'), 0)
-            self.eq(nodes[0].get('file:size'), 12)
-            self.eq(nodes[0].get('file:offs'), 5678)
+            self.propeq(nodes[0], 'name', "__text")
+            self.propeq(nodes[0], 'type', 0)
+            self.propeq(nodes[0], 'file:size', 12)
+            self.propeq(nodes[0], 'file:offs', 5678)
 
     async def test_model_file_types(self):
 
@@ -459,9 +459,9 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('[file:path=$valu :seen=2022]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('.base'), 'baz.exe')
-            self.eq(node.get('.ext'), 'exe')
-            self.eq(node.get('.dir'), '/foo/bar')
+            self.propeq(node, '.base', 'baz.exe')
+            self.propeq(node, '.ext', 'exe')
+            self.propeq(node, '.dir', '/foo/bar')
             self.nn(node.get('seen'))
             # FIXME virts need to autoadd!
             # self.len(1, await core.nodes('file:path="/foo/bar"'))
@@ -515,15 +515,15 @@ class FileTest(s_t_utils.SynTest):
             opts = {'vars': {'fileguid': fileguid}}
 
             def testmsoffice(n):
-                self.eq('lolz', n.get('title'))
-                self.eq('deep_value', n.get('author'))
-                self.eq('GME stonks', n.get('subject'))
-                self.eq('stonktrader3000', n.get('application'))
-                self.eq(1611100800000000, n.get('created'))
-                self.eq(1611187200000000, n.get('lastsaved'))
+                self.propeq(n, 'title', 'lolz')
+                self.propeq(n, 'author', 'deep_value')
+                self.propeq(n, 'subject', 'GME stonks')
+                self.propeq(n, 'application', 'stonktrader3000')
+                self.propeq(n, 'created', 1611100800000000)
+                self.propeq(n, 'lastsaved', 1611187200000000)
 
-                self.eq(fileguid, n.get('file'))
-                self.eq(0, n.get('file:offs'))
+                self.propeq(n, 'file', fileguid)
+                self.propeq(n, 'file:offs', 0)
                 self.eq(('foo', 'bar'), n.get('file:data'))
 
             nodes = await core.nodes('''[
@@ -587,10 +587,10 @@ class FileTest(s_t_utils.SynTest):
             ]''', opts=opts)
 
             self.len(1, nodes)
-            self.eq(fileguid, nodes[0].get('file'))
-            self.eq(0, nodes[0].get('file:offs'))
+            self.propeq(nodes[0], 'file', fileguid)
+            self.propeq(nodes[0], 'file:offs', 0)
             self.eq(('foo', 'bar'), nodes[0].get('file:data'))
-            self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
+            self.propeq(nodes[0], 'guid', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
     async def test_model_file_meta_exif(self):
 
@@ -605,17 +605,17 @@ class FileTest(s_t_utils.SynTest):
             }
 
             def testexif(n):
-                self.eq(fileguid, n.get('file'))
-                self.eq(0, n.get('file:offs'))
+                self.propeq(n, 'file', fileguid)
+                self.propeq(n, 'file:offs', 0)
                 self.eq(('foo', 'bar'), n.get('file:data'))
-                self.eq('aaaa', n.get('desc'))
-                self.eq('bbbb', n.get('comment'))
-                self.eq('foo bar', n.get('text'))
-                self.eq(1578236238000000, n.get('created'))
-                self.eq('a6b4', n.get('id'))
-                self.eq(conguid, n.get('author'))
+                self.propeq(n, 'desc', 'aaaa')
+                self.propeq(n, 'comment', 'bbbb')
+                self.propeq(n, 'text', 'foo bar')
+                self.propeq(n, 'created', 1578236238000000)
+                self.propeq(n, 'id', 'a6b4')
+                self.propeq(n, 'author', conguid)
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
-                self.eq(6371137800, n.get('altitude'))
+                self.propeq(n, 'altitude', 6371137800)
 
             nodes = await core.nodes(f'''[
                 entity:contact=$conguid
@@ -689,10 +689,10 @@ class FileTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
 
-            self.eq(nodes[0].get('added'), 1688083200000000)
-            self.eq(nodes[0].get('created'), 1687996800000000)
-            self.eq(nodes[0].get('accessed'), 1687996800000000)
-            self.eq(nodes[0].get('modified'), 1687996800000000)
+            self.propeq(nodes[0], 'added', 1688083200000000)
+            self.propeq(nodes[0], 'created', 1687996800000000)
+            self.propeq(nodes[0], 'accessed', 1687996800000000)
+            self.propeq(nodes[0], 'modified', 1687996800000000)
 
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
@@ -730,32 +730,32 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
 
-            self.eq(node.get('entry:primary'), 'c:/some/stuff/prog~2/cmd.exe')
-            self.eq(node.get('entry:secondary'), 'c:/some/stuff/program files/cmd.exe')
-            self.eq(node.get('entry:extended'), 'c:/some/actual/stuff/i/swear/cmd.exe')
-            self.eq(node.get('entry:localized'), 'c:/some/actual/archivos/i/swear/cmd.exe')
+            self.propeq(node, 'entry:primary', 'c:/some/stuff/prog~2/cmd.exe')
+            self.propeq(node, 'entry:secondary', 'c:/some/stuff/program files/cmd.exe')
+            self.propeq(node, 'entry:extended', 'c:/some/actual/stuff/i/swear/cmd.exe')
+            self.propeq(node, 'entry:localized', 'c:/some/actual/archivos/i/swear/cmd.exe')
 
-            self.eq(node.get('entry:icon'), '%windir%/system32/notepad.exe')
-            self.eq(node.get('environment:path'), '%windir%/system32/cmd.exe')
-            self.eq(node.get('environment:icon'), '%some%%envvar%')
+            self.propeq(node, 'entry:icon', '%windir%/system32/notepad.exe')
+            self.propeq(node, 'environment:path', '%windir%/system32/cmd.exe')
+            self.propeq(node, 'environment:icon', '%some%%envvar%')
 
-            self.eq(node.get('working'), '%homedrive%%homepath%')
-            self.eq(node.get('relative'), '..\\..\\..\\some\\foo.bar.txt')
-            self.eq(node.get('arguments'), '/q /c copy %systemroot%\\system32\\msh*.exe')
-            self.eq(node.get('desc'), "I've been here the whole time.")
+            self.propeq(node, 'working', '%homedrive%%homepath%')
+            self.propeq(node, 'relative', '..\\..\\..\\some\\foo.bar.txt')
+            self.propeq(node, 'arguments', '/q /c copy %systemroot%\\system32\\msh*.exe')
+            self.propeq(node, 'desc', "I've been here the whole time.")
 
-            self.eq(node.get('flags'), 0x40df)
-            self.eq(node.get('target:attrs'), 0x20)
-            self.eq(node.get('target:size'), 12345)
+            self.propeq(node, 'flags', 0x40df)
+            self.propeq(node, 'target:attrs', 0x20)
+            self.propeq(node, 'target:size', 12345)
 
             time = 1674673065284000
-            self.eq(node.get('target:created'), time)
-            self.eq(node.get('target:accessed'), time)
-            self.eq(node.get('target:written'), time)
+            self.propeq(node, 'target:created', time)
+            self.propeq(node, 'target:accessed', time)
+            self.propeq(node, 'target:written', time)
 
-            self.eq(node.get('driveserial'), 0x6af54670)
-            self.eq(node.get('machineid'), 'stellarcollapse')
-            self.eq(node.get('iconindex'), 1)
+            self.propeq(node, 'driveserial', 0x6af54670)
+            self.propeq(node, 'machineid', 'stellarcollapse')
+            self.propeq(node, 'iconindex', 1)
 
             self.len(1, await core.nodes('file:mime:lnk -> it:hostname'))
 
@@ -773,8 +773,8 @@ class FileTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
-            self.eq(nodes[0].get('text'), 'foo bar')
-            self.eq(nodes[0].get('path'), 'foo/bar.exe')
+            self.propeq(nodes[0], 'text', 'foo bar')
+            self.propeq(nodes[0], 'path', 'foo/bar.exe')
             self.nn(nodes[0].get('seen'))
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
@@ -800,16 +800,16 @@ class FileTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('id'), 'Foo-10')
-            self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
-            self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
-            self.eq(nodes[0].get('keywords'), ('bar', 'foo'))
-            self.eq(nodes[0].get('tool:name'), 'google docs renderer')
-            self.eq(nodes[0].get('author:name'), 'vertex')
-            self.eq(nodes[0].get('language:name'), 'klingon')
-            self.eq(nodes[0].get('producer:name'), 'zip zop software')
-            self.eq(nodes[0].get('created'), 1768435200000000)
-            self.eq(nodes[0].get('updated'), 1768435200000000)
+            self.propeq(nodes[0], 'id', 'Foo-10')
+            self.propeq(nodes[0], 'title', 'Synapse Sizing Guide')
+            self.propeq(nodes[0], 'subject', 'How to size a Synapse deployment.')
+            self.propeq(nodes[0], 'keywords', ('bar', 'foo'))
+            self.propeq(nodes[0], 'tool:name', 'google docs renderer')
+            self.propeq(nodes[0], 'author:name', 'vertex')
+            self.propeq(nodes[0], 'language:name', 'klingon')
+            self.propeq(nodes[0], 'producer:name', 'zip zop software')
+            self.propeq(nodes[0], 'created', 1768435200000000)
+            self.propeq(nodes[0], 'updated', 1768435200000000)
             self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
             self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))

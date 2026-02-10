@@ -53,7 +53,7 @@ class FileTest(s_test.SynTest):
             nodes = await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('file:bytes', evalu))
-            self.eq(nodes[0].get('sha256'), sha256)
+            self.propeq(nodes[0], 'sha256', sha256)
             self.none(nodes[0].get('md5'))
             nid = nodes[0].nid
 
@@ -62,8 +62,8 @@ class FileTest(s_test.SynTest):
             self.len(1, nodes)
             # stable gutor hash valu
             self.eq(nodes[0].ndef, ('file:bytes', evalu))
-            self.eq(nodes[0].get('sha256'), sha256)
-            self.eq(nodes[0].get('md5'), s_common.ehex(hashes.get('md5')))
+            self.propeq(nodes[0], 'sha256', sha256)
+            self.propeq(nodes[0], 'md5', s_common.ehex(hashes.get('md5')))
             self.eq(nodes[0].nid, nid)
 
         async with self.getTestCore() as core:

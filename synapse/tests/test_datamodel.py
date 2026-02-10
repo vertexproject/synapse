@@ -488,23 +488,23 @@ class DataModelTest(s_t_utils.SynTest):
             await core._addDataModels(s_t_utils.deprmodel)
 
             nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
-            self.eq(1, nodes[0].get('range:min'))
-            self.eq(5, nodes[0].get('range:max'))
+            self.propeq(nodes[0], 'range:min', 1)
+            self.propeq(nodes[0], 'range:max', 5)
 
             nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
-            self.eq(2, nodes[0].get('range:min'))
-            self.eq(6, nodes[0].get('range:max'))
+            self.propeq(nodes[0], 'range:min', 2)
+            self.propeq(nodes[0], 'range:max', 6)
 
             await core.setDeprLock('test:deprsub:range:min', True)
             nodes = await core.nodes('[ test:deprsub=foo :range=(1, 5) ]')
             self.none(nodes[0].get('range:min'))
-            self.eq(5, nodes[0].get('range:max'))
+            self.propeq(nodes[0], 'range:max', 5)
 
             await core.nodes('test:deprsub2 | delnode')
             await core.setDeprLock('test:deprsub2:range:max', True)
             nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
             self.none(nodes[0].get('range:max'))
-            self.eq(2, nodes[0].get('range:min'))
+            self.propeq(nodes[0], 'range:min', 2)
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const

@@ -18,11 +18,11 @@ class ProjModelTest(s_test.SynTest):
                     :platform={[ inet:service:platform=* ]}
                 ]
             ''')
-            self.eq(nodes[0].get('name'), 'woot')
-            self.eq(nodes[0].get('desc'), 'Woot')
-            self.eq(nodes[0].get('type'), 'dfir.case.')
-            self.eq(nodes[0].get('creator'), ('syn:user', core.auth.rootuser.iden))
-            self.eq(nodes[0].get('created'), 1752624000000000)
+            self.propeq(nodes[0], 'name', 'woot')
+            self.propeq(nodes[0], 'desc', 'Woot')
+            self.propeq(nodes[0], 'type', 'dfir.case.')
+            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'created', 1752624000000000)
             self.nn(nodes[0].get('platform'))
 
             nodes = await core.nodes('''
@@ -36,12 +36,12 @@ class ProjModelTest(s_test.SynTest):
                     :created=20250716
                 ]
             ''')
-            self.eq(nodes[0].get('name'), 'Foobar')
-            self.eq(nodes[0].get('desc'), 'FooBar')
-            self.eq(nodes[0].get('status'), 'planned')
-            self.eq(nodes[0].get('creator'), ('syn:user', core.auth.rootuser.iden))
-            self.eq(nodes[0].get('created'), 1752624000000000)
-            self.eq(nodes[0].get('period'), (1752451200000000, 1752883200000000, 432000000000))
+            self.propeq(nodes[0], 'name', 'Foobar')
+            self.propeq(nodes[0], 'desc', 'FooBar')
+            self.propeq(nodes[0], 'status', 'planned')
+            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'created', 1752624000000000)
+            self.propeq(nodes[0], 'period', (1752451200000000, 1752883200000000, 432000000000))
 
             self.len(1, await core.nodes('proj:sprint :project -> proj:project'))
 
@@ -65,13 +65,13 @@ class ProjModelTest(s_test.SynTest):
                     <(about)+ {[ meta:note=* ]}
                 ]
             ''')
-            self.eq(nodes[0].get('name'), 'syn3.0')
-            self.eq(nodes[0].get('desc'), 'FooBar')
-            self.eq(nodes[0].get('type'), 'hehe.haha.')
-            self.eq(nodes[0].get('creator'), ('syn:user', core.auth.rootuser.iden))
-            self.eq(nodes[0].get('assignee'), ('syn:user', core.auth.rootuser.iden))
-            self.eq(nodes[0].get('created'), 1752624000000000)
-            self.eq(nodes[0].get('completed'), 1752624000000000)
+            self.propeq(nodes[0], 'name', 'syn3.0')
+            self.propeq(nodes[0], 'desc', 'FooBar')
+            self.propeq(nodes[0], 'type', 'hehe.haha.')
+            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'assignee', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'created', 1752624000000000)
+            self.propeq(nodes[0], 'completed', 1752624000000000)
 
             self.len(1, await core.nodes('proj:task :sprint -> proj:sprint'))
             self.len(1, await core.nodes('proj:task :project -> proj:project'))

@@ -297,4 +297,4 @@ class StormlibModelTest(s_test.SynTest):
 
             nodes = await core.nodes('test:str=$dstiden', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('_foo'), 'foobarbaz')
+            self.propeq(nodes[0], '_foo', 'foobarbaz')

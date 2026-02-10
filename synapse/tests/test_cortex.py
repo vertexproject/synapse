@@ -1970,7 +1970,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:type10=one')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('intprop'), 21)
+            self.propeq(node, 'intprop', 21)
 
     async def test_cortex_pure_cmds(self):
 
@@ -2094,8 +2094,8 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await wcore.nodes('[test:comp=(33, "THIRTY THREE")]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('hehe'), 33)
-            self.eq(node.get('haha'), 'thirty three')
+            self.propeq(node, 'hehe', 33)
+            self.propeq(node, 'haha', 'thirty three')
 
             utick = await core.callStorm('test:type10=one return(.updated)')
             self.gt(utick, tick)
@@ -2108,9 +2108,9 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await wcore.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('bar'), ('test:auto', 'autothis'))
-            self.eq(node.get('baz'), ('test:type10:strprop', 'woot'))
-            self.eq(node.get('tick'), 1462406400000000)
+            self.propeq(node, 'bar', ('test:auto', 'autothis'))
+            self.propeq(node, 'baz', ('test:type10:strprop', 'woot'))
+            self.propeq(node, 'tick', 1462406400000000)
             self.len(1, await wcore.nodes('test:auto=autothis'))
             # add some time range bumper nodes
             self.len(1, await wcore.nodes('[test:str=toolow :tick=2015]'))
@@ -2120,7 +2120,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:type10=one')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('intprop'), 21)
+            self.propeq(node, 'intprop', 21)
             self.nn(node.get('.created'))
             self.len(2, await core.nodes('test:str^=too'))
             # Loc prop lookup
@@ -2149,7 +2149,7 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:str="foo bar" :tick=2018]')
             self.len(1, nodes)
-            self.eq(1514764800000000, nodes[0].get('tick'))
+            self.propeq(nodes[0], 'tick', 1514764800000000)
             self.eq('foo bar', nodes[0].ndef[1])
 
             nodes = await core.nodes('test:str="foo bar" [ -:tick ]')
@@ -3466,7 +3466,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=hi :hehe=haha]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('hehe'), 'haha')
+            self.propeq(node, 'hehe', 'haha')
             self.eq(node, arg_hit['hit'][0])
 
             arg_hit.clear()
@@ -3474,7 +3474,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
 
-            self.eq(node.get('hehe'), 'weee')
+            self.propeq(node, 'hehe', 'weee')
             self.eq(node, arg_hit['hit'][0])
 
             arg_hit.clear()
@@ -4561,7 +4561,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:pivcomp=(hehe,haha) $seen=:seen :targ -> test:pivtarg [ :seen=$seen ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('seen'), (1420070400000000, 1514764800000000, 94694400000000))
+            self.propeq(node, 'seen', (1420070400000000, 1514764800000000, 94694400000000))
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $newp=:newp')
@@ -4714,7 +4714,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq(2, nodes[0].get('int2'))
+            self.propeq(nodes[0], 'int2', 2)
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
@@ -5138,7 +5138,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(4, nodes)
             self.eq({'test1', 'test2'}, {n.ndef[1] for n in nodes})
             for node in nodes:
-                self.eq(node.get('hehe'), 'valu2')
+                self.propeq(node, 'hehe', 'valu2')
 
             # None values don't yield anything
             q = '''$foo = ({})
@@ -8661,7 +8661,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('raw')['dict'], {'dictkey': 'dictval'})
+            self.eq(nodes[0].get('raw')['dict'], {'dictkey': 'dictval'})  # not propeq - indexing into prop value
 
             q = '''
                 test:guid=(d0,)
@@ -8699,7 +8699,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Make sure $node.props aren't modifiable either
             nodes = await core.nodes('test:str=foobar $node.props.baz.1.list.rem(listval0)')
             self.len(1, nodes)
-            self.eq(nodes[0].get('baz'), ('test:guid:raw', data))
+            self.propeq(nodes[0], 'baz', ('test:guid:raw', data))
 
             # Dereferencing mutable types from $node.props should
             # return mutable instances without mutating the original prop valu

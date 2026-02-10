@@ -346,18 +346,18 @@ class InfoSecTest(s_test.SynTest):
 
             nodes = await core.nodes('entity:contact')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'lauren parker')
-            self.eq(nodes[0].get('email'), 'lparker@mitre.org')
+            self.propeq(nodes[0], 'name', 'lauren parker')
+            self.propeq(nodes[0], 'email', 'lparker@mitre.org')
             contact = nodes[0]
 
             nodes = await core.nodes('it:mitre:attack:flow')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'CISA AA22-138B VMWare Workspace (Alt)')
-            self.eq(nodes[0].get('data'), norm)
-            self.eq(nodes[0].get('created'), s_time.parse('2023-02-21T14:51:27.768Z'))
-            self.eq(nodes[0].get('updated'), s_time.parse('2023-03-10T19:54:29.098Z'))
-            self.eq(nodes[0].get('author:user'), core.auth.rootuser.iden)
-            self.eq(nodes[0].get('author:contact'), contact.repr())
+            self.propeq(nodes[0], 'name', 'CISA AA22-138B VMWare Workspace (Alt)')
+            self.propeq(nodes[0], 'data', norm)
+            self.propeq(nodes[0], 'created', s_time.parse('2023-02-21T14:51:27.768Z'))
+            self.propeq(nodes[0], 'updated', s_time.parse('2023-03-10T19:54:29.098Z'))
+            self.propeq(nodes[0], 'author:user', core.auth.rootuser.iden)
+            self.propeq(nodes[0], 'author:contact', contact.repr())
 
             # Remove a mandatory property from the bundle
             tmp = s_msgpack.deepcopy(flow)

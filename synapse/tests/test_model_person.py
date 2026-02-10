@@ -23,9 +23,9 @@ class PsModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('photo'))
-            self.eq(nodes[0].get('name'), 'robert clown grey')
-            self.eq(nodes[0].get('names'), ('billy bob',))
-            self.eq(nodes[0].get('lifespan'), (31536000000000, 2554848000000000, 2523312000000000))
+            self.propeq(nodes[0], 'name', 'robert clown grey')
+            self.propeq(nodes[0], 'names', ('billy bob',))
+            self.propeq(nodes[0], 'lifespan', (31536000000000, 2554848000000000, 2523312000000000))
 
             self.len(2, await core.nodes('ps:person -> entity:name'))
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
@@ -45,8 +45,8 @@ class PsModelTest(s_t_utils.SynTest):
                 ou:award [ :name="Bachelors of Science" :type=degree :org=* ]
             ''')
             self.nn(nodes[0].get('org'))
-            self.eq('bachelors of science', nodes[0].get('name'))
-            self.eq('degree.', nodes[0].get('type'))
+            self.propeq(nodes[0], 'name', 'bachelors of science')
+            self.propeq(nodes[0], 'type', 'degree.')
 
             opts = {'vars': {'achv': achv}}
             nodes = await core.nodes('''[
@@ -106,15 +106,15 @@ class PsModelTest(s_t_utils.SynTest):
                     :pay:currency = usd
             ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('org:name'), 'wootcorp')
-            self.eq(nodes[0].get('org:fqdn'), 'wootwoot.com')
-            self.eq(nodes[0].get('desc'), 'Wooting.')
-            self.eq(nodes[0].get('job:type'), 'it.dev.')
-            self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
-            self.eq(nodes[0].get('title'), 'python developer')
-            self.eq(nodes[0].get('period'), (1627689600000000, 1659225600000000, 31536000000000))
-            self.eq(nodes[0].get('pay'), '200000')
-            self.eq(nodes[0].get('pay:currency'), 'usd')
+            self.propeq(nodes[0], 'org:name', 'wootcorp')
+            self.propeq(nodes[0], 'org:fqdn', 'wootwoot.com')
+            self.propeq(nodes[0], 'desc', 'Wooting.')
+            self.propeq(nodes[0], 'job:type', 'it.dev.')
+            self.propeq(nodes[0], 'employment:type', 'fulltime.salary.')
+            self.propeq(nodes[0], 'title', 'python developer')
+            self.propeq(nodes[0], 'period', (1627689600000000, 1659225600000000, 31536000000000))
+            self.propeq(nodes[0], 'pay', '200000')
+            self.propeq(nodes[0], 'pay:currency', 'usd')
 
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('contact'))
@@ -129,8 +129,8 @@ class PsModelTest(s_t_utils.SynTest):
                 +:base=salary +:parent=fulltime +:depth=1
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('title'), 'FullTime')
-            self.eq(nodes[0].get('sort'), 9)
+            self.propeq(nodes[0], 'title', 'FullTime')
+            self.propeq(nodes[0], 'sort', 9)
 
             self.len(2, await core.nodes('ou:employment:type:taxonomy^=fulltime'))
             self.len(1, await core.nodes('ou:employment:type:taxonomy:base^=salary'))
@@ -151,14 +151,14 @@ class PsModelTest(s_t_utils.SynTest):
                 { -> ps:person [ :vitals={ps:vitals} ] }
             ''')
             self.len(1, nodes)
-            self.eq(1660521600000000, nodes[0].get('time'))
+            self.propeq(nodes[0], 'time', 1660521600000000)
 
-            self.eq(1828, nodes[0].get('phys:height'))
-            self.eq('45359.2', nodes[0].get('phys:mass'))
+            self.propeq(nodes[0], 'phys:height', 1828)
+            self.propeq(nodes[0], 'phys:mass', '45359.2')
 
-            self.eq('usd', nodes[0].get('econ:currency'))
-            self.eq('100', nodes[0].get('econ:net:worth'))
-            self.eq('1000', nodes[0].get('econ:annual:income'))
+            self.propeq(nodes[0], 'econ:currency', 'usd')
+            self.propeq(nodes[0], 'econ:net:worth', '100')
+            self.propeq(nodes[0], 'econ:annual:income', '1000')
 
             self.nn(nodes[0].get('individual'))
 

@@ -130,7 +130,11 @@ class NodeBase:
                 mesg = 'Protocol variable type "prop" requires a "name" key.'
                 raise s_exc.BadFormDef(mesg=mesg)
 
-            proto['vars'][varn] = self.get(varprop)
+            pval = self.get(varprop)
+            if (prop := self.form.prop(varprop)) is not None and prop.type.ispoly:
+                pval = pval[1]
+
+            proto['vars'][varn] = pval
 
         return proto
 

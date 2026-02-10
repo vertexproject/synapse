@@ -324,44 +324,44 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=maxval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=maxval [ :seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
 
             await core.nodes('[ test:str=midval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=midval [ :seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
 
             await core.nodes('[ test:str=minval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=minval [ :seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
 
             await core.nodes('[ test:str=exival :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=exival [ :seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
 
             # bad type
 
@@ -884,9 +884,9 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, result)
 
             node = result[0]
-            self.eq(node.get('tick'), 3)
+            self.propeq(node, 'tick', 3)
             self.ge(node.get('.created', 0), 5)
-            self.eq(node.get('#cool'), (1, 2, 1))
+            self.propeq(node, '#cool', (1, 2, 1))
 
             nodes = await alist(view.nodesByPropValu('test:str', '=', 'hehe'))
             self.len(1, nodes)
@@ -1391,7 +1391,7 @@ class ViewTest(s_t_utils.SynTest):
             q = f'[ inet:fqdn="{fqdn}"]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('zone'), 'foo.com')
+            self.propeq(nodes[0], 'zone', 'foo.com')
 
     async def test_view_insert_parent_fork(self):
 

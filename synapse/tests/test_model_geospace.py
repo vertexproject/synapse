@@ -209,8 +209,8 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ geo:place="*" :latlong=(-30.0,20.22) :type=woot.woot]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('type'), 'woot.woot.')
-            self.eq(node.get('latlong'), (-30.0, 20.22))
+            self.propeq(node, 'type', 'woot.woot.')
+            self.propeq(node, 'latlong', (-30.0, 20.22))
 
             nodes = await core.nodes('''
                 [ geo:place=*
@@ -230,21 +230,21 @@ class GeoTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('id'), 'IAD')
-            self.eq(node.get('name'), 'vertex hq')
-            self.eq(node.get('loc'), 'us.hehe.haha')
-            self.eq(node.get('latlong'), (34.1341, -118.3215))
-            self.eq(node.get('latlong:accuracy'), 2000)
-            self.eq(node.get('altitude'), 6371208800)
-            self.eq(node.get('altitude:accuracy'), 2000)
-            self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
-            self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-            self.eq(node.get('address:city'), 'shanghai')
+            self.propeq(node, 'id', 'IAD')
+            self.propeq(node, 'name', 'vertex hq')
+            self.propeq(node, 'loc', 'us.hehe.haha')
+            self.propeq(node, 'latlong', (34.1341, -118.3215))
+            self.propeq(node, 'latlong:accuracy', 2000)
+            self.propeq(node, 'altitude', 6371208800)
+            self.propeq(node, 'altitude:accuracy', 2000)
+            self.propeq(node, 'desc', 'The place where Vertex Project hangs out at!')
+            self.propeq(node, 'address', '208 datong road, pudong district, shanghai, china')
+            self.propeq(node, 'address:city', 'shanghai')
             self.nn(node.get('photo'))
 
             self.len(1, await core.nodes('geo:place :photo -> file:bytes'))
 
-            self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
+            self.propeq(node, 'bbox', (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
             self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
@@ -253,7 +253,7 @@ class GeoTest(s_t_utils.SynTest):
             opts = {'vars': {'latlong': (11.38, 20.01)}}
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('latlong'), (11.38, 20.01))
+            self.propeq(nodes[0], 'latlong', (11.38, 20.01))
             nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
 
@@ -450,9 +450,9 @@ class GeoTest(s_t_utils.SynTest):
                     :phys:volume=1000m
                 ]
             ''')
-            self.eq(1655510400000000, nodes[0].get('time'))
-            self.eq('foobar', nodes[0].get('desc'))
-            self.eq('woot', nodes[0].get('place:name'))
+            self.propeq(nodes[0], 'time', 1655510400000000)
+            self.propeq(nodes[0], 'desc', 'foobar')
+            self.propeq(nodes[0], 'place:name', 'woot')
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
             self.eq(('test:int', 1234), nodes[0].get('node'))
             self.len(1, await core.nodes('test:int=1234'))
@@ -462,13 +462,13 @@ class GeoTest(s_t_utils.SynTest):
             self.nn('woot', nodes[0].get('place:name'))
             self.nn('123 main street', nodes[0].get('place:address'))
             self.eq((10.1, 3.0), nodes[0].get('place:latlong'))
-            self.eq(10000, nodes[0].get('place:latlong:accuracy'))
+            self.propeq(nodes[0], 'place:latlong:accuracy', 10000)
 
-            self.eq('10000', nodes[0].get('phys:mass'))
-            self.eq(5000, nodes[0].get('phys:width'))
-            self.eq(10000, nodes[0].get('phys:height'))
-            self.eq(20000, nodes[0].get('phys:length'))
-            self.eq(1000000, nodes[0].get('phys:volume'))
+            self.propeq(nodes[0], 'phys:mass', '10000')
+            self.propeq(nodes[0], 'phys:width', 5000)
+            self.propeq(nodes[0], 'phys:height', 10000)
+            self.propeq(nodes[0], 'phys:length', 20000)
+            self.propeq(nodes[0], 'phys:volume', 1000000)
 
     async def test_model_geospace_area(self):
 

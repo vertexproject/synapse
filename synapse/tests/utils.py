@@ -364,6 +364,7 @@ testmodel = (
             ('test:protocol', ('int', {}), {}),
         ),
         'forms': (
+
             ('test:lowstr', {}, ()),
             ('test:arrayprop', {}, (
                 ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
@@ -2058,36 +2059,38 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         Assert a node property is equal to valu.
         '''
-        # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
-        # TOOD: If polyprop and valu is None assert that prop is not set
         pval = n.repr(prop) if repr else n.get(prop)
+        parts = prop.split('.')
+
+        if parts[0]:
+            ptyp = n.form.prop(parts[0]).type
+        else:
+            ptyp = n.form.type
+
+        if len(parts) > 1:
+            ptyp = ptyp.getVirtType(parts[1:])
+
+        if valu is not None:
+            if ptyp.ispoly:
+                if form is not None:
+                    self.eq(pval, (form, valu), msg=msg)
+                    return
+
+                self.eq(pval[1], valu, msg=msg)
+                return
+
+            if ptyp.isarray and ptyp.arraytype.ispoly:
+                if form is None:
+                    pval = [aval[1] for aval in pval]
+                    self.eq(pval, valu, msg=msg)
+                    return
+
         self.eq(pval, valu, msg=msg)
 
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y
         '''
-        nx = norm(x)
-        ny = norm(y)
-        if nx == ny:
-            return
-
-        if isinstance(nx, tuple):
-            if len(nx) > 1 and nx[1] == ny:
-                return
-
-            if isinstance(nx[0], tuple):
-                if tuple(nx[1] for nx in x) == ny:
-                    return
-
-        if isinstance(ny, tuple):
-            if len(ny) > 1 and ny[1] == nx:
-                return
-
-            if isinstance(ny[0], tuple):
-                if tuple(ny[1] for ny in y) == nx:
-                    return
-
         self.assertEqual(norm(x), norm(y), msg=msg)
 
     def eqOrNan(self, x, y, msg=None):
