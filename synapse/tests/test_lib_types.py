@@ -90,7 +90,7 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('[transport:sea:telem=(foo,) :speed=(1.1 * 2) ]')
-            self.eq(2, nodes[0].get('speed'))
+            self.propeq(nodes[0], 'speed', 2)
 
     async def test_hugenum(self):
 
@@ -175,12 +175,12 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
-            self.eq(node.get('title'), 'title words')
-            self.eq(node.get('desc'), 'a test taxonomy')
-            self.eq(node.get('sort'), 1)
-            self.eq(node.get('base'), 'baz')
-            self.eq(node.get('depth'), 2)
-            self.eq(node.get('parent'), 'foo.bar.')
+            self.propeq(node, 'title', 'title words')
+            self.propeq(node, 'desc', 'a test taxonomy')
+            self.propeq(node, 'sort', 1)
+            self.propeq(node, 'base', 'baz')
+            self.propeq(node, 'depth', 2)
+            self.propeq(node, 'parent', 'foo.bar.')
 
             self.sorteq(
                 ['foo.', 'foo.bar.', 'foo.bar.baz.'],
@@ -291,8 +291,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
             self.eq(pnode[1].get('reprs').get('foo'), '123')
             self.notin('bar', pnode[1].get('reprs'))
-            self.eq(node.get('foo'), 123)
-            self.eq(node.get('bar'), 'haha')
+            self.propeq(node, 'foo', 123)
+            self.propeq(node, 'bar', 'haha')
 
             typ = core.model.type(t)
             self.eq(typ.info.get('bases'), ('base', 'comp'))
@@ -435,8 +435,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.none(node.get('phone'))
-            self.eq(node.get('name'), 'org name 77')
-            self.eq(node.get('desc'), 'an org desc')
+            self.propeq(node, 'name', 'org name 77')
+            self.propeq(node, 'desc', 'an org desc')
 
             nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
             self.len(1, nodes)
@@ -484,20 +484,20 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'foomesg')
+            self.propeq(node, 'id', 'foomesg')
             self.nn(node.get('channel'))
 
             nodes = await core.nodes('inet:service:message -> inet:service:channel')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('id'), 'foochannel')
+            self.propeq(node, 'id', 'foochannel')
             self.nn(node.get('platform'))
 
             nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('name'), 'fooplatform')
-            self.eq(node.get('url'), 'http://foo.com')
+            self.propeq(node, 'name', 'fooplatform')
+            self.propeq(node, 'url', 'http://foo.com')
 
             nodes = await core.nodes('''
                 inet:service:message=({
@@ -514,7 +514,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'foomesg')
+            self.propeq(node, 'id', 'foomesg')
 
             nodes = await core.nodes('''[
                 inet:service:message=({
@@ -537,7 +537,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'barmesg')
+            self.propeq(node, 'id', 'barmesg')
             self.nn(node.get('channel'))
 
             platguid = node.get('platform')
@@ -602,8 +602,8 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=guidprop -> test:guid')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('name'), 'someprop')
-            self.eq(node.get('size'), 5)
+            self.propeq(node, 'name', 'someprop')
+            self.propeq(node, 'size', 5)
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 nodes = await core.nodes('''[
@@ -636,8 +636,8 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=methset -> test:guid')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('name'), 'someprop')
-            self.eq(node.get('size'), 5)
+            self.propeq(node, 'name', 'someprop')
+            self.propeq(node, 'size', 5)
 
             opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
             nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
@@ -645,12 +645,12 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('it:app:yara:match -> *')
             self.len(1, nodes)
-            self.eq(nodes[0].get('sha256'), opts['vars']['sha256'])
+            self.propeq(nodes[0], 'sha256', opts['vars']['sha256'])
 
             nodes = await core.nodes('$chan = {[inet:service:channel=*]} [ inet:service:rule=({"id":"foo", "object": $chan}) ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('id'), 'foo')
+            self.propeq(node, 'id', 'foo')
             self.nn(node.get('object'))
 
             self.len(1, await core.nodes('inet:service:rule :object -> *'))
@@ -1382,58 +1382,58 @@ class TypesTest(s_t_utils.SynTest):
                 await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
 
             nodes = await core.nodes('[ test:str=foo :seen=(2021, ?) :seen.duration=1D ]')
-            self.eq(nodes[0].get('seen'), (1609459200000000, 1609545600000000, 86400000000))
+            self.propeq(nodes[0], 'seen', (1609459200000000, 1609545600000000, 86400000000))
 
             nodes = await core.nodes('[ test:str=bar :seen=(?, 2021) :seen.duration=1D ]')
-            self.eq(nodes[0].get('seen'), (1609372800000000, 1609459200000000, 86400000000))
+            self.propeq(nodes[0], 'seen', (1609372800000000, 1609459200000000, 86400000000))
 
             nodes = await core.nodes('[ test:str=baz :seen=(?, ?) :seen.duration=1D ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, ityp.unksize, 86400000000))
 
             nodes = await core.nodes('test:str=baz [ :seen.min=2021 ]')
-            self.eq(nodes[0].get('seen'), (1609459200000000, 1609545600000000, 86400000000))
+            self.propeq(nodes[0], 'seen', (1609459200000000, 1609545600000000, 86400000000))
 
             nodes = await core.nodes('[ test:str=faz :seen.duration=1D ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, ityp.unksize, 86400000000))
 
             nodes = await core.nodes('test:str=faz [ :seen.max=2021 ]')
-            self.eq(nodes[0].get('seen'), (1609372800000000, 1609459200000000, 86400000000))
+            self.propeq(nodes[0], 'seen', (1609372800000000, 1609459200000000, 86400000000))
 
             nodes = await core.nodes('test:str=faz [ :seen.max=? ]')
-            self.eq(nodes[0].get('seen'), (1609372800000000, ityp.unksize, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (1609372800000000, ityp.unksize, ityp.duratype.unkdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.min=2022 ]')
-            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.unksize, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (1640995200000000, ityp.unksize, ityp.duratype.unkdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.max=* ]')
-            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.futsize, ityp.duratype.futdura))
+            self.propeq(nodes[0], 'seen', (1640995200000000, ityp.futsize, ityp.duratype.futdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.min=2021 ]')
-            self.eq(nodes[0].get('seen'), (1609459200000000, ityp.futsize, ityp.duratype.futdura))
+            self.propeq(nodes[0], 'seen', (1609459200000000, ityp.futsize, ityp.duratype.futdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.max=2022 :seen.min=? ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, 1640995200000000, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, 1640995200000000, ityp.duratype.unkdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.max=2021 :seen.min=? ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, 1609459200000000, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, 1609459200000000, ityp.duratype.unkdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.duration=* ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.futsize, ityp.duratype.futdura))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, ityp.futsize, ityp.duratype.futdura))
 
             nodes = await core.nodes('test:str=faz [ :seen.duration=1D ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, ityp.unksize, 86400000000))
 
             nodes = await core.nodes('[ test:str=int :seen=$valu ]', opts={'vars': {'valu': ityp.unksize}})
-            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, ityp.unksize, ityp.duratype.unkdura))
 
             nodes = await core.nodes('[ test:str=merge1 :seen=(?, ?) :seen=(?, 2020) ]')
-            self.eq(nodes[0].get('seen'), (ityp.unksize, 1577836800000000, ityp.duratype.unkdura))
+            self.propeq(nodes[0], 'seen', (ityp.unksize, 1577836800000000, ityp.duratype.unkdura))
 
             nodes = await core.nodes('[ test:str=merge2 :seen=(?, 2020) :seen=(2019, ?) ]')
-            self.eq(nodes[0].get('seen'), (1546300800000000, 1577836800000000, 31536000000000))
+            self.propeq(nodes[0], 'seen', (1546300800000000, 1577836800000000, 31536000000000))
 
             nodes = await core.nodes('[ test:str=merge2 :seen=(?, *) ]')
-            self.eq(nodes[0].get('seen'), (1546300800000000, ityp.futsize, ityp.duratype.futdura))
+            self.propeq(nodes[0], 'seen', (1546300800000000, ityp.futsize, ityp.duratype.futdura))
 
             self.len(0, await core.nodes('[ test:str=fut :seen=(now + 1day, *) ] +:seen.duration'))
 
@@ -2189,7 +2189,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
             nodes = await core.nodes('[test:str=e :tick=? :tick=2024]')
-            self.eq(nodes[0].get('tick'), 1704067200000000)
+            self.propeq(nodes[0], 'tick', 1704067200000000)
 
     async def test_types_long_indx(self):
 
@@ -2249,7 +2249,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:witharray="*" :fqdns="woot.com, VERTEX.LINK, vertex.link" ]')
             self.len(1, nodes)
 
-            self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
+            self.propeq(nodes[0], 'fqdns', ('vertex.link', 'woot.com'))
             self.sorteq(('vertex.link', 'woot.com'), nodes[0].repr('fqdns').split(','))
 
             nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')

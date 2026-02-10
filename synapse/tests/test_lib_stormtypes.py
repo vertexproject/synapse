@@ -1401,7 +1401,7 @@ class StormTypesTest(s_test.SynTest):
             # make sure we gunzip correctly
             nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n2}})
             self.len(1, nodes)
-            self.eq(hstr, nodes[0].get('data'))
+            self.propeq(nodes[0], 'data', hstr)
 
             text = f'''tel:mob:telem=$n2 $bar = :data
                     [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
@@ -1441,7 +1441,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('tel:mob:telem=$iden', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('data'), hstr)
+            self.propeq(node, 'data', hstr)
 
             # bzip
             q = '''tel:mob:telem=$valu $bar = :data
@@ -1449,7 +1449,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'valu': node2.ndef[1], 'n3': n3}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('data'), ggstr)
+            self.propeq(node, 'data', ggstr)
 
     async def test_storm_lib_bytes_json(self):
         async with self.getTestCore() as core:
@@ -1462,14 +1462,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[tel:mob:telem=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
-            self.eq(node1.get('data'), ghstr)
+            self.propeq(node1, 'data', ghstr)
 
             q = '''tel:mob:telem=$valu $jzthing=:data $foo=$jzthing.encode().json() [(tel:mob:telem=$n2 :data=$foo)]
                   -tel:mob:telem=$valu'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'n2': n2}})
             self.len(1, nodes)
             node2 = nodes[0]
-            self.eq(node2.get('data'), foo)
+            self.propeq(node2, 'data', foo)
 
             buf = b'\xff\xfe{\x00"\x00k\x00"\x00:\x00 \x00"\x00v\x00"\x00}\x00'
             q = '''return( $buf.json(encoding=$encoding) )'''
@@ -1809,7 +1809,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
             self.len(1, nodes)
             self.eq(nodes[0].repr(), 'foo')
-            self.eq(nodes[0].get('hehe'), 'bar')
+            self.propeq(nodes[0], 'hehe', 'bar')
 
             msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
             self.stormHasNoWarnErr(msgs)
@@ -1952,7 +1952,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
             self.len(1, nodes)
             self.eq(nodes[0].repr(), 'foo')
-            self.eq(nodes[0].get('hehe'), 'bar')
+            self.propeq(nodes[0], 'hehe', 'bar')
 
             msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)')
             self.stormHasNoWarnErr(msgs)
@@ -3259,7 +3259,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '[ inet:ip=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]'
             nodes = await core.nodes(q, opts=opts)
-            self.eq(40, nodes[0].get('asn'))
+            self.propeq(nodes[0], 'asn', 40)
 
             nodes = await core.nodes('for $fqdn in $lib.telepath.open($url).fqdns() { [ inet:fqdn=$fqdn ] }', opts=opts)
             self.len(2, nodes)
@@ -3862,7 +3862,7 @@ class StormTypesTest(s_test.SynTest):
                 [1, 256],
                 ['1', '256'],
                 None,
-                [None,],
+                [None],
             )
 
             for badints in badvals:
@@ -4079,7 +4079,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str:tick=3001'))
 
             nodes = await core.nodes('test:str=hello')
-            self.eq(nodes[0].get('tick'), s_time.parse('2001'))
+            self.propeq(nodes[0], 'tick', s_time.parse('2001'))
             self.nn(nodes[0].get('#test'))
             self.eq(await nodes[0].getData('foo'), 'bar')
             self.eq(nodes[0].getTagProp('rep.foo', 'score'), 10)
@@ -4912,7 +4912,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ip=1.2.3.4'))
             opts = {'vars': {'props': {'asn': '1234'}}}
             nodes = await core.nodes('yield $lib.view.get().addNode(inet:ip, 1.2.3.4, props=$props)', opts=opts)
-            self.eq(1234, nodes[0].get('asn'))
+            self.propeq(nodes[0], 'asn', 1234)
 
         # view.addNode() behavior
         async with self.getTestCore() as core:
@@ -6142,20 +6142,20 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo"}))')
             self.len(5, nodes)
             for node in nodes:
-                self.eq(node.get('name'), 'foo')
+                self.propeq(node, 'name', 'foo')
 
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo", "tick": "2020"}))')
             self.len(3, nodes)
             for node in nodes:
-                self.eq(node.get('name'), 'foo')
-                self.eq(node.get('tick'), 1577836800000000)
+                self.propeq(node, 'name', 'foo')
+                self.propeq(node, 'tick', 1577836800000000)
 
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo", "tick": "2020", "size": 6}))')
             self.len(1, nodes)
             for node in nodes:
-                self.eq(node.get('name'), 'foo')
-                self.eq(node.get('tick'), 1577836800000000)
-                self.eq(node.get('size'), 6)
+                self.propeq(node, 'name', 'foo')
+                self.propeq(node, 'tick', 1577836800000000)
+                self.propeq(node, 'size', 6)
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}))')
@@ -6204,7 +6204,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
-            self.eq(12, nodes[0].get('size'))
+            self.propeq(nodes[0], 'size', 12)
 
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
@@ -6227,7 +6227,7 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('$n=$lib.null inet:ip=1.2.3.4 $n=$node spin | $n.props."dns:rev" = "vertex.link"')
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(nodes[0].get('dns:rev'), 'vertex.link')
+            self.propeq(nodes[0], 'dns:rev', 'vertex.link')
 
             with self.raises(s_exc.NoSuchProp):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp = $lib.undef'))
@@ -7472,7 +7472,7 @@ words\tword\twrd'''
             await core.addFormProp('test:str', '_hugearray', tdef, {})
 
             nodes = await core.nodes(f'[econ:balance=* :amount=({valu})]')
-            self.eq(nodes[0].get('amount'), valu)
+            self.propeq(nodes[0], 'amount', valu)
 
             nodes = await core.nodes(f'econ:balance:amount=({valu})')
             self.len(1, nodes)
@@ -7498,7 +7498,7 @@ words\tword\twrd'''
 
             nodes = await core.nodes(f'[test:str=bar :_hugearray=(({valu}), ({valu}))]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('_hugearray'), [valu, valu])
+            self.propeq(nodes[0], '_hugearray', [valu, valu])
 
             nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
             self.len(2, nodes)
