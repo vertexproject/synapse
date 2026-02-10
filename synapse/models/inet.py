@@ -423,119 +423,96 @@ class SockAddr(s_types.Str):
 
         return valu[0]
 
-    async def _normPort(self, valu):
-        parts = valu.split(':', 1)
-        if len(parts) == 2:
-            valu, port = parts
-            port = (await self.porttype.norm(port))[0]
-            return valu, port, f':{port}'
-
-        if self.defport:
-            return valu, self.defport, f':{self.defport}'
-
-        return valu, None, ''
-
     async def _normPyStr(self, valu, view=None):
+        # todo: exceptions in _normPyDict wont have original str context
         orig = valu
-        subs = {}
-        virts = {}
+        ctor = {}
 
         # no protos use case sensitivity yet...
         valu = valu.lower()
 
-        proto = self.defproto
         parts = valu.split('://', 1)
         if len(parts) == 2:
-            proto, valu = parts
-
-        if proto not in self.protos:
-            protostr = ','.join(self.protos)
-            mesg = f'inet:sockaddr protocol must be one of: {protostr}'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
-
-        subs['proto'] = (self.prototype.typehash, proto, {})
+            ctor['proto'], valu = parts
 
         valu = valu.strip().strip('/')
 
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('['):
-            match = srv6re.match(valu)
-            if match:
-                ipv6, port = match.groups()
+            if (match := srv6re.match(valu)) is None:
+                mesg = f'Invalid IPv6 w/port ({orig})'
+                raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
-                ipv6, norminfo = await self.iptype.norm(ipv6)
-                host = self.iptype.repr(ipv6)
-                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
-                virts['ip'] = (ipv6, self.iptype.stortype)
-
-                portstr = ''
-                if port is not None:
-                    port, norminfo = await self.porttype.norm(port)
-                    subs['port'] = (self.porttype.typehash, port, norminfo)
-                    virts['port'] = (port, self.porttype.stortype)
-                    portstr = f':{port}'
-
-                elif self.defport:
-                    subs['port'] = (self.porttype.typehash, self.defport, {})
-                    virts['port'] = (self.defport, self.porttype.stortype)
-                    portstr = f':{self.defport}'
-
-                if port and proto in self.noports:
-                    mesg = f'Protocol {proto} does not allow specifying ports.'
-                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
-
-                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
-
-            mesg = f'Invalid IPv6 w/port ({orig})'
-            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
+            ipv6, port = match.groups()
+            ctor['ip'] = ipv6  # todo: provide as tuple to force ipv6?
+            if port is not None:
+                ctor['port'] = port
+            return await self._normPyDict(ctor, view=view)
 
         elif valu.count(':') >= 2:
-            ipv6, norminfo = await self.iptype.norm(valu)
-            host = self.iptype.repr(ipv6)
-            subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
-            virts['ip'] = (ipv6, self.iptype.stortype)
-
-            if self.defport:
-                subs['port'] = (self.porttype.typehash, self.defport, {})
-                virts['port'] = (self.defport, self.porttype.stortype)
-                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
-
-            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
+            ctor['ip'] = valu
+            return await self._normPyDict(ctor, view=view)
 
         # Otherwise treat as IPv4
-        valu, port, pstr = await self._normPort(valu)
-        if port:
-            subs['port'] = (self.porttype.typehash, port, {})
-            virts['port'] = (port, self.porttype.stortype)
+        parts = valu.split(':', 1)
+        if len(parts) == 2:
+            valu, port = parts
+            ctor['port'] = port
 
-        if port and proto in self.noports:
-            mesg = f'Protocol {proto} does not allow specifying ports.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+        ctor['ip'] = valu
 
-        ipv4, norminfo = await self.iptype.norm(valu)
-        ipv4_repr = self.iptype.repr(ipv4)
-        subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
-        virts['ip'] = (ipv4, self.iptype.stortype)
-
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
+        return await self._normPyDict(ctor, view=view)
 
     async def _normPyTuple(self, valu, view=None):
-        ipaddr, norminfo = await self.iptype.norm(valu)
+        return await self._normPyDict({'ip': valu}, view=view)
 
+    async def _normPyDict(self, valu, view=None):
+        subs = {}
+        virts = {}
+
+        ipaddr, ipnorminfo = await self.iptype.norm(valu.get('ip'))
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
-        virts = {'ip': (ipaddr, self.iptype.stortype)}
-        proto = self.defproto
+        subs['ip'] = (self.iptype.typehash, ipaddr, ipnorminfo)
+        virts['ip'] = (ipaddr, self.iptype.stortype)
 
-        if self.defport:
-            subs['port'] = (self.porttype.typehash, self.defport, {})
-            virts['port'] = (self.defport, self.porttype.stortype)
-            if ipaddr[0] == 6:
-                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
-            else:
-                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
+        if 'proto' in valu:
+            proto, protonorminfo = await self.prototype.norm(valu['proto'])
+            proto_repr = self.prototype.repr(proto)
+            if proto not in self.protos:
+                protostr = ','.join(self.protos)
+                mesg = f'inet:sockaddr protocol must be one of: {protostr}'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu['proto'], name=self.name)
+        else:
+            proto, protonorminfo = self.defproto, {}
+            proto_repr = self.defproto
 
-        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
+        subs['proto'] = (self.prototype.typehash, proto, {})
+
+        noport = proto in self.noports
+        port_repr = None
+
+        if 'port' in valu:
+            if noport:
+                mesg = f'Protocol {proto} does not allow specifying ports.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            port, portnorminfo = await self.porttype.norm(valu['port'])
+            port_repr = self.porttype.repr(port)
+
+        elif not noport and self.defport is not None:
+            port, portnorminfo = self.defport, {}
+            port_repr = self.defport
+
+        if ipaddr[0] == 6 and port_repr is not None:
+            servstr = f'{proto}://[{ip_repr}]'
+        else:
+            servstr = f'{proto}://{ip_repr}'
+
+        if port_repr is not None:
+            subs['port'] = (self.porttype.typehash, port, portnorminfo)
+            virts['port'] = (port, self.porttype.stortype)
+            servstr = f'{servstr}:{port_repr}'
+
+        return servstr, {'subs': subs, 'virts': virts}
 
 class Email(s_types.Str):
 
