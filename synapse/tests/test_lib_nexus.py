@@ -675,6 +675,10 @@ class NexusTest(s_t_utils.SynTest):
                                 self.len(1, core00.views)
                                 self.len(1, core01.views)
 
+                                # Clear mirrors on the leader to ensure we don't receive a response
+                                await core01.sync()
+                                core00.nexsroot._linkmirrors.clear()
+
                                 deflayr = (await core00.getLayerDef()).get('iden')
                                 vdef = {'layers': (deflayr,), 'name': 'nextview'}
                                 evnt1.clear()
