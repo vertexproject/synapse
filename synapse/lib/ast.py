@@ -1512,7 +1512,7 @@ class SwitchCase(Oper):
                 valu = valu.value()
 
                 if valu in self.cases:
-                    mesg = f'Duplicated switch cases are not allowed due to ambiguity: {valu}'
+                    mesg = f'Duplicated switch cases are not allowed due to ambiguity: {s_common.trimText(valu)}'
                     raise self.addExcInfo(s_exc.BadSyntax(mesg=mesg, valu=valu))
 
                 self.cases[valu] = subq
