@@ -9857,6 +9857,7 @@ class LibCron(Lib):
         period = kwargs.get('period')
         if not period:
             # TODO: Deprecated, remove in 3.x.x
+            s_common.deprecated('... lib.cron.add called without period argument ...')
             try:
                 alias_opts = self._parseAlias(kwargs)
             except ValueError as e:
