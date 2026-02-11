@@ -10,7 +10,6 @@ import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 
 class TypesTest(s_t_utils.SynTest):
