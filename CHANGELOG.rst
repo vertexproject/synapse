@@ -6,6 +6,24 @@
 Synapse Changelog
 *****************
 
+v2.233.0 - 2026-02-06
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_233_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Add missing exception information to the RecursionLimitError.
+  (`#4735 <https://github.com/vertexproject/synapse/pull/4735>`_)
+
+Notes
+-----
+- Move process related functions from ``synapse.lib.coro`` into
+  ``synapse.lib.process`` and ``synapse.lib.processpool``.
+  (`#4729 <https://github.com/vertexproject/synapse/pull/4729>`_)
+
 v2.232.0 - 2026-02-02
 =====================
 
