@@ -706,6 +706,7 @@ class NexusTest(s_t_utils.SynTest):
                             self.len(2, core00.views)
                             self.len(2, core01.views)
 
+                            # After promotion we should not have any stray connect timeouts
                             await core01.promote(graceful=True)
                             await asyncio.sleep(0.1)
 
