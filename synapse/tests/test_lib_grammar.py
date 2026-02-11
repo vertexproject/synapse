@@ -1771,6 +1771,18 @@ class GrammarTest(s_t_utils.SynTest):
             parser.query()
         self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: bar')
 
+        q = '''
+            $val = foo
+            switch $val {
+                *: { $lib.print("got foo") }
+                *: { $lib.print("got bar") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have more than one default case. Found 2.')
+
     async def test_quotes(self):
 
         # Test vectors
