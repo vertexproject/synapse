@@ -469,7 +469,7 @@ class AstConverter(lark.Transformer):
 
             for val in kid.kids[:-1]:
                 if (valu := val.value()) in casevals:
-                    mesg = f'Duplicated switch cases are not allowed due to ambiguity: {s_common.trimText(valu)}'
+                    mesg = f'Switch statements cannot have duplicate switch cases: {s_common.trimText(valu)}'
                     raise self.raiseBadSyntax(mesg, astinfo)
                 casevals.append(valu)
 

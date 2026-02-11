@@ -1745,7 +1745,7 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_parser.Parser(q)
         with self.raises(s_exc.BadSyntax) as exc:
             parser.query()
-        self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: foo')
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
 
         q = '''
             $val = foo
@@ -1757,7 +1757,7 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_parser.Parser(q)
         with self.raises(s_exc.BadSyntax) as exc:
             parser.query()
-        self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: foo')
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
 
         q = '''
             $val = foo
@@ -1769,7 +1769,7 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_parser.Parser(q)
         with self.raises(s_exc.BadSyntax) as exc:
             parser.query()
-        self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: bar')
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: bar')
 
     async def test_quotes(self):
 
