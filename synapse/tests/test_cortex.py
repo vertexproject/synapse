@@ -5190,6 +5190,43 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInErr('Unexpected token', msgs)
             self.stormIsInErr('expecting one of: ,', msgs)
 
+            # duplicated cases are an error
+            q = '''
+                $val = foo
+                switch $val {
+                    "foo": { $lib.print("got foo") }
+                    "foo": { $lib.print("got foo") }
+                }
+            '''
+            with self.raises(s_exc.BadSyntax) as exc:
+                await core.callStorm(q)
+            self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: foo')
+            self.eq(exc.exception.get('valu'), 'foo')
+
+            q = '''
+                $val = foo
+                switch $val {
+                    "foo": { $lib.print("got foo") }
+                    ("foo", "bar"): { $lib.print(`got {$val}`) }
+                }
+            '''
+            with self.raises(s_exc.BadSyntax) as exc:
+                await core.callStorm(q)
+            self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: foo')
+            self.eq(exc.exception.get('valu'), 'foo')
+
+            q = '''
+                $val = foo
+                switch $val {
+                    "foo": { $lib.print("got foo") }
+                    ("bar", "bar"): { $lib.print("got bar") }
+                }
+            '''
+            with self.raises(s_exc.BadSyntax) as exc:
+                await core.callStorm(q)
+            self.eq(exc.exception.get('mesg'), 'Duplicated switch cases are not allowed due to ambiguity: bar')
+            self.eq(exc.exception.get('valu'), 'bar')
+
     async def test_storm_tagvar(self):
 
         async with self.getTestCore() as core:
