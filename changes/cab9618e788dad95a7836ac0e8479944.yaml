@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where mirror promotion would incorrectly re-schedule the disconnection
+  timeout task on the client after it was shut down.
+desc:literal: false
+prs: []
+type: bug
+...
