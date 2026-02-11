@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug in Storm where a switch statement could have duplicate switch cases.
+desc:literal: false
+prs: []
+type: bug
+...
