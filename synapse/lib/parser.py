@@ -459,7 +459,7 @@ class AstConverter(lark.Transformer):
 
         defcases = 0
 
-        casevals = []
+        casevals = set()
         for kid in kids[1:]:
             if kid.defcase:
                 defcases += 1
@@ -471,7 +471,7 @@ class AstConverter(lark.Transformer):
                 if (valu := val.value()) in casevals:
                     mesg = f'Switch statements cannot have duplicate switch cases: {s_common.trimText(valu)}'
                     raise self.raiseBadSyntax(mesg, astinfo)
-                casevals.append(valu)
+                casevals.add(valu)
 
         return s_ast.SwitchCase(astinfo, kids)
 
