@@ -2298,11 +2298,6 @@ class Poly(Type):
 
         return ctor
 
-    async def _ctorCmprNe(self, text):
-        norm, info = await self.norm(text)
-
-        return cmprs
-
     def getVirtIndx(self, virts):
         name = virts[0]
 
