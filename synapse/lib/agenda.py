@@ -516,6 +516,42 @@ class Agenda(s_base.Base):
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
 
+    def _processPeriodParams(self, reqs, incunit, incvals):
+        '''
+        Process period parameters (reqs, incunit, incvals) into recs and nexttime.
+        '''
+        if not reqs and incunit is None:
+            mesg = 'at least one of reqs and incunit must be non-empty'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if incunit is not None and incvals is None:
+            mesg = 'incvals must be non-None if incunit is non-None'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if reqs is None:
+            reqs = [{}]
+        elif isinstance(reqs, Mapping):
+            reqs = [reqs]
+
+        nexttime = None
+        recs = []
+        recur = incunit is not None
+
+        for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadArg(mesg=mesg)
+                nexttime = self._getNowTick()
+                continue
+
+            reqdicts = self._dictproduct(req)
+            if not isinstance(incvals, Iterable):
+                incvals = (incvals, )
+            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+
+        return (recs, nexttime, recur)
+
     @staticmethod
     def _dictproduct(rdict):
         '''
@@ -586,7 +622,6 @@ class Agenda(s_base.Base):
 
         pool = cdef.get('pool', False)
 
-        recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
 
@@ -595,37 +630,16 @@ class Agenda(s_base.Base):
             raise s_exc.DupIden(iden=iden, mesg=mesg)
 
         if not query:
-            raise ValueError('"query" key of cdef parameter is not present or empty')
+            mesg = '"query" key of cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.core.getStormQuery(query)
 
         if not creator:
-            raise ValueError('"creator" key is cdef parameter is not present or empty')
+            mesg = '"creator" key is cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
-        if not reqs and incunit is None:
-            raise ValueError('at least one of reqs and incunit must be non-empty')
-
-        if incunit is not None and incvals is None:
-            raise ValueError('incvals must be non-None if incunit is non-None')
-
-        if isinstance(reqs, Mapping):
-            reqs = [reqs]
-
-        # Find all combinations of values in reqdict values and incvals values
-        nexttime = None
-        recs = []  # type: ignore
-        for req in reqs:
-            if TimeUnit.NOW in req:
-                if incunit is not None:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
-                nexttime = self._getNowTick()
-                continue
-
-            reqdicts = self._dictproduct(req)
-            if not isinstance(incvals, Iterable):
-                incvals = (incvals, )
-            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+        recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
 
         # TODO: this is insane. Make _Appt take the cdef directly...
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
@@ -653,7 +667,7 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        await self.mod(iden, appt.query)
+        await self.mod(iden, {'query': appt.query})
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
@@ -664,24 +678,59 @@ class Agenda(s_base.Base):
         appt.enabled = False
         await appt.save()
 
-    async def mod(self, iden, query):
+    async def mod(self, iden, cdef):
         '''
-        Change the query of an appointment
+        Modify an existing appointment
         '''
         appt = self.appts.get(iden)
         if appt is None:
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        if not query:
-            raise ValueError('empty query')
+        if not cdef:
+            return
 
-        await self.core.getStormQuery(query)
+        query = cdef.get('query')
+        if query is not None:
+            if not query:
+                raise s_exc.BadArg(mesg='empty query')
+            await self.core.getStormQuery(query)
+            appt.query = query
 
-        appt.query = query
+        reqs = cdef.get('reqs')
+        incunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        if reqs is not None or incunit is not None or incvals is not None:
+
+            recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
+
+            appt.recs = recs
+            appt.recur = recur
+            appt.nexttime = nexttime
+            appt._recidxnexttime = None
+
+            if appt.nexttime is None and appt.recs:
+                now = self._getNowTick()
+                appt.nexttime = now
+                appt.updateNexttime(now)
+
+            if appt.nexttime is None:
+                raise s_exc.BadTime(mesg='Appointment is in the past')
+
+            if appt.nexttime:
+                if appt not in self.apptheap:
+                    mesg = 'Cannot modify the schedule of a finished non-recurring cron job.'
+                    raise s_exc.BadConfValu(mesg=mesg)
+                heapq.heapify(self.apptheap)
+
         appt.enabled = True  # in case it was disabled for a bad query
 
         await appt.save()
+
+        if appt.nexttime and self.apptheap and self.apptheap[0] is appt:
+            self._wake_event.set()
+
+        return appt.pack()
 
     async def move(self, croniden, viewiden):
         '''
