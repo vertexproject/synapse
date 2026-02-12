@@ -999,12 +999,6 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def verifyNidProp(self, nid, form, prop, valu):
-        indxby = IndxByProp(self.layr, form, prop)
-        for indx in self.indx(valu):
-            if not indxby.hasIndxNid(indx, nid):
-                yield ('NoPropIndex', {'prop': prop, 'valu': valu})
-
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             if virts:
@@ -2656,9 +2650,15 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(abrv)
 
     def _testAddPropArrayIndx(self, nid, form, prop, valu):
+        virts = None
         modlprop = self.core.model.prop(f'{form}:{prop}')
+
+        if modlprop.type.getStorType(valu) == STOR_TYPE_POLYARRAY:
+            ptyp = modlprop.type.arraytype
+            virts = {'_stortypes': tuple(ptyp.getStorType(vval) for vval in valu)}
+
         abrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
-        for indx in self.getStorIndx(modlprop.type.stortype, valu):
+        for indx in self.getStorIndx(modlprop.type.stortype, valu, virts=virts):
             self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
@@ -3019,11 +3019,10 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 try:
-                    if stortype & STOR_FLAG_POLY:
-                        stortype = STOR_TYPE_POLY
-
-                    async for error in self.stortypes[stortype].verifyNidProp(nid, form, propname, storvalu):
-                        yield error
+                    indxby = IndxByProp(self, form, propname)
+                    for indx in self.getStorIndx(stortype, storvalu):
+                        if not indxby.hasIndxNid(indx, nid):
+                            yield ('NoPropIndex', {'prop': propname, 'valu': storvalu})
                 except IndexError as e:
                     yield ('NoStorTypeForProp', {'nid': s_common.ehex(nid), 'form': form, 'prop': propname,
                                                  'stortype': stortype})

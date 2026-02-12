@@ -103,7 +103,8 @@ class Prop:
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
-        self.type = self.modl.getTypeClone(typedef)
+        # TODO: get rid of this isrunt arg and just compute polyprops earlier
+        self.type = self.modl.getTypeClone(typedef, isrunt=form.isrunt)
         self.typehash = self.type.typehash
 
         form.setProp(name, self)
@@ -936,11 +937,11 @@ class Model:
 
         raise exc
 
-    def getTypeClone(self, typedef):
+    def getTypeClone(self, typedef, isrunt=False):
 
         typename, typeinfo = typedef
 
-        if typename in self.formnames and not typeinfo:
+        if typename in self.formnames and not typeinfo and not isrunt:
             typename = (typename,)
 
         if isinstance(typename, tuple):
@@ -1306,7 +1307,7 @@ class Model:
                 # TODO: probably handle polyprop detection earlier?
                 typename, typeinfo = propdef[1]
 
-                if typename in self.formnames and not typeinfo:
+                if typename in self.formnames and not typeinfo and not forminfo.get('runt'):
                     typename = (typename,)
 
                 if isinstance(typename, tuple):
@@ -1529,7 +1530,7 @@ class Model:
 
         (typename, typeinfo) = tdef
 
-        if typename in self.formnames and not typeinfo:
+        if typename in self.formnames and not typeinfo and not form.isrunt:
             typename = (typename,)
 
         if isinstance(typename, tuple):

@@ -3566,7 +3566,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     if vgetr is not None:
-                        (pvalu, valulayr) = node.getWithLayer(prop.name, virts=(vgetr,))
+                        pvalu, valulayr = node.getWithLayer(prop.name)
                         if lidx != valulayr:
                             continue
 
@@ -3667,44 +3667,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 for _ in range(vcnt):
                     yield node
                     await asyncio.sleep(0)
-
-
-#        last = None
-#        genrs = []
-#        stortype = self.layers[0].stortypes[cmprvals[0][-1]]
-#
-#        vgetr = None
-#        if virts is not None and prop.type.arraytype.getVirtIndx(virts) is not None:
-#            vgetr = prop.type.arraytype.getVirtGetr(virts)
-#
-#        for lidx, layr in enumerate(self.layers):
-#            genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
-#            genrs.append(wrapgenr(lidx, genr))
-#
-#        async for indx, nid, lidx in s_common.merggenr2(genrs):
-#            if (indx, nid) == last:
-#                continue
-#
-#            last = (indx, nid)
-#
-#            if (node := await self.getNodeByNid(nid)) is None:
-#                continue
-#
-#            (valu, valulayr) = node.getWithLayer(prop.name, virts=vgetr)
-#            if lidx != valulayr:
-#                continue
-#
-#            if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-#                for sval in valu:
-#                    if stortype.indx(sval)[0] == indx:
-#                        aval = sval
-#                        break
-#                else:
-#                    continue
-#
-#            for _ in range(valu.count(aval)):
-#                yield node
-#                await asyncio.sleep(0)
 
     async def nodesByTagProp(self, form, tag, name, reverse=False, virts=None):
         prop = self.core.model.reqTagProp(name)

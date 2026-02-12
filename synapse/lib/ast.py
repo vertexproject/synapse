@@ -3809,13 +3809,19 @@ class ArrayCond(Cond):
             else:
                 vnames = await virts.compute(runt, path)
 
-                valu, vvals = realnode.getWithVirts(realprop)
-                if not valu or (vval := vvals.get(vnames[0])) is None:
-                    return False
+                # TODO: rearrange this
+                if not isinstance(ptyp.virtindx.get(vnames[0]), str):
+                    vval, vvals = realnode.getWithVirts(realprop)
+                    if not vval:
+                        return False
+                else:
+                    valu, vvals = realnode.getWithVirts(realprop)
+                    if not valu or (vval := vvals.get(vnames[0])) is None:
+                        return False
 
                 val2 = await valukid.compute(runt, path)
 
-                if not ptyp.ispoly:
+                if not ptyp.ispoly or ptyp.virts.get(vnames[0]) is not None:
                     vtyp = ptyp.getVirtType(vnames)
 
                     if (ctor := vtyp.getCmprCtor(cmpr)) is None:
@@ -3828,6 +3834,11 @@ class ArrayCond(Cond):
                             return True
 
                 else:
+                    # TODO: rearrange this
+                    valu = vval
+                    if (vval := vvals.get(vnames[0])) is None:
+                        return False
+
                     fnames = set()
                     for aval in valu:
                         fnames.add(aval[0])
@@ -4983,7 +4994,6 @@ class PropName(Value):
             if (valu := node.get(name)) is None:
                 return None, None, None
 
-            print(prop.type.name, valu)
             if (typename := prop.type.name) in ('ndef', 'poly'):
                 ndef = valu
             elif (form := runt.model.forms.get(typename)) is not None:

@@ -465,7 +465,12 @@ testmodel = (
                 ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
                     'default_forms': ('test:int', 'test:str')}), {}),
                 ('polyarry', ('array', {
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server'),
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polynonuniq', ('array', {
+                    'uniq': False,
+                    'sorted': False,
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
                     'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
             )),
 

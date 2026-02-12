@@ -2207,6 +2207,7 @@ class Poly(Type):
 
         self.virtindx |= {
             'form': None,
+            'ndef': None,
         }
 
         self.virtlifts |= {
