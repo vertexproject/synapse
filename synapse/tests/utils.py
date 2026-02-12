@@ -462,7 +462,7 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server'), {
+                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
                     'default_forms': ('test:int', 'test:str')}), {}),
                 ('polyarry', ('array', {
                     'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server'),

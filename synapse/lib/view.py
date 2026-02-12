@@ -3422,21 +3422,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         norm = (await _type.norm(valu))[0]
 
+        # TODO: split poly handling off to optimize norming?
         for prop in self.core.model.getPropsByType(name):
-            if prop.type.ispoly:
-                async for node in self.nodesByPropValu(prop.full, cmpr, (name, valu), virts=['ndef']):
-                    yield node
-            else:
-                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=False):
-                    yield node
+            async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=prop.type.ispoly):
+                yield node
 
         for prop in self.core.model.getArrayPropsByType(name):
-            if prop.type.arraytype.ispoly:
-                async for node in self.nodesByPropArray(prop.full, cmpr, (name, valu), virts=['ndef']):
-                    yield node
-            else:
-                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=False):
-                    yield node
+            async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=prop.type.arraytype.ispoly):
+                yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 
@@ -3506,8 +3499,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 last = None
                 genrs = []
 
-                if (poly := stortype & s_layer.STOR_FLAG_POLYPROP):
-                    realtype = self.layers[0].stortypes[stortype & s_layer.STOR_MASK_POLYPROP]
+                if (poly := stortype & s_layer.STOR_FLAG_POLY):
+                    realtype = self.layers[0].stortypes[stortype & s_layer.STOR_MASK_POLY]
                 else:
                     realtype = self.layers[0].stortypes[stortype]
 
@@ -3556,7 +3549,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     vgetr = vinfo[1]
                     stortype = self.layers[0].polytype
                 else:
-                    realtype = stortype & s_layer.STOR_MASK_POLYPROP
+                    realtype = stortype & s_layer.STOR_MASK_POLY
                     stortype = self.layers[0].stortypes[realtype]
 
                 for lidx, layr in enumerate(self.layers):
@@ -3619,6 +3612,11 @@ class View(s_nexus.Pusher):  # type: ignore
             realtype = cmprvals[0][-1]
             stortype = self.layers[0].stortypes[realtype]
 
+            # TODO: this is weird
+            vgetr = None
+            if not isinstance(prop.type.arraytype.virtindx.get(virts[0]), str):
+                vgetr = prop.type.arraytype.getVirtGetr(virts)
+
             for lidx, layr in enumerate(self.layers):
                 genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
                 genrs.append(wrapgenr(lidx, genr))
@@ -3632,27 +3630,39 @@ class View(s_nexus.Pusher):  # type: ignore
                 if (node := await self.getNodeByNid(nid)) is None:
                     continue
 
-                (valu, valulayr) = node.getRawWithLayer(prop.name)
-                if lidx != valulayr:
-                    continue
-
-                if (vinfo := valu[2].get(virts[0])) is None:
-                    continue
-
-                if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                    for (vval, vtyp) in vinfo:
-                        # dont actually need to check stortype
-                        if vtyp != realtype:
-                            continue
-
-                        if stortype.indx(vval)[0] == indx:
-                            aval = vval
-                            break
-                    else:
+                if vgetr is not None:
+                    (pvalu, valulayr) = node.getWithLayer(prop.name)
+                    if lidx != valulayr:
                         continue
 
-                if (vcnt := vinfo.get((aval, realtype))) is None:
-                    continue
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                        for vval in pvalu:
+                            if stortype.indx(vval)[0] == indx:
+                                aval = vval
+                                break
+                        else:
+                            continue
+
+                    vcnt = pvalu.count(aval)
+
+                else:
+                    (valu, valulayr) = node.getRawWithLayer(prop.name)
+                    if lidx != valulayr:
+                        continue
+
+                    if (vinfo := valu[2].get(virts[0])) is None:
+                        continue
+
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                        for (vval, vtyp) in vinfo:
+                            if stortype.indx(vval)[0] == indx:
+                                aval = vval
+                                break
+                        else:
+                            continue
+
+                    if (vcnt := vinfo.get((aval, realtype))) is None:
+                        continue
 
                 for _ in range(vcnt):
                     yield node

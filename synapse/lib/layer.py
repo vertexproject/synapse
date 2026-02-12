@@ -221,15 +221,15 @@ STOR_TYPE_ARRAY = 27
 
 STOR_TYPE_NODEPROP = 28
 
-STOR_TYPE_POLYPROP = 29
+STOR_TYPE_POLY = 29
 
 STOR_FLAG_ARRAY = 0x8000
-STOR_FLAG_POLYPROP = 0x4000
+STOR_FLAG_POLY = 0x4000
 
-STOR_TYPE_POLYARRAY = STOR_FLAG_ARRAY | STOR_TYPE_POLYPROP
+STOR_TYPE_POLYARRAY = STOR_FLAG_ARRAY | STOR_TYPE_POLY
 
 STOR_MASK_ARRAY = 0x7fff
-STOR_MASK_POLYPROP = 0xbfff
+STOR_MASK_POLY = 0xbfff
 
 # Edit types (etyp)
 
@@ -476,7 +476,7 @@ class IndxByPropArrayKeys(IndxByPropKeys):
     def __repr__(self):
         return f'IndxByPropArrayKeys: {self.form}:{self.prop}'
 
-class IndxByPolyProp(IndxBy):
+class IndxByPoly(IndxBy):
 
     def __init__(self, layr, form, prop, stortype):
         '''
@@ -547,9 +547,9 @@ class IndxByPolyProp(IndxBy):
         return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
 
     def __repr__(self):
-        return f'IndxByPolyProp: {self.form}:{self.prop}'
+        return f'IndxByPoly: {self.form}:{self.prop}'
 
-class IndxByPolyPropArray(IndxByPolyProp):
+class IndxByPolyArray(IndxByPoly):
 
     def __init__(self, layr, form, prop, stortype):
         '''
@@ -574,9 +574,9 @@ class IndxByPolyPropArray(IndxByPolyProp):
         return s_common.novalu
 
     def __repr__(self):
-        return f'IndxByPolyPropArray: {self.form}:{self.prop}'
+        return f'IndxByPolyArray: {self.form}:{self.prop}'
 
-class IndxByPolyPropKeys(IndxByPolyProp):
+class IndxByPolyKeys(IndxByPoly):
     '''
     IndxBy sub-class for retrieving unique property values.
     '''
@@ -617,7 +617,7 @@ class IndxByPolyPropKeys(IndxByPolyProp):
 
         return s_common.novalu
 
-class IndxByPolyPropArrayKeys(IndxByPolyPropKeys):
+class IndxByPolyArrayKeys(IndxByPolyKeys):
     '''
     IndxBy sub-class for retrieving unique property array values.
     '''
@@ -655,13 +655,13 @@ class IndxByPolyPropArrayKeys(IndxByPolyPropKeys):
             if valt is not None:
                 indx = indx[10:]
                 for atyp, aval in zip(valt[2]['_stortypes'], valt[0]):
-                    if self.layr.stortypes[atyp & STOR_MASK_POLYPROP].indx(aval[1])[0] == indx:
+                    if self.layr.stortypes[atyp & STOR_MASK_POLY].indx(aval[1])[0] == indx:
                         return aval
 
         return s_common.novalu
 
     def __repr__(self):
-        return f'IndxByPolyPropArrayKeys: {self.form}:{self.prop}'
+        return f'IndxByPolyArrayKeys: {self.form}:{self.prop}'
 
 class IndxByVirt(IndxBy):
 
@@ -2093,10 +2093,10 @@ class StorTypeNdef(StorType):
         async for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
             yield item
 
-class StorTypePolyProp(StorType):
+class StorTypePoly(StorType):
 
     def __init__(self, layr):
-        StorType.__init__(self, layr, STOR_TYPE_POLYPROP)
+        StorType.__init__(self, layr, STOR_TYPE_POLY)
         self.lifters |= {
             'form=': self._liftFormEq,
             'ndef=': self._liftNdefEq,
@@ -2127,11 +2127,11 @@ class StorTypePolyProp(StorType):
                 async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
             else:
-                realtype = stortype & STOR_MASK_POLYPROP
+                realtype = stortype & STOR_MASK_POLY
                 if virts:
                     indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
                 else:
-                    indxby = IndxByPolyProp(self.layr, form, prop, realtype)
+                    indxby = IndxByPoly(self.layr, form, prop, realtype)
 
                 async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
@@ -2147,11 +2147,11 @@ class StorTypePolyProp(StorType):
                 async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
             else:
-                realtype = stortype & STOR_MASK_POLYPROP
+                realtype = stortype & STOR_MASK_POLY
                 if virts:
                     indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
                 else:
-                    indxby = IndxByPolyPropArray(self.layr, form, prop, realtype)
+                    indxby = IndxByPolyArray(self.layr, form, prop, realtype)
 
                 async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
@@ -2522,10 +2522,10 @@ class Layer(s_nexus.Pusher):
 
             StorTypeNodeProp(self),
 
-            StorTypePolyProp(self),
+            StorTypePoly(self),
         ]
 
-        self.polytype = self.stortypes[STOR_TYPE_POLYPROP]
+        self.polytype = self.stortypes[STOR_TYPE_POLY]
 
         self.timetype = self.stortypes[STOR_TYPE_TIME]
         self.ivaltype = self.stortypes[STOR_TYPE_IVAL]
@@ -2630,7 +2630,7 @@ class Layer(s_nexus.Pusher):
         storvalu, stortype, _ = sode['props'][prop]
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        for indx in self.stortypes[stortype].indx(storvalu):
+        for indx in self.getStorIndx(stortype, storvalu):
             self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
 
     def _testDelTagStor(self, nid, form, tag):
@@ -2651,7 +2651,7 @@ class Layer(s_nexus.Pusher):
     def _testAddPropIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        for indx in self.stortypes[modlprop.type.stortype].indx(valu):
+        for indx in self.getStorIndx(modlprop.type.stortype, valu):
             self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
@@ -2870,7 +2870,7 @@ class Layer(s_nexus.Pusher):
                 stortype = STOR_TYPE_ARRAY
 
             try:
-                for indx in self.stortypes[stortype].indx(propvalu):
+                for indx in self.getStorIndx(stortype, propvalu):
                     if abrv + indx == lkey:
                         break
                 else:
@@ -2918,10 +2918,10 @@ class Layer(s_nexus.Pusher):
                                                    'form': form, 'prop': prop, 'indx': indx})
                 continue
 
-            propvalu, stortype, _ = valu
+            propvalu, stortype, virts = valu
 
             try:
-                for indx in self.getStorIndx(stortype, propvalu):
+                for indx in self.getStorIndx(stortype, propvalu, virts=virts):
                     if abrv + indx == lkey:
                         break
                 else:
@@ -3019,6 +3019,9 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 try:
+                    if stortype & STOR_FLAG_POLY:
+                        stortype = STOR_TYPE_POLY
+
                     async for error in self.stortypes[stortype].verifyNidProp(nid, form, propname, storvalu):
                         yield error
                 except IndexError as e:
@@ -3498,12 +3501,12 @@ class Layer(s_nexus.Pusher):
 
         for cmpr, valu, kind in cmprvals:
 
-            if kind & STOR_FLAG_POLYPROP:
-                kind = kind & STOR_MASK_POLYPROP
+            if kind & STOR_FLAG_POLY:
+                kind = kind & STOR_MASK_POLY
                 if array:
-                    indxby = IndxByPolyPropArrayKeys(self, form, prop, kind)
+                    indxby = IndxByPolyArrayKeys(self, form, prop, kind)
                 else:
-                    indxby = IndxByPolyPropKeys(self, form, prop, kind)
+                    indxby = IndxByPolyKeys(self, form, prop, kind)
                 realtype = self.polytype
                 styp = self.stortypes[kind]
                 abrvlen = indxby.abrvlen - 10
@@ -3727,7 +3730,7 @@ class Layer(s_nexus.Pusher):
     async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virts=None):
         for cmpr, valu, kind in cmprvals:
 
-            if kind & STOR_FLAG_POLYPROP:
+            if kind & STOR_FLAG_POLY:
                 async for indx, nid in self.polytype.indxByProp(form, prop, cmpr, valu, reverse=reverse, virts=virts, stortype=kind):
                     yield indx, nid, self.genStorNodeRef(nid)
 
@@ -3742,7 +3745,7 @@ class Layer(s_nexus.Pusher):
     async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virts=None):
         for cmpr, valu, kind in cmprvals:
 
-            if kind & STOR_FLAG_POLYPROP:
+            if kind & STOR_FLAG_POLY:
                 async for indx, nid in self.polytype.indxByPropArray(form, prop, cmpr, valu, reverse=reverse, virts=virts, stortype=kind):
                     yield indx, nid, self.genStorNodeRef(nid)
 
@@ -4661,7 +4664,7 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(maxabrv + oldi[8:], nid, db=self.indxdb)
 
             if oldvirts is not None:
-                if realtype & STOR_FLAG_POLYPROP:
+                if realtype & STOR_FLAG_POLY:
                     self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
                 else:
                     self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
@@ -4726,7 +4729,7 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
-            if realtype & STOR_FLAG_POLYPROP:
+            if realtype & STOR_FLAG_POLY:
                 virtkeys = self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
             else:
                 virtkeys = self.stortypes[realtype].getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
@@ -4792,7 +4795,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
 
         if virts is not None:
-            if realtype & STOR_FLAG_POLYPROP:
+            if realtype & STOR_FLAG_POLY:
                 self.polytype.delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
             else:
                 self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
@@ -5592,7 +5595,7 @@ class Layer(s_nexus.Pusher):
             retn = []
             realtype = stortype & STOR_MASK_ARRAY
 
-            if realtype == STOR_TYPE_POLYPROP:
+            if realtype == STOR_TYPE_POLY:
                 for atyp, aval in zip(virts['_stortypes'], valu):
                     retn.extend(self.getStorIndx(atyp, aval))
             else:
@@ -5600,9 +5603,9 @@ class Layer(s_nexus.Pusher):
 
             return retn
 
-        elif stortype & STOR_FLAG_POLYPROP:
+        elif stortype & STOR_FLAG_POLY:
 
-            realtype = stortype & STOR_MASK_POLYPROP
+            realtype = stortype & STOR_MASK_POLY
 
             sbyts = realtype.to_bytes(2, 'big')
             formabrv = self.core.setIndxAbrv(INDX_PROP, valu[0], None)

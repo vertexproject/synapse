@@ -670,7 +670,7 @@ class Model:
             ),
             'doc': 'A prop which is also a form.',
         }
-        item = s_types.PolyProp(self, 'polyprop', info, {})
+        item = s_types.Poly(self, 'poly', info, {})
         self.addBaseType(item)
 
         info = {
@@ -947,7 +947,7 @@ class Model:
             typeinfo = dict(typeinfo)
             typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
             typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-            typename = 'polyprop'
+            typename = 'poly'
 
         base = self.types.get(typename)
         if base is None:
@@ -1313,7 +1313,7 @@ class Model:
                     typeinfo = dict(typeinfo)
                     typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
                     typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-                    typename = 'polyprop'
+                    typename = 'poly'
 
                 ptypes[propdef[0]] = (typename, typeinfo)
 
@@ -1421,7 +1421,7 @@ class Model:
                                f' but {curf.full} has no property named {partname}.')
                         raise s_exc.BadFormDef(mesg=mesg)
 
-                    if isinstance(prop.type, (s_types.Ndef, s_types.PolyProp)):
+                    if prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
                         break
 
                     curf = self.form(prop.type.name)
@@ -1536,7 +1536,7 @@ class Model:
             typeinfo = dict(typeinfo)
             typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
             typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-            typename = 'polyprop'
+            typename = 'poly'
             tdef = (typename, typeinfo)
 
         _type = self.types.get(typename)

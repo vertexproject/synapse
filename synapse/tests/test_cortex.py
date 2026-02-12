@@ -3254,7 +3254,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pnfo = fnfo['props'].get('asn')
 
             self.nn(pnfo)
-            self.eq(pnfo['type'][0], 'polyprop')
+            self.eq(pnfo['type'][0], 'poly')
 
             modelt = model['types']
 
@@ -7221,7 +7221,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             layriden = core.view.layers[0].iden
             rows = await alist(prox.iterPropRows(layriden, 'inet:ip', 'asn'))
 
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
@@ -8606,12 +8606,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem((test:str, baz)) return(($r, $l))'
             valu = await core.callStorm(q)
             self.true(valu[0])
-            self.sorteq(valu[1], ['foo', 'bar'])
+            self.sorteq(valu[1], [('test:str', 'foo'), ('test:str', 'bar')])
 
             # modifying the property value shouldn't update the node
             nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
             self.len(1, nodes)
-            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+            self.propeq(nodes[0], 'strs', ['foo', 'bar', 'baz'])
 
             data = {
                 'str': 'strval',

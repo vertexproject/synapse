@@ -2583,14 +2583,24 @@ class PivotOut(PivotOper):
 
         for name in refs['nodeprop']:
             if (valu := node.get(name)) is not None:
-                async for pivo in runt.view.nodesByPropValu(valu[0], '=', valu[1]):
+                pname = valu[0]
+                if runt.model.prop(pname).type.ispoly:
+                    valu = s_stormtypes.Ndef((valu[1], None))
+                else:
+                    valu = valu[1]
+
+                async for pivo in runt.view.nodesByPropValu(pname, '=', valu):
                     yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
 
         for name in refs['nodeproparray']:
             if (valu := node.get(name)) is not None:
                 link = {'type': 'prop', 'prop': name}
-                for aval in valu:
-                    async for pivo in runt.view.nodesByPropValu(aval[0], '=', aval[1]):
+
+                for pname, aval in valu:
+                    if runt.model.prop(pname).type.ispoly:
+                        aval = s_stormtypes.Ndef((aval, None))
+
+                    async for pivo in runt.view.nodesByPropValu(pname, '=', aval):
                         yield pivo, path.fork(pivo, link)
 
 class N1WalkNPivo(PivotOut):
@@ -2776,7 +2786,7 @@ class FormPivot(PivotOper):
                 if prop.type.isarray:
                     if prop.type.arraytype.ispoly:
                         if not prop.type.arraytype.formfilter(node.form):
-                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], virts=virts)
+                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], virts=virts)
                         else:
                             ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
 
@@ -2788,15 +2798,17 @@ class FormPivot(PivotOper):
                         else:
                             ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=False, virts=virts)
 
-                elif prop.type.ispoly and not virts:
-                    if not prop.type.formfilter(node.form):
-                        ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
-                    else:
-                        ngenr = runt.view.nodesByPropValu(prop.full, '=', node)
+                # TODO: clean this up
+                # elif prop.type.ispoly and not virts:
+                #    if not prop.type.formfilter(node.form):
+                #        ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
+                #    else:
+                #        ngenr = runt.view.nodesByPropValu(prop.full, '=', node)
 
                 else:
                     cmpr = '='
                     norm = False
+                    ispiv = False
                     valu = node.ndef[1]
 
                     if not prop.type.ispoly:
@@ -2804,21 +2816,36 @@ class FormPivot(PivotOper):
                     else:
                         ptyps = prop.type.getTypeSet()
 
-                    # TODO polyprop probably needs to handle this differently somehow
-                    for ptyp in ptyps:
-                        if virts is not None:
-                            ptyp = ptyp.getVirtType(virts)
+                    if virts is not None:
+                        vtyps = []
+                        for ptyp in ptyps:
+                            if (vinfo := ptyp.virts.get(virts[0])) is not None:
+                                vtyps.append(vinfo[0])
+                        ptyps = vtyps
+                    else:
+                        norm = prop.type.ispoly
 
+                    for ptyp in ptyps:
                         if (pivs := node.form.type.pivs):
                             for tname in ptyp.types:
                                 if (tpiv := pivs.get(tname)) is not None:
                                     cmpr, func = tpiv
                                     if func is not None:
                                         valu = await func(valu)
+                                    ispiv = True
                                     break
 
-                        elif (norm := ptyp.typehash is not node.form.typehash):
-                            cmpr = '?='
+                        if ispiv:
+                            break
+
+                        # TODO: this can't be in the loop
+                        # elif (norm := ptyp.typehash is not node.form.typehash):
+                        #    cmpr = '?='
+                    if not norm and ptyp.typehash is not node.form.typehash:
+                        norm = True
+
+                    if norm and not ispiv:
+                        cmpr = '?='
 
                     ngenr = runt.view.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts)
 
@@ -2895,7 +2922,9 @@ class FormPivot(PivotOper):
                 for key in ('ndef', 'nodeprop'):
                     for refsname in refs.get(key):
 
-                        found = True
+                        if not found:
+                            if not (ptyp := node.form.prop(refsname).type).ispoly or ptyp.formfilter(destform):
+                                found = True
 
                         refsvalu = node.get(refsname)
                         if refsvalu is not None and refsvalu[0] == destform.name:
@@ -2906,7 +2935,9 @@ class FormPivot(PivotOper):
                 for key in ('ndefarray', 'nodeproparray'):
                     for refsname in refs.get(key):
 
-                        found = True
+                        if not found:
+                            if not (ptyp := node.form.prop(refsname).type.arraytype).ispoly or ptyp.formfilter(destform):
+                                found = True
 
                         if (refsvalu := node.get(refsname)) is not None:
                             link = {'type': 'prop', 'prop': refsname}
@@ -2949,7 +2980,6 @@ class FormPivot(PivotOper):
                 for key in ('ndef', 'nodeprop'):
                     for refsname in refs.get(key):
 
-                        found = True
                         refsprop = destform.props.get(refsname)
                         link = {'type': 'prop', 'prop': refsname, 'reverse': True}
 
@@ -2957,16 +2987,17 @@ class FormPivot(PivotOper):
                             if not refsprop.type.formfilter(node.form):
                                 continue
 
+                            found = True
                             async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node):
                                 yield pivo, link
                         else:
+                            found = True
                             async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef, norm=False):
                                 yield pivo, link
 
                 for key in ('ndefarray', 'nodeproparray'):
                     for refsname in refs.get(key):
 
-                        found = True
                         refsprop = destform.props.get(refsname)
                         link = {'type': 'prop', 'prop': refsname, 'reverse': True}
 
@@ -2974,9 +3005,11 @@ class FormPivot(PivotOper):
                             if not refsprop.type.arraytype.formfilter(node.form):
                                 continue
 
+                            found = True
                             async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node):
                                 yield pivo, link
                         else:
+                            found = True
                             async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef, norm=False):
                                 yield pivo, link
 
@@ -3056,8 +3089,11 @@ class PropPivotOut(PivotOper):
                     continue
 
                 if isinstance(srctype.arraytype, s_types.NodeProp):
-                    for item in valu:
-                        async for pivo in runt.view.nodesByPropValu(item[0], '=', item[1]):
+                    for pname, aval in valu:
+                        if runt.model.prop(pname).type.ispoly:
+                            aval = s_stormtypes.Ndef((aval, None))
+
+                        async for pivo in runt.view.nodesByPropValu(pname, '=', aval):
                             yield pivo, path.fork(pivo, link)
                     continue
 
@@ -3087,7 +3123,13 @@ class PropPivotOut(PivotOper):
                 continue
 
             if isinstance(srctype, s_types.NodeProp):
-                async for pivo in runt.view.nodesByPropValu(valu[0], '=', valu[1]):
+                pname = valu[0]
+                if runt.model.prop(pname).type.ispoly:
+                    valu = s_stormtypes.Ndef((valu[1], None))
+                else:
+                    valu = valu[1]
+
+                async for pivo in runt.view.nodesByPropValu(pname, '=', valu):
                     yield pivo, path.fork(pivo, link)
                 continue
 
@@ -3125,6 +3167,7 @@ class PropPivot(PivotOper):
                 ptyp = ptyp.getVirtType(virts)
 
             if srctype.pivs:
+                norm = False
                 if not ptyp.ispoly:
                     ptyps = (ptyp,)
                 else:
@@ -3136,6 +3179,8 @@ class PropPivot(PivotOper):
                             if (vinfo := ptyp.virts.get(virts[0])) is not None:
                                 vtyps.append(vinfo[0])
                         ptyps = vtyps
+                    else:
+                        norm = True
 
                 for ptyp in ptyps:
                     for tname in ptyp.types:
@@ -3145,7 +3190,7 @@ class PropPivot(PivotOper):
                             if func is not None:
                                 pivvalu = await func(pivvalu)
 
-                            async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
+                            async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=norm, virts=virts):
                                 yield pivo, link
                             return
 
@@ -4938,7 +4983,8 @@ class PropName(Value):
             if (valu := node.get(name)) is None:
                 return None, None, None
 
-            if (typename := prop.type.name) in ('ndef', 'polyprop'):
+            print(prop.type.name, valu)
+            if (typename := prop.type.name) in ('ndef', 'poly'):
                 ndef = valu
             elif (form := runt.model.forms.get(typename)) is not None:
                 ndef = (form.name, valu)

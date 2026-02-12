@@ -680,6 +680,7 @@ datamodel_basetypes = [
     'array',
     'data',
     'nodeprop',
+    'poly',
     'hugenum',
     'taxon',
     'taxonomy',

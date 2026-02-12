@@ -60,6 +60,12 @@ class NodeBase:
                 return defv
             return typeitem.repr(valu)
 
+        if typeitem.ispoly:
+            if typeitem.virts.get(virts[0]) is None:
+                if (valu := self.get(name)) is None:
+                    return defv
+                typeitem = self.view.core.model.form(valu[0]).type
+
         virtgetr = typeitem.getVirtGetr(virts)
         virttype = typeitem.getVirtType(virts)
 
@@ -987,7 +993,7 @@ class Node(NodeBase):
                         for vname, getr in svirts.items():
                             retn[f'{name}.{vname}'] = [getr(v) for v in valu]
 
-                elif stortype & s_layer.STOR_FLAG_POLYPROP:
+                elif stortype & s_layer.STOR_FLAG_POLY:
                     retn[f'{name}.form'] = valu[0]
 
                 else:

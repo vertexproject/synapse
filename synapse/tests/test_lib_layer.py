@@ -113,7 +113,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn=20 +#foo.bar ]')
             nid = nodes[0].nid
 
-            core.getLayer()._testAddPropIndx(nid, 'inet:ip', 'asn', 30)
+            core.getLayer()._testAddPropIndx(nid, 'inet:ip', 'asn', ('inet:asn', 30))
             errors = [e async for e in core.getLayer().verify()]
             self.len(1, errors)
             self.eq(errors[0][0], 'SpurPropKeyForIndex')
@@ -127,7 +127,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
             core.getLayer()._testAddTagIndx(nid, 'inet:ip', 'foo')
-            core.getLayer()._testAddPropIndx(nid, 'inet:ip', 'asn', 30)
+            core.getLayer()._testAddPropIndx(nid, 'inet:ip', 'asn', ('inet:asn', 30))
             errors = [e async for e in core.getLayer().verify()]
             self.eq(errors[0][0], 'NoNodeForTagIndex')
             self.eq(errors[1][0], 'NoNodeForTagIndex')
@@ -1715,14 +1715,14 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.view.layers[0]
             rows = await alist(layr.iterPropRows('inet:ip', 'asn'))
 
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
             styp = core.model.form('inet:ip').prop('asn').type.stortype
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
@@ -2979,7 +2979,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid:_custom:risk:severity')
             self.len(1, nodes)
             self.eq(nodes[0].iden(), testnode00[1]['iden'])
-            self.propeq(nodes[0], 'name', testnode00[1]['props']['name'])
+            self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][1])
             self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'])
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']

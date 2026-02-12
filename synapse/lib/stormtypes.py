@@ -2757,7 +2757,12 @@ class LibLift(Lib):
             counts.sort(key=lambda x: x[0])
 
             count, prop, norm = counts[0]
-            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+
+            virts = None
+            if prop.type.ispoly:
+                virts = ['ndef']
+
+            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False, virts=virts):
                 await asyncio.sleep(0)
 
                 for count, prop, norm in counts[1:]:

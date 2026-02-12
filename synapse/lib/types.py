@@ -587,7 +587,7 @@ class Array(Type):
         if isinstance(typename, tuple):
             typeopts['forms'] = tuple(tname for tname in typename if tname in self.modl.formnames)
             typeopts['interfaces'] = tuple(tname for tname in typename if tname in self.modl.ifaces)
-            typename = 'polyprop'
+            typename = 'poly'
 
         basetype = self.modl.type(typename)
         if basetype is None:
@@ -2181,9 +2181,9 @@ class Ndef(Type):
         repv = form.type.repr(formvalu)
         return (formname, repv)
 
-class PolyProp(Type):
+class Poly(Type):
 
-    stortype = s_layer.STOR_TYPE_POLYPROP
+    stortype = s_layer.STOR_TYPE_POLY
 
     ispoly = True
 
@@ -2346,11 +2346,11 @@ class PolyProp(Type):
         self.reqFormAllowed(form)
 
         norm = (await form.type.norm(valu))[0]
-        return (('ndef=', (formname, valu), form.type.stortype | s_layer.STOR_FLAG_POLYPROP),)
+        return (('ndef=', (formname, valu), form.type.stortype | s_layer.STOR_FLAG_POLY),)
 
     def getStorType(self, valu):
         form = self.modl.reqForm(valu[0])
-        return s_layer.STOR_FLAG_POLYPROP | form.type.stortype
+        return s_layer.STOR_FLAG_POLY | form.type.stortype
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
@@ -2365,19 +2365,19 @@ class PolyProp(Type):
         if cmpr == '=':
             if isinstance(valu, s_node.Node):
                 if self.formfilter(valu.form):
-                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLYPROP),)
+                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
                 valu = valu.ndef[1]
 
             elif isinstance(valu, s_stormtypes.Ndef):
                 form = self.modl.form(valu.valu[0])
                 if self.formfilter(form):
-                    return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLYPROP),)
+                    return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
                 valu = valu.valu[1]
 
             # TODO better runtnode handling?
             elif isinstance(valu, s_node.RuntNode):
                 if self.formfilter(valu.form):
-                    return (('=', valu.ndef[1], valu.form.type.stortype | s_layer.STOR_FLAG_POLYPROP),)
+                    return (('=', valu.ndef[1], valu.form.type.stortype | s_layer.STOR_FLAG_POLY),)
                 valu = valu.ndef[1]
 
         cmprs = {}
@@ -2409,7 +2409,7 @@ class PolyProp(Type):
                 mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
                 raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
-        return tuple((cmpr, cval, stortype | s_layer.STOR_FLAG_POLYPROP) for (cmpr, cval, stortype) in cmprs)
+        return tuple((cmpr, cval, stortype | s_layer.STOR_FLAG_POLY) for (cmpr, cval, stortype) in cmprs)
 
     async def norm(self, valu, view=None):
         vtyp = type(valu)
@@ -2428,7 +2428,23 @@ class PolyProp(Type):
 
                 try:
                     norm, forminfo = await form.type.norm(valu, view=view)
-                    info = {'adds': ((formname, norm, forminfo),)}
+
+                    if view is None:
+                        view = False
+                        if (runt := s_scope.get('runt')) is not None:
+                            view = runt.view
+
+                    exists = False
+                    if view:
+                        for cform in self.modl.getChildForms(formname):
+                            if await view.getNodeByNdef((cform, norm)) is not None:
+                                formname = cform
+                                exists = True
+                                break
+                    info = {}
+
+                    if not exists:
+                        info['adds'] = ((formname, norm, forminfo),)
 
                     if (subs := forminfo.get('subs')) is not None:
                         info['subs'] = subs
