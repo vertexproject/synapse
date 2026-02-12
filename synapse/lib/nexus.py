@@ -625,7 +625,7 @@ class NexsRoot(s_base.Base):
             self.miruplink.clear()
             self.issuewait = False
 
-            if not self.isfini:
+            if self.client is not None and not self.client.isfini:
                 self.client.schedCoro(self.connectTimeout())
 
         proxy.onfini(onfini)
