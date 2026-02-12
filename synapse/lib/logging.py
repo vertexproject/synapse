@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _log_wins = weakref.WeakSet()
 
 LOG_PUMP_TASK_TIMEOUT = int(os.environ.get('SYNDEV_LOG_TASK_SHUTDOWN_TIMEOUT', 1))
+LOG_QUEUE_SIZES = int(os.environ.get('SYNDEV_LOG_QUEUE_SIZE', 1000))
 
 # TODO - Handle exception groups
 def excinfo(e, _seen=None):
@@ -66,6 +67,12 @@ def setLogInfo(name, valu):
     '''
     _glob_loginfo[name] = valu
 
+def popLogInfo(name):
+    '''
+    Remove a global value from being added to every log.
+    '''
+    _glob_loginfo.pop(name, None)
+
 def getLogExtra(**kwargs):
     '''
     Construct a properly enveloped log extra dictionary.
@@ -84,6 +91,8 @@ class JsonFormatter(logging.Formatter):
             'logger': {
                 'name': record.name,
                 'func': record.funcName,
+                'process': record.processName,
+                'thread': record.threadName,
             },
             'level': record.levelname,
             'time': self.formatTime(record, self.datefmt),
@@ -139,9 +148,9 @@ class StreamHandler(logging.StreamHandler):
     _pump_exit_flag = False
     _glob_handler = None
 
-    _logs_fifo = collections.deque(maxlen=1000)
-    _logs_todo = collections.deque(maxlen=1000)
-    _text_todo = collections.deque(maxlen=1000)
+    _logs_fifo = collections.deque(maxlen=LOG_QUEUE_SIZES)
+    _logs_todo = collections.deque(maxlen=LOG_QUEUE_SIZES)
+    _text_todo = collections.deque(maxlen=LOG_QUEUE_SIZES)
 
     def emit(self, record):
 
@@ -188,13 +197,18 @@ async def _pumpLogStream():
 
             for wind in _log_wins:
                 await wind.puts(logstodo)
+            # Don't hold onto refs of the Window objects inside of this function after we have used them.
+            # If we don't clear this ref, then we will hold a reference to the window object longer than neeeded.
+            # This can lead to the last window object never being GC'd while the pumpLogStream task is running,
+            # even after its caller has exited the watch() function.
+            wind = None  # NOQA
 
             await s_coro.executor(_writestderr, fulltext)
 
             if StreamHandler._pump_exit_flag is True:
                 return
 
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
 
 def logs(last=100):
