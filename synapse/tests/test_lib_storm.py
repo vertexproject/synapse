@@ -1239,6 +1239,7 @@ class StormTest(s_t_utils.SynTest):
                 (test:str=baz :seen=(2020, ?) :ndefs={[test:str=1 test:str=2]})
                 (test:str=faz :seen=(2020, *))
                 (test:str=multi :poly={[test:int=5]})
+                (test:str=multi2 :polyarry={[inet:server=1.2.3.4:80 inet:server=1.2.3.5:80 inet:server=1.2.3.4:90]})
             ]'''
             msgs = await core.stormlist(q, opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -1263,6 +1264,12 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
             self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
+
+            self.eq(nodes[4][1]['props']['poly.form'], 'test:int')
+
+            self.eq(nodes[5][1]['props']['polyarry.ip'], {(4, 16909060): 2, (4, 16909061): 1})
+            self.eq(nodes[5][1]['props']['polyarry.port'], {80: 2, 90: 1})
+            self.eq(nodes[5][1]['props']['polyarry.size'], 3)
 
             opts['view'] = fork
             msgs = await core.stormlist('test:str=baz [ -:seen ]', opts=opts)
