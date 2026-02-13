@@ -198,14 +198,14 @@ async def _pumpLogStream():
             for wind in _log_wins:
                 await wind.puts(logstodo)
             # Don't hold onto refs of the Window objects inside of this function after we have used them.
-            # If we don't clear this ref, then we will hold a reference to the window object longer than neeeded.
+            # If we don't clear this ref, then we will hold a reference to the window object longer than needed.
             # This can lead to the last window object never being GC'd while the pumpLogStream task is running,
             # even after its caller has exited the watch() function.
             wind = None  # NOQA
 
             await s_coro.executor(_writestderr, fulltext)
 
-            if StreamHandler._pump_exit_flag is True:
+            if StreamHandler._pump_exit_flag is True and len(StreamHandler._logs_todo) == 0 and len(StreamHandler._text_todo) == 0:
                 return
 
         except Exception:
@@ -295,15 +295,7 @@ def reset(clear_globconf=True):
         _glob_logconf.clear()
         _glob_loginfo.clear()
 
-async def shutdown():
-    '''
-    Inverse of setup. Gives the pump task the opportunity to exit
-    before removing it and resetting log attributes. A StreamHandler
-    is then re-installed on the root logger to allow for messages
-    from sources like atexit handlers to be logged.
-
-    This should be called at service or tool teardown.
-    '''
+async def _shutdown_task():
     # Give the pump task a small opportunity to drain its
     # queue of items and exit cleanly.
     if StreamHandler._pump_task is not None:
@@ -313,6 +305,18 @@ async def shutdown():
             await asyncio.wait_for(StreamHandler._pump_task, timeout=LOG_PUMP_TASK_TIMEOUT)
         except asyncio.TimeoutError:
             pass
+
+
+async def shutdown():  # pragma: no cover
+    '''
+    Inverse of setup. Gives the pump task the opportunity to exit
+    before removing it and resetting log attributes. A StreamHandler
+    is then re-installed on the root logger to allow for messages
+    from sources like atexit handlers to be logged.
+
+    This should be called at service or tool teardown.
+    '''
+    await _shutdown_task()
 
     # Reset all logging configs except globals since we may need those.
     reset(clear_globconf=False)

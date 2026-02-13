@@ -2,9 +2,12 @@ import gc
 import asyncio
 import logging
 
+import unittest.mock as mock
+
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.logging as s_logging
 
 import synapse.tests.utils as s_test
@@ -142,6 +145,64 @@ class LoggingTest(s_test.SynTest):
         self.len(0, msgs)
         self.isinstance(msgs, tuple)
         self.none(s_logging.StreamHandler._pump_task)
+
+    async def test_lib_logging_shutdown(self):
+        # Test the _shutdown_task functionality used in s_logging.shutdown() to ensure it drains the logs
+        # and exits cleanly
+
+        # Installs the logginghandlers
+        s_logging.setup(structlog=True)
+        self.nn(s_logging.StreamHandler._pump_task)
+
+        # Let the task startup
+        await asyncio.sleep(0)
+
+        msgs = []
+        nlines = 3
+        evnt = asyncio.Event()
+
+        def writemock(text):
+            lines = text.split('\n')
+            for line in lines:
+                if line:
+                    msgs.append(s_json.loads(line))
+            if len(msgs) == nlines:
+                evnt.set()
+
+        # shutdown with a pending log event
+        with mock.patch('synapse.lib.logging._writestderr', writemock) as patch:
+            logger.error('message0')
+            logger.error('message1')
+            await asyncio.sleep(0)
+            logger.error('message2')
+            # Shutdown before nlines have been accounted for
+            await s_logging._shutdown_task()
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=12))
+
+        self.true(s_logging.StreamHandler._pump_task.done())
+        self.eq([m.get('message') for m in msgs], ['message0', 'message1', 'message2'])
+
+        s_logging.reset()
+
+        evnt.clear()
+        msgs.clear()
+
+        s_logging.setup(structlog=True)
+        await asyncio.sleep(0)
+        self.false(s_logging.StreamHandler._pump_task.done())
+
+        # shutdown without a pending log event
+        with mock.patch('synapse.lib.logging._writestderr', writemock) as patch:
+            logger.error('message0')
+            logger.error('message1')
+            logger.error('message2')
+            await asyncio.sleep(0)
+            # Shutdown after nlines have been accounted for
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=12))
+            await s_logging._shutdown_task()
+
+        self.true(s_logging.StreamHandler._pump_task.done())
+        self.eq([m.get('message') for m in msgs], ['message0', 'message1', 'message2'])
 
     async def test_lib_logging_exception(self):
 
