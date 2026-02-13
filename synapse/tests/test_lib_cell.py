@@ -2627,7 +2627,7 @@ class CellTest(s_t_utils.SynTest):
                 log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     await core.nexsroot.addWriteHold(tmp_reason := 'something else')
-                    with self.raises(s_exc.SynErr):
+                    with self.raises(AssertionError):
                         await stream.expect(log_enable_writes, timeout=1)
                 stream.seek(0)
                 self.eq(stream.read(), '')
@@ -3699,14 +3699,14 @@ class CellTest(s_t_utils.SynTest):
                 # confirm last-one-wins "service" key is always initialized
                 logger.warning('oh hai there!')
                 mesg = stream.jsonlines()[0]
-                self.eq(mesg['service'], '00.cell.synapse')
+                self.eq(mesg['ahaservice'], '00.cell.synapse')
 
             async with cell00.getLocalProxy() as proxy:
 
                 logs = await proxy.logs()
 
                 self.isin('oh hai there!', [m['message'] for m in logs])
-                self.isin('00.cell.synapse', [m.get('service') for m in logs])
+                self.isin('00.cell.synapse', [m.get('ahaservice') for m in logs])
 
                 event = asyncio.Event()
                 async def sendlogs():

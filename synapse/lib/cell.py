@@ -107,7 +107,7 @@ def adminapi(log=False):
                                      user=self.user.iden, username=self.user.name)
             if log:
                 extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
-                logger.info(f'Admin API invoked', extra=extra)
+                logger.info(f'Admin API invoked api={func.__qualname__}', extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -228,6 +228,7 @@ class CellApi(s_base.Base):
     async def watch(self, last=100):
         async for item in self.cell.watch(last=last):
             yield item
+            await asyncio.sleep(0)
 
     async def allowed(self, perm, default=None):
         '''
@@ -1243,7 +1244,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahanetw = self.conf.get('aha:network')
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
-            s_logging.setLogInfo('service', self.ahasvcname)
+            s_logging.setLogInfo('ahaservice', self.ahasvcname)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -3891,13 +3892,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         extra = s_logging.getLogExtra(**kwargs)
         if self.ahasvcname:
-            extra['loginfo']['service'] = self.ahasvcname
+            extra['loginfo']['ahaservice'] = self.ahasvcname
         return extra
 
     def getLogConf(self):
         logconf = s_logging.getLogConf()
         if self.ahasvcname is not None:
-            logconf['loginfo']['service'] = self.ahasvcname
+            logconf['loginfo']['ahaservice'] = self.ahasvcname
         return logconf
 
     def modCellConf(self, conf):

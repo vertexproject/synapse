@@ -346,46 +346,73 @@ These structured logs are designed to be easy to ingest into third party log col
 message, level, time, and metadata about where the log message came from::
 
     {
-      "message": "log level set to INFO",
+      "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
       "logger": {
-        "name": "synapse.lib.cell",
+        "name": "synapse.storm",
+        "func": "_logStormQuery",
         "process": "MainProcess",
-        "filename": "common.py",
-        "func": "setlogging"
+        "thread": "MainThread"
       },
       "level": "INFO",
-      "time": "2021-06-28 15:47:54,825"
+      "time": "2026-02-13 10:38:24,545",
+      "user": "a8b94560fd9b6e1e38245a6f7d659106",
+      "username": "root",
+      "params": {  # Param
+        "mode": "storm",
+        "view": "715a5c9ae37e4045795ea3f3cabb44fb",
+        "text": "[inet:asn=1234]",
+        "username": "someUsername",
+        "user": "e3532bc88fa66afb592e6a1474a98675",
+        "hash": "ef94e89eb3bc309a40242876f6c5f296"
+      }
     }
 
+The ``user`` and ``username`` fields at the top level of a log correspond to the currently active / authorized API user
+which has caused a log event to occur. These may differ from the user associated with the event,
+
 When exceptions are logged with structured logging, we capture additional information about the exception, including the
-entire traceback. In the event that the error is a Synapse Err class, we also capture additional metadata which was
-attached to the error. In the following example, we also have the query text, username and user iden available in the
-log message pretty-printed log message::
+traceback as structured data. In the event that the error is a Synapse Err class, we also capture additional metadata
+which was attached to the error. In the following example, we also have the query text, username and user iden available
+in the pretty-printed log message. The ``key=valu`` data that was raised by the user is also included in the
+``error.info.`` dictionary. Cause and Context information may be present, corresponding to the Python ``__cause__`` and
+``__context__`` attributes on Exception classes.::
 
     {
-      "message": "Error during storm execution for { || }",
+      "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
+        "func": "runStorm",
         "process": "MainProcess",
-        "filename": "view.py",
-        "func": "runStorm"
+        "thread": "MainThread"
       },
       "level": "ERROR",
-      "time": "2021-06-28 15:49:34,401",
-      "err": {
-        "efile": "coro.py",
-        "eline": 233,
-        "esrc": "return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)",
-        "ename": "forked",
-        "at": 1,
-        "text": "||",
-        "mesg": "No terminal defined for '|' at line 1 col 2.  Expecting one of: #, $, (, *, + or -, -(, -+>, -->, ->, :, <(, <+-, <-, <--, [, break, command name, continue, fini, for, function, if, init, property name, return, switch, while, whitespace or comment, yield, {",
-        "etb": ".... long traceback ...",
-        "errname": "BadSyntax"
-      },
-      "text": "||",
+      "time": "2026-02-13 11:24:06,853",
+      "user": "e889d295b19fd5c12f861cd6fe564aa8",
       "username": "root",
-      "user": "3189065f95d3ab0a6904e604260c0be2"
+      "error": {
+        "code": "StormRaise",
+        "traceback": [
+          ... list of traceback frames ...
+          [
+            "/home/epiphyte/PycharmProjects/synapse/synapse/lib/stormtypes.py",
+            1751,
+            "_raise",
+            "raise s_exc.StormRaise(**info)"
+          ]
+        ],
+        "info": {
+          "key": "valu",
+          "errname": "Newp",
+          ... additional error information ...
+          }
+        },
+        "mesg": "ruh roh"
+      },
+      "params": {
+        "text": "$lib.raise(Newp, 'ruh roh', key=valu)",
+        "user": "e3532bc88fa66afb592e6a1474a98675",
+        "username": "someUsername"
+      }
     }
 
 Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFORMAT`` string. This is expected to be a
