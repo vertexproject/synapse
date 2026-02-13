@@ -293,11 +293,9 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'demanded'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'victim::name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'deadline'}},
                     ),
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
@@ -754,12 +752,6 @@ modeldefs = (
 
                 ('type', ('risk:leak:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the leak.'}),
-
-                # ('compromise', ('risk:compromise', {}), {
-                #     'doc': 'The compromise which allowed the leaker access to the information.'}),
-
-                # ('extortion', ('risk:extortion', {}), {
-                #     'doc': 'The extortion event which used the threat of the leak as leverage.'}),
 
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the leaked information was made publicly available.'}),

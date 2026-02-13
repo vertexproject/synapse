@@ -50,13 +50,13 @@ modeldefs = (
                 'template': {'title': 'candidacy'},
                 'prevnames': ('pol:candidate',),
                 'props': (
-                    ('actor', None, {
+                    ('actor', ('entity:actor', {}), {
                         'doc': 'The actor running for office.'}),
 
-                    ('actor:name', None, {
+                    ('actor:name', ('entity:name', {}), {
                         'doc': 'The name of the actor running for office.'}),
 
-                    ('period', None, {
+                    ('period', ('ival', {}), {
                         'doc': 'The period when the actor was a candidate.'}),
 
                     ('id', ('meta:id', {}), {
@@ -208,17 +208,6 @@ modeldefs = (
 
                 ('govbody', ('ou:org', {}), {
                     'doc': 'The governmental body which contains the office.'}),
-            )),
-            ('pol:term', {}, (
-
-                ('office', ('pol:office', {}), {
-                    'doc': 'The office held for the term.'}),
-
-                ('race', ('pol:race', {}), {
-                    'doc': 'The race that determined who held office during the term.'}),
-
-                ('party', ('ou:org', {}), {
-                    'doc': 'The political party of the person who held office during the term.'}),
             )),
             ('pol:pollingplace', {}, (
 

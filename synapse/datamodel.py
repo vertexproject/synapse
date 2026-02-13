@@ -1103,7 +1103,6 @@ class Model:
 
     def addEdge(self, edgetype, edgeinfo):
 
-        print(edgetype)
         n1form, verb, n2form = edgetype
 
         if not isinstance(verb, str):
@@ -1222,7 +1221,6 @@ class Model:
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
-        print(f'{formname} {forminfo}')
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)

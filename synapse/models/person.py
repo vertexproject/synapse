@@ -14,18 +14,6 @@ modeldefs = (
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
-            ('ps:education', ('entity:activity', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
-                        # TODO allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
-                    ),
-                },
-                'doc': 'A period of education for an individual.'}),
-
             ('ps:person', ('guid', {}), {
                 'template': {'title': 'person'},
                 'interfaces': (
@@ -94,7 +82,7 @@ modeldefs = (
         ),
         'edges': (
 
-            (('ps:education', 'included', 'edu:class'), {
+            (('entity:educated', 'included', 'edu:class'), {
                 'doc': 'The class was taken by the student as part of their education process.'}),
         ),
         'forms': (
@@ -184,41 +172,6 @@ modeldefs = (
                 ('virtual:provider', ('entity:actor', {}), {
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
             )),
-            # ('ps:education', {}, (
-
-            #     ('student', ('entity:individual', {}), {
-            #         'doc': 'The student who attended the educational institution.'}),
-
-            #     ('institution', ('ou:org', {}), {
-            #         'doc': 'The organization providing educational services.'}),
-
-            #     ('period', ('ival', {'precision': 'day'}), {
-            #         'prevnames': ('attended:first', 'attended:last'),
-            #         'doc': 'The period of time when the student attended the institution.'}),
-
-            #     ('achievement', ('ps:achievement', {}), {
-            #         'doc': 'The degree or certificate awarded to the individual.'}),
-
-            # )),
-            # ('ps:achievement', {}, (
-
-            #     ('awardee', ('entity:individual', {}), {
-            #         'doc': 'The recipient of the award.'}),
-
-            #     ('award', ('ou:award', {}), {
-            #         'doc': 'The award bestowed on the awardee.'}),
-
-            #     ('awarded', ('time', {}), {
-            #         'doc': 'The date the award was granted to the awardee.'}),
-
-            #     ('expires', ('time', {}), {
-            #         'doc': 'The date the award or certification expires.'}),
-
-            #     ('revoked', ('time', {}), {
-            #         'doc': 'The date the award was revoked by the org.'}),
-
-            # )),
-
             ('ps:person', {}, (
                 ('vitals', ('ps:vitals', {}), {
                     'doc': 'The most recent vitals for the person.'}),

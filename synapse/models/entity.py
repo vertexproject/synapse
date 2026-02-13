@@ -245,7 +245,7 @@ modeldefs = (
                     ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
-                    ('members', ('array', {'interface': 'entity:actor'}), {
+                    ('members', ('array', {'type': 'entity:actor'}), {
                         'doc': 'The actors who are working together.'}),
                 ),
                 'doc': 'An alliance of otherwise distinct actors working together.'}),
@@ -422,16 +422,10 @@ modeldefs = (
                 ),
                 'doc': 'A belief held by an actor.'}),
 
-            ('entity:awarded', ('entity:event', {}), {
-                'props': (
-                    ('award', ('meta:awardable', {})),
-                ),
-                'doc': 'An event where an actor was granted an award.'}),
-
             ('entity:competed', ('entity:activity', {}), {
                 'prevnames': ('ou:contest:result',),
                 'props': (
-                    ('activity', ('meta:competition', {}), {
+                    ('activity', ('meta:competitive', {}), {
                         'doc': 'The competition that the actor competed in.'}),
 
                     ('url', ('inet:url', {}), {
@@ -445,9 +439,31 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor competed in an organized competition.'}),
 
-            #('entity:attended', ('entity:activity', {}), {
-            #('entity:educated', ('entity:activity', {}), {
-            #('entity:registered', ('entity:event', {}), {
+            ('entity:educated', ('entity:activity', {}), {
+                'props': (
+                    # TODO: this will probably need to be expanded to include entity:contact with poly
+                    ('institution', ('ou:org', {}), {
+                        'doc': 'The institution providing educational services.'}),
+                ),
+                'doc': 'An actor participating in formal education such as school or training.'}),
+
+            ('entity:awarded', ('entity:event', {}), {
+                'props': (
+                    ('award', ('meta:awardable', {}), {
+                        'doc': 'The award or achievement which the actor was awarded.'}),
+                ),
+                'doc': 'An event where an actor was granted an award.'}),
+
+            ('entity:attended', ('entity:activity', {}), {
+                'props': (),
+                'doc': 'An actor attending an event.'}),
+
+            ('entity:registered', ('entity:event', {}), {
+                'props': (
+                    ('contact', ('entity:contact', {}), {
+                        'doc': 'The contact information provided by the actor.'}),
+                ),
+                'doc': 'An event where an actor registered to attend an event.'}),
         ),
 
         'edges': (
@@ -472,10 +488,10 @@ modeldefs = (
             (('entity:action', 'had', 'entity:goal'), {
                 'doc': 'The action was taken in pursuit of the goal.'}),
 
-            (('entity:contribution', 'had', 'econ:lineitem'), {
+            (('entity:contributed', 'had', 'econ:lineitem'), {
                 'doc': 'The contribution includes the line item.'}),
 
-            (('entity:contribution', 'had', 'econ:payment'), {
+            (('entity:contributed', 'had', 'econ:payment'), {
                 'doc': 'The contribution includes the payment.'}),
         ),
 
@@ -613,102 +629,6 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
             )),
-
-            # Something must occur in time to be causal...
-            # (meta:causal) - An interface implemented by nodes which are causal.
-            # <meta:causal> -(leadto)> <meta:causal>
-
-            # meta:event=<guid> (meta:causal)
-            #   :time=<time>
-            #   :name=<base:name>
-
-            # meta:activity=<guid> (meta:causal)
-            #   :period=<ival>
-            #   :name=<base:name>
-
-            # (e:action)
-            #   :actor=<e:actor> - The actor who carried out the {title}.
-            #   :actor:name=<e:name> - The name of the actor who carried out the {title}.
-
-            # e:event=<meta:event> (e:action)
-            # e:activity=<meta:activity> (e:action)
-
-            # e:campaign=<e:activity>
-            # e:conflict=<meta:activity>
-            #   :adversaries=[<e:actor>]
-
-            # e:tookpart=<e:activity>
-            # e:attended=<e:tookpart>
-            #   (:actor :actor:name :period)
-            #   (:activity)=<meta:attendable> - The activity which was attended by the actor.
-
-            # e:contributed=<e:activity> - The actor contributed material support to the activity.
-            #   (:actor :period :activity)
-            #   :value=<econ:price> - The total value of the contribution.
-
-            # e:registered=<e:event>
-            #   (:actor :actor:name :time)
-            #   (:activity)=<meta:attendable> - The activity which the actor registered for.
-
-            # e:education=<e:activity>
-            #   (:actor :period)
-            #   :educator=<entity:actor>
-            #   :awarded=<e:awarded>
-
-            # e:awarded=<e:event>
-            #   (:time :activity)
-            #   :award=<e:award>
-
-            # e:workhist=<e:activity>
-            # e:proficiency=<e:activity>
-            #   :skill=e:skill? edu:skill?
-
-            # e:discovery=<e:event>
-            #   (:actor :time)
-            #   :item=<meta:discoverable>
-
-            # lang:statement=<e:event> perhaps e:said?
-            #   (:actor :time)
-            #   :activity=<lang:transacript>
-
-            # (risk:victimized)
-            #   :victim=<e:actor>
-            #   :victim:name=<e:name>
-
-            # risk:attack=<e:event> (risk:victimized)
-            #   (:actor :victim :time :activity)
-
-            # risk:extortion=<e:activity> (risk:victimized, biz:negotiable)
-            # biz:asked=<e:event>
-            #   (:activity)=<biz:negotiable>
-            #   :price=<econ:price>
-            #   :expires=<time>
-            # biz:offered=<e:event>
-
-            # NEW POSSIBILITIES...
-
-            # e:research=<e:activity>
-            # (as a potential :activity for an e:discovered)
-
-            # (e:affected)
-            #   :party=<e:actor>
-            #   :party:name=<e:name>
-
-            # e:witnessed=<meta:event> (e:affected)
-            #   (:activity=<meta:causal>) - The activity witnessed by the party.
-            #   :party=<e:actor> - The party who witnessed the activity.
-
-            # e:alliance=<guid> (meta:reported)
-            #   :members=[<e:actor>]
-
-            # e:operated=<e:activity> ??e:drove? e:flew?
-            #   :item=<transport:
-
-            # e:motiv=<meta:activity>
-            #   (:actor :period)
-            #   :goal=<meta:goal>
-
-            # sci:weather:period=<meta:activity>
         ),
     }),
 )

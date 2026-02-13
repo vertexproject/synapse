@@ -83,19 +83,6 @@ modeldefs = (
                     'doc': 'The time period when the experiment was run.'}),
 
             )),
-
-            ('sci:observation', {}, (
-
-                ('experiment', ('sci:experiment', {}), {
-                    'doc': 'The experiment which produced the observation.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the observation.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the observation occurred.'}),
-            )),
-
             ('sci:evidence', {}, (
 
                 ('hypothesis', ('sci:experiment', {}), {

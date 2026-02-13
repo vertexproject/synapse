@@ -80,28 +80,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
-            ('meta:activity', ('guid', {}), {
-                'template': {'title': 'activity'},
-                'interfaces': (
-                    ('base:activity', {}),
-                ),
-                'props': (
-                    ('name', ('base:name', {}), {
-                        'doc': 'The name of the {title}.'}),
-
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
-                ),
-                'doc': 'Analytically relevant activity.'}),
-
-            ('meta:event:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('meta:event:taxonomy',),
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'props': (),
-                'doc': 'A hierarchical taxonomy of event types.'}),
-
             ('meta:event', ('guid', {}), {
                 'template': {'title': 'event'},
                 'interfaces': (
@@ -118,6 +96,27 @@ modeldefs = (
                         'doc': 'The type of event.'}),
                 ),
                 'doc': 'An analytically relevant event.'}),
+
+            ('meta:activity', ('guid', {}), {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+                ),
+                'doc': 'Analytically relevant activity.'}),
+
+            ('meta:event:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -193,6 +192,26 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
+
+            ('meta:award:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of award types.'}),
+
+            ('meta:award', ('guid', {}), {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'ex': 'nobel peace prize',
+                        'doc': 'The name of the award.'}),
+
+                    ('type', ('meta:award:type:taxonomy', {}), {
+                        'doc': 'The type of award.'}),
+
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity who issues the award.'}),
+                ),
+                'doc': 'An award which can be granted to an actor.'}),
         ),
         'interfaces': (
 
@@ -205,7 +224,6 @@ modeldefs = (
                 ),
             }),
 
-            # TODO: discuss interfaces which may only be implemented by a base form
             ('meta:promoted', {
                 'props': (
                     ('website', ('inet:url', {}), {
@@ -217,6 +235,9 @@ modeldefs = (
                 'doc': 'Properties common to promoted events or activities.'}),
 
             ('meta:attendable', {
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'An interface implemented by activities which may be attended.'}),
 
             ('meta:sponsorable', {
