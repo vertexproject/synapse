@@ -14,6 +14,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.logging as s_logging
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -424,7 +425,7 @@ class _Appt:
     async def edits(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
-                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                extra = self.stor.core.getLogExtra(name=name, valu=valu)
                 logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
 
@@ -916,7 +917,7 @@ class Agenda(s_base.Base):
         starttime = self._getNowTick()
 
         success = False
-        loglevel = s_common.normLogLevel(appt.loglevel)
+        loglevel = s_logging.normLogLevel(appt.loglevel)
 
         try:
             opts = {
@@ -939,7 +940,7 @@ class Agenda(s_base.Base):
 
                 elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                     text = mesg[1].get('mesg', '<missing message>')
-                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                    extra = self.core.getLogExtra(cron=appt.iden, **mesg[1])
                     logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
                 elif mesg[0] == 'err':

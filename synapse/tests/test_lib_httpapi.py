@@ -439,33 +439,33 @@ class HttpApiTest(s_tests.SynTest):
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'hehe', 'passwd': 'newp'}
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
-                        self.true(await  stream.wait(timeout=6))
+                        await stream.expect('No such user.', timeout=6)
 
             async with self.getHttpSess() as sess:
                 info = {'user': 'visi', 'passwd': 'secret'}
                 await core.setUserLocked(visiiden, True)
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
-                        self.true(await  stream.wait(timeout=6))
+                        await stream.expect('User is locked.', timeout=6)
                 await core.setUserLocked(visiiden, False)
 
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'visi', 'passwd': 'borked'}
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
-                        self.true(await stream.wait(timeout=6))
+                        await stream.expect('Incorrect password.', timeout=6)
 
             async with self.getHttpSess() as sess:
                 info = {'user': 'visi', 'passwd': 'secret'}
@@ -518,28 +518,28 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=heheauth) as resp:
                         self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(await stream.wait(timeout=12))
+                        await stream.expect('No such user.', timeout=12)
 
                 await core.setUserLocked(visiiden, True)
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
                         self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(await stream.wait(timeout=12))
+                        await stream.expect('User is locked.', timeout=12)
                 await core.setUserLocked(visiiden, False)
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
                         self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(await stream.wait(timeout=12))
+                        await stream.expect('Incorrect password.', timeout=12)
 
                 headers = {'Authorization': 'yermom'}
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
@@ -1916,11 +1916,6 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_request_logging(self):
 
-        def get_mesg(stream: s_tests.AsyncStreamEvent) -> dict:
-            msgs = stream.jsonlines()
-            self.len(1, msgs)
-            return msgs[0]
-
         async with self.getTestCore() as core:
 
             # structlog tests
@@ -1936,7 +1931,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 # Basic-auth
 
-                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+                with self.getLoggerStream(logname) as stream:
 
                     headers = {
                         'X-Forwarded-For': '1.2.3.4',
@@ -1948,57 +1943,57 @@ class HttpApiTest(s_tests.SynTest):
                         self.nn(item.get('result').get('iden'))
                         visiiden = item['result']['iden']
                         self.eq(resp.status, http.HTTPStatus.OK)
-                        self.true(await stream.wait(6))
+                        await stream.expect('api/v1/auth/adduser', timeout=6)
 
-                mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.isin('headers', mesg)
-                self.eq(mesg['headers'].get('user-agent'), 'test_request_logging')
-                self.isin('remoteip', mesg)
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['params'].get('username'), 'root')
+                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.isin('headers', mesg['params'])
+                self.eq(mesg['params']['headers'].get('user-agent'), 'test_request_logging')
+                self.isin('remoteip', mesg['params'])
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
                 self.notin('1.2.3.4', mesg.get('message'))
 
                 # No auth provided
-                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/active') as stream:
+                with self.getLoggerStream(logname) as stream:
                     async with sess.get(f'https://root:root@localhost:{port}/api/v1/active', skip_auto_headers=['User-Agent']) as resp:
                         self.eq(resp.status, http.HTTPStatus.OK)
-                        self.true(await stream.wait(6))
+                        await stream.expect('api/v1/active', timeout=6)
 
-                mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/active')
-                self.notin('headers', mesg)
-                self.notin('username', mesg)
-                self.notin('user', mesg)
-                self.isin('remoteip', mesg)
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['params'].get('uri'), '/api/v1/active')
+                self.notin('headers', mesg['params'])
+                self.notin('username', mesg['params'])
+                self.notin('user', mesg['params'])
+                self.isin('remoteip', mesg['params'])
                 self.isin('200 GET /api/v1/active', mesg.get('message'))
 
                 # Sessions populate the data too
                 async with self.getHttpSess() as sess:
 
                     # api/v1/login populates the data
-                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/login') as stream:
+                    with self.getLoggerStream(logname) as stream:
                         async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                             self.eq(resp.status, http.HTTPStatus.OK)
-                            self.true(await stream.wait(6))
+                            await stream.expect('api/v1/login', timeout=6)
 
-                    mesg = get_mesg(stream)
-                    self.eq(mesg.get('uri'), '/api/v1/login')
-                    self.eq(mesg.get('username'), 'visi')
-                    self.eq(mesg.get('user'), visiiden)
+                    mesg = stream.jsonlines()[0]
+                    self.eq(mesg['params'].get('uri'), '/api/v1/login')
+                    self.eq(mesg['params'].get('username'), 'visi')
+                    self.eq(mesg['params'].get('user'), visiiden)
 
                     # session cookie loging populates the data upon reuse
-                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/users') as stream:
+                    with self.getLoggerStream(logname) as stream:
                         async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                             self.eq(resp.status, http.HTTPStatus.OK)
-                            self.true(await stream.wait(6))
+                            await stream.expect('api/v1/auth/users', timeout=6)
 
-                    mesg = get_mesg(stream)
-                    self.eq(mesg.get('uri'), '/api/v1/auth/users')
-                    self.eq(mesg.get('username'), 'visi')
-                    self.eq(mesg.get('user'), visiiden)
+                    mesg = stream.jsonlines()[0]
+                    self.eq(mesg['params'].get('uri'), '/api/v1/auth/users')
+                    self.eq(mesg['params'].get('username'), 'visi')
+                    self.eq(mesg['params'].get('user'), visiiden)
 
         async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
 
@@ -2015,38 +2010,38 @@ class HttpApiTest(s_tests.SynTest):
 
                 # Basic-auth
 
-                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+                with self.getLoggerStream(logname) as stream:
 
                     async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
                                          json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
                         item = await resp.json()
                         self.nn(item.get('result').get('iden'))
                         self.eq(resp.status, http.HTTPStatus.OK)
-                        self.true(await stream.wait(6))
+                        await stream.expect('api/v1/auth/adduser', timeout=6)
 
-                mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.eq(mesg.get('remoteip'), '1.2.3.4')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['params'].get('username'), 'root')
+                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['params'].get('remoteip'), '1.2.3.4')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
 
                 info = {'name': 'charles', 'passwd': 'secret', 'admin': True}
-                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+                with self.getLoggerStream(logname) as stream:
 
                     async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
                                          json=info, headers={'X-Real-Ip': '8.8.8.8'}) as resp:
                         item = await resp.json()
                         self.nn(item.get('result').get('iden'))
                         self.eq(resp.status, http.HTTPStatus.OK)
-                        self.true(await stream.wait(6))
+                        await stream.expect('api/v1/auth/adduser', timeout=6)
 
-                mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.eq(mesg.get('remoteip'), '8.8.8.8')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['params'].get('username'), 'root')
+                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['params'].get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
 
@@ -2200,10 +2195,9 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
-                with self.getAsyncLoggerStream('synapse.lib.cell',
-                                               'Invalidated HTTP session for locked user visi') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     await core.setUserLocked(visi.iden, True)
-                    self.true(await stream.wait(timeout=2))
+                    await stream.expect('Invalidated HTTP session for locked user visi', timeout=2)
 
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)

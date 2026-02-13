@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
@@ -225,7 +226,7 @@ class HandlerBase:
         if username:
             errm = f'{errm} ({username})'
             enfo['username'] = username
-        logger.log(level, msg=errm, extra={'synapse': enfo})
+        logger.log(level, msg=errm, extra=s_logging.getLogExtra(**enfo))
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')

@@ -942,14 +942,13 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.open(urls) as targ:
 
-            with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
+            with self.getLoggerStream('synapse.telepath') as stream:
 
                 await targ.waitready()
 
                 # Verify the password doesn't leak into the log
-                self.true(await stream.wait(2))
-                stream.seek(0)
-                mesgs = stream.read()
+                await stream.expect('Connect call failed', timeout=2)
+                mesgs = stream.getvalue()
                 self.notin('password', mesgs)
 
             prox00 = await targ.proxy(timeout=12)
@@ -968,18 +967,17 @@ class TeleTest(s_t_utils.SynTest):
             _url = s_telepath.zipurl(urlinfo)
             logger.info(f'Connected to url={_url}')
 
-        with self.getAsyncLoggerStream('synapse.tests.test_telepath',
-                                       f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo') as stream:
+        with self.getLoggerStream('synapse.tests.test_telepath') as stream:
             async with await s_telepath.open(url1, onlink=onlink) as targ:
-                self.true(await stream.wait(timeout=12))
+                await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo', timeout=12)
 
         # Coverage
         async def badonlink(proxy, urlinfo):
             raise ValueError('oopsie')
 
-        with self.getAsyncLoggerStream('synapse.telepath', 'onlink: ') as stream:
+        with self.getLoggerStream('synapse.telepath') as stream:
             async with await s_telepath.open(url1, onlink=badonlink) as targ:
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('onlink: ', timeout=12)
 
         await dmon0.fini()
         await dmon1.fini()
@@ -1088,8 +1086,7 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(url) as proxy:
 
-                with self.getAsyncLoggerStream('synapse.daemon',
-                                               'task sleepg') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
 
                     # Fire up an async generator which will yield a message then
                     # wait for a while so that our break will tear it down
@@ -1100,7 +1097,7 @@ class TeleTest(s_t_utils.SynTest):
                     # Ensure that the sleepg function got canceled.
                     self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                     # Ensure we logged the cancellation.
-                    self.true(await stream.wait(6))
+                    await stream.expect('task sleepg', timeout=6)
 
     async def test_link_fini_breaking_tasks2(self):
         '''
@@ -1409,7 +1406,7 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}', user='root', passwd='secret') as prox:
 
-                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
                     task = asyncio.create_task(prox.callStorm('$lib.time.sleep(60)'))
 
                     await asyncio.sleep(2)
@@ -1420,15 +1417,16 @@ class TeleTest(s_t_utils.SynTest):
                     except asyncio.CancelledError:
                         pass
 
-                    self.false(await stream.wait(timeout=0.5))
+                    with self.raises(s_exc.SynErr):
+                        await stream.expect('error during task: callStorm', timeout=0.5)
 
-                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
                     try:
                         await prox.callStorm('[inet:newp=invalid]')
                     except Exception:
                         pass
 
-                    self.true(await stream.wait(timeout=6))
+                    await stream.expect('error during task: callStorm', timeout=6)
 
     async def test_telepath_hostname_synerr(self):
         self.thisHostMustNot(platform='darwin')

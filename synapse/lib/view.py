@@ -968,8 +968,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
-            logger.warning(f'callStorm cancelled',
-                           extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            extra = self.core.getLogExtra(text=text)
+            logger.warning(f'callStorm cancelled', extra=extra)
             raise
 
         except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
@@ -978,12 +978,13 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
             logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-            logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            extra = self.core.getLogExtra(text=text)
+            logger.exception(logmesg, extra=extra)
             raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
         except Exception:
-            logger.exception(f'Error during callStorm execution for {{ {text} }}',
-                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            extra = self.core.getLogExtra(text=text)
+            logger.exception(f'Error during callStorm execution for {{ {text} }}', extra=extra)
             raise
 
         # Any other exceptions will be raised to
@@ -1081,8 +1082,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 pass
 
             except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.',
-                               extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                extra = self.core.getLogExtra(text=text)
+                logger.warning('Storm runtime cancelled.', extra=extra)
                 cancelled = True
                 raise
 
@@ -1097,7 +1098,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 logmesg = f'Error during storm execution for {{ {text} }}'
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
-                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+
+                extra = self.core.getLogExtra(text=text)
+                logger.exception(logmesg, extra=extra)
+
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)

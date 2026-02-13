@@ -54,17 +54,17 @@ class TrigTest(s_t_utils.SynTest):
                 $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
                 tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
                 await core.view.addTrigger(tdef)
-                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     await core.nodes('[ test:str=foo ]')
-                    self.true(await stream.wait(12))
-                self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
+                    await stream.expect('f=test:str v=foo u=root', timeout=12)
+
                 self.len(1, await core.nodes('test:guid#nodeadd'))
                 unfo = await core.addUser('someuser')
                 await core.setUserAdmin(unfo.get('iden'), True)
-                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     await core.nodes('[ test:str=bar ]', opts={'user': unfo.get('iden')})
-                    self.true(await stream.wait(12))
-                self.eq(stream.getvalue().strip(), 'f=test:str v=bar u=someuser')
+                    await stream.expect('f=test:str v=bar u=someuser', timeout=12)
+
                 self.len(2, await core.nodes('test:guid#nodeadd'))
 
             async with self.getTestCore(dirn=dirn) as core:
@@ -164,10 +164,9 @@ class TrigTest(s_t_utils.SynTest):
             $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
-            with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=foo ]')
-                self.true(await stream.wait(6))
-            self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
+                await stream.expect('f=test:str v=foo u=root', timeout=6)
             self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
@@ -188,10 +187,10 @@ class TrigTest(s_t_utils.SynTest):
                     'tag': 'a.*.c'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#a.b ]')
-            with self.getAsyncLoggerStream('synapse.storm.log', 'a.b.c') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=foo +#a.b.c ]')
-                self.true(await stream.wait(6))
-            self.true(stream.getvalue().strip().startswith('a.b.c\n'))
+                await stream.expect('a.b.c', timeout=6)
+
             await core.nodes('[ test:str=foo +#a.b.ccc ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=a.b.c'))
@@ -232,11 +231,10 @@ class TrigTest(s_t_utils.SynTest):
                     'prop': 'test:type10:intprop'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:type10=1 ]')
-            with self.getAsyncLoggerStream('synapse.storm.log', 'pf=') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:type10=1 :intprop=25 ]')
-                self.true(await stream.wait(6))
-            buf = stream.getvalue().strip()
-            self.eq(buf, 'pf=test:type10:intprop pn=intprop')
+                await stream.expect('pf=', timeout=6)
+            self.isin('pf=test:type10:intprop pn=intprop', stream.getvalue())
             self.len(1, await core.nodes('test:guid#propset'))
 
             # Test re-setting doesn't fire
@@ -268,13 +266,12 @@ class TrigTest(s_t_utils.SynTest):
             q = '+test:str~=log $s=`test {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden}))'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
-            with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=logit ]')
-                self.true(await stream.wait(6))
+                await stream.expect(f'test trigger {tdef.get("iden")}', timeout=6)
+
             msgs = stream.jsonlines()
-            mesg = [m for m in msgs if m.get('iden') == tdef.get('iden')][0]
-            self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
-            self.eq(mesg['iden'], tdef.get('iden'))
+            self.true(len([m for m in msgs if m['params'].get('iden') == tdef.get('iden')][0]))
 
             # Attempting to add trigger with existing iden raises
             with self.raises(s_exc.DupIden):
@@ -964,9 +961,9 @@ class TrigTest(s_t_utils.SynTest):
             tdef = {'cond': 'node:add', 'form': 'test:int', 'storm': q}
             await core1.view.addTrigger(tdef)
 
-            with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 await core1.addFeedData('syn.nodes', podes)
-                self.true(await stream.wait(6))
+                await stream.expect('f=', timeout=6)
             valu = stream.getvalue().strip()
             self.isin('f=test:int v=1 u=root', valu)
             self.isin('f=test:int v=2 u=root', valu)

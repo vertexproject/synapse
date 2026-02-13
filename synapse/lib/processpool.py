@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.logging as s_logging
 import synapse.lib.process as s_process
 
 forkpool = None
@@ -37,20 +38,6 @@ if multiprocessing.current_process().name == 'MainProcess':
 def _runtodo(todo):  # pragma: no cover
     return todo[0](*todo[1], **todo[2])
 
-def _init_pool_worker(logger_, logconf):  # prama: no cover
-    s_common.setlogging(logger_, **logconf)
-    p = multiprocessing.current_process()
-    logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
-
-_pool_logconf = None
-def set_pool_logging(logger_, logconf):
-    # This must be called before any calls to forked() and _parserforked()
-    global _pool_logconf
-    _pool_logconf = logconf
-    todo = s_common.todo(_init_pool_worker, logger_, logconf)
-    if forkpool is not None:
-        forkpool._initializer = _runtodo
-        forkpool._initargs = (todo,)
 
 async def forked(func, *args, **kwargs):
     '''
@@ -74,7 +61,7 @@ async def forked(func, *args, **kwargs):
             logger.exception(f'Shared forkserver pool is broken, fallback enabled: {func}')
 
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
-    return await s_process.spawn(todo, log_conf=_pool_logconf)
+    return await s_process.spawn(todo, logconf=s_logging.getLogConf())
 
 async def semafork(func, *args, **kwargs):
     '''

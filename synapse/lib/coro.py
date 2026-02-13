@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.logging as s_logging
+
 def iscoro(item):
     return inspect.iscoroutine(item)
 
@@ -154,6 +156,13 @@ async def ornot(func, *args, **kwargs):
     if iscoro(retn):
         return await retn
     return retn
+
+def has_running_loop():
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
 
 bgtasks = set()
 def create_task(coro):

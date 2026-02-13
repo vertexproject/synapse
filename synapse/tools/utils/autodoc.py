@@ -1021,5 +1021,4 @@ def getArgParser(outp):
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
     s_cmd.exitmain(main)
