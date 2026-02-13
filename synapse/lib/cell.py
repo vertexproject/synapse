@@ -228,6 +228,7 @@ class CellApi(s_base.Base):
     async def watch(self, last=100):
         async for item in self.cell.watch(last=last):
             yield item
+            await asyncio.sleep(0)
 
     async def allowed(self, perm, default=None):
         '''
