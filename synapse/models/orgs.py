@@ -244,7 +244,6 @@ modeldefs = (
                     ),
                 }}),
 
-            # FIXME ou:employment -> meta:event?
             ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'fulltime.salary',
                 'interfaces': (
@@ -375,7 +374,6 @@ modeldefs = (
 
             )),
 
-            # FIXME entity:supported :event=<ou:candidate>?
             ('ou:candidate:referral', {}, (
 
                 ('candidate', ('ou:candidate', {}), {
