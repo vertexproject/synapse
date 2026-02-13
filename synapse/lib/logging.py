@@ -208,7 +208,7 @@ async def _pumpLogStream():
                 return
 
         except Exception:
-            _writestderr('Error during log handling\n' + traceback.format_exc())
+            _writestderr('Error during log handling:\n' + traceback.format_exc())
 
 def logs(last=100):
     return tuple(StreamHandler._logs_fifo)[-last:]
