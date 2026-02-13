@@ -202,14 +202,13 @@ async def _pumpLogStream():
             # This can lead to the last window object never being GC'd while the pumpLogStream task is running,
             # even after its caller has exited the watch() function.
             wind = None  # NOQA
-
             await s_coro.executor(_writestderr, fulltext)
 
             if StreamHandler._pump_exit_flag is True and len(StreamHandler._logs_todo) == 0 and len(StreamHandler._text_todo) == 0:
                 return
 
         except Exception:
-            traceback.print_exc()
+            _writestderr('Error during log handling\n' + traceback.format_exc())
 
 def logs(last=100):
     return tuple(StreamHandler._logs_fifo)[-last:]

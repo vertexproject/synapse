@@ -204,6 +204,38 @@ class LoggingTest(s_test.SynTest):
         self.true(s_logging.StreamHandler._pump_task.done())
         self.eq([m.get('message') for m in msgs], ['message0', 'message1', 'message2'])
 
+    async def test_lib_logging_pump_error(self):
+        # Ensure that exceptions are captured and printed to stderr directly
+        s_logging.setup(structlog=True)
+        self.nn(s_logging.StreamHandler._pump_task)
+
+        evnt = asyncio.Event()
+
+        data = []
+        def writemock(text):
+            data.append(text)
+            evnt.set()
+
+        with mock.patch('synapse.lib.logging._writestderr', writemock):
+            s_logging.StreamHandler._text_todo.append('hehe')
+            s_logging.StreamHandler._logs_todo.append('hehe')
+
+            s_logging.StreamHandler._text_todo.append(1234)
+            s_logging.StreamHandler._logs_todo.append('newp')
+
+            # This will cause a type error trying to join hehe and 1234 together
+            # when the task wakes up and and tries to process the queue
+
+            s_logging.StreamHandler._pump_event.set()
+
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=12))
+
+        text = '\n'.join(data)
+        self.isin('Error during log handling', text)
+        self.isin('Traceback', text)
+
+        s_logging.reset()
+
     async def test_lib_logging_exception(self):
 
         # Ensure that various exception information is captured
