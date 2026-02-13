@@ -11,53 +11,7 @@ contracttypes = (
 modeldefs = (
     ('ou', {
 
-        'interfaces': (
-
-            # ('ou:attendable', {
-            #     'template': {'title': 'event'},
-            #     'interfaces': (
-            #         #('meta:havable', {}),
-            #         ('entity:attendable', {}),
-            #     ),
-            #     'props': (
-
-            #         ('name', ('meta:name', {}), {
-            #             'alts': ('names',),
-            #             'ex': 'cyberwarcon 2025',
-            #             'doc': 'The name of the {title}.'}),
-
-            #         ('name:base', ('meta:name', {}), {
-            #             'ex': 'cyberwarcon',
-            #             'doc': 'The base name of the {title} (for a recurring event).'}),
-
-            #         ('names', ('array', {'type': 'meta:name'}), {
-            #             'doc': 'An array of alternate names for the {title}.'}),
-            #     ),
-            #     'doc': 'An interface which is inherited by all organized events.'}),
-
-            # FIXME: all this should become part of entity:activity
-            # ('ou:sponsored', {
-            #     'template': {'title': 'event'},
-            #     'interfaces': (
-            #         ('ou:attendable', {}),
-            #     ),
-            #     'props': (
-
-            #         ('website', ('inet:url', {}), {
-            #             'prevnames': ('url',),
-            #             'doc': 'The URL of the {title} website.'}),
-
-            #         ('contact', ('entity:contact', {}), {
-            #             'doc': 'Contact information for the {title}.'}),
-
-            #         #('sponsors', ('array', {'type': 'entity:actor'}), {
-            #             #'doc': 'The entities which sponsored the {title}.'}),
-
-            #         #('organizers', ('array', {'type': 'entity:actor'}), {
-            #             #'doc': 'An array of {title} organizers.'}),
-            #     ),
-            #     'doc': 'Properties which are common to events which are hosted or sponsored by organizations.'}),
-        ),
+        'interfaces': (),
         'types': (
             ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
                 'ex': '0111',
@@ -198,35 +152,6 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A conference.'}),
-
-            #('ou:event:type:taxonomy', ('taxonomy', {}), {
-                #'interfaces': (
-                    #('meta:taxonomy', {}),
-                #),
-                #'doc': 'A hierarchical taxonomy of event types.'}),
-
-            # ('ou:event', ('guid', {}), {
-            #     'template': {'title': 'event'},
-            #     'prevnames': ('ou:conference:event',),
-            #     'interfaces': (
-            #         ('ou:sponsored', {}),
-            #     ),
-            #     'display': {
-            #         'columns': (
-            #             {'type': 'prop', 'opts': {'name': 'name'}},
-            #             {'type': 'prop', 'opts': {'name': 'parent::name'}},
-            #             # TODO allow columns to use virtual props
-            #             # {'type': 'prop', 'opts': {'name': 'period.min'}},
-            #             # {'type': 'prop', 'opts': {'name': 'period.max'}},
-            #         ),
-            #     },
-            #     'doc': 'An generic organized event.'}),
-
-            # ('ou:contest:type:taxonomy', ('taxonomy', {}), {
-            #     'interfaces': (
-            #         ('meta:taxonomy', {}),
-            #     ),
-            #     'doc': 'A hierarchical taxonomy of contest types.'}),
 
             ('ou:contest', ('meta:activity', {}), {
                 'template': {'title': 'contest'},
@@ -745,11 +670,6 @@ modeldefs = (
                 ('family:name', ('base:name', {}), {
                     'doc': 'The name of the family of conferences.'}),
             )),
-            #('ou:event', {}, (
-                #('type', ('ou:event:type:taxonomy', {}), {
-                    #'doc': 'The type of event.'}),
-            #)),
-            #('ou:contest:type:taxonomy', {}, ()),
             ('ou:contest', {}, (
 
                 #('type', ('ou:contest:type:taxonomy', {}), {
