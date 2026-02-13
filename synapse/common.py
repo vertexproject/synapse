@@ -524,7 +524,7 @@ def yamlload(*paths):
     with io.open(path, 'rb') as fd:
         return yamlloads(fd)
 
-def yamldump(obj, stream: typing.Optional[typing.BinaryIO] =None) -> bytes:
+def yamldump(obj, stream=None):
     '''
     Dump a object to yaml.
 

@@ -25,7 +25,7 @@ modeldefs = (
             ('transport:vehicle', ('ndef', {'interface': 'transport:vehicle'}), {
                 'doc': 'A vehicle such as an aircraft or sea vessel.'}),
 
-            ('transport:occupant', ('guid', {}), {
+            ('transport:occupant', ('entity:activity', {}), {
                 'doc': 'An occupant of a vehicle on a trip.'}),
 
             ('transport:occupant:role:taxonomy', ('taxonomy', {}), {
@@ -542,8 +542,8 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                ('contact', ('entity:individual', {}), {
-                    'doc': 'Contact information of the occupant.'}),
+                #('contact', ('entity:individual', {}), {
+                    #'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {
                     'doc': 'The trip, such as a flight or train ride, being taken by the occupant.'}),
@@ -555,6 +555,7 @@ modeldefs = (
                     'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
                 ('period', ('ival', {}), {
+                    # keeping for prevnames...
                     'prevnames': ('boarded', 'disembarked'),
                     'doc': 'The period when the occupant was aboard the vehicle.'}),
 
