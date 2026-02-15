@@ -187,7 +187,7 @@ async def _pumpLogStream():
                 StreamHandler._pump_event.clear()
                 if StreamHandler._pump_exit_flag is True:
                     return
-                continue
+                continue  # pragma: no cover
 
             StreamHandler._logs_todo.clear()
             StreamHandler._text_todo.clear()
