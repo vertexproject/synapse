@@ -302,7 +302,7 @@ async def _shutdown_task():
         StreamHandler._pump_event.set()  # Wake the task
         try:
             await asyncio.wait_for(StreamHandler._pump_task, timeout=LOG_PUMP_TASK_TIMEOUT)
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError:  # pragma: no cover
             pass
 
 
