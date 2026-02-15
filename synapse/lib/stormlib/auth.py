@@ -1,4 +1,3 @@
-import copy
 import asyncio
 
 import synapse.exc as s_exc

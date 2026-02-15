@@ -90,7 +90,6 @@ class NexsRoot(s_base.Base):
         await s_base.Base.__anit__(self)
 
         # avoid import cycle
-        import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
 
         self.cell = cell

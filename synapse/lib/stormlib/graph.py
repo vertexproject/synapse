@@ -1,8 +1,5 @@
 import synapse.exc as s_exc
 
-import synapse.lib.config as s_config
-import synapse.lib.msgpack as s_msgpack
-import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
 USER_EDITABLE = {

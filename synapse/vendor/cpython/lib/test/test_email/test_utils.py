@@ -6,9 +6,9 @@
 import datetime
 import time
 import unittest
-import sys
-import os.path
-import zoneinfo
+import sys  # noqa: F401
+import os.path  # noqa: F401
+import zoneinfo  # noqa: F401
 
 from synapse.vendor.cpython.lib.email import utils
 

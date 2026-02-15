@@ -4,21 +4,21 @@
 ##############################################################################
 # """Supporting definitions for the Python regression tests."""
 
-if __name__ != 'synapse.vendor.cpython.lib.test.support':
+if __name__ != 'synapse.vendor.cpython.lib.test.support':  # pragma: no cover
     raise ImportError('support must be imported from the test package')
 
-import contextlib
-import dataclasses
+import contextlib  # noqa: F401
+import dataclasses  # noqa: F401
 import functools
 import os
-import re
-import stat
-import sys
-import sysconfig
+import re  # noqa: F401
+import stat  # noqa: F401
+import sys  # noqa: F401
+import sysconfig  # noqa: F401
 import time
-import types
+import types  # noqa: F401
 import unittest
-import warnings
+import warnings  # noqa: F401
 
 __all__ = [
     # miscellaneous

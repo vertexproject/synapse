@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdbslab as s_lmdbslab
 

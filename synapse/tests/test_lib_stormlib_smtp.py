@@ -1,5 +1,4 @@
 import ssl
-import email.mime.multipart as e_muiltipart
 
 from unittest import mock
 import synapse.tests.utils as s_test
