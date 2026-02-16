@@ -146,7 +146,6 @@ async def t2call(link, meth, args, kwargs):
                 if first:
                     await link.initGenr()
 
-                await link.tx(('t2:yield', {'retn': None}))
                 await link.finiGenr()
                 return
 
@@ -163,7 +162,6 @@ async def t2call(link, meth, args, kwargs):
                 if first:
                     await link.initGenr()
 
-                await link.tx(('t2:yield', {'retn': None}))
                 await link.finiGenr()
                 return
 
@@ -195,8 +193,7 @@ async def t2call(link, meth, args, kwargs):
                     await link.initGenr()
 
                 retn = s_common.retnexc(e)
-                await link.tx(('t2:yield', {'retn': retn}))
-                await link.finiGenr()
+                await link.finiGenr(retn=retn)
 
             return
 

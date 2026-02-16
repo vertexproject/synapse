@@ -172,7 +172,8 @@ class Link(s_base.Base):
             await self.tx(('t2:genr', {}))
             self.set('t2:genr:init', True)
 
-    async def finiGenr(self):
+    async def finiGenr(self, retn=None):
+        await self.tx(('t2:yield', {'retn': retn}))
         self.pop('t2:genr:init')
 
     def getTlsPeerCn(self):
