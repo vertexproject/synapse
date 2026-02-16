@@ -484,6 +484,22 @@ class NexusTest(s_t_utils.SynTest):
             # We didn't miss or duplicate items added during window construction
             self.eq([0, 1, 2, 3], items)
 
+            nexsindx = cell.nexsroot.nexslog.index()
+
+            async with cell.getLocalProxy() as prox:
+                async def listen():
+                    async for item in prox.getNexusChanges(nexsindx, wait=True):
+                        break
+                    return item
+
+                task = cell.schedCoro(listen())
+                await asyncio.sleep(0.1)
+                await cell.sync()
+
+                offs, item = await asyncio.wait_for(task, timeout=5)
+                self.eq(offs, nexsindx)
+                self.eq(item[1], 'sync')
+
     async def test_nexus_mirror_nowait(self):
 
         with self.getTestDir() as dirn:
