@@ -529,7 +529,8 @@ class NexsRoot(s_base.Base):
                     yield item
 
                 if not tellready and maxoffs == offs:
-                    await link.initGenr()
+                    await link.tx(('t2:genr', {}))
+                    link.set('t2:genr:init', True)
 
                 async for offs, item in wind:
                     if sync:
