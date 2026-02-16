@@ -146,6 +146,64 @@ class LoggingTest(s_test.SynTest):
         self.isinstance(msgs, tuple)
         self.none(s_logging.StreamHandler._pump_task)
 
+    async def test_lib_logging_window_drop(self):
+
+        # Messages can be dropped from the todo queues if the pump task is not allowed
+        #  to wake up & service the queue.
+
+        # Ensure we're starting the test from a clean slate
+        self.none(s_logging.StreamHandler._pump_task)
+
+        # Installs the logginghandlers
+        s_logging.setup()
+        self.nn(s_logging.StreamHandler._pump_task)
+
+        # Ensure that while we have a running logging task, that windowing of live log events to a consumer works.
+
+        msgs = []
+        # Indicates that the function has started
+        evnt0 = asyncio.Event()
+        # Indicates the function has entered the window
+        evnt1 = asyncio.Event()
+        # Indicates the function has left Window.__aiter__ - this will start the teardown the Window object,
+        # which will eventually cause __aiter__ to exit and leave the ioloop.
+        evnt2 = asyncio.Event()
+
+        async def collector():
+            evnt0.set()
+            async for m in s_logging.watch(last=0):
+                evnt1.set()
+                msgs.append(m)
+                if m.get('params').get('fini'):
+                    break
+            evnt2.set()
+            return True
+
+        self.len(0, s_logging._log_wins)
+
+        task = s_coro.create_task(collector())
+        await asyncio.wait_for(evnt0.wait(), timeout=12)
+
+        logger.error('window0')
+
+        await asyncio.wait_for(evnt1.wait(), timeout=12)
+        self.len(1, s_logging._log_wins)
+
+        # Now log messages which will exceed the buffer size. This will log N+1 messages,
+        # meaning that buftest-0 will not be present and window1 will be included.
+        for n in range(s_logging.LOG_QUEUE_SIZES):
+            logger.error(f'buftest-{n}')
+        logger.error('window1', extra=s_logging.getLogExtra(fini=True))
+
+        await asyncio.wait_for(evnt2.wait(), timeout=12)
+        self.true(await task)
+
+        self.len(2 + s_logging.LOG_QUEUE_SIZES - 1, msgs)
+        emsgs = ['window0'] + [f'buftest-{n}' for n in range(1, s_logging.LOG_QUEUE_SIZES)] + ['window1']
+        self.eq([m.get('message') for m in msgs], emsgs)
+
+        s_logging.reset()
+
     async def test_lib_logging_shutdown(self):
         # Test the _shutdown_task functionality used in s_logging.shutdown() to ensure it drains the logs
         # and exits cleanly
