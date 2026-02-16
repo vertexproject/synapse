@@ -167,15 +167,6 @@ class Link(s_base.Base):
                 await self.fini()
                 raise s_exc.BadCertHost(mesg=mesg)
 
-    async def initGenr(self):
-        if not self.get('t2:genr:init'):
-            await self.tx(('t2:genr', {}))
-            self.set('t2:genr:init', True)
-
-    async def finiGenr(self, retn=None):
-        await self.tx(('t2:yield', {'retn': retn}))
-        self.pop('t2:genr:init')
-
     def getTlsPeerCn(self):
 
         if self.peercert is None:

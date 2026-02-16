@@ -138,15 +138,18 @@ async def t2call(link, meth, args, kwargs):
                 async for item in valu:
 
                     if first:
-                        await link.initGenr()
+                        if not link.get('t2:genr:init'):
+                            await link.tx(('t2:genr', {}))
+                            link.set('t2:genr:init', True)
                         first = False
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
-                if first:
-                    await link.initGenr()
+                if first and not link.get('t2:genr:init'):
+                    await link.tx(('t2:genr', {}))
 
-                await link.finiGenr()
+                await link.tx(('t2:yield', {'retn': None}))
+                link.pop('t2:genr:init')
                 return
 
             elif isinstance(valu, types.GeneratorType):
@@ -154,15 +157,18 @@ async def t2call(link, meth, args, kwargs):
                 for item in valu:
 
                     if first:
-                        await link.initGenr()
+                        if not link.get('t2:genr:init'):
+                            await link.tx(('t2:genr', {}))
+                            link.set('t2:genr:init', True)
                         first = False
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
-                if first:
-                    await link.initGenr()
+                if first and not link.get('t2:genr:init'):
+                    await link.tx(('t2:genr', {}))
 
-                await link.finiGenr()
+                await link.tx(('t2:yield', {'retn': None}))
+                link.pop('t2:genr:init')
                 return
 
         except s_exc.DmonSpawn as e:
@@ -189,11 +195,12 @@ async def t2call(link, meth, args, kwargs):
 
             if not link.isfini:
 
-                if first:
-                    await link.initGenr()
+                if first and not link.get('t2:genr:init'):
+                    await link.tx(('t2:genr', {}))
 
                 retn = s_common.retnexc(e)
-                await link.finiGenr(retn=retn)
+                await link.tx(('t2:yield', {'retn': retn}))
+                link.pop('t2:genr:init')
 
             return
 
