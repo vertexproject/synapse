@@ -22,9 +22,8 @@ async def unixlisten(path, onlink):
     '''
     Start an PF_UNIX server listening on the given path.
     '''
-    info = {'path': path, 'unix': True}
-
     async def onconn(reader, writer):
+        info = {'path': path, 'unix': True}
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
     return await asyncio.start_unix_server(onconn, path=path)
@@ -167,6 +166,14 @@ class Link(s_base.Base):
                 mesg = f'Expected: {self.hostname} Got: {self.getTlsPeerCn()}'
                 await self.fini()
                 raise s_exc.BadCertHost(mesg=mesg)
+
+    async def initGenr(self):
+        if not self.get('t2:genr:init'):
+            await self.tx(('t2:genr', {}))
+            self.set('t2:genr:init', True)
+
+    async def finiGenr(self):
+        self.pop('t2:genr:init')
 
     def getTlsPeerCn(self):
 
@@ -311,6 +318,12 @@ class Link(s_base.Base):
         Set a property in the Link info.
         '''
         self.info[name] = valu
+
+    def pop(self, name):
+        '''
+        Pop a property in the Link info.
+        '''
+        return self.info.pop(name, None)
 
     def feed(self, byts):
         '''
