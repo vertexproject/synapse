@@ -1,5 +1,5 @@
 ---
-desc: Fixed an issue where the ``getNexusChanges`` API could potentially send ``t2:yield``
+desc: Fixed an issue where the ``getNexusChanges`` Cell API could potentially send ``t2:yield``
   messages before the initial ``t2:genr`` message.
 desc:literal: false
 prs: []
