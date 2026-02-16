@@ -4312,7 +4312,7 @@ class PropValue(Value):
 
             else:
                 if not resolvepoly:
-                    if (valu := node.getWithVirts(realprop)) is None:
+                    if (valu := node.getWithVirts(realprop))[0] is None:
                         return None, None, None
                 else:
                     if (valu := node.get(realprop, virts=getr)) is None:

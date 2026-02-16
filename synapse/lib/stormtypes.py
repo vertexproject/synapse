@@ -1543,6 +1543,8 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
+        if typeitem.ispoly:
+            return (True, Ndef((norm, info.get('virts'))))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1554,6 +1556,8 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
+            if typeitem.ispoly:
+                return (True, Ndef((norm, info.get('virts'))))
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
