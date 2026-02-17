@@ -122,6 +122,10 @@ async def t2call(link, meth, args, kwargs, first=True):
     '''
     Call the given ``meth(*args, **kwargs)`` and handle the response to provide
     telepath task v2 events to the given link.
+
+    The ``first`` argument may be set to ``False`` to skip sending an initial ``t2:genr``
+    message when using a using a link which has already been initialized (such as when sending
+    a link to a spawned process).
     '''
     try:
 
