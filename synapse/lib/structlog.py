@@ -7,6 +7,7 @@ import synapse.lib.json as s_json
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        s_common.deprecated('synapse.lib.structlog.JsonFormatter')
 
     def format(self, record: logging.LogRecord):
 

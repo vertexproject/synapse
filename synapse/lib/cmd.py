@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
+import synapse.lib.logging as s_logging
 
 class Parser(argparse.ArgumentParser):
     '''
@@ -48,8 +49,6 @@ async def wrapmain(func, logconf=None): # pragma: no cover
     if logconf is None:
         logconf = {'level': 'DEBUG'}
 
-    import synapse.lib.logging as s_logging
-
     s_logging.setup(**logconf)
 
     try:
@@ -63,6 +62,7 @@ async def wrapmain(func, logconf=None): # pragma: no cover
         return 1
 
     finally:
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout=10)
 
 def exitmain(func, logconf=None): # pragma: no cover

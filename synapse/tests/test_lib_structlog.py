@@ -94,6 +94,9 @@ class StructLogTest(s_test.SynTest):
         handler = logging.StreamHandler(stream=stream)
         datefmt = '%m-%Y-%d'  # MMYYYYYDD
         formatter = s_structlog.JsonFormatter(datefmt=datefmt)
+        # Default convertor for time is time.localtime but that is
+        # not stable for testing. Use time.gmtime so tests always work.
+        formatter.converter = time.gmtime
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 

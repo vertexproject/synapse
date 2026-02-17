@@ -978,7 +978,7 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
             logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-            extra = self.core.getLogExtra(text=text)
+            extra = self.core.getLogExtra(text=text, user=user.iden, username=user.name)
             logger.exception(logmesg, extra=extra)
             raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
@@ -1099,7 +1099,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
 
-                extra = self.core.getLogExtra(text=text)
+                extra = self.core.getLogExtra(text=text, user=user.iden, username=user.name)
                 logger.exception(logmesg, extra=extra)
 
                 enfo = s_common.err(e)

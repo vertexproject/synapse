@@ -18,6 +18,7 @@ import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -597,6 +598,9 @@ class Base:
         '''
         await self.addSignalHandlers()
         await self.waitfini()
+        # shutdown logging to allow it to drain any queued messages it has, swapping in a stream handler,
+        # and then cancellling the task so we do not have to await the pump task in bg tasks.
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):
