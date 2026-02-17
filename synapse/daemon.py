@@ -118,7 +118,7 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
-async def t2call(link, meth, args, kwargs):
+async def t2call(link, meth, args, kwargs, first=True):
     '''
     Call the given ``meth(*args, **kwargs)`` and handle the response to provide
     telepath task v2 events to the given link.
@@ -132,43 +132,26 @@ async def t2call(link, meth, args, kwargs):
 
         try:
 
-            first = True
             if isinstance(valu, types.AsyncGeneratorType):
+                if first:
+                    await link.tx(('t2:genr', {}))
+                    first = False
 
                 async for item in valu:
-
-                    if first:
-                        if not link.get('t2:genr:init'):
-                            await link.tx(('t2:genr', {}))
-                            link.set('t2:genr:init', True)
-                        first = False
-
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
-                if first and not link.get('t2:genr:init'):
-                    await link.tx(('t2:genr', {}))
-
                 await link.tx(('t2:yield', {'retn': None}))
-                link.pop('t2:genr:init')
                 return
 
             elif isinstance(valu, types.GeneratorType):
+                if first:
+                    await link.tx(('t2:genr', {}))
+                    first = False
 
                 for item in valu:
-
-                    if first:
-                        if not link.get('t2:genr:init'):
-                            await link.tx(('t2:genr', {}))
-                            link.set('t2:genr:init', True)
-                        first = False
-
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
-                if first and not link.get('t2:genr:init'):
-                    await link.tx(('t2:genr', {}))
-
                 await link.tx(('t2:yield', {'retn': None}))
-                link.pop('t2:genr:init')
                 return
 
         except s_exc.DmonSpawn as e:
@@ -195,12 +178,11 @@ async def t2call(link, meth, args, kwargs):
 
             if not link.isfini:
 
-                if first and not link.get('t2:genr:init'):
+                if first:
                     await link.tx(('t2:genr', {}))
 
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:yield', {'retn': retn}))
-                link.pop('t2:genr:init')
 
             return
 

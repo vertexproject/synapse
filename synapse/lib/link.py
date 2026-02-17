@@ -311,12 +311,6 @@ class Link(s_base.Base):
         '''
         self.info[name] = valu
 
-    def pop(self, name):
-        '''
-        Pop a property in the Link info.
-        '''
-        return self.info.pop(name, None)
-
     def feed(self, byts):
         '''
         Used by rx() to unpack messages from bytes.
