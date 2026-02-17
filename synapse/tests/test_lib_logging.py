@@ -335,3 +335,47 @@ class LoggingTest(s_test.SynTest):
             self.eq(mesg['error']['notes'], ('outer note',))
             self.eq(mesg['error']['context']['code'], 'SynErr')
             self.eq(mesg['error']['context']['notes'], ('inner note',))
+
+            stream.clear()
+
+            # This is derived from the cpython Stdlib exception group example here
+            # https://docs.python.org/3.11/tutorial/errors.html#tut-exception-groups
+
+            def f():
+                raise ExceptionGroup(
+                    "group1",
+                    [
+                        ValueError(1),
+                        SystemError(2),
+                        ExceptionGroup(
+                            "group2",
+                            [
+                                OSError(3),
+                                RecursionError(4)
+                            ]
+                        )
+                    ]
+                )
+
+            try:
+                f()
+            except* OSError as e:
+                pass
+            except* SystemError as e:
+                pass
+            except* Exception as e:
+                logger.exception('Error encountered in EG')
+
+            mesg = stream.jsonlines()[0]
+            self.eq(mesg['message'], 'Error encountered in EG')
+            self.eq(mesg['error']['code'], 'ExceptionGroup')
+            self.eq(mesg['error']['mesg'], 'group1 (2 sub-exceptions)')
+            group = mesg['error']['group']
+            self.len(2, group)
+            self.eq(group[0]['code'], 'ValueError')
+            self.eq(group[0]['mesg'], '1')
+
+            self.eq(group[1]['code'], 'ExceptionGroup')
+            self.eq(group[1]['mesg'], 'group2 (1 sub-exception)')
+            self.eq(group[1]['group'][0]['code'], 'RecursionError')
+            self.eq(group[1]['group'][0]['mesg'], '4')

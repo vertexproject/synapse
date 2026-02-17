@@ -24,7 +24,6 @@ if LOG_PUMP_TASK_TIMEOUT < 0:  # pragma: no cover
 if LOG_QUEUE_SIZES < 1:  # pragma: no cover
     raise s_exc.BadConfValu(mesg='SYNDEV_LOG_QUEUE_SIZE value must be greater than 1.')
 
-# TODO - Handle exception groups
 def excinfo(e, _seen=None):
 
     if _seen is None:
@@ -34,7 +33,7 @@ def excinfo(e, _seen=None):
 
     tb = []
     for path, line, func, sorc in traceback.extract_tb(e.__traceback__):
-        # sorc may not be available; enusre that all output is a str
+        # sorc may not be available; ensure that all output is a str
         if sorc is None:
             sorc = '<none>'
         tb.append((path, line, func, sorc))
@@ -58,6 +57,9 @@ def excinfo(e, _seen=None):
     if isinstance(e, s_exc.SynErr):
         ret['info'] = e.errinfo.copy()
         ret['mesg'] = ret['info'].pop('mesg', None)
+
+    if isinstance(e, BaseExceptionGroup) and e.exceptions:
+        ret['group'] = [excinfo(exc) for exc in e.exceptions]
 
     if ret.get('mesg') is None:
         ret['mesg'] = str(e)
