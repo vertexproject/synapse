@@ -346,6 +346,7 @@ These structured logs are designed to be easy to ingest into third party log col
 message, level, time, and metadata about where the log message came from::
 
     {
+      "ahaservice": "00.cortex.synapse",
       "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
       "logger": {
         "name": "synapse.storm",
@@ -368,7 +369,9 @@ message, level, time, and metadata about where the log message came from::
     }
 
 The ``user`` and ``username`` fields at the top level of a log correspond to the currently active / authorized API user
-which has caused a log event to occur. These may differ from the user associated with the event,
+which has caused a log event to occur. These may differ from the user associated with the event. That information would
+normally be embedded in the ``params`` key.  The ``ahaservice`` key, if present, indicates the service that is
+associated with the log message.
 
 When exceptions are logged with structured logging, we capture additional information about the exception, including the
 traceback as structured data. In the event that the error is a Synapse Err class, we also capture additional metadata
@@ -378,6 +381,7 @@ in the pretty-printed log message. The ``key=valu`` data that was raised by the 
 ``__context__`` attributes on Exception classes.::
 
     {
+      "ahaservice": "00.cortex.synapse",
       "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
