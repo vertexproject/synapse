@@ -528,7 +528,7 @@ class NexsRoot(s_base.Base):
                     maxoffs = item[0] + 1
                     yield item
 
-                if not tellready and maxoffs == offs:
+                if not link.get('t2:genr:init'):
                     await link.tx(('t2:genr', {}))
                     link.set('t2:genr:init', True)
 

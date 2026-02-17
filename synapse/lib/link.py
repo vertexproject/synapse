@@ -311,11 +311,11 @@ class Link(s_base.Base):
         '''
         self.info[name] = valu
 
-    def pop(self, name):
+    def pop(self, name, default=None):
         '''
         Pop a property in the Link info.
         '''
-        return self.info.pop(name, None)
+        return self.info.pop(name, default=default)
 
     def feed(self, byts):
         '''
