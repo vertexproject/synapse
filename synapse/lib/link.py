@@ -315,7 +315,7 @@ class Link(s_base.Base):
         '''
         Pop a property in the Link info.
         '''
-        return self.info.pop(name, default=default)
+        return self.info.pop(name, default)
 
     def feed(self, byts):
         '''
