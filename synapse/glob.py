@@ -29,7 +29,7 @@ def _asynciostacks(*args, **kwargs):  # pragma: no cover
             root = None
             if st.root is not None:
                 root = st.root.iden
-            print(f'Task is a syntask with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
+            print(f'{task.get_name()} is a syntask with the following information: iden={st.iden} name={st.name} root={root} user={st.user.iden} username={st.user.name}')
             print(pprint.pformat(st.info))
     print(80 * '*')
     print(f'Faulthandler stack frames per thread @ {ts}:')
