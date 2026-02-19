@@ -457,13 +457,21 @@ class AstConverter(lark.Transformer):
 
         astinfo = self.metaToAstInfo(meta)
 
-        # Check that we only have one default case
-        defcase = [k for k in kids[1:] if k.defcase]
+        defcases = 0
 
-        deflen = len(defcase)
-        if deflen > 1:
-            mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
-            raise self.raiseBadSyntax(mesg, astinfo)
+        casevals = set()
+        for kid in kids[1:]:
+            if kid.defcase:
+                defcases += 1
+                if defcases > 1:
+                    mesg = f'Switch statements cannot have more than one default case. Found {defcases}.'
+                    raise self.raiseBadSyntax(mesg, astinfo)
+
+            for val in kid.kids[:-1]:
+                if (valu := val.value()) in casevals:
+                    mesg = f'Switch statements cannot have duplicate switch cases: {s_common.trimText(valu)}'
+                    raise self.raiseBadSyntax(mesg, astinfo)
+                casevals.add(valu)
 
         return s_ast.SwitchCase(astinfo, kids)
 
