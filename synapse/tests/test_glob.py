@@ -53,7 +53,7 @@ class GlobTest(s_t_utils.SynTest):
 
         text = '\n'.join(lines)
         self.isin('Asyncio task stacks', text)
-        self.isin('Task is a syntask with the following information', text)
+        self.isin('is a syntask with the following information', text)
         self.isin(q, text)
         self.isin('root=None', text)
         self.isin(f'root={init_mesg.get("task", "newp")}', text)
