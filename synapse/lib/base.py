@@ -41,7 +41,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth + 1:3}: {call.strip()}')
+                    logger.debug(f'{depth+1:3}: {call.strip()}')
             continue
 
         try:
@@ -347,12 +347,16 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(await s_coro.ornot(func, mesg))
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
@@ -396,6 +400,8 @@ class Base:
 
         for base in list(self.tofini):
             await base.fini()
+        # Do not continue to hold a reference to the last item we iterated on.
+        base = None  # NOQA
 
         await self._kill_active_tasks()
 
@@ -449,25 +455,9 @@ class Base:
         finally:
             self.off(evnt, func)
 
-    @contextlib.contextmanager
-    def onWithMulti(self, evnts, func):
-        '''
-        A context manager which can be used to add a callbacks and remove them when
-        using a ``with`` statement.
-
-        Args:
-            evnts (list):        A list of event names
-            func  (function):    A callback function to receive event tufo
-        '''
-        for evnt in evnts:
-            self.on(evnt, func)
-        # Allow exceptions to propagate during the context manager
-        # but ensure we cleanup our temporary callback
-        try:
-            yield self
-        finally:
-            for evnt in evnts:
-                self.off(evnt, func)
+    def _wouldfini(self):
+        '''Check if a Base would be fini() if fini() was called on it.'''
+        return self._syn_refs == 1
 
     async def waitfini(self, timeout=None):
         '''

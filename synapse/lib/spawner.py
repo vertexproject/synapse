@@ -8,8 +8,8 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.process as s_process
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class SpawnerMixin:
         if base is None:
             base = await s_base.Base.anit()
 
-        base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
+        base.schedCoro(s_process.spawn((_ioWorkProc, (todo, sockpath), {})))
 
         await s_link.unixwait(sockpath)
 
