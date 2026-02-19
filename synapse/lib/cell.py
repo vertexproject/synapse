@@ -1925,11 +1925,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(self.drive.fini)
 
-        #TODO: needs migration
-        #self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
-        #await self._bumpCellVers('drive:storage', (
+        # TODO: needs migration
+        # self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
+        # await self._bumpCellVers('drive:storage', (
         #    (1, self._drivePermMigration),
-        #), nexs=False)
+        # ), nexs=False)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
