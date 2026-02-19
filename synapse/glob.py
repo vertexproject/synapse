@@ -3,27 +3,22 @@ import pprint
 import signal
 import asyncio
 import logging
-import datetime
 import threading
 import faulthandler
+
+import synapse.common as s_common
+import synapse.lib.time as s_time
 
 logger = logging.getLogger(__name__)
 
 _glob_loop = None
 _glob_thrd = None
 
-
-def _get_ts(dt=None):
-    if dt is None:
-        dt = datetime.datetime.now(datetime.timezone.utc)
-    millis = dt.microsecond / 1000
-    return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
-
 def _asynciostacks(*args, **kwargs):  # pragma: no cover
     '''
     A signal handler used to print asyncio task stacks and thread stacks.
     '''
-    ts = _get_ts()
+    ts = s_time.repr(s_common.now())
     print(80 * '*')
     print(f'Asyncio task stacks @ {ts}:')
     tasks = asyncio.all_tasks(_glob_loop)
@@ -45,7 +40,7 @@ def _threadstacks(*args, **kwargs):  # pragma: no cover
     '''
     A signal handler used to print thread stacks.
     '''
-    ts = _get_ts()
+    ts = s_time.repr(s_common.now())
     print(80 * '*')
     print(f'Faulthandler stack frames per thread @ {ts}:')
     faulthandler.dump_traceback()
