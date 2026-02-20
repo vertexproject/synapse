@@ -116,28 +116,14 @@ modeldefs = (
                         'ex': 'cno.phishing',
                         'doc': 'A type for the attack, as a taxonomy entry.'}),
 
-                    # TODO - is this discovered?
-                    #('detected', ('time', {}), {
-                        #'doc': 'The first confirmed detection time of the attack.'}),
-
                     ('success', ('bool', {}), {
                         'doc': 'Set if the attack was known to have succeeded or not.'}),
-
-                    # FIXME overfit
-                    # ('campaign', ('entity:campaign', {}), {
-                    #     'doc': 'Set if the attack was part of a larger campaign.'}),
-
-                    # ('compromise', ('risk:compromise', {}), {
-                    #     'doc': 'A compromise that this attack contributed to.'}),
 
                     ('severity', ('meta:score', {}), {
                         'doc': 'A severity rank for the attack.'}),
 
                     ('sophistication', ('meta:score', {}), {
                         'doc': 'The assessed sophistication of the attack.'}),
-
-                    # ('prev', ('risk:attack', {}), {
-                    #     'doc': 'The previous/parent attack in a list or hierarchy.'}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
 
@@ -161,6 +147,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:reported', {}),
                     ('risk:victimized', {}),
+                    ('meta:discoverable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -260,7 +247,6 @@ modeldefs = (
                 'template': {'title': 'leak'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    #('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
@@ -300,15 +286,12 @@ modeldefs = (
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
-            #('risk:demanded', ('entity:event', {}), {
-            #('risk:threatened'
-            #('risk:stole
-
-            # ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
-            #     'interfaces': (
-            #         ('meta:taxonomy', {}),
-            #     ),
-            #     'doc': 'A hierarchical taxonomy of extortion statuses.'}),
+            ('risk:theft', ('meta:event', {}), {
+                'interfaces': (
+                    ('risk:victimized', {}),
+                ),
+                'props': (),
+            }),
 
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -333,7 +316,6 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'period'}},
-                        #{'type': 'prop', 'opts': {'name': 'party:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'cause'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
@@ -371,8 +353,6 @@ modeldefs = (
                 ),
                 'doc': 'An interface for events which affect a victim.'}),
 
-            # TODO: risk:impacted=<meta:event>(risk:victimized)
-
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.'}),
 
@@ -388,34 +368,23 @@ modeldefs = (
             (('entity:action', 'targeted', 'risk:targetable'), {
                 'doc': 'The action represents the actor targeting based on the target node.'}),
 
-            # FIXME these two should become meta:theft!
-            (('risk:compromise', 'stole', 'meta:observable'), {
-                'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+             (('risk:theft', 'stole', 'meta:observable'), {
+                 'doc': 'The target node was stolen or copied as part of the theft.'}),
 
-            (('risk:compromise', 'stole', 'phys:object'), {
-                'doc': 'The target node was stolen as a result of the compromise.'}),
+            (('risk:theft', 'stole', 'phys:object'), {
+                'doc': 'The target node was stolen as a part of the theft.'}),
 
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
-            # FIXME leadto
-            (('risk:leak', 'enabled', 'risk:leak'), {
-                'doc': 'The source leak enabled the target leak to occur.'}),
+            (('risk:leak', 'leadto', 'risk:leak'), {
+                'doc': 'The source leak lead to the target leak.'}),
 
             (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),
 
             (('risk:extortion', 'leadto', 'econ:payment'), {
                 'doc': 'The extortion lead to the party making the payment to the actor.'}),
-
-            #(('meta:event', 'caused', 'risk:outage'), {
-                #'doc': 'The event caused the outage.'}),
-
-            #(('risk:attack', 'caused', 'risk:alert'), {
-                #'doc': 'The attack caused the alert.'}),
-
-            #(('risk:attack', 'caused', 'risk:outage'), {
-                #'doc': 'The attack caused the outage.'}),
 
             (('risk:outage', 'impacted', None), {
                 'doc': 'The outage event impacted the availability of the target node.'}),
@@ -429,6 +398,9 @@ modeldefs = (
             # TODO we will need more of these...
             (('inet:proto:link', 'shows', 'risk:vulnerable'), {
                 'doc': 'The network activity shows that the vulnerability was present.'}),
+
+            (('risk:extortion', 'leadto', 'econ:payment'), {
+                'doc': 'The extortion led to the payment.'}),
         ),
         'forms': (
 
@@ -688,20 +660,6 @@ modeldefs = (
                 ('vector', ('risk:attack', {}), {
                     'doc': 'The attack assessed to be the initial compromise vector.'}),
 
-                #('target', ('entity:actor', {}), {
-                    #'doc': 'Contact information representing the target.'}),
-
-                #('period', ('ival', {}), {
-                    #'doc': 'The period over which the target was compromised.'}),
-
-                # FIXME - is this overfit being one-to-one?
-                #('campaign', ('entity:campaign', {}), {
-                    #'doc': 'The campaign that this compromise is part of.'}),
-
-                # Is this the same as enetity:discovered?
-                # ('detected', ('time', {}), {
-                #     'doc': 'The first confirmed detection time of the compromise.'}),
-
                 ('loss:pii', ('int', {}), {
                     'doc': 'The number of records compromised which contain PII.'}),
 
@@ -771,43 +729,10 @@ modeldefs = (
 
             )),
 
-            # ('risk:outage', {}, (
-
-            #     ('type', ('risk:outage:type:taxonomy', {}), {
-            #         'ex': 'service.power',
-            #         'doc': 'The type of outage.'}),
-
-            #     ('cause', ('risk:outage:cause:taxonomy', {}), {
-            #         'ex': 'nature.earthquake',
-            #         'doc': 'The outage cause type.'}),
-
-            #     #('attack', ('risk:attack', {}), {
-            #         #'doc': 'An attack which caused the outage.'}),
-
-            #     # :party / :party:name
-            #     # ('provider', ('ou:org', {}), {
-            #     #     'doc': 'The organization which experienced the outage event.'}),
-
-            #     # ('provider:name', ('entity:name', {}), {
-            #     #     'doc': 'The name of the organization which experienced the outage event.'}),
-            # )),
-
-            # risk:syndicate
-            #('risk:extortion:type:taxonomy', {}, ()),
             ('risk:extortion', {}, (
-
-                #('demanded', ('time', {}), {
-                    #'doc': 'The time that the attacker made their demands.'}),
-
-                #('deadline', ('time', {}), {
-                    #'doc': 'The time that the demand must be met.'}),
 
                 ('type', ('risk:extortion:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the extortion event.'}),
-
-                # :party / :party:name
-                # ('target', ('entity:actor', {}), {
-                #     'doc': 'The extortion target identity.'}),
 
                 ('success', ('bool', {}), {
                     'doc': "Set to true if the victim met the attacker's demands."}),
@@ -821,23 +746,8 @@ modeldefs = (
                 ('public:url', ('inet:url', {}), {
                     'doc': 'The URL where the attacker publicly announced the extortion.'}),
 
-                # compromise -(leadto)>
-                # ('compromise', ('risk:compromise', {}), {
-                #     'doc': 'The compromise which allowed the attacker to extort the target.'}),
-
-                #('demanded:payment:price', ('econ:price', {}), {
-                    #'doc': 'The payment price which was demanded.'}),
-
-                #('demanded:payment:currency', ('econ:currency', {}), {
-                    #'doc': 'The currency in which payment was demanded.'}),
-
-                # is this captured by biz:offer?
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
-
-                # -(leadto)> econ:payment?
-                ('payments', ('array', {'type': 'econ:payment'}), {
-                    'doc': 'Payments made from the target to the attacker.'}),
             )),
         ),
     }),
