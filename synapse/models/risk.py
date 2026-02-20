@@ -104,19 +104,28 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of threat statuses.'}),
 
-            ('risk:attack', ('guid', {}), {
+            ('risk:attack', ('entity:event', {}), {
                 'template': {'title': 'attack'},
                 'interfaces': (
-                    ('entity:action', {}),
                     ('meta:reported', {}),
+                    ('meta:discoverable', {}),
+                ),
+                'props': (
+
+                    ('type', ('risk:attack:type:taxonomy', {}), {
+                        'ex': 'cno.phishing',
+                        'doc': 'A type for the attack, as a taxonomy entry.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': 'Set if the attack was known to have succeeded or not.'}),
+
+                    ('severity', ('meta:score', {}), {
+                        'doc': 'A severity rank for the attack.'}),
+
+                    ('sophistication', ('meta:score', {}), {
+                        'doc': 'The assessed sophistication of the attack.'}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
-
-            ('risk:attack:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -133,11 +142,12 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of compromise statuses.'}),
 
-            ('risk:compromise', ('guid', {}), {
+            ('risk:compromise', ('meta:activity', {}), {
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('risk:victimized', {}),
+                    ('meta:discoverable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -237,7 +247,6 @@ modeldefs = (
                 'template': {'title': 'leak'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
@@ -261,62 +270,66 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of leak event types.'}),
 
-            ('risk:extortion', ('guid', {}), {
+            ('risk:extortion', ('meta:activity', {}), {
                 'template': {'title': 'extortion'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('risk:victimized', {}),
+                    ('biz:negotiable', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'demanded'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'deadline'}},
                     ),
                 },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
-            ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
+            ('risk:theft', ('meta:event', {}), {
                 'interfaces': (
-                    ('meta:taxonomy', {}),
+                    ('risk:victimized', {}),
                 ),
-                'doc': 'A hierarchical taxonomy of extortion statuses.'}),
+                'props': (),
+            }),
 
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'An outage cause taxonomy.'}),
 
             ('risk:outage:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'An outage type taxonomy.'}),
 
-            ('risk:outage:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'An outage status taxonomy.'}),
-
-            ('risk:outage', ('guid', {}), {
+            ('risk:outage', ('meta:activity', {}), {
                 'template': {'title': 'outage'},
                 'interfaces': (
                     ('meta:reported', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'provider:name'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'cause'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
+                'props': (
+                    ('type', ('risk:outage:type:taxonomy', {}), {
+                        'ex': 'service.power',
+                        'doc': 'The type of outage.'}),
+
+                    ('cause', ('risk:outage:cause:taxonomy', {}), {
+                        'ex': 'nature.earthquake',
+                        'doc': 'The outage cause type.'}),
+                    ),
                 'doc': 'An outage event which affected resource availability.'}),
 
             ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
@@ -330,13 +343,21 @@ modeldefs = (
         ),
         'interfaces': (
 
+            ('risk:victimized', {
+                'props': (
+                    ('victim', ('entity:actor', {}), {
+                        'doc': 'The victim of the {title}.'}),
+
+                    ('victim:name', ('entity:name', {}), {
+                        'doc': 'The name of the victim of the {title}.'}),
+                ),
+                'doc': 'An interface for events which affect a victim.'}),
+
             ('risk:mitigatable', {
-                'doc': 'A common interface for risks which may be mitigated.',
-            }),
+                'doc': 'A common interface for risks which may be mitigated.'}),
 
             ('risk:targetable', {
-                'doc': 'A common interface for nodes which may target selection criteria for threats.',
-            }),
+                'doc': 'A common interface for nodes which may target selection criteria for threats.'}),
         ),
         'edges': (
             # some explicit examples...
@@ -347,29 +368,23 @@ modeldefs = (
             (('entity:action', 'targeted', 'risk:targetable'), {
                 'doc': 'The action represents the actor targeting based on the target node.'}),
 
-            (('risk:compromise', 'stole', 'meta:observable'), {
-                'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+             (('risk:theft', 'stole', 'meta:observable'), {
+                 'doc': 'The target node was stolen or copied as part of the theft.'}),
 
-            (('risk:compromise', 'stole', 'phys:object'), {
-                'doc': 'The target node was stolen as a result of the compromise.'}),
+            (('risk:theft', 'stole', 'phys:object'), {
+                'doc': 'The target node was stolen as a part of the theft.'}),
 
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
-            (('risk:leak', 'enabled', 'risk:leak'), {
-                'doc': 'The source leak enabled the target leak to occur.'}),
+            (('risk:leak', 'ledto', 'risk:leak'), {
+                'doc': 'The source leak lead to the target leak.'}),
 
             (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),
 
-            (('meta:event', 'caused', 'risk:outage'), {
-                'doc': 'The event caused the outage.'}),
-
-            (('risk:attack', 'caused', 'risk:alert'), {
-                'doc': 'The attack caused the alert.'}),
-
-            (('risk:attack', 'caused', 'risk:outage'), {
-                'doc': 'The attack caused the outage.'}),
+            (('risk:extortion', 'ledto', 'econ:payment'), {
+                'doc': 'The extortion lead to the party making the payment to the actor.'}),
 
             (('risk:outage', 'impacted', None), {
                 'doc': 'The outage event impacted the availability of the target node.'}),
@@ -383,6 +398,9 @@ modeldefs = (
             # TODO we will need more of these...
             (('inet:proto:link', 'shows', 'risk:vulnerable'), {
                 'doc': 'The network activity shows that the vulnerability was present.'}),
+
+            (('risk:extortion', 'ledto', 'econ:payment'), {
+                'doc': 'The extortion led to the payment.'}),
         ),
         'forms': (
 
@@ -642,19 +660,6 @@ modeldefs = (
                 ('vector', ('risk:attack', {}), {
                     'doc': 'The attack assessed to be the initial compromise vector.'}),
 
-                ('target', ('entity:actor', {}), {
-                    'doc': 'Contact information representing the target.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period over which the target was compromised.'}),
-
-                # FIXME - is this overfit being one-to-one?
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'The campaign that this compromise is part of.'}),
-
-                ('detected', ('time', {}), {
-                    'doc': 'The first confirmed detection time of the compromise.'}),
-
                 ('loss:pii', ('int', {}), {
                     'doc': 'The number of records compromised which contain PII.'}),
 
@@ -691,39 +696,6 @@ modeldefs = (
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
 
-            ('risk:attack', {}, (
-
-                ('type', ('risk:attack:type:taxonomy', {}), {
-                    'ex': 'cno.phishing',
-                    'doc': 'A type for the attack, as a taxonomy entry.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'Set if the time of the attack is known.'}),
-
-                ('detected', ('time', {}), {
-                    'doc': 'The first confirmed detection time of the attack.'}),
-
-                ('success', ('bool', {}), {
-                    'doc': 'Set if the attack was known to have succeeded or not.'}),
-
-                # FIXME overfit
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'Set if the attack was part of a larger campaign.'}),
-
-                ('compromise', ('risk:compromise', {}), {
-                    'doc': 'A compromise that this attack contributed to.'}),
-
-                ('severity', ('meta:score', {}), {
-                    'doc': 'A severity rank for the attack.'}),
-
-                ('sophistication', ('meta:score', {}), {
-                    'doc': 'The assessed sophistication of the attack.'}),
-
-                ('prev', ('risk:attack', {}), {
-                    'doc': 'The previous/parent attack in a list or hierarchy.'}),
-
-            )),
-
             ('risk:leak:type:taxonomy', {}, ()),
             ('risk:leak', {}, (
 
@@ -738,12 +710,6 @@ modeldefs = (
 
                 ('type', ('risk:leak:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the leak.'}),
-
-                ('compromise', ('risk:compromise', {}), {
-                    'doc': 'The compromise which allowed the leaker access to the information.'}),
-
-                ('extortion', ('risk:extortion', {}), {
-                    'doc': 'The extortion event which used the threat of the leak as leverage.'}),
 
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the leaked information was made publicly available.'}),
@@ -763,45 +729,10 @@ modeldefs = (
 
             )),
 
-            ('risk:outage:type:taxonomy', {}, ()),
-            ('risk:outage:cause:taxonomy', {}, ()),
-            ('risk:outage', {}, (
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period where the outage impacted availability.'}),
-
-                ('type', ('risk:outage:type:taxonomy', {}), {
-                    'ex': 'service.power',
-                    'doc': 'The type of outage.'}),
-
-                ('cause', ('risk:outage:cause:taxonomy', {}), {
-                    'ex': 'nature.earthquake',
-                    'doc': 'The outage cause type.'}),
-
-                ('attack', ('risk:attack', {}), {
-                    'doc': 'An attack which caused the outage.'}),
-
-                ('provider', ('ou:org', {}), {
-                    'doc': 'The organization which experienced the outage event.'}),
-
-                ('provider:name', ('entity:name', {}), {
-                    'doc': 'The name of the organization which experienced the outage event.'}),
-            )),
-
-            ('risk:extortion:type:taxonomy', {}, ()),
             ('risk:extortion', {}, (
-
-                ('demanded', ('time', {}), {
-                    'doc': 'The time that the attacker made their demands.'}),
-
-                ('deadline', ('time', {}), {
-                    'doc': 'The time that the demand must be met.'}),
 
                 ('type', ('risk:extortion:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the extortion event.'}),
-
-                ('target', ('entity:actor', {}), {
-                    'doc': 'The extortion target identity.'}),
 
                 ('success', ('bool', {}), {
                     'doc': "Set to true if the victim met the attacker's demands."}),
@@ -815,20 +746,8 @@ modeldefs = (
                 ('public:url', ('inet:url', {}), {
                     'doc': 'The URL where the attacker publicly announced the extortion.'}),
 
-                ('compromise', ('risk:compromise', {}), {
-                    'doc': 'The compromise which allowed the attacker to extort the target.'}),
-
-                ('demanded:payment:price', ('econ:price', {}), {
-                    'doc': 'The payment price which was demanded.'}),
-
-                ('demanded:payment:currency', ('econ:currency', {}), {
-                    'doc': 'The currency in which payment was demanded.'}),
-
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
-
-                ('payments', ('array', {'type': 'econ:payment'}), {
-                    'doc': 'Payments made from the target to the attacker.'}),
             )),
         ),
     }),

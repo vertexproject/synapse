@@ -8,33 +8,11 @@ modeldefs = (
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {
+                'template': {'title': 'class'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'class'}}),
+                    ('meta:attendable', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
-
-            ('ps:education', ('guid', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'student::name'}},
-                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
-                        # TODO allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
-                    ),
-                },
-                'doc': 'A period of education for an individual.'}),
-
-            ('ps:achievement', ('guid', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'awardee::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-                        {'type': 'prop', 'opts': {'name': 'awarded'}},
-                    ),
-                },
-                'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
                 'template': {'title': 'person'},
@@ -45,12 +23,12 @@ modeldefs = (
                 ),
                 'doc': 'A person or persona.'}),
 
-            ('ps:workhist', ('guid', {}), {
+            ('ps:workhist', ('entity:activity', {}), {
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
                         {'type': 'prop', 'opts': {'name': 'title'}},
-                        {'type': 'prop', 'opts': {'name': 'org:name'}},
+                        {'type': 'prop', 'opts': {'name': 'employer:name'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
@@ -104,26 +82,24 @@ modeldefs = (
         ),
         'edges': (
 
-            (('ps:education', 'included', 'edu:class'), {
+            (('entity:educated', 'included', 'edu:class'), {
                 'doc': 'The class was taken by the student as part of their education process.'}),
         ),
         'forms': (
 
             ('ps:workhist', {}, (
 
-                ('contact', ('entity:individual', {}), {
-                    'doc': 'The contact which has the work history.'}),
+                ('employer', ('entity:actor', {}), {
+                    'prevnames': ('org',),
+                    'doc': 'The employer.'}),
 
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org that this work history orgname refers to.'}),
-
-                ('org:name', ('entity:name', {}), {
+                ('employer:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
-                    'doc': 'The reported name of the org the contact worked for.'}),
+                    'doc': 'The name of the employer.'}),
 
-                ('org:fqdn', ('inet:fqdn', {}), {
+                ('employer:fqdn', ('inet:fqdn', {}), {
                     'prevnames': ('orgfqdn',),
-                    'doc': 'The reported fqdn of the org the contact worked for.'}),
+                    'doc': 'The FQDN of the employer.'}),
 
                 ('job:type', ('ou:job:type:taxonomy', {}), {
                     'doc': 'The type of job.',
@@ -145,7 +121,7 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
-                    'doc': 'The period of time that the contact worked for the organization.'}),
+                    'doc': 'The period of time that the actor worked for the employer.'}),
 
                 ('desc', ('str', {}), {
                     'doc': 'A description of the work done as part of the job.'}),
@@ -176,6 +152,7 @@ modeldefs = (
                 ('course', ('edu:course', {}), {
                     'doc': 'The course being taught in the class.'}),
 
+                # TODO: should these become entity:participated to capture times?
                 ('instructor', ('entity:individual', {}), {
                     'doc': 'The primary instructor for the class.'}),
 
@@ -195,41 +172,6 @@ modeldefs = (
                 ('virtual:provider', ('entity:actor', {}), {
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
             )),
-            ('ps:education', {}, (
-
-                ('student', ('entity:individual', {}), {
-                    'doc': 'The student who attended the educational institution.'}),
-
-                ('institution', ('ou:org', {}), {
-                    'doc': 'The organization providing educational services.'}),
-
-                ('period', ('ival', {'precision': 'day'}), {
-                    'prevnames': ('attended:first', 'attended:last'),
-                    'doc': 'The period of time when the student attended the institution.'}),
-
-                ('achievement', ('ps:achievement', {}), {
-                    'doc': 'The degree or certificate awarded to the individual.'}),
-
-            )),
-            ('ps:achievement', {}, (
-
-                ('awardee', ('entity:individual', {}), {
-                    'doc': 'The recipient of the award.'}),
-
-                ('award', ('ou:award', {}), {
-                    'doc': 'The award bestowed on the awardee.'}),
-
-                ('awarded', ('time', {}), {
-                    'doc': 'The date the award was granted to the awardee.'}),
-
-                ('expires', ('time', {}), {
-                    'doc': 'The date the award or certification expires.'}),
-
-                ('revoked', ('time', {}), {
-                    'doc': 'The date the award was revoked by the org.'}),
-
-            )),
-
             ('ps:person', {}, (
                 ('vitals', ('ps:vitals', {}), {
                     'doc': 'The most recent vitals for the person.'}),

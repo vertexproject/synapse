@@ -54,6 +54,21 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of product types.'}),
+
+            ('biz:asked', ('entity:event', {}), {
+                'template': {'title': 'ask'},
+                'doc': 'An event where an actor made an ask as part of a negotiation.'}),
+
+            ('biz:offered', ('entity:event', {}), {
+                'template': {'title': 'offer'},
+                'doc': 'An event where an actor made an offer in reply to an ask as part of a negotiation.'}),
+        ),
+
+        'interfaces': (
+
+            ('biz:negotiable', {
+                # TODO restrict to being implemented on meta:activity sub-forms
+                'doc': 'An interface implemented by activities which involve negotiation.'}),
         ),
 
         'edges': (

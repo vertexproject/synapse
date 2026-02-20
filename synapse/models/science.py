@@ -8,6 +8,9 @@ modeldefs = (
                 'doc': 'A taxonomy of hypothesis types.'}),
 
             ('sci:hypothesis', ('guid', {}), {
+                'interfaces': (
+                    ('meta:believable', {}),
+                ),
                 'doc': 'A hypothesis or theory.'}),
 
             # TODO link experiment to eventual procedure node
@@ -20,7 +23,15 @@ modeldefs = (
             ('sci:experiment', ('guid', {}), {
                 'doc': 'An instance of running an experiment.'}),
 
-            ('sci:observation', ('guid', {}), {
+            ('sci:observation', ('entity:event', {}), {
+                'template': {'title': 'observation'},
+                'props': (
+                    ('experiment', ('sci:experiment', {}), {
+                        'doc': 'The experiment which produced the observation.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the observation.'}),
+                ),
                 'doc': 'An observation which may have resulted from an experiment.'}),
 
             ('sci:evidence', ('guid', {}), {
@@ -72,19 +83,6 @@ modeldefs = (
                     'doc': 'The time period when the experiment was run.'}),
 
             )),
-
-            ('sci:observation', {}, (
-
-                ('experiment', ('sci:experiment', {}), {
-                    'doc': 'The experiment which produced the observation.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the observation.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the observation occurred.'}),
-            )),
-
             ('sci:evidence', {}, (
 
                 ('hypothesis', ('sci:experiment', {}), {
