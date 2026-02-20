@@ -108,6 +108,9 @@ modeldefs = (
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of activity.'}),
                 ),
                 'doc': 'Analytically relevant activity.'}),
 
