@@ -57,11 +57,14 @@ def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
 async def _doEOFBackup(path):
+    # This function has to be detected as an async generator
+    if False:
+        yield
     return
 
 async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
-    await s_daemon.t2call(link, _doEOFBackup, (path,), {})
+    await s_daemon.t2call(link, _doEOFBackup, (path,), {}, first=False)
     link.writer.write_eof()
     await link.fini()
 
