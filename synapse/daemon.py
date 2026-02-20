@@ -46,10 +46,14 @@ class Sess(s_base.Base):
                            }
         return ret
 
-async def t2call(link, meth, args, kwargs):
+async def t2call(link, meth, args, kwargs, first=True):
     '''
     Call the given ``meth(*args, **kwargs)`` and handle the response to provide
     telepath task v2 events to the given link.
+
+    The ``first`` argument may be set to ``False`` to skip sending an initial ``t2:genr``
+    message when using a using a link which has already been initialized (such as when sending
+    a link to a spawned process).
     '''
     try:
 
@@ -60,35 +64,24 @@ async def t2call(link, meth, args, kwargs):
 
         try:
 
-            first = True
             if isinstance(valu, types.AsyncGeneratorType):
-
-                async for item in valu:
-
-                    if first:
-                        await link.tx(('t2:genr', {}))
-                        first = False
-
-                    await link.tx(('t2:yield', {'retn': (True, item)}))
-
                 if first:
                     await link.tx(('t2:genr', {}))
+                    first = False
+
+                async for item in valu:
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
 
                 await link.tx(('t2:yield', {'retn': None}))
                 return
 
             elif isinstance(valu, types.GeneratorType):
-
-                for item in valu:
-
-                    if first:
-                        await link.tx(('t2:genr', {}))
-                        first = False
-
-                    await link.tx(('t2:yield', {'retn': (True, item)}))
-
                 if first:
                     await link.tx(('t2:genr', {}))
+                    first = False
+
+                for item in valu:
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
 
                 await link.tx(('t2:yield', {'retn': None}))
                 return

@@ -22,9 +22,8 @@ async def unixlisten(path, onlink):
     '''
     Start an PF_UNIX server listening on the given path.
     '''
-    info = {'path': path, 'unix': True}
-
     async def onconn(reader, writer):
+        info = {'path': path, 'unix': True}
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
     return await asyncio.start_unix_server(onconn, path=path)
