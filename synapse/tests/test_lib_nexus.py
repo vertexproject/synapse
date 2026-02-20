@@ -493,7 +493,6 @@ class NexusTest(s_t_utils.SynTest):
                     return item
 
                 task = cell.schedCoro(listen())
-                await asyncio.sleep(0.1)
                 await cell.sync()
 
                 offs, item = await asyncio.wait_for(task, timeout=5)
