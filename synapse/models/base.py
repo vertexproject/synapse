@@ -205,11 +205,17 @@ modeldefs = (
                         'ex': 'nobel peace prize',
                         'doc': 'The name of the award.'}),
 
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the award.'}),
+
                     ('type', ('meta:award:type:taxonomy', {}), {
                         'doc': 'The type of award.'}),
 
                     ('issuer', ('entity:actor', {}), {
                         'doc': 'The entity who issues the award.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the award existed.'}),
                 ),
                 'doc': 'An award which can be granted to an actor.'}),
         ),
@@ -351,7 +357,7 @@ modeldefs = (
             }),
 
             ('meta:causal', {
-                'doc': 'Implemented by events and activity which can lead to effects.'}),
+                'doc': 'Implemented by events and activities which can lead to effects.'}),
 
             ('base:event', {
                 'template': {'title': 'event'},
@@ -470,7 +476,7 @@ modeldefs = (
             (('meta:technique', 'addresses', 'risk:vuln'), {
                 'doc': 'The technique addresses the vulnerability.'}),
 
-            (('meta:causal', 'leadto', 'meta:causal'), {
+            (('meta:causal', 'ledto', 'meta:causal'), {
                 'doc': 'The source event lead to the target event.'}),
         ),
         'forms': (

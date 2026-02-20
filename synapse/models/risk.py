@@ -377,13 +377,13 @@ modeldefs = (
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
-            (('risk:leak', 'leadto', 'risk:leak'), {
+            (('risk:leak', 'ledto', 'risk:leak'), {
                 'doc': 'The source leak lead to the target leak.'}),
 
             (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),
 
-            (('risk:extortion', 'leadto', 'econ:payment'), {
+            (('risk:extortion', 'ledto', 'econ:payment'), {
                 'doc': 'The extortion lead to the party making the payment to the actor.'}),
 
             (('risk:outage', 'impacted', None), {
@@ -399,7 +399,7 @@ modeldefs = (
             (('inet:proto:link', 'shows', 'risk:vulnerable'), {
                 'doc': 'The network activity shows that the vulnerability was present.'}),
 
-            (('risk:extortion', 'leadto', 'econ:payment'), {
+            (('risk:extortion', 'ledto', 'econ:payment'), {
                 'doc': 'The extortion led to the payment.'}),
         ),
         'forms': (
