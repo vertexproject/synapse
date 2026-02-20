@@ -10,6 +10,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spawner as s_spawner
+import synapse.lib.lmdbslab as s_lmdbslab
 
 nameregex = regex.compile(s_schemas.re_drivename)
 def reqValidName(name):
@@ -228,7 +229,6 @@ class Drive(s_base.Base):
         This API is designed to allow the caller to retrieve the path info
         and potentially check permissions on each level to control access.
         '''
-
         path = await self.getPathNorm(path)
         parbidn = s_common.uhex(reldir)
 
@@ -615,6 +615,5 @@ class Drive(s_base.Base):
 class FileDrive(Drive, s_spawner.SpawnerMixin):
 
     async def __anit__(self, path):
-        import synapse.lib.lmdbslab as s_lmdbslab
         slab = await s_lmdbslab.Slab.anit(path)
-        return await Drive.__anit__(self, slab, 'drive')
+        return await Drive.__anit__(self, slab, 'celldrive')

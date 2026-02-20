@@ -1524,14 +1524,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
     async def _drivePermMigration(self):
-        for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
-            info = s_msgpack.un(lval)
-            perm = info.pop('perm', None)
-            if perm is not None:
-                perm.setdefault('users', {})
-                perm.setdefault('roles', {})
-                info['permissions'] = perm
-                self.slab.put(lkey, s_msgpack.en(info), db=self.drive.dbname)
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
+            for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=olddrive.dbname):
+                info = s_msgpack.un(lval)
+                perm = info.pop('perm', None)
+                if perm is not None:
+                    perm.setdefault('users', {})
+                    perm.setdefault('roles', {})
+                    info['permissions'] = perm
+                    self.slab.put(lkey, s_msgpack.en(info), db=olddrive.dbname)
+
+    async def _driveCellMigration(self):
+        logger.warning('Migrating Drive Slabs')
+
+        self.olddrive = await s_drive.Drive.anit(self.slab, 'celldrive')
+
+        dbname = self.olddrive.dbname
+        newpath = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+
+        async with await s_lmdbslab.Slab.anit(newpath) as newslab:
+            rows = await self.slab.copydb(dbname, newslab, dbname)
+            logger.warning(f"Migrated {rows} rows")
+            newslab.forcecommit()
+
+        # TODO: trash celldrive
+
+        logger.warning('...Drive migration complete!')
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1913,6 +1931,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initCellStorage(self):
+        await self._bumpCellVers('drive:storage', (
+            (1, self._drivePermMigration),
+            (2, self._driveCellMigration),
+        ), nexs=False)
+
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
         sockpath = s_common.genpath(self.sockdirn, 'drive')
 
@@ -1920,16 +1943,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sockpath = None
 
         spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
-
         self.drive = await spawner(path)
 
         self.onfini(self.drive.fini)
-
-        # TODO: needs migration
-        # self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
-        # await self._bumpCellVers('drive:storage', (
-        #    (1, self._drivePermMigration),
-        # ), nexs=False)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
