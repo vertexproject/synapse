@@ -214,7 +214,7 @@ modeldefs = (
 
                     # FIXME ownership interface?
                     ('owner', ('entity:actor', {}), {
-                        'doc': 'The contact information of the owner of the {title}.'}),
+                        'doc': 'The actor who currently owns the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...
@@ -328,8 +328,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The license ID.'}),
 
-                # TODO type ( drivers license, commercial trucking, etc? )
-                ('contact', ('entity:actor', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact info of the licensee.'}),
 
                 ('issued', ('time', {}), {
@@ -542,9 +541,6 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                #('contact', ('entity:individual', {}), {
-                    #'doc': 'Contact information of the occupant.'}),
-
                 ('trip', ('transport:trip', {}), {
                     'doc': 'The trip, such as a flight or train ride, being taken by the occupant.'}),
 
@@ -555,8 +551,6 @@ modeldefs = (
                     'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
                 ('period', ('ival', {}), {
-                    # keeping for prevnames...
-                    'prevnames': ('boarded', 'disembarked'),
                     'doc': 'The period when the occupant was aboard the vehicle.'}),
 
                 ('boarded:place', ('geo:place', {}), {
