@@ -51,3 +51,6 @@ assert layer_pdef_qsize <= layer_pdef_qsize_max
 # HTTP header constants
 MAX_LINE_SIZE = kibibyte * 64
 MAX_FIELD_SIZE = kibibyte * 64
+
+# Socket constants
+UNIX_PATH_MAX = 107

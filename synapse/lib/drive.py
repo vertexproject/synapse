@@ -6,8 +6,11 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.config as s_config
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
+import synapse.lib.spawner as s_spawner
+import synapse.lib.lmdbslab as s_lmdbslab
 
 nameregex = regex.compile(s_schemas.re_drivename)
 def reqValidName(name):
@@ -54,7 +57,7 @@ class Drive(s_base.Base):
         self.dbname = slab.initdb(f'drive:{name}')
         self.validators = {}
 
-    def getPathNorm(self, path):
+    async def getPathNorm(self, path):
 
         if isinstance(path, str):
             path = path.strip().strip('/').split('/')
@@ -67,7 +70,7 @@ class Drive(s_base.Base):
             mesg = f'Drive item has the wrong type. Expected: {typename} got {infotype}.'
             raise s_exc.TypeMismatch(mesg=mesg, expected=typename, got=infotype)
 
-    def getItemInfo(self, iden, typename=None):
+    async def getItemInfo(self, iden, typename=None):
         info = self._getItemInfo(s_common.uhex(iden))
         if not info:
             return
@@ -81,7 +84,7 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    def reqItemInfo(self, iden, typename=None):
+    async def reqItemInfo(self, iden, typename=None):
         return self._reqItemInfo(s_common.uhex(iden), typename=typename)
 
     def _reqItemInfo(self, bidn, typename=None):
@@ -105,7 +108,7 @@ class Drive(s_base.Base):
         pathinfo = []
         while iden is not None:
 
-            info = self.reqItemInfo(iden)
+            info = await self.reqItemInfo(iden)
 
             pathinfo.append(info)
             iden = info.get('parent')
@@ -117,7 +120,7 @@ class Drive(s_base.Base):
 
     async def _setItemPath(self, bidn, path, reldir=rootdir):
 
-        path = self.getPathNorm(path)
+        path = await self.getPathNorm(path)
 
         # new parent iden / bidn
         parinfo = None
@@ -171,7 +174,7 @@ class Drive(s_base.Base):
     def _hasStepItem(self, bidn, name):
         return self.slab.has(LKEY_DIRN + bidn + name.encode(), db=self.dbname)
 
-    def getStepInfo(self, iden, name):
+    async def getStepInfo(self, iden, name):
         return self._getStepInfo(s_common.uhex(iden), name)
 
     def _getStepInfo(self, bidn, name):
@@ -208,7 +211,7 @@ class Drive(s_base.Base):
 
         await self.slab.putmulti(rows, db=self.dbname)
 
-    def setItemPerm(self, iden, perm):
+    async def setItemPerm(self, iden, perm):
         return self._setItemPerm(s_common.uhex(iden), perm)
 
     def _setItemPerm(self, bidn, perm):
@@ -226,8 +229,7 @@ class Drive(s_base.Base):
         This API is designed to allow the caller to retrieve the path info
         and potentially check permissions on each level to control access.
         '''
-
-        path = self.getPathNorm(path)
+        path = await self.getPathNorm(path)
         parbidn = s_common.uhex(reldir)
 
         pathinfo = []
@@ -244,7 +246,7 @@ class Drive(s_base.Base):
 
         return pathinfo
 
-    def hasItemInfo(self, iden):
+    async def hasItemInfo(self, iden):
         return self._hasItemInfo(s_common.uhex(iden))
 
     def _hasItemInfo(self, bidn):
@@ -254,7 +256,7 @@ class Drive(s_base.Base):
         '''
         Check for a path existing relative to reldir.
         '''
-        path = self.getPathNorm(path)
+        path = await self.getPathNorm(path)
         parbidn = s_common.uhex(reldir)
 
         for part in path:
@@ -277,7 +279,7 @@ class Drive(s_base.Base):
         pathinfo = []
 
         if path is not None:
-            path = self.getPathNorm(path)
+            path = await self.getPathNorm(path)
             pathinfo = await self.getPathInfo(path, reldir=reldir)
             if pathinfo:
                 pariden = pathinfo[-1].get('iden')
@@ -300,7 +302,7 @@ class Drive(s_base.Base):
         bidn = s_common.uhex(iden)
 
         if typename is not None:
-            self.reqTypeValidator(typename)
+            await self.reqTypeValidator(typename)
 
         if self._getItemInfo(bidn) is not None:
             mesg = f'A drive entry with ID {iden} already exists.'
@@ -311,7 +313,7 @@ class Drive(s_base.Base):
         pathinfo.append(info)
         return pathinfo
 
-    def reqFreeStep(self, iden, name):
+    async def reqFreeStep(self, iden, name):
         return self._reqFreeStep(s_common.uhex(iden), name)
 
     def _reqFreeStep(self, bidn, name):
@@ -362,7 +364,7 @@ class Drive(s_base.Base):
 
     async def walkPathInfo(self, path, reldir=rootdir):
 
-        path = self.getPathNorm(path)
+        path = await self.getPathNorm(path)
         pathinfo = await self.getPathInfo(path, reldir=reldir)
 
         bidn = s_common.uhex(pathinfo[-1].get('iden'))
@@ -409,7 +411,7 @@ class Drive(s_base.Base):
 
         typename = info.get('type')
 
-        self.reqValidData(typename, data)
+        await self.reqValidData(typename, data)
 
         byts = s_msgpack.en(data)
 
@@ -439,7 +441,7 @@ class Drive(s_base.Base):
 
         return info, versinfo
 
-    def getItemData(self, iden, vers=None):
+    async def getItemData(self, iden, vers=None):
         '''
         Return a (versinfo, data) tuple for the given iden. If
         version is not specified, the current version is returned.
@@ -465,7 +467,7 @@ class Drive(s_base.Base):
 
         return s_msgpack.un(versbyts), s_msgpack.un(databyts)
 
-    def delItemData(self, iden, vers=None):
+    async def delItemData(self, iden, vers=None):
         return self._delItemData(s_common.uhex(iden), vers=vers)
 
     def _delItemData(self, bidn, vers=None):
@@ -507,12 +509,12 @@ class Drive(s_base.Base):
             yield s_msgpack.un(byts)
             await asyncio.sleep(0)
 
-    def getTypeSchema(self, typename):
+    async def getTypeSchema(self, typename):
         byts = self.slab.get(LKEY_TYPE + typename.encode(), db=self.dbname)
         if byts is not None:
             return s_msgpack.un(byts, use_list=True)
 
-    def getTypeSchemaVersion(self, typename):
+    async def getTypeSchemaVersion(self, typename):
         verskey = LKEY_TYPE_VERS + typename.encode()
         byts = self.slab.get(verskey, db=self.dbname)
         if byts is not None:
@@ -522,9 +524,16 @@ class Drive(s_base.Base):
 
         reqValidName(typename)
 
+        if isinstance(callback, str):
+            callback = s_dyndeps.getDynLocal(callback)
+
+        # if we were invoked via telepath, the schmea needs to be mutable...
+        schema = s_msgpack.deepcopy(schema, use_list=True)
+
+        curv = await self.getTypeSchemaVersion(typename)
+
         if vers is not None:
             vers = int(vers)
-            curv = self.getTypeSchemaVersion(typename)
             if curv is not None:
                 if vers == curv:
                     return False
@@ -551,11 +560,24 @@ class Drive(s_base.Base):
                 for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
                     versindx = lkey[-9:]
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
-                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts))
+                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv)
                     vtor(data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
         return True
+
+    async def getMigrRows(self, typename):
+
+        async for info in self.getItemsByType(typename):
+
+            bidn = s_common.uhex(info.get('iden'))
+            for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
+                datakey = LKEY_DATA + bidn + lkey[-9:]
+                databyts = self.slab.get(datakey, db=self.dbname)
+                yield datakey, s_msgpack.un(databyts)
+
+    async def setMigrRow(self, datakey, data):
+        self.slab.put(datakey, s_msgpack.en(data), db=self.dbname)
 
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'
@@ -565,12 +587,12 @@ class Drive(s_base.Base):
             if info is not None:
                 yield info
 
-    def getTypeValidator(self, typename):
+    async def getTypeValidator(self, typename):
         vtor = self.validators.get(typename)
         if vtor is not None:
             return vtor
 
-        schema = self.getTypeSchema(typename)
+        schema = await self.getTypeSchema(typename)
         if schema is None:
             return None
 
@@ -579,13 +601,19 @@ class Drive(s_base.Base):
 
         return vtor
 
-    def reqTypeValidator(self, typename):
-        vtor = self.getTypeValidator(typename)
+    async def reqTypeValidator(self, typename):
+        vtor = await self.getTypeValidator(typename)
         if vtor is not None:
             return vtor
 
         mesg = f'No schema registered with name: {typename}'
         raise s_exc.NoSuchType(mesg=mesg)
 
-    def reqValidData(self, typename, item):
-        self.reqTypeValidator(typename)(item)
+    async def reqValidData(self, typename, item):
+        return (await self.reqTypeValidator(typename))(item)
+
+class FileDrive(Drive, s_spawner.SpawnerMixin):
+
+    async def __anit__(self, path):
+        slab = await s_lmdbslab.Slab.anit(path)
+        return await Drive.__anit__(self, slab, 'celldrive')
