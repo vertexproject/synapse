@@ -480,7 +480,7 @@ modeldefs = (
                 'doc': 'The technique addresses the vulnerability.'}),
 
             (('meta:causal', 'ledto', 'meta:causal'), {
-                'doc': 'The source event lead to the target event.'}),
+                'doc': 'The source event led to the target event.'}),
         ),
         'forms': (
 
