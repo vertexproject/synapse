@@ -233,7 +233,7 @@ modeldefs = (
                 ),
             }),
 
-            ('meta:promoted', {
+            ('meta:promotable', {
                 'props': (
                     ('website', ('inet:url', {}), {
                         'doc': 'The URL of the {title} website.'}),

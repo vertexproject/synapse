@@ -123,7 +123,7 @@ modeldefs = (
             ('ou:preso', ('meta:activity', {}), {
                 'template': {'title': 'presentation'},
                 'interfaces': (
-                    ('meta:promoted', {}),
+                    ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
                 ),
@@ -138,7 +138,7 @@ modeldefs = (
             ('ou:conference', ('meta:activity', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
-                    ('meta:promoted', {}),
+                    ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
                 ),
@@ -156,7 +156,7 @@ modeldefs = (
             ('ou:contest', ('meta:activity', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
-                    ('meta:promoted', {}),
+                    ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
                     ('meta:competitive', {}),
@@ -276,9 +276,6 @@ modeldefs = (
 
             ('ou:job:type:taxonomy', {
                 'prevnames': ('ou:jobtype',)}, ()),
-
-            #('ou:employment:type:taxonomy', {
-                #'prevnames': ('ou:employment',)}, ()),
 
             ('ou:opening', {}, (
 
@@ -660,21 +657,12 @@ modeldefs = (
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meeting', {}, (
-                #('hosts', ('array', {'type': 'entity:actor'}), {
-                    #'doc': 'The contacts who hosted or called the meeting.'}),
-            )),
+            ('ou:meeting', {}, ()),
             ('ou:conference', {}, (
                 ('family:name', ('base:name', {}), {
                     'doc': 'The name of the family of conferences.'}),
             )),
-            ('ou:contest', {}, (
-
-                #('type', ('ou:contest:type:taxonomy', {}), {
-                    #'ex': 'cyber.ctf',
-                    #'doc': 'The type of contest.'}),
-
-            )),
+            ('ou:contest', {}, ()),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (
 
