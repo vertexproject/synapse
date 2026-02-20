@@ -183,9 +183,6 @@ modeldefs = (
             ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
                 'doc': 'A node which inherits the entity:identifier interface.'}),
 
-            #('entity:action', ('ndef', {'interface': 'entity:action'}), {
-                #'doc': 'FIXME polyprop place holder'}),
-
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
 
@@ -293,16 +290,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of types of possession.'}),
 
-            # TODO entity:activity
-            ('entity:had', ('guid', {}), {
+            ('entity:had', ('entity:activity', {}), {
                 'doc': 'An item which was possessed by an actor.'}),
 
-            #('entity:conversation', ('guid', {}), {
-                #'doc': 'A conversation between entities.'}),
+            # ('entity:conversation', ('guid', {}), {
+                # 'doc': 'A conversation between entities.'}),
 
-            # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
-            # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
-            # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
             ('entity:goal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -384,19 +377,19 @@ modeldefs = (
             #     ),
             #     'doc': 'Passive observation of an event by an entity.'}),
 
-            ('entity:tookpart', ('entity:activity', {}), {
+            ('entity:participated', ('entity:activity', {}), {
                 'props': (
                     ('event', ('meta:causal', {}), {
                         'doc': 'The event or activity the actor was involved in.'}),
                 ),
                 'doc': "Represents an actor's active involvement with an event."}),
 
-            #('entity:support', ('entity:involved', {}), {
-                #'template': {'title': 'support'},
-                #'doc': 'Represents an actor having materially supported an event.'}),
-                
-            #('entity:contribution:type:taxonomy', ('taxonomy', {}), {
-                #'doc': 'A hierarchical taxonomy of contribution types.'}),
+            # ('entity:support', ('entity:involved', {}), {
+            #     'template': {'title': 'support'},
+            #     'doc': 'Represents an actor having materially supported an event.'}),
+            #
+            # ('entity:contribution:type:taxonomy', ('taxonomy', {}), {
+            #     'doc': 'A hierarchical taxonomy of contribution types.'}),
 
             ('entity:contributed', ('entity:activity', {}), {
                 'template': {'title': 'contribution'},
@@ -578,30 +571,23 @@ modeldefs = (
                     'doc': 'A description of the goal.'}),
             )),
 
-            #('entity:campaign:type:taxonomy', {
-                #'prevnames': ('ou:camptype',)}, ()),
+            ('entity:campaign:type:taxonomy', {
+                'prevnames': ('ou:camptype',)}, ()),
 
             ('entity:campaign', {}, (
 
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                #('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
-                    #'doc': 'Actors who participated in the campaign.'}),
-
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                # TODO: should we create risk:campaign and define this there
                 ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
-                #('type', ('entity:campaign:type:taxonomy', {}), {
-                    #'doc': 'A type taxonomy entry for the campaign.',
-                    #'prevnames': ('camptype',)}),
-
-                #('period', ('ival', {}), {
-                    #'doc': 'The time interval when the entity was running the campaign.'}),
+                ('type', ('entity:campaign:type:taxonomy', {}), {
+                    'doc': 'A type taxonomy entry for the campaign.',
+                    'prevnames': ('camptype',)}),
 
                 # TODO: cost:budget cost:actual ?
                 ('cost', ('econ:price', {}), {
@@ -618,13 +604,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record econ:price properties.'}),
-
-                #('team', ('ou:team', {}), {
-                    #'doc': 'The org team responsible for carrying out the campaign.'}),
-
-                # FIXME overfit?
-                #('conflict', ('entity:conflict', {}), {
-                    #'doc': 'The conflict in which this campaign is a primary participant.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
