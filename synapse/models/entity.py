@@ -29,7 +29,7 @@ modeldefs = (
                     ('party:name', ('entity:name', {}), {
                         'doc': 'The name of the party which was affected.'}),
                 ),
-                'doc': 'An interface used for events which have an affected entity.'}),
+                'doc': 'An interface used for events which affect or impact an entity.'}),
 
             # ('entity:affected', {
             #     'template': {'affected': 'affected'},
