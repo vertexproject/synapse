@@ -207,7 +207,8 @@ class DaemonTest(s_t_utils.SynTest):
                 self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_direct')
                 self.eq(raw_msgs[1], ('t2:genr', {}))
                 self.eq(raw_msgs[2][0], 't2:yield')
-                self.eq(raw_msgs[2][1]['retn'][0], False)  # indicates the BadArg error
+                self.eq(raw_msgs[2][1]['retn'][0], False)
+                self.eq(raw_msgs[2][1]['retn'][1][0], 'BadArg')
 
                 msgs.clear()
                 raw_msgs.clear()
@@ -220,7 +221,8 @@ class DaemonTest(s_t_utils.SynTest):
                 self.eq(raw_msgs[0][1]['todo'][0], 'async_iter')
                 self.eq(raw_msgs[1], genr_mesg)
                 self.eq(raw_msgs[2:2 + n], yield_msgs)
-                self.eq(raw_msgs[-1][1]['retn'][0], False)  # indicates the BadState error
+                self.eq(raw_msgs[-1][1]['retn'][0], False)
+                self.eq(raw_msgs[-1][1]['retn'][1][0], 'BadState')
 
                 msgs.clear()
                 raw_msgs.clear()
@@ -233,7 +235,8 @@ class DaemonTest(s_t_utils.SynTest):
                 self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_direct')
                 self.eq(raw_msgs[1], genr_mesg)
                 self.eq(raw_msgs[2:2 + n], yield_msgs)
-                self.eq(raw_msgs[-1][1]['retn'][0], False)  # indicates the BadState error
+                self.eq(raw_msgs[-1][1]['retn'][0], False)
+                self.eq(raw_msgs[-1][1]['retn'][1][0], 'BadState')
 
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'
