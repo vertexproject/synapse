@@ -24,16 +24,16 @@ class SmtpTest(s_test.SynTest):
 
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = "HELLO WORLD"
-                    $message.html = "<html><body><h1>HI!</h1></body></html>"
+                    $message.text = "HELO WORLD"
+                    $message.html = "<html><body><h1>EHLO!</h1></body></html>"
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
                     $message.recipients.append(visi@vertex.link)
 
                     // test gtors...
                     if (not $message.sender ~= "visi") { $lib.exit() }
-                    if (not $message.text ~= "HELLO") { $lib.exit() }
-                    if (not $message.html ~= "HI") { $lib.exit() }
+                    if (not $message.text ~= "HELO") { $lib.exit() }
+                    if (not $message.html ~= "EHLO") { $lib.exit() }
 
                     return($message.send('smtp.gmail.com', port=465, usetls=true))
                 ''')
@@ -52,7 +52,7 @@ class SmtpTest(s_test.SynTest):
 
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = "HELLO WORLD"
+                    $message.text = "HELO WORLD"
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
                     $message.recipients.append(visi@vertex.link)
@@ -70,7 +70,7 @@ class SmtpTest(s_test.SynTest):
 
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = "HELLO WORLD"
+                    $message.text = "HELO WORLD"
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
                     $message.recipients.append(visi@vertex.link)
@@ -84,7 +84,7 @@ class SmtpTest(s_test.SynTest):
 
                 isok, info = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = "HELLO WORLD"
+                    $message.text = "HELO WORLD"
                     return($message.send('smtp.newp.com', port=465, usetls=$lib.true, starttls=$lib.true))
                 ''')
                 self.false(isok)

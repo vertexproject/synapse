@@ -6,6 +6,18 @@
 Synapse Changelog
 *****************
 
+v2.233.1 - 2026-02-11
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in Storm where a switch statement could have duplicate switch
+  cases.
+  (`#4742 <https://github.com/vertexproject/synapse/pull/4742>`_)
+- Fixed an issue where mirror promotion would incorrectly re-schedule the
+  disconnection timeout task on the client after it was shut down.
+  (`#4743 <https://github.com/vertexproject/synapse/pull/4743>`_)
+
 v2.233.0 - 2026-02-06
 =====================
 

@@ -1,0 +1,7 @@
+---
+desc: 'Deprecated ``--minute``, ``--hour``, ``--day``, ``--month``, ``--year``, ``--hourly``,
+  ``--daily``, ``--monthly``, and ``--yearly``options for the ``cron.add`` command.'
+desc:literal: false
+prs: []
+type: deprecation
+...
