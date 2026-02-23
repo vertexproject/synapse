@@ -1,4 +1,5 @@
 import asyncio
+import multiprocessing
 
 import unittest.mock as mock
 
@@ -16,32 +17,76 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
+def iterfunc(n):
+    if n < 1:
+        raise s_exc.BadArg(megs='N less than 1', valu=n)
+    for i in range(n):
+        yield i
+
+async def aiterfunc(n, boom=False):
+    for i in iterfunc(n):
+        yield i
+    if boom:
+        await asyncio.sleep(0)
+        raise s_exc.BadState(megs='boom', valu=n)
+
+async def _aiterspawntgt(linkinfo, n, boom=False):
+    '''
+    Inner setup for backup streaming.
+
+    Args:
+        path (str): Path to the backup.
+        linkinfo(dict): Link info dictionary.
+
+    Returns:
+        None: Returns None.
+    '''
+    link = await s_link.fromspawn(linkinfo)
+    await s_daemon.t2call(link, aiterfunc, (n, boom), {}, first=False)
+    await link.fini()
+
+def aiterspawntgt(linkinfo, n, boom=False):
+    asyncio.run(_aiterspawntgt(linkinfo, n, boom=boom))
+
 class Foo:
     YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3'
     def woot(self):
         return 10
 
     def sync_iter(self, n):
-        if n < 1:
-            raise s_exc.BadArg(megs='N less than 1', valu=n)
-        for i in range(n):
+        for i in iterfunc(n):
             yield i
 
     async def async_iter(self, n, boom=False):
-        for i in self.sync_iter(n):
+        async for i in aiterfunc(n, boom=boom):
             yield i
-        if boom:
-            await asyncio.sleep(0)
-            raise s_exc.BadState(megs='boom', valu=n)
 
     async def async_iter_direct(self, n, boom=False):
         # Must be detected as a generator
         if False:
             yield True
         link = s_scope.get('link')
-        async for i in self.async_iter(n, boom=boom):
+        async for i in aiterfunc(n, boom=boom):
             mesg = self.YIELD_PREFIX + s_msgpack.en(i)
             await link.send(mesg)
+
+    async def async_iter_spawn(self, n, boom=False):
+        # Must be detected as a generator
+        if False:
+            yield True
+        link = s_scope.get('link')
+        linkinfo = await link.getSpawnInfo()
+        ctx = multiprocessing.get_context('spawn')
+
+        def getproc():
+            proc = ctx.Process(target=aiterspawntgt, args=(linkinfo, n, boom))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)
+        await asyncio.wait_for(s_coro.executor(proc.join), timeout=24)
+        proc.terminate()
+        raise s_exc.DmonSpawn(mesg='aiter ran')
 
 class DaemonTest(s_t_utils.SynTest):
 
@@ -196,7 +241,19 @@ class DaemonTest(s_t_utils.SynTest):
 
                 msgs.clear()
                 raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    async for i in foo.async_iter_spawn(n):
+                        msgs.append(i)
+                    self.eq(msgs, expv)
+                # Our patch only captures the messages from the test process; the spawn
+                # sends the t2:yield messages.
+                self.len(2, raw_msgs)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_spawn')
+                self.eq(raw_msgs[1], genr_mesg)
 
+                msgs.clear()
+                raw_msgs.clear()
                 with mock.patch('synapse.lib.link.Link.send', psend):
                     with self.raises(s_exc.BadArg):
                         async for i in foo.async_iter_direct(-1):
