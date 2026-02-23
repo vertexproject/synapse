@@ -85,7 +85,7 @@ class Foo:
 
         proc = await s_coro.executor(getproc)
         await asyncio.wait_for(s_coro.executor(proc.join), timeout=24)
-        proc.terminate()
+        await asyncio.wait_for(s_coro.executor(proc.terminate), timeout=24)
         raise s_exc.DmonSpawn(mesg='aiter ran')
 
 class DaemonTest(s_t_utils.SynTest):
