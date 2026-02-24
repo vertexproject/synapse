@@ -5883,7 +5883,10 @@ class NodeProps(Prim):
         prop = self.valu.form.reqProp(name)
 
         if prop.type.ispoly:
-            return await prop.type.tostorm(self.valu.getWithVirts(name))
+            valu = self.valu.getWithVirts(name)
+            if valu[0] is None:
+                return
+            return await prop.type.tostorm(valu)
 
         return await prop.type.tostorm(self.valu.get(name))
 
