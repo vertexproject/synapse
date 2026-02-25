@@ -1818,12 +1818,54 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.true(errinfo.get('mesg').startswith("Unexpected token '(' at line 1, column 17"))
 
-        query = 'switch $x { *: {} *:{} }'
-        parser = s_parser.Parser(query)
-        with self.raises(s_exc.BadSyntax) as cm:
-            _ = parser.query()
-        errinfo = cm.exception.errinfo
-        self.true(errinfo.get('mesg').startswith("Switch statements cannot have more than one default case."))
+        # duplicated switch cases are an error
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                "foo": { $lib.print("got foo") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
+
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                ("foo", "bar"): { $lib.print(`got {$val}`) }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
+
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                ("bar", "bar"): { $lib.print("got bar") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: bar')
+
+        q = '''
+            $val = foo
+            switch $val {
+                *: { $lib.print("got foo") }
+                *: { $lib.print("got bar") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have more than one default case. Found 2.')
 
     async def test_quotes(self):
 

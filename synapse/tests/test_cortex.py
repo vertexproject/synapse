@@ -6644,7 +6644,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await visi.setAdmin(True)
 
             asvisi = {'user': visi.iden}
-            await core.stormlist('cron.add --daily 13:37 {$lib.print(woot)}', opts=asvisi)
+            await core.stormlist('cron.add daily@13:37 {$lib.print(woot)}', opts=asvisi)
             await core.auth.delUser(visi.iden)
 
             self.len(1, await core.callStorm('return($lib.cron.list())'))
@@ -6670,7 +6670,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async def action():
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
-                    await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30))')
+                    await core.callStorm('return($lib.cron.add(hourly@:30, "{meta:note=*}"))')
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
@@ -8346,7 +8346,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.nodes('$lib.queue.add(queue:safemode:done)')
                 # Add a cron job and immediately disable it
                 q = '''
-                cron.add --minute +1 {
+                cron.add hourly@:00 {
                     $now = $lib.cast(time, now)
                     $lib.log.warning(`SAFEMODE CRON: {$now}`)
                     [ test:str=CRON :tick=$now ]
@@ -8445,7 +8445,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.storm') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
-                    core.agenda._addTickOff(60)
+                    core.agenda._addTickOff(60 * 60)
 
                     q = await core.getCoreQueueByName('queue:safemode:done')
                     async with asyncio.timeout(5):

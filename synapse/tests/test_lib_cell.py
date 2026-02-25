@@ -57,6 +57,7 @@ def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
 async def _doEOFBackup(path):
+    # This function has to be detected as an async generator
     if False:
         yield
     return

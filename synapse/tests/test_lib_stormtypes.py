@@ -2392,8 +2392,8 @@ class StormTypesTest(s_test.SynTest):
             # cron and others uniq by iden
             q = '''
                 $set = $lib.set()
-                $jobA = $lib.cron.add(query=${[test:int=1]}, hourly=10)
-                $jobB = $lib.cron.add(query=${[test:int=1]}, hourly=10)
+                $jobA = $lib.cron.add('hourly@:10', ${[test:int=1]})
+                $jobB = $lib.cron.add('hourly@:10', ${[test:int=1]})
 
                 $set.add($jobA)
                 $set.add($jobB)
@@ -5438,18 +5438,18 @@ class StormTypesTest(s_test.SynTest):
             view00 = await core.callStorm('return($lib.view.get().iden)')
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            cdef = await core.callStorm('return($lib.cron.add(query="{[tel:mob:telem=*]}", hourly=30))')
+            cdef = await core.callStorm('return($lib.cron.add(hourly@:30, "{[tel:mob:telem=*]}"))')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
             self.eq(view00, cdef.get('view'))
 
-            cdef = await core.callStorm('return($lib.cron.add(view=$lib.view.get().iden, query="{}", hourly=30))')
+            cdef = await core.callStorm('return($lib.cron.add(hourly@:30, "{}", view=$lib.view.get().iden))')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
             self.eq(view00, cdef.get('view'))
 
             q = '''$view=$lib.view.get($fork)
-            $cron = $lib.cron.add(query="{}", hourly=30, name='test cron', doc='fancy doc', view=$view)
+            $cron = $lib.cron.add(hourly@:30, "{}", name='test cron', doc='fancy doc', view=$view)
             return($cron)
             '''
             cdef = await core.callStorm(q, opts={'vars': {'fork': fork00}})
@@ -5478,7 +5478,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await core.callStorm('$lib.cron.get($iden).hehe = haha', opts=opts)
 
-            mesgs = await core.stormlist('cron.add --hour +1 {[tel:mob:telem=*]} --name myname --doc mydoc')
+            mesgs = await core.stormlist('cron.add hourly@:01 {[tel:mob:telem=*]} --name myname --doc mydoc')
             for mesg in mesgs:
                 if mesg[0] == 'print':
                     iden0 = mesg[1]['mesg'].split(' ')[-1]
@@ -5490,7 +5490,7 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core._killCronTask('newp'))
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
 
-    async def test_storm_lib_cron(self):
+    async def test_storm_lib_cron2(self):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
@@ -5512,62 +5512,11 @@ class StormTypesTest(s_test.SynTest):
 
                 q = '$lib.cron.add()'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('Query parameter is required', mesgs)
+                self.stormIsInErr('missing 2 required positional arguments', mesgs)
 
                 q = 'cron.add foo'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('Must provide at least one optional argument', mesgs)
-
-                q = "cron.add --month nosuchmonth --day=-2 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse fixed parameter "nosuchmonth"', mesgs)
-
-                q = "cron.add --month 8nosuchmonth --day=-2 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse fixed parameter "8nosuchmonth"', mesgs)
-
-                mesgs = await core.stormlist('cron.add --day="," {#foo}')
-                self.stormIsInErr('Failed to parse day value', mesgs)
-
-                q = "cron.add --day Mon --month +3 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('provide a recurrence value with day of week', mesgs)
-
-                q = "cron.add --day Mon --month June {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('fix month or year with day of week', mesgs)
-
-                q = "cron.add --day Mon --month +3 --year +2 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('more than 1 recurrence', mesgs)
-
-                q = "cron.add --year=2019 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Year may not be a fixed value', mesgs)
-
-                q = "cron.add {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Must provide at least one optional', mesgs)
-
-                q = "cron.add --hour 3 --minute +4 {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Fixed unit may not be larger', mesgs)
-
-                q = 'cron.add --day Tuesday,1 {#foo}'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse day value', mesgs)
-
-                q = 'cron.add --day 1,Tuesday {#foo}'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse day value', mesgs)
-
-                q = 'cron.add --day Fri,3 {#foo}'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse day value', mesgs)
-
-                q = "cron.add --minute +4x {#foo}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse parameter', mesgs)
+                self.stormIsInErr('argument <query> is required', mesgs)
 
                 q = 'cron.add }'
                 mesgs = await core.stormlist(q)
@@ -5576,14 +5525,6 @@ class StormTypesTest(s_test.SynTest):
                 ##################
                 # TODO - this is not a good way to test this since nodeedit log offsets map to nexus log offsets
                 nexteditoffs = await core.getNexsIndx() + 6
-
-                # Start simple: add a cron job that creates a node every minute
-                q = "cron.add --minute +1 {[meta:note='*' :type=m1]}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint('Created cron job', mesgs)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
 
                 await core.nodes('$lib.queue.add(foo)')
 
@@ -5614,141 +5555,6 @@ class StormTypesTest(s_test.SynTest):
                     msgs = await core.stormlist(f'cron.del {guid}')
                     self.stormIsInPrint(f'Deleted cron job: {guid}', msgs)
 
-                unixtime += 60
-                mesgs = await core.stormlist('cron.list')
-                self.stormIsInPrint(':type=m1', mesgs)
-
-                # Make sure it ran
-                await core.waitNexsOffs(nexteditoffs, timeout=5)
-                self.eq(1, await prox.count('meta:note:type=m1'))
-
-                q = "cron.mod $guid --storm { [meta:note='*' :type=m2] }"
-                mesgs = await core.stormlist(q, opts={'vars': {'guid': guid[:6]}})
-                self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
-
-                q = "cron.mod xxx --storm { [meta:note='*' :type=m2] }"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('does not match', mesgs)
-
-                # Make sure the old one didn't run and the new query ran
-                nexteditoffs = await core.getNexsIndx() + 4
-                unixtime += 60
-                await core.waitNexsOffs(nexteditoffs, timeout=5)
-                self.eq(1, await prox.count('meta:note:type=m1'))
-                self.eq(1, await prox.count('meta:note:type=m2'))
-
-                # Delete the job
-                q = f"cron.del {guid}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint('Deleted cron job', mesgs)
-
-                q = f"cron.del xxx"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('does not match', mesgs)
-
-                # Make sure deleted job didn't run
-                unixtime += 60
-                self.eq(1, await prox.count('meta:note:type=m1'))
-                self.eq(1, await prox.count('meta:note:type=m2'))
-
-                # Test fixed minute, i.e. every hour at 17 past
-                unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
-                                             tzinfo=tz.utc).timestamp()
-
-                q = '{$lib.queue.byname(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
-                text = f'cron.add --minute 17 {q}'
-                async with getCronJob(text) as guid:
-                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
-                        unixtime += 7 * MINSECS
-                        self.eq('m3', await getNextFoo())
-                        self.true(await stream.wait(6))
-                    mesg = stream.jsonlines()[0]
-                    self.eq(mesg['message'], f'm3 cron {guid}')
-                    self.eq(mesg['iden'], guid)
-
-                ##################
-
-                # Test day increment
-                async with getCronJob("cron.add --day +2 {$lib.queue.byname(foo).put(d1)}") as guid:
-
-                    unixtime += DAYSECS
-
-                    # Make sure it *didn't* run
-                    self.eq(0, await getFooSize())
-
-                    unixtime += DAYSECS
-
-                    # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
-                    self.eq('d1', await getNextFoo())
-
-                    unixtime += DAYSECS * 2
-
-                    self.eq('d1', await getNextFoo())
-
-                ##################
-
-                # Test fixed day of week: every Monday and Thursday at 3am
-                unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
-                                             tzinfo=tz.utc).timestamp()  # A Tuesday
-
-                async with getCronJob("cron.add --hour 3 --day Mon,Thursday {$lib.queue.byname(foo).put(d2)}") as guid:
-
-                    unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
-
-                    self.eq('d2', await getNextFoo())
-
-                ##################
-
-                q = "cron.add --hour 3 --day Noday {}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Failed to parse day value "Noday"', mesgs)
-
-                ##################
-
-                # Test fixed day of month: second-to-last day of month
-                async with getCronJob("cron.add --day -2 --month Dec {$lib.queue.byname(foo).put(d3)}") as guid:
-
-                    unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
-
-                    # self.eq('d3', await getNextFoo())
-                    self.eq(0, await getFooSize())
-
-                    unixtime += DAYSECS
-
-                    self.eq('d3', await getNextFoo())
-
-                ##################
-
-                # Test month increment
-
-                async with getCronJob("cron.add --month +2 --day=4 {$lib.queue.byname(foo).put(month1)}") as guid:
-
-                    unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
-
-                    self.eq('month1', await getNextFoo())
-
-                ##################
-
-                # Test year increment
-
-                async with getCronJob("cron.add --year +2 {$lib.queue.byname(foo).put(year1)}") as guid:
-
-                    unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
-
-                    self.eq('year1', await getNextFoo())
-
-                # Make sure second-to-last day works for February
-                async with getCronJob("cron.add --month February --day=-2 {$lib.queue.byname(foo).put(year2)}") as guid:
-
-                    unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
-
-                    self.eq('year2', await getNextFoo())
-
                 ##################
 
                 # Test 'at' command
@@ -5770,7 +5576,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = '$lib.cron.at(day="+1")'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('Query parameter is required', mesgs)
+                self.stormIsInErr('missing 1 required positional argument', mesgs)
 
                 q = "cron.at --minute +5,+10 {$lib.queue.byname(foo).put(at1)}"
                 msgs = await core.stormlist(q)
@@ -5887,68 +5693,22 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
                 # Test --iden
-                q = "cron.add --iden invalididen --hour +7 {[test:guid=$lib.guid()]}"
+                q = "cron.add --iden invalididen hourly@:07 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q)
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --pool --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
+                q = "cron.add --pool --iden $iden daily@:14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
-                q = "cron.add --iden $iden --minute +86400 {[test:guid=$lib.guid()]}"
+                q = "cron.add --iden $iden daily@:00 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInErr('Duplicate cron iden (cd263bd133a5dafa1e1c5e9a01d9d486)', msgs)
 
                 q = "cron.del $iden"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Deleted cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
-
-                opts = {'vars': {'iden': 'b5f74c417dd67aa38142f2be9567cc12'}}
-                q = "cron.add --iden $iden --month +2 --hour 4 {[test:guid=$lib.guid()]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Created cron job: b5f74c417dd67aa38142f2be9567cc12', msgs)
-
-                q = "cron.add --iden $iden --day +62 --hour 4 {[test:guid=$lib.guid()]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (b5f74c417dd67aa38142f2be9567cc12)', msgs)
-
-                q = "cron.add --iden $iden --month +4 --hour 4 {[test:guid=$lib.guid()]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (b5f74c417dd67aa38142f2be9567cc12)', msgs)
-
-                q = "cron.del $iden"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Deleted cron job: ', msgs)
-
-                opts = {'vars': {'iden': '9d893f731df9777b2937cb5a7895970b'}}
-                q = "cron.add --iden $iden --hour 0,2 --day Sat {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Created cron job: 9d893f731df9777b2937cb5a7895970b', msgs)
-
-                q = "cron.add --iden $iden --hour 2,0 --day Mon {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
-
-                q = "cron.add --iden $iden --hour 2,0 --month 3 {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
-
-                q = "cron.add --iden $iden --month +3 --hour 2,3 --minute 10,30 {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
-
-                q = "cron.add --iden $iden --hour 2,3 --day Sat {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
-
-                q = "cron.add --iden $iden --month 2 --day +2 {[test:int=5]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
-
-                q = "cron.del $iden"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Deleted cron job: ', msgs)
 
                 # Test that stating a failed cron prints failures
                 async with getCronJob("cron.at --now {$lib.queue.byname(foo).put(atnow) $lib.newp}") as guid:
@@ -5958,36 +5718,14 @@ class StormTypesTest(s_test.SynTest):
                     self.nn(re.search("# errors:.+1", print_str))
                     self.nn(re.search("most recent errors:\n[^\n]+Cannot find name", print_str))
 
-                ##################
-                # Test the aliases
-                async with getCronJob('cron.add --hourly 15 {#foo}') as guid:
-                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                    self.stormIsInPrint("{'minute': 15}", mesgs)
-
-                async with getCronJob('cron.add --daily 05:47 {#bar}') as guid:
-                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                    self.stormIsInPrint("{'hour': 5, 'minute': 47", mesgs)
-
-                async with getCronJob('cron.add --monthly=-1:12:30 {#bar}') as guid:
-                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                    self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
-
                 # leave this job around for the subsequent tests
-                mesgs = await core.stormlist('cron.add --yearly 04:17:12:30 {#bar}')
+                mesgs = await core.stormlist('cron.add yearly@04:30 {#bar}')
                 self.stormIsInPrint('Created cron job', mesgs)
                 guid = await getCronIden()
 
                 mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}", mesgs)
 
-                mesgs = await core.stormlist('cron.add --yearly 04:17:12 {#bar}')
-                self.stormIsInErr('Failed to parse parameter', mesgs)
-
-                mesgs = await core.stormlist('cron.add --daily xx:xx {#bar}')
-                self.stormIsInErr('Failed to parse ..ly parameter', mesgs)
-
-                mesgs = await core.stormlist('cron.add --hourly 1 --minute 17 {#bar}')
-                self.stormIsInErr('May not use both', mesgs)
+                self.stormIsInPrint("{'month': 1, 'hour': 4, 'minute': 30, 'dayofmonth': 1}", mesgs)
 
                 # Test manipulating cron jobs as another user
                 bond = await core.auth.addUser('bond')
@@ -6003,7 +5741,7 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInErr('iden does not match any', mesgs)
 
-                    mesgs = await asbond.storm('cron.add --hourly 15 {#bar}').list()
+                    mesgs = await asbond.storm('cron.add hourly@:15 {#bar}').list()
                     self.stormIsInErr('must have permission cron.add', mesgs)
 
                     # Give explicit perm
@@ -6011,7 +5749,7 @@ class StormTypesTest(s_test.SynTest):
                     await prox.addUserRule(bond.iden, (True, ('cron', 'add')))
                     await prox.addUserRule(bond.iden, (True, ('cron', 'get')))
 
-                    await asbond.storm('cron.add --hourly 15 {#bar}').list()
+                    await asbond.storm('cron.add hourly@:15 {#bar}').list()
 
                     mesgs = await asbond.storm('cron.list').list()
                     self.stormIsInPrint('bond', mesgs)

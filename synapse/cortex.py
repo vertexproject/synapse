@@ -5911,7 +5911,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             elif name == 'storm':
                 await self.getStormQuery(valu)
 
-            elif name not in ('name', 'enabled', 'pool', 'doc', 'loglevel'):
+            elif name == 'reqs':
+                reqs = self._convert_reqdict(valu)
+                if 'incunit' in edits and s_agenda.TimeUnit.NOW in reqs:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadConfValu(mesg)
+
+            elif name not in ('name', 'enabled', 'pool', 'doc', 'loglevel', 'incvals', 'incunit'):
                 raise s_exc.BadOptValu(mesg='Cron Job does not support setting specified property.', prop=name)
 
             if cdef.get(name) == valu:
@@ -5935,51 +5941,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (str):  The iden of the cron job to edit.
         '''
-        appt = await self.agenda.get(iden)
+        cdef = await self.agenda.mod(iden, edits)
 
-        for name, valu in edits.items():
-            if name == 'user':
-                await self.auth.reqUser(valu)
-                appt.user = valu
-
-            elif name == 'view':
-                self.reqView(valu)
-                appt.view = valu
-
-            elif name == 'storm':
-                await self.getStormQuery(valu)
-                appt.storm = valu
-
-            elif name == 'name':
-                appt.name = valu
-
-            elif name == 'doc':
-                appt.doc = valu
-
-            elif name == 'pool':
-                appt.pool = bool(valu)
-
-            elif name == 'loglevel':
-                appt.loglevel = valu
-
-            elif name == 'enabled':
-                if appt.enabled == valu:
-                    continue
-
-                appt.enabled = valu
-                if valu is True:
-                    logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
-                else:
-                    await self._killCronTask(iden)
-                    logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
-
-            else:
-                mesg = f'editCronJob name {name} is not supported for editing.'
-                raise s_exc.BadArg(mesg=mesg)
-
-        await appt.save()
-
-        cdef = appt.pack()
         await self.feedBeholder('cron:edit', cdef, gates=[iden])
 
         return cdef
