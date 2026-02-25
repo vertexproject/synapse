@@ -3136,7 +3136,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         try:
                             if (opts := initdef.get('queryopts')) is None:
-                                opts = {'mirror': False}
+                                opts = {}
+                            opts.setdefault('mirror', False)
 
                             async for mesg in self.storm(initdef['query'], opts=opts):
                                 match mesg[0]:
