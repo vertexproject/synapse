@@ -1547,7 +1547,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning(f"Migrated {rows} rows")
             newslab.forcecommit()
 
-        # TODO: trash celldrive
+        await self.olddrive.fini()
+        self.slab.dropdb(dbname)
+        self.olddrive = None
 
         logger.warning('...Drive migration complete!')
 
