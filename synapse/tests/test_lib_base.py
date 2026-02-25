@@ -605,3 +605,13 @@ class BaseTest(s_t_utils.SynTest):
         await base.fini()
         self.true(base.isfini)
         self.true(proxy.isfini)
+
+    async def test_base_spawner_none(self):
+
+        spawner = Haha.spawner()
+        proxy = await spawner()
+
+        self.false(proxy.isfini)
+
+        await proxy.fini()
+        self.true(proxy.isfini)
