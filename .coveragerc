@@ -1,6 +1,7 @@
 [report]
 omit =
     */synapse/tests/test_*
+    /tmp/*
 
 [run]
 concurrency = multiprocessing
