@@ -2855,7 +2855,6 @@ class StormTest(s_t_utils.SynTest):
         }
 
         def _runStormPkgOnload(self, pkgdef):
-            # syntest.eq(1, 2)
             syntest.len(1, self.stormdmons.getDmonDefs())
             return orig(self, pkgdef)
 
