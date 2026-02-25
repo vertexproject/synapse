@@ -566,19 +566,6 @@ class Drive(s_base.Base):
                     await asyncio.sleep(0)
         return True
 
-    async def getMigrRows(self, typename):
-
-        async for info in self.getItemsByType(typename):
-
-            bidn = s_common.uhex(info.get('iden'))
-            for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
-                datakey = LKEY_DATA + bidn + lkey[-9:]
-                databyts = self.slab.get(datakey, db=self.dbname)
-                yield datakey, s_msgpack.un(databyts)
-
-    async def setMigrRow(self, datakey, data):
-        self.slab.put(datakey, s_msgpack.en(data), db=self.dbname)
-
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'
         for lkey in self.slab.scanKeysByPref(LKEY_INFO_BYTYPE + tkey, db=self.dbname):
