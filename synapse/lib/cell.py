@@ -2096,7 +2096,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         path = await self.drive.getPathNorm(path)
         pathinfo = await self.drive.getItemPath(iden)
-        if path == [p.get('name') for p in pathinfo]:
+        if [str(p) for p in path] == [p.get('name', '') for p in pathinfo]:
             return pathinfo
 
         return await self.drive.setItemPath(iden, path)
