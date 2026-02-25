@@ -1023,6 +1023,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1659,13 +1660,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreMods()
 
-        if self.isactive:
-            await self._checkLayerModels()
-
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1674,8 +1670,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
-
-        await self.stormdmons.start()
 
         async def _runMigrations():
             # Run migrations when this cortex becomes active. This is to prevent
@@ -1694,7 +1688,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
-        self.runActiveTask(_runMigrations())
+        await self.runActiveTask(_runMigrations())
+
+        await self.stormdmons.start()
 
         await self.initStormPool()
 

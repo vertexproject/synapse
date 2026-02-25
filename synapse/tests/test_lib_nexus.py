@@ -228,7 +228,7 @@ class NexusTest(s_t_utils.SynTest):
 
                 nexsindx = await core00.getNexsIndx()
                 layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.gt(nexsindx, layrindx)
+                self.ge(nexsindx, layrindx)
 
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
