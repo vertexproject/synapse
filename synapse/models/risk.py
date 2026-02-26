@@ -142,7 +142,7 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of compromise statuses.'}),
 
-            ('risk:compromise', ('meta:activity', {}), {
+            ('risk:compromise', ('entity:activity', {}), {
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
@@ -243,16 +243,17 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of threat types.'}),
 
-            ('risk:leak', ('guid', {}), {
+            ('risk:leak', ('entity:event', {}), {
                 'template': {'title': 'leak'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('risk:victimized', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'disclosed'}},
+                        {'type': 'prop', 'opts': {'name': 'time'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'owner::name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
@@ -270,7 +271,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of leak event types.'}),
 
-            ('risk:extortion', ('meta:activity', {}), {
+            ('risk:extortion', ('entity:activity', {}), {
                 'template': {'title': 'extortion'},
                 'interfaces': (
                     ('meta:reported', {}),
@@ -351,7 +352,8 @@ modeldefs = (
                     ('victim:name', ('entity:name', {}), {
                         'doc': 'The name of the victim of the {title}.'}),
                 ),
-                'doc': 'An interface for events which affect a victim.'}),
+                # TODO add similar context to props above
+                'doc': 'An interface for malicious acts which directly impact victim.'}),
 
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.'}),
@@ -374,17 +376,27 @@ modeldefs = (
             (('risk:theft', 'stole', 'phys:object'), {
                 'doc': 'The target node was stolen as a part of the theft.'}),
 
+            (('risk:compromise', 'ledto', 'risk:leak'), {
+                'doc': 'The compromise led to the leak.'}),
+
+            (('risk:compromise', 'ledto', 'risk:extortion'), {
+                'doc': 'The compromise led to the leak.'}),
+
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
             (('risk:leak', 'ledto', 'risk:leak'), {
                 'doc': 'The source leak lead to the target leak.'}),
 
+            # FIXME should this be removed in favor of risk:leak -(ledto)> risk:extortion?
             (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),
 
             (('risk:extortion', 'ledto', 'econ:payment'), {
                 'doc': 'The extortion lead to the party making the payment to the actor.'}),
+
+            (('risk:attack', 'ledto', 'risk:outage'), {
+                'doc': 'The attack led to the outage.'}),
 
             (('risk:outage', 'impacted', None), {
                 'doc': 'The outage event impacted the availability of the target node.'}),
@@ -398,9 +410,6 @@ modeldefs = (
             # TODO we will need more of these...
             (('inet:proto:link', 'shows', 'risk:vulnerable'), {
                 'doc': 'The network activity shows that the vulnerability was present.'}),
-
-            (('risk:extortion', 'ledto', 'econ:payment'), {
-                'doc': 'The extortion led to the payment.'}),
         ),
         'forms': (
 
@@ -699,24 +708,26 @@ modeldefs = (
             ('risk:leak:type:taxonomy', {}, ()),
             ('risk:leak', {}, (
 
-                ('disclosed', ('time', {}), {
-                    'doc': 'The time the leaked information was disclosed.'}),
+                # ('disclosed', ('time', {}), {
+                #     'doc': 'The time the leaked information was disclosed.'}),
 
-                ('owner', ('entity:actor', {}), {
-                    'doc': 'The owner of the leaked information.'}),
+                # ('owner', ('entity:actor', {}), {
+                #     'doc': 'The owner of the leaked information.'}),
 
+                # FIXME this form is conflated between the leak event an effects / relationships...
+                # should we make a sub-form of leak for disclosure to a specific entity?
                 ('recipient', ('entity:actor', {}), {
                     'doc': 'The identity which received the leaked information.'}),
 
-                ('type', ('risk:leak:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy for the leak.'}),
+                # ('type', ('risk:leak:type:taxonomy', {}), {
+                #     'doc': 'A type taxonomy for the leak.'}),
 
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the leaked information was made publicly available.'}),
 
-                ('public:urls', ('array', {'type': 'inet:url'}), {
+                ('urls', ('array', {'type': 'inet:url'}), {
                     'prevnames': ('public:url',),
-                    'doc': 'The URL where the leaked information was made publicly available.'}),
+                    'doc': 'The URL where the actor published the information.'}),
 
                 ('size:bytes', ('int', {'min': 0}), {
                     'doc': 'The total size of the leaked data in bytes.'}),
@@ -725,7 +736,7 @@ modeldefs = (
                     'doc': 'The number of files included in the leaked data.'}),
 
                 ('size:percent', ('int', {'min': 0, 'max': 100}), {
-                    'doc': 'The total percent of the data leaked.'}),
+                    'doc': 'The total percent of the compromised data leaked.'}),
 
             )),
 

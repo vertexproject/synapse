@@ -321,11 +321,12 @@ modeldefs = (
                 },
                 'doc': 'A stated or assessed goal.'}),
 
-            # ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
-            #     'interfaces': (
-            #         ('meta:taxonomy', {}),
-            #     ),
-            #     'doc': 'A hierarchical taxonomy of campaign types.'}),
+            ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A hierarchical taxonomy of campaign types.'}),
 
             # ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
             #     'interfaces': (
@@ -333,7 +334,7 @@ modeldefs = (
             #     ),
             #     'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
-            ('entity:campaign', ('meta:activity', {}), {
+            ('entity:campaign', ('entity:activity', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
                     ('meta:reported', {}),
@@ -391,9 +392,12 @@ modeldefs = (
             # ('entity:contribution:type:taxonomy', ('taxonomy', {}), {
             #     'doc': 'A hierarchical taxonomy of contribution types.'}),
 
-            ('entity:contributed', ('entity:activity', {}), {
+            ('entity:contribution', ('entity:event', {}), {
                 'template': {'title': 'contribution'},
                 'props': (
+                    ('event', ('entity:activity', {}), {
+                        'doc': 'The event or activity which the actor contributed to.'}),
+
                     ('value', ('econ:price', {}), {
                         'doc': 'The total value of the actors contribution.'}),
                 ),
@@ -407,6 +411,7 @@ modeldefs = (
                 ),
                 'doc': 'A discovery made by an actor.'}),
 
+            # TODO: entity:obeyed? ( for -(followed)> tenet )
             ('entity:believed', ('entity:activity', {}), {
                 'prevnames': ('belief:subscriber',),
                 'props': (
@@ -448,7 +453,10 @@ modeldefs = (
                 'doc': 'An event where an actor was granted an award.'}),
 
             ('entity:attended', ('entity:activity', {}), {
-                'props': (),
+                'props': (
+                    ('event', ('meta:attendable', {}), {
+                        'doc': 'The event or activity attended by the actor.'}),
+                ),
                 'doc': 'An actor attending an event.'}),
 
             ('entity:registered', ('entity:event', {}), {
@@ -457,6 +465,7 @@ modeldefs = (
                         'doc': 'The contact information provided by the actor.'}),
                 ),
                 'doc': 'An event where an actor registered to attend an event.'}),
+
         ),
 
         'edges': (
@@ -481,11 +490,11 @@ modeldefs = (
             (('entity:action', 'had', 'entity:goal'), {
                 'doc': 'The action was taken in pursuit of the goal.'}),
 
-            (('entity:contributed', 'had', 'econ:lineitem'), {
-                'doc': 'The contribution includes the line item.'}),
+            # (('entity:contributed', 'had', 'econ:lineitem'), {
+            #     'doc': 'The contribution includes the line item.'}),
 
-            (('entity:contributed', 'had', 'econ:payment'), {
-                'doc': 'The contribution includes the payment.'}),
+            # (('entity:contributed', 'had', 'econ:payment'), {
+            #     'doc': 'The contribution includes the payment.'}),
         ),
 
         'forms': (
@@ -571,9 +580,6 @@ modeldefs = (
                     'doc': 'A description of the goal.'}),
             )),
 
-            ('entity:campaign:type:taxonomy', {
-                'prevnames': ('ou:camptype',)}, ()),
-
             ('entity:campaign', {}, (
 
                 ('slogan', ('lang:phrase', {}), {
@@ -586,8 +592,7 @@ modeldefs = (
                     'doc': 'The assessed sophistication of the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy entry for the campaign.',
-                    'prevnames': ('camptype',)}),
+                    'doc': 'A type taxonomy entry for the campaign.'}),
 
                 # TODO: cost:budget cost:actual ?
                 ('cost', ('econ:price', {}), {

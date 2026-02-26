@@ -112,17 +112,32 @@ modeldefs = (
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
+            ('ou:event', ('meta:activity', {}), {
+                'template': {'title': 'organized event'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                    ('lang:transcript', {}),
+                    ('meta:attendable', {}),
+                    ('meta:promotable', {}),
+                ),
+                'props': (),
+                'doc': 'An organized event without a more specific form.'}),
+
             ('ou:meeting', ('meta:activity', {}), {
-                'prevnames': ('ou:meet',),
                 'template': {'title': 'meeting'},
                 'interfaces': (
+                    ('geo:locatable', {}),
+                    ('lang:transcript', {}),
                     ('meta:attendable', {}),
                 ),
-                'doc': 'A meeting.'}),
+                'props': (),
+                'doc': 'An organized meeting.'}),
 
             ('ou:preso', ('meta:activity', {}), {
                 'template': {'title': 'presentation'},
                 'interfaces': (
+                    ('geo:locatable', {}),
+                    ('lang:transcript', {}),
                     ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
@@ -138,9 +153,14 @@ modeldefs = (
             ('ou:conference', ('meta:activity', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
+                    ('geo:locatable', {}),
                     ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
+                ),
+                'props': (
+                    ('family', ('base:name', {}), {
+                        'doc': 'The name of the family of conferences.'}),
                 ),
                 'display': {
                     'columns': (
@@ -156,10 +176,15 @@ modeldefs = (
             ('ou:contest', ('meta:activity', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
+                    ('geo:locatable', {}),
                     ('meta:promotable', {}),
                     ('meta:attendable', {}),
                     ('meta:sponsorable', {}),
                     ('meta:competitive', {}),
+                ),
+                'props': (
+                    ('family', ('base:name', {}), {
+                        'doc': 'The name of the family of contests.'}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
@@ -184,15 +209,6 @@ modeldefs = (
             ('ou:id:history', ('guid', {}), {
                 'prevnames': ('ou:id:update',),
                 'doc': 'Changes made to an ID over time.'}),
-
-            ('ou:award:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of award types.'}),
-
-            ('ou:award', ('guid', {}), {
-                'doc': 'An award issued by an organization.'}),
 
             ('ou:vitals', ('guid', {}), {
                 'doc': 'Vital statistics about an org for a given time period.'}),
@@ -249,6 +265,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of employment types.'}),
 
             ('ou:enacted:status:taxonomy', ('taxonomy', {}), {
@@ -443,21 +460,6 @@ modeldefs = (
                 ('delta:population', ('int', {}), {
                     'doc': 'The change in population over last period.'}),
             )),
-            ('ou:award:type:taxonomy', {}, ()),
-            ('ou:award', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The name of the award.',
-                    'ex': 'Bachelors of Science'}),
-
-                ('type', ('ou:award:type:taxonomy', {}), {
-                    'doc': 'The type of award.',
-                    'ex': 'certification'}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization which issues the award.'}),
-
-            )),
 
             ('ou:id:type:taxonomy', {}, ()),
             ('ou:id:status:taxonomy', {}, ()),
@@ -639,9 +641,10 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('presenters', ('array', {'type': 'entity:individual'}), {
+                ('presenters', ('array', {'type': 'entity:actor'}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
+                # TODO: multiple and context
                 ('deck:url', ('inet:url', ()), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
 
@@ -651,18 +654,13 @@ modeldefs = (
                 ('attendee:url', ('inet:url', ()), {
                     'doc': 'The URL visited by live attendees of the presentation.'}),
 
+                # TODO: should something like this be added to lang:transcript? lang:recording
                 ('recording:url', ('inet:url', ()), {
                     'doc': 'The URL hosting a recording of the presentation.'}),
 
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meeting', {}, ()),
-            ('ou:conference', {}, (
-                ('family:name', ('base:name', {}), {
-                    'doc': 'The name of the family of conferences.'}),
-            )),
-            ('ou:contest', {}, ()),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (
 

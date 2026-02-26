@@ -13,7 +13,8 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('''[
                 meta:event=* :title=Hehe
-                    :desc=Haha :period=(202203221400, 202203221600)
+                    :desc=Haha
+                    :time=202203221400
                     :type=hehe.haha
                     <(has)+ {meta:timeline:title=Woot}
                     +(about)> {[ inet:fqdn=vertex.link ]}
@@ -26,7 +27,6 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:event -(about)> inet:fqdn'))
             self.len(1, await core.nodes('meta:event <(has)- meta:timeline'))
             self.len(1, await core.nodes('meta:event -> meta:event:type:taxonomy'))
-            self.len(1, await core.nodes('meta:event +:title=Hehe +:desc=Haha +:period.duration=2:00:00 +:type=hehe.haha'))
 
     async def test_model_base_meta_taxonomy(self):
         async with self.getTestCore() as core:

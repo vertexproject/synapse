@@ -2,6 +2,7 @@ modeldefs = (
     ('lang', {
 
         'interfaces': (
+            # TODO: lang:transcribable
             ('lang:transcript', {
                 'doc': 'An interface which applies to forms containing speech.',
             }),

@@ -10,6 +10,7 @@ modeldefs = (
             ('edu:class', ('guid', {}), {
                 'template': {'title': 'class'},
                 'interfaces': (
+                    ('geo:locatable', {}),
                     ('meta:attendable', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
@@ -23,6 +24,7 @@ modeldefs = (
                 ),
                 'doc': 'A person or persona.'}),
 
+            # TODO: entity:workhist? entity:worked? (supported + pay?)
             ('ps:workhist', ('entity:activity', {}), {
                 'display': {
                     'columns': (

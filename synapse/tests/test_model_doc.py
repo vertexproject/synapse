@@ -76,8 +76,8 @@ class DocModelTest(s_tests.SynTest):
                     :desc="Thought leader seeks..."
                     :skills={[ ps:skill=* ]}
                     :workhist={[ ps:workhist=* ]}
-                    :education={[ ps:education=* ]}
-                    :achievements={[ ps:achievement=* ]}
+                    :education={[ entity:educated=* ]}
+                    :achievements={[ entity:awarded=* ]}
                 ]
             ''')
             self.eq('V-99', nodes[0].get('id'))
@@ -91,8 +91,8 @@ class DocModelTest(s_tests.SynTest):
             self.len(1, await core.nodes('doc:resume :skills -> ps:skill'))
             self.len(1, await core.nodes('doc:resume :contact -> entity:contact'))
             self.len(1, await core.nodes('doc:resume :workhist -> ps:workhist'))
-            self.len(1, await core.nodes('doc:resume :education -> ps:education'))
-            self.len(1, await core.nodes('doc:resume :achievements -> ps:achievement'))
+            self.len(1, await core.nodes('doc:resume :education -> entity:educated'))
+            self.len(1, await core.nodes('doc:resume :achievements -> entity:awarded'))
 
             nodes = await core.nodes('''
             [ doc:contract=*
@@ -100,7 +100,6 @@ class DocModelTest(s_tests.SynTest):
                 :type=foo.bar
                 :issuer={[ ou:org=({"name": "vertex"}) ]}
                 :parties={[ entity:contact=* entity:contact=* ]}
-                :signers={[ entity:contact=* entity:contact=* ]}
                 :file={[ file:bytes=* ]}
                 :signed=202001
                 :period=(202002, 202003)
@@ -118,7 +117,6 @@ class DocModelTest(s_tests.SynTest):
 
             self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
             self.len(2, await core.nodes('doc:contract :parties -> *'))
-            self.len(2, await core.nodes('doc:contract :signers -> *'))
 
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)

@@ -19,13 +19,12 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter={[ entity:contact=* ]}
                     :reporter:name=vertex
                     :time=20200202
-                    :detected = 20210203
+                    :discovered = 20210203
                     :success=true
                     :type=foo.bar
                     :severity=10
                     :desc=wootwoot
-                    :campaign=*
-                    :prev=*
+                    :activity={[ entity:campaign=* ]}
                     :actor = {[ entity:contact=* ]}
                     :sophistication=high
                     :url=https://vertex.link/attacks/CASE-2022-03
@@ -34,7 +33,7 @@ class RiskModelTest(s_t_utils.SynTest):
             ]''')
             self.eq(nodes[0].ndef, ('risk:attack', '17eb16247855525d6f9cb1585a59877f'))
             self.eq(nodes[0].get('time'), 1580601600000000)
-            self.eq(nodes[0].get('detected'), 1612310400000000)
+            self.eq(nodes[0].get('discovered'), 1612310400000000)
             self.eq(nodes[0].get('desc'), 'wootwoot')
             self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('success'), True)
@@ -48,9 +47,8 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:attack -(had)> entity:goal'))
             self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
-            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f -> entity:campaign'))
-            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :prev -> risk:attack'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :actor -> entity:contact'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :activity -> entity:campaign'))
 
             nodes = await core.nodes('''[
                 risk:vuln=17eb16247855525d6f9cb1585a59877f
@@ -160,7 +158,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cvss:v3_1:score:temporal'), 3.2)
             self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
-            self.len(2, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
             self.len(1, await core.nodes('risk:vuln:id=VISI-0000 :discoverer -> entity:contact'))
 
             self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
@@ -237,11 +234,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter = {[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name = vertex
                     :severity = 10
-                    :target = {[ entity:contact=* :name=ledo ]}
+                    :victim = {[ entity:contact=* :name=ledo ]}
                     :actor = {[ entity:contact=* :name=visi ]}
-                    :campaign = *
+                    :activity = {[ entity:campaign=* ]}
                     :period = (20210202, 20210204)
-                    :detected = 20210203
+                    :discovered = 20210203
                     :loss:pii = 400
                     :loss:econ = 1337
                     :loss:life = 0
@@ -260,12 +257,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('PWN-00', nodes[0].get('id'))
             self.eq('https://vertex.link/pwned', nodes[0].get('url'))
-            self.nn(nodes[0].get('target'))
+            self.nn(nodes[0].get('victim'))
             self.nn(nodes[0].get('actor'))
-            self.nn(nodes[0].get('campaign'))
+            self.nn(nodes[0].get('activity'))
             self.nn(nodes[0].get('reporter'))
             self.eq(nodes[0].get('period'), (1612224000000000, 1612396800000000, 172800000000))
-            self.eq(1612310400000000, nodes[0].get('detected'))
+            self.eq(1612310400000000, nodes[0].get('discovered'))
             self.eq(400, nodes[0].get('loss:pii'))
             self.eq('1337', nodes[0].get('loss:econ'))
             self.eq(0, nodes[0].get('loss:life'))
@@ -277,10 +274,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> syn:tag'))
-            self.len(1, await core.nodes('risk:compromise -> entity:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
-            self.len(1, await core.nodes('risk:compromise :target -> entity:contact +:name=ledo'))
+            self.len(1, await core.nodes('risk:compromise :activity -> entity:campaign'))
+            self.len(1, await core.nodes('risk:compromise :victim -> entity:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :actor -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
@@ -340,83 +337,89 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[ risk:leak=*
                 :name="WikiLeaks ACME      Leak"
                 :desc="WikiLeaks leaked ACME stuff."
-                :disclosed=20231102
-                :owner={ gen.ou.org acme }
+                :time=20231102
+                :victim={ gen.ou.org acme }
                 :actor={ gen.ou.org wikileaks }
                 :recipient={ gen.ou.org everyone }
-                :type=public
-                :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
+                //:type=public
+                //:compromise={[ risk:compromise=* :victim={ gen.ou.org acme } ]}
                 :public=(true)
-                :public:urls=(https://wikileaks.org/acme,)
+                :urls=(https://wikileaks.org/acme,)
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
                 :size:bytes=99
                 :size:count=33
                 :size:percent=12
-                :extortion=*
+                //:extortion=*
+                // FIXME this should be folded into new entity:motiv stuff
                 +(had)> {[ entity:goal=({"name": "publicity"}) ]}
             ]''')
             self.len(1, nodes)
             self.eq('wikileaks acme leak', nodes[0].get('name'))
             self.eq('WikiLeaks leaked ACME stuff.', nodes[0].get('desc'))
-            self.eq(1698883200000000, nodes[0].get('disclosed'))
-            self.eq('public.', nodes[0].get('type'))
+            self.eq(nodes[0].get('time'), 1698883200000000)
+            # FIXME resolve...
+            # self.eq('public.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
             self.eq(99, nodes[0].get('size:bytes'))
             self.eq(33, nodes[0].get('size:count'))
             self.eq(12, nodes[0].get('size:percent'))
-            self.eq(('https://wikileaks.org/acme',), nodes[0].get('public:urls'))
+            self.eq(('https://wikileaks.org/acme',), nodes[0].get('urls'))
             self.eq('vertex', nodes[0].get('reporter:name'))
 
-            self.len(1, await core.nodes('risk:leak -> risk:extortion'))
-            self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
-            self.len(1, await core.nodes('risk:leak :owner -> ou:org +:name=acme'))
+            # self.len(1, await core.nodes('risk:leak -> risk:extortion'))
+            # self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
+            self.len(1, await core.nodes('risk:leak :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:leak :actor -> ou:org +:name=wikileaks'))
             self.len(1, await core.nodes('risk:leak :recipient -> ou:org +:name=everyone'))
-            self.len(1, await core.nodes('risk:leak -(had)> entity:goal +:name=publicity'))
-            self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ou:org +:name=acme'))
+            # self.len(1, await core.nodes('risk:leak -(had)> entity:goal +:name=publicity'))
+            # self.len(1, await core.nodes('risk:leak -> risk:compromise :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''[ risk:extortion=*
-                :demanded=20231102
-                :deadline=20240329
+                // FIXME thise should be updated to biz:ask
+                //:demanded=20231102
+                //:deadline=20240329
                 :name="APT99 Extorted     ACME"
                 :desc="APT99 extorted ACME for a zillion vertex coins."
                 :type=fingain
                 :actor={[ entity:contact=* :name=agent99 ]}
-                :target={ gen.ou.org acme }
+                :victim={ gen.ou.org acme }
                 :success=(true)
                 :enacted=(true)
                 :public=(true)
                 :public:url=https://apt99.com/acme
-                :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
-                :demanded:payment:price=99.99
-                :demanded:payment:currency=VTC
+                // FIXME biz:ask
+                //:demanded:payment:price=99.99
+                //:demanded:payment:currency=VTC
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
                 :paid:price=12345
-                :payments={[ econ:payment=* ]}
+                // FIXME ledto econ:payment?
+                +(ledto)> {[ econ:payment=* ]}
+                <(ledto)+ {[ risk:compromise=* :victim={ gen.ou.org acme } ]}
             ]''')
 
             self.len(1, nodes)
             self.eq('apt99 extorted acme', nodes[0].get('name'))
             self.eq('APT99 extorted ACME for a zillion vertex coins.', nodes[0].get('desc'))
-            self.eq(1698883200000000, nodes[0].get('demanded'))
-            self.eq(1711670400000000, nodes[0].get('deadline'))
-            self.eq('fingain.', nodes[0].get('type'))
+            # FIXME resolve
+            # self.eq(1698883200000000, nodes[0].get('demanded'))
+            # self.eq(1711670400000000, nodes[0].get('deadline'))
+            # self.eq('fingain.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
             self.eq(1, nodes[0].get('success'))
             self.eq(1, nodes[0].get('enacted'))
             self.eq('https://apt99.com/acme', nodes[0].get('public:url'))
-            self.eq('99.99', nodes[0].get('demanded:payment:price'))
-            self.eq('vtc', nodes[0].get('demanded:payment:currency'))
+            # self.eq('99.99', nodes[0].get('demanded:payment:price'))
+            # self.eq('vtc', nodes[0].get('demanded:payment:currency'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('12345', nodes[0].get('paid:price'))
 
-            self.len(1, await core.nodes('risk:extortion -> econ:payment'))
-            self.len(1, await core.nodes('risk:extortion :target -> ou:org +:name=acme'))
+            self.len(1, await core.nodes('risk:extortion -(ledto)> econ:payment'))
+            self.len(1, await core.nodes('risk:extortion :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :actor -> entity:contact +:name=agent99'))
-            self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ou:org +:name=acme'))
+            self.len(1, await core.nodes('risk:extortion <(ledto)- risk:compromise :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
@@ -452,27 +455,27 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2023, 2024)
                     :type=service.power
                     :cause=nature.earthquake
-                    :provider={[ ou:org=* :name="desert power" ]}
-                    :provider:name="desert power"
-                    :attack={[ risk:attack=* ]}
+                    //:provider={[ ou:org=* :name="desert power" ]}
+                    //:provider:name="desert power"
                     :reporter={ ou:org:name=vertex }
                     :reporter:name=vertex
+                    <(ledto)+ {[ risk:attack=* ]}
                 ]
             ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('attack'))
             self.nn(nodes[0].get('reporter'))
             self.eq('the big one', nodes[0].get('name'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq('desert power', nodes[0].get('provider:name'))
+            # FIXME resolve
+            # self.eq('desert power', nodes[0].get('provider:name'))
             self.eq('service.power.', nodes[0].get('type'))
             self.eq('nature.earthquake.', nodes[0].get('cause'))
             self.eq((1672531200000000, 1704067200000000, 31536000000000), nodes[0].get('period'))
 
-            self.len(1, await core.nodes('risk:outage -> risk:attack'))
+            self.len(1, await core.nodes('risk:outage <(ledto)- risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
-            self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
+            # self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

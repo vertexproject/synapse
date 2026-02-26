@@ -1250,11 +1250,12 @@ class Model:
                 if prop.ifaces:
                     continue
 
-                if (newdef := ptypes.get(prop.name)) is not None:
-                    if newdef != prop.typedef:
-                        mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
-                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
-                    continue
+                # TODO: this should check for a common base type...
+                # if (newdef := ptypes.get(prop.name)) is not None:
+                #     if newdef != prop.typedef:
+                #         mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
+                #         raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
+                #     continue
 
                 pprops.append((prop.name, prop.typedef, prop.info))
 

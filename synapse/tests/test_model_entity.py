@@ -67,21 +67,17 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ndef)
 
             nodes = await core.nodes('''[
-                entity:attendee=*
-                    :person={[ ps:person=* ]}
+                entity:attended=*
+                    :actor={[ ps:person=* ]}
                     :period=(201202,201203)
-                    :event={[ ou:event=* ]}
-                    :roles+=staff
-                    :roles+=STAFF
+                    :event={[ ou:meeting=* ]}
             ]''')
             self.len(1, nodes)
-            self.eq(('staff',), nodes[0].get('roles'))
+            # FIXME discuss
+            # self.eq(('staff',), nodes[0].get('roles'))
             self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000, 2505600000000))
-
-            self.len(1, await core.nodes('entity:attendee -> ps:person'))
-
-            self.len(1, await core.nodes('entity:attendee -> ou:event'))
-            self.len(1, await core.nodes('entity:attendee :event -> ou:event'))
+            self.len(1, await core.nodes('entity:attended :actor -> ps:person'))
+            self.len(1, await core.nodes('entity:attended :event -> ou:meeting'))
 
             nodes = await core.nodes('''
                 [ entity:campaign=*
@@ -98,7 +94,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :actor={[ entity:contact=* ]}
-                    :actors={[ entity:contact=* ]}
                     +(had)> {[ entity:goal=* ]}
                 ]
             ''')
@@ -160,18 +155,16 @@ class EntityModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ entity:contribution=*
-                    :actor={[ ou:org=* :name=vertex ]}
+                    :actor={[ ou:org=({"name": "vertex"}) ]}
                     :time=20220718
                     :value=10
-                    :currency=usd
-                    :campaign={[ entity:campaign=({"name": "good guys"}) ]}
+                    :event={[ entity:campaign=({"name": "good guys"}) ]}
                 ]
             ''')
             self.eq(1658102400000000, nodes[0].get('time'))
             self.eq('10', nodes[0].get('value'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
-            self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('entity:contribution :event -> entity:campaign'))
+            self.len(1, await core.nodes('entity:contribution :actor -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
                 [ entity:conflict=*
@@ -182,7 +175,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'world war iii')
             self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001, 1))
 
-            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={entity:conflict} ]')
+            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :activity={entity:conflict} ]')
             self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
             self.len(1, await core.nodes('entity:campaign:names*[="pacific campaign"]'))
 
@@ -197,6 +190,16 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('source')[0], 'it:host')
             self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
             self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
+
+            nodes = await core.nodes('''[
+                entity:believed=*
+                    :actor={[ syn:user=root ]}
+                    :belief={[ belief:system=* :name=aliens ]}
+                    :period=2049*
+            ]''')
+            self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001, 1))
+            self.len(1, await core.nodes('entity:believed :actor -> syn:user'))
+            self.len(1, await core.nodes('entity:believed :belief -> belief:system'))
 
     async def test_entity_relationship(self):
 

@@ -86,8 +86,8 @@ modeldefs = (
                     ('base:event', {}),
                 ),
                 'props': (
-                    ('name', ('base:name', {}), {
-                        'doc': 'The name of the {title}.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'A title for the {title}.'}),
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
@@ -203,6 +203,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of award types.'}),
 
             ('meta:award', ('guid', {}), {
+                'template': {'title': 'award'},
+                'interfaces': (
+                    ('meta:awardable', {}),
+                ),
                 'props': (
                     ('name', ('base:name', {}), {
                         'ex': 'nobel peace prize',
@@ -211,6 +215,7 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the award.'}),
 
+                    # TODO: are award types really a thing?
                     ('type', ('meta:award:type:taxonomy', {}), {
                         'doc': 'The type of award.'}),
 
@@ -218,7 +223,7 @@ modeldefs = (
                         'doc': 'The entity who issues the award.'}),
 
                     ('period', ('ival', {}), {
-                        'doc': 'The period of time when the award existed.'}),
+                        'doc': 'The period of time when the award was being issued.'}),
                 ),
                 'doc': 'An award which can be granted to an actor.'}),
         ),

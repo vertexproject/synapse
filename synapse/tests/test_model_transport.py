@@ -307,7 +307,7 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('''[
                 transport:occupant=*
                     :role=passenger
-                    :contact={[ entity:contact=({"name": "visi"}) ]}
+                    :actor={[ entity:contact=({"name": "visi"}) ]}
                     :trip={ transport:rail:train }
                     :vehicle={ transport:rail:consist }
                     :seat=2c
@@ -317,7 +317,7 @@ class TransportTest(s_test.SynTest):
                     :disembarked:point=2c
                     :disembarked:place={ geo:place:name="union station" }
             ]''')
-            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('actor'))
             self.eq('2c', nodes[0].get('seat'))
             self.eq('passenger.', nodes[0].get('role'))
             self.eq('transport:rail:train', nodes[0].get('trip')[0])

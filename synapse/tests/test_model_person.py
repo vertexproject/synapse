@@ -31,31 +31,23 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
 
             nodes = await core.nodes('''[
-                ps:achievement=*
-                    :award=*
-                    :awardee={[ entity:contact=* ]}
-                    :awarded=20200202
-                    :expires=20210202
-                    :revoked=20201130
+                entity:awarded=*
+                    :award={[ meta:award=* ]}
+                    :actor={[ entity:contact=* ]}
+                    :time=20200202
+                    //:expires=20210202
+                    //:revoked=20201130
             ]''')
             self.len(1, nodes)
             achv = nodes[0].ndef[1]
 
-            nodes = await core.nodes('''
-                ou:award [ :name="Bachelors of Science" :type=degree :org=* ]
-            ''')
-            self.nn(nodes[0].get('org'))
-            self.eq('bachelors of science', nodes[0].get('name'))
-            self.eq('degree.', nodes[0].get('type'))
-
             opts = {'vars': {'achv': achv}}
             nodes = await core.nodes('''[
-                ps:education=*
-                    :student={[ entity:contact=* ]}
-                    :institution={[ entity:contact=* ]}
+                entity:educated=*
+                    :actor={[ entity:contact=* ]}
+                    :institution={[ ou:org=* ]}
                     :period=(20200202, 20210202)
-                    :achievement = $achv
-
+                    +(ledto)> { entity:awarded }
                     +(included)> {[ edu:class=* ]}
             ]''', opts=opts)
 
@@ -93,11 +85,10 @@ class PsModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ps:workhist = *
-                    :org = *
-                    :org:name = WootCorp
-                    :org:fqdn = wootwoot.com
+                    :employer = {[ ou:org=* :name=WootCorp ]}
+                    :employer:name = WootCorp
                     :desc = "Wooting."
-                    :contact = {[ entity:contact=* ]}
+                    :actor = {[ entity:contact=* ]}
                     :job:type = it.dev
                     :employment:type = fulltime.salary
                     :title = "Python Developer"
@@ -106,8 +97,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :pay:currency = usd
             ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('org:name'), 'wootcorp')
-            self.eq(nodes[0].get('org:fqdn'), 'wootwoot.com')
+            self.eq(nodes[0].get('employer:name'), 'wootcorp')
             self.eq(nodes[0].get('desc'), 'Wooting.')
             self.eq(nodes[0].get('job:type'), 'it.dev.')
             self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
@@ -116,8 +106,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('pay'), '200000')
             self.eq(nodes[0].get('pay:currency'), 'usd')
 
-            self.nn(nodes[0].get('org'))
-            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('employer'))
 
             self.len(1, await core.nodes('ps:workhist -> ou:org'))
             self.len(1, await core.nodes('ps:workhist -> entity:title'))
