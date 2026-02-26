@@ -1721,7 +1721,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 except OSError: # pragma: no cover
                     pass
 
-        # FIXME - recursively remove sockets dir here?
+        shutil.rmtree(self.sockdirn, ignore_errors=True)
+        self.sockdirn = s_common.gendir(self.dirn, 'sockets')
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
