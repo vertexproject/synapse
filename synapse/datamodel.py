@@ -103,8 +103,7 @@ class Prop:
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
-        # TODO: get rid of this isrunt arg and just compute polyprops earlier
-        self.type = self.modl.getTypeClone(typedef, isrunt=form.isrunt)
+        self.type = self.modl.getTypeClone(typedef)
         self.typehash = self.type.typehash
 
         form.setProp(name, self)
@@ -967,14 +966,13 @@ class Model:
 
         raise exc
 
-    def getTypeClone(self, typedef, isrunt=False):
+    def getTypeClone(self, typedef):
 
-        typename, typeinfo = typedef
-        base = self.types.get(typename)
+        base = self.types.get(typedef[0])
         if base is None:
-            raise s_exc.NoSuchType.init(typename)
+            raise s_exc.NoSuchType.init(typedef[0])
 
-        return base.clone(typeinfo)
+        return base.clone(typedef[1])
 
     def getModelDefs(self):
         '''
@@ -1114,7 +1112,9 @@ class Model:
 
         allforms = []
 
+        # Gather all the forms first
         for _, mdef in mods:
+
             # Allow props declared directly on ctors to become forms...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 if (props := info.get('props')) is not None:
@@ -1131,11 +1131,12 @@ class Model:
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
 
-        # load all the interfaces...
+        # Load all the interfaces...
         for _, mdef in mods:
             for name, info in mdef.get('interfaces', ()):
                 self.addIface(name, info)
 
+        # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
             if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.forminfos and self.form(ftyp.subof) is None:
                 formchildren[ftyp.subof].append((formname, forminfo, propdefs))
@@ -1336,7 +1337,6 @@ class Model:
                 if len(propdef) != 3:
                     mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
                     raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
-
                 ptypes[propdef[0]] = propdef[1]
 
             for prop in pform.props.values():
@@ -1408,6 +1408,7 @@ class Model:
         if checks:
             self._checkFormDisplay(form)
 
+        self.formsetcache.clear()
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
@@ -1490,6 +1491,7 @@ class Model:
         self.props.pop(formname, None)
         self.forminfos.pop(formname, None)
 
+        self.formsetcache.clear()
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
@@ -1552,10 +1554,9 @@ class Model:
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
 
-        (typename, typeinfo) = tdef
-        _type = self.types.get(typename)
+        _type = self.types.get(tdef[0])
         if _type is None:
-            mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
+            mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=name)
 
         virts = []
