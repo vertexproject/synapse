@@ -68,6 +68,10 @@ modeldefs = (
                         'doc': 'The name of the file containing the {title} contents.'}),
                 ),
             }),
+
+            ('doc:signable', {
+                'doc': 'An interface applied to documents which are signed by individuals.'}),
+
         ),
         'types': (
 
@@ -139,10 +143,9 @@ modeldefs = (
 
             ('doc:contract', ('guid', {}), {
                 'prevnames': ('ou:contract',),
+                'template': {'title': 'contract'},
                 'interfaces': (
-                    ('doc:document', {'template': {
-                        'title': 'contract',
-                        'type': 'doc:contract:type:taxonomy'}}),
+                    ('doc:document', {}),
                 ),
                 'doc': 'A contract between multiple entities.'}),
 
@@ -158,6 +161,13 @@ modeldefs = (
 
             ('doc:reference', ('guid', {}), {
                 'doc': 'A reference included in a source.'}),
+
+            ('doc:signed', ('entity:event', {}), {
+                'props': (
+                    ('document', ('doc:signable', {}), {
+                        'doc': 'The document which was signed by the actor.'}),
+                ),
+                'doc': 'An event where an actor signed a document.'}),
 
         ),
         'edges': (
@@ -208,10 +218,10 @@ modeldefs = (
                 ('workhist', ('array', {'type': 'ps:workhist'}), {
                     'doc': 'Work history described in the resume.'}),
 
-                ('education', ('array', {'type': 'ps:education'}), {
+                ('education', ('array', {'type': 'entity:educated'}), {
                     'doc': 'Education experience described in the resume.'}),
 
-                ('achievements', ('array', {'type': 'ps:achievement'}), {
+                ('achievements', ('array', {'type': 'entity:awarded'}), {
                     'doc': 'Achievements described in the resume.'}),
 
             )),
@@ -243,9 +253,6 @@ modeldefs = (
 
                 ('parties', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The entities bound by the contract.'}),
-
-                ('signers', ('array', {'type': 'entity:individual'}), {
-                    'doc': 'The individuals who signed the contract.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the contract is in effect.'}),

@@ -81,12 +81,44 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
-                'doc': 'An analytically relevant event in a curated timeline.'}),
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('base:event', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of event.'}),
+                ),
+                'doc': 'An analytically relevant event.'}),
+
+            ('meta:activity', ('guid', {}), {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of activity.'}),
+                ),
+                'doc': 'Analytically relevant activity.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
@@ -133,12 +165,6 @@ modeldefs = (
                 },
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
 
-            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
-                'doc': 'An item which may be possessed by an entity.'}),
-
-            ('meta:discoverable', ('ndef', {'interface': 'meta:discoverable'}), {
-                'doc': 'FIXME polyprop place holder'}),
-
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
 
@@ -169,6 +195,32 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
+
+            ('meta:award:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of award types.'}),
+
+            ('meta:award', ('guid', {}), {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'ex': 'nobel peace prize',
+                        'doc': 'The name of the award.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the award.'}),
+
+                    ('type', ('meta:award:type:taxonomy', {}), {
+                        'doc': 'The type of award.'}),
+
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity who issues the award.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the award existed.'}),
+                ),
+                'doc': 'An award which can be granted to an actor.'}),
         ),
         'interfaces': (
 
@@ -180,6 +232,25 @@ modeldefs = (
                         'doc': 'The {title} was observed during the time interval.'}),
                 ),
             }),
+
+            ('meta:promotable', {
+                'props': (
+                    ('website', ('inet:url', {}), {
+                        'doc': 'The URL of the {title} website.'}),
+
+                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
+                        'doc': 'Social media accounts for the {title}.'}),
+                ),
+                'doc': 'Properties common to promoted events or activities.'}),
+
+            ('meta:attendable', {
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'doc': 'An interface implemented by activities which may be attended.'}),
+
+            ('meta:sponsorable', {
+                'doc': 'An interface implemented by activities which may be sponsored.'}),
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
@@ -216,21 +287,21 @@ modeldefs = (
                 },
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL for the {title}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('base:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'base:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -288,6 +359,37 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:causal', {
+                'doc': 'Implemented by events and activities which can lead to effects.'}),
+
+            ('base:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to an event.'}),
+
+            ('base:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to activity which occurs over a period.'}),
+
             ('meta:usable', {
                 'template': {'title': 'item'},
                 'props': (
@@ -295,6 +397,15 @@ modeldefs = (
                         'doc': 'The time interval when the {title} was being used.'}),
                 ),
                 'doc': 'An interface for forms which can be used by an actor.'}),
+
+            ('meta:competitive', {
+                'doc': 'An interface implemented by organized competitive activities.'}),
+
+            ('meta:awardable', {
+                'doc': 'An interface implemented by forms which may be awarded to an actor.'}),
+
+            ('meta:believable', {
+                'doc': 'An interface for forms which may be believed in by an actor.'}),
 
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',
@@ -367,6 +478,9 @@ modeldefs = (
 
             (('meta:technique', 'addresses', 'risk:vuln'), {
                 'doc': 'The technique addresses the vulnerability.'}),
+
+            (('meta:causal', 'ledto', 'meta:causal'), {
+                'doc': 'The source event led to the target event.'}),
         ),
         'forms': (
 
@@ -473,24 +587,6 @@ modeldefs = (
 
             ('meta:timeline:type:taxonomy', {
                 'prevnames': ('meta:timeline:taxonomy',)}, ()),
-
-            ('meta:event', {}, (
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period over which the event occurred.'}),
-
-                ('title', ('str', {}), {
-                    'doc': 'A title for the event.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the event.'}),
-
-                ('type', ('meta:event:type:taxonomy', {}), {
-                    'doc': 'Type of event.'}),
-            )),
-
-            ('meta:event:type:taxonomy', {
-                'prevnames': ('meta:event:taxonomy',)}, ()),
 
             ('meta:ruleset', {}, (
 

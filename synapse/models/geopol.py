@@ -33,10 +33,50 @@ modeldefs = (
             ('pol:office', ('guid', {}), {
                 'doc': 'An elected or appointed office.'}),
 
-            ('pol:term', ('guid', {}), {
+            ('pol:term', ('entity:activity', {}), {
+                'props': (
+                    ('office', ('pol:office', {}), {
+                        'doc': 'The office held for the term.'}),
+
+                    ('race', ('pol:race', {}), {
+                        'doc': 'The race that determined who held office during the term.'}),
+
+                    ('party', ('ou:org', {}), {
+                        'doc': 'The political party of the person who held office during the term.'}),
+                ),
                 'doc': 'A term in office held by a specific individual.'}),
 
-            ('pol:candidate', ('guid', {}), {
+            ('pol:candidacy', ('entity:activity', {}), {
+                'template': {'title': 'candidacy'},
+                'prevnames': ('pol:candidate',),
+                'props': (
+                    ('actor', ('entity:actor', {}), {
+                        'doc': 'The actor running for office.'}),
+
+                    ('actor:name', ('entity:name', {}), {
+                        'doc': 'The name of the actor running for office.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the actor was a candidate.'}),
+
+                    ('id', ('meta:id', {}), {
+                        'doc': 'A unique ID for the candidate issued by an election authority.'}),
+
+                    ('race', ('pol:race', {}), {
+                        'doc': 'The race the candidate is participating in.'}),
+
+                    ('campaign', ('entity:campaign', {}), {
+                        'doc': 'The official campaign to elect the candidate.'}),
+
+                    ('winner', ('bool', {}), {
+                        'doc': 'Records the outcome of the race.'}),
+
+                    ('party', ('ou:org', {}), {
+                        'doc': 'The declared political party of the candidate.'}),
+
+                    ('incumbent', ('bool', {}), {
+                        'doc': 'Set to true if the candidate is an incumbent in this race.'}),
+                ),
                 'doc': 'A candidate for office in a specific race.'}),
 
             ('pol:pollingplace', ('guid', {}), {
@@ -168,47 +208,6 @@ modeldefs = (
 
                 ('govbody', ('ou:org', {}), {
                     'doc': 'The governmental body which contains the office.'}),
-            )),
-            ('pol:term', {}, (
-
-                ('office', ('pol:office', {}), {
-                    'doc': 'The office held for the term.'}),
-
-                ('period', ('ival', {}), {
-                    'prevnames': ('start', 'end'),
-                    'doc': 'The time period of the term of office.'}),
-
-                ('race', ('pol:race', {}), {
-                    'doc': 'The race that determined who held office during the term.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the person who held office during the term.'}),
-
-                ('party', ('ou:org', {}), {
-                    'doc': 'The political party of the person who held office during the term.'}),
-            )),
-            ('pol:candidate', {}, (
-
-                ('id', ('meta:id', {}), {
-                    'doc': 'A unique ID for the candidate issued by an election authority.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the candidate.'}),
-
-                ('race', ('pol:race', {}), {
-                    'doc': 'The race the candidate is participating in.'}),
-
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'The official campaign to elect the candidate.'}),
-
-                ('winner', ('bool', {}), {
-                    'doc': 'Records the outcome of the race.'}),
-
-                ('party', ('ou:org', {}), {
-                    'doc': 'The declared political party of the candidate.'}),
-
-                ('incumbent', ('bool', {}), {
-                    'doc': 'Set to true if the candidate is an incumbent in this race.'}),
             )),
             ('pol:pollingplace', {}, (
 

@@ -11,52 +11,7 @@ contracttypes = (
 modeldefs = (
     ('ou', {
 
-        'interfaces': (
-
-            ('ou:attendable', {
-                'template': {'title': 'event'},
-                'interfaces': (
-                    ('meta:havable', {}),
-                    ('entity:attendable', {}),
-                ),
-                'props': (
-
-                    ('name', ('meta:name', {}), {
-                        'alts': ('names',),
-                        'ex': 'cyberwarcon 2025',
-                        'doc': 'The name of the {title}.'}),
-
-                    ('name:base', ('meta:name', {}), {
-                        'ex': 'cyberwarcon',
-                        'doc': 'The base name of the {title} (for a recurring event).'}),
-
-                    ('names', ('array', {'type': 'meta:name'}), {
-                        'doc': 'An array of alternate names for the {title}.'}),
-                ),
-                'doc': 'An interface which is inherited by all organized events.'}),
-
-            ('ou:sponsored', {
-                'template': {'title': 'event'},
-                'interfaces': (
-                    ('ou:attendable', {}),
-                ),
-                'props': (
-
-                    ('website', ('inet:url', {}), {
-                        'prevnames': ('url',),
-                        'doc': 'The URL of the {title} website.'}),
-
-                    ('contact', ('entity:contact', {}), {
-                        'doc': 'Contact information for the {title}.'}),
-
-                    ('sponsors', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'The entities which sponsored the {title}.'}),
-
-                    ('organizers', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'An array of {title} organizers.'}),
-                ),
-                'doc': 'Properties which are common to events which are hosted or sponsored by organizations.'}),
-        ),
+        'interfaces': (),
         'types': (
             ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
                 'ex': '0111',
@@ -157,30 +112,35 @@ modeldefs = (
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
-            ('ou:meeting', ('guid', {}), {
+            ('ou:meeting', ('meta:activity', {}), {
                 'prevnames': ('ou:meet',),
+                'template': {'title': 'meeting'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'meeting'}}),
+                    ('meta:attendable', {}),
                 ),
                 'doc': 'A meeting.'}),
 
-            ('ou:preso', ('guid', {}), {
+            ('ou:preso', ('meta:activity', {}), {
+                'template': {'title': 'presentation'},
                 'interfaces': (
-                    ('ou:sponsored', {'template': {'title': 'presentation'}}),
+                    ('meta:promotable', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
-            ('ou:conference', ('guid', {}), {
+            ('ou:conference', ('meta:activity', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('meta:promotable', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -193,44 +153,15 @@ modeldefs = (
                 },
                 'doc': 'A conference.'}),
 
-            ('ou:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of event types.'}),
-
-            ('ou:event', ('guid', {}), {
-                'template': {'title': 'event'},
-                'prevnames': ('ou:conference:event',),
-                'interfaces': (
-                    ('ou:sponsored', {}),
-                ),
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
-                        # TODO allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
-                    ),
-                },
-                'doc': 'An generic organized event.'}),
-
-            ('ou:contest:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of contest types.'}),
-
-            ('ou:contest', ('guid', {}), {
+            ('ou:contest', ('meta:activity', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('meta:promotable', {}),
+                    ('meta:attendable', {}),
+                    ('meta:sponsorable', {}),
+                    ('meta:competitive', {}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
-
-            ('ou:contest:result', ('guid', {}), {
-                'doc': 'The results from a single contest participant.'}),
 
             ('ou:id', ('guid', {}), {
                 'interfaces': (
@@ -345,9 +276,6 @@ modeldefs = (
 
             ('ou:job:type:taxonomy', {
                 'prevnames': ('ou:jobtype',)}, ()),
-
-            ('ou:employment:type:taxonomy', {
-                'prevnames': ('ou:employment',)}, ()),
 
             ('ou:opening', {}, (
 
@@ -729,43 +657,12 @@ modeldefs = (
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meeting', {}, (
-                ('hosts', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The contacts who hosted or called the meeting.'}),
+            ('ou:meeting', {}, ()),
+            ('ou:conference', {}, (
+                ('family:name', ('base:name', {}), {
+                    'doc': 'The name of the family of conferences.'}),
             )),
-            ('ou:conference', {}, ()),
-            ('ou:event', {}, (
-                ('type', ('ou:event:type:taxonomy', {}), {
-                    'doc': 'The type of event.'}),
-            )),
-            ('ou:contest:type:taxonomy', {}, ()),
-            ('ou:contest', {}, (
-
-                ('type', ('ou:contest:type:taxonomy', {}), {
-                    'ex': 'cyber.ctf',
-                    'doc': 'The type of contest.'}),
-
-            )),
-            ('ou:contest:result', {}, (
-
-                ('contest', ('ou:contest', {}), {
-                    'doc': 'The contest that the participant took part in.'}),
-
-                ('participant', ('entity:actor', {}), {
-                    'doc': 'The participant in the contest.'}),
-
-                ('rank', ('int', {}), {
-                    'doc': "The participant's rank order in the contest."}),
-
-                ('score', ('int', {}), {
-                    'doc': "The participant's final score in the contest."}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period of time when the participant competed in the contest.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': "A URL which documents the participant's results."}),
-            )),
+            ('ou:contest', {}, ()),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (
 
