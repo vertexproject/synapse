@@ -2054,8 +2054,10 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
         # TOOD: If polyprop and valu is None assert that prop is not set
+        self.nn(dmp := n.form.props.get(prop), msg=f'Prop {prop} does not exist on form {n.form.name}')
         pval = n.repr(prop) if repr else n.get(prop)
-        self.eq(pval, valu, msg=msg)
+        ft = self.sorteq if dmp.type.name == 'array' else self.eq
+        ft(valu, pval, msg=msg)
 
     def eq(self, x, y, msg=None):
         '''
