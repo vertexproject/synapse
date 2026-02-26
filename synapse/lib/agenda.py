@@ -495,6 +495,42 @@ class Agenda(s_base.Base):
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
 
+    def _processPeriodParams(self, reqs, incunit, incvals):
+        '''
+        Process period parameters (reqs, incunit, incvals) into recs and nexttime.
+        '''
+        if not reqs and incunit is None:
+            mesg = 'at least one of reqs and incunit must be non-empty'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if incunit is not None and incvals is None:
+            mesg = 'incvals must be non-None if incunit is non-None'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if reqs is None:
+            reqs = [{}]
+        elif isinstance(reqs, Mapping):
+            reqs = [reqs]
+
+        nexttime = None
+        recs = []
+        recur = incunit is not None
+
+        for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadArg(mesg=mesg)
+                nexttime = self._getNowTick()
+                continue
+
+            reqdicts = self._dictproduct(req)
+            if not isinstance(incvals, Iterable):
+                incvals = (incvals, )
+            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+
+        return (recs, nexttime, recur)
+
     @staticmethod
     def _dictproduct(rdict):
         '''
@@ -575,7 +611,6 @@ class Agenda(s_base.Base):
 
         pool = cdef.get('pool', False)
 
-        recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
 
@@ -584,37 +619,16 @@ class Agenda(s_base.Base):
             raise s_exc.DupIden(iden=iden, mesg=mesg)
 
         if not storm:
-            raise ValueError('"storm" key of cdef parameter is not present or empty')
+            mesg = '"storm" key of cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.core.getStormQuery(storm)
 
         if not user:
-            raise ValueError('"user" key is cdef parameter is not present or empty')
+            mesg = '"user" key of cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
-        if not reqs and incunit is None:
-            raise ValueError('at least one of reqs and incunit must be non-empty')
-
-        if incunit is not None and incvals is None:
-            raise ValueError('incvals must be non-None if incunit is non-None')
-
-        if isinstance(reqs, Mapping):
-            reqs = [reqs]
-
-        # Find all combinations of values in reqdict values and incvals values
-        nexttime = None
-        recs = []  # type: ignore
-        for req in reqs:
-            if TimeUnit.NOW in req:
-                if incunit is not None:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
-                nexttime = self._getNowTick()
-                continue
-
-            reqdicts = self._dictproduct(req)
-            if not isinstance(incvals, Iterable):
-                incvals = (incvals, )
-            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+        recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
 
         # TODO: this is insane. Make _Appt take the cdef directly...
         appt = _Appt(self, iden, recur, indx, storm, creator, user, recs, nexttime=nexttime, view=view,
@@ -636,6 +650,101 @@ class Agenda(s_base.Base):
 
         mesg = f'No cron job with iden {iden}'
         raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+
+    async def mod(self, iden, edits):
+        '''
+        Modify an existing appointment
+        '''
+        appt = self.appts.get(iden)
+        if appt is None:
+            mesg = f'No cron job with iden: {iden}'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+
+        reqs = edits.pop('reqs', None)
+        incunit = edits.pop('incunit', None)
+        incvals = edits.pop('incvals', None)
+
+        for name, valu in edits.items():
+            if name == 'user':
+                await self.core.auth.reqUser(valu)
+                appt.user = valu
+
+            elif name == 'view':
+                self.core.reqView(valu)
+                appt.view = valu
+
+            elif name == 'storm':
+                if not valu:
+                    raise s_exc.BadArg(mesg='empty query')
+                await self.core.getStormQuery(valu)
+                appt.storm = valu
+
+            elif name == 'name':
+                appt.name = valu
+
+            elif name == 'doc':
+                appt.doc = valu
+
+            elif name == 'pool':
+                appt.pool = bool(valu)
+
+            elif name == 'loglevel':
+                appt.loglevel = valu
+
+            elif name == 'enabled':
+                if appt.enabled == valu:
+                    continue
+
+                appt.enabled = valu
+                if valu is True:
+                    logger.info(f'Enabled cron job {iden}', extra=await self.core.getLogExtra(iden=iden, status='MODIFY'))
+                else:
+                    await self.core._killCronTask(iden)
+                    logger.info(f'Disabled cron job {iden}', extra=await self.core.getLogExtra(iden=iden, status='MODIFY'))
+
+            else:
+                mesg = f'Cron Job does not support editing {name}.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        if reqs is not None or incunit is not None or incvals is not None:
+
+            if incunit is not None:
+                incunit = TimeUnit.fromString(incunit)
+
+            if reqs is not None:
+                reqs = {TimeUnit.fromString(k): v for (k, v) in reqs.items()}
+
+                if incunit is not None and TimeUnit.NOW in reqs:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadConfValu(mesg)
+
+            recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
+
+            appt.recs = recs
+            appt.recur = recur
+            appt.nexttime = nexttime
+            appt._recidxnexttime = None
+
+            if appt.nexttime is None and appt.recs:
+                now = self._getNowTick()
+                appt.nexttime = now
+                appt.updateNexttime(now)
+
+            if appt.nexttime is None:
+                raise s_exc.BadTime(mesg='Appointment is in the past')
+
+            if appt.nexttime:
+                if appt not in self.apptheap:
+                    mesg = 'Cannot modify the schedule of a finished non-recurring cron job.'
+                    raise s_exc.BadConfValu(mesg=mesg)
+                heapq.heapify(self.apptheap)
+
+        await appt.save()
+
+        if appt.nexttime and self.apptheap and self.apptheap[0] is appt:
+            self._wake_event.set()
+
+        return appt.pack()
 
     async def delete(self, iden):
         '''

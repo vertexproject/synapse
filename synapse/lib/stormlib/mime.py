@@ -1,7 +1,7 @@
 import bs4
 
-import synapse.lib.coro as s_coro
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 def htmlToText(html, separator='\n', strip=True):
     soup = bs4.BeautifulSoup(html, 'html5lib')
@@ -42,4 +42,4 @@ class LibMimeHtml(s_stormtypes.Lib):
         if separator is None:
             separator = ''
 
-        return await s_coro.semafork(htmlToText, html, separator, strip)
+        return await s_processpool.semafork(htmlToText, html, separator, strip)

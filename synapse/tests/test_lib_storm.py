@@ -1175,7 +1175,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(0, nodes)
 
             # force old-cron behavior which lacks a view
-            await core.nodes('cron.add --hourly 03 { inet:ip }')
+            await core.nodes('cron.add hourly@:03 { inet:ip }')
             for (iden, cron) in core.agenda.list():
                 cron.view = None
             await core.nodes('cron.list')

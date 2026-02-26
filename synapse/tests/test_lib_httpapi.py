@@ -1010,13 +1010,14 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(info['creator'], root.iden)
                     self.eq(info['iden'], view)
 
-                    cdef = await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30))')
+                    cdef = await core.callStorm('return($lib.cron.add("hourly@:30", "{meta:note=*}"))')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
                     opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}
                     await core.callStorm('$lib.view.get($view).set(name, "a really okay view")', opts=opts)
                     await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
                     await core.callStorm('cron.mod $cron --storm {[test:guid=*]} --view $view', opts=opts)
+                    await core.callStorm('cron.mod $cron --period daily@10:00', opts=opts)
                     await core.callStorm('cron.mod $cron --enabled (false)', opts=opts)
                     await core.callStorm('cron.mod $cron --enabled (true)', opts=opts)
                     await core.callStorm('$c = $lib.cron.get($cron) $c.name = "neato cron"', opts=opts)
@@ -1045,6 +1046,7 @@ class HttpApiTest(s_tests.SynTest):
                         'layer:add',
                         'view:set',
                         'layer:set',
+                        'cron:edit',
                         'cron:edit',
                         'cron:edit',
                         'cron:edit',

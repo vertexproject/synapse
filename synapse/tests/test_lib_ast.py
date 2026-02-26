@@ -3376,8 +3376,9 @@ class AstTest(s_test.SynTest):
                 q += f'inet:ip=([4, {x}]) '
             q += ']'
 
-            with self.raises(s_exc.RecursionLimitHit) as err:
+            with self.raises(s_exc.RecursionLimitHit) as cm:
                 msgs = await core.nodes(q)
+            self.isinstance(cm.exception.__cause__, RecursionError)
 
     async def test_ast_highlight(self):
 

@@ -306,6 +306,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
                 $threat = $node
                 $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
+                $_ = {[ doc:reference=({"source": $threat, "doc:url": "https://vtx.lk"}) ]}
             ''')
             self.len(1, nodes)
             node = nodes[0]
@@ -329,6 +330,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
             self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -> doc:reference'))
 
             nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
             self.len(1, nodes)
