@@ -1437,64 +1437,74 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
-                        'doc': 'An account with a given Internet-based site or service.',
-                        'ex': 'twitter.com/invisig0th'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:account.',
                     }),
 
                     ('inet:web:action', ('guid', {}), {
-                        'doc': 'An instance of an account performing an action at an Internet-based site or service.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:access.',
                     }),
 
                     ('inet:web:chprofile', ('guid', {}), {
-                        'doc': 'A change to a web account. Used to capture historical properties associated with '
-                               ' an account, as opposed to current data in the inet:web:acct node.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:access.',
                     }),
 
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file posted by a web account.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:message and inet:service:message:attachment.'
                     }),
 
                     ('inet:web:attachment', ('guid', {}), {
-                        'doc': 'An instance of a file being sent to a web service by an account.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:message and inet:service:message:attachment.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
-                        'doc': 'A web account follows or is connected to another web account.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:relationship.'
                     }),
 
                     ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
-                        'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                        'ex': 'somesite.com/mycoolgroup'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:group.',
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
-                        'doc': 'An instance of an account authenticating to an Internet-based site or service.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:login.'
                     }),
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use inet:web:member.'
+                        'doc': 'Deprecated. Please use inet:service:group:member',
                     }),
                     ('inet:web:member', ('guid', {}), {
-                        'doc': 'Represents a web account membership in a channel or group.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:channel:member or inet:service:group:member',
                     }),
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
-                        'doc': 'A message sent from one web account to another web account or channel.',
-                        'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Pleas use inet:service:message.',
                     }),
 
                     ('inet:web:post', ('guid', {}), {
-                        'doc': 'A post made by a web account.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:message.'
                     }),
 
                     ('inet:web:post:link', ('guid', {}), {
-                        'doc': 'A link contained within post text.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:message:link.'
                     }),
 
                     ('inet:web:instance', ('guid', {}), {
-                        'doc': 'An instance of a web service such as slack or discord.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:instance.'
                     }),
 
                     ('inet:web:channel', ('guid', {}), {
-                        'doc': 'A channel within a web service or instance such as slack or discord.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:channel.'
                     }),
 
                     ('inet:web:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
@@ -2742,6 +2752,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The time the web search was issued.',
                         }),
                         ('acct', ('inet:web:acct', {}), {
+                            'deprecated': True,
                             'doc': 'The account that the query was issued as.',
                         }),
                         ('host', ('it:host', {}), {
