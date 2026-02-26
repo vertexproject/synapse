@@ -535,7 +535,7 @@ class Model:
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
-        self.formnames = set()
+        self.forminfos = {}
         self.formprevnames = {}
         self.propprevnames = {}
 
@@ -669,8 +669,16 @@ class Model:
                 ('form', ('syn:form', {}), {
                     'computed': True,
                     'doc': 'The form of node which is referenced.'}),
+
+                ('ndef', ('ndef', {}), {
+                    'computed': True,
+                    'doc': 'The (form, valu) of the node which is referenced.'}),
+
+                ('valu', ('data', {}), {
+                    'computed': True,
+                    'doc': 'The primary property value of the node which is referenced.'}),
             ),
-            'doc': 'A prop which is also a form.',
+            'doc': 'A prop which can be of one or more forms.',
         }
         item = s_types.Poly(self, 'poly', info, {})
         self.addBaseType(item)
@@ -962,16 +970,6 @@ class Model:
     def getTypeClone(self, typedef, isrunt=False):
 
         typename, typeinfo = typedef
-
-        if typename in self.formnames and not typeinfo and not isrunt:
-            typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-            typename = 'poly'
-
         base = self.types.get(typename)
         if base is None:
             raise s_exc.NoSuchType.init(typename)
@@ -1020,6 +1018,26 @@ class Model:
             retn['edges'].append(eobj.pack())
 
         return retn
+
+    def processPropdefs(self, propdefs):
+
+        realdefs = []
+
+        for pname, propdef, propinfo in propdefs:
+            typename, typeinfo = propdef
+
+            if not typeinfo and (forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt'):
+                typename = (typename,)
+
+            if isinstance(typename, tuple):
+                typeinfo = dict(typeinfo)
+                typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
+                typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+                typename = 'poly'
+
+            realdefs.append((pname, (typename, typeinfo), propinfo))
+
+        return tuple(realdefs)
 
     def addDataModels(self, mods):
         '''
@@ -1086,11 +1104,6 @@ class Model:
             else:
                 self._modeldef['types'].append(tobj.getTypeDef())
 
-        # load all the interfaces...
-        for _, mdef in mods:
-            for name, info in mdef.get('interfaces', ()):
-                self.addIface(name, info)
-
         # Load all the tagprops
         for _, mdef in mods:
             for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
@@ -1102,32 +1115,29 @@ class Model:
         allforms = []
 
         for _, mdef in mods:
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                self.formnames.add(formname)
-
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                if (props := info.get('props')) is not None:
-                    self.formnames.add(name)
-
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                if (props := typeinfo.get('props')) is not None:
-                    self.formnames.add(typename)
-
             # Allow props declared directly on ctors to become forms...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 if (props := info.get('props')) is not None:
                     allforms.append((name, {}, props))
+                    self.forminfos[name] = {}
 
             # Allow props declared directly on types to become forms...
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     allforms.append((typename, {}, props))
+                    self.forminfos[typename] = {}
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
+                self.forminfos[formname] = forminfo
+
+        # load all the interfaces...
+        for _, mdef in mods:
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
 
         for formname, forminfo, propdefs in allforms:
-            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.formnames and self.form(ftyp.subof) is None:
+            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.forminfos and self.form(ftyp.subof) is None:
                 formchildren[ftyp.subof].append((formname, forminfo, propdefs))
                 childforms.add(formname)
 
@@ -1136,6 +1146,7 @@ class Model:
                 if formname in childforms and not children:
                     continue
 
+                propdefs = self.processPropdefs(propdefs)
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
                 if (cinfos := formchildren.pop(formname, None)) is not None:
@@ -1300,7 +1311,7 @@ class Model:
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
-        self.formnames.add(formname)
+        self.forminfos[formname] = forminfo
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
@@ -1326,19 +1337,7 @@ class Model:
                     mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
                     raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
 
-                # TODO: probably handle polyprop detection earlier?
-                typename, typeinfo = propdef[1]
-
-                if typename in self.formnames and not typeinfo and not forminfo.get('runt'):
-                    typename = (typename,)
-
-                if isinstance(typename, tuple):
-                    typeinfo = dict(typeinfo)
-                    typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
-                    typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-                    typename = 'poly'
-
-                ptypes[propdef[0]] = (typename, typeinfo)
+                ptypes[propdef[0]] = propdef[1]
 
             for prop in pform.props.values():
                 if prop.ifaces:
@@ -1489,7 +1488,7 @@ class Model:
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
-        self.formnames.remove(formname)
+        self.forminfos.pop(formname, None)
 
         self.typesetcache.clear()
         self.childformcache.clear()
@@ -1505,6 +1504,9 @@ class Model:
 
         if self.ifaces.get(name) is not None:
             raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
+
+        if (pdefs := info.get('props')) is not None:
+            info['props'] = self.processPropdefs(pdefs)
 
         self.ifaces[name] = info
 
@@ -1551,17 +1553,6 @@ class Model:
         # if omitted from a prop or iface definition to allow doc edits
 
         (typename, typeinfo) = tdef
-
-        if typename in self.formnames and not typeinfo and not form.isrunt:
-            typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.formnames)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-            typename = 'poly'
-            tdef = (typename, typeinfo)
-
         _type = self.types.get(typename)
         if _type is None:
             mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'

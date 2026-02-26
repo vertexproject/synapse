@@ -162,8 +162,8 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
 
         for (tag, name), valu in self.tagprops.items():
-            stortype = self.model.getTagProp(name).type.getStorType(valu[0])
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], stortype, valu[1])))
+            prop = self.model.getTagProp(name)
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], prop.type.stortype, valu[1])))
 
         for (tag, name) in self.tagpropdels:
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
