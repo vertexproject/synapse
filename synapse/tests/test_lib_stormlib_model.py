@@ -92,6 +92,30 @@ class StormlibModelTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.model.type(data).mutable)'))
             self.true(await core.callStorm('return($lib.model.type(array).mutable)'))
 
+            props = await core.callStorm('return($lib.model.form(test:str).props)')
+            self.isin('poly', props)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.form(test:str).props.poly)')
+            self.stormIsInPrint("model:property: {'name': 'poly'", mesgs)
+
+            mesgs = await core.stormlist('for ($k, $v) in $lib.model.form(test:str).props { $lib.print(`{$k} {$v}`) }')
+            self.stormIsInPrint("poly model:property: {'name': 'poly'", mesgs)
+
+            self.true(await core.callStorm('return(("poly" in $lib.model.form(test:str).props))'))
+            self.false(await core.callStorm('return(("newp" in $lib.model.form(test:str).props))'))
+
+            forms = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedforms)')
+            forms = [fdef['name'] for fdef in forms]
+            self.isin('test:int', forms)
+            self.isin('test:hasiface', forms)
+
+            forms = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedforms)')
+            forms = [fdef['name'] for fdef in forms]
+            self.isin('test:int', forms)
+            self.isin('test:hasiface', forms)
+
+            self.len(0, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedforms)'))
+
     async def test_stormlib_model_depr(self):
 
         with self.getTestDir() as dirn:

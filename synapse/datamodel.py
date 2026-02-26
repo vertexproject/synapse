@@ -553,6 +553,7 @@ class Model:
         self.edgesbyn1 = collections.defaultdict(set)
         self.edgesbyn2 = collections.defaultdict(set)
 
+        self.formsetcache = s_cache.LruDict(TYPESET_CACHE_SIZE)
         self.typesetcache = s_cache.LruDict(TYPESET_CACHE_SIZE)
 
         self.childforms = collections.defaultdict(list)
@@ -863,6 +864,27 @@ class Model:
         types = tuple(types)
         self.typesetcache[key] = types
         return types
+
+    def getFormSet(self, forms=None, interfaces=None):
+        key = (forms, interfaces)
+        if (formset := self.formsetcache.get(key)) is not None:
+            return formset
+
+        formset = set()
+
+        if forms:
+            for form in forms:
+                for cform in self.getChildForms(form):
+                    formset.add(self.form(cform))
+
+        if interfaces:
+            for iface in interfaces:
+                for form in self.formsbyiface.get(iface):
+                    formset.add(self.form(form))
+
+        formset = tuple(formset)
+        self.formsetcache[key] = formset
+        return formset
 
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:

@@ -527,7 +527,7 @@ class StormTypesTest(s_test.SynTest):
 
             self.true(await core.callStorm('return($lib.trycast(test:guid:size, 1234).0)'))
             self.false(await core.callStorm('return($lib.trycast(test:guid:size, newp).0)'))
-            self.eq(('test:int', 1234), await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
+            self.eq(1234, await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
 
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))

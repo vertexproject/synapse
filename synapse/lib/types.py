@@ -2261,6 +2261,9 @@ class Poly(Type):
     def getTypeSet(self):
         return self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
 
+    def getFormSet(self):
+        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
+
     def getCmprCtor(self, name):
         ctors = {}
         types = self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)

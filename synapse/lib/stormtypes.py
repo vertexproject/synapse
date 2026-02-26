@@ -1544,7 +1544,7 @@ class LibBase(Lib):
 
         norm, info = await typeitem.norm(valu)
         if typeitem.ispoly:
-            return (True, Ndef((norm, info.get('virts'))))
+            return Ndef((norm, info.get('virts')))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
