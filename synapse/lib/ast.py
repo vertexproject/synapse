@@ -4332,26 +4332,6 @@ class PropValue(Value):
             if (valu := node.get(realprop, virts=getr)) is None:
                 return None, None, None
 
-#        if self.virts is not None:
-#            if (virts := self.constvirts) is None:
-#                virts = await self.virts.compute(runt, path)
-#
-#            (ptyp, getr) = ptyp.getVirtInfo(virts)
-#            fullname += f".{'.'.join(virts)}"
-#
-#        if ptyp.ispoly:
-#            if not resolvepoly:
-#                if (valu := node.getWithVirts(realprop)) is None:
-#                    return None, None, None
-#            else:
-#                if (valu := node.get(realprop, virts=getr)) is None:
-#                    return None, None, None
-#                ptyp = runt.model.form(valu[0]).type
-#                valu = valu[1]
-#        else:
-#            if (valu := node.get(realprop, virts=getr)) is None:
-#                return None, None, None
-
         return ptyp, valu, fullname
 
     async def compute(self, runt, path):

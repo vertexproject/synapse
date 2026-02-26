@@ -2200,9 +2200,12 @@ class Poly(Type):
 #        }
 #
         self.formtype = self.modl.type('syn:form')
+        self.ndeftype = self.modl.type('ndef')
+        self.valutype = self.modl.type('data')
         self.virts |= {
             'form': (self.formtype, self._getForm),
-            'ndef': (self, self._getNdef),
+            'ndef': (self.ndeftype, self._getNdef),
+            'value': (self.valutype, self._getValu),
         }
 
         self.virtindx |= {
@@ -2333,6 +2336,13 @@ class Poly(Type):
 
     def _getNdef(self, valu):
         return valu[0]
+
+    def _getValu(self, valu):
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[1]
+
+        return tuple(v[1] for v in valu)
 
     async def _storLiftNdef(self, cmpr, valu):
         if not isinstance(valu, (list, tuple)) or len(valu) != 2:

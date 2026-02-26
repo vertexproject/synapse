@@ -73,7 +73,6 @@ class SpooledSet(s_stormtypes.Set):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSetAdd(self, *items):
         for i in items:
-            i = await s_stormtypes.toprim(i)
             if s_stormtypes.ismutable(i):
                 mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a set.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
@@ -88,7 +87,6 @@ class SpooledSet(s_stormtypes.Set):
     async def _methSetAdds(self, *items):
         for item in items:
             async for i in s_stormtypes.toiter(item):
-                i = await s_stormtypes.toprim(i)
                 if s_stormtypes.ismutable(i):
                     mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a set.'
                     raise s_exc.StormRuntimeError(mesg=mesg)
@@ -98,19 +96,6 @@ class SpooledSet(s_stormtypes.Set):
                     raise s_exc.StormRuntimeError(mesg=mesg)
 
                 await self.valu.add(i)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methSetRem(self, *items):
-        for i in items:
-            i = await s_stormtypes.toprim(i)
-            self.valu.discard(i)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methSetRems(self, *items):
-        for item in items:
-            async for i in s_stormtypes.toiter(item):
-                i = await s_stormtypes.toprim(i)
-                self.valu.discard(i)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSetList(self):

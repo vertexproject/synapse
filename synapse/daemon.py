@@ -63,6 +63,7 @@ async def t2call(link, meth, args, kwargs, first=True):
             valu = await valu
 
         try:
+
             if isinstance(valu, types.AsyncGeneratorType):
                 if first:
                     await link.tx(('t2:genr', {}))

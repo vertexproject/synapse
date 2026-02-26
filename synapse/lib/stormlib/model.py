@@ -328,7 +328,7 @@ class ModelForm(s_stormtypes.Prim):
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Form.', 'type': 'str', },
-        {'name': 'prop', 'desc': 'Get a Property on the Formi.',
+        {'name': 'prop', 'desc': 'Get a Property on the Form.',
          'type': {'type': 'function', '_funcname': '_getFormProp',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
