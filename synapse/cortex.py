@@ -1688,11 +1688,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+        await self.initStormPool()
+
         await self.runActiveTask(_runMigrations())
 
         await self.stormdmons.start()
-
-        await self.initStormPool()
 
     async def initServicePassive(self):
 
@@ -3131,7 +3131,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
+                            if (opts := initdef.get('queryopts')) is None:
+                                opts = {}
+                            opts.setdefault('mirror', False)
+
+                            async for mesg in self.storm(initdef['query'], opts=opts):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
