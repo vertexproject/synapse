@@ -853,6 +853,7 @@ _reqValidPkgdefSchema = {
                 'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
                 'version': {'type': 'integer', 'minimum': 0},
             },
             'additionalProperties': False,
