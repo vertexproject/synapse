@@ -118,6 +118,16 @@ class DocModelTest(s_tests.SynTest):
             self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
             self.len(2, await core.nodes('doc:contract :parties -> *'))
 
+            nodes = await core.nodes('''[
+                entity:signed=*
+                    :document={ doc:contract }
+                    :actor={[ syn:user=root ]}
+                    :time=20260226
+            ]''')
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('document'))
+            self.eq(nodes[0].get('time'), 1772064000000000)
+
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)
             self.eq(1, nodes[0].get('depth'))

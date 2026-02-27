@@ -146,6 +146,7 @@ modeldefs = (
                 'template': {'title': 'contract'},
                 'interfaces': (
                     ('doc:document', {}),
+                    ('doc:signable', {}),
                 ),
                 'doc': 'A contract between multiple entities.'}),
 
@@ -161,13 +162,6 @@ modeldefs = (
 
             ('doc:reference', ('guid', {}), {
                 'doc': 'A reference included in a source.'}),
-
-            ('doc:signed', ('entity:event', {}), {
-                'props': (
-                    ('document', ('doc:signable', {}), {
-                        'doc': 'The document which was signed by the actor.'}),
-                ),
-                'doc': 'An event where an actor signed a document.'}),
 
         ),
         'edges': (

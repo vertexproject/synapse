@@ -466,6 +466,14 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor registered to attend an event.'}),
 
+            ('entity:signed', ('entity:event', {}), {
+                'props': (
+                    ('document', ('doc:signable', {}), {
+                        'doc': 'The document which was signed by the actor.'}),
+                ),
+                'doc': 'An event where an actor signed a document.'}),
+
+
         ),
 
         'edges': (
