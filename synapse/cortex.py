@@ -3314,8 +3314,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # TODO: do we actually want to auto-convert to poly props?
         typename, typeinfo = tdef
-        if not typeinfo and (forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt'):
-            typename = (typename,)
+        if not typeinfo:
+            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                typename = (typename,)
 
         if isinstance(typename, tuple):
             typeinfo = dict(typeinfo)

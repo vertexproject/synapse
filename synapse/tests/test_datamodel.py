@@ -1026,3 +1026,6 @@ class DataModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:polyarry*[.port=80]')
             for n in nodes:
                 print(n)
+
+            nodes = await core.nodes('[ test:str=ifarray :polyint={[ test:hasiface=p123 ]} ]')
+            self.len(1, await core.nodes('test:hasiface=p123 <- *'))

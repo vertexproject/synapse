@@ -472,6 +472,7 @@ testmodel = (
                     'sorted': False,
                     'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
                     'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polyint', ('test:interface', {}), {}),
             )),
 
             ('test:str2', {}, ()),

@@ -1024,8 +1024,9 @@ class Model:
         for pname, propdef, propinfo in propdefs:
             typename, typeinfo = propdef
 
-            if not typeinfo and (forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt'):
-                typename = (typename,)
+            if not typeinfo:
+                if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                    typename = (typename,)
 
             if isinstance(typename, tuple):
                 typeinfo = dict(typeinfo)
@@ -1444,6 +1445,7 @@ class Model:
                                f' but {curf.full} has no property named {partname}.')
                         raise s_exc.BadFormDef(mesg=mesg)
 
+                    # TODO: check whether poly props could be valid for one of the forms
                     if prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
                         break
 
