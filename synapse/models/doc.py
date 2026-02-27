@@ -157,9 +157,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
-            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
-                'doc': 'A node which implements the document interface.'}),
-
             ('doc:reference', ('guid', {}), {
                 'doc': 'A reference included in a source.'}),
 
@@ -263,6 +260,7 @@ modeldefs = (
 
             ('doc:reference', {}, (
 
+                # FIXME make an interface for these somehow...
                 ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software',
                                                  'entity:campaign', 'meta:technique', 'plan:phase')}), {
                     'doc': 'The source which contains the reference.'}),

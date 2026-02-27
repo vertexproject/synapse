@@ -168,29 +168,19 @@ modeldefs = (
 
         'types': (
 
-            ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
-                'doc': 'An event where individuals may attend or participate.'}),
-
-            ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
-                'doc': 'A node which implements the entity:contactable interface.'}),
-
             ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
                 'doc': 'A fully resolved entity such as a person or organization.'}),
 
             ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                 'doc': 'A singular entity such as a person.'}),
 
-            ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
-                'doc': 'A node which inherits the entity:identifier interface.'}),
-
             ('entity:name', ('base:name', {}), {
+                'props': (),
                 'doc': 'A name used to refer to an entity.'}),
-
-            ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
-                'doc': 'An entity which has initiative to act.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
                 'prevnames': ('ou:jobtitle', 'ou:role'),
+                'props': (),
                 'doc': 'A title or position name used by an entity.'}),
 
             ('entity:contact:type:taxonomy', ('taxonomy', {}), {
@@ -505,10 +495,6 @@ modeldefs = (
         ),
 
         'forms': (
-
-            ('entity:title', {}, ()),
-
-            ('entity:name', {}, ()),
 
             ('entity:contact:type:taxonomy', {}, ()),
             ('entity:contact', {}, (
