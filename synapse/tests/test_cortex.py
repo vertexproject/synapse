@@ -1819,8 +1819,8 @@ class CortexTest(s_t_utils.SynTest):
 
             a_guid = "a" * 32
             opts = {'vars': {'guid': a_guid}}
-            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter=(ou:org, $guid) ]}}', opts=opts)
-            await buidRevEq(f'risk:vuln:reporter=(ou:org, {a_guid})')
+            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter={{[ou:org=$guid]}} ]}}', opts=opts)
+            await buidRevEq(f'risk:vuln:reporter={a_guid}')
 
             pref = 'a' * 31
             await core.nodes(f'for $x in $lib.range(3) {{[ test:guid=`{pref}{{$x}}` ]}}')

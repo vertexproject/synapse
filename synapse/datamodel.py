@@ -1137,6 +1137,10 @@ class Model:
             for name, info in mdef.get('interfaces', ()):
                 self.addIface(name, info)
 
+        for name, info in self.ifaces.items():
+            if (pdefs := info.get('props')) is not None:
+                info['props'] = self.processPropdefs(pdefs)
+
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
             if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.forminfos and self.form(ftyp.subof) is None:
@@ -1508,9 +1512,6 @@ class Model:
 
         if self.ifaces.get(name) is not None:
             raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
-
-        if (pdefs := info.get('props')) is not None:
-            info['props'] = self.processPropdefs(pdefs)
 
         self.ifaces[name] = info
 

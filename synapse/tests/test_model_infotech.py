@@ -466,7 +466,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
             self.propeq(nodes[1], 'period', (1615680000000000, 1615687260000000, 7260000000))
-            self.propeq(nodes[1], 'creds', (('auth:passwd', 'cool'),))
+            self.propeq(nodes[1], 'creds', ('cool',))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab

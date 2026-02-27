@@ -581,8 +581,9 @@ class Array(Type):
             typeopts = {}
 
         # TODO can we polyprop with multiple type+typeopts defs????
-        if not typeopts and (forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt'):
-            typename = (typename,)
+        if not typeopts:
+            if typename in self.modl.ifaces or ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                typename = (typename,)
 
         if isinstance(typename, tuple):
             typeopts['forms'] = tuple(tname for tname in typename if tname in self.modl.forminfos)

@@ -200,7 +200,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'detected', 2554848000000000)
             self.propeq(nodes[0], 'id', 'WOOT-20')
             self.propeq(nodes[0], 'url', 'https://vertex.link/alerts/WOOT-20')
-            self.propeq(nodes[0], 'assignee', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, form='syn:user')
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))

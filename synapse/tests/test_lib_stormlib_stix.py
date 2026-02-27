@@ -52,7 +52,7 @@ class StormLibStixTest(s_test.SynTest):
         if not success:
             self.true(success)
 
-    async def test_stormlib_libstix(self, conf=None):
+    async def test_stormlib_libstix2(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
             visi = await core.auth.addUser('visi')
@@ -311,7 +311,7 @@ class StormLibStixTest(s_test.SynTest):
             await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :id={[ it:sec:cve=CVE-2013-0000]} )]
             [(risk:vuln=(vuln3,) :name="bobs version of CVE-2013-001" :id={[ it:sec:cve=CVE-2013-0001 ]} )]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
-            [(entity:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
+            [(entity:campaign=(campaign1,) :name="bob hax" :actor={[ ou:org=(bob1,) ]} )]
             [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
             [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')

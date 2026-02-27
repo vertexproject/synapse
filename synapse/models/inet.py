@@ -1511,9 +1511,6 @@ modeldefs = (
                 ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
-                'doc': 'A node which inherits the inet:service:object interface.'}),
-
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:action', {}),
@@ -1669,9 +1666,6 @@ modeldefs = (
                 ),
                 'doc': 'An authenticated session.'}),
 
-            ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
-                'doc': 'A node which implements the inet:service:joinable interface.'}),
-
             ('inet:service:role', ('guid', {}), {
                 'template': {'title': 'service role'},
                 'interfaces': (
@@ -1755,9 +1749,6 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'doc': 'A subscription to a service platform or instance.'}),
-
-            ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
-                'doc': 'A node which may subscribe to a service subscription.'}),
 
             ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (

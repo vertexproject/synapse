@@ -2919,13 +2919,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.propeq(nodes[0], 'account', blckacct.ndef[1])
-            self.propeq(nodes[0], 'of', devsgrp.ndef)
+            self.propeq(nodes[0], 'of', devsgrp.ndef[1], form=devsgrp.ndef[0])
             self.propeq(nodes[0], 'period', (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'creator', visiacct.ndef[1])
             self.propeq(nodes[0], 'remover', visiacct.ndef[1])
 
             self.propeq(nodes[1], 'account', visiacct.ndef[1])
-            self.propeq(nodes[1], 'of', devsgrp.ndef)
+            self.propeq(nodes[0], 'of', devsgrp.ndef[1], form=devsgrp.ndef[0])
             self.propeq(nodes[1], 'period', (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
@@ -2960,7 +2960,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'method', 'password.')
-            self.propeq(nodes[0], 'creds', (('auth:passwd', 'cool'),))
+            self.propeq(nodes[0], 'creds', ('cool',))
             self.propeq(nodes[0], 'url', 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
@@ -3046,7 +3046,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             for node in nodes:
                 self.propeq(node, 'platform', platform.ndef[1])
-                self.propeq(node, 'of', gnrlchan.ndef)
+                self.propeq(node, 'of', gnrlchan.ndef[1], form=gnrlchan.ndef[0])
 
             q = '''
             [

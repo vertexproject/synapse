@@ -228,7 +228,7 @@ _DefaultConfig = {
                             {+:name=twitter return(twitter)}
                             {+:name=facebook return(facebook)}
                         ''',
-                        'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return((:value).1) }',
+                        'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return(:value) }',
                         'account_created': '+:period return($lib.stix.export.timestamp(:period.min))',
                         'account_last_login': '+:seen return($lib.stix.export.timestamp(:seen.max))',
                         'account_first_login': '+:seen return($lib.stix.export.timestamp(:seen.min))',
