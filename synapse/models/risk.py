@@ -345,6 +345,12 @@ modeldefs = (
                     ),
                 },
                 'props': (
+                    ('provider', ('ou:org', {}), {
+                        'doc': 'The provider which experienced the outage.'}),
+
+                    ('provider:name', ('entity:name', {}), {
+                        'doc': 'The name of the provider which experienced the outage.'}),
+
                     ('type', ('risk:outage:type:taxonomy', {}), {
                         'ex': 'service.power',
                         'doc': 'The type of outage.'}),
@@ -352,7 +358,7 @@ modeldefs = (
                     ('cause', ('risk:outage:cause:taxonomy', {}), {
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
-                    ),
+                ),
                 'doc': 'An outage event which affected resource availability.'}),
 
             ('risk:extortion:type:taxonomy', ('taxonomy', {}), {

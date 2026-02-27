@@ -377,7 +377,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''[ risk:extortion=*
-                // FIXME thise should be updated to biz:ask
                 :demand={[ econ:asked=* :price=99.99 :time=20231102 :expires=20240329 ]}
                 :name="APT99 Extorted     ACME"
                 :desc="APT99 extorted ACME for a zillion vertex coins."
@@ -446,8 +445,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2023, 2024)
                     :type=service.power
                     :cause=nature.earthquake
-                    //:provider={[ ou:org=* :name="desert power" ]}
-                    //:provider:name="desert power"
+                    :provider={[ ou:org=* :name="desert power" ]}
+                    :provider:name="desert power"
                     :reporter={ ou:org:name=vertex }
                     :reporter:name=vertex
                     <(ledto)+ {[ risk:attack=* ]}
@@ -457,8 +456,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.eq('the big one', nodes[0].get('name'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            # FIXME resolve
-            # self.eq('desert power', nodes[0].get('provider:name'))
+            self.eq('desert power', nodes[0].get('provider:name'))
             self.eq('service.power.', nodes[0].get('type'))
             self.eq('nature.earthquake.', nodes[0].get('cause'))
             self.eq((1672531200000000, 1704067200000000, 31536000000000), nodes[0].get('period'))
@@ -466,7 +464,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:outage <(ledto)- risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
-            # self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
+            self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
