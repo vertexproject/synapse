@@ -57,17 +57,32 @@ modeldefs = (
 
             ('biz:asked', ('entity:event', {}), {
                 'template': {'title': 'ask'},
+                'interfaces': (
+                    ('biz:stance', {}),
+                ),
                 'doc': 'An event where an actor made an ask as part of a negotiation.'}),
 
             ('biz:offered', ('entity:event', {}), {
                 'template': {'title': 'offer'},
-                'doc': 'An event where an actor made an offer in reply to an ask as part of a negotiation.'}),
+                'interfaces': (
+                    ('biz:stance', {}),
+                ),
+                'doc': 'An event where an actor made an offer as part of a negotiation.'}),
         ),
 
         'interfaces': (
 
+            ('biz:stance', {
+                'props': (
+                    ('expires', ('time', {}), {
+                        'doc': 'The time that the {title} expires.'}),
+
+                    ('activity', ('biz:negotiable', {}), {
+                        'doc': 'The negotiation that this {title} is part of.'}),
+                ),
+                'doc': 'An interface for asks and offers in a negotiation.'}),
+
             ('biz:negotiable', {
-                # TODO restrict to being implemented on meta:activity sub-forms
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
         ),
 

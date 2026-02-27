@@ -186,7 +186,6 @@ modeldefs = (
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
 
-            # FIXME syn:user is an actor...
             ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
                 'doc': 'An entity which has initiative to act.'}),
 

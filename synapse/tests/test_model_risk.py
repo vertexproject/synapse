@@ -378,8 +378,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[ risk:extortion=*
                 // FIXME thise should be updated to biz:ask
-                //:demanded=20231102
-                //:deadline=20240329
+                :demand={[ econ:asked=* :price=99.99 :time=20231102 :expires=20240329 ]}
                 :name="APT99 Extorted     ACME"
                 :desc="APT99 extorted ACME for a zillion vertex coins."
                 :type=fingain
@@ -389,13 +388,9 @@ class RiskModelTest(s_t_utils.SynTest):
                 :enacted=(true)
                 :public=(true)
                 :public:url=https://apt99.com/acme
-                // FIXME biz:ask
-                //:demanded:payment:price=99.99
-                //:demanded:payment:currency=VTC
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
                 :paid:price=12345
-                // FIXME ledto econ:payment?
                 +(ledto)> {[ econ:payment=* ]}
                 <(ledto)+ {[ risk:compromise=* :victim={ gen.ou.org acme } ]}
             ]''')
@@ -404,15 +399,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('apt99 extorted acme', nodes[0].get('name'))
             self.eq('APT99 extorted ACME for a zillion vertex coins.', nodes[0].get('desc'))
             # FIXME resolve
-            # self.eq(1698883200000000, nodes[0].get('demanded'))
-            # self.eq(1711670400000000, nodes[0].get('deadline'))
             # self.eq('fingain.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
             self.eq(1, nodes[0].get('success'))
             self.eq(1, nodes[0].get('enacted'))
             self.eq('https://apt99.com/acme', nodes[0].get('public:url'))
-            # self.eq('99.99', nodes[0].get('demanded:payment:price'))
-            # self.eq('vtc', nodes[0].get('demanded:payment:currency'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('12345', nodes[0].get('paid:price'))
 

@@ -148,6 +148,20 @@ modeldefs = (
 
             ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
                 'doc': 'A node which may act as a payment instrument.'}),
+
+            ('econ:asked', ('biz:asked', {}), {
+                'props': (
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The price asked by the actor.'}),
+                ),
+                'doc': 'A financial ask as part of a negotiation.'}),
+
+            ('econ:offered', ('biz:offered', {}), {
+                'props': (
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The price offered by the actor.'}),
+                ),
+                'doc': 'A financial ask as part of a negotiation.'}),
         ),
 
         'interfaces': (

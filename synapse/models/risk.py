@@ -275,8 +275,30 @@ modeldefs = (
                 'template': {'title': 'extortion'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('risk:victimized', {}),
                     ('biz:negotiable', {}),
+                    ('risk:victimized', {}),
+                ),
+                'props': (
+                    ('type', ('risk:extortion:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy for the extortion event.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': "Set to true if the victim met the attacker's demands."}),
+
+                    ('demand', ('biz:asked', {}), {
+                        'doc': 'The initial demand made by the actor.'}),
+
+                    ('enacted', ('bool', {}), {
+                        'doc': 'Set to true if attacker carried out the threat.'}),
+
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the attacker publicly announced the extortion.'}),
+
+                    ('public:url', ('inet:url', {}), {
+                        'doc': 'The URL where the attacker publicly announced the extortion.'}),
+
+                    ('paid:price', ('econ:price', {}), {
+                        'doc': 'The total price paid by the target of the extortion.'}),
                 ),
                 'display': {
                     'columns': (
@@ -738,27 +760,6 @@ modeldefs = (
                 ('size:percent', ('int', {'min': 0, 'max': 100}), {
                     'doc': 'The total percent of the compromised data leaked.'}),
 
-            )),
-
-            ('risk:extortion', {}, (
-
-                ('type', ('risk:extortion:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy for the extortion event.'}),
-
-                ('success', ('bool', {}), {
-                    'doc': "Set to true if the victim met the attacker's demands."}),
-
-                ('enacted', ('bool', {}), {
-                    'doc': 'Set to true if attacker carried out the threat.'}),
-
-                ('public', ('bool', {}), {
-                    'doc': 'Set to true if the attacker publicly announced the extortion.'}),
-
-                ('public:url', ('inet:url', {}), {
-                    'doc': 'The URL where the attacker publicly announced the extortion.'}),
-
-                ('paid:price', ('econ:price', {}), {
-                    'doc': 'The total price paid by the target of the extortion.'}),
             )),
         ),
     }),
