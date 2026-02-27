@@ -157,7 +157,7 @@ modeldefs = (
             ('entity:multiple', {
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
-            ('entity:abstract', {
+            ('entity:resolvable', {
                 'template': {'title': 'entity'},
                 'props': (
                     ('resolved', ('entity:resolved', {}), {
@@ -195,7 +195,7 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
