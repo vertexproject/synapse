@@ -2202,11 +2202,11 @@ class Poly(Type):
 #
         self.formtype = self.modl.type('syn:form')
         self.ndeftype = self.modl.type('ndef')
-        self.valutype = self.modl.type('data')
+        self.valuetype = self.modl.type('data')
         self.virts |= {
             'form': (self.formtype, self._getForm),
             'ndef': (self.ndeftype, self._getNdef),
-            'value': (self.valutype, self._getValu),
+            'value': (self.valuetype, self._getValue),
         }
 
         self.virtindx |= {
@@ -2338,7 +2338,7 @@ class Poly(Type):
     def _getNdef(self, valu):
         return valu[0]
 
-    def _getValu(self, valu):
+    def _getValue(self, valu):
         valu = valu[0]
         if isinstance(valu[0], str):
             return valu[1]

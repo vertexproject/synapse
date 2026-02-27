@@ -52,7 +52,7 @@ class StormLibStixTest(s_test.SynTest):
         if not success:
             self.true(success)
 
-    async def test_stormlib_libstix2(self, conf=None):
+    async def test_stormlib_libstix(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
             visi = await core.auth.addUser('visi')

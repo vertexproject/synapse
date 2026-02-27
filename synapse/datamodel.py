@@ -673,7 +673,7 @@ class Model:
                     'computed': True,
                     'doc': 'The (form, valu) of the node which is referenced.'}),
 
-                ('valu', ('data', {}), {
+                ('value', ('data', {}), {
                     'computed': True,
                     'doc': 'The primary property value of the node which is referenced.'}),
             ),
@@ -1103,6 +1103,11 @@ class Model:
             else:
                 self._modeldef['types'].append(tobj.getTypeDef())
 
+        # load all the interfaces...
+        for _, mdef in mods:
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
+
         # Load all the tagprops
         for _, mdef in mods:
             for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
@@ -1132,11 +1137,7 @@ class Model:
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
 
-        # Load all the interfaces...
-        for _, mdef in mods:
-            for name, info in mdef.get('interfaces', ()):
-                self.addIface(name, info)
-
+        # Check for interface props to convert to poly types
         for name, info in self.ifaces.items():
             if (pdefs := info.get('props')) is not None:
                 info['props'] = self.processPropdefs(pdefs)
