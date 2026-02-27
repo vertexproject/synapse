@@ -80,6 +80,9 @@ Documentation = 'https://synapse.docs.vertex.link'
 Repository = 'https://github.com/vertexproject/synapse'
 Changelog = 'https://synapse.docs.vertex.link/en/latest/synapse/changelog.html'
 
+[project.entry-points.pytest11]
+synapse = 'synapse.utils.stormcov'
+
 [tool.setuptools]
 include-package-data = true
 
