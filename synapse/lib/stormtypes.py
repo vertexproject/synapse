@@ -6081,7 +6081,9 @@ class Ndef(Prim):
         {'name': 'form', 'desc': 'Get the form of the tuple.',
          'type': 'str'},
         {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
-         'type': 'str'},
+         'type': 'list'},
+        {'name': 'value', 'desc': 'Get the valu of the tuple.',
+         'type': 'any'},
         {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
          'type': {'type': 'function', '_funcname': '_methNdefIsForm',
                   'args': (
@@ -6121,6 +6123,7 @@ class Ndef(Prim):
         return {
             'form': self.valu[0],
             'ndef': self.valu,
+            'value': self.valu[1],
             'isform': self._methNdefIsForm,
         }
 

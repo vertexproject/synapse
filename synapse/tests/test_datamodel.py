@@ -867,165 +867,129 @@ class DataModelTest(s_t_utils.SynTest):
                 (test:str=nop :poly={[ test:int=1 ]})
             ]''')
 
-            print('int gt')
-            nodes = await core.nodes('test:str:poly>2')
-            for n in nodes:
-                print(n)
+            # non-form specific lifts
+            self.len(1, await core.nodes('test:str:poly>2'))
+            self.len(1, await core.nodes('test:str:poly=3'))
+            self.len(1, await core.nodes('test:str:poly=p2'))
 
-            print('int eq')
-            nodes = await core.nodes('test:str:poly=3')
-            for n in nodes:
-                print(n)
+            # lifts using both test:str/test:lowstr norms
+            self.len(2, await core.nodes('test:str:poly=p1'))
+            self.len(3, await core.nodes('test:str:poly^=p'))
+            self.len(3, await core.nodes('test:str:poly^=P'))
 
-            print('str eq')
-            nodes = await core.nodes('test:str:poly=p2')
-            for n in nodes:
-                print(n)
+            # regex works too
+            self.len(3, await core.nodes('test:str:poly~=P'))
 
-            print('str eq')
-            nodes = await core.nodes('test:str:poly=p1')
-            for n in nodes:
-                print(n)
+            # prop pivots
+            self.len(3, await core.nodes('test:str:poly^=P :poly -> *'))
+            self.len(2, await core.nodes('test:str:poly^=P :poly -> test:str'))
 
-            print('pref')
-            nodes = await core.nodes('test:str:poly^=p')
-            for n in nodes:
-                print(n)
+            # repr is just the valu
+            msgs = await core.stormlist('test:str:poly^=P $lib.print(:poly)')
+            msgs = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(msgs, ['p1', 'p1', 'p2'])
 
-            print('low')
-            nodes = await core.nodes('test:str:poly^=P')
-            for n in nodes:
-                print(n)
+            q = '''
+            test:str:poly^=P
+            $foo=:poly
+            $lib.print($foo.form)
+            $lib.print($foo.ndef)
+            $lib.print($foo.value)
+            yield $foo
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1][0] for m in msgs if m[0] == 'node']
+            self.eq(nodes, [
+                ('test:str', 'p1'),
+                ('test:str', 'foo'),
+                ('test:lowstr', 'p1'),
+                ('test:str', 'faz'),
+                ('test:hasiface', 'p2'),
+                ('test:str', 'baz')
+            ])
 
-            print('regx')
-            nodes = await core.nodes('test:str:poly~=P')
-            for n in nodes:
-                print(n)
+            msgs = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(msgs, [
+                'test:str', "('test:str', 'p1')", 'p1',
+                'test:lowstr', "('test:lowstr', 'p1')", 'p1',
+                'test:hasiface', "('test:hasiface', 'p2')", 'p2'
+            ])
 
-            print('piv')
-            nodes = await core.nodes('test:str:poly^=P :poly -> *')
-            for n in nodes:
-                print(n)
+            self.len(1, await core.nodes('test:str:poly^=P +:poly=p2'))
 
-            print('piv2')
-            nodes = await core.nodes('test:str:poly^=P :poly -> test:str')
-            for n in nodes:
-                print(n)
-
-            print('print')
-            nodes = await core.stormlist('test:str:poly^=P $lib.print(:poly)')
-            for n in nodes:
-                if n[0] == 'print':
-                    print(n[1]['mesg'])
-
-            print('print2')
-            nodes = await core.stormlist('test:str:poly^=P $foo=:poly $lib.print($foo.form) $lib.print($foo.ndef) yield $foo')
-            for n in nodes:
-                if n[0] in ('print', 'node'):
-                    print(n[1])
-
-            print('filt')
-            nodes = await core.nodes('test:str:poly^=P +:poly=p2')
-            for n in nodes:
-                print(n)
-
-            print('defadd')
+            # default form priority
             nodes = await core.nodes('''[
                 (test:str=def1 :poly=p3)
                 (test:str=def2 :poly=4)
             ]''')
-            for n in nodes:
-                print(n)
+            self.propeq(nodes[0], 'poly', 'p3', form='test:str')
+            self.propeq(nodes[1], 'poly', 4, form='test:int')
 
-            print('ezadd')
+            # using an ndef for assignment skips re-norming
             nodes = await core.nodes('''
                 test:str=bar
                 $valu = :poly
                 [(test:str=ez1 :poly=$valu)]
             ''')
-            for n in nodes:
-                print(n)
+            self.propeq(nodes[0], 'poly', 3, form='test:int')
+            self.propeq(nodes[1], 'poly', 3, form='test:int')
 
             nodes = await core.nodes('''[
                 (test:str=a1 :polyarry={[ test:str=p10 test:int=5 test:hasiface=p11 test:lowstr=p10 ]})
                 (test:str=a2 :polyarry=(p10, 5, p11, p10, 2))
             ]''')
 
-            print('arraylift')
-            for x in await core.nodes('test:str:polyarry*[=p10]'):
-                print(x)
+            # poly array lift without specific type
+            self.len(3, await core.nodes('test:str:polyarry*[=p10]'))
+            self.len(2, await core.nodes('test:str:polyarry*[>4]'))
 
-            print('arraylift2')
-            for x in await core.nodes('test:str:polyarry*[>4]'):
-                print(x)
+            # poly lift by node
+            self.len(1, await core.nodes('test:str:poly={test:lowstr=p1}'))
 
-            print('ndeflift')
-            for x in await core.nodes('test:str:poly={test:lowstr=p1}'):
-                print(x)
+            # poly lift by ndef virt
+            self.len(1, await core.nodes('test:str:poly.ndef=(test:lowstr, p1)'))
 
-            print('ndeflift2')
-            for x in await core.nodes('test:str:poly.ndef=(test:lowstr, p1)'):
-                print(x)
+            # poly lift by form
+            self.len(1, await core.nodes('test:str:poly.form=test:lowstr'))
 
-            print('formlift')
-            for x in await core.nodes('test:str:poly.form=test:lowstr'):
-                print(x)
+            # poly array lift by node
+            self.len(1, await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'))
 
-            print('arrayndeflift')
-            for x in await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'):
-                print(x)
+            # poly array lift by ndef virt
+            self.len(1, await core.nodes('test:str:polyarry*[.ndef=(test:lowstr, p10)]'))
 
-            print('arrayndeflift2')
-            for x in await core.nodes('test:str:polyarry*[.ndef=(test:lowstr, p10)]'):
-                print(x)
+            # poly array lift by form
+            self.len(1, await core.nodes('test:str:polyarry*[.form=test:lowstr]'))
+            self.len(3, await core.nodes('test:str:polyarry*[.form=test:str]'))
 
-            print('arrayformlift')
-            for x in await core.nodes('test:str:polyarry*[.form=test:lowstr]'):
-                print(x)
+            # pivot in to poly reference
+            self.len(1, await core.nodes('test:hasiface=p2 <- *'))
 
-            print('arrayformlift2')
-            for x in await core.nodes('test:str:polyarry*[.form=test:str]'):
-                print(x)
+            # pivot in to poly array reference
+            self.len(1, await core.nodes('test:hasiface=p11 <- *'))
 
-            print('pivin')
-            nodes = await core.nodes('test:hasiface=p2 <- *')
-            for n in nodes:
-                print(n)
+            await core.nodes('[ test:str=ip :poly={[inet:server=tcp://1.2.3.4:80]} ]')
 
-            print('pivin2')
-            nodes = await core.nodes('test:hasiface=p11 <- *')
-            for n in nodes:
-                print(n)
+            # using a ndef in a var to set a prop bring virts along correctly
+            await core.nodes('test:str=ip $foo=:poly [(test:str=ip2 :poly=$foo)]')
+            msgs = await core.stormlist('test:str=ip2 $foo=:poly $lib.print($foo.port)')
+            self.stormIsInPrint('80', msgs)
 
-            print('virts')
-            nodes = await core.nodes('[ test:str=ip :poly={[inet:server=tcp://1.2.3.4:80]} ]')
-            print(nodes)
+            # virtual prop of a form in a poly prop
+            msgs = await core.stormlist('test:str=ip $lib.print(:poly.port)')
+            self.stormIsInPrint('80', msgs)
 
-            for m in await core.stormlist('test:str=ip $foo=:poly $lib.print($foo.port)'):
-                print(m)
+            # virtual prop of a ndef in a var is accessible
+            msgs = await core.stormlist('test:str=ip $foo=:poly $lib.print($foo.port)')
+            self.stormIsInPrint('80', msgs)
 
-            for m in await core.stormlist('test:str=ip $foo=:poly [(test:str=ip2 :poly=$foo)]'):
-                print(m)
+            # poly virtual on a form lift
+            self.len(2, await core.nodes('test:str:poly.port=80'))
 
-            for m in await core.stormlist('test:str=ip2 $foo=:poly $lib.print($foo.port)'):
-                print(m)
+            await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
 
-            print('magic')
-            for m in await core.stormlist('test:str=ip $lib.print(:poly.port)'):
-                print(m)
-
-            print('vlift')
-            nodes = await core.nodes('test:str:poly.port=80')
-            for n in nodes:
-                print(n)
-
-            nodes = await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
-            print(nodes)
-
-            print('vliftarry')
-            nodes = await core.nodes('test:str:polyarry*[.port=80]')
-            for n in nodes:
-                print(n)
+            # poly array virtual on a form lift
+            self.len(2, await core.nodes('test:str:polyarry*[.port=80]'))
 
             nodes = await core.nodes('[ test:str=ifarray :polyint={[ test:hasiface=p123 ]} ]')
             self.len(1, await core.nodes('test:hasiface=p123 <- *'))

@@ -1343,7 +1343,6 @@ class View(s_nexus.Pusher):  # type: ignore
         lastvalu = None
 
         async for indx, valu, lidx, formname, propname in s_common.merggenr2(genrs):
-
             if valu == lastvalu:
                 continue
 
