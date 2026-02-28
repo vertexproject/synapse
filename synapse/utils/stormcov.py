@@ -98,7 +98,7 @@ class StormcovPlugin:
 
         opts = config.option
 
-        self.append = config.options.stormcov_append
+        self.append = config.option.stormcov_append
         self.stormdirs = config.option.stormdirs
         self.basedir = config.option.stormcov_basedir
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
