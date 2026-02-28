@@ -1,8 +1,8 @@
-import io
 import os
 import sys
 import inspect
 import logging
+import pathlib
 import collections
 
 import lark
@@ -17,10 +17,28 @@ import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
+PACKAGE_DIR = pathlib.Path('packages').absolute()
+
 def pytest_addoption(parser):
     """Add options to control storm coverage."""
 
     group = parser.getgroup('stormcov', 'storm coverage reporting')
+
+    group.addoption(
+        '--stormcov',
+        action='store_true',
+        default=False,
+        dest='stormcov',
+        help='Enable stormcov. Default: False',
+    )
+
+    group.addoption(
+        '--storm-dirs',
+        action='store',
+        dest='stormdirs',
+        help='Comma separated list of paths to search for Storm files. Default: autodiscover stormdirs based on executed tests.',
+    )
+
     group.addoption(
         '--storm-exts',
         action='store',
@@ -29,32 +47,35 @@ def pytest_addoption(parser):
         help='Comma separated list of file extensions containing Storm. Default: storm',
     )
 
-    # This option allows us to have coverage but not storm coverage (i.e. only
-    # Python coverage)
     group.addoption(
-        '--no-stormcov',
+        '--stormcov-append',
         action='store_true',
         default=False,
-        dest='no_stormcov',
-        help='Disable stormcov. Default: False',
+        dest='stormcov_append',
+        help='Append to existing coverage reports instead of erasing.',
+    )
+
+    group.addoption(
+        '--stormcov-basedir',
+        default=PACKAGE_DIR,
+        type=pathlib.Path,
+        help='The base package directory. Useful for monorepo environments.',
     )
 
 DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config):
-    if config.option.no_stormcov or not config.pluginmanager.has_plugin('_cov') or config.option.no_cov:
+    if not config.option.stormcov and not (config.option.stormdirs or config.option.stormcov_append):
         return
 
-    isworker = config.option.numprocesses is None or os.environ.get("PYTEST_XDIST_WORKER") is not None
-    config.pluginmanager.register(StormcovPlugin(config, isworker), 'stormcov')
+    config.pluginmanager.register(StormcovPlugin(config), 'stormcov')
 
 class StormcovPlugin:
 
     PARSE_METHODS = {'compute', 'once', 'lift', 'getPivsOut', 'getPivsIn'}
 
-    def __init__(self, config, isworker):
+    def __init__(self, config):
         self.toolid = 2
-        self.isworker = isworker
         self.config = config
         self.handlers = {
             'ast.py': self.handle_ast,
@@ -77,23 +98,10 @@ class StormcovPlugin:
 
         opts = config.option
 
+        self.append = config.options.stormcov_append
+        self.stormdirs = config.option.stormdirs
+        self.basedir = config.option.stormcov_basedir
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
-
-        # --cov: Load all storm files in current directory. Only show coverage
-        # information for storm files that have greater than 0% coverage (had at
-        # least one line executed)
-
-        # --cov=path/to/dir: Load all storm files in specified directory. Show
-        # coverage for all discovered storm files even if they have 0% coverage.
-
-        self.covpaths = False
-        if (cov_source := self.config.option.cov_source) == [True]:
-            self.find_storm_files('.')
-
-        else:
-            self.covpaths = True
-            for dirn in cov_source:
-                self.find_storm_files(dirn)
 
     def find_storm_files(self, dirn):
         for path in self.find_executable_files(dirn):
@@ -138,46 +146,70 @@ class StormcovPlugin:
 
                 self.subq_map[subg] = (path, line)
 
-    @pytest.hookimpl(hookwrapper=True, tryfirst=True)
+    @pytest.hookimpl(wrapper=True)
     def pytest_runtestloop(self, session):
         sys.monitoring.use_tool_id(self.toolid, 'pytest-stormcov')
         sys.monitoring.set_events(self.toolid, sys.monitoring.events.PY_START)
         sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
 
+        self.cov = coverage.Coverage.current()
+
+        if self.cov is None:
+            self.cov = coverage.Coverage()
+
+        if not self.append:
+            self.cov.erase()
+
         yield
+
+        self.cov.load()
 
         sys.monitoring.free_tool_id(self.toolid)
 
-        # Get a reference to the pytest-cov plugin
-        covplug = session.config.pluginmanager.getplugin('_cov')
-        cov = covplug.cov_controller.cov
-
-        # Load the existing data
-        cov.load()
-        data = cov.get_data()
+        data = self.cov.get_data()
 
         # Add our stormcov data
-        lines_hit = dict(self.lines_hit)
-        data.add_lines(lines_hit)
-
-        if self.covpaths:
-            # Paths were specified so show all files that were discovered in the
-            # path even if they have 0% coverage
-            data.touch_files(self.guid_map.values(), 'synapse.utils.stormcov.StormReporterPlugin')
-        else:
-            # Paths were not specified so only show files that were hit
-            data.touch_files(lines_hit.keys(), 'synapse.utils.stormcov.StormReporterPlugin')
+        data.add_lines(dict(self.lines_hit))
+        data.touch_files(self.guid_map.values(), 'synapse.utils.stormcov.StormReporterPlugin')
 
         # Save the coverage data
         data.write()
 
-        # Reset the pytest-cov internal cov report and then re-run it's
-        # pytest_runtestloop to get it to re-generate the test report. This
-        # should work with any test report format specified by it's command line
-        # options.
-        covplug.cov_report = io.StringIO()
-        for _ in covplug.pytest_runtestloop(session):
-            pass
+    def discover_stormdirs(self, testpaths: list[pathlib.Path]):
+        # If a specific set of directories were specified, use that
+        if self.stormdirs:
+            for dirn in self.stormdirs.split(','):
+                self.find_storm_files(dirn)
+            return
+
+        stormdirs = set()
+
+        # Iterate through the tests, get their path, and add the containing storm package directory
+        for testpath in testpaths:
+            if testpath.is_relative_to(self.basedir):
+                stormdir = str(self.basedir / testpath.relative_to(self.basedir).parts[0])
+                stormdirs.add(stormdir)
+
+        for dirn in stormdirs:
+            self.find_storm_files(dirn)
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_collection_modifyitems(self, config, items):
+        # Note: If using xdist, this function executes on each worker node
+        testpaths = [item.path for item in items]
+        self.discover_stormdirs(testpaths)
+        yield
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_xdist_node_collection_finished(self, node, ids):
+        # Note: This hook allows the controller to get a list of test ids so we can build a list of storm dirs to present stormterm coverage
+        testpaths = [pathlib.Path(testid.split('::')[0]).absolute() for testid in ids]
+        self.discover_stormdirs(testpaths)
+        yield
+
+    @pytest.hookimpl
+    def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
+        self.cov.report(skip_covered=False, skip_empty=False)
 
     def sysmon_py_start(self, code, instruction_offset):
         if (fname := self.freg.match(code.co_filename)):
