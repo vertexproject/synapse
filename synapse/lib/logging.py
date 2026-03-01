@@ -17,12 +17,8 @@ logger = logging.getLogger(__name__)
 
 _log_wins = weakref.WeakSet()
 
-LOG_PUMP_TASK_TIMEOUT = int(os.environ.get('SYNDEV_LOG_TASK_SHUTDOWN_TIMEOUT', 1))
-LOG_QUEUE_SIZES = int(os.environ.get('SYNDEV_LOG_QUEUE_SIZE', 1000))
-if LOG_PUMP_TASK_TIMEOUT < 0:  # pragma: no cover
-    raise s_exc.BadConfValu(mesg='SYNDEV_LOG_TASK_SHUTDOWN_TIMEOUT value must be greater than or equal to 0.')
-if LOG_QUEUE_SIZES < 1:  # pragma: no cover
-    raise s_exc.BadConfValu(mesg='SYNDEV_LOG_QUEUE_SIZE value must be greater than 1.')
+LOG_PUMP_TASK_TIMEOUT = 1
+LOG_QUEUE_SIZES = 1000
 
 def excinfo(e, _seen=None):
 
