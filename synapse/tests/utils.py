@@ -2051,9 +2051,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def propeq(self, n, prop, valu, form=None, repr=False, msg=None):
         '''
         Assert a node property is equal to valu.
-
-        Raises
-            s_exc.NoSuchVirt
         '''
         # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
         # TODO: If polyprop and valu is None assert that prop is not set
