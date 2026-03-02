@@ -994,5 +994,12 @@ class DataModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:str=ifarray :polyint={[ test:hasiface=p123 ]} ]')
             self.len(1, await core.nodes('test:hasiface=p123 <- *'))
 
-            await core.nodes('[ test:str=nonuniq :polynonuniq={[ test:int=1 test:int=1 test:str=1 test:str=2]} ]')
+            opts = {'vars': {'long1': 'a' * 500, 'long2': 'a' * 500 + 'b'}}
+            q = '[ test:str=nonuniq :polynonuniq={[ test:int=1 test:int=1 test:str=1 test:str=$long1 test:str=$long2]} ]'
+            await core.nodes(q, opts=opts)
+
             self.len(3, await core.nodes('test:str:polynonuniq*[=1]'))
+            self.len(1, await core.nodes('test:str:polynonuniq*[=$long1]', opts=opts))
+            self.len(1, await core.nodes('test:str:polynonuniq*[=$long2]', opts=opts))
+            self.len(2, await core.nodes('test:str:polynonuniq*[^=a]'))
+            self.len(2, await core.nodes('test:str:polynonuniq*[~=a]'))

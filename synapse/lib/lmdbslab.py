@@ -1571,7 +1571,21 @@ class Slab(s_base.Base):
                 if not scan.set_range(pref + skey + byts + startkey, valu=startvalu):
                     return
 
-                for item in scan.iternext():
+                genr = scan.iternext()
+                fval = next(genr)
+
+                if not fval[0].startswith(pref):
+                    return
+
+                if fval[0][preflen:size] < byts:
+                    skey = fval[0][len(pref):preflen]
+                    if not scan.set_range(pref + skey + byts + startkey, valu=startvalu):
+                        return
+                    yield scan.atitem
+                else:
+                    yield fval
+
+                for item in genr:
                     yield item
 
         pval = 0
@@ -1632,12 +1646,12 @@ class Slab(s_base.Base):
 
                 genr = scan.iternext()
                 fval = next(genr)
-                skey = fval[0][len(pref):preflen]
 
                 if not fval[0].startswith(pref):
                     return
 
                 if fval[0][preflen:size] < lmin:
+                    skey = fval[0][len(pref):preflen]
                     if not scan.set_range(pref + skey + lmin):
                         return
                     yield scan.atitem
