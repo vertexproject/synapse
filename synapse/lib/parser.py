@@ -261,7 +261,7 @@ class AstConverter(lark.Transformer):
 
         kids[0].astinfo = astinfo
 
-        return s_ast.EmbedQuery(astinfo, kids[0].getAstText(), kids=kids)
+        return s_ast.EmbedQuery(astinfo, kids[0].text, kids=kids)
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):

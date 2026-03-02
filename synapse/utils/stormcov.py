@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 PACKAGE_DIR = pathlib.Path('packages').absolute()
 
-def pytest_addoption(parser):
+def pytest_addoption(parser): # pragma: no cover
     """Add options to control storm coverage."""
 
     group = parser.getgroup('stormcov', 'storm coverage reporting')
@@ -64,18 +64,26 @@ def pytest_addoption(parser):
 
 DISABLE = sys.monitoring.DISABLE
 
-def pytest_configure(config):
+def pytest_configure(config): # pragma: no cover
     if not config.option.stormcov and not (config.option.stormdirs or config.option.stormcov_append):
         return
 
     config.pluginmanager.register(StormcovPlugin(config), 'stormcov')
+
+def get_parser():
+    grammar = s_data.getLark('storm')
+
+    return lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,
+                            maybe_placeholders=False, propagate_positions=True)
 
 class StormcovPlugin:
 
     PARSE_METHODS = {'compute', 'once', 'lift', 'getPivsOut', 'getPivsIn'}
 
     def __init__(self, config):
-        self.toolid = 2
+        self.toolid = sys.monitoring.COVERAGE_ID
+        self._freetool = False
+
         self.config = config
         self.handlers = {
             'ast.py': self.handle_ast,
@@ -89,12 +97,9 @@ class StormcovPlugin:
         self.subq_map = {}
 
         self.freg = regex.compile(r'.*synapse/lib/(ast.py|view.py|stormctrl.py)$')
-        self.lines_hit = collections.defaultdict(set)
+        self.reset()
 
-        grammar = s_data.getLark('storm')
-
-        self.parser = lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,
-                                maybe_placeholders=False, propagate_positions=True)
+        self.parser = get_parser()
 
         opts = config.option
 
@@ -102,6 +107,11 @@ class StormcovPlugin:
         self.stormdirs = config.option.stormdirs
         self.basedir = config.option.stormcov_basedir
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
+
+        self.debug = []
+
+    def reset(self):
+        self.lines_hit = collections.defaultdict(set)
 
     def find_storm_files(self, dirn):
         for path in self.find_executable_files(dirn):
@@ -135,8 +145,17 @@ class StormcovPlugin:
                 if subq.meta.empty:
                     continue
 
-                subg = s_common.guid(str(subq))
+                soff = subq.meta.start_pos
+                eoff = subq.meta.end_pos
+
+                if rule == 'embedquery':
+                    soff = node.meta.start_pos + 2
+                    eoff = node.meta.end_pos - 1
+
+                subg = (s_common.guid(str(tree)), soff, eoff)
                 line = (node.meta.line - 1)
+
+                logger.info(f'guid={subg[0]} {path=} {subq=} {soff=} {eoff=} {line=}')
 
                 if subg in self.subq_map:
                     (pname, pline) = self.subq_map[subg]
@@ -146,11 +165,21 @@ class StormcovPlugin:
 
                 self.subq_map[subg] = (path, line)
 
-    @pytest.hookimpl(wrapper=True)
-    def pytest_runtestloop(self, session):
-        sys.monitoring.use_tool_id(self.toolid, 'pytest-stormcov')
+    def _start_sysmon(self):
+        if sys.monitoring.get_tool(self.toolid) is None:
+            sys.monitoring.use_tool_id(self.toolid, 'pytest-stormcov')
+            self._freetool = True
+
         sys.monitoring.set_events(self.toolid, sys.monitoring.events.PY_START)
         sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
+
+    def _stop_sysmon(self):
+        if self._freetool:
+            sys.monitoring.free_tool_id(self.toolid)
+            self._freetool = False
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtestloop(self, session): # pragma: no cover
 
         self.cov = coverage.Coverage.current()
 
@@ -160,11 +189,11 @@ class StormcovPlugin:
         if not self.append:
             self.cov.erase()
 
+        self._start_sysmon()
         yield
+        self._stop_sysmon()
 
         self.cov.load()
-
-        sys.monitoring.free_tool_id(self.toolid)
 
         data = self.cov.get_data()
 
@@ -194,21 +223,20 @@ class StormcovPlugin:
             self.find_storm_files(dirn)
 
     @pytest.hookimpl(wrapper=True)
-    def pytest_collection_modifyitems(self, config, items):
+    def pytest_collection_modifyitems(self, config, items): # pragma: no cover
         # Note: If using xdist, this function executes on each worker node
         testpaths = [item.path for item in items]
         self.discover_stormdirs(testpaths)
         yield
 
     @pytest.hookimpl(wrapper=True)
-    def pytest_xdist_node_collection_finished(self, node, ids):
-        # Note: This hook allows the controller to get a list of test ids so we can build a list of storm dirs to present stormterm coverage
+    def pytest_xdist_node_collection_finished(self, node, ids): # pragma: no cover
+        # Note: This hook allows the xdist controller to get a list of test ids so we can build a list of storm dirs to present stormterm coverage
         testpaths = [pathlib.Path(testid.split('::')[0]).absolute() for testid in ids]
         self.discover_stormdirs(testpaths)
         yield
 
-    @pytest.hookimpl
-    def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
+    def pytest_terminal_summary(self, terminalreporter, exitstatus, config): # pragma: no cover
         self.cov.report(skip_covered=False, skip_empty=False)
 
     def sysmon_py_start(self, code, instruction_offset):
@@ -233,6 +261,7 @@ class StormcovPlugin:
                 frame = inspect.currentframe().f_back.f_back
 
         realnode = frame.f_locals.get('self')
+        realcls = realnode.__class__.__name__
         if hasattr(realnode, '_coverage_hit'):
             return
 
@@ -241,6 +270,11 @@ class StormcovPlugin:
         node = realnode
         while hasattr(node, 'parent'):
             node = node.parent
+
+        topnode = node
+
+        if realcls in ('ArgvQuery', 'EmbedQuery'):
+            node = realnode.kids[0]
 
         nodeid = id(node)
 
@@ -261,12 +295,15 @@ class StormcovPlugin:
             self.mark_lines(frame, info)
             return
 
-        tree = self.parser.parse(node.text)
+        tree = self.parser.parse(topnode.text)
         guid = s_common.guid(str(tree))
 
-        subq = self.subq_map.get(guid)
-        if subq is not None:
-            (filename, offs) = subq
+        if realcls in ('ArgvQuery', 'EmbedQuery'):
+            posinfo = node.getPosInfo()
+            if realcls == 'EmbedQuery':
+                posinfo = realnode.getPosInfo()
+            soff, eoff = posinfo['offsets']
+            filename, offs = self.subq_map.get((guid, soff, eoff), (None, 0))
         else:
             filename = self.guid_map.get(guid)
             offs = 0
@@ -280,6 +317,7 @@ class StormcovPlugin:
         self.mark_lines(frame, (filename, offs))
 
     def mark_lines(self, frame, info):
+        self.debug.append((frame, info))
         astn = frame.f_locals.get('self')
         fname, offs = info
         strt = astn.astinfo.sline
@@ -288,6 +326,7 @@ class StormcovPlugin:
         else:
             fini = strt
 
+        logger.info(f'{fname} {offs} {strt + offs=} {fini + offs + 1=}')
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
 
     PIVOT_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
@@ -394,9 +433,7 @@ class StormReporter(coverage.FileReporter):
 # stormcov
 class StormReporterPlugin(coverage.CoveragePlugin):
     def __init__(self):
-        grammar = s_data.getLark('storm')
-        self.parser = lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,
-                                maybe_placeholders=False, propagate_positions=True)
+        self.parser = get_parser()
 
     def file_reporter(self, filename):
         return StormReporter(filename, self.parser)
