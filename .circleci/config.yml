@@ -616,18 +616,18 @@ jobs:
 
   build_docker_branch:
     docker:
-      - image: docker:24.0.2
+      - image: docker:29.2.1
     steps:
       - build_docker:
           image-tag: ${CIRCLE_BRANCH//\//_}
-      - push_docker_image:
-          image-tag: ${CIRCLE_BRANCH//\//_}
-          registry: ${DOCKER_PRIMARY_REGISTRY}
-          secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
+#      - push_docker_image:
+#          image-tag: ${CIRCLE_BRANCH//\//_}
+#          registry: ${DOCKER_PRIMARY_REGISTRY}
+#          secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
   build_docker_tag:
     docker:
-      - image: docker:24.0.2
+      - image: docker:29.2.1
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:
@@ -759,6 +759,7 @@ workflows:
               only:
                 - master
                 - synapse-3xx
+                - synapse-3xx-docker-ci-update
 
       - build_docker_tag:
           requires:
