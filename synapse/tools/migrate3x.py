@@ -28,11 +28,95 @@ import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.multislabseqn as s_multislabseqn
 
-import synapse.tools.backup as s_backup
+import synapse.tools.service.backup as s_backup
 
 logger = logging.getLogger(__name__)
 
 REQ_2X_CORE_VERS = '>=2.180.1,<3.0.0'
+
+class MigrAuth:
+    '''
+    Helper for migrating auth related data during 2.x.x to 3.x.x migration.
+    '''
+
+    def __init__(self, authkv):
+        self.authkv = authkv
+        self.permmigrs = (
+            (('cron', 'set', 'creator'), ('cron', 'set', 'user')),
+        )
+
+    def migrate(self):
+        self._migrUsers()
+        self._migrRoles()
+
+    def _migrUsers(self):
+        userkv = self.authkv.getSubKeyVal('user:info:')
+
+        for iden, info in userkv.items():
+            update = False
+
+            valu = info.get('onepass')
+            if valu is not None and not isinstance(valu, dict):
+                logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
+                update = True
+                info.pop('onepass')
+
+            valu = info.get('passwd')
+            if valu is not None and not isinstance(valu, dict):
+                logger.warning(f'Removing deprecated password shadow for user {iden}!')
+                update = True
+                info.pop('passwd')
+
+            if self._migrRulerInfo(info):
+                update = True
+
+            if update:
+                userkv.set(iden, info)
+
+    def _migrRoles(self):
+        rolekv = self.authkv.getSubKeyVal('role:info:')
+        for iden, info in rolekv.items():
+            if self._migrRulerInfo(info):
+                rolekv.set(iden, info)
+
+    def _migrRulerInfo(self, info):
+        changed = False
+        rules, upd = self._migrRules(info.get('rules', ()))
+        if upd:
+            info['rules'] = rules
+            changed = True
+
+        return changed
+
+    def _migrRules(self, rules):
+        if not rules:
+            return rules, False
+
+        changed = False
+        newrules = []
+
+        for allow, path in rules:
+            newpath = self._migrRulePath(path)
+            if newpath != path:
+                changed = True
+            newrules.append((allow, newpath))
+
+        return newrules, changed
+
+    def _migrRulePath(self, path):
+        for oldperm, newperm in self.permmigrs:
+            olen = len(oldperm)
+            if len(path) >= olen and tuple(path[:olen]) == oldperm:
+                return tuple(newperm + tuple(path[olen:]))
+
+        if len(path) >= 4:
+            if path[0] == 'auth' and path[1] == 'user' and path[3] == 'profile':
+                action = path[2]
+                rest = path[4:]
+                newpath = ('auth', 'user', 'profile', action, *rest)
+                return tuple(newpath)
+
+        return path
 
 class Migrator(s_base.Base):
     '''
@@ -509,55 +593,11 @@ class Migrator(s_base.Base):
         self.cellslab.dropdb('hive')
 
         authkv = self.cellslab.getSafeKeyVal('auth')
+
+        migrauth = MigrAuth(authkv)
+        migrauth.migrate()
+
         userkv = authkv.getSubKeyVal('user:info:')
-
-        permmigrs = (
-            (('cron', 'set', 'creator'), ('cron', 'set', 'user')),
-        )
-
-        for iden, info in userkv.items():
-            update = False
-            if not ((valu := info.get('onepass')) is None or isinstance(valu, dict)):
-                logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
-                update = True
-                info.pop('onepass')
-
-            if not ((valu := info.get('passwd')) is None or isinstance(valu, dict)):
-                logger.warning(f'Removing deprecated password shadow for user {iden}!')
-                update = True
-                info.pop('passwd')
-
-            rules = []
-            for allow, path in info.get('rules', ()):
-                for oldperm, newperm in permmigrs:
-                    if path[:3] == oldperm:
-                        update = True
-                        rules.append((allow, newperm + path[3:]))
-                        continue
-                    rules.append((allow, path))
-
-            info['rules'] = rules
-
-            if update:
-                userkv.set(iden, info)
-
-        rolekv = authkv.getSubKeyVal('role:info:')
-
-        for iden, info in rolekv.items():
-            update = False
-            rules = []
-            for allow, path in info.get('rules', ()):
-                for oldperm, newperm in permmigrs:
-                    if path[:3] == oldperm:
-                        update = True
-                        rules.append((allow, newperm + path[3:]))
-                        continue
-                    rules.append((allow, path))
-
-            info['rules'] = rules
-
-            if update:
-                rolekv.set(iden, info)
 
         for viewiden in self.viewdefs.keys():
             trigdict = self.cortexdata.getSubKeyVal(f'view:{viewiden}:trigger:')
@@ -607,6 +647,7 @@ class Migrator(s_base.Base):
     async def _migrNexslog(self):
 
         editlogs = {}
+        migrauth = MigrAuth(self.cellslab.getSafeKeyVal('auth'))
 
         for iden, layrinfo in self.layrdefs.items():
             path = os.path.join(self.src, 'layers', iden, 'nodeedits.lmdb')
@@ -621,7 +662,17 @@ class Migrator(s_base.Base):
 
             async for offs, item in s_coro.pause(srclog.iter(0)):
                 if item[1] != 'edits':
-                    await dstlog.add(item + (None,), indx=offs)
+                    nexsiden, event, args, kwargs, meta = item
+
+                    if event in ('user:info', 'role:info') and len(args) >= 3 and args[1] == 'rules':
+                        rules = args[2]
+                        newrules, upd = migrauth._migrRules(rules)
+                        if upd:
+                            if isinstance(rules, tuple):
+                                newrules = tuple(newrules)
+                            args = args[:2] + (newrules,) + args[3:]
+
+                    await dstlog.add((nexsiden, event, args, kwargs, meta, None), indx=offs)
                     continue
 
                 nexsiden, event, args, kwargs, _ = item
@@ -720,8 +771,13 @@ class Migrator(s_base.Base):
         for name, fdef in self.oldmodel['forms'].items():
 
             if name in self.formmigr:
-                if (normopts := self.formmigr[name][1]) is not None and 'type' not in normopts:
-                    normopts['type'] = self.model.form(normopts['name']).type
+                normopts = self.formmigr[name][1]
+                if normopts is not None and 'type' not in normopts:
+                    form = self.model.form(normopts['name'])
+                    if form is None:
+                        nomigr.append(f'form={name}')
+                        continue
+                    normopts['type'] = form.type
                 continue
 
             newname = name
@@ -777,6 +833,10 @@ class Migrator(s_base.Base):
                 oldtname, oldtopts = pdef['type']
                 if (tmigr := self.formmigr.get(oldtname)) is not None:
                     oldtname = tmigr[1]['name']
+
+                if getattr(prop, 'typedef', None) is None:
+                    nomigr.append(f'prop={propfull}')
+                    continue
 
                 newtname, newtopts = prop.typedef
                 oldtopts = s_common.flatten(oldtopts)
@@ -1208,7 +1268,7 @@ class Migrator(s_base.Base):
             lkey = migrop.encode() + b'\x00' + logtyp.encode() + b'\x00' + bkey
             lval = s_msgpack.en(val)
 
-            self.migrslab.put(lkey, lval, overwrite=True, db=self.migrdb)
+            await self.migrslab.put(lkey, lval, overwrite=True, db=self.migrdb)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
