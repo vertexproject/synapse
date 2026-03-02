@@ -2890,7 +2890,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, '#woot.haha', (20, 30, 10))
+            self.eq(node.get('#woot.haha'), (20, 30, 10))
             self.none(node.get('#hehe'))
             self.none(node.get('#hehe.haha'))
 

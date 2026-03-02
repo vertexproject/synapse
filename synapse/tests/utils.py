@@ -2051,12 +2051,28 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def propeq(self, n, prop, valu, form=None, repr=False, msg=None):
         '''
         Assert a node property is equal to valu.
+
+        Raises
+            s_exc.NoSuchVirt
         '''
         # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
-        # TOOD: If polyprop and valu is None assert that prop is not set
-        self.nn(dmp := n.form.props.get(prop), msg=f'Prop {prop} does not exist on form {n.form.name}')
+        # TODO: If polyprop and valu is None assert that prop is not set
+
+        parts = prop.split('.')
+
+        if parts[0]:
+            ptyp = n.form.reqProp(parts[0]).type
+        else:
+            ptyp = n.form.type
+
+        if len(parts) > 1:
+            if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
+                ptyp = mtyp
+            else:
+                ptyp = ptyp.getVirtType(parts[1:])
+
         pval = n.repr(prop) if repr else n.get(prop)
-        ft = self.sorteq if dmp.type.name == 'array' else self.eq
+        ft = self.sorteq if ptyp.name == 'array' else self.eq
         ft(valu, pval, msg=msg)
 
     def eq(self, x, y, msg=None):
