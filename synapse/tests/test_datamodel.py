@@ -993,3 +993,6 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:str=ifarray :polyint={[ test:hasiface=p123 ]} ]')
             self.len(1, await core.nodes('test:hasiface=p123 <- *'))
+
+            await core.nodes('[ test:str=nonuniq :polynonuniq={[ test:int=1 test:int=1 test:str=1 test:str=2]} ]')
+            self.len(3, await core.nodes('test:str:polynonuniq*[=1]'))

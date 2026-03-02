@@ -3494,9 +3494,10 @@ class View(s_nexus.Pusher):  # type: ignore
                     await asyncio.sleep(0)
 
         elif not virts:
-            for cmpr, valu, stortype in cmprvals:
+            for cmprval in cmprvals:
                 last = None
                 genrs = []
+                stortype = cmprval[-1]
 
                 if (poly := stortype & s_layer.STOR_FLAG_POLY):
                     realtype = self.layers[0].stortypes[stortype & s_layer.STOR_MASK_POLY]
@@ -3504,7 +3505,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     realtype = self.layers[0].stortypes[stortype]
 
                 for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virts=virts)
                     genrs.append(wrapgenr(lidx, genr))
 
                 async for indx, nid, lidx in s_common.merggenr2(genrs):
@@ -3516,32 +3517,47 @@ class View(s_nexus.Pusher):  # type: ignore
                     if (node := await self.getNodeByNid(nid)) is None:
                         continue
 
-                    (pvalu, valulayr) = node.getWithLayer(prop.name)
+                    (pvalu, valulayr) = node.getRawWithLayer(prop.name)
                     if lidx != valulayr:
                         continue
 
-                    if (aval := realtype.decodeIndx(indx)) is s_common.novalu:
-                        for sval in pvalu:
-                            if realtype.indx(sval)[0] == indx:
-                                aval = sval
-                                break
-                        else:
-                            continue
+                    avals = pvalu[0]
 
                     if poly:
-                        for item in pvalu:
+                        if (aval := realtype.decodeIndx(indx)) is s_common.novalu:
+                            for styp, sval in zip(pvalu[2]['_stortypes'], avals):
+                                if styp != stortype:
+                                    continue
+
+                                if realtype.indx(sval[1])[0] == indx:
+                                    aval = sval[1]
+                                    break
+                            else:
+                                continue
+
+                        for item in avals:
                             if item[1] == aval:
                                 yield node
                                 await asyncio.sleep(0)
+
                     else:
-                        for _ in range(pvalu.count(aval)):
+                        if (aval := realtype.decodeIndx(indx)) is s_common.novalu:
+                            for sval in avals:
+                                if realtype.indx(sval)[0] == indx:
+                                    aval = sval
+                                    break
+                            else:
+                                continue
+
+                        for _ in range(avals.count(aval)):
                             yield node
                             await asyncio.sleep(0)
 
         elif prop.type.arraytype.ispoly:
-            for cmpr, valu, stortype in cmprvals:
+            for cmprval in cmprvals:
                 last = None
                 genrs = []
+                stortype = cmprval[-1]
 
                 vgetr = None
                 if (vinfo := prop.type.arraytype.virts.get(virts[0])) is not None:
@@ -3552,7 +3568,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     stortype = self.layers[0].stortypes[realtype]
 
                 for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virts=virts)
                     genrs.append(wrapgenr(lidx, genr))
 
                 async for indx, nid, lidx in s_common.merggenr2(genrs):
