@@ -649,14 +649,14 @@ class UserProfile(s_stormtypes.Prim):
     async def _storm_contains(self, item):
         item = await s_stormtypes.tostr(item)
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('auth', 'user', 'get', 'profile', item))
+            self.runt.confirm(('auth', 'user', 'profile', 'get', item))
         valu = await self.runt.view.core.getUserProfInfo(self.valu, item, default=s_common.novalu)
         return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+            self.runt.confirm(('auth', 'user', 'profile', 'get', name))
         valu = await self.runt.view.core.getUserProfInfo(self.valu, name)
         return s_msgpack.deepcopy(valu, use_list=True)
 
@@ -665,13 +665,13 @@ class UserProfile(s_stormtypes.Prim):
 
         if valu is s_stormtypes.undef:
             if self.runt.user.iden != self.valu:
-                self.runt.confirm(('auth', 'user', 'del', 'profile', name))
+                self.runt.confirm(('auth', 'user', 'profile', 'del', name))
             await self.runt.view.core.popUserProfInfo(self.valu, name)
             return
 
         valu = await s_stormtypes.toprim(valu)
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+            self.runt.confirm(('auth', 'user', 'profile', 'set', name))
         await self.runt.view.core.setUserProfInfo(self.valu, name, valu)
 
     async def iter(self):
@@ -681,7 +681,7 @@ class UserProfile(s_stormtypes.Prim):
 
     async def value(self):
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('auth', 'user', 'get', 'profile'))
+            self.runt.confirm(('auth', 'user', 'profile', 'get'))
         return await self.runt.view.core.getUserProfile(self.valu)
 
 @s_stormtypes.registry.registerType
@@ -1715,15 +1715,15 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',
          'desc': 'Controls adding rules to a user.'},
 
-        {'perm': ('auth', 'user', 'get', 'profile', '<varname>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'profile', 'get', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to retrieve their profile information.',
-         'ex': 'auth.user.get.profile.fullname'},
-        {'perm': ('auth', 'user', 'del', 'profile', '<varname>'), 'gate': 'cortex',
+         'ex': 'auth.user.profile.get.fullname'},
+        {'perm': ('auth', 'user', 'profile', 'del', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to remove profile information.',
-         'ex': 'auth.user.del.profile.fullname'},
-        {'perm': ('auth', 'user', 'set', 'profile', '<varname>'), 'gate': 'cortex',
+         'ex': 'auth.user.profile.del.fullname'},
+        {'perm': ('auth', 'user', 'profile', 'set', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
-         'ex': 'auth.user.set.profile.fullname'},
+         'ex': 'auth.user.profile.set.fullname'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
         {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',

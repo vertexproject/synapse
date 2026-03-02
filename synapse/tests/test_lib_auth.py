@@ -1147,3 +1147,26 @@ class AuthTest(s_test.SynTest):
                     'rules': (),
                 },
             ], key=lambda x: x.get('iden'))
+
+    async def test_auth_profile_perms(self):
+
+        async with self.getTestCore() as core:
+
+            auth = core.auth
+            user = await auth.addUser('visi')
+
+            self.false(user.allowed(('auth', 'user', 'profile', 'get', 'fullname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'set', 'fullname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'del', 'fullname')))
+
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'get', 'fullname')))
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'set', 'fullname')))
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'del', 'fullname')))
+
+            self.true(user.allowed(('auth', 'user', 'profile', 'get', 'fullname')))
+            self.true(user.allowed(('auth', 'user', 'profile', 'set', 'fullname')))
+            self.true(user.allowed(('auth', 'user', 'profile', 'del', 'fullname')))
+
+            self.false(user.allowed(('auth', 'user', 'profile', 'get', 'nickname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'set', 'nickname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'del', 'nickname')))
