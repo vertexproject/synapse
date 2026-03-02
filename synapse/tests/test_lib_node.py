@@ -152,7 +152,7 @@ class NodeTest(s_t_utils.SynTest):
 
             self.propeq(node, 'tick', 12345)
             self.none(node.get('nope'))
-            self.propeq(node, '#cool', (1, 2, 1))
+            self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
             with self.raises(s_exc.NoSuchProp):
