@@ -339,7 +339,6 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
         evt = asyncio.Event()
         origlink = s_axon.Axon._sha256ToLink
-
         async def fakelink(self, sha256_, link):
             link.onfini(evt.set)
             if sha256_ == pennhash:
@@ -448,7 +447,6 @@ bar baz",vv
         info = await axon.getCellInfo()
         if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):
             logger.info(f'Running range test for {axon}')
-
             # hand insert a genr to control offset sizes
             def genr():
                 yield b'asdf'
