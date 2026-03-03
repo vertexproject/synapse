@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
-import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
@@ -499,7 +498,7 @@ async def processStormCmds(rst, pkgname, commands):
     '''
     rst.addHead('Storm Commands', lvl=2)
 
-    rst.addLines(f'This package implements the following Storm Commands.\n')
+    rst.addLines('This package implements the following Storm Commands.\n')
 
     commands = sorted(commands, key=lambda x: x.get('name'))
 
@@ -517,7 +516,7 @@ async def processStormCmds(rst, pkgname, commands):
         lines = ['::\n']
 
         # Generate help from args
-        pars = s_storm.Parser(prog=cname, descr=cdesc)
+        pars = s_storm.Parser(prog=cname, descr=cdesc, cdef=cdef)
         if cargs:
             for (argname, arginfo) in cargs:
                 pars.add_argument(argname, **arginfo)
@@ -531,6 +530,17 @@ async def processStormCmds(rst, pkgname, commands):
                 lines.append(f'    {line}')
 
         lines.append('\n')
+
+        if (perms := cdef.get('perms')) is not None:
+
+            perms = ['.'.join(perm) for perm in perms]
+            perms.sort()
+
+            line = 'The command is accessible to users with one or more of the following permissions:\n'
+            lines.append(line)
+            for perm in perms:
+                lines.append(f'- ``{perm}``')
+            lines.append('\n')
 
         rst.addLines(*lines)
 

@@ -215,7 +215,7 @@ class AstTest(s_test.SynTest):
             self.len(6, ndefs)
 
             opts = {'mode': 'lookup'}
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 cve-2021-44228'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
@@ -976,24 +976,24 @@ class AstTest(s_test.SynTest):
 
             self.len(1, await core.nodes('[ it:network=* :net=1.2.3.4-1.2.3.7 ]'))
 
-            self.len(4, await core.nodes('it:network :net -> *'))
+            self.len(5, await core.nodes('it:network :net -> *'))
             self.len(4, await core.nodes('it:network :net -> inet:ip'))
 
-            self.len(1, await core.nodes('[ test:str=foo :cidr=1.2.3.4/30 ]'))
+            self.len(1, await core.nodes('[ test:str=foo :net=1.2.3.4/30 ]'))
 
-            self.len(5, await core.nodes('test:str=foo :cidr -> *'))
-            self.len(4, await core.nodes('test:str=foo :cidr -> inet:ip'))
+            self.len(5, await core.nodes('test:str=foo :net -> *'))
+            self.len(4, await core.nodes('test:str=foo :net -> inet:ip'))
 
-            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> *'))
-            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:ip'))
+            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> *'))
+            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> inet:ip'))
 
             q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
             self.len(8, await core.nodes(q))
 
-            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:http:request:server.ip'))
-            self.len(4, await core.nodes('test:str=foo :cidr -> inet:http:request:server.ip'))
+            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> inet:http:request:server.ip'))
+            self.len(4, await core.nodes('test:str=foo :net -> inet:http:request:server.ip'))
 
-            self.len(5, await core.nodes('inet:cidr=1.2.3.4/30', opts={'graph': {'refs': True}}))
+            self.len(5, await core.nodes('inet:net=1.2.3.4/30', opts={'graph': {'refs': True}}))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('it:host:activity +it:host:activity:host>5')
@@ -3474,7 +3474,7 @@ class AstTest(s_test.SynTest):
 
             await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
 
-            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
+            await highlighteq('newp', '[ test:str=foo +#foo=newp ]')
 
             await core.nodes('''
                 $regx = ($lib.null, $lib.null, "[0-9]{4}")
@@ -3482,8 +3482,8 @@ class AstTest(s_test.SynTest):
             ''')
 
             await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
-            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
-            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('newp', '[ test:str=foo +#cno.cve.1234=newp ]')
 
             await highlighteq('#$foo', '$foo=(1) #$foo')
             await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')

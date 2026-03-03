@@ -1,0 +1,83 @@
+{
+    "type": "bundle",
+    "id": "bundle--17b42b6c-12ac-4090-843f-84a580d4d87c",
+    "objects": [
+        {
+            "type": "file",
+            "spec_version": "2.1",
+            "id": "file--51b9ef81-5ebe-5203-8b43-4d5b5c6f4f8d",
+            "hashes": {
+                "SHA-256": "71935c8b268ebbd1dfee73198e1767a2e02c85b1780c6a7322445520484ebba3"
+            }
+        },
+        {
+            "type": "domain-name",
+            "spec_version": "2.1",
+            "id": "domain-name--67d3e514-b6ab-5cbf-9800-f63c22196ea2",
+            "value": "google.com"
+        },
+        {
+            "type": "ipv4-addr",
+            "spec_version": "2.1",
+            "id": "ipv4-addr--3da4e927-485f-5da4-a73e-f886449244e7",
+            "value": "10.147.20.97"
+        },
+        {
+            "type": "url",
+            "spec_version": "2.1",
+            "id": "url--00b9abe3-cf43-5aa7-8e7d-93ca2013317a",
+            "value": "https://foo.bar.baz.vertex.link/myurl.php"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--a6b6a9b0-797c-56f0-a903-5a0ca7df0687",
+            "created": "2025-10-18T03:01:45.638665Z",
+            "modified": "2025-10-18T03:01:45.638665Z",
+            "name": "China",
+            "country": "CN"
+        },
+        {
+            "type": "file",
+            "id": "file--364fe3e5-b1f4-5ba3-b951-ee5983b3538d",
+            "spec_version": "2.1",
+            "hashes": {
+                "MD5": "fa818a259cbed7ce8bc2a22d35a464fc",
+                "SHA-1": "669a1e53b9dd9df3474300d3d959bb85bad75945",
+                "SHA-512": "3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d"
+            },
+            "size": 11358,
+            "name": "license"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--4c00e29a-9c5e-4399-9623-e91b38a77c30",
+            "created": "2025-11-05T18:25:28.618141Z",
+            "modified": "2025-11-05T18:25:28.618141Z",
+            "latitude": 38.889,
+            "longitude": -77.023
+        },
+        {
+            "type": "ipv6-addr",
+            "spec_version": "2.1",
+            "id": "ipv6-addr--3ea59b9c-3577-52a7-ab5c-e4ddc229fd96",
+            "value": "fe80::2421:75ff:feaa:37cb"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--4c00e29a-9c5e-4399-9623-e91b38a77c31",
+            "created": "2025-11-05T18:25:28.618141Z",
+            "modified": "2025-11-05T18:25:28.618141Z",
+            "latitude": null,
+            "longitude": null,
+            "name": "bobs pizza place",
+            "desc": "It's a magical place!",
+            "region": "northern-america",
+            "city": "seattle",
+            "street_address": "1234 Jefferson Drive",
+            "postal_code": "8180asdf"
+        }
+    ]
+}

@@ -61,7 +61,7 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
-            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :reporter:name=foo ]'))
+            self.len(1, await core.nodes('risk:vuln:id=CVE-2022-00001 [ :reporter:name=foo ]'))
             nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes02[0].ndef)
 

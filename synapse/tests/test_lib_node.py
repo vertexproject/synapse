@@ -155,6 +155,12 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
+            with self.raises(s_exc.NoSuchProp):
+                await node.get('notreal.nope')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await node.get('tick.nope')
+
             self.eq('cool', node.repr())
             self.eq(node.repr('tick'), '1970-01-01T00:00:00.012345Z')
 
@@ -472,6 +478,46 @@ class NodeTest(s_t_utils.SynTest):
             # Add sad path for setting invalid node data
             with self.raises(s_exc.MustBeJsonSafe):
                 await node.setData('newp', {1, 2, 3})
+
+            # The emoji here is 4-bytes so we only need 128 of them to bust the 510 byte limit
+            for bigkey in ('A' * 512, '😁' * 128):
+                self.none(await node.getData(bigkey))
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.setData(bigkey, 'foo')
+                self.eq(exc.exception.get('mesg'), 'node data keys must be < 507 bytes, got 512.')
+                self.eq(exc.exception.get('name'), bigkey)
+                self.eq(exc.exception.get('size'), 512)
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.popData(bigkey)
+                self.eq(exc.exception.get('mesg'), 'node data keys must be < 507 bytes, got 512.')
+                self.eq(exc.exception.get('name'), bigkey)
+                self.eq(exc.exception.get('size'), 512)
+
+            # Max key len
+            bigkey = 'C' * 506
+            await node.setData(bigkey, 'foo')
+
+            # One over max key len
+            with self.raises(s_exc.BadArg) as exc:
+                bigkey = 'D' * 507
+                await node.setData(bigkey, 'foo')
+            self.eq(exc.exception.get('mesg'), 'node data keys must be < 507 bytes, got 507.')
+            self.eq(exc.exception.get('name'), bigkey)
+            self.eq(exc.exception.get('size'), 507)
+
+            # Max key len
+            bigkey = 'C' * 506
+            await node.popData(bigkey)
+
+            # One over max key len
+            with self.raises(s_exc.BadArg) as exc:
+                bigkey = 'D' * 507
+                await node.popData(bigkey)
+            self.eq(exc.exception.get('mesg'), 'node data keys must be < 507 bytes, got 507.')
+            self.eq(exc.exception.get('name'), bigkey)
+            self.eq(exc.exception.get('size'), 507)
 
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:

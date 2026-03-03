@@ -29,6 +29,7 @@ WARNINGS_IGNORE = [
     r'The form edge:refs is deprecated or using a deprecated type',
     r'The form edge:has is deprecated or using a deprecated type',
     r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
+    r'The type [a-z:]+ field [a-z:]+ uses a deprecated type [a-z:]+.',
 ]
 
 # List of warning patterns to convert to errors

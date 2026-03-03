@@ -1165,7 +1165,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(0, await prox.getStormDmonLog('newp'))
 
-    async def test_storm_impersonate(self):
+    async def test_storm_impersonate_and_sudo(self):
 
         async with self.getTestCore() as core:
 
@@ -1187,6 +1187,17 @@ class CortexTest(s_t_utils.SynTest):
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.eq(1, await proxy.count('[ inet:ip=1.2.3.4 ]', opts=opts))
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm('return({[ it:dev:str=woot ]})')
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('return((null))', opts={'user': visi.iden, 'sudo': True})
+
+                await visi.addRule((True, ('storm', 'sudo')))
+
+                opts = {'sudo': True}
+                self.nn(await proxy.callStorm('return({[ it:dev:str=woot ]})', opts=opts))
 
     async def test_nodes(self):
 
@@ -1934,6 +1945,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].getTagNames()), {'foo', 'bar'})
 
+            nodes = await wcore.nodes('$tags=(foo, bar, baz) [test:str=lol +#$tags=`200{$lib.len($node.tags())}`]')
+            self.len(1, nodes)
+            tags = nodes[0].getTags()
+            self.len(3, tags)
+            for name, valu in tags:
+                self.eq(valu, (946684800000000, 946684800000001, 1))
+
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
@@ -2180,6 +2198,18 @@ class CortexTest(s_t_utils.SynTest):
             opts = {'idens': ('deadb33f',)}
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
+
+            opts = {'idens': (None,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (True,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (None,)}
+            msgs = await core.stormlist('', opts=opts)
+            self.stormIsInErr('Iden must be 64 hex digits', msgs)
 
             # init / fini messages contain tick/tock/took/count information
             msgs = await core.stormlist('{}')
@@ -2681,7 +2711,7 @@ class CortexTest(s_t_utils.SynTest):
             # Sad path
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('test:str=hehe [+#newp.tag=(2022,2001)]')
-            self.eq(cm.exception.get('tag'), 'newp.tag')
+            self.eq(cm.exception.get('valu'), ('2022', '2001'))
 
     async def test_cortex_storm_filt_ival(self):
 
@@ -4534,8 +4564,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core0._addDataModels(s_t_utils.deprmodel)
 
             podes = []
-            meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}
-            podes.append(meta)
 
             node1 = (await core0.nodes('[ test:int=1 ]'))[0]
             await node1.setData('foo', 'bar')
@@ -4579,49 +4607,49 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
-            await core1.addFeedData([meta, pode])
+            await core1.addFeedData([pode])
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
             # Put bad data in
-            data = [meta, (('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+            data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
-            data = [meta, (('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+            data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
-            data = [meta, (('test:str', 'ahh'), {'nodedata': 123})]
+            data = [(('test:str', 'ahh'), {'nodedata': 123})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=ahh')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
-            data = [meta, (('test:str', 'baddata'), {'nodedata': {123: 'newp',
+            data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
                                                             'newp': b'123'}})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=baddata')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
-            data = [meta, (('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
+            data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
-            data = [meta, (('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
+            data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=fake')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
-            data = [meta, (('syn:cmd', 'newp'), {})]
+            data = [(('syn:cmd', 'newp'), {})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
-            data = [meta, (('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
+            data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
@@ -4631,12 +4659,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
 
-            data = [meta, (('test:int', 1), {'tags': {'noprop': [None, None, None]},
+            data = [(('test:int', 1), {'tags': {'noprop': [None, None, None]},
                                        'tagprops': {'noprop': {'test': 'newp'}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
-            data = [meta, (('test:int', 1), {'tags': {'noprop': (None, None, None),
+            data = [(('test:int', 1), {'tags': {'noprop': (None, None, None),
                                                 'noprop.two': (None, None, None)},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -4646,14 +4674,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
-            data = [meta] + [(('test:int', x), tags) for x in range(2001)]
+            data = [(('test:int', x), tags) for x in range(2001)]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:int#test')
             self.len(2001, nodes)
 
             await core1.nodes('movetag test newtag')
 
-            data = [meta, (('test:int', 1), {'props': {'int2': 2},
+            data = [(('test:int', 1), {'props': {'int2': 2},
                                        'tags': {'test': [2020, 2021]},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -4662,7 +4690,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(2, nodes[0].get('int2'))
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
-            data = [meta, (('test:int', 1), {'tags': {'test': (2020, 2022)}})]
+            data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -4671,7 +4699,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
 
             # This tag doesn't match the regex but should still make the node
-            data = [meta, (
+            data = [(
                 ('test:int', 8),
                 {'tags': {'test.12345': (None, None, None)},
                  'tagprops': {'test.12345': {'score': (1, 1)}}}
@@ -4679,17 +4707,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            data = [meta, (('test:int', 8), {'tags': {'test.1234': (None, None, None)}})]
+            data = [(('test:int', 8), {'tags': {'test.1234': (None, None, None)}})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            data = [meta, (('test:int', 8), {'tags': {'test.1235': (None, None, None)}})]
+            data = [(('test:int', 8), {'tags': {'test.1235': (None, None, None)}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
 
-            data = [meta, (('test:deprform', 'foo'), {'props': {'deprprop2': 'bar', 'okayprop': 'foo'}})]
+            data = [(('test:deprform', 'foo'), {'props': {'deprprop2': 'bar', 'okayprop': 'foo'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=foo', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -4698,7 +4726,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core1.nodes('model.deprecated.lock test:deprprop')
 
-            data = [meta, (('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
+            data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
                                                             'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -7000,13 +7028,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadVersion) as cexc:
                 meta = {'type': 'meta', 'vers': 2, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0',
                         'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
-                await core._reqValidExportStormMeta(meta)
+                await core.reqValidExportStormMeta(meta)
             self.isin('Unsupported export version', cexc.exception.get('mesg'))
 
             with self.raises(s_exc.BadVersion) as cexc:
                 meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3abc',
                         'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
-                await core._reqValidExportStormMeta(meta)
+                await core.reqValidExportStormMeta(meta)
             self.isin('Malformed synapse version', cexc.exception.get('mesg'))
 
     async def test_cortex_lookup_mode(self):
@@ -7079,7 +7107,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ip=1.2.3.4 +#cno.cve.2021.haha ]')
 
-            self.eq((False, None), await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))'))
+            ok, valu = await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))')
+            self.false(ok)
+            self.eq(valu['err'], 'BadTypeValu')
+            self.true(valu['errfile'].endswith('synapse/lib/types.py'))
+            self.eq(valu['errinfo'], {
+                'mesg': 'Tag part (haha) of tag (cno.cve.2021.haha) does not match the tag model regex: [[0-9]{5}]',
+                'name': 'syn:tag',
+                'valu': 'cno.cve.2021.haha'
+            })
+            self.gt(valu['errline'], 0)
+            self.eq(valu['errmsg'],
+                    "BadTypeValu: mesg='Tag part (haha) of tag (cno.cve.2021.haha) does "
+                    "not match the tag model regex: [[0-9]{5}]' name='syn:tag' "
+                    "valu='cno.cve.2021.haha'"
+            )
 
             with self.raises(s_exc.BadTypeValu):
                 await core.callStorm('return($lib.cast(syn:tag, cno.cve.2021.haha))')

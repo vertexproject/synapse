@@ -208,10 +208,7 @@ modeldefs = (
             ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
                 'doc': 'ITU Mobile Network Code.'}),
 
-            ('tel:mob:carrier', ('comp', {'fields': (
-                                            ('mcc', 'tel:mob:mcc'),
-                                            ('mnc', 'tel:mob:mnc')
-                                          )}), {
+            ('tel:mob:carrier', ('guid', {}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
@@ -333,10 +330,10 @@ modeldefs = (
             ('tel:mob:carrier', {}, (
 
                 ('mcc', ('tel:mob:mcc', {}), {
-                    'ro': True}),
+                    'doc': 'The Mobile Country Code.'}),
 
                 ('mnc', ('tel:mob:mnc', {}), {
-                    'ro': True}),
+                    'doc': 'The Mobile Network Code.'}),
             )),
             ('tel:mob:cell:radio:type:taxonomy', {}, ()),
             ('tel:mob:cell', {}, (

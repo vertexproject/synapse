@@ -191,17 +191,6 @@ class InetModelTest(s_t_utils.SynTest):
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
 
-            # Host
-            hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
-            hostsub = (t.hosttype.typehash, hstr, {})
-            portsub = (t.porttype.typehash, 1337, {})
-            protosub = (t.prototype.typehash, 'host', {})
-
-            self.eq(await t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hostsub, 'proto': protosub}}))
-            self.eq(await t.norm('host://vertex.link:1337'),
-                    (f'host://{hstr}:1337', {'subs': {'host': hostsub, 'port': portsub, 'proto': protosub}}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex.link'))  # must use host proto
-
     async def test_asn_collection(self):
 
         async with self.getTestCore() as core:
@@ -237,79 +226,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ip="ff::"'))
             self.len(1, await core.nodes('inet:ip="ff::100"'))
 
-    async def test_cidr4(self):
-        formname = 'inet:cidr'
-        async with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            valu = '0.0.0.0/24'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (4, 255))
-            self.eq(info['subs']['network'][1], (4, 0))
-            self.eq(info['subs']['mask'][1], 24)
-
-            valu = '192.168.1.101/24'
-            exp = '192.168.1.0/24'
-            norm, info = await t.norm(valu)
-            self.eq(norm, exp)
-            self.eq(info['subs']['broadcast'][1], (4, 3232236031))  # 192.168.1.255
-            self.eq(info['subs']['network'][1], (4, 3232235776))    # 192.168.1.0
-            self.eq(info['subs']['mask'][1], 24)
-
-            valu = '123.123.0.5/30'
-            exp = '123.123.0.4/30'
-            norm, info = await t.norm(valu)
-            self.eq(norm, exp)
-            self.eq(info['subs']['broadcast'][1], (4, 2071658503))  # 123.123.0.7
-            self.eq(info['subs']['network'][1], (4, 2071658500))    # 123.123.0.4
-            self.eq(info['subs']['mask'][1], 30)
-
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
-
-            # Form Tests ======================================================
-            valu = '192[.]168.1.123/24'
-            expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
-
-            nodes = await core.nodes('[inet:cidr=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[ inet:asnip=(54959, 1.2.3.4) :seen=(2024, 2025) ]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.get('network'), (4, 3232235776))  # 192.168.1.0
-            self.eq(node.get('broadcast'), (4, 3232236031))  # 192.168.1.255
-            self.eq(node.get('mask'), 24)
-
-    async def test_cidr6(self):
-        formname = 'inet:cidr'
-        async with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            valu = '::/0'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (6, 0xffffffffffffffffffffffffffffffff))
-            self.eq(info['subs']['network'][1], (6, 0))
-            self.eq(info['subs']['mask'][1], 0)
-
-            valu = '2001:db8::/59'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (6, 0x20010db80000001fffffffffffffffff))
-            self.eq(info['subs']['network'][1], (6, 0x20010db8000000000000000000000000))
-            self.eq(info['subs']['mask'][1], 59)
-
-            with self.raises(s_exc.BadTypeValu):
-                await t.norm('10.0.0.1/-1')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('inet:cidr=0::10.2.1.1/300')
+            self.eq(nodes[0].get('ip'), (4, 0x01020304))
+            self.eq(nodes[0].get('asn'), 54959)
 
     async def test_client(self):
         data = (
@@ -326,11 +246,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'ip': (6, 1),
                 'port': 12345,
                 'proto': 'tcp',
-            }),
-            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345,
-                'proto': 'host',
             }),
         )
 
@@ -1246,11 +1161,18 @@ class InetModelTest(s_t_utils.SynTest):
                         'type': (t.subtype.typetype.typehash, 'unicast', {}),
                         'version': (t.subtype.verstype.typehash, 4, {})}})
 
-            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((4, 16909060), (4, 84281096)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'size': (67372036, 19)}
+            })
+
             self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
-            self.eq(await t.norm(valu), expected)
+            norm = await t.norm(valu)
+            self.eq(norm, expected)
+
+            self.eq('1.2.3.4-5.6.7.8', t.repr(norm[0]))
 
             valu = '1.2.3.0/24'
             minsub = (t.subtype.typehash, (4, 0x01020300), {'subs': {
@@ -1261,7 +1183,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'type': (t.subtype.typetype.typehash, 'unicast', {}),
                         'version': (t.subtype.verstype.typehash, 4, {})}})
 
-            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((4, 0x01020300), (4, 0x010203ff)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (24, 2), 'size': (255, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
@@ -1269,6 +1194,51 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
             await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
+
+            # Form Tests ======================================================
+            valu = '192[.]168.1.123/24'
+            expected_ndef = ('inet:net', ((4, 3232235776), (4, 3232236031)))
+
+            nodes = await core.nodes('[inet:net=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.get('min'), (4, 3232235776))  # 192.168.1.0
+            self.eq(node.get('max'), (4, 3232236031))  # 192.168.1.255
+
+            self.eq('192.168.1.0/24', await core.callStorm('inet:net return($node.repr())'))
+
+            await core.nodes('[ inet:net=10.0.0.0/18 ]')
+
+            self.len(1, await core.nodes('inet:net.mask=24'))
+            self.len(1, await core.nodes('inet:net.mask>18'))
+            self.len(2, await core.nodes('inet:net.mask>17'))
+            self.len(1, await core.nodes('inet:net.size=256'))
+            self.len(2, await core.nodes('inet:net.size>255'))
+            self.len(1, await core.nodes('inet:net.size*in=(1, 256)'))
+            self.len(2, await core.nodes('inet:net.size*in=(256, 16384)'))
+            self.len(1, await core.nodes('inet:net.size*range=(1, 256)'))
+            self.len(1, await core.nodes('inet:net.size*range=(1, 16383)'))
+            self.len(2, await core.nodes('inet:net.size*range=(1, 16384)'))
+
+            self.eq(16384, await core.callStorm('inet:net.size>256 return(.size)'))
+
+            # Remove virts from a sode for coverage
+            nodes = await core.nodes('inet:net.mask=24')
+            valu = nodes[0].sodes[0]['valu']
+            valu[2].pop('size')
+
+            self.none(await core.callStorm('inet:net.mask=24 return(.size)'))
+
+            nodes[0].sodes[0]['valu'] = (valu[0], valu[1], None)
+
+            self.none(await core.callStorm('inet:net.mask=24 return(.mask)'))
+            self.none(await core.callStorm('inet:net.mask=24 return(.size)'))
 
     async def test_net6(self):
         tname = 'inet:net'
@@ -1287,7 +1257,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = (((6, 0), (6, 0xff)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((6, 0), (6, 0xff)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (120, 2), 'size': (255, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = '0:0:0:0:0:0:0:0-::Ff'
@@ -1307,7 +1280,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = ((minv, maxv), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'size': (1208925819614629174771711, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             minv = (6, 0x20010db8000000000000000000000000)
@@ -1323,7 +1299,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = ((minv, maxv), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (101, 2), 'size': (134217727, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = ('fe00::', 'fd00::')
@@ -1334,6 +1313,41 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await t.norm(((6, 1), (4, 1)))
+
+            valu = '::/0'
+            norm, info = await t.norm(valu)
+            self.eq(norm, ((6, 0), (6, 0xffffffffffffffffffffffffffffffff)))
+            self.eq(t.repr(norm), valu)
+            self.eq(info['subs']['min'][1], (6, 0))
+            self.eq(info['subs']['max'][1], (6, 0xffffffffffffffffffffffffffffffff))
+
+            valu = '2001:db8::/59'
+            norm, info = await t.norm(valu)
+            self.eq(norm, ((6, 0x20010db8000000000000000000000000), (6, 0x20010db80000001fffffffffffffffff)))
+            self.eq(t.repr(norm), valu)
+            self.eq(info['subs']['min'][1], (6, 0x20010db8000000000000000000000000))
+            self.eq(info['subs']['max'][1], (6, 0x20010db80000001fffffffffffffffff))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:net=0::10.2.1.1/300')
+
+            await core.nodes('''[
+                inet:net="::/0"
+                inet:net=([[6, 0], [6, 0]])
+                inet:net=([[6, 0], [6, 0xff]])
+                inet:net=([[6, 0], [6, 0xfe]])
+            ]''')
+
+            self.len(1, await core.nodes('inet:net -.mask'))
+            self.len(3, await core.nodes('inet:net +.mask'))
+
+            self.len(1, await core.nodes('inet:net.mask=0'))
+            self.len(1, await core.nodes('inet:net.mask=128'))
+            self.len(2, await core.nodes('inet:net.mask>18'))
+            self.len(0, await core.nodes('inet:net.size=0xffffffffffffffffffffffffffffffff'))
+            self.len(1, await core.nodes('inet:net.size=0x100000000000000000000000000000000'))
+            self.len(1, await core.nodes('inet:net.size=1'))
+            self.len(3, await core.nodes('inet:net.size>254'))
 
     async def test_port(self):
         tname = 'inet:port'
@@ -1414,11 +1428,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'tcp',
             }),
-            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345,
-                'proto': 'host',
-            }),
             ((4, 2130706433), 'tcp://127.0.0.1', {
                 'ip': (4, 2130706433),
                 'proto': 'tcp',
@@ -1436,6 +1445,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://0.0.0.1:53',))
+
+            nodes = await core.nodes('it:network -> inet:server')
+            self.eq(nodes[0].get('ip'), (4, 1))
 
             nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
@@ -1465,7 +1477,7 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
 
-            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,host,gre')
+            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,gre')
 
     async def test_url(self):
         formname = 'inet:url'
@@ -2714,6 +2726,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
                 :type=foo.bar
+                :seen=(2022, 2023)
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
@@ -2732,6 +2745,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].repr('period'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
+            self.eq(nodes[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             platform = nodes[0]
 
             nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
@@ -2754,25 +2768,6 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:service:platform:type:taxonomy')
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
-
-            q = '''
-            [ inet:service:instance=(vertex, slack)
-                :id='T2XK1223Y'
-                :platform={ inet:service:platform=(slack,) }
-                :url="https://v.vtx.lk/slack"
-                :name="Synapse users slack"
-                :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
-            ]
-            '''
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.nn(nodes[0].get('tenant'))
-            self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
-            self.eq(nodes[0].get('id'), 'T2XK1223Y')
-            self.eq(nodes[0].get('platform'), platform.ndef[1])
-            self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
-            self.eq(nodes[0].get('name'), 'synapse users slack')
-            platinst = nodes[0]
 
             q = '''
             [
@@ -2835,18 +2830,19 @@ class InetModelTest(s_t_utils.SynTest):
             devsgrp = nodes[0]
 
             q = '''
+            $group = {[ inet:service:group=$devsiden ]}
             [
-                (inet:service:group:member=(blackout, developers, group, vertex, slack)
+                (inet:service:member=(blackout, developers, group, vertex, slack)
                     :account=$blckiden
-                    :group=$devsiden
+                    :of=$group
                     :period=(20230601, ?)
                     :creator=$visiiden
                     :remover=$visiiden
                 )
 
-                (inet:service:group:member=(visi, developers, group, vertex, slack)
+                (inet:service:member=(visi, developers, group, vertex, slack)
                     :account=$visiiden
-                    :group=$devsiden
+                    :of=$group
                     :period=(20150101, ?)
                 )
             ]
@@ -2860,13 +2856,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
-            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[0].get('of'), devsgrp.ndef)
             self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
-            self.eq(nodes[1].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[1].get('of'), devsgrp.ndef)
             self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
@@ -2934,14 +2930,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :period=(20150101, ?)
                 :creator=$visiiden
                 :platform=$platiden
-                :instance=$instiden
                 :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
                 'visiiden': visiacct.ndef[1],
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -2951,24 +2945,22 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             gnrlchan = nodes[0]
 
             q = '''
             [
-                (inet:service:channel:member=(visi, general, channel, vertex, slack)
+                (inet:service:member=(visi, general, channel, vertex, slack)
                     :account=$visiiden
                     :period=(20150101, ?)
                 )
 
-                (inet:service:channel:member=(blackout, general, channel, vertex, slack)
+                (inet:service:member=(blackout, general, channel, vertex, slack)
                     :account=$blckiden
                     :period=(20230601, ?)
                 )
 
                 :platform=$platiden
-                :instance=$instiden
-                :channel=$chnliden
+                :of={[ inet:service:channel=$chnliden ]}
             ]
             '''
             opts = {'vars': {
@@ -2976,24 +2968,20 @@ class InetModelTest(s_t_utils.SynTest):
                 'visiiden': visiacct.ndef[1],
                 'chnliden': gnrlchan.ndef[1],
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].ndef, ('inet:service:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
-            self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[1].ndef, ('inet:service:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
             self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:
                 self.eq(node.get('platform'), platform.ndef[1])
-                self.eq(node.get('instance'), platinst.ndef[1])
-                self.eq(node.get('channel'), gnrlchan.ndef[1])
+                self.eq(node.get('of'), gnrlchan.ndef)
 
             nodes = await core.nodes('''
             [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
@@ -3110,7 +3098,6 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:resource=(web, api, vertex, slack)
                 :desc="The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality."
-                :instance=$instiden
                 :name="Slack Web APIs"
                 :platform=$platiden
                 :type=slack.web.api
@@ -3119,12 +3106,10 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('desc'), 'The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality.')
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('name'), 'slack web apis')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('type'), 'slack.web.api.')
@@ -3155,7 +3140,6 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
                 :action=foo.bar
                 :account=$blckiden
-                :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
@@ -3164,7 +3148,6 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {
                 'blckiden': blckacct.ndef[1],
-                'instiden': platinst.ndef[1],
                 'visiiden': visiacct.ndef[1],
                 'platiden': platform.ndef[1],
                 'rsrciden': resource.ndef[1],
@@ -3173,7 +3156,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('action'), 'foo.bar.')
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))

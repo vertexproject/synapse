@@ -229,8 +229,8 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getCoreInfoV2()
 
     @s_cell.adminapi()
-    async def saveLayerNodeEdits(self, layriden, edits, meta):
-        return await self.cell.saveLayerNodeEdits(layriden, edits, meta)
+    async def saveLayerNodeEdits(self, layriden, edits, meta, *, waitiden=None):
+        return await self.cell.saveLayerNodeEdits(layriden, edits, meta, waitiden=waitiden)
 
     def _reqValidStormOpts(self, opts):
 
@@ -272,35 +272,24 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def importStormMeta(self, meta, *, viewiden=None):
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
-
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
-
-        self.cell._reqValidExportStormMeta(meta)
-
-        return
-
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+        if viewiden and self.cell.getView(viewiden, user=self.user) is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}.', iden=viewiden)
 
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+        if reqmeta:
+            meta, *items = items
+            self.cell.reqValidExportStormMeta(meta)
+
+        await self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'view': view.iden,
+                                     info={'view': viewiden,
                                            'nitems': len(items),
                                            })
 
-        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
-
-        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
-            await asyncio.sleep(0)
+        await self.cell.addFeedData(items, user=self.user, viewiden=viewiden)
 
     async def count(self, text, *, opts=None):
         '''
@@ -1187,13 +1176,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
-            {'perm': ('feed', 'data'), 'gate': 'layer',
-             'desc': 'Controls access to feeding/importing data into a layer.'},
-
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
+
+            {'perm': ('storm', 'sudo'), 'gate': 'cortex',
+            'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
 
             {'perm': ('graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
@@ -2489,15 +2478,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 verskey = 'storage:version'
 
+                curvers = -1
+
                 if inits is None:
-                    await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgVar(name, verskey) is None:
+                        await self.setStormPkgVar(name, verskey, -1)
 
                 else:
-                    if (key := inits.get('key')) is not None:
-                        s_common.deprecated('storm package inits.key', eolv='3.0.0')
-                        if key != verskey and (valu := await self.popStormPkgVar(name, key)) is not None:
-                            await self.setStormPkgVar(name, verskey, valu)
-
                     inaugural = False
                     curvers = await self.getStormPkgVar(name, verskey)
                     if curvers is None:
@@ -2523,7 +2510,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query']):
+                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
@@ -2546,13 +2533,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, await self.getStormPkgVar(name, verskey, default=-1))
-                        await self.setStormPkgVar(name, verskey, curvers)
+                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        if curvers != stored:
+                            await self.setStormPkgVar(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
                     try:
-                        async for mesg in self.storm(onload):
+                        async for mesg in self.storm(onload, opts={'mirror': False}):
                             if mesg[0] == 'print':
                                 logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
                             if mesg[0] == 'warn':
@@ -2567,7 +2555,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
-                await self.fire('core:pkg:onload:complete', pkg=name)
+                await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
             self.runActiveTask(_onload())
 
@@ -2790,9 +2778,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getStormVar(self, name, default=None):
         return self.stormvars.get(name, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('stormvar:pop')
     async def popStormVar(self, name, default=None):
-        return self.stormvars.pop(name, defv=default)
+        ok, valu = await self._push('stormvar:pop', name)
+        if not ok:
+            return default
+        return valu
+
+    @s_nexus.Pusher.onPush('stormvar:pop')
+    async def _popStormVar(self, name, default=None):
+        valu = self.stormvars.pop(name, defv=s_common.novalu)
+        if valu is s_common.novalu:
+            return False, None
+        return True, valu
 
     @s_nexus.Pusher.onPushAuto('stormvar:set')
     async def setStormVar(self, name, valu):
@@ -3700,7 +3697,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fini():
                 self.axready.clear()
 
-            self.axoninfo = await proxy.getCellInfo()
+            axoninfo = await proxy.getCellInfo()
+            if (axonvers := axoninfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Axon at {s_urlhelp.sanitizeUrl(turl)} is running Synapse {axonvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
+
+            self.axoninfo = axoninfo
 
             proxy.onfini(fini)
             self.axready.set()
@@ -4276,6 +4279,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pdef in layr.layrinfo.get('pulls', {}).values():
                 await self.delActiveCoro(pdef.get('iden'))
 
+            await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
             await self.feedBeholder('layer:del', {'iden': layriden}, gates=[layriden])
             await self.auth.delAuthGate(layriden)
             self.dynitems.pop(layriden)
@@ -4347,6 +4351,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layr.layrinfo.get('pulls', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
+        await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
         await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
@@ -4607,7 +4612,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layrinfo.get('pulls', {}).values():
             await self.runLayrPull(layr, pdef)
 
-        await self.fire('core:layr:add', iden=layr.iden)
+        await self.fire('core:layr:add', iden=layr.iden, offs=layr.addoffs)
 
         return layr
 
@@ -4859,9 +4864,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await layr1.saveNodeEdits(alledits, meta, compat=compat)
                     await self.setLayrSyncOffs(iden, offs)
 
-    async def saveLayerNodeEdits(self, layriden, edits, meta):
+    async def saveLayerNodeEdits(self, layriden, edits, meta, waitiden=None):
         layr = self.reqLayer(layriden)
-        return await layr.saveNodeEdits(edits, meta)
+        return await layr.saveNodeEdits(edits, meta, waitiden=waitiden)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
@@ -5419,7 +5424,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5455,9 +5460,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
-        # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.wlyr.iden)
-
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
 
@@ -5472,7 +5474,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     first = True
                     async for item in self.axon.iterMpkFile(sha256):
                         if first:
-                            self._reqValidExportStormMeta(item)
+                            self.reqValidExportStormMeta(item)
                             first = False
                             continue
                         await q.put(item)
@@ -5490,6 +5492,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # feed the items directly to syn.nodes
             async for items in q.slices(size=100):
+                await self.reqFeedDataAllowed(items, user, viewiden=view.iden)
                 async for node in view.addNodes(items):
                     count += 1
 
@@ -5538,14 +5541,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self.querycache.aget((text, mode))
 
     @contextlib.asynccontextmanager
-    async def getStormRuntime(self, query, opts=None):
+    async def getStormRuntime(self, query, opts=None, view=None, user=None):
 
         opts = self._initStormOpts(opts)
 
-        view = self._viewFromOpts(opts)
-        user = self._userFromOpts(opts)
+        if view is None:
+            view = self._viewFromOpts(opts)
+
+        if user is None:
+            user = self._userFromOpts(opts)
+
+        if (sudo := opts.get('sudo')):
+            user.confirm(('storm', 'sudo'))
 
         async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+            if sudo:
+                runt.asroot = True
             yield runt
 
     async def reqValidStorm(self, text, opts=None):
@@ -5621,7 +5632,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
+    async def reqFeedDataAllowed(self, items, user, viewiden=None):
+        if user.allowed(('node',), gateiden=viewiden):
+            return
+
+        nodeadd = user.allowed(('node', 'add'), gateiden=viewiden)
+        propset = user.allowed(('node', 'prop', 'set'), gateiden=viewiden)
+        tagadd = user.allowed(('node', 'tag', 'add'), gateiden=viewiden)
+        dataset = user.allowed(('node', 'data', 'set'), gateiden=viewiden)
+        edgeadd = user.allowed(('node', 'edge', 'add'), gateiden=viewiden)
+
+        if nodeadd and propset and tagadd and dataset and edgeadd:
+            return
+
+        for ((form, _), forminfo) in items:
+            await asyncio.sleep(0)
+
+            if not nodeadd:
+                user.confirm(('node', 'add', form), gateiden=viewiden)
+
+            if not propset:
+                for propname, _ in forminfo.get('props', {}).items():
+                    user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
+
+            if not tagadd:
+                for tagname, _ in forminfo.get('tags', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+                for tagname, _ in forminfo.get('tagprops', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+            if not dataset:
+                for dataname, _ in forminfo.get('nodedata', {}).items():
+                    user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
+
+            if not edgeadd:
+                for verb, _ in forminfo.get('edges', []):
+                    user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
+
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
         Add bulk data in nodes format.
 
@@ -5638,9 +5687,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        logger.info(f'User (user.name) adding feed data: {len(items)}')
+        logger.info(f'User ({user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
+        async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):
@@ -5800,7 +5849,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
         try:

@@ -358,6 +358,34 @@ class AhaTest(s_test.SynTest):
                 async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
                     await cell.ahaclient.proxy()
                     self.len(ahacount, cell.conf.get('aha:registry'))
+                    s_common.yamlsave({'aha:registry': cell.conf.get('aha:registry')[0]}, dirn, 'cell.mods.yaml')
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'aha:registry': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('Invalid config for aha:registry', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'aha:registry': ['ssl://okay.com', 'tcp://newp']}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('Invalid config for aha:registry', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'dmon:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('AHA bind URLs must begin with ssl://', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'provision:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('Invalid config for provision:listen', cm.exception.get('mesg'))
 
     async def test_lib_aha_loadenv(self):
 
@@ -480,8 +508,6 @@ class AhaTest(s_test.SynTest):
 
             with self.raises(s_exc.NeedConfValu):
                 await aha.addAhaSvcProv('hehe')
-
-            aha.conf['aha:urls'] = 'tcp://127.0.0.1:0/'
 
             with self.raises(s_exc.NeedConfValu):
                 await aha.addAhaSvcProv('hehe')
@@ -1231,14 +1257,6 @@ class AhaTest(s_test.SynTest):
                     aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     await cm.enter_context(aha)
 
-                    addr, port = aha.provdmon.addr
-                    # update the config to reflect the dynamically bound port
-                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
-
-                    # do this config ex-post-facto due to port binding...
-                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
-
                     with self.raises(s_exc.BadArg) as errcm:
                         await aha.addAhaSvcProv('00.svc', provinfo=None)
                     self.isin('Hostname value must not exceed 64 characters in length.',
@@ -1247,10 +1265,6 @@ class AhaTest(s_test.SynTest):
 
                     # We can generate a 64 character names though.
                     onetime = await aha.addAhaSvcProv('00.sv', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
 
                     # Cannot generate a user cert that would be a problem for signing
                     with self.raises(s_exc.BadArg) as errcm:
@@ -1315,45 +1329,6 @@ class AhaTest(s_test.SynTest):
                     prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
                     unfo = await prox.getCellUser()
                     self.eq(unfo.get('name'), user)
-
-    async def test_aha_cell_with_tcp(self):
-        # It's an older code, sir, but it checks out.
-        # This should be removed in Synapse v3.0.0
-
-        with self.getTestDir() as dirn:
-            ahadir = s_common.gendir(dirn, 'aha')
-            clldir = s_common.gendir(dirn, 'cell')
-            ahaconf = {
-                'aha:name': '00.aha',
-                'aha:network': 'loop.vertex.link',
-                'dmon:listen': 'tcp://127.0.0.1:0/',
-                'auth:passwd': 'secret',
-            }
-            async with await s_aha.AhaCell.anit(dirn=ahadir, conf=ahaconf) as aha:
-                urls = await aha.getAhaUrls()
-                self.len(1, urls)
-                self.true(urls[0].startswith('ssl://'))
-                ahaurl = f'tcp://root:secret@127.0.0.1:{aha.sockaddr[1]}/'
-                cllconf = {
-                    'aha:name': '00.cell',
-                    'aha:network': 'loop.vertex.link',
-                    'aha:registry': ahaurl,
-                    'dmon:listen': None,
-                }
-                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
-                    self.none(await cell.ahaclient.waitready(timeout=12))
-                    self.eq(cell.conf.get('aha:registry'), ahaurl)
-
-                    prox = await cell.ahaclient.proxy()
-                    await prox.fini()
-                    self.false(cell.ahaclient._t_ready.is_set())
-
-                    self.none(await cell.ahaclient.waitready(timeout=12))
-
-                # No change when restarting
-                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
-                    self.none(await cell.ahaclient.waitready(timeout=12))
-                    self.eq(cell.conf.get('aha:registry'), ahaurl)
 
     async def test_aha_provision_listen_dns_name(self):
         # Ensure that we use the dns:name for the provisioning listener when

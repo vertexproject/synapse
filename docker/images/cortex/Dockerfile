@@ -1,15 +1,8 @@
 # vim:set ft=dockerfile:
-FROM vertexproject/vtx-base-image:dev-py313
+ARG TAG
+FROM vertexproject/synapse:${TAG:-3.x.x-dev}
 
-COPY synapse /build/synapse/synapse
-COPY README.rst /build/synapse/README.rst
-COPY pyproject.toml /build/synapse/pyproject.toml
-
-COPY docker/rmlist.txt /build/synapse/rmlist.txt
-COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
 COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
-
-RUN /build/synapse/bootstrap.sh
 
 EXPOSE 4443
 EXPOSE 27492

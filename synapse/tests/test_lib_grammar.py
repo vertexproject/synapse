@@ -795,6 +795,8 @@ Queries = [
     'return(#foo:1234)',
     '[ +#foo:var.prec=2020 ]',
     '[ +#foo:var.$var=2020 ]',
+    '[test:str=foo +#baz?=(null)]',
+    '$ts="" [test:str=foo +?#bar?=$ts]',
 ]
 
 # Generated with print_parse_list below
@@ -1490,6 +1492,8 @@ _ParseResults = [
     'Query: [Return: [TagPropValue: [TagProp: [TagName: [Const: foo], Const: 1234]]]]',
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProps: [Const: prec], Const: =, Const: 2020]]',
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: baz], Const: ?=, DollarExpr: [Const: None]]]',
+    'Query: [SetVarOper: [Const: ts, Const: ], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: bar], Const: ?=, VarValue: [Const: ts]]]'
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1674,18 +1678,18 @@ class GrammarTest(s_t_utils.SynTest):
 
         query = '''
 
-        { inet:cidr4#rep.some.body
+        { inet:net#rep.some.body
         $lib.print('weee')
-        tee { -> :network } }
+        tee { -> :min } }
         '''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 81)
+        self.eq(errinfo.get('at'), 79)
         self.eq(errinfo.get('line'), 5)
         self.eq(errinfo.get('column'), 18)
-        self.eq(errinfo.get('token'), ':network')
+        self.eq(errinfo.get('token'), ':min')
         self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 5, column 18"))
 
         query = 'inet:ip | tee { -> foo '

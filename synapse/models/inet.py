@@ -370,9 +370,8 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
-    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
-    # TODO: this should include icmp and host but requires a migration
-    noports = ('gre',)
+    protos = ('tcp', 'udp', 'icmp', 'gre')
+    noports = ('gre', 'icmp')
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
@@ -381,7 +380,6 @@ class SockAddr(s_types.Str):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.iptype = self.modl.type('inet:ip')
-        self.hosttype = self.modl.type('it:host')
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
@@ -450,18 +448,6 @@ class SockAddr(s_types.Str):
 
         valu = valu.strip().strip('/')
 
-        # Treat as host if proto is host
-        if proto == 'host':
-
-            valu, port, pstr = await self._normPort(valu)
-            if port:
-                subs['port'] = (self.porttype.typehash, port, {})
-
-            host = s_common.guid(valu)
-            subs['host'] = (self.hosttype.typehash, host, {})
-
-            return f'host://{host}{pstr}', {'subs': subs}
-
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('['):
             match = srv6re.match(valu)
@@ -525,86 +511,22 @@ class SockAddr(s_types.Str):
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
     async def _normPyTuple(self, valu, view=None):
-        ipaddr = (await self.iptype.norm(valu))[0]
+        ipaddr, norminfo = await self.iptype.norm(valu)
 
-        (vers, ip_int) = ipaddr
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {}
-        virts = {}
+        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
 
         if self.defport:
             subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
-            if vers == 6:
+            if ipaddr[0] == 6:
                 return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
             else:
                 return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
 
         return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
-
-class Cidr(s_types.Str):
-
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-
-        self.iptype = self.modl.type('inet:ip')
-        self.inttype = self.modl.type('int')
-
-        self.pivs |= {
-            'inet:ip': ('range=', self.iptype.getCidrRange),
-        }
-
-    async def _normPyStr(self, valu, view=None):
-
-        try:
-            ip_str, mask_str = valu.split('/', 1)
-            mask_int = int(mask_str)
-        except ValueError:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid/Missing CIDR Mask')
-
-        (vers, ip_int) = (await self.iptype.norm(ip_str))[0]
-
-        if vers == 4:
-            if mask_int > 32 or mask_int < 0:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                        mesg='Invalid CIDR Mask')
-
-            mask = cidrmasks[mask_int]
-            network, netinfo = await self.iptype.norm((4, ip_int & mask[0]))
-            broadcast, binfo = await self.iptype.norm((4, network[1] + mask[1] - 1))
-            network_str = self.iptype.repr(network)
-
-            norm = f'{network_str}/{mask_int}'
-            info = {
-                'subs': {
-                    'broadcast': (self.iptype.typehash, broadcast, binfo),
-                    'mask': (self.inttype.typehash, mask_int, {}),
-                    'network': (self.iptype.typehash, network, netinfo),
-                }
-            }
-
-        else:
-            try:
-                netw = ipaddress.IPv6Network(valu)
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
-
-            network, netinfo = await self.iptype.norm((6, int(netw.network_address)))
-            broadcast, binfo = await self.iptype.norm((6, int(netw.broadcast_address)))
-
-            norm = str(netw)
-            info = {
-                'subs': {
-                    'broadcast': (self.iptype.typehash, broadcast, binfo),
-                    'mask': (self.inttype.typehash, netw.prefixlen, {}),
-                    'network': (self.iptype.typehash, network, netinfo),
-                }
-            }
-
-        return norm, info
 
 class Email(s_types.Str):
 
@@ -810,18 +732,142 @@ class IPRange(s_types.Range):
         self.opts['type'] = ('inet:ip', {})
         s_types.Range.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.cidrtype = self.modl.type('inet:cidr')
+
+        self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
+        self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
+
+        # Offset size values by 1 so we can store ::/0 in 16 bytes and there is always at least 1 IP in the range
+        self.sizetype.minval += 1
+        self.sizetype.maxval += 1
 
         self.pivs |= {
             'inet:ip': ('range=', None),
         }
 
+        self.virtindx |= {
+            'mask': 'mask',
+            'size': 'size',
+        }
+
+        self.virts |= {
+            'mask': (self.masktype, self._getMask),
+            'size': (self.sizetype, self._getSize),
+        }
+
+        self.virtlifts |= {
+            'size': {
+                'in=': self._storLiftSizeIn,
+                'range=': self._storLiftSizeRange
+            },
+        }
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.virtlifts['size'][oper] = self._storLiftSize
+
+    async def _storLiftSize(self, cmpr, valu):
+        norm, _ = await self.sizetype.norm(valu)
+        return (
+            (cmpr, norm - 1, self.sizetype.stortype),
+        )
+
+    async def _storLiftSizeIn(self, cmpr, valu):
+        retn = []
+        for realvalu in valu:
+            retn.extend(await self._storLiftSize('=', realvalu))
+        return retn
+
+    async def _storLiftSizeRange(self, cmpr, valu):
+        minx = (await self.sizetype.norm(valu[0]))[0]
+        maxx = (await self.sizetype.norm(valu[1]))[0]
+        return (
+            (cmpr, (minx - 1, maxx - 1), self.sizetype.stortype),
+        )
+
+    def _getMask(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('mask')) is None:
+            return None
+
+        return valu[0]
+
+    def _getSize(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('size')) is None:
+            return None
+
+        return valu[0] + 1
+
+    def repr(self, norm):
+        if (cidr := self._getCidr(norm)) is not None:
+            return str(cidr)
+
+        minv, maxv = s_types.Range.repr(self, norm)
+        return f'{minv}-{maxv}'
+
+    def _getCidr(self, norm):
+        (minv, maxv) = norm
+
+        if minv[0] == 4:
+            minv = ipaddress.IPv4Address(minv[1])
+            maxv = ipaddress.IPv4Address(maxv[1])
+        else:
+            minv = ipaddress.IPv6Address(minv[1])
+            maxv = ipaddress.IPv6Address(maxv[1])
+
+        cidr = None
+        for iprange in ipaddress.summarize_address_range(minv, maxv):
+            if cidr is not None:
+                return
+            cidr = iprange
+
+        return cidr
+
     async def _normPyStr(self, valu, view=None):
+
         if '-' in valu:
-            return await super()._normPyStr(valu)
-        cidrnorm = await self.cidrtype._normPyStr(valu)
-        tupl = cidrnorm[1]['subs']['network'][1], cidrnorm[1]['subs']['broadcast'][1]
-        return await self._normPyTuple(tupl)
+            norm, info = await super()._normPyStr(valu)
+            info['virts'] = {'size': (norm[1][1] - norm[0][1], self.sizetype.stortype)}
+
+            if (cidr := self._getCidr(norm)) is not None:
+                info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+            return norm, info
+
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
+        (vers, ip_int) = (await self.subtype.norm(ip_str))[0]
+
+        if vers == 4:
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Invalid CIDR Mask')
+
+            mask = cidrmasks[mask_int]
+            network, netinfo = await self.subtype.norm((4, ip_int & mask[0]))
+            broadcast, binfo = await self.subtype.norm((4, network[1] + mask[1] - 1))
+
+        else:
+            try:
+                netw = ipaddress.IPv6Network(valu)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+            network, netinfo = await self.subtype.norm((6, int(netw.network_address)))
+            broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
+
+        return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
+                                               'max': (self.subtype.typehash, broadcast, binfo)},
+                                      'virts': {'mask': (mask_int, self.masktype.stortype),
+                                                'size': (broadcast[1] - network[1], self.sizetype.stortype)}}
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
@@ -839,8 +885,14 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
-        return (minv, maxv), {'subs': {'min': (self.subtype.typehash, minv, minfo),
-                                       'max': (self.subtype.typehash, maxv, maxfo)}}
+        info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
+                         'max': (self.subtype.typehash, maxv, maxfo)},
+                'virts': {'size': (maxv[1] - minv[1], self.sizetype.stortype)}}
+
+        if (cidr := self._getCidr((minv, maxv))) is not None:
+            info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+        return (minv, maxv), info
 
 class Rfc2822Addr(s_types.Str):
     '''
@@ -1220,8 +1272,17 @@ modeldefs = (
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
 
-            ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
+            ('inet:net', 'synapse.models.inet.IPRange', {}, {
                 'ex': '1.2.3.4-1.2.3.8',
+                'virts': (
+                    ('mask', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The mask if the range can be represented in CIDR notation.'}),
+
+                    ('size', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The number of addresses in the range.'}),
+                ),
                 'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
@@ -1236,10 +1297,6 @@ modeldefs = (
                         'doc': 'The port contained in the socket address URL.'}),
                 ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
-
-            ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
-                'ex': '1.2.3.0/24',
-                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'interfaces': (
@@ -1277,8 +1334,8 @@ modeldefs = (
             (('inet:whois:iprecord', 'has', 'inet:ip'), {
                 'doc': 'The IP whois record describes the IP address.'}),
 
-            (('inet:cidr', 'has', 'inet:ip'), {
-                'doc': 'The CIDR block contains the IP address.'}),
+            (('inet:net', 'has', 'inet:ip'), {
+                'doc': 'The IP address range contains the IP address.'}),
         ),
 
         'types': (
@@ -1294,6 +1351,13 @@ modeldefs = (
 
             ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
                 'doc': 'A network protocol name.'}),
+
+            ('inet:asnip', ('comp', {'fields': (('asn', 'inet:asn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IP ASN assignment'}}),
+                ),
+                'ex': '(54959, 1.2.3.4)',
+                'doc': 'A historical record of an IP address being assigned to an AS.'}),
 
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
@@ -1377,10 +1441,6 @@ modeldefs = (
                 ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
-
-            ('inet:net', ('inet:iprange', {}), {
-                'ex': '(1.2.3.4, 1.2.3.20)',
-                'doc': 'An IP address range.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                 'ex': '80',
@@ -1510,6 +1570,9 @@ modeldefs = (
                 'doc': 'A service platform type taxonomy.'}),
 
             ('inet:service:platform', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'platform'}}),
+                ),
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:agent', ('guid', {}), {
@@ -1519,9 +1582,6 @@ modeldefs = (
                 'template': {'service:base': 'agent'},
                 'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.',
                 'prevnames': ('inet:service:app',)}),
-
-            ('inet:service:instance', ('guid', {}), {
-                'doc': 'An instance of the platform such as Slack or Discord instances.'}),
 
             ('inet:service:object:status', ('int', {'enums': svcobjstatus}), {
                 'doc': 'An object status enumeration.'}),
@@ -1588,24 +1648,22 @@ modeldefs = (
                 ),
                 'doc': 'An authenticated session.'}),
 
+            ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
+                'doc': 'A node which implements the inet:service:joinable interface.'}),
+
             ('inet:service:group', ('guid', {}), {
                 'template': {'title': 'service group'},
                 'interfaces': (
                     ('inet:service:object', {}),
+                    ('inet:service:joinable', {}),
                 ),
                 'doc': 'A group or role which contains member accounts.'}),
-
-            ('inet:service:group:member', ('guid', {}), {
-                'template': {'title': 'group membership'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
-                'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
                 'template': {'title': 'channel'},
                 'interfaces': (
                     ('inet:service:object', {}),
+                    ('inet:service:joinable', {}),
                 ),
                 'doc': 'A channel used to distribute messages.'}),
 
@@ -1616,12 +1674,12 @@ modeldefs = (
                 ),
                 'doc': 'A message thread.'}),
 
-            ('inet:service:channel:member', ('guid', {}), {
-                'template': {'title': 'channel membership'},
+            ('inet:service:member', ('guid', {}), {
+                'template': {'title': 'membership'},
                 'interfaces': (
                     ('inet:service:object', {}),
                 ),
-                'doc': 'Represents a service account being a member of a channel.'}),
+                'doc': 'Represents a service account being a member of a channel or group.'}),
 
             ('inet:service:message', ('guid', {}), {
                 'interfaces': (
@@ -1696,18 +1754,12 @@ modeldefs = (
                 ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
-            ('inet:service:bucket', ('guid', {}), {
+            ('inet:service:bucket', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
-            ('inet:service:bucket:item', ('guid', {}), {
+            ('inet:service:bucket:item', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket item'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'An individual file stored within a bucket.'}),
 
             ('inet:rdp:handshake', ('guid', {}), {
@@ -1843,9 +1895,6 @@ modeldefs = (
 
                     ('platform', ('inet:service:platform', {}), {
                         'doc': 'The platform which defines the {title}.'}),
-
-                    ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance which defines the {title}.'}),
                 ),
             }),
 
@@ -1875,6 +1924,9 @@ modeldefs = (
                         'doc': 'The service account which removed or decommissioned the {title}.'}),
                 ),
             }),
+
+            ('inet:service:joinable', {
+                'doc': 'An interface common to nodes which can have accounts as members.'}),
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
@@ -1922,9 +1974,6 @@ modeldefs = (
 
                     ('platform', ('inet:service:platform', {}), {
                         'doc': 'The platform where the action was initiated.'}),
-
-                    ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance where the action was initiated.'}),
 
                     ('session', ('inet:service:session', {}), {
                         'doc': 'The session which initiated the action.'}),
@@ -2037,6 +2086,17 @@ modeldefs = (
                     'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
+            ('inet:asnip', {}, (
+
+                ('asn', ('inet:asn', {}), {
+                    'ro': True,
+                    'doc': 'The ASN that the IP was assigned to.'}),
+
+                ('ip', ('inet:ip', {}), {
+                    'ro': True,
+                    'doc': 'The IP that was assigned to the ASN.'}),
+            )),
+
             ('inet:asnet', {
                 'prevnames': ('inet:asnet4', 'inet:asnet6')}, (
 
@@ -2060,20 +2120,16 @@ modeldefs = (
                     'prevnames': ('net4:max', 'net6:max')}),
             )),
 
-            ('inet:cidr', {
+            ('inet:net', {
                 'prevnames': ('inet:cidr4', 'inet:cidr6')}, (
 
-                ('broadcast', ('inet:ip', {}), {
+                ('min', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The broadcast IP address from the CIDR notation.'}),
+                    'doc': 'The first IP address in the network range.'}),
 
-                ('mask', ('int', {}), {
+                ('max', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The mask from the CIDR notation.'}),
-
-                ('network', ('inet:ip', {}), {
-                    'ro': True,
-                    'doc': 'The network IP address from the CIDR notation.'}),
+                    'doc': 'The last IP address in the network range.'}),
             )),
 
             ('inet:client', {}, (
@@ -2086,15 +2142,12 @@ modeldefs = (
                     'doc': 'The IP of the client.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the client.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The client tcp/udp port.'
                 }),
             )),
 
+            # FIXME - inet:proto:link? Is this really an it:host:fetch?
             ('inet:download', {}, (
                 ('time', ('time', {}), {
                     'doc': 'The time the file was downloaded.'
@@ -2415,10 +2468,6 @@ modeldefs = (
                     'doc': 'The IP of the server.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the server.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The server tcp/udp port.'
                 }),
@@ -2806,7 +2855,7 @@ modeldefs = (
             ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An ID which identifies the platform.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2824,13 +2873,12 @@ modeldefs = (
                 ('zones', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'An array of alternate zones for the platform.'}),
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'twitter',
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True}}), {
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2867,41 +2915,6 @@ modeldefs = (
                     'doc': 'The latest known software version that the platform is running.'}),
             )),
 
-            ('inet:service:instance', {}, (
-
-                ('id', ('meta:id', {}), {
-                    'ex': 'B8ZS2',
-                    'doc': 'A platform specific ID to identify the service instance.'}),
-
-                ('platform', ('inet:service:platform', {}), {
-                    'doc': 'The platform which defines the service instance.'}),
-
-                ('url', ('inet:url', {}), {
-                    'ex': 'https://v.vtx.lk/slack',
-                    'doc': 'The primary URL which identifies the service instance.'}),
-
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'ex': 'synapse users slack',
-                    'doc': 'The name of the service instance.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the service instance.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period where the instance existed.'}),
-
-                ('status', ('inet:service:object:status', {}), {
-                    'doc': 'The status of this instance.'}),
-
-                ('creator', ('inet:service:account', {}), {
-                    'doc': 'The service account which created the instance.'}),
-
-                ('owner', ('inet:service:account', {}), {
-                    'doc': 'The service account which owns the instance.'}),
-
-                ('tenant', ('inet:service:tenant', {}), {
-                    'doc': 'The tenant which contains the instance.'}),
-            )),
 
             ('inet:service:agent', {}, (
 
@@ -2949,18 +2962,6 @@ modeldefs = (
 
                 ('profile', ('entity:contact', {}), {
                     'doc': 'Current detailed contact information for this group.'}),
-            )),
-
-            ('inet:service:group:member', {}, (
-
-                ('account', ('inet:service:account', {}), {
-                    'doc': 'The account that is a member of the group.'}),
-
-                ('group', ('inet:service:group', {}), {
-                    'doc': 'The group that the account is a member of.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the account was a member of the group.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
@@ -3141,16 +3142,16 @@ modeldefs = (
                     'doc': 'The message which initiated the thread.'}),
             )),
 
-            ('inet:service:channel:member', {}, (
+            ('inet:service:member', {}, (
 
-                ('channel', ('inet:service:channel', {}), {
-                    'doc': 'The channel that the account was a member of.'}),
+                ('of', ('inet:service:joinable', {}), {
+                    'doc': 'The channel or group that the account was a member of.'}),
 
                 ('account', ('inet:service:account', {}), {
-                    'doc': 'The account that was a member of the channel.'}),
+                    'doc': 'The account that was a member of the channel or group.'}),
 
                 ('period', ('ival', {}), {
-                    'doc': 'The time period where the account was a member of the channel.'}),
+                    'doc': 'The time period where the account was a member.'}),
             )),
 
             ('inet:service:resource:type:taxonomy', {}, {}),

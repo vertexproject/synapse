@@ -250,6 +250,7 @@ class BaseTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 meta:feed=*
+                    :id="feed/THING/my rss feed     "
                     :name="woot (foo bar baz)"
                     :type=foo.bar.baz
                     :source={[ meta:source=* :name=woot ]}
@@ -264,6 +265,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('source'))
 
+            self.eq(nodes[0].get('id'), 'feed/THING/my rss feed')
             self.eq(nodes[0].get('name'), 'woot (foo bar baz)')
             self.eq(nodes[0].get('type'), 'foo.bar.baz.')
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')

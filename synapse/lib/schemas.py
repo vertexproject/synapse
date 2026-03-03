@@ -318,7 +318,8 @@ _authRulesSchema = {
                 'type': 'array',
                 'items': {
                     'type': 'string',
-                    'minLength': 1
+                    'minLength': 1,
+                    'pattern': '^[^.]+$'
                 },
                 'minItems': 1
             },
@@ -716,11 +717,6 @@ _reqValidPkgdefSchema = {
                 'cert': {'type': 'string'},
             },
             'required': ['cert', 'sign'],
-        },
-        # TODO: Remove me after Synapse 3.0.0.
-        'synapse_minversion': {
-            'type': ['array', 'null'],
-            'items': {'type': 'number'}
         },
         'synapse_version': {
             'type': 'string',

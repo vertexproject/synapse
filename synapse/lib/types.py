@@ -68,6 +68,7 @@ class Type:
             'updated': 'updated'
         }
         self.virtstor = {}
+        self.virtlifts = {}
 
         self.pivs = {}
 
@@ -150,10 +151,13 @@ class Type:
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
-        if virts:
-            return await self.getVirtType(virts).getStorCmprs(cmpr, valu)
+        lifts = self.storlifts
 
-        func = self.storlifts.get(cmpr)
+        if virts:
+            if (lifts := self.virtlifts.get(virts[0])) is None:
+                return await self.getVirtType(virts).getStorCmprs(cmpr, valu)
+
+        func = lifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
             raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
@@ -227,13 +231,6 @@ class Type:
         return (('syn:type', self.name), {
             'props': props,
         })
-
-    def getCompOffs(self, name):
-        '''
-        If this type is a compound, return the field offset for the given
-        property name or None.
-        '''
-        return None
 
     async def _normStormNode(self, node, view=None):
         norm, norminfo = await self.norm(node.ndef[1], view=view)
@@ -586,27 +583,12 @@ class Array(Type):
             'size': (self.inttype, self._getSize),
         }
 
-        self.virtlifts = {
+        self.virtlifts |= {
             'size': {'range=': self._storLiftSizeRange}
         }
 
         for oper in ('=', '<', '>', '<=', '>='):
             self.virtlifts['size'][oper] = self._storLiftSize
-
-    async def getStorCmprs(self, cmpr, valu, virts=None):
-        if virts:
-            lifts = self.virtlifts
-            for virt in virts:
-                if (lifts := lifts.get(virt)) is None:
-                    raise s_exc.NoSuchVirt.init(virt, self)
-        else:
-            lifts = self.storlifts
-
-        if (func := lifts.get(cmpr)) is None:
-            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
-
-        return await func(cmpr, valu)
 
     def _getSize(self, valu):
         return len(valu[0])
@@ -705,9 +687,6 @@ class Comp(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
 
-    def getCompOffs(self, name):
-        return self.fieldoffs.get(name)
-
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -716,12 +695,37 @@ class Comp(Type):
         if self.sepr is not None:
             self.setNormFunc(str, self._normPyStr)
 
-        fields = self.opts.get('fields', ())
+        self._checkMutability()
 
-        # calc and save field offsets...
-        self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
+        self.fieldtypes = {}
+        for fname, ftypename in self.opts.get('fields', ()):
+            if isinstance(ftypename, str):
+                _type = self.modl.type(ftypename)
+            else:
+                ftypename, opts = ftypename
+                _type = self.modl.type(ftypename).clone(opts)
 
-        self.tcache = FieldHelper(self.modl, self.name, fields)
+            if _type.deprecated and self.name.startswith('_'):
+                mesg = f'The type {self.name} field {fname} uses a deprecated ' \
+                       f'type {_type.name} which will be removed in 4.0.0.'
+                logger.warning(mesg, extra={'synapse': {'type': self.name, 'field': fname}})
+
+            self.fieldtypes[fname] = _type
+
+    def _checkMutability(self):
+        for fname, ftypename in self.opts.get('fields', ()):
+            if isinstance(ftypename, (list, tuple)):
+                ftypename = ftypename[0]
+
+            if (ftype := self.modl.type(ftypename)) is None:
+                raise s_exc.BadTypeDef(valu=ftypename, mesg=f'Type {ftypename} is not present in datamodel.')
+
+            if ftype.ismutable:
+                mesg = f'Comp types with mutable fields ({self.name}:{fname}) are not allowed.'
+                raise s_exc.BadTypeDef(valu=ftypename, mesg=mesg)
+
+            elif isinstance(ftype, Comp):
+                ftype._checkMutability()
 
     async def _normPyTuple(self, valu, view=None):
 
@@ -736,10 +740,7 @@ class Comp(Type):
 
         for i, (name, _) in enumerate(fields):
 
-            _type = self.tcache[name]
-
-            if _type.ismutable:
-                self.ismutable = True
+            _type = self.fieldtypes[name]
 
             norm, info = await _type.norm(valu[i], view=view)
 
@@ -767,45 +768,13 @@ class Comp(Type):
         fields = self.opts.get('fields')
 
         for valu, (name, _) in zip(valu, fields):
-            rval = self.tcache[name].repr(valu)
+            rval = self.fieldtypes[name].repr(valu)
             vals.append(rval)
 
         if self.sepr is not None:
             return self.sepr.join(vals)
 
         return tuple(vals)
-
-class FieldHelper(collections.defaultdict):
-    '''
-    Helper for Comp types. Performs Type lookup/creation upon first use.
-    '''
-    def __init__(self, modl, tname, fields):
-        collections.defaultdict.__init__(self)
-        self.modl = modl
-        self.tname = tname
-        self.fields = {name: tname for name, tname in fields}
-
-    def __missing__(self, key):
-        val = self.fields.get(key)
-        if not val:
-            raise s_exc.BadTypeDef(valu=key, mesg='unconfigured field requested')
-        if isinstance(val, str):
-            _type = self.modl.type(val)
-            if not _type:
-                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
-        else:
-            # val is a type, opts pair
-            tname, opts = val
-            basetype = self.modl.type(tname)
-            if not basetype:
-                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
-            _type = basetype.clone(opts)
-        if _type.deprecated:
-            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 4.0.0'
-            logger.warning(mesg)
-        self.setdefault(key, _type)
-        return _type
 
 class Guid(Type):
 
@@ -1382,28 +1351,24 @@ class Int(IntBase):
                 raise s_exc.BadTypeDef(mesg=mesg,
                                        name=self.name)
 
-        minval = self.opts.get('min')
-        maxval = self.opts.get('max')
+        if not self.signed:
+            minmin = 0
+            maxmax = 2 ** (self.size * 8) - 1
+        else:
+            minmin = -2 ** ((self.size * 8) - 1)
+            maxmax = 2 ** ((self.size * 8) - 1) - 1
 
-        minmin = -2 ** ((self.size * 8) - 1)
-        if minval is None:
+        if (minval := self.opts.get('min')) is None:
             minval = minmin
 
-        maxmax = 2 ** ((self.size * 8) - 1) - 1
-        if maxval is None:
+        if (maxval := self.opts.get('max')) is None:
             maxval = maxmax
 
         if minval < minmin or maxval > maxmax or maxval < minval:
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
-        if not self.signed:
-            self._indx_offset = 0
-            self.minval = 0
-            self.maxval = min(2 * maxval, maxval)
-        else:
-            self._indx_offset = maxmax + 1
-            self.minval = max(minmin, minval)
-            self.maxval = min(maxmax, maxval)
+        self.minval = minval
+        self.maxval = maxval
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)

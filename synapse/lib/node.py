@@ -9,6 +9,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -475,7 +476,26 @@ class Node(NodeBase):
                 }
 
             for relp in relprops:
-                embdnode[relp] = node.get(relp)
+                valu, virts = node.getWithVirts(relp)
+                embdnode[relp] = valu
+
+                if valu is None:
+                    continue
+
+                if virts is not None:
+                    for vname, vval in virts.items():
+                        embdnode[f'{relp}.{vname}'] = vval[0]
+
+                stortype = node.form.prop(relp).type.stortype
+                if stortype & s_layer.STOR_FLAG_ARRAY:
+                    embdnode[f'{relp}.size'] = len(valu)
+                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = [getr(v) for v in valu]
+                else:
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = getr(valu)
 
         return retn
 
@@ -622,13 +642,22 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
-        elif name.startswith('.'):
-            virts = name.split('.')[1:]
-            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
-                return self.getMeta(virts[0])
+        elif '.' in name:
+            parts = name.split('.')
+            name = parts[0]
+            vnames = parts[1:]
 
-            virtgetr = self.form.type.getVirtGetr(virts)
-            return self.valu(virts=virtgetr)
+            if not name:
+                if (mtyp := self.view.core.model.metatypes.get(vnames[0])) is not None:
+                    return self.getMeta(vnames[0])
+
+                virtgetr = self.form.type.getVirtGetr(vnames)
+                return self.valu(virts=virtgetr)
+            else:
+                if (prop := self.form.props.get(name)) is None:
+                    raise s_exc.NoSuchProp.init(name)
+
+                virts = prop.type.getVirtGetr(vnames)
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:

@@ -11,6 +11,7 @@ import synapse.lib.node as s_node
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
@@ -381,6 +382,9 @@ class ProtoNode(s_node.NodeBase):
         return False
 
     async def setData(self, name, valu):
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         if await self.getData(name) == valu:
             return
@@ -392,6 +396,9 @@ class ProtoNode(s_node.NodeBase):
         self.nodedatatombs.discard(name)
 
     async def popData(self, name):
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         if not self.multilayer:
             valu = await self.editor.view.getNodeData(self.nid, name, defv=s_common.novalu)

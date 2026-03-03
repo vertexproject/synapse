@@ -530,6 +530,48 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
+class ItVersion(s_types.Str):
+
+    def postTypeInit(self):
+
+        s_types.Str.postTypeInit(self)
+        self.semver = self.modl.type('it:semver')
+
+        self.virtindx |= {
+            'semver': 'semver',
+        }
+
+        self.virts |= {
+            'semver': (self.semver, self._getSemVer),
+        }
+
+    def _getSemVer(self, valu):
+
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('semver')) is None: # pragma: no cover
+            return None
+
+        return valu[0]
+
+    async def _normPyStr(self, valu, view=None):
+
+        norm, info = await s_types.Str._normPyStr(self, valu)
+
+        try:
+            semv, semvinfo = await self.semver.norm(norm)
+            subs = info.setdefault('subs', {})
+            virts = info.setdefault('virts', {})
+            subs['semver'] = (self.semver.typehash, semv, semvinfo)
+            virts['semver'] = (semv, self.semver.stortype)
+        except s_exc.BadTypeValu:
+            # It's ok for a version to not be semver compatible.
+            pass
+
+        return norm, info
+
+
 loglevels = (
     (10, 'debug'),
     (20, 'info'),
@@ -570,33 +612,25 @@ attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0'
 async def _onFormItDevStr(node):
     await node.set('norm', node.ndef[1])
 
-# async def _onPropSoftverVers(node, oldv):
-#     # Set vers:norm and make its normed valu
-#     prop = node.get('vers')
-#     if not prop:
-#         return
-#
-#     await node.set('vers:norm', prop)
-#
-#     # form the semver properly or bruteforce parts
-#     try:
-#         valu, info = node.view.core.model.type('it:semver').norm(prop)
-#         await node.set('semver', valu)
-#     except Exception:
-#         logger.exception('Failed to brute force version string [%s]', prop)
-
 modeldefs = (
     ('it', {
         'ctors': (
             ('it:semver', 'synapse.models.infotech.SemVer', {}, {
-                'doc': 'Semantic Version type.',
-            }),
+                'doc': 'Semantic Version type.'}),
+
+            ('it:version', 'synapse.models.infotech.ItVersion', {}, {
+                'virts': (
+                    ('semver', ('it:semver', {}), {
+                        'ro': True,
+                        'doc': 'The semver value if the version string is compatible.'}),
+                ),
+                'doc': 'A version string.'}),
+
             ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
-                'doc': 'A NIST CPE 2.3 Formatted String.',
-            }),
+                'doc': 'A NIST CPE 2.3 Formatted String.'}),
+
             ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
-                'doc': 'A NIST CPE 2.2 Formatted String.',
-            }),
+                'doc': 'A NIST CPE 2.2 Formatted String.'}),
         ),
         'types': (
 
@@ -647,7 +681,7 @@ modeldefs = (
                 'prevnames': ('it:logon',),
                 'doc': 'A host specific login session.'}),
 
-            ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+            ('it:host:hosted:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'host at this URL'}}),
                 ),
@@ -662,10 +696,11 @@ modeldefs = (
                 ),
                 'doc': 'A screenshot of a host.'}),
 
-            ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
-                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
-                'ex': 'cve-2012-0158',
-                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+           ('it:sec:cve', ('meta:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
+                                   'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+               'ex': 'CVE-2012-0158',
+               'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+
 
             ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                 'ex': 'CWE-120',
@@ -737,6 +772,9 @@ modeldefs = (
 
             ('it:dev:repo:diff', ('guid', {}), {
                 'doc': 'A diff of a file being applied in a single commit.'}),
+
+            ('it:dev:repo:entry', ('guid', {}), {
+                'doc': 'A file included in a repository.'}),
 
             ('it:dev:repo:issue:label', ('guid', {}), {
                 'interfaces': (
@@ -1129,6 +1167,9 @@ modeldefs = (
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
 
+            (('it:dev:repo:commit', 'has', 'it:dev:repo:entry'), {
+                'doc': 'The file entry is present in the commit version of the repository.'}),
+
             (('it:log:event', 'about', None), {
                 'doc': 'The it:log:event is about the target node.'}),
 
@@ -1266,9 +1307,6 @@ modeldefs = (
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the log event.'}),
 
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which generated the log event.'}),
-
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the log event.'}),
 
@@ -1386,7 +1424,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The network flow which initiated the login.'}),
             )),
-            ('it:host:url', {}, (
+            ('it:host:hosted:url', {}, (
 
                 ('host', ('it:host', {}), {
                     'ro': True,
@@ -1410,38 +1448,7 @@ modeldefs = (
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
 
             )),
-            ('it:sec:cve', {}, (
-
-                ('nist:nvd:source', ('meta:name', {}), {
-                    'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
-
-                ('nist:nvd:published', ('time', {}), {
-                    'doc': 'The date the vulnerability was first published in the NVD.'}),
-
-                ('nist:nvd:modified', ('time', {"ismax": True}), {
-                    'doc': 'The date the vulnerability was last modified in the NVD.'}),
-
-                ('cisa:kev:name', ('str', {}), {
-                    'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:desc', ('str', {}), {
-                    'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:action', ('str', {}), {
-                    'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:vendor', ('meta:name', {}), {
-                    'doc': 'The vendor name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:product', ('meta:name', {}), {
-                    'doc': 'The product name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:added', ('time', {}), {
-                    'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
-
-                ('cisa:kev:duedate', ('time', {}), {
-                    'doc': 'The date the action is due according to the CISA KEV database.'}),
-            )),
+            ('it:sec:cve', {}, ()),
             ('it:sec:cpe', {}, (
 
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -1722,6 +1729,18 @@ modeldefs = (
                     'doc': 'The URL where the diff is hosted.'}),
             )),
 
+            ('it:dev:repo:entry', {}, (
+
+                ('repo', ('it:dev:repo', {}), {
+                    'doc': 'The repository which contains the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The file which the repository contains.'}),
+
+                ('path', ('file:path', {}), {
+                    'doc': 'The path to the file in the repository.'}),
+            )),
+
             ('it:dev:repo:issue', {}, (
 
                 ('repo', ('it:dev:repo', {}), {
@@ -1834,7 +1853,7 @@ modeldefs = (
                 ('model', ('base:name', {}), {
                     'doc': 'The model name or number for this hardware specification.'}),
 
-                ('version', ('it:semver', {}), {
+                ('version', ('it:version', {}), {
                     'doc': 'Version string associated with this hardware specification.'}),
 
                 ('released', ('time', {}), {
@@ -2121,9 +2140,6 @@ modeldefs = (
 
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which was queried.'}),
 
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which ran the query.'}),

@@ -99,6 +99,7 @@ class EconTest(s_utils.SynTest):
                     :payee={[ entity:contact=* :name=payee ]}
                     :payer={[ entity:contact=* :name=payer ]}
 
+                    :status=settled
                     :amount = 20.30
                     :currency = usd
 
@@ -112,6 +113,7 @@ class EconTest(s_utils.SynTest):
             ]'''
             nodes = await core.nodes(text)
 
+            self.eq(nodes[0].get('status'), 'settled')
             self.eq('myhouse', nodes[0].get('place:name'))
             self.eq((90, 80), nodes[0].get('place:latlong'))
             self.eq('us.ny.brooklyn', nodes[0].get('place:loc'))

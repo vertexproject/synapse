@@ -1558,8 +1558,8 @@ class LibBase(Lib):
         try:
             norm, info = await typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
-        except s_exc.BadTypeValu:
-            return (False, None)
+        except s_exc.BadTypeValu as exc:
+            return False, s_common.excinfo(exc)
 
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
@@ -1772,6 +1772,12 @@ class LibDict(Lib):
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'fromlist', 'desc': 'Construct a dictionary from a list of key/value tuples.',
+         'type': {'type': 'function', '_funcname': '_fromlist',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'The list of key/value tuples.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The new dictionary.', }}},
         {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
@@ -1801,6 +1807,7 @@ class LibDict(Lib):
         return {
             'has': self._has,
             'keys': self._keys,
+            'fromlist': self._fromlist,
             'pop': self._pop,
             'update': self._update,
             'values': self._values,
@@ -1830,6 +1837,28 @@ class LibDict(Lib):
         await self._check_type(valu)
         valu = await toprim(valu)
         return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _fromlist(self, valu):
+        valu = await toprim(valu)
+        if not isinstance(valu, (list, tuple)):
+            mesg = '$lib.dict.fromlist() argument must be an array.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in valu:
+            if not isinstance(item, (list, tuple)):
+                mesg = '$lib.dict.fromlist() array elements must be an array.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(item) != 2:
+                mesg = '$lib.dict.fromlist() argument must be an array of (key, value) pairs.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not isinstance(item[0], (str, int)):
+                mesg = '$lib.dict.fromlist() keys must be str or int types.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        return s_msgpack.deepcopy(dict(valu), use_list=True)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
@@ -1868,59 +1897,6 @@ class LibDict(Lib):
 
         valu = await toprim(valu)
         return list(valu.values())
-
-@registry.registerLib
-class LibPs(Lib):
-    '''
-    A Storm Library for interacting with running tasks on the Cortex.
-    '''
-    _storm_locals = (  # type:  ignore
-        {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
-         'type': {'type': 'function', '_funcname': '_kill',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
-        {'name': 'list', 'desc': 'List tasks the current user can access.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
-    )
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
-    _storm_lib_path = ('ps',)
-
-    def getObjLocals(self):
-        return {
-            'kill': self._kill,
-            'list': self._list,
-        }
-
-    async def _kill(self, prefix):
-        idens = []
-
-        todo = s_common.todo('ps', self.runt.user)
-        tasks = await self.dyncall('cell', todo)
-        for task in tasks:
-            iden = task.get('iden')
-            if iden.startswith(prefix):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            mesg = 'Provided iden does not match any processes.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        if len(idens) > 1:
-            mesg = 'Provided iden matches more than one process.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        todo = s_common.todo('kill', self.runt.user, idens[0])
-        return await self.dyncall('cell', todo)
-
-    @stormfunc(readonly=True)
-    async def _list(self):
-        todo = s_common.todo('ps', self.runt.user)
-        return await self.dyncall('cell', todo)
 
 @registry.registerLib
 class LibAxon(Lib):
@@ -3462,20 +3438,24 @@ class LibFeed(Lib):
         }
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, data, reqmeta=False):
+    async def _feedCommon(self, data, reqmeta=False):
         data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data',))
+        if reqmeta:
+            meta, *data = data
+            self.runt.view.core.reqValidExportStormMeta(meta)
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        await self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
+
+    async def _libGenr(self, data, reqmeta=False):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
-        data = await tostor(data)
-
-        self.runt.layerConfirm(('feed:data',))
-
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
 @registry.registerLib
@@ -5604,7 +5584,8 @@ class GlobalVars(Prim):
         name = await tostr(name)
         runt = s_scope.get('runt')
         runt.confirm(('globals', 'get', name))
-        return await runt.view.core.getStormVar(name)
+        if (valu := await runt.view.core.getStormVar(name)) is not None:
+            return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await tostr(name)
@@ -5623,7 +5604,7 @@ class GlobalVars(Prim):
         runt = s_scope.get('runt')
         async for name, valu in runt.view.core.itemsStormVar():
             if runt.allowed(('globals', 'get', name)):
-                yield name, valu
+                yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def stormrepr(self):
@@ -6492,8 +6473,12 @@ class Path(Prim):
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
+        {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
+         'type': {'type': 'function', '_funcname': '_methPathLinks',
+                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6513,12 +6498,17 @@ class Path(Prim):
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
+            'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
 
     @stormfunc(readonly=True)
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
+
+    @stormfunc(readonly=True)
+    async def _methPathLinks(self):
+        return copy.deepcopy(self.valu.links)
 
     @stormfunc(readonly=True)
     async def _methPathListVars(self):
@@ -7460,10 +7450,7 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methLayerEdited(self):
         layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
-
-        if (indx := layr.getEditIndx()) != -1:
-            item = await self.runt.view.core.nexsroot.nexslog.get(indx)
-            return item[2][-1].get('time')
+        return layr.lastedittime
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nid):
@@ -8527,20 +8514,26 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
-        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+        {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
-        {'perm': ('trigger', 'del'), 'gate': 'view',
-         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'trigger',
+         'desc': 'Controls deleting a trigger.'},
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
-         'desc': 'Controls modifying the doc property of triggers.'},
-        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
-         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'trigger',
+         'desc': 'Controls modifying any user editable property of a trigger.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
-         'desc': 'Controls modifying the user property of triggers.'},
-        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
-         'desc': 'Controls modifying specific trigger properties.'},
+         'desc': 'Controls modifying the user property of any trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of a trigger.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of a trigger.'},
+        {'perm': ('trigger', 'set', 'async'), 'gate': 'trigger',
+         'desc': 'Controls modifying the async property of a trigger.'},
+        {'perm': ('trigger', 'set', 'storm'), 'gate': 'trigger',
+         'desc': 'Controls modifying the storm property of a trigger.'},
+        {'perm': ('trigger', 'set', 'enabled'), 'gate': 'trigger',
+         'desc': 'Controls modifying the enabled property of a trigger.'},
     )
 
     def getObjLocals(self):
@@ -8650,7 +8643,7 @@ class LibTrigger(Lib):
             if name == 'user':
                 self.runt.confirm(('trigger', 'set', 'user'))
             else:
-                self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+                self.runt.confirm(('trigger', 'set', name), gateiden=iden)
 
         if edits:
             trigview = self.runt.view.core.getView(viewiden)
@@ -8744,6 +8737,7 @@ class Trigger(Prim):
 
     async def setitem(self, name, valu):
         viewiden = self.valu.get('view')
+        trigiden = self.valu.get('iden')
 
         name = await tostr(name)
         if name in ('async', 'enabled'):
@@ -8756,10 +8750,10 @@ class Trigger(Prim):
         elif name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=trigiden)
 
         view = self.runt.view.core.reqView(viewiden)
-        await view.setTriggerInfo(self.valu.get('iden'), {name: valu})
+        await view.setTriggerInfo(trigiden, {name: valu})
 
         self.valu[name] = valu
 

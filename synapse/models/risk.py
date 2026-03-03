@@ -51,6 +51,15 @@ modeldefs = (
                     ('risk:targetable', {}),
                     ('risk:mitigatable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'id'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'cvss:v3_1:score'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
                 'doc': 'A unique vulnerability.'}),
 
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
@@ -104,6 +113,9 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
@@ -190,6 +202,14 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('entity:action', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'disclosed'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'owner::name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                    ),
+                },
                 'doc': 'An event where information was disclosed without permission.'}),
 
             ('risk:leak:type:taxonomy', ('taxonomy', {}), {
@@ -204,6 +224,15 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('entity:action', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'demanded'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'deadline'}},
+                    ),
+                },
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
@@ -225,12 +254,12 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'type'}},
-                        {'type': 'prop', 'opts': {'name': 'cause'}},
                         {'type': 'prop', 'opts': {'name': 'period'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'provider:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'cause'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
                 'doc': 'An outage event which affected resource availability.'}),
@@ -434,9 +463,6 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
 
-                ('cve', ('it:sec:cve', {}), {
-                    'doc': 'The CVE ID of the vulnerability.'}),
-
                 # FIXME cvss / vuln scoring
                 ('cvss:v2', ('cvss:v2', {}), {
                     'doc': 'The CVSS v2 vector for the vulnerability.'}),
@@ -569,9 +595,6 @@ modeldefs = (
 
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the alert.'}),
-
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which generated the alert.'}),
 
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the alert.'}),

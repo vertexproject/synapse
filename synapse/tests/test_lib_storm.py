@@ -1,5 +1,6 @@
 import copy
 import asyncio
+import textwrap
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -709,7 +710,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('background ${ $foo=test $lib.print($foo) }')
 
             await core.nodes('background { $lib.time.sleep(4) }')
-            task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
+            task = await core.callStorm('for $t in $lib.task.list() { if $t.info.background { return($t) } }')
             self.nn(task)
             self.none(task['info'].get('opts'))
             self.eq(core.view.iden, task['info'].get('view'))
@@ -1273,6 +1274,27 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[0][1]['props']['ndefs.size'], 2)
             self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+
+            # test set tag assignment
+            nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTags())
+
+            nodes = await core.nodes('[ test:str=tag +?#baz?="dud" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag $seen=:seen [ +#baz?=$seen :seen="2025-11-04T00:00:00Z" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag $seen=:seen [ +#baz?=$seen ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000000, 1762214400000001, 1))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag [ +#baz?=newp ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000000, 1762214400000001, 1))], nodes[0].getTags())
 
     async def test_storm_diff_merge(self):
 
@@ -2082,6 +2104,35 @@ class StormTest(s_t_utils.SynTest):
             self.nn(embeds['payer:instrument']['$nid'])
             self.eq('infime', embeds['payer:instrument']['name'])
 
+            # embeds include virtual prop values
+            await core.nodes('''[
+                test:str=embed
+                  :gprop={[
+                    test:guid=*
+                      :server=1.2.3.4:80
+                      :seen=(2020, 2021)
+                      :name={[ test:str=arrayvirt :ndefs=((test:str, foo), (test:int, 5)) ]}
+                  ]}
+            ]''')
+            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('ndefs',)}}}}
+            msgs = await core.stormlist('test:str=embed', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            self.eq('test:str', node[0][0])
+
+            embeds = node[1]['embeds']
+            self.eq('tcp://1.2.3.4:80', embeds['gprop']['server'])
+            self.eq((4, 16909060), embeds['gprop']['server.ip'])
+            self.eq(80, embeds['gprop']['server.port'])
+
+            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'])
+            self.eq(1577836800000000, embeds['gprop']['seen.min'])
+            self.eq(1609459200000000, embeds['gprop']['seen.max'])
+            self.eq(31622400000000, embeds['gprop']['seen.duration'])
+
+            self.eq((('test:str', 'foo'), ('test:int', 5)), embeds['gprop::name']['ndefs'])
+            self.eq(2, embeds['gprop::name']['ndefs.size'])
+            self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
@@ -2482,10 +2533,10 @@ class StormTest(s_t_utils.SynTest):
 
                 $queue = $lib.queue.gen(onload:test)
 
-                $vers = $lib.globals."testload:version"
+                $vers = $lib.globals."storage:version"
                 if ($vers = null) { $vers = 0 }
                 $vers = ($vers + 1)
-                $lib.globals."testload:version" = $vers
+                $lib.globals."storage:version" = $vers
                 $queue.put($vers)
             '''
         }
@@ -2503,7 +2554,7 @@ class StormTest(s_t_utils.SynTest):
                 events = await waiter.wait(timeout=10)
                 self.eq(events, [
                     ('core:pkg:onload:start', {'pkg': 'testload'}),
-                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                 ])
 
                 self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
@@ -2527,7 +2578,7 @@ class StormTest(s_t_utils.SynTest):
                     events = await waiter.wait(timeout=10)
                     self.eq(events, [
                         ('core:pkg:onload:start', {'pkg': 'testload'}),
-                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                     ])
 
                     self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
@@ -2544,10 +2595,11 @@ class StormTest(s_t_utils.SynTest):
             await core.addStormPkg(pkg)
 
             events = await waiter.wait(timeout=10)
-            self.eq(events, [
-                ('core:pkg:onload:start', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ])
+            self.len(2, events)
+            self.eq(events[0], ('core:pkg:onload:start', {'pkg': 'testload'}))
+            self.eq(events[1][0], 'core:pkg:onload:complete')
+            self.eq(events[1][1].get('pkg'), 'testload')
+            self.nn(events[1][1].get('storvers'))
 
         async with self.getTestCore() as core:
             pkg = {
@@ -2555,6 +2607,10 @@ class StormTest(s_t_utils.SynTest):
                 'version': '0.1.0',
             }
 
+            # TODO: this sync isn't ideal but without it we can potentially add the package before the _runMigrations
+            # task in initServiceActive has gotten to running onloads and end up running the onloads twice
+
+            await core.sync()
             await loadPkg(core, pkg)
 
             self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
@@ -2567,7 +2623,6 @@ class StormTest(s_t_utils.SynTest):
                     'name': 'testload',
                     'version': '0.1.0',
                     'inits': {
-                        'key': 'testload:version',
                         'versions': [
                             {
                                 'version': 0,
@@ -2610,16 +2665,13 @@ class StormTest(s_t_utils.SynTest):
 
                 # only inaugural inits run on first load
 
-                await core.setStormPkgVar('testload', 'testload:version', 0)
+                await core.setStormPkgVar('testload', 'storage:version', 0)
 
                 await loadPkg(core, pkg)
 
-                self.none(await core.getStormPkgVar('testload', 'testload:version'))
                 self.eq(1, await core.getStormPkgVar('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.nn(init01 := await core.getStormVar('init01'))
-
-                pkg['inits'].pop('key')
 
                 # non-inaugural inits run on reload
                 # inits always run before onload
@@ -4028,9 +4080,9 @@ class StormTest(s_t_utils.SynTest):
 
         pars.mesgs.clear()
         pars.help()
-        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[5])
-        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[6])
-        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[10])
+        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[6])
+        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[7])
+        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[11])
 
         # choices - default does not have to be in choices
         pars = s_storm.Parser()
@@ -4090,15 +4142,15 @@ class StormTest(s_t_utils.SynTest):
              This is the final line with no leading spaces.''')
         pars.add_argument('--taz', type='bool', default=True, help='Taz option')
         pars.help()
-        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[5])
-        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[6])
-        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[7])
-        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[8])
-        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[9])
-        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[10])
-        self.eq('                                 exceeds the default display width.', pars.mesgs[11])
-        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[12])
-        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[13])
+        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[6])
+        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[7])
+        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[8])
+        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[9])
+        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[10])
+        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[11])
+        self.eq('                                 exceeds the default display width.', pars.mesgs[12])
+        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[13])
+        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[14])
 
     async def test_storm_cmd_help(self):
 
@@ -4107,22 +4159,52 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (
-                    {'name': 'woot', 'cmdinputs': (
-                        {'form': 'hehe:haha'},
-                        {'form': 'hoho:lol', 'help': 'We know whats up'}
-                    ), 'endpoints': (
-                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
-                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
-                    )},
+                    {
+                        'name': 'woot',
+                        'cmdinputs': (
+                            {'form': 'hehe:haha'},
+                            {'form': 'hoho:lol', 'help': 'We know whats up'}
+                        ),
+                        'endpoints': (
+                            {
+                                'path': '/v1/test/one',
+                                'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'
+                            },
+                            {
+                                'path': '/v1/test/two',
+                                'host': 'vertex.link',
+                                'desc': 'Single line endpoint description.'
+                            },
+                        ),
+                        'perms': (
+                            ['power-ups', 'testpkg', 'user'],
+                            ['power-ups', 'testpkg', 'admin'],
+                        ),
+                    },
                 ),
             }
             core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
-            self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
-            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
-            self.isin('This is the second line of the description.', helptext)
-            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
+
+            self.isin('Usage: woot [options]', helptext)
+
+            exp = textwrap.dedent('''\
+                Endpoints:
+
+                  /v1/test/one                : My multi-line endpoint description which spans multiple lines and has a second line.
+                                                This is the second line of the description.
+                  /v1/test/two                : Single line endpoint description.
+            ''').rstrip()
+            self.isin(exp, helptext)
+
+            exp = textwrap.dedent('''\
+                Inputs:
+
+                  hehe:haha                   : hehe:haha nodes
+                  hoho:lol                    : We know whats up
+            ''').rstrip()
+            self.isin(exp, helptext)
 
     async def test_storm_help_cmd(self):
 
@@ -4736,7 +4818,7 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
 
                 self.eq(2, len(core.activecoros) - actv)
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
@@ -4813,7 +4895,7 @@ class StormTest(s_t_utils.SynTest):
                     }
                 ''')
                 self.eq(actv - 3, len(core.activecoros))
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
 
@@ -4883,7 +4965,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await asyncio.sleep(0)
 
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 1, len(core.activecoros))
@@ -4908,7 +4990,7 @@ class StormTest(s_t_utils.SynTest):
                 for task in [t for t in tasks if t is not None]:
                     self.true(await s_coro.waittask(task, timeout=5))
 
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 3, len(core.activecoros))
@@ -5159,7 +5241,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             msgs = await core.stormlist('version')
-            self.stormIsInPrint('Synapse Version:', msgs)
+            self.stormIsInPrint(f'Synapse Version: {s_version.verstring}', msgs)
             self.stormIsInPrint('Commit Hash:', msgs)
 
     async def test_storm_runas(self):

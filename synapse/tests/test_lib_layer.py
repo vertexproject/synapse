@@ -648,6 +648,9 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core0, prox0):
 
+            etime = await core0.callStorm('return($lib.layer.get().edited())')
+            self.none(etime)
+
             nodelist0 = []
             nodes = await core0.nodes('[ test:str=foo ]')
             nodelist0.extend(nodes)
@@ -757,6 +760,11 @@ class LayerTest(s_t_utils.SynTest):
 
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
             self.eq([], await layr.calcEdits(noedit, {}))
+
+            await core0.trimNexsLog()
+            etime = await core0.callStorm('return($lib.layer.get().edited())')
+            self.nn(etime)
+            self.gt(etime, s_time.parse('2020-01-01'))
 
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
@@ -2407,7 +2415,6 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             await core.nodes('''[
-                inet:server=host://vertex.link:12341
                 inet:server=tcp://127.0.0.1:12341
                 inet:server=tcp://127.0.0.3:12343
                 inet:server=tcp://127.0.0.2:12342
@@ -2592,9 +2599,6 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('inet:server +.ip*newp=newp')
 
-            await core.nodes('inet:server.ip | delnode')
-            self.len(0, await core.nodes('inet:server.ip'))
-
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server.newp.ip')
 
@@ -2606,6 +2610,9 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server +.ip.newp=127.0.0.1')
+
+            await core.nodes('inet:server.ip | delnode')
+            self.len(0, await core.nodes('inet:server.ip'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:virtiface:servers*[newp=127.0.0.1]')

@@ -46,11 +46,11 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" tagname [(EQSPACE | EQNOSPACE) _valu]
-          | "+" "?" tagname [(EQSPACE | EQNOSPACE) _valu] -> edittagtryadd
+edittagadd: "+" tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu]
+          | "+" "?" tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu] -> edittagtryadd
 
-edittagvirtset: "+" tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu
-              | "+" "?" tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu -> edittagvirttryset
+edittagvirtset: "+" tagnamevirt virtprops (EQSPACE | EQNOSPACE | TRYSET) _valu
+              | "+" "?" tagnamevirt virtprops (EQSPACE | EQNOSPACE | TRYSET) _valu -> edittagvirttryset
 
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu

@@ -43,6 +43,13 @@ modeldefs = (
                 'doc': 'A topic string.'}),
 
             ('meta:feed', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'source::name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
                 'doc': 'A data feed provided by a specific source.'}),
 
             ('meta:feed:type:taxonomy', ('taxonomy', {}), {
@@ -132,6 +139,7 @@ modeldefs = (
             ('meta:aggregate', ('guid', {}), {
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                         {'type': 'prop', 'opts': {'name': 'count'}},
                     ),
@@ -270,7 +278,7 @@ modeldefs = (
                     ('target', ('{target:type}', {}), {
                         'doc': 'The target node which matched the {rule}.'}),
 
-                    ('version', ('it:semver', {}), {
+                    ('version', ('it:version', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
 
                     ('matched', ('time', {}), {
@@ -345,6 +353,8 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the feed.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),

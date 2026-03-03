@@ -449,12 +449,13 @@ testmodel = (
                 ('hehe', ('str', {}), {}),
                 ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
                 ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
-                ('cidr', ('inet:cidr', {}), {}),
+                ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('pivvirt', ('test:virtiface', {}), {}),
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
+                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -771,6 +772,12 @@ class _StreamIOMixin(io.StringIO):
         valu = self.getvalue()
         if valu.find(substr) == -1:
             mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
+    def noexpect(self, substr: str):
+        valu = self.getvalue()
+        if valu.find(substr) != -1:
+            mesg = '%s.noexpect(%s) in %s' % (self.__class__.__name__, substr, valu)
             raise s_exc.SynErr(mesg=mesg)
 
 class StreamEvent(_StreamIOMixin, threading.Event):
@@ -2106,11 +2113,11 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(exc):
             await coro
 
-    def sorteq(self, x, y, msg=None):
+    def sorteq(self, x, y, msg=None, key=None):
         '''
         Assert two sorted sequences are the same.
         '''
-        return self.eq(sorted(x), sorted(y), msg=msg)
+        return self.eq(sorted(x, key=key), sorted(y, key=key), msg=msg)
 
     def isinstance(self, obj, cls, msg=None):
         '''
@@ -2308,7 +2315,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             (True, ('node', 'add')),
             (True, ('node', 'prop', 'set')),
             (True, ('node', 'tag', 'add')),
-            (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
@@ -2353,16 +2359,18 @@ class StormPkgTest(SynTest):
             for pkgproto in self.pkgprotos:
 
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+                pkgname = pkgdef.get('name')
 
-                waiter = None
-                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
-                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+                load_event = asyncio.Event()
 
-                await core.addStormPkg(pkgdef)
+                async def func(event):
+                    if event[1].get('pkg') == pkgname:
+                        load_event.set()
 
-                if waiter is not None:
-                    self.nn(await waiter.wait(timeout=ONLOAD_TIMEOUT),
-                            f'Package onload failed to run for {pkgdef.get("name")}')
+                with core.onWith('core:pkg:onload:complete', func):
+                    await core.addStormPkg(pkgdef)
+                    self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
+                            f'Package onload failed to run for {pkgname}')
 
             if self.assetdir is not None:
 

@@ -130,6 +130,8 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'names'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
                 'doc': 'An industry classification type.'}),
@@ -157,6 +159,13 @@ modeldefs = (
                 'interfaces': (
                     ('ou:sponsored', {'template': {'title': 'presentation'}}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                    ),
+                },
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
             ('ou:conference', ('guid', {}), {
@@ -167,6 +176,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'website'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
@@ -186,6 +196,15 @@ modeldefs = (
                 'interfaces': (
                     ('ou:sponsored', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
                 'doc': 'An generic organized event.'}),
 
             ('ou:contest:type:taxonomy', ('taxonomy', {}), {
@@ -239,6 +258,13 @@ modeldefs = (
                 'doc': 'Vital statistics about an org for a given time period.'}),
 
             ('ou:opening', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                        {'type': 'prop', 'opts': {'name': 'org:name'}},
+                    ),
+                },
                 'doc': 'A job/work opening within an org.'}),
 
             ('ou:job:type:taxonomy', ('taxonomy', {}), {
@@ -263,6 +289,18 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'submitted'}},
                         {'type': 'prop', 'opts': {'name': 'org::name'}},
                         {'type': 'prop', 'opts': {'name': 'opening::title'}},
+                    ),
+                }}),
+
+            ('ou:candidate:referral', ('guid', {}), {
+                'doc': 'A candidate being referred by a contact.',
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'referrer::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::opening::title'}},
+                        {'type': 'prop', 'opts': {'name': 'submitted'}},
                     ),
                 }}),
 
@@ -391,6 +429,23 @@ modeldefs = (
                 # TODO: proj:task to track evaluation of the candidate?
 
             )),
+
+            ('ou:candidate:referral', {}, (
+
+                ('candidate', ('ou:candidate', {}), {
+                    'doc': 'The candidate who was referred.'}),
+
+                ('referrer', ('entity:contact', {}), {
+                    'doc': 'The individual who referred the candidate to the opening.'}),
+
+                ('submitted', ('time', {}), {
+                    'doc': 'The time the referral was submitted.'}),
+
+                ('text', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'Text of any referrer provided context about the candidate.'}),
+            )),
+
             ('ou:vitals', {}, (
 
                 ('time', ('time', {}), {

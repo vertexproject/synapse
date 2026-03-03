@@ -159,7 +159,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # hold a reference to  all the nodes about to be edited...
         nodes = {e[0]: await self.getNodeByNid(s_common.int64en(e[0])) for e in edits if e[0] is not None}
 
-        saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
+        nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
         ecnt = 0
         fireedits = None
@@ -373,7 +373,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if fireedits:
             await bus.fire('node:edits', edits=fireedits, time=meta.get('time'), count=ecnt)
 
-        return saveoff, nodeedits
+        return nodeedits
 
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node, runt=None, transaction=False, user=None):
@@ -1692,7 +1692,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mode = opts.get('mode', 'storm')
 
             query = await self.core.getStormQuery(text, mode=mode)
-            async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
                 async for node, path in runt.execute():
                     yield node
 
@@ -1797,7 +1797,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 with s_scope.enter({'user': user}):
 
-                    async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+                    async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
 
                         if keepalive:
                             runt.schedCoro(runt.keepalive(keepalive))
@@ -1902,7 +1902,7 @@ class View(s_nexus.Pusher):  # type: ignore
         query = await self.core.getStormQuery(text, mode=mode)
 
         with s_scope.enter({'user': user}):
-            async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
                 async for pode in runt.iterStormPodes():
                     yield pode
 
@@ -2586,7 +2586,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.getNodeByBuid(node.buid)
 
-    async def addNodes(self, nodedefs, user=None, reqmeta=False):
+    async def addNodes(self, nodedefs, user=None):
         '''
         Add/merge nodes in bulk.
 
@@ -2599,7 +2599,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Args:
             nodedefs (list): A list of nodedef tuples.
             user (User): The user to add the nodes as.
-            reqmeta (bool): If True, the first item in the list is expected to be a meta dict.
 
         Returns:
             (list): A list of xact messages.
@@ -2617,11 +2616,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.readonly:
             mesg = 'The view is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
-
-        if reqmeta:
-            meta = nodedefs[0]
-            self.core._reqValidExportStormMeta(meta)
-            nodedefs = nodedefs[1:]
 
         for nodedefn in nodedefs:
 
