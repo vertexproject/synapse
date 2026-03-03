@@ -130,6 +130,8 @@ class Task(s_base.Base):
             'tick': self.tick,
             'user': self.user.iden,
             'username': self.user.name,
+            'protected': self.protected,
+            'background': self.background,
             'kids': {i: k.packv2() for i, k in self.kids.items()},
         }
 

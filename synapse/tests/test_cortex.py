@@ -7950,6 +7950,68 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(core.model.formsbyiface.get('taxonomy'))
             self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
 
+    async def test_cortex_modelrev_task(self):
+
+        async def dummy(self):
+            await asyncio.Future()
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core00:
+                await self.waitForActiveMigration(core00)
+
+            with patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
+                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
+
+                    await core01.promote(graceful=False)
+                    await asyncio.sleep(0)
+
+                    task = await core01.callStorm('''
+                        for $task in $lib.task.list() {
+                            if ($task.name = "cortex:migration:layers") {
+                                return($task)
+                            }
+                        }
+                    ''')
+                    self.nn(task)
+                    self.true(task['protected'])
+                    self.true(task['background'])
+
+                    self.true(await core01.isCellActive())
+
+                    emesg = 'Task cortex:migration:layers is protected.'
+
+                    # cannot kill through exposed Storm APIs
+
+                    opts = {'vars': {'iden': task['iden']}}
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('task.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('ps.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    # cannot kill through exposed Telepath APIs
+
+                    async with core01.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.killTask(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.kill(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                    # internal kill still works
+
+                    self.nn(rtask := core01.boss.get(task['iden']))
+                    await rtask.kill()
+                    self.none(core01.boss.get(task['iden']))
+
     async def test_cortex_vaults(self):
         '''
         Simple usage testing.
