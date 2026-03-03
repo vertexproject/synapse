@@ -7921,44 +7921,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin(f'Detected {count - 4} deprecated properties', data)
 
-    async def test_cortex_dmons_after_modelrev(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestCore(dirn=dirn) as core:
-
-                # Add a dmon so something gets started
-                await core.callStorm('''
-                    $ddef = $lib.dmon.add(${
-                        $lib.print(hi)
-                        $lib.warn(omg)
-                        $s = `Running {$auto.type} {$auto.iden}`
-                        $lib.log.info($s, ({"iden": $auto.iden}))
-                    })
-                ''')
-
-                # Create this so we can find the model rev version before the
-                # latest
-                mrev = s_modelrev.ModelRev(core)
-
-                # Add a layer and regress the version so it gets migrated on the
-                # next start
-                ldef = await core.addLayer()
-                layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers(mrev.revs[-2][0])
-
-            with self.getLoggerStream('') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
-
-            stream.seek(0)
-            data = stream.read()
-
-            # Check that the model migration happens before the dmons start
-            mrevstart = data.find('beginning model migration')
-            dmonstart = data.find('Starting Dmon')
-            self.ne(-1, mrevstart)
-            self.ne(-1, dmonstart)
-            self.lt(mrevstart, dmonstart)
-
     async def test_cortex_taxonomy_migr(self):
 
         async with self.getRegrCore('2.157.0-taxonomy-rename') as core:

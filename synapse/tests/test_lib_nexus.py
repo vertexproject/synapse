@@ -221,6 +221,8 @@ class NexusTest(s_t_utils.SynTest):
         with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
             slabsize00 = s_common.getDirSize(regrdirn)
             async with self.getTestCore(dirn=regrdirn) as core00:
+                await self.waitForActiveMigration(core00)
+
                 slabsize01 = s_common.getDirSize(regrdirn)
                 # Ensure that realsize hasn't grown wildly. That would be indicative
                 # of a sparse file copy and not a directory move.

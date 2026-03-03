@@ -925,6 +925,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1671,7 +1672,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initServiceActive(self):
 
+        await self.stormdmons.start()
+
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1688,11 +1693,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
-        await self.runActiveTask(_runMigrations())
-
-        await self.stormdmons.start()
+        self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
 
