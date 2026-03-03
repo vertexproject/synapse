@@ -86,6 +86,8 @@ class StormcovPlugin:
         self._prevcb = None
         self._freetool = False
 
+        self.isworker = os.environ.get("PYTEST_XDIST_WORKER") is not None
+
         self.config = config
         self.handlers = {
             'ast.py': self.handle_ast,
@@ -146,7 +148,7 @@ class StormcovPlugin:
                     continue
 
                 subg = s_common.guid(str(subq))
-                line = (node.meta.line - 1)
+                line = node.meta.line
 
                 if subg in self.subq_map:
                     (pname, pline) = self.subq_map[subg]
@@ -192,6 +194,11 @@ class StormcovPlugin:
 
         data = self.cov.get_data()
 
+        # Bail if there's no coverage. This could be because of a xdist worker
+        # that didn't have any work
+        if not self.lines_hit:
+            return
+
         # Add our stormcov data
         data.add_lines(dict(self.lines_hit))
         data.touch_files(self.guid_map.values(), 'synapse.utils.stormcov.StormReporterPlugin')
@@ -232,6 +239,9 @@ class StormcovPlugin:
         yield
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config): # pragma: no cover
+        if self.isworker:
+            return
+
         self.cov.report(skip_covered=False, skip_empty=False)
 
     def sysmon_py_start(self, code, instruction_offset):

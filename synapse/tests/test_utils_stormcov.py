@@ -53,8 +53,8 @@ class TestUtilsStormcov(s_utils.SynTest):
 
                 stormcov.reset()
 
-            # await check_cov('stormcov/dupesubs.storm', {1, 2, 3, 4, 5, 6, 8, 9, 11})
-            # await check_cov('stormcov/argvquery.storm', {1, 2, 3, 4, 8})
+            await check_cov('stormcov/dupesubs.storm', {1, 2, 4, 7, 8, 9, 10, 12, 13, 16, 17})
+            await check_cov('stormcov/argvquery.storm', {1, 2, 3, 4, 6, 8})
             await check_cov('stormcov/stormctrl.storm', {1, 2, 3, 6})
             await check_cov('stormcov/pivot.storm', {1, 2})
             await check_cov('stormcov/pragma-nocov.storm', {1, 2, 3, 18})
