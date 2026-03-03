@@ -2697,6 +2697,8 @@ class StormTest(s_t_utils.SynTest):
                         ddef = await core02.callStorm(q)
                         self.nn(ddef['iden'])
 
+                        # getStormDmons is a from_leader API so make sure it has applied to change
+                        await core02.sync()
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
                         self.eq(dmons[0]['iden'], ddef['iden'])
