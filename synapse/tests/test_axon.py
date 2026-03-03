@@ -109,7 +109,7 @@ class HttpPushFile(s_httpapi.StreamHandler):
         assert args.get('dict') == [b'{"foo":"bar"}']
         self.sendRestRetn(self.gotsize)
 
-class AxonTest(s_t_utils.SynTest):
+class AxonTestMixin:
 
     async def check_blob(self, axon, fhash):
         chunks = [chunk async for chunk in axon.get(fhash)]
@@ -339,6 +339,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
         evt = asyncio.Event()
         origlink = s_axon.Axon._sha256ToLink
+
         async def fakelink(self, sha256_, link):
             link.onfini(evt.set)
             if sha256_ == pennhash:
@@ -447,6 +448,7 @@ bar baz",vv
         info = await axon.getCellInfo()
         if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):
             logger.info(f'Running range test for {axon}')
+
             # hand insert a genr to control offset sizes
             def genr():
                 yield b'asdf'
@@ -515,37 +517,6 @@ bar baz",vv
         with self.raises(s_exc.BadDataValu):
             await axon.unpack(sha256, '>Q', offs=24)
 
-    async def test_axon_base(self):
-        async with self.getTestAxon() as axon:
-            self.isin('axon', axon.dmon.shared)
-            await self.runAxonTestBase(axon)
-
-            # test behavior for two concurrent uploads where the file exists once the lock is released
-            self.eq(bbufretn, await axon.put(bbuf))
-            self.true(await axon.has(bbufhash))
-
-            with self.raises(ValueError) as cm:
-                async with axon.holdHashLock(bbufhash):
-                    raise ValueError('oops')
-            self.none(axon.hashlocks.get(bbufhash))
-
-            def emptygen():
-                if False:
-                    yield None
-                return
-
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
-
-    async def test_axon_proxy(self):
-        async with self.getTestAxon() as axon:
-            async with axon.getLocalProxy() as prox:
-                await self.runAxonTestBase(prox)
-
-    async def test_axon_http(self):
-
-        # HTTP handlers on a standalone Axon
-        async with self.getTestAxon() as axon:
-            await self.runAxonTestHttp(axon)
 
     async def runAxonTestHttp(self, axon, realaxon=None):
         '''
@@ -881,6 +852,40 @@ bar baz",vv
                 headers = {'range': 'bytes=20-4'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
                     self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+
+class AxonTest(s_t_utils.SynTest, AxonTestMixin):
+
+    async def test_axon_base(self):
+        async with self.getTestAxon() as axon:
+            self.isin('axon', axon.dmon.shared)
+            await self.runAxonTestBase(axon)
+
+            # test behavior for two concurrent uploads where the file exists once the lock is released
+            self.eq(bbufretn, await axon.put(bbuf))
+            self.true(await axon.has(bbufhash))
+
+            with self.raises(ValueError) as cm:
+                async with axon.holdHashLock(bbufhash):
+                    raise ValueError('oops')
+            self.none(axon.hashlocks.get(bbufhash))
+
+            def emptygen():
+                if False:
+                    yield None
+                return
+
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
+
+    async def test_axon_proxy(self):
+        async with self.getTestAxon() as axon:
+            async with axon.getLocalProxy() as prox:
+                await self.runAxonTestBase(prox)
+
+    async def test_axon_http(self):
+
+        # HTTP handlers on a standalone Axon
+        async with self.getTestAxon() as axon:
+            await self.runAxonTestHttp(axon)
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
