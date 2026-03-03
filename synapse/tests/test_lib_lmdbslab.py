@@ -126,7 +126,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=testdb)
                 await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=testdb)
                 await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=testdb)
-                await slab.put(pref + s_common.int64en(0) + b'cfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfuz', b'haha', db=testdb)
                 await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=testdb)
                 await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=testdb)
 
@@ -144,13 +144,26 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
                 self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
 
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                    (pref + s_common.int64en(0) + b'bfoo', b'haha'),
+                    (pref + s_common.int64en(0) + b'cfuz', b'haha'),
+                    (pref + s_common.int64en(0) + b'dfoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb)))
+                self.eq(exp[3:], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'bfoo', db=testdb)))
+                self.eq(exp[:3], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb, lmax=b'afoo')))
+                self.eq(exp[:1], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb, lmax=b'afaa')))
+
                 dupsdb = slab.initdb('dups', dupsort=True)
 
                 await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=dupsdb)
                 await slab.put(pref + s_common.int64en(0) + b'abar', b'hoho', db=dupsdb)
                 await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=dupsdb)
                 await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=dupsdb)
-                await slab.put(pref + s_common.int64en(0) + b'cfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfuz', b'haha', db=dupsdb)
                 await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=dupsdb)
                 await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=dupsdb)
 

@@ -1556,7 +1556,37 @@ class Slab(s_base.Base):
                 pval = int.from_bytes(skey, 'big') + 1
                 skey = pval.to_bytes(multilen, 'big')
 
+    async def _multiScanCommon(self, scangenr, cmprkey):
+
+        pval = 0
+        genrs = []
+
+        while True:
+            try:
+                sgen = scangenr(pval)
+                skey = await anext(sgen)
+                pval = int.from_bytes(skey, 'big') + 1
+            except StopAsyncIteration:
+                break
+
+            genrs.append(sgen)
+            await asyncio.sleep(0)
+
+        if not genrs:
+            return
+
+        if len(genrs) == 1:
+            async for item in genrs[0]:
+                yield item
+            return
+
+        async for item in s_common.merggenr2(genrs, cmprkey):
+            yield item
+
     async def multiScanByPref(self, pref, multilen, byts, db=None):
+
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
 
         async def scangenr(pval):
             with Scan(self, db) as scan:
@@ -1586,36 +1616,16 @@ class Slab(s_base.Base):
                         pval = int.from_bytes(skey, 'big') + 1
                         skey = pval.to_bytes(multilen, 'big')
 
-        pval = 0
-        genrs = []
-        preflen = len(pref) + multilen
-        size = preflen + len(byts)
-
-        while True:
-            try:
-                sgen = scangenr(pval)
-                skey = await anext(sgen)
-                pval = int.from_bytes(skey, 'big') + 1
-            except StopAsyncIteration:
-                break
-
-            genrs.append(sgen)
-            await asyncio.sleep(0)
-
-        if not genrs:
-            return
-
-        if len(genrs) == 1:
-            async for item in genrs[0]:
-                yield item
-
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in s_common.merggenr2(genrs, cmprkey):
+        async for item in self._multiScanCommon(scangenr, cmprkey):
             yield item
 
     async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None):
+
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmax)) if lmax is not None else None
 
         async def scangenr(pval):
             with Scan(self, db) as scan:
@@ -1646,36 +1656,16 @@ class Slab(s_base.Base):
                             yield item
                         return
 
-        pval = 0
-        genrs = []
-        preflen = len(pref) + multilen
-        size = (preflen + len(lmax)) if lmax is not None else None
-
-        while True:
-            try:
-                sgen = scangenr(pval)
-                skey = await anext(sgen)
-                pval = int.from_bytes(skey, 'big') + 1
-            except StopAsyncIteration:
-                break
-
-            genrs.append(sgen)
-            await asyncio.sleep(0)
-
-        if not genrs:
-            return
-
-        if len(genrs) == 1:
-            async for item in genrs[0]:
-                yield item
-
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in s_common.merggenr2(genrs, cmprkey):
+        async for item in self._multiScanCommon(scangenr, cmprkey):
             yield item
 
     async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False):
+
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
 
         async def scangenr(pval):
             with ScanKeys(self, db, nodup=nodup) as scan:
@@ -1708,33 +1698,10 @@ class Slab(s_base.Base):
                         pval = int.from_bytes(skey, 'big') + 1
                         skey = pval.to_bytes(multilen, 'big')
 
-        pval = 0
-        genrs = []
-        preflen = len(pref) + multilen
-        size = preflen + len(byts)
-
-        while True:
-            try:
-                sgen = scangenr(pval)
-                skey = await anext(sgen)
-                pval = int.from_bytes(skey, 'big') + 1
-            except StopAsyncIteration:
-                break
-
-            genrs.append(sgen)
-            await asyncio.sleep(0)
-
-        if not genrs:
-            return
-
-        if len(genrs) == 1:
-            async for item in genrs[0]:
-                yield item
-
         def cmprkey(valu):
             return valu[preflen:]
 
-        async for item in s_common.merggenr2(genrs, cmprkey):
+        async for item in self._multiScanCommon(scangenr, cmprkey):
             yield item
 
     def scanByFull(self, db=None):
