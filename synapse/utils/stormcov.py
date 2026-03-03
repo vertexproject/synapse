@@ -72,7 +72,6 @@ def pytest_configure(config): # pragma: no cover
 
 def get_parser():
     grammar = s_data.getLark('storm')
-
     return lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,
                             maybe_placeholders=False, propagate_positions=True)
 
@@ -81,7 +80,9 @@ class StormcovPlugin:
     PARSE_METHODS = {'compute', 'once', 'lift', 'getPivsOut', 'getPivsIn'}
 
     def __init__(self, config):
-        self.toolid = sys.monitoring.COVERAGE_ID
+        # toolid=4 is not defined in sys.monitoring so there's less of a chance
+        # that we interfere with another tool, namely coveragepy.
+        self.toolid = 4
         self._prevcb = None
         self._freetool = False
 
@@ -108,8 +109,6 @@ class StormcovPlugin:
         self.stormdirs = config.option.stormdirs
         self.basedir = config.option.stormcov_basedir
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
-
-        self.debug = []
 
     def reset(self):
         self.lines_hit = collections.defaultdict(set)
@@ -276,7 +275,7 @@ class StormcovPlugin:
             self.mark_lines(frame, info)
             return
 
-        if not node.__class__.__name__ == 'Query':
+        if node.__class__.__name__ != 'Query':
             self.node_map[nodeid] = None
             return
 
@@ -304,7 +303,6 @@ class StormcovPlugin:
         self.mark_lines(frame, (filename, offs))
 
     def mark_lines(self, frame, info):
-        self.debug.append((frame, info))
         astn = frame.f_locals.get('self')
         fname, offs = info
         strt = astn.astinfo.sline
