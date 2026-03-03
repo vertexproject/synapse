@@ -2,6 +2,8 @@ import os
 import logging
 import argparse
 
+import regex
+
 import synapse.tests.files as s_files
 import synapse.tests.utils as s_utils
 
@@ -30,7 +32,7 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         stormcov = s_stormcov.StormcovPlugin(opts)
         stormcov.find_storm_files(stormdir)
-        self.eq(
+        self.sorteq(
             list(stormcov.guid_map.values()),
             [
                 s_files.getAssetPath('stormcov/spin.storm'),
@@ -40,25 +42,42 @@ class TestUtilsStormcov(s_utils.SynTest):
                 s_files.getAssetPath('stormcov/dupesubs.storm'),
                 s_files.getAssetPath('stormcov/pivot.storm'),
                 s_files.getAssetPath('stormcov/argvquery.storm'),
+                s_files.getAssetPath('stormcov/embedquery.storm'),
             ]
         )
 
+    async def test_stormcov_coverage(self):
+        basedir = s_files.ASSETS
+        stormdir = os.path.join(basedir, 'stormcov')
+        opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
+
+        stormcov = s_stormcov.StormcovPlugin(opts)
+        stormcov.find_storm_files(stormdir)
+
         async with self.getTestCore() as core:
-            async def check_cov(filename, expected, stormopts=None):
+            async def check_cov(filename):
+                storm = s_files.getAssetStr(filename)
                 stormcov._start_sysmon()
-                await core.stormlist(s_files.getAssetStr(filename), opts=stormopts)
+                await core.stormlist(storm)
                 stormcov._stop_sysmon()
+
+                coverage = regex.search(r'\/\/ coverage:.*?$', storm, flags=regex.M)
+                self.nn(coverage, msg='Stormcov sample files require a "// coverage: #, #, #" line')
+
+                linenums = regex.findall(r'\d+', coverage.group())
+                expected = set(map(int, linenums))
 
                 self.eq(dict(stormcov.lines_hit), {s_files.getAssetPath(filename): expected})
 
                 stormcov.reset()
 
-            await check_cov('stormcov/dupesubs.storm', {1, 2, 4, 7, 8, 9, 10, 12, 13, 16, 17})
-            await check_cov('stormcov/argvquery.storm', {1, 2, 3, 4, 6, 8})
-            await check_cov('stormcov/stormctrl.storm', {1, 2, 3, 6})
-            await check_cov('stormcov/pivot.storm', {1, 2})
-            await check_cov('stormcov/pragma-nocov.storm', {1, 2, 3, 18})
-            await check_cov('stormcov/spin.storm', {2, 3})
+            await check_cov('stormcov/dupesubs.storm')
+            await check_cov('stormcov/embedquery.storm')
+            await check_cov('stormcov/argvquery.storm')
+            await check_cov('stormcov/stormctrl.storm')
+            await check_cov('stormcov/pivot.storm')
+            await check_cov('stormcov/pragma-nocov.storm')
+            await check_cov('stormcov/spin.storm')
 
     async def test_stormcov_lookup(self):
         basedir = s_files.ASSETS
@@ -80,17 +99,25 @@ class TestUtilsStormcov(s_utils.SynTest):
     async def test_stormcov_stormreporter(self):
         parser = s_stormcov.get_parser()
 
-        async def check_lines(filename, expected):
+        async def check_lines(filename):
+            storm = s_files.getAssetStr(filename)
             reporter = s_stormcov.StormReporter(s_files.getAssetPath(filename), parser)
+
+            lines = regex.search(r'\/\/ lines:.*?$', storm, flags=regex.M)
+            self.nn(lines, msg='Stormcov sample files require a "// lines: #, #, #" line')
+
+            linenums = regex.findall(r'\d+', lines.group())
+            expected = set(map(int, linenums))
+
             self.eq(reporter.lines(), expected)
 
-        await check_lines('stormcov/pivot.storm', {1, 2})
-        await check_lines('stormcov/stormctrl.storm', {1, 2, 3, 6})
-        await check_lines('stormcov/pragma-nocov.storm', {1, 2, 3, 12, 18})
-        await check_lines('stormcov/spin.storm', {2, 3})
-        await check_lines('stormcov/argvquery.storm', {1, 2, 3, 4, 8})
-        await check_lines('stormcov/lookup.storm', {1, 2, 3, 5, 6})
-        await check_lines('stormcov/dupesubs.storm', {1, 2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 17})
+        await check_lines('stormcov/pivot.storm')
+        await check_lines('stormcov/stormctrl.storm')
+        await check_lines('stormcov/pragma-nocov.storm')
+        await check_lines('stormcov/spin.storm')
+        await check_lines('stormcov/argvquery.storm')
+        await check_lines('stormcov/lookup.storm')
+        await check_lines('stormcov/dupesubs.storm')
 
     async def test_stormcov_stormreporter_plugin(self):
         plugin = s_stormcov.StormReporterPlugin()

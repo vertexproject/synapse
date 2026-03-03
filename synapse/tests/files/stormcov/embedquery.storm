@@ -1,0 +1,17 @@
+$eq1 = ${
+    [ inet:fqdn=vertex.link ]
+}
+$eq2 = ${
+    if (true) {
+        [ inet:fqdn=vertex.link ]
+    }
+}
+$eq3 = ${
+    if (false) {
+        [ inet:fqdn=vertex.link ]
+    }
+}
+
+tee $eq1 $eq2 $eq3
+// coverage: 1, 2, 4, 5, 6, 9, 10,     15
+// lines:    1, 2, 4, 5, 6, 9, 10, 11, 15
