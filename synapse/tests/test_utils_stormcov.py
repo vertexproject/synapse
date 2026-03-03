@@ -230,7 +230,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/spin.storm', {2, 3})
         await check_lines('stormcov/argvquery.storm', {1, 2, 3, 4, 8})
         await check_lines('stormcov/lookup.storm', {1, 2, 3, 5, 6})
-        await check_lines('stormcov/dupesubs.storm', {1, 2, 3, 4, 5, 6, 8, 9, 11})
+        await check_lines('stormcov/dupesubs.storm', {1, 2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 17})
 
     async def test_stormcov_stormreporter_plugin(self):
         plugin = s_stormcov.StormReporterPlugin()

@@ -82,6 +82,7 @@ class StormcovPlugin:
 
     def __init__(self, config):
         self.toolid = sys.monitoring.COVERAGE_ID
+        self._prevcb = None
         self._freetool = False
 
         self.config = config
@@ -145,17 +146,8 @@ class StormcovPlugin:
                 if subq.meta.empty:
                     continue
 
-                soff = subq.meta.start_pos
-                eoff = subq.meta.end_pos
-
-                if rule == 'embedquery':
-                    soff = node.meta.start_pos + 2
-                    eoff = node.meta.end_pos - 1
-
-                subg = (s_common.guid(str(tree)), soff, eoff)
+                subg = s_common.guid(str(subq))
                 line = (node.meta.line - 1)
-
-                logger.info(f'guid={subg[0]} {path=} {subq=} {soff=} {eoff=} {line=}')
 
                 if subg in self.subq_map:
                     (pname, pline) = self.subq_map[subg]
@@ -171,9 +163,13 @@ class StormcovPlugin:
             self._freetool = True
 
         sys.monitoring.set_events(self.toolid, sys.monitoring.events.PY_START)
-        sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
+        self._prevcb = sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
 
     def _stop_sysmon(self):
+        if self._prevcb:
+            sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self._prevcb)
+            return
+
         if self._freetool:
             sys.monitoring.free_tool_id(self.toolid)
             self._freetool = False
@@ -261,7 +257,6 @@ class StormcovPlugin:
                 frame = inspect.currentframe().f_back.f_back
 
         realnode = frame.f_locals.get('self')
-        realcls = realnode.__class__.__name__
         if hasattr(realnode, '_coverage_hit'):
             return
 
@@ -270,11 +265,6 @@ class StormcovPlugin:
         node = realnode
         while hasattr(node, 'parent'):
             node = node.parent
-
-        topnode = node
-
-        if realcls in ('ArgvQuery', 'EmbedQuery'):
-            node = realnode.kids[0]
 
         nodeid = id(node)
 
@@ -295,15 +285,12 @@ class StormcovPlugin:
             self.mark_lines(frame, info)
             return
 
-        tree = self.parser.parse(topnode.text)
+        tree = self.parser.parse(node.text)
         guid = s_common.guid(str(tree))
 
-        if realcls in ('ArgvQuery', 'EmbedQuery'):
-            posinfo = node.getPosInfo()
-            if realcls == 'EmbedQuery':
-                posinfo = realnode.getPosInfo()
-            soff, eoff = posinfo['offsets']
-            filename, offs = self.subq_map.get((guid, soff, eoff), (None, 0))
+        subq = self.subq_map.get(guid)
+        if subq is not None:
+            (filename, offs) = subq
         else:
             filename = self.guid_map.get(guid)
             offs = 0
@@ -326,7 +313,6 @@ class StormcovPlugin:
         else:
             fini = strt
 
-        logger.info(f'{fname} {offs} {strt + offs=} {fini + offs + 1=}')
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
 
     PIVOT_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
