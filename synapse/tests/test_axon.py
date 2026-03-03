@@ -517,7 +517,6 @@ bar baz",vv
         with self.raises(s_exc.BadDataValu):
             await axon.unpack(sha256, '>Q', offs=24)
 
-
     async def runAxonTestHttp(self, axon, realaxon=None):
         '''
         Test Axon HTTP APIs.
