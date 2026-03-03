@@ -1531,62 +1531,60 @@ class Slab(s_base.Base):
 
             pval = 0
             skey = pval.to_bytes(multilen, 'big')
+            preflen = len(pref)
+            fullpref = preflen + multilen
 
             while True:
                 if not scan.set_range(pref + skey + lkey):
                     return
 
-                sgen = scan.iternext()
-                try:
-                    fkey, fval = next(sgen)
-                    if not fkey.startswith(pref):
-                        return
-
-                    skey = fkey[len(pref):len(pref) + multilen]
-                    if fkey[len(pref) + multilen:] < lkey:
-                        continue
-
-                except StopIteration:
+                fkey = scan.atitem[0]
+                if not fkey.startswith(pref):
                     return
 
-                if (fullkey := pref + skey + lkey) == fkey:
-                    yield (fkey, fval)
+                skey = fkey[preflen:fullpref]
+                if fkey[fullpref:] < lkey:
+                    continue
 
-                    for item in sgen:
-                        if not item[0] == fullkey:
-                            break
-                        yield item
+                fullkey = pref + skey + lkey
+
+                for item in scan.iternext():
+                    if not item[0] == fullkey:
+                        break
+                    yield item
 
                 pval = int.from_bytes(skey, 'big') + 1
                 skey = pval.to_bytes(multilen, 'big')
 
-    async def multiScanByPref(self, pref, multilen, byts, startkey=None, startvalu=None, db=None):
-        if startkey is None:
-            startkey = b''
+    async def multiScanByPref(self, pref, multilen, byts, db=None):
 
-        def scangenr(pval):
+        async def scangenr(pval):
             with Scan(self, db) as scan:
                 skey = pval.to_bytes(multilen, 'big')
 
-                if not scan.set_range(pref + skey + byts + startkey, valu=startvalu):
-                    return
-
-                genr = scan.iternext()
-                fval = next(genr)
-
-                if not fval[0].startswith(pref):
-                    return
-
-                if fval[0][preflen:size] < byts:
-                    skey = fval[0][len(pref):preflen]
-                    if not scan.set_range(pref + skey + byts + startkey, valu=startvalu):
+                while True:
+                    if not scan.set_range(pref + skey + byts):
                         return
-                    yield scan.atitem
-                else:
-                    yield fval
 
-                for item in genr:
-                    yield item
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if fkey[preflen:size] == byts:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (item[0][preflen:size] != byts) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+                    elif fkey[preflen:size] > byts:
+                        pval = int.from_bytes(skey, 'big') + 1
+                        skey = pval.to_bytes(multilen, 'big')
 
         pval = 0
         genrs = []
@@ -1594,34 +1592,15 @@ class Slab(s_base.Base):
         size = preflen + len(byts)
 
         while True:
-            await asyncio.sleep(0)
-
-            sgen = scangenr(pval)
-
             try:
-                fval = next(sgen)
-                if not fval[0].startswith(pref):
-                    break
-
-                skey = fval[0][len(pref):preflen]
+                sgen = scangenr(pval)
+                skey = await anext(sgen)
                 pval = int.from_bytes(skey, 'big') + 1
-            except StopIteration:
+            except StopAsyncIteration:
                 break
 
-            if fval[0][preflen:size] != byts:
-                continue
-
-            async def pullgenr(first, genr):
-                yield first
-
-                fullpref = first[0][:preflen]
-
-                for item in genr:
-                    if (item[0][preflen:size] != byts) or not item[0].startswith(fullpref):
-                        return
-                    yield item
-
-            genrs.append(pullgenr(fval, sgen))
+            genrs.append(sgen)
+            await asyncio.sleep(0)
 
         if not genrs:
             return
@@ -1638,28 +1617,34 @@ class Slab(s_base.Base):
 
     async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None):
 
-        def scangenr(pval):
+        async def scangenr(pval):
             with Scan(self, db) as scan:
                 skey = pval.to_bytes(multilen, 'big')
-                if not scan.set_range(pref + skey + lmin):
-                    return
 
-                genr = scan.iternext()
-                fval = next(genr)
-
-                if not fval[0].startswith(pref):
-                    return
-
-                if fval[0][preflen:size] < lmin:
-                    skey = fval[0][len(pref):preflen]
+                while True:
                     if not scan.set_range(pref + skey + lmin):
                         return
-                    yield scan.atitem
-                else:
-                    yield fval
 
-                for item in genr:
-                    yield item
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if lmax is not None and fkey[preflen:size] > lmax:
+                        pval = int.from_bytes(skey, 'big') + 1
+                        skey = pval.to_bytes(multilen, 'big')
+                        continue
+
+                    if fkey[preflen:size] >= lmin:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (lmax is not None and item[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
 
         pval = 0
         genrs = []
@@ -1667,34 +1652,15 @@ class Slab(s_base.Base):
         size = (preflen + len(lmax)) if lmax is not None else None
 
         while True:
-            await asyncio.sleep(0)
-
-            sgen = scangenr(pval)
-
             try:
-                fval = next(sgen)
-                if not fval[0].startswith(pref):
-                    break
-
-                skey = fval[0][len(pref):preflen]
+                sgen = scangenr(pval)
+                skey = await anext(sgen)
                 pval = int.from_bytes(skey, 'big') + 1
-            except StopIteration:
+            except StopAsyncIteration:
                 break
 
-            if lmax is not None and fval[0][preflen:size] > lmax:
-                continue
-
-            async def pullgenr(first, genr):
-                yield first
-
-                fullpref = first[0][:preflen]
-
-                for item in genr:
-                    if (lmax is not None and item[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
-                        return
-                    yield item
-
-            genrs.append(pullgenr(fval, sgen))
+            genrs.append(sgen)
+            await asyncio.sleep(0)
 
         if not genrs:
             return
@@ -1711,15 +1677,36 @@ class Slab(s_base.Base):
 
     async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False):
 
-        def scangenr(pval):
+        async def scangenr(pval):
             with ScanKeys(self, db, nodup=nodup) as scan:
                 skey = pval.to_bytes(multilen, 'big')
 
-                if not scan.set_range(pref + skey + byts):
-                    return
+                while True:
+                    if not scan.set_range(pref + skey + byts):
+                        return
 
-                for item in scan.iternext():
-                    yield item
+                    fkey = scan.atitem
+                    if not nodup:
+                        fkey = fkey[0]
+
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if fkey[preflen:size] == byts:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (item[preflen:size] != byts) or not item.startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+                    elif fkey[preflen:size] > byts:
+                        pval = int.from_bytes(skey, 'big') + 1
+                        skey = pval.to_bytes(multilen, 'big')
 
         pval = 0
         genrs = []
@@ -1727,34 +1714,15 @@ class Slab(s_base.Base):
         size = preflen + len(byts)
 
         while True:
-            await asyncio.sleep(0)
-
-            sgen = scangenr(pval)
-
             try:
-                fval = next(sgen)
-                if not fval.startswith(pref):
-                    break
-
-                skey = fval[len(pref):preflen]
+                sgen = scangenr(pval)
+                skey = await anext(sgen)
                 pval = int.from_bytes(skey, 'big') + 1
-            except StopIteration:
+            except StopAsyncIteration:
                 break
 
-            if fval[preflen:size] != byts:
-                continue
-
-            async def pullgenr(first, genr):
-                yield first
-
-                fullpref = first[:preflen]
-
-                for item in genr:
-                    if (item[preflen:size] != byts) or not item.startswith(fullpref):
-                        return
-                    yield item
-
-            genrs.append(pullgenr(fval, sgen))
+            genrs.append(sgen)
+            await asyncio.sleep(0)
 
         if not genrs:
             return

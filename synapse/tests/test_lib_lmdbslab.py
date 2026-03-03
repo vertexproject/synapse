@@ -109,6 +109,74 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq([b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
                 self.eq([], list(slab.scanKeysByPref(b'z', db=dupsdb)))
 
+    async def test_lmdbslab_multiscan(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+
+                pref = b'tpref'
+                multilen = 8
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'newp', db=testdb)))
+
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=testdb)
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                await slab.put(b'zpref' + s_common.int64en(2) + b'afaz', b'haha', db=testdb)
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'hoho', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=dupsdb)
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(0) + b'abar', b'hoho'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                await slab.put(b'zpref' + s_common.int64en(2) + b'afaz', b'haha', db=dupsdb)
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                exp = [e[0] for e in exp]
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                exp = (
+                    pref + s_common.int64en(0) + b'abar',
+                    pref + s_common.int64en(2) + b'afaz',
+                    pref + s_common.int64en(0) + b'afoo',
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb, nodup=True)))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn0, self.getTestDir(startdir=dirn0) as dirn:
