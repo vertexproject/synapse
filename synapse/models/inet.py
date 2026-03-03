@@ -596,6 +596,8 @@ class Fqdn(s_types.Type):
             '=': self._storLiftEq,
         })
 
+        self.storlifts.pop('range=', None)
+
         self.hosttype = self.modl.type('str').clone({'lower': True})
         self.booltype = self.modl.type('bool')
 

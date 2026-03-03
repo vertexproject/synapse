@@ -1835,6 +1835,51 @@ class Slab(s_base.Base):
         async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
             yield item
 
+    async def multiScanKeysByRange(self, pref, multilen, lmin, lmax=None, db=None, nodup=False):
+
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmax)) if lmax is not None else None
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with ScanKeys(self, db, nodup=nodup) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + lmin):
+                        return
+
+                    fkey = scan.atitem
+                    if scan.dupsort and not nodup:
+                        fkey = fkey[0]
+
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if lmax is not None and fkey[preflen:size] > lmax:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+                        continue
+
+                    if fkey[preflen:size] >= lmin:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (lmax is not None and item[preflen:size] > lmax) or not item.startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+        def cmprkey(valu):
+            return valu[preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+            yield item
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:

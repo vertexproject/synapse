@@ -1605,6 +1605,25 @@ class ViewTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:int', node.form.name)
 
+            nodes = await core.nodes('''[
+                (test:str=foo :poly={[ test:str=p1 ]})
+                (test:str=bar :poly={[ test:int=3 ]})
+                (test:str=baz :poly={[ test:hasiface=p2 ]})
+                (test:str=faz :poly={[ test:lowstr=p1 ]})
+                (test:str=nop :poly={[ test:int=1 ]})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=p, cmpr="^=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq(('test:str', 'p1'), nodes[0].ndef)
+            self.eq(('test:lowstr', 'p1'), nodes[1].ndef)
+            self.eq(('test:hasiface', 'p2'), nodes[2].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=(0, 5), cmpr="range=")', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(('test:int', 1), nodes[0].ndef)
+            self.eq(('test:int', 3), nodes[1].ndef)
+
     async def test_view_edge_counts(self):
 
         async with self.getTestCore() as core:

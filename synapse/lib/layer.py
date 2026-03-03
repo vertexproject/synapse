@@ -587,7 +587,7 @@ class IndxByPolyKeys(IndxByPoly):
             yield lkey, None
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        async for lkey in self.layr.layrslab.multiScanKeysByRange(self.abrv, self.multilen, minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
+        async for lkey in self.layr.layrslab.multiScanKeysByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db, nodup=True):
             yield lkey, None
 
     def getNodeValu(self, nid, lkey=None):
@@ -1139,7 +1139,6 @@ class StorType:
             if (storvalu := liftby.getNodeValu(nid, lkey=lkey)) is s_common.novalu:
                 continue
 
-            # TODO get rid of this since getNodeValu can handle it?
             if isarray:
                 for sval in storvalu:
                     if self.indx(sval)[0] == indx:
