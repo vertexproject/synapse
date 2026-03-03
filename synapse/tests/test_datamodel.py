@@ -872,8 +872,15 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str:poly=3'))
             self.len(1, await core.nodes('test:str:poly=p2'))
 
+            nodes = await core.nodes('test:str:poly>0')
+            self.len(2, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(test:str:poly>0)'))
+
             # lifts using both test:str/test:lowstr norms
-            self.len(2, await core.nodes('test:str:poly=p1'))
+            nodes = await core.nodes('test:str:poly=p1')
+            self.len(2, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(test:str:poly=p1)'))
+
             self.len(3, await core.nodes('test:str:poly^=p'))
             self.len(3, await core.nodes('test:str:poly^=P'))
 

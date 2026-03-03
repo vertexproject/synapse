@@ -515,8 +515,7 @@ class IndxByPoly(IndxBy):
 
     async def keyNidsByDups(self, indx, reverse=False):
         if reverse:
-            # TODO: reverse multiscans
-            genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByDupsBack(self.abrv, self.multilen, indx, db=self.db)
         else:
             genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db)
 
@@ -525,7 +524,6 @@ class IndxByPoly(IndxBy):
 
     async def keyNidsByPref(self, indx=b'', reverse=False):
         if reverse:
-            # TODO: reverse multiscans
             genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
         else:
             genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
@@ -535,8 +533,7 @@ class IndxByPoly(IndxBy):
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         if reverse:
-            # TODO: reverse multiscans
-            genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db)
+            genr = self.layr.layrslab.multiScanByRangeBack(self.abrv, self.multilen, maxindx, lmin=minindx, db=self.db)
         else:
             genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db)
 
