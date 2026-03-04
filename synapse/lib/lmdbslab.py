@@ -1673,36 +1673,39 @@ class Slab(s_base.Base):
         size = preflen + len(byts)
         maxv = int.from_bytes(b'\xff' * multilen, 'big')
 
+        intpref = int.from_bytes(pref, 'big')
+        maxpref = int.from_bytes(b'\xff' * len(pref), 'big')
+
+        intbyts = int.from_bytes(byts, 'big')
+        maxbyts = int.from_bytes(b'\xff' * len(byts), 'big')
+
         async def scangenr(pval):
             with ScanBack(self, db) as scan:
                 skey = pval.to_bytes(multilen, 'big')
 
                 while True:
-                    intoff = int.from_bytes(byts, "big")
-                    intoff += 1
-                    try:
-                        nextbyts = intoff.to_bytes(len(byts), "big")
+                    if (intbyts + 1) <= maxbyts:
+                        nextbyts = (intbyts + 1).to_bytes(len(byts), "big")
                         nextpref = pref + skey + nextbyts
-                        if not scan.set_range(nextpref):
-                            return
 
-                        if scan.atitem[0] == nextpref:
-                            if not scan.next_key():
-                                return
-
-                    except OverflowError:
-                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
-                            if not scan.first():
-                                return
-
+                    elif (pval := int.from_bytes(skey, 'big') + 1) <= maxv:
+                        # Prefix can't be incremented, try to increment multi key instead
                         skey = pval.to_bytes(multilen, 'big')
                         nextpref = pref + skey
-                        if not scan.set_range(nextpref) and not scan.first():
-                            return
 
-                        if scan.atitem[0] == nextpref:
-                            if not scan.next_key():
-                                return
+                    elif (intpref + 1) <= maxpref:
+                        # Multi key can't be incremented, try to increment prefix
+                        nextpref = (intpref + 1).to_bytes(len(pref), "big")
+
+                    else:
+                        # No room to increment any keys, just go to the last item in the db
+                        nextpref = None
+
+                    if nextpref is not None and scan.set_range(nextpref):
+                        if scan.atitem[0] == nextpref and not scan.next_key():
+                            return
+                    elif not scan.first():
+                        return
 
                     fkey = scan.atitem[0]
                     if not fkey.startswith(pref):

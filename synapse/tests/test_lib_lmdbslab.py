@@ -122,6 +122,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 multilen = 8
 
                 self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'newp', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xff', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(b'\xff', multilen, b'\xff', db=testdb)))
 
                 await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=testdb)
                 await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=testdb)
@@ -146,6 +148,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
 
                 self.eq(exp[::-1], await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'a', db=testdb)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'0', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'abaq', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xff', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xfe', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xfe', db=testdb)))
 
                 exp = (
                     (pref + s_common.int64en(0) + b'abar', b'haha'),

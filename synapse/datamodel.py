@@ -669,10 +669,6 @@ class Model:
                     'computed': True,
                     'doc': 'The form of node which is referenced.'}),
 
-                ('ndef', ('ndef', {}), {
-                    'computed': True,
-                    'doc': 'The (form, valu) of the node which is referenced.'}),
-
                 ('value', ('data', {}), {
                     'computed': True,
                     'doc': 'The primary property value of the node which is referenced.'}),

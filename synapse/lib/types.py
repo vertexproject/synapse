@@ -580,7 +580,7 @@ class Array(Type):
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
-        # TODO can we polyprop with multiple type+typeopts defs????
+        # TODO allow polyprop with multiple type+typeopts defs?
         if not typeopts:
             if typename in self.modl.ifaces or ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
                 typename = (typename,)
@@ -706,17 +706,6 @@ class Array(Type):
             'adds': adds,
             'virts': {vkey: dict(vval) for vkey, vval in virts.items()}
         }
-
-#        if virts:
-#            realvirts = collections.defaultdict(list)
-#            for norm in norms:
-#                if (virt := virts.get(norm)) is not None:
-#                    for vkey, vval in virt.items():
-#                        realvirts[vkey].append(vval)
-#
-#            norminfo['virts'] = dict(realvirts)
-#        else:
-#            norminfo['virts'] = {}
 
         return tuple(norms), norminfo
 
@@ -2357,7 +2346,6 @@ class Poly(Type):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
                 valu = valu.valu[1]
 
-            # TODO better runtnode handling?
             elif isinstance(valu, s_node.RuntNode):
                 if self.formfilter(valu.form):
                     return (('=', valu.ndef[1], valu.form.type.stortype | s_layer.STOR_FLAG_POLY),)
@@ -2370,7 +2358,6 @@ class Poly(Type):
 
         for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
             try:
-                # TODO: better way to keep these ordered?
                 for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
                     cmprs[ncmpr] = True
                 isvalid = True
