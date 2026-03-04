@@ -261,7 +261,7 @@ class AstConverter(lark.Transformer):
 
         kids[0].astinfo = astinfo
 
-        return s_ast.EmbedQuery(astinfo, kids[0].text, kids=kids)
+        return s_ast.EmbedQuery(astinfo, kids[0].getAstText(), kids=kids)
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):
@@ -271,8 +271,6 @@ class AstConverter(lark.Transformer):
         argkids = []
         kwargkids = []
         kwnames = set()
-        indx = 1
-        kcnt = len(kids)
 
         todo = collections.deque(kids)
 

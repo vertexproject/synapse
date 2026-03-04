@@ -50,6 +50,10 @@ class TestUtilsStormcov(s_utils.SynTest):
         badstorm = s_files.getAssetPath('stormcov/badstorm.storm')
         stream.expect(f'Skipping invalid storm file: {badstorm}')
 
+        dupesubs = s_files.getAssetPath('stormcov/dupesubs.storm')
+        stream.expect(f'Duplicate argvquery in {dupesubs} at line 25, coverage will be reported on first instance in {dupesubs} at line 22')
+        stream.expect(f'Duplicate embedquery in {dupesubs} at line 5, coverage will be reported on first instance in {dupesubs} at line 2')
+
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
 
@@ -87,8 +91,8 @@ class TestUtilsStormcov(s_utils.SynTest):
 
                 stormcov.reset()
 
-            await check_cov('stormcov/dupesubs.storm')
             await check_cov('stormcov/embedquery.storm')
+            await check_cov('stormcov/dupesubs.storm')
             await check_cov('stormcov/argvquery.storm')
             await check_cov('stormcov/stormctrl.storm')
             await check_cov('stormcov/pivot.storm')
