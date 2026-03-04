@@ -34,6 +34,77 @@ logger = logging.getLogger(__name__)
 
 REQ_2X_CORE_VERS = '>=2.180.1,<3.0.0'
 
+class MigrAuth:
+    '''
+    Helper for migrating auth related data during 2.x.x to 3.x.x migration.
+    '''
+
+    def __init__(self, migr, authkv):
+        self.migr = migr
+        self.authkv = authkv
+
+    def migrate(self):
+        self._migrUsers()
+        self._migrRoles()
+
+    def _migrUsers(self):
+        userkv = self.authkv.getSubKeyVal('user:info:')
+
+        for iden, info in userkv.items():
+            updated = False
+
+            valu = info.get('onepass')
+            if valu is not None and not isinstance(valu, dict):
+                logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
+                info.pop('onepass')
+                updated = True
+
+            valu = info.get('passwd')
+            if valu is not None and not isinstance(valu, dict):
+                logger.warning(f'Removing deprecated password shadow for user {iden}!')
+                info.pop('passwd')
+                updated = True
+
+            self._migrRules(info)
+            updated = True
+
+            if updated:
+                userkv.set(iden, info)
+
+    def _migrRoles(self):
+        rolekv = self.authkv.getSubKeyVal('role:info:')
+        for iden, info in rolekv.items():
+            self._migrRules(info)
+            rolekv.set(iden, info)
+
+    def _migrRules(self, info):
+        rules = []
+        for allow, path in info.get('rules', ()):
+            if (newpath := self._migrRulePath(path)) is not None:
+                rules.append((allow, newpath))
+
+        info['rules'] = rules
+
+        for gateiden, gateinfo in list(info.get('authgates').items()):
+            rules = []
+            for allow, path in gateinfo.get('rules', ()):
+                if (newpath := self._migrRulePath(path)) is not None:
+                    rules.append((allow, newpath))
+
+            gateinfo['rules'] = rules
+
+    def _migrRulePath(self, path):
+        path = self.migr._migrRulePath(path)
+        if path is None:
+            return None
+
+        if len(path) >= 4 and path[0] == 'auth' and path[1] == 'user' and path[3] == 'profile':
+            action = path[2]
+            rest = path[4:]
+            return ('auth', 'user', 'profile', action, *rest)
+
+        return path
+
 class Migrator(s_base.Base):
     '''
     Standalone tool for migrating Synapse from a source Cortex to a new destination 3.x.x Cortex.
@@ -528,6 +599,9 @@ class Migrator(s_base.Base):
         return locallyrs
 
     def _migrRulePath(self, path):
+        '''
+        Generic rule paths, runs first before auth paths.
+        '''
 
         for part in path:
             if '.' in part:
@@ -586,26 +660,6 @@ class Migrator(s_base.Base):
 
         return path
 
-    def _migrRules(self, info):
-
-        rules = []
-        for allow, path in info.get('rules', ()):
-            if (newpath := self._migrRulePath(path)) is not None:
-                rules.append((allow, newpath))
-
-        info['rules'] = rules
-
-        for gateiden, gateinfo in list(info.get('authgates').items()):
-            rules = []
-            for allow, path in gateinfo.get('rules', ()):
-                if (newpath := self._migrRulePath(path)) is not None:
-                    rules.append((allow, newpath))
-
-            gateinfo['rules'] = rules
-
-            if not rules and not gateinfo.get('admin'):
-                info['authgates'].pop(gateiden)
-
     async def _migrCell(self):
         '''
         Migrate top-level cell information including the YAML file if it exists to
@@ -628,27 +682,11 @@ class Migrator(s_base.Base):
         self.cellslab.dropdb('hive')
 
         authkv = self.cellslab.getSafeKeyVal('auth')
+
+        migrauth = MigrAuth(self, authkv)
+        migrauth.migrate()
+
         userkv = authkv.getSubKeyVal('user:info:')
-
-        for iden, info in userkv.items():
-            if not ((valu := info.get('onepass')) is None or isinstance(valu, dict)):
-                logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
-                info.pop('onepass')
-
-            if not ((valu := info.get('passwd')) is None or isinstance(valu, dict)):
-                logger.warning(f'Removing deprecated password shadow for user {iden}!')
-                info.pop('passwd')
-
-            self._migrRules(info)
-
-            userkv.set(iden, info)
-
-        rolekv = authkv.getSubKeyVal('role:info:')
-
-        for iden, info in rolekv.items():
-            self._migrRules(info)
-
-            rolekv.set(iden, info)
 
         for viewiden in self.viewdefs.keys():
             trigdict = self.cortexdata.getSubKeyVal(f'view:{viewiden}:trigger:')
@@ -824,14 +862,16 @@ class Migrator(s_base.Base):
         async with await s_multislabseqn.MultiSlabSeqn.anit(spath) as srclog, \
                    await s_multislabseqn.MultiSlabSeqn.anit(dpath) as dstlog:
 
+            kwargs = {}
+            meta = None
+            etime = s_common.now()
+
             # Check for entries in nodeeditlogs with offsets before the start of a trimmed nexus log
             if (logstrt := srclog.firstindx) > 0:
 
                 async def wrapgenr(iden, genr):
                     async for offs, realedits in genr:
                         yield offs, realedits, iden
-
-                kwargs = {}
                 genrs = [wrapgenr(iden, seqn.aiter(0, wait=False)) for iden, seqn in editlogs.items()]
 
                 async for offs, realedits, iden in s_common.merggenr2(genrs):

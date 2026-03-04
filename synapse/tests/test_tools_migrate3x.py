@@ -243,3 +243,55 @@ class MigrationTest(s_t_utils.SynTest):
                 self.len(1, pulls)
                 pdef = list(pulls.values())[0]
                 self.eq(23, pdef.get('offs', 0))
+
+    async def test_migr_auth_rules_cron(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf, regrname='cron-creator-to-user') as (migr, dest):
+
+            await migr.migrate()
+            await migr.fini()
+
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+
+                auth = core.auth
+
+                user = await auth.reqUserByName('testuser')
+                role = await auth.reqRoleByName('testrole')
+
+                urules = user.getRules()
+                self.isin((True, ('cron', 'set', 'user')), urules)
+
+                rrules = role.getRules()
+                self.isin((True, ('cron', 'set', 'user', 'extra')), rrules)
+
+    async def test_migr_auth_rules_profile(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf, regrname='2.192.0-auth-rules-migr') as (migr, dest):
+
+            await migr.migrate()
+            await migr.fini()
+
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+
+                auth = core.auth
+
+                user = await auth.reqUserByName('visi')
+                role = await auth.reqRoleByName('visi-role')
+
+                # user rules: auth.user.*.profile.* -> auth.user.profile.*.*
+                urules = user.getRules()
+                self.isin((True, ('auth', 'user', 'profile', 'get', 'fullname')), urules)
+                self.isin((True, ('auth', 'user', 'profile', 'set', 'fullname')), urules)
+                self.isin((True, ('auth', 'user', 'profile', 'del', 'fullname')), urules)
+
+                # role rules: auth.role.*.profile.* -> auth.role.profile.*.*
+                rrules = role.getRules()
+                self.isin((False, ('auth', 'user', 'profile', 'del', 'nickname')), rrules)
