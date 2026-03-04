@@ -1,7 +1,13 @@
 import asyncio
+import multiprocessing
+
+import unittest.mock as mock
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
+import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.exc as s_exc
@@ -11,9 +17,76 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
+def iterfunc(n):
+    if n < 1:
+        raise s_exc.BadArg(megs='N less than 1', valu=n)
+    for i in range(n):
+        yield i
+
+async def aiterfunc(n, boom=False):
+    for i in iterfunc(n):
+        yield i
+    if boom:
+        await asyncio.sleep(0)
+        raise s_exc.BadState(megs='boom', valu=n)
+
+async def _aiterspawntgt(linkinfo, n, boom=False):
+    '''
+    Inner setup for backup streaming.
+
+    Args:
+        path (str): Path to the backup.
+        linkinfo(dict): Link info dictionary.
+
+    Returns:
+        None: Returns None.
+    '''
+    link = await s_link.fromspawn(linkinfo)
+    await s_daemon.t2call(link, aiterfunc, (n, boom), {}, first=False)
+    await link.fini()
+
+def aiterspawntgt(linkinfo, n, boom=False):
+    asyncio.run(_aiterspawntgt(linkinfo, n, boom=boom))
+
 class Foo:
+    YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3'
     def woot(self):
         return 10
+
+    def sync_iter(self, n):
+        for i in iterfunc(n):
+            yield i
+
+    async def async_iter(self, n, boom=False):
+        async for i in aiterfunc(n, boom=boom):
+            yield i
+
+    async def async_iter_direct(self, n, boom=False):
+        # Must be detected as a generator
+        if False:
+            yield True
+        link = s_scope.get('link')
+        async for i in aiterfunc(n, boom=boom):
+            mesg = self.YIELD_PREFIX + s_msgpack.en(i)
+            await link.send(mesg)
+
+    async def async_iter_spawn(self, n, boom=False):
+        # Must be detected as a generator
+        if False:
+            yield True
+        link = s_scope.get('link')
+        linkinfo = await link.getSpawnInfo()
+        ctx = multiprocessing.get_context('spawn')
+
+        def getproc():
+            proc = ctx.Process(target=aiterspawntgt, args=(linkinfo, n, boom))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)
+        await asyncio.wait_for(s_coro.executor(proc.join), timeout=24)
+        await asyncio.wait_for(s_coro.executor(proc.terminate), timeout=24)
+        raise s_exc.DmonSpawn(mesg='aiter ran')
 
 class DaemonTest(s_t_utils.SynTest):
 
@@ -110,6 +183,117 @@ class DaemonTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.daemon', emsg) as stream:
                         await link.tx(mesg)
                         self.true(await stream.wait(timeout=6))
+
+    async def test_dmon_t2call_genr(self):
+
+        # Ensure that t2call messages for generators are produced in the correct order.
+        # Since we're patching Link.send, we get both the t2:init message AND the responses
+        # from the daemon.
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            host, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', Foo())
+
+            raw_msgs = []
+            osend = s_link.Link.send
+
+            async def psend(link, byts):
+                raw_msgs.append(s_msgpack.un(byts))
+                await osend(link, byts)
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/foo') as foo:
+
+                n = 3
+                expv = [i for i in range(n)]
+                msgs = []
+                yield_msgs = [('t2:yield', {'retn': (True, i)}) for i in range(n)]
+                genr_mesg = ('t2:genr', {})
+                resp_mesgs = [genr_mesg] + yield_msgs + [('t2:yield', {'retn': None})]
+
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    async for i in await foo.sync_iter(n):
+                        msgs.append(i)
+                    self.eq(msgs, expv)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'sync_iter')
+                self.eq(raw_msgs[1:], resp_mesgs)
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    async for i in foo.async_iter(n):
+                        msgs.append(i)
+                    self.eq(msgs, expv)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter')
+                self.eq(raw_msgs[1:], resp_mesgs)
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    async for i in foo.async_iter_direct(n):
+                        msgs.append(i)
+                    self.eq(msgs, expv)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_direct')
+                self.eq(raw_msgs[1:], resp_mesgs)
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    async for i in foo.async_iter_spawn(n):
+                        msgs.append(i)
+                    self.eq(msgs, expv)
+                # Our patch only captures the messages from the test process; the spawn
+                # sends the t2:yield messages.
+                self.len(2, raw_msgs)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_spawn')
+                self.eq(raw_msgs[1], genr_mesg)
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    with self.raises(s_exc.BadArg):
+                        async for i in foo.async_iter_direct(-1):
+                            msgs.append(i)
+                        self.eq(msgs, expv)
+                self.len(0, msgs)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_direct')
+                self.eq(raw_msgs[1], ('t2:genr', {}))
+                self.eq(raw_msgs[2][0], 't2:yield')
+                self.eq(raw_msgs[2][1]['retn'][0], False)
+                self.eq(raw_msgs[2][1]['retn'][1][0], 'BadArg')
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    with self.raises(s_exc.BadState):
+                        async for i in foo.async_iter(n, boom=True):
+                            msgs.append(i)
+                        self.eq(msgs, expv)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter')
+                self.eq(raw_msgs[1], genr_mesg)
+                self.eq(raw_msgs[2:2 + n], yield_msgs)
+                self.eq(raw_msgs[-1][1]['retn'][0], False)
+                self.eq(raw_msgs[-1][1]['retn'][1][0], 'BadState')
+
+                msgs.clear()
+                raw_msgs.clear()
+                with mock.patch('synapse.lib.link.Link.send', psend):
+                    with self.raises(s_exc.BadState):
+                        async for i in foo.async_iter_direct(n, boom=True):
+                            msgs.append(i)
+                        self.eq(msgs, expv)
+                self.eq(raw_msgs[0][0], 't2:init')
+                self.eq(raw_msgs[0][1]['todo'][0], 'async_iter_direct')
+                self.eq(raw_msgs[1], genr_mesg)
+                self.eq(raw_msgs[2:2 + n], yield_msgs)
+                self.eq(raw_msgs[-1][1]['retn'][0], False)
+                self.eq(raw_msgs[-1][1]['retn'][1][0], 'BadState')
 
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'
