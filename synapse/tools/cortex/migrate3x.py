@@ -95,6 +95,9 @@ class MigrAuth:
 
     def _migrRulePath(self, path):
         path = self.migr._migrRulePath(path)
+        if path is None:
+            return None
+
         if len(path) >= 4 and path[0] == 'auth' and path[1] == 'user' and path[3] == 'profile':
             action = path[2]
             rest = path[4:]
