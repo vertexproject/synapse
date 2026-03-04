@@ -158,16 +158,16 @@ class StormcovPlugin:
                     continue
 
                 subg = s_common.guid(str(subq))
+                offs = 1
                 line = node.meta.line
-                offs = 0
                 if rule == 'embedquery':
-                    line -= 1
                     offs += 1
+                    line -= 1
 
                 if subg in self.subq_map:
                     (pname, pline) = self.subq_map[subg]
-                    logger.warning(f'Duplicate {rule} in {path} at line {line + 1 + offs}, coverage will '
-                                   f'be reported on first instance in {pname} at line {pline + 1 + offs}')
+                    logger.warning(f'Duplicate {rule} in {path} at line {line + offs}, coverage will '
+                                   f'be reported on first instance in {pname} at line {pline + offs}')
                     continue
 
                 self.subq_map[subg] = (path, line)
