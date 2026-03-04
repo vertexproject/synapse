@@ -90,6 +90,14 @@ class StormcovPlugin:
 
         self.isworker = os.environ.get("PYTEST_XDIST_WORKER") is not None
 
+        # xdist detection logic from here:
+        # https://github.com/pytest-dev/pytest-cov/blob/be3366838e41a9cbefa714636a39c5c2f6d5f588/src/pytest_cov/plugin.py#L235C19-L235C139
+        self.iscontroller = (
+            getattr(config.option, 'numprocesses', False) or
+            getattr(config.option, 'distload', False) or
+            getattr(config.option, 'dist', 'no') != 'no'
+        ) and not self.isworker
+
         self.config = config
         self.handlers = {
             'ast.py': self.handle_ast,
@@ -246,6 +254,9 @@ class StormcovPlugin:
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config): # pragma: no cover
         # NB: no coverage since this is a pytest hook
         if self.isworker:
+            return
+
+        if not self.iscontroller and not self.lines_hit:
             return
 
         self.cov.report(skip_covered=False, skip_empty=False)
