@@ -159,10 +159,10 @@ class StormcovPlugin:
 
                 subg = s_common.guid(str(subq))
                 offs = 1
-                line = node.meta.line
-                if rule == 'embedquery':
-                    offs += 1
-                    line -= 1
+                line = node.meta.line - 1
+                if rule == 'argvquery':
+                    offs = 0
+                    line = subq.meta.line - 1
 
                 if subg in self.subq_map:
                     (pname, pline) = self.subq_map[subg]

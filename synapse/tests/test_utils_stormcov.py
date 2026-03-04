@@ -33,14 +33,16 @@ class TestUtilsStormcov(s_utils.SynTest):
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormfiles = [
+            s_files.getAssetPath('stormcov/argvquery.storm'),
+            s_files.getAssetPath('stormcov/argvquery2.storm'),
+            s_files.getAssetPath('stormcov/dupesubs.storm'),
+            s_files.getAssetPath('stormcov/embedquery.storm'),
+            s_files.getAssetPath('stormcov/embedquery2.storm'),
+            s_files.getAssetPath('stormcov/lookup.storm'),
+            s_files.getAssetPath('stormcov/pivot.storm'),
+            s_files.getAssetPath('stormcov/pragma-nocov.storm'),
             s_files.getAssetPath('stormcov/spin.storm'),
             s_files.getAssetPath('stormcov/stormctrl.storm'),
-            s_files.getAssetPath('stormcov/lookup.storm'),
-            s_files.getAssetPath('stormcov/pragma-nocov.storm'),
-            s_files.getAssetPath('stormcov/dupesubs.storm'),
-            s_files.getAssetPath('stormcov/pivot.storm'),
-            s_files.getAssetPath('stormcov/argvquery.storm'),
-            s_files.getAssetPath('stormcov/embedquery.storm'),
         ]
 
         stormcov = s_stormcov.StormcovPlugin(opts)
@@ -51,8 +53,8 @@ class TestUtilsStormcov(s_utils.SynTest):
         stream.expect(f'Skipping invalid storm file: {badstorm}')
 
         dupesubs = s_files.getAssetPath('stormcov/dupesubs.storm')
-        stream.expect(f'Duplicate argvquery in {dupesubs} at line 25, coverage will be reported on first instance in {dupesubs} at line 22')
-        stream.expect(f'Duplicate embedquery in {dupesubs} at line 5, coverage will be reported on first instance in {dupesubs} at line 2')
+        stream.expect(f'Duplicate argvquery in {dupesubs} at line 24, coverage will be reported on first instance in {dupesubs} at line 21')
+        stream.expect(f'Duplicate embedquery in {dupesubs} at line 4, coverage will be reported on first instance in {dupesubs} at line 1')
 
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
@@ -91,13 +93,15 @@ class TestUtilsStormcov(s_utils.SynTest):
 
                 stormcov.reset()
 
-            await check_cov('stormcov/embedquery.storm')
-            await check_cov('stormcov/dupesubs.storm')
             await check_cov('stormcov/argvquery.storm')
-            await check_cov('stormcov/stormctrl.storm')
+            await check_cov('stormcov/argvquery2.storm')
+            await check_cov('stormcov/dupesubs.storm')
+            await check_cov('stormcov/embedquery.storm')
+            await check_cov('stormcov/embedquery2.storm'),
             await check_cov('stormcov/pivot.storm')
             await check_cov('stormcov/pragma-nocov.storm')
             await check_cov('stormcov/spin.storm')
+            await check_cov('stormcov/stormctrl.storm')
 
     async def test_stormcov_lookup(self):
         basedir = s_files.ASSETS
@@ -131,13 +135,16 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             self.eq(reporter.lines(), expected)
 
+        await check_lines('stormcov/argvquery.storm')
+        await check_lines('stormcov/argvquery2.storm')
+        await check_lines('stormcov/dupesubs.storm')
+        await check_lines('stormcov/embedquery.storm'),
+        await check_lines('stormcov/embedquery2.storm'),
+        await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/pivot.storm')
-        await check_lines('stormcov/stormctrl.storm')
         await check_lines('stormcov/pragma-nocov.storm')
         await check_lines('stormcov/spin.storm')
-        await check_lines('stormcov/argvquery.storm')
-        await check_lines('stormcov/lookup.storm')
-        await check_lines('stormcov/dupesubs.storm')
+        await check_lines('stormcov/stormctrl.storm')
 
         # Non-existent file
         reporter = s_stormcov.StormReporter('newp', parser)
