@@ -35,9 +35,11 @@ class TestUtilsStormcov(s_utils.SynTest):
         stormfiles = [
             s_files.getAssetPath('stormcov/argvquery.storm'),
             s_files.getAssetPath('stormcov/argvquery2.storm'),
+            s_files.getAssetPath('stormcov/argvquery3.storm'),
             s_files.getAssetPath('stormcov/dupesubs.storm'),
             s_files.getAssetPath('stormcov/embedquery.storm'),
             s_files.getAssetPath('stormcov/embedquery2.storm'),
+            s_files.getAssetPath('stormcov/embedquery3.storm'),
             s_files.getAssetPath('stormcov/lookup.storm'),
             s_files.getAssetPath('stormcov/pivot.storm'),
             s_files.getAssetPath('stormcov/pragma-nocov.storm'),
@@ -95,9 +97,11 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             await check_cov('stormcov/argvquery.storm')
             await check_cov('stormcov/argvquery2.storm')
+            await check_cov('stormcov/argvquery3.storm')
             await check_cov('stormcov/dupesubs.storm')
             await check_cov('stormcov/embedquery.storm')
             await check_cov('stormcov/embedquery2.storm'),
+            await check_cov('stormcov/embedquery3.storm'),
             await check_cov('stormcov/pivot.storm')
             await check_cov('stormcov/pragma-nocov.storm')
             await check_cov('stormcov/spin.storm')
@@ -137,9 +141,11 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         await check_lines('stormcov/argvquery.storm')
         await check_lines('stormcov/argvquery2.storm')
+        await check_lines('stormcov/argvquery3.storm')
         await check_lines('stormcov/dupesubs.storm')
         await check_lines('stormcov/embedquery.storm'),
         await check_lines('stormcov/embedquery2.storm'),
+        await check_lines('stormcov/embedquery3.storm'),
         await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/pivot.storm')
         await check_lines('stormcov/pragma-nocov.storm')
