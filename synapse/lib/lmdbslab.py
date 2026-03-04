@@ -1671,14 +1671,38 @@ class Slab(s_base.Base):
 
         preflen = len(pref) + multilen
         size = preflen + len(byts)
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
 
         async def scangenr(pval):
             with ScanBack(self, db) as scan:
                 skey = pval.to_bytes(multilen, 'big')
 
                 while True:
-                    if not scan.set_range(pref + skey + byts):
-                        return
+                    intoff = int.from_bytes(byts, "big")
+                    intoff += 1
+                    try:
+                        nextbyts = intoff.to_bytes(len(byts), "big")
+                        nextpref = pref + skey + nextbyts
+                        if not scan.set_range(nextpref):
+                            return
+
+                        if scan.atitem[0] == nextpref:
+                            if not scan.next_key():
+                                return
+
+                    except OverflowError:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            if not scan.first():
+                                return
+
+                        skey = pval.to_bytes(multilen, 'big')
+                        nextpref = pref + skey
+                        if not scan.set_range(nextpref) and not scan.first():
+                            return
+
+                        if scan.atitem[0] == nextpref:
+                            if not scan.next_key():
+                                return
 
                     fkey = scan.atitem[0]
                     if not fkey.startswith(pref):

@@ -524,7 +524,7 @@ class IndxByPoly(IndxBy):
 
     async def keyNidsByPref(self, indx=b'', reverse=False):
         if reverse:
-            genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByPrefBack(self.abrv, self.multilen, indx, db=self.db)
         else:
             genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
 

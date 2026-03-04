@@ -145,6 +145,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
                 self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
 
+                self.eq(exp[::-1], await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'a', db=testdb)))
+
                 exp = (
                     (pref + s_common.int64en(0) + b'abar', b'haha'),
                     (pref + s_common.int64en(2) + b'afaz', b'haha'),
@@ -162,6 +164,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(exp[4::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'bfoo', db=testdb)))
                 self.eq(exp[2::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afoo', db=testdb, lmin=b'abar')))
                 self.eq(exp[0::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afaa', db=testdb, lmin=b'abar')))
+                self.eq(exp[2:1:-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afoo', db=testdb, lmin=b'afbz')))
+                self.eq(exp[1:0:-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afaz', db=testdb, lmin=b'abaz')))
+                self.eq((), await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'aa', db=testdb)))
 
                 dupsdb = slab.initdb('dups', dupsort=True)
 
@@ -210,6 +215,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 )
                 self.eq(exp, await s_t_utils.alist(slab.multiScanByDups(pref, multilen, b'abar', db=dupsdb)))
                 self.eq(exp[::-1], await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'abar', db=dupsdb)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'zz', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'aa', db=dupsdb)))
 
     async def test_lmdbslab_base(self):
 
