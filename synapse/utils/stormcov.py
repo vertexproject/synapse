@@ -67,6 +67,7 @@ DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config): # pragma: no cover
     # NB: no coverage since this is a pytest hook
+    breakpoint()
     if not config.option.stormcov and not (config.option.stormdirs or config.option.stormcov_append):
         return
 
@@ -158,19 +159,19 @@ class StormcovPlugin:
                     continue
 
                 subg = s_common.guid(str(subq))
-                offs = 1
                 line = node.meta.line - 1
+                rline = line + 1
                 if rule == 'argvquery':
-                    offs = 0
                     line = subq.meta.line - 1
+                    rline = node.meta.line
 
                 if subg in self.subq_map:
-                    (pname, pline) = self.subq_map[subg]
-                    logger.warning(f'Duplicate {rule} in {path} at line {line + offs}, coverage will '
-                                   f'be reported on first instance in {pname} at line {pline + offs}')
+                    (pname, _, pline) = self.subq_map[subg]
+                    logger.warning(f'Duplicate {rule} in {path} at line {rline}, coverage will '
+                                   f'be reported on first instance in {pname} at line {pline}')
                     continue
 
-                self.subq_map[subg] = (path, line)
+                self.subq_map[subg] = (path, line, rline)
 
     def _start_sysmon(self):
         if sys.monitoring.get_tool(self.toolid) is None:
@@ -322,7 +323,7 @@ class StormcovPlugin:
 
         subq = self.subq_map.get(guid)
         if subq is not None:
-            (filename, offs) = subq
+            (filename, offs, _) = subq
         else:
             filename = self.guid_map.get(guid)
             offs = 0
