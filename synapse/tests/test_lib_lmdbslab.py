@@ -195,12 +195,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb)))
                 self.eq((), await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'afuz', db=dupsdb)))
 
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByRange(pref, multilen, b'abar', lmax=b'afoo', db=dupsdb)))
+
                 exp = (
                     pref + s_common.int64en(0) + b'abar',
                     pref + s_common.int64en(2) + b'afaz',
                     pref + s_common.int64en(0) + b'afoo',
                 )
                 self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb, nodup=True)))
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByRange(pref, multilen, b'abar', lmax=b'afoo', db=dupsdb, nodup=True)))
 
                 await slab.put(pref + s_common.int64en(2) + b'abar', b'haha', db=dupsdb)
                 await slab.put(pref + s_common.int64en(5) + b'abar', b'hoho', db=dupsdb)

@@ -2763,11 +2763,11 @@ class LibLift(Lib):
 
             count, prop, norm = counts[0]
 
-            virts = None
+            cmpr = '='
             if prop.type.ispoly:
-                virts = ['ndef']
+                cmpr = 'ndef='
 
-            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False, virts=virts):
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, norm, norm=False):
                 await asyncio.sleep(0)
 
                 for count, prop, norm in counts[1:]:

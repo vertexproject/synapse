@@ -1234,7 +1234,7 @@ async def _onSetFqdnZone(node):
     async with node.view.getEditor() as editor:
         while todo:
             fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn, virts=['ndef']):
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
                 await asyncio.sleep(0)
 
                 # if they are their own zone level, skip

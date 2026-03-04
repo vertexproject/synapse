@@ -953,17 +953,11 @@ class DataModelTest(s_t_utils.SynTest):
             # poly lift by node
             self.len(1, await core.nodes('test:str:poly={test:lowstr=p1}'))
 
-            # poly lift by ndef virt
-            self.len(1, await core.nodes('test:str:poly.ndef=(test:lowstr, p1)'))
-
             # poly lift by form
             self.len(1, await core.nodes('test:str:poly.form=test:lowstr'))
 
             # poly array lift by node
             self.len(1, await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'))
-
-            # poly array lift by ndef virt
-            self.len(1, await core.nodes('test:str:polyarry*[.ndef=(test:lowstr, p10)]'))
 
             # poly array lift by form
             self.len(1, await core.nodes('test:str:polyarry*[.form=test:lowstr]'))

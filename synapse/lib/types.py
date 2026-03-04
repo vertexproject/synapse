@@ -986,11 +986,11 @@ class Guid(Type):
         # lift starting with the lowest count
         count, prop, norm = counts[0]
 
-        virts = None
+        cmpr = '='
         if prop.type.ispoly:
-            virts = ['ndef']
+            cmpr = 'ndef='
 
-        async for node in view.nodesByPropAlts(prop, '=', norm, norm=False, virts=virts):
+        async for node in view.nodesByPropAlts(prop, cmpr, norm, norm=False):
             await asyncio.sleep(0)
 
             # filter on the remaining props/alts
@@ -2195,28 +2195,20 @@ class Poly(Type):
     )
 
     def postTypeInit(self):
-#        self.storlifts = {
-#            'form=': self._storLiftForm,
-#            'ndef=': self._storLiftNdef
-#        }
-#
+
         self.formtype = self.modl.type('syn:form')
-        self.ndeftype = self.modl.type('ndef')
         self.valuetype = self.modl.type('data')
         self.virts |= {
             'form': (self.formtype, self._getForm),
-            'ndef': (self.ndeftype, self._getNdef),
             'value': (self.valuetype, self._getValue),
         }
 
         self.virtindx |= {
             'form': None,
-            'ndef': None,
         }
 
         self.virtlifts |= {
             'form': {'=': self._storLiftForm},
-            'ndef': {'=': self._storLiftNdef}
         }
 
         self.forms = self.opts.get('forms')
@@ -2335,9 +2327,6 @@ class Poly(Type):
 
         return tuple(v[0] for v in valu)
 
-    def _getNdef(self, valu):
-        return valu[0]
-
     def _getValue(self, valu):
         valu = valu[0]
         if isinstance(valu[0], str):
@@ -2345,27 +2334,11 @@ class Poly(Type):
 
         return tuple(v[1] for v in valu)
 
-    async def _storLiftNdef(self, cmpr, valu):
-        if not isinstance(valu, (list, tuple)) or len(valu) != 2:
-            mesg = f'Must be a 2-tuple: {s_common.trimText(repr(valu))}'
-            raise s_exc.BadCmprValu(itemtype=type(valu), cmpr='ndef=', mesg=mesg)
-
-        formname, valu = valu
-
-        form = self.modl.reqForm(formname)
-        self.reqFormAllowed(form)
-
-        norm = (await form.type.norm(valu))[0]
-        return (('ndef=', (formname, valu), form.type.stortype | s_layer.STOR_FLAG_POLY),)
-
     def getStorType(self, valu):
         form = self.modl.reqForm(valu[0])
         return s_layer.STOR_FLAG_POLY | form.type.stortype
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
-
-#        if (func := self.storlifts.get(cmpr)) is not None:
-#            return await func(cmpr, valu)
 
         if virts is not None:
             if (vlifts := self.virtlifts.get(virts[0])) is not None:
