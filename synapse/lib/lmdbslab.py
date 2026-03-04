@@ -1689,12 +1689,12 @@ class Slab(s_base.Base):
                         nextpref = pref + skey + nextbyts
 
                     elif (pval := int.from_bytes(skey, 'big') + 1) <= maxv:
-                        # Prefix can't be incremented, try to increment multi key instead
+                        # Scan prefix can't be incremented, try to increment multi key instead
                         skey = pval.to_bytes(multilen, 'big')
                         nextpref = pref + skey
 
                     elif (intpref + 1) <= maxpref:
-                        # Multi key can't be incremented, try to increment prefix
+                        # Multi key can't be incremented, try to increment initial prefix
                         nextpref = (intpref + 1).to_bytes(len(pref), "big")
 
                     else:
