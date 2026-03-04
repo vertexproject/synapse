@@ -67,7 +67,6 @@ DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config): # pragma: no cover
     # NB: no coverage since this is a pytest hook
-    breakpoint()
     if not config.option.stormcov and not (config.option.stormdirs or config.option.stormcov_append):
         return
 
@@ -159,11 +158,11 @@ class StormcovPlugin:
                     continue
 
                 subg = s_common.guid(str(subq))
+
                 line = node.meta.line - 1
-                rline = line + 1
+                rline = node.meta.line
                 if rule == 'argvquery':
                     line = subq.meta.line - 1
-                    rline = node.meta.line
 
                 if subg in self.subq_map:
                     (pname, _, pline) = self.subq_map[subg]
