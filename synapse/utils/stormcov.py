@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 PACKAGE_DIR = pathlib.Path('packages').absolute()
 
 def pytest_addoption(parser): # pragma: no cover
+    # NB: no coverage since this is a pytest hook
     """Add options to control storm coverage."""
 
     group = parser.getgroup('stormcov', 'storm coverage reporting')
@@ -65,6 +66,7 @@ def pytest_addoption(parser): # pragma: no cover
 DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config): # pragma: no cover
+    # NB: no coverage since this is a pytest hook
     if not config.option.stormcov and not (config.option.stormdirs or config.option.stormcov_append):
         return
 
@@ -99,9 +101,9 @@ class StormcovPlugin:
         self.text_map = {}
         self.guid_map = {}
         self.subq_map = {}
+        self.lines_hit = collections.defaultdict(set)
 
         self.freg = regex.compile(r'.*synapse/lib/(ast.py|view.py|stormctrl.py)$')
-        self.reset()
 
         self.parser = get_parser()
 
@@ -167,7 +169,7 @@ class StormcovPlugin:
         self._prevcb = sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
 
     def _stop_sysmon(self):
-        if self._prevcb:
+        if self._prevcb: # pragma: no cover
             sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self._prevcb)
             return
 
@@ -177,6 +179,7 @@ class StormcovPlugin:
 
     @pytest.hookimpl(wrapper=True)
     def pytest_runtestloop(self, session): # pragma: no cover
+        # NB: no coverage since this is a pytest hook
 
         self.cov = coverage.Coverage.current()
 
@@ -226,6 +229,7 @@ class StormcovPlugin:
 
     @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config, items): # pragma: no cover
+        # NB: no coverage since this is a pytest hook
         # Note: If using xdist, this function executes on each worker node
         testpaths = [item.path for item in items]
         self.discover_stormdirs(testpaths)
@@ -233,23 +237,27 @@ class StormcovPlugin:
 
     @pytest.hookimpl(wrapper=True)
     def pytest_xdist_node_collection_finished(self, node, ids): # pragma: no cover
+        # NB: no coverage since this is a pytest hook
         # Note: This hook allows the xdist controller to get a list of test ids so we can build a list of storm dirs to present stormterm coverage
         testpaths = [pathlib.Path(testid.split('::')[0]).absolute() for testid in ids]
         self.discover_stormdirs(testpaths)
         yield
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config): # pragma: no cover
+        # NB: no coverage since this is a pytest hook
         if self.isworker:
             return
 
         self.cov.report(skip_covered=False, skip_empty=False)
 
-    def sysmon_py_start(self, code, instruction_offset):
+    def sysmon_py_start(self, code, instruction_offset): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
         if (fname := self.freg.match(code.co_filename)):
             return self.handlers[fname.group(1)](code)
         return DISABLE
 
-    def handle_ast(self, code, frame=None):
+    def handle_ast(self, code, frame=None): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
         if frame is None:
             if code.co_name == 'pullgenr':
                 frame = inspect.currentframe().f_back.f_back
@@ -312,7 +320,8 @@ class StormcovPlugin:
         self.text_map[node.text] = (filename, offs)
         self.mark_lines(frame, (filename, offs))
 
-    def mark_lines(self, frame, info):
+    def mark_lines(self, frame, info): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
         astn = frame.f_locals.get('self')
         fname, offs = info
         strt = astn.astinfo.sline
@@ -324,7 +333,8 @@ class StormcovPlugin:
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
 
     PIVOT_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
-    def handle_view(self, code):
+    def handle_view(self, code): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
         if code.co_name not in self.PIVOT_METHODS:
             return DISABLE
 
@@ -333,7 +343,8 @@ class StormcovPlugin:
             return
         return self.handle_ast(code, frame=frame)
 
-    def handle_stormctrl(self, code):
+    def handle_stormctrl(self, code): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
         if code.co_name != '__init__':
             return DISABLE
         return self.handle_ast(code, frame=inspect.currentframe().f_back.f_back.f_back)
@@ -432,6 +443,7 @@ class StormReporterPlugin(coverage.CoveragePlugin):
     def file_reporter(self, filename):
         return StormReporter(filename, self.parser)
 
-def coverage_init(reg, options):
+def coverage_init(reg, options): # pragma: no cover
+    # NB: no coverage since this is the coverage plugin entrypoint
     plugin = StormReporterPlugin()
     reg.add_file_tracer(plugin)

@@ -1,8 +1,10 @@
 import os
 import logging
+import pathlib
 import argparse
 
 import regex
+import coverage.exceptions
 
 import synapse.tests.files as s_files
 import synapse.tests.utils as s_utils
@@ -15,40 +17,54 @@ class StormcovConfig:
     '''
     Helper class to simulate pytest config
     '''
-    def __init__(self, stormcov=False, stormdirs=[], stormexts='storm', stormcov_append=False, stormcov_basedir=s_stormcov.PACKAGE_DIR):
+    def __init__(self, stormcov=False, stormdirs='', stormexts='storm', stormcov_append=False, stormcov_basedir=s_stormcov.PACKAGE_DIR):
         self.option = argparse.Namespace(
             stormcov=stormcov,
             stormdirs=stormdirs,
             stormexts=stormexts,
             stormcov_append=stormcov_append,
-            stormcov_basedir=stormcov_basedir,
+            stormcov_basedir=pathlib.Path(stormcov_basedir)
         )
 
 class TestUtilsStormcov(s_utils.SynTest):
     async def test_stormcov_basics(self):
-        basedir = s_files.ASSETS
-        stormdir = os.path.join(basedir, 'stormcov')
+        basedir = pathlib.Path(s_files.ASSETS)
+        stormdir = str(basedir / 'stormcov')
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
+        stormfiles = [
+            s_files.getAssetPath('stormcov/spin.storm'),
+            s_files.getAssetPath('stormcov/stormctrl.storm'),
+            s_files.getAssetPath('stormcov/lookup.storm'),
+            s_files.getAssetPath('stormcov/pragma-nocov.storm'),
+            s_files.getAssetPath('stormcov/dupesubs.storm'),
+            s_files.getAssetPath('stormcov/pivot.storm'),
+            s_files.getAssetPath('stormcov/argvquery.storm'),
+            s_files.getAssetPath('stormcov/embedquery.storm'),
+        ]
+
         stormcov = s_stormcov.StormcovPlugin(opts)
-        stormcov.find_storm_files(stormdir)
-        self.sorteq(
-            list(stormcov.guid_map.values()),
-            [
-                s_files.getAssetPath('stormcov/spin.storm'),
-                s_files.getAssetPath('stormcov/stormctrl.storm'),
-                s_files.getAssetPath('stormcov/lookup.storm'),
-                s_files.getAssetPath('stormcov/pragma-nocov.storm'),
-                s_files.getAssetPath('stormcov/dupesubs.storm'),
-                s_files.getAssetPath('stormcov/pivot.storm'),
-                s_files.getAssetPath('stormcov/argvquery.storm'),
-                s_files.getAssetPath('stormcov/embedquery.storm'),
-            ]
-        )
+        with self.getLoggerStream('synapse.utils.stormcov') as stream:
+            stormcov.find_storm_files(stormdir)
+
+        badstorm = s_files.getAssetPath('stormcov/badstorm.storm')
+        stream.expect(f'Skipping invalid storm file: {badstorm}')
+
+        self.sorteq(list(stormcov.guid_map.values()), stormfiles)
+        stormcov.reset()
+
+        stormcov.discover_stormdirs('')
+        self.sorteq(list(stormcov.guid_map.values()), stormfiles)
+        stormcov.reset()
+
+        stormcov.stormdirs = []
+        stormcov.discover_stormdirs([pathlib.Path(stormdir)])
+        self.sorteq(list(stormcov.guid_map.values()), stormfiles)
+        stormcov.reset()
 
     async def test_stormcov_coverage(self):
-        basedir = s_files.ASSETS
-        stormdir = os.path.join(basedir, 'stormcov')
+        basedir = pathlib.Path(s_files.ASSETS)
+        stormdir = str(basedir / 'stormcov')
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormcov = s_stormcov.StormcovPlugin(opts)
@@ -118,6 +134,12 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/argvquery.storm')
         await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/dupesubs.storm')
+
+        # Non-existent file
+        reporter = s_stormcov.StormReporter('newp', parser)
+        with self.raises(coverage.exceptions.NoSource) as exc:
+            reporter.source()
+        self.eq(str(exc.exception), "Couldn't read newp: [Errno 2] No such file or directory: 'newp'")
 
     async def test_stormcov_stormreporter_plugin(self):
         plugin = s_stormcov.StormReporterPlugin()
