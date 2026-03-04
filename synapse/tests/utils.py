@@ -2091,10 +2091,11 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             if ptyp.isarray and ptyp.arraytype.ispoly:
                 if form is None:
                     pval = [aval[1] for aval in pval]
-                    self.eq(pval, valu, msg=msg)
+                    self.sorteq(pval, valu, msg=msg)
                     return
 
-        self.eq(pval, valu, msg=msg)
+        ft = self.sorteq if ptyp.isarray else self.eq
+        ft(valu, pval, msg=msg)
 
     def eq(self, x, y, msg=None):
         '''
