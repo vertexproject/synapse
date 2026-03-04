@@ -5,7 +5,7 @@ import logging
 
 from typing import Any, BinaryIO, Callable, Iterator, Optional
 
-from synapse.vendor.cpython.lib.json import detect_encoding
+from synapse.vendor.cpython.lib.json import detect_encoding  # noqa: F401
 
 import yyjson
 

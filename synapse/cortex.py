@@ -50,59 +50,59 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
-import synapse.lib.stormhttp as s_stormhttp  # NOQA
-import synapse.lib.stormwhois as s_stormwhois  # NOQA
+import synapse.lib.stormhttp as s_stormhttp  # noqa: F401
+import synapse.lib.stormwhois as s_stormwhois  # noqa: F401
 
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
-import synapse.lib.stormlib.env as s_stormlib_env  # NOQA
-import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
-import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
-import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
-import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
-import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
-import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
-import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
-import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
-import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
-import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
-import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
-import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
-import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
-import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
-import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
-import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
-import synapse.lib.stormlib.task as s_stormlib_task  # NOQA
-import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
-import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
-import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
-import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
-import synapse.lib.stormlib.index as s_stormlib_index  # NOQA
-import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
+import synapse.lib.stormlib.aha as s_stormlib_aha  # noqa: F401
+import synapse.lib.stormlib.env as s_stormlib_env  # noqa: F401
+import synapse.lib.stormlib.gen as s_stormlib_gen  # noqa: F401
+import synapse.lib.stormlib.gis as s_stormlib_gis  # noqa: F401
+import synapse.lib.stormlib.hex as s_stormlib_hex  # noqa: F401
+import synapse.lib.stormlib.log as s_stormlib_log  # noqa: F401
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # noqa: F401
+import synapse.lib.stormlib.xml as s_stormlib_xml  # noqa: F401
+import synapse.lib.stormlib.auth as s_stormlib_auth  # noqa: F401
+import synapse.lib.stormlib.cell as s_stormlib_cell  # noqa: F401
+import synapse.lib.stormlib.imap as s_stormlib_imap  # noqa: F401
+import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # noqa: F401
+import synapse.lib.stormlib.json as s_stormlib_json  # noqa: F401
+import synapse.lib.stormlib.math as s_stormlib_math  # noqa: F401
+import synapse.lib.stormlib.mime as s_stormlib_mime  # noqa: F401
+import synapse.lib.stormlib.pack as s_stormlib_pack  # noqa: F401
+import synapse.lib.stormlib.smtp as s_stormlib_smtp  # noqa: F401
+import synapse.lib.stormlib.stix as s_stormlib_stix  # noqa: F401
+import synapse.lib.stormlib.task as s_stormlib_task  # noqa: F401
+import synapse.lib.stormlib.yaml as s_stormlib_yaml  # noqa: F401
+import synapse.lib.stormlib.basex as s_stormlib_basex  # noqa: F401
+import synapse.lib.stormlib.cache as s_stormlib_cache  # noqa: F401
+import synapse.lib.stormlib.graph as s_stormlib_graph  # noqa: F401
+import synapse.lib.stormlib.index as s_stormlib_index  # noqa: F401
+import synapse.lib.stormlib.iters as s_stormlib_iters  # noqa: F401
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
-import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
-import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
-import synapse.lib.stormlib.utils as s_stormlib_utils  # NOQA
-import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
-import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
-import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
-import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
-import synapse.lib.stormlib.quorum as s_stormlib_quorum  # NOQA
-import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
-import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
-import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
-import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
-import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
-import synapse.lib.stormlib.tabular as s_stormlib_tabular  # NOQA
-import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
-import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
-import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
-import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
-import synapse.lib.stormlib.compression as s_stormlib_compression  # NOQA
-import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
+import synapse.lib.stormlib.oauth as s_stormlib_oauth  # noqa: F401
+import synapse.lib.stormlib.stats as s_stormlib_stats  # noqa: F401
+import synapse.lib.stormlib.storm as s_stormlib_storm  # noqa: F401
+import synapse.lib.stormlib.utils as s_stormlib_utils  # noqa: F401
+import synapse.lib.stormlib.vault as s_stormlib_vault  # noqa: F401
+import synapse.lib.stormlib.backup as s_stormlib_backup  # noqa: F401
+import synapse.lib.stormlib.cortex as s_stormlib_cortex  # noqa: F401
+import synapse.lib.stormlib.hashes as s_stormlib_hashes  # noqa: F401
+import synapse.lib.stormlib.quorum as s_stormlib_quorum  # noqa: F401
+import synapse.lib.stormlib.random as s_stormlib_random  # noqa: F401
+import synapse.lib.stormlib.scrape as s_stormlib_scrape   # noqa: F401
+import synapse.lib.stormlib.infosec as s_stormlib_infosec  # noqa: F401
+import synapse.lib.stormlib.project as s_stormlib_project  # noqa: F401
+import synapse.lib.stormlib.spooled as s_stormlib_spooled  # noqa: F401
+import synapse.lib.stormlib.tabular as s_stormlib_tabular  # noqa: F401
+import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
+import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
+import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
+import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F401
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
