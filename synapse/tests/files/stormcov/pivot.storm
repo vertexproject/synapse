@@ -1,2 +1,4 @@
 [inet:fqdn=vertex.link]
 -> inet:fqdn
+// coverage: 1, 2
+// lines:    1, 2
