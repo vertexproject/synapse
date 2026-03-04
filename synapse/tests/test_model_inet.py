@@ -629,6 +629,18 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('[ inet:fqdn=vertex.link +(uses)> {[ meta:technique=* ]} ]'))
 
+            # Delete a domain node in a lower layer so the _onAddFqdn hook re-adds it during merge
+            await core.nodes('[ inet:fqdn=test.fqdn ]')
+
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            await core.nodes('[ inet:fqdn=cool.test.fqdn ]', opts=opts)
+            await core.nodes('inet:fqdn=test.fqdn | delnode')
+            await core.nodes('$lib.view.get().merge()', opts=opts)
+
+            self.len(1, await core.nodes('[ inet:fqdn=test.fqdn ]'))
+
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
 
