@@ -300,12 +300,12 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
                 # Storm query logging includes the httpapi iden in structlog data
                 core.stormlog = True
-                with self.getStructuredAsyncLoggerStream('synapse.storm', 'Executing storm query') as stream:
+                with self.getLoggerStream('synapse.storm') as stream:
                     resp = await sess.get(url)
                     self.eq(resp.status, http.HTTPStatus.OK)
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('Executing storm query', timeout=12)
                 msgs = stream.jsonlines()
-                self.eq(msgs[0].get('httpapi'), echoiden)
+                self.eq(msgs[0]['params'].get('httpapi'), echoiden)
                 core.stormlog = False
 
                 # Sad paths on the $request methods
@@ -336,11 +336,12 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 return ( $api.iden )'''
                 test04 = await core.callStorm(q)
 
-                emsg = f'Error executing custom HTTP API {test04}: BadArg Response.reply() has already been called.'
-                with self.getAsyncLoggerStream('synapse.lib.httpapi', emsg) as stream:
+                emsg = f'Error executing Extended HTTP API {test04}: BadArg Response.reply() has already been called.'
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath04')
                     self.eq(resp.status, http.HTTPStatus.OK)
                     self.eq(await resp.json(), {'hehe': 'yes!'})
+                    await stream.expect(emsg, timeout=6)
 
     async def test_libcortex_httpapi_runas_owner(self):
         async with self.getTestCore() as core:
@@ -1322,18 +1323,15 @@ for $i in $values {
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), f'Extended HTTP API {iden02} must set status code before sending body.')
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Extended HTTP API {iden03} tried to set code after sending body.') as stream:
-
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad03')
-                    self.true(await stream.wait(timeout=6))
+                    await stream.expect(f'Extended HTTP API {iden03} tried to set code after sending body.', timeout=6)
                     self.eq(resp.status, http.HTTPStatus.CREATED)
                     self.eq(await resp.read(), b'text')
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Extended HTTP API {iden04} tried to set headers after sending body.') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad04')
-                    self.true(await stream.wait(timeout=6))
+                    await stream.expect(f'Extended HTTP API {iden04} tried to set headers after sending body.', timeout=6)
                     self.eq(resp.status, http.HTTPStatus.OK)
                     self.eq(await resp.read(), b'text')
 
@@ -1343,17 +1341,15 @@ for $i in $values {
                 self.eq(data.get('code'), 'BadTypeValu')
                 self.eq(data.get('mesg'), "invalid literal for int() with base 0: 'notAnInt'")
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Error executing Extended HTTP API {iden06}: BadTypeValu') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad06')
-                    self.true(await stream.wait(timeout=6))
+                    await stream.expect(f'Error executing Extended HTTP API {iden06}: BadTypeValu', timeout=6)
                     self.eq(resp.status, http.HTTPStatus.CREATED)
                     self.eq(await resp.json(), {})
 
-                with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Error executing Extended HTTP API {iden07}: StormRuntimeError') as stream:
+                with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad07')
-                    self.true(await stream.wait(timeout=6))
+                    await stream.expect(f'Error executing Extended HTTP API {iden07}: StormRuntimeError', timeout=6)
                     self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                     data = await resp.json()
                     self.eq(data.get('code'), 'StormRuntimeError')

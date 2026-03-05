@@ -90,6 +90,6 @@ class ShutdownToolTest(s_test.SynTest):
                 # confirm that graceful shutdown with peers also demotes...
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
-                with self.getAsyncLoggerStream('synapse.daemon') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
                     self.eq(1, await s_t_shutdown.main(argv, outp=outp))
-                stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')
+                await stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')
