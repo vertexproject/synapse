@@ -138,6 +138,7 @@ information security you can represent data and relationships such as:
 or
 
 ::
+
   domain --resolves to--> ip_address
 
 In these examples, files, domains, and IP addresses are nodes and "performed DNS lookup for" (queried) and
