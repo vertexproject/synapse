@@ -16,3 +16,5 @@ function foo() {
     } // pragma: no cover stop
 }
 yield $foo()
+// coverage: 1, 2, 3,     18
+// lines:    1, 2, 3, 12, 18
