@@ -132,6 +132,7 @@ in the opposite direction. (This is also a simplification but works for a basic 
 information security you can represent data and relationships such as:
 
 ::
+
   malware_file --performed DNS lookup for--> domain
 
 or
