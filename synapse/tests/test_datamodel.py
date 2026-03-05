@@ -1004,3 +1004,24 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str:polynonuniq*[=$long2]', opts=opts))
             self.len(2, await core.nodes('test:str:polynonuniq*[^=a]'))
             self.len(2, await core.nodes('test:str:polynonuniq*[~=a]'))
+
+            self.none(await core.callStorm('[ test:str=empty ] return($node.props.poly)'))
+            self.eq(6, await core.callStorm('[ test:str=intcast :poly={[ test:str=5 ]} ] return((:poly + 1))'))
+            self.eq(6, await core.callStorm('[ test:str=len :poly={[ test:str=foobar ]} ] return($lib.len(:poly))'))
+
+            q = '''
+            $set=$lib.set()
+            [ test:str=h1 test:str=h2 :poly=5 ]
+            [( test:str=h3 :poly=6 )]
+            $set.add(:poly)
+            fini { return($set) }
+            '''
+            self.len(2, await core.callStorm(q))
+
+            await core.nodes('[ test:str=if1 :poly={[ test:str2=inh ]} ]')
+            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str2))'))
+
+            await core.nodes('[ test:str=if2 :poly={[ test:str=base ]} ]')
+            self.true(await core.callStorm('test:str=if2 return((:poly).isform(test:str))'))
+            self.false(await core.callStorm('test:str=if2 return((:poly).isform(test:str2))'))
