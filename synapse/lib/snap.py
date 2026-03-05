@@ -391,8 +391,8 @@ class ProtoNode:
                 if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
                     and (form := self.ctx.snap.core.model.form(prop.type.name)) is not None):
 
-                    norms, props = await self.ctx.snap._normGuidNodeDict(form, valu)
-                    valu = await self.ctx.snap._addGuidNodeByDict(form, norms, props)
+                    norms, props, salt = await self.ctx.snap._normGuidNodeDict(form, valu)
+                    valu = await self.ctx.snap._addGuidNodeByDict(form, norms, props, salt=salt)
                     norminfo = {}
                 else:
                     valu, norminfo = prop.type.norm(valu)
@@ -1495,8 +1495,8 @@ class Snap(s_base.Base):
         if isinstance(valu, dict):
             form = self.core.model.reqForm(name)
             if isinstance(form.type, s_types.Guid):
-                norms, props = await self._normGuidNodeDict(form, valu, props=props)
-                valu = await self._addGuidNodeByDict(form, norms, props)
+                norms, props, salt = await self._normGuidNodeDict(form, valu, props=props)
+                valu = await self._addGuidNodeByDict(form, norms, props, salt=salt)
                 return await self.getNodeByNdef((name, valu))
 
         async with self.getEditor() as editor:
@@ -1507,7 +1507,7 @@ class Snap(s_base.Base):
         # the newly constructed node is cached
         return await self.getNodeByBuid(protonode.buid)
 
-    async def _addGuidNodeByDict(self, form, norms, props):
+    async def _addGuidNodeByDict(self, form, norms, props, salt=s_common.novalu):
 
         for name, info in norms.items():
             if info[0].isform:
@@ -1519,7 +1519,7 @@ class Snap(s_base.Base):
                 valu = await self._addGuidNodeByDict(*info)
                 props[name] = (form.prop(name), valu, {})
 
-        node = await self._getGuidNodeByNorms(form, norms)
+        node = await self._getGuidNodeByNorms(form, norms, salt=salt)
 
         async with self.getEditor() as editor:
 
@@ -1528,6 +1528,9 @@ class Snap(s_base.Base):
             else:
                 proplist = [(name, info[1]) for name, info in norms.items()]
                 proplist.sort()
+
+                if salt is not s_common.novalu:
+                    proplist.append(('$salt', salt))
 
                 proto = await editor.addNode(form.name, proplist)
                 for name, (prop, valu, info) in norms.items():
@@ -1546,6 +1549,7 @@ class Snap(s_base.Base):
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
+        salt = vals.pop('$salt', s_common.novalu)
 
         if not vals:
             mesg = f'No values provided for form {form.full}'
@@ -1558,7 +1562,7 @@ class Snap(s_base.Base):
 
         norms = await self._normGuidNodeProps(form, vals)
 
-        return norms, props
+        return norms, props, salt
 
     async def _normGuidNodeProps(self, form, props, trycast=False):
 
@@ -1569,8 +1573,8 @@ class Snap(s_base.Base):
 
             if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
                 pform = self.core.model.reqForm(prop.type.name)
-                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
-                norms[name] = (pform, gnorm, gprop)
+                gnorm, gprop, gsalt = await self._normGuidNodeDict(pform, valu)
+                norms[name] = (pform, gnorm, gprop, gsalt)
                 continue
 
             try:
@@ -1590,15 +1594,15 @@ class Snap(s_base.Base):
         return norms
 
     async def _getGuidNodeByDict(self, form, props):
-        norms, _ = await self._normGuidNodeDict(form, props)
-        return await self._getGuidNodeByNorms(form, norms)
+        norms, _, salt = await self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, norms, salt=salt)
 
-    async def _getGuidNodeByNorms(self, form, norms):
+    async def _getGuidNodeByNorms(self, form, norms, salt=s_common.novalu):
 
         proplist = []
         for name, info in norms.items():
             if info[0].isform:
-                if (node := await self._getGuidNodeByNorms(*info[:2])) is None:
+                if (node := await self._getGuidNodeByNorms(info[0], info[1], salt=info[3])) is None:
                     return
                 valu = node.ndef[1]
                 norms[name] = (form.prop(name), valu, {})
@@ -1608,6 +1612,9 @@ class Snap(s_base.Base):
 
         # check first for an exact match via our same deconf strategy
         proplist.sort()
+
+        if salt is not s_common.novalu:
+            proplist.append(('$salt', salt))
 
         node = await self.getNodeByNdef((form.full, s_common.guid(proplist)))
         if node is not None:

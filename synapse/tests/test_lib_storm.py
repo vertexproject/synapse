@@ -351,6 +351,77 @@ class StormTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'someprop')
             self.eq(node.get('size'), 5)
 
+            # $salt changes the guid used when creating a new node
+            nodes_salt0 = await core.nodes('[ ou:org=({"name": "saltcorp", "$salt": "salt0"}) ]')
+            self.len(1, nodes_salt0)
+            self.eq('saltcorp', nodes_salt0[0].get('name'))
+
+            # Verify the salt affected the guid
+            nosalt_guid = s_common.guid(sorted([('name', 'saltcorp')]))
+            salt0_guid = s_common.guid(sorted([('name', 'saltcorp')]) + [('$salt', 'salt0')])
+            self.ne(nosalt_guid, salt0_guid)
+            self.eq(nodes_salt0[0].ndef[1], salt0_guid)
+
+            # Same salt and deconf props returns the same node (idempotent)
+            nodes_salt0b = await core.nodes('[ ou:org=({"name": "saltcorp", "$salt": "salt0"}) ]')
+            self.len(1, nodes_salt0b)
+            self.eq(nodes_salt0[0].ndef[1], nodes_salt0b[0].ndef[1])
+
+            # Lifting with salt returns the correct node
+            nodes_lift = await core.nodes('ou:org=({"name": "saltcorp", "$salt": "salt0"})')
+            self.len(1, nodes_lift)
+            self.eq(nodes_salt0[0].ndef[1], nodes_lift[0].ndef[1])
+
+            # $salt works with $props
+            nodes_saltp = await core.nodes('[ ou:org=({"name": "saltprop", "$salt": "sp0", "$props": {"desc": "a salty org"}}) ]')
+            self.len(1, nodes_saltp)
+            self.eq('saltprop', nodes_saltp[0].get('name'))
+            self.eq('a salty org', nodes_saltp[0].get('desc'))
+
+            # $salt works via the addNode API
+            node = await core.addNode(core.auth.rootuser, 'ou:org', {'$salt': 'apisalt', 'name': 'apicorp'})
+            self.nn(node)
+            self.eq(node[1]['props']['name'], 'apicorp')
+
+            # $salt with recursive gutors
+            nodes_rsalt = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'saltmesg',
+                    '$salt': 'msgsalt',
+                    'channel': {
+                        'id': 'saltchannel',
+                        '$salt': 'chansalt',
+                        'platform': {
+                            'name': 'saltplatform',
+                            '$salt': 'platsalt',
+                            'url': 'http://salt.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes_rsalt)
+            node = nodes_rsalt[0]
+            self.eq(node.get('id'), 'saltmesg')
+
+            # Idempotent with salt on recursive gutors
+            nodes_rsalt2 = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'saltmesg',
+                    '$salt': 'msgsalt',
+                    'channel': {
+                        'id': 'saltchannel',
+                        '$salt': 'chansalt',
+                        'platform': {
+                            'name': 'saltplatform',
+                            '$salt': 'platsalt',
+                            'url': 'http://salt.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes_rsalt2)
+            self.eq(nodes_rsalt[0].ndef[1], nodes_rsalt2[0].ndef[1])
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
