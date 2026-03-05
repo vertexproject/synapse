@@ -217,16 +217,17 @@ class HandlerBase:
         enfo = {'uri': uri,
                 'remoteip': remote_ip,
                 }
+        extra = s_logging.getLogExtra(**enfo)
         errm = f'Failed to authenticate request to {uri} from {remote_ip} '
         if mesg:
             errm = f'{errm}: {mesg}'
         if user:
             errm = f'{errm}: user={user}'
-            enfo['user'] = user
+            extra['loginfo'].setdefault('user', user)
         if username:
             errm = f'{errm} ({username})'
-            enfo['username'] = username
-        logger.log(level, msg=errm, extra=s_logging.getLogExtra(**enfo))
+            extra['loginfo'].setdefault('username', username)
+        logger.log(level, msg=errm, extra=extra)
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')

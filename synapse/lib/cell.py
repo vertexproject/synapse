@@ -3505,16 +3505,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if headers:
             enfo['headers'] = headers
 
+        extra = s_logging.getLogExtra(**enfo)
+
         # It is possible that a Cell implementor may register handlers which
         # do not derive from our Handler class, so we have to handle that.
         if hasattr(handler, 'web_useriden') and handler.web_useriden:
             user = handler.web_useriden
-            enfo['user'] = user
+            extra['loginfo'].setdefault('user', user)
         if hasattr(handler, 'web_username') and handler.web_username:
             username = handler.web_username
-            enfo['username'] = username
-
-        extra = s_logging.getLogExtra(**enfo)
+            extra['loginfo'].setdefault('username', username)
 
         if user:
             mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
@@ -4577,8 +4577,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
 
-        if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
+        with s_scope.enter({'user': user}):
+            if not await user.tryPasswd(passwd):
+                raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 

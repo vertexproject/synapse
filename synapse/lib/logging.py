@@ -79,6 +79,9 @@ def getLogExtra(**kwargs):
     '''
     Construct a properly enveloped log extra dictionary.
     '''
+    # TODO Remove these asserts before merging!
+    assert 'user' not in kwargs
+    assert 'username' not in kwargs
     extra = {'params': kwargs, 'loginfo': {}}
     return extra
 
