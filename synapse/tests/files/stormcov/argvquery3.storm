@@ -1,0 +1,6 @@
+
+tee {
+    inet:fqdn=argvquery3.storm
+}
+// coverage: 2, 3
+// lines:    2, 3

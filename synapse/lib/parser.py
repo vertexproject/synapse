@@ -271,8 +271,6 @@ class AstConverter(lark.Transformer):
         argkids = []
         kwargkids = []
         kwnames = set()
-        indx = 1
-        kcnt = len(kids)
 
         todo = collections.deque(kids)
 
