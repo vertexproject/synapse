@@ -1588,6 +1588,41 @@ class Slab(s_base.Base):
                     return
                 skey = pval.to_bytes(multilen, 'big')
 
+    async def multiScanKeysByDups(self, pref, multilen, lkey, db=None, nodup=False):
+
+        with ScanKeys(self, db, nodup=nodup) as scan:
+
+            skey = b'\x00' * multilen
+            maxv = int.from_bytes(b'\xff' * multilen, 'big')
+            preflen = len(pref)
+            fullpref = preflen + multilen
+
+            while True:
+                if not scan.set_range(pref + skey + lkey):
+                    return
+
+                fkey = scan.atitem
+                if scan.dupsort and not nodup:
+                    fkey = fkey[0]
+
+                if not fkey.startswith(pref):
+                    return
+
+                skey = fkey[preflen:fullpref]
+                if fkey[fullpref:] < lkey:
+                    continue
+
+                fullkey = pref + skey + lkey
+
+                for item in scan.iternext():
+                    if not item == fullkey:
+                        break
+                    yield item
+
+                if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                    return
+                skey = pval.to_bytes(multilen, 'big')
+
     async def _multiScanCommon(self, scangenr, cmprkey, multilen, reverse=False):
 
         maxv = int.from_bytes(b'\xff' * multilen, 'big')

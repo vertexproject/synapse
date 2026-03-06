@@ -578,8 +578,7 @@ class IndxByPolyKeys(IndxByPoly):
     IndxBy sub-class for retrieving unique property values.
     '''
     async def keyNidsByDups(self, indx, reverse=False):
-        lkey = self.abrv + indx
-        if self.layr.layrslab.has(lkey, db=self.db):
+        async for lkey in self.layr.layrslab.multiScanKeysByDups(self.abrv, self.multilen, indx, db=self.db, nodup=True):
             yield lkey, None
 
     async def keyNidsByPref(self, indx=b'', reverse=False):
@@ -604,10 +603,7 @@ class IndxByPolyKeys(IndxByPoly):
             return s_common.novalu
 
         if (sode := self.layr._getStorNode(nid)) is not None:
-            if self.prop is None:
-                valt = sode.get('valu')
-            else:
-                valt = sode['props'].get(self.prop)
+            valt = sode['props'].get(self.prop)
 
             if valt is not None:
                 return valt[0]

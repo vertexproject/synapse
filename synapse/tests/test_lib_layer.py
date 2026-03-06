@@ -2306,6 +2306,21 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str=polyarry -> *', opts=viewopts2))
             self.len(2, await core.nodes('test:str=polyarry :polynonuniq -> *', opts=viewopts2))
 
+            layr = core.getLayer()
+            indxby = s_layer.IndxByPoly(layr, 'test:str', 'poly', s_layer.STOR_TYPE_UTF8)
+            self.eq(str(indxby), 'IndxByPoly: test:str:poly')
+
+            indxby = s_layer.IndxByPolyArray(layr, 'test:str', 'polyarry', s_layer.STOR_TYPE_UTF8)
+            self.eq(str(indxby), 'IndxByPolyArray: test:str:polyarry')
+
+            indxby = s_layer.IndxByPolyArrayKeys(layr, 'test:str', 'polyarry', s_layer.STOR_TYPE_UTF8)
+            self.eq(str(indxby), 'IndxByPolyArrayKeys: test:str:polyarry')
+
+            await core.nodes('[ test:str=serv :poly={[ inet:server=1.2.3.4:80 ]} ]')
+
+            indxby = s_layer.IndxByPolyVirt(layr, 'test:str', 'poly', ['port'], s_layer.STOR_TYPE_I64)
+            self.eq(str(indxby), 'IndxByPolyVirt: test:str:poly.port')
+
     async def test_layer_nodeprop_indexes(self):
 
         async with self.getTestCore() as core:

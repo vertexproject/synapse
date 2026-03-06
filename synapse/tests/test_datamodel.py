@@ -868,8 +868,11 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # very specific lift to hit a difficult NoSuchAbrv
+            await core.nodes('[ test:str=foo :poly={[ test:str=p1 ]} ]')
+            self.len(0, await core.nodes('test:str:poly=$lib.cast(test:str:poly, 3)'))
+
             nodes = await core.nodes('''[
-                (test:str=foo :poly={[ test:str=p1 ]})
                 (test:str=bar :poly={[ test:int=3 ]})
                 (test:str=baz :poly={[ test:hasiface=p2 ]})
                 (test:str=faz :poly={[ test:lowstr=p1 ]})
@@ -891,7 +894,10 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(nodes[::-1], await core.nodes('reverse(test:str:poly=p1)'))
 
             self.len(3, await core.nodes('test:str:poly^=p'))
-            self.len(3, await core.nodes('test:str:poly^=P'))
+
+            nodes = await core.nodes('test:str:poly^=P')
+            self.len(3, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(test:str:poly^=P)'))
 
             # regex works too
             self.len(3, await core.nodes('test:str:poly~=P'))
@@ -1044,6 +1050,8 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
             self.propeq(nodes[0], 'poly', 'inh', form='test:str2')
+
+            self.len(0, await core.nodes('test:str:poly.form=test:hasiface2'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:poly.form=test:float')

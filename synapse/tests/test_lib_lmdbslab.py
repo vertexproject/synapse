@@ -230,6 +230,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'zz', db=dupsdb)))
                 self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'aa', db=dupsdb)))
 
+                exp = [e[0] for e in exp]
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'abar', db=dupsdb)))
+                self.eq(exp[1:], await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'abar', db=dupsdb, nodup=True)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'afuz', db=dupsdb)))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn0, self.getTestDir(startdir=dirn0) as dirn:

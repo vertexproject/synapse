@@ -1613,6 +1613,11 @@ class ViewTest(s_t_utils.SynTest):
                 (test:str=nop :poly={[ test:int=1 ]})
             ]''')
 
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=p1)', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(('test:str', 'p1'), nodes[0].ndef)
+            self.eq(('test:lowstr', 'p1'), nodes[1].ndef)
+
             nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=p, cmpr="^=")', opts=forkopts)
             self.len(3, nodes)
             self.eq(('test:str', 'p1'), nodes[0].ndef)
