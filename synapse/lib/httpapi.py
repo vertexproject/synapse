@@ -214,10 +214,7 @@ class HandlerBase:
         '''
         uri = self.request.uri
         remote_ip = self.request.remote_ip
-        enfo = {'uri': uri,
-                'remoteip': remote_ip,
-                }
-        extra = s_logging.getLogExtra(**enfo)
+        extra = s_logging.getLogExtra(uri=uri, remote_ip=remote_ip)
         errm = f'Failed to authenticate request to {uri} from {remote_ip} '
         if mesg:
             errm = f'{errm}: {mesg}'
