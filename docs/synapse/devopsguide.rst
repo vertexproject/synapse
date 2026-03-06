@@ -356,22 +356,19 @@ message, level, time, and metadata about where the log message came from::
       },
       "level": "INFO",
       "time": "2026-02-13 10:38:24,545",
-      "user": "a8b94560fd9b6e1e38245a6f7d659106",
-      "username": "root",
+      "user": "e3532bc88fa66afb592e6a1474a98675",
+      "username": "someUsername",
       "params": {  # Param
         "mode": "storm",
         "view": "715a5c9ae37e4045795ea3f3cabb44fb",
         "text": "[inet:asn=1234]",
-        "username": "someUsername",
-        "user": "e3532bc88fa66afb592e6a1474a98675",
         "hash": "ef94e89eb3bc309a40242876f6c5f296"
       }
     }
 
 The ``user`` and ``username`` fields at the top level of a log correspond to the currently active / authorized API user
-which has caused a log event to occur. These may differ from the user associated with the event. That information would
-normally be embedded in the ``params`` key.  The ``ahaservice`` key, if present, indicates the service that is
-associated with the log message.
+which has caused a log event to occur.  The ``service`` key, if present, indicates the AHA service that is associated
+with the log message.
 
 When exceptions are logged with structured logging, we capture additional information about the exception, including the
 traceback as structured data. In the event that the error is a Synapse Err class, we also capture additional metadata
@@ -391,8 +388,8 @@ in the pretty-printed log message. The ``key=valu`` data that was raised by the 
       },
       "level": "ERROR",
       "time": "2026-02-13 11:24:06,853",
-      "user": "e889d295b19fd5c12f861cd6fe564aa8",
-      "username": "root",
+      "user": "e3532bc88fa66afb592e6a1474a98675",
+      "username": "someUsername"
       "error": {
         "code": "StormRaise",
         "traceback": [
@@ -414,8 +411,6 @@ in the pretty-printed log message. The ``key=valu`` data that was raised by the 
       },
       "params": {
         "text": "$lib.raise(Newp, 'ruh roh', key=valu)",
-        "user": "e3532bc88fa66afb592e6a1474a98675",
-        "username": "someUsername"
       }
     }
 
