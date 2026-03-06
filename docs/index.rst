@@ -13,7 +13,7 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
-   synapse/quickstart
+   synapse/getting_started
 
    synapse/userguide
    synapse/adminguide
