@@ -3797,6 +3797,7 @@ class ArrayCond(Cond):
 
                 if (items := realnode.get(realprop)) is None:
                     return False
+
                 val2 = await valukid.compute(runt, path)
                 vcmp = await ctor(val2)
 
@@ -3809,14 +3810,12 @@ class ArrayCond(Cond):
             else:
                 vnames = await virts.compute(runt, path)
 
-                # TODO: rearrange this
-                if not isinstance(ptyp.virtindx.get(vnames[0]), str):
-                    vval, vvals = realnode.getWithVirts(realprop)
-                    if not vval:
-                        return False
-                else:
-                    valu, vvals = realnode.getWithVirts(realprop)
-                    if not valu or (vval := vvals.get(vnames[0])) is None:
+                valu, vvals = realnode.getWithVirts(realprop)
+                if not valu:
+                    return False
+
+                if isinstance(ptyp.virtindx.get(vnames[0]), str):
+                    if (valu := vvals.get(vnames[0])) is None:
                         return False
 
                 val2 = await valukid.compute(runt, path)
@@ -3829,31 +3828,31 @@ class ArrayCond(Cond):
 
                     vcmp = await ctor(val2)
 
-                    for item in vval:
+                    for item in valu:
                         if await vcmp(item[0]):
                             return True
 
+                    return False
+
                 else:
                     # TODO: rearrange this
-                    valu = vval
                     if (vval := vvals.get(vnames[0])) is None:
                         return False
 
-                    fnames = set()
-                    for aval in valu:
-                        fnames.add(aval[0])
+                    fnames = set(v[0] for v in valu)
 
                     cmprs = {}
                     for fname in fnames:
                         ftyp = runt.model.form(fname).type
                         vtyp = ftyp.getVirtType(vnames)
 
-                        if (ctor := vtyp.getCmprCtor(cmpr)) is None:
-                            continue
-                            # TODO: should this raise???
-                            # raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
+                        if vtyp.stortype not in cmprs:
+                            if (ctor := vtyp.getCmprCtor(cmpr)) is None:
+                                continue
+                                # TODO: should this raise???
+                                # raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
 
-                        cmprs[vtyp.stortype] = await ctor(val2)
+                            cmprs[vtyp.stortype] = await ctor(val2)
 
                     for item in vval:
                         if (vcmp := cmprs.get(item[1])) is None:

@@ -1025,3 +1025,16 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=if2 :poly={[ test:str=base ]} ]')
             self.true(await core.callStorm('test:str=if2 return((:poly).isform(test:str))'))
             self.false(await core.callStorm('test:str=if2 return((:poly).isform(test:str2))'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:poly.form=test:float')
+
+            with self.raises(s_exc.BadTypeDef):
+                tdef = ('poly', {'forms': ('test:str',), 'default_forms': ('test:float',)})
+                core.model.addFormProp('test:str', 'polyfail', tdef, {})
+
+            self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
+            self.len(2, await core.nodes('test:str +:polyarry*[.form=test:str]'))
+
+            await core.nodes('[ test:str=cov1 :inhstr=inh ]')
+            self.len(1, await core.nodes('$n={ test:str=cov1 } test:str:poly=$n.props.inhstr'))

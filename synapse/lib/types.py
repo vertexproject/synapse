@@ -2127,8 +2127,6 @@ class Ndef(Type):
         if isinstance(valu[0], str):
             return valu[0]
 
-        return tuple(v[0] for v in valu)
-
     async def _normStormNode(self, valu, view=None):
         if self.formfilter is not None:
             self.formfilter(valu.form)
@@ -2310,18 +2308,10 @@ class Poly(Type):
         return (('form=', valu, self.stortype),)
 
     def _getForm(self, valu):
-        valu = valu[0]
-        if isinstance(valu[0], str):
-            return valu[0]
-
-        return tuple(v[0] for v in valu)
+        return valu[0][0]
 
     def _getValue(self, valu):
-        valu = valu[0]
-        if isinstance(valu[0], str):
-            return valu[1]
-
-        return tuple(v[1] for v in valu)
+        return valu[0][1]
 
     def getStorType(self, valu):
         form = self.modl.reqForm(valu[0])
@@ -2345,11 +2335,6 @@ class Poly(Type):
                 if self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
                 valu = valu.valu[1]
-
-            elif isinstance(valu, s_node.RuntNode):
-                if self.formfilter(valu.form):
-                    return (('=', valu.ndef[1], valu.form.type.stortype | s_layer.STOR_FLAG_POLY),)
-                valu = valu.ndef[1]
 
         cmprs = {}
         isvalid = False
