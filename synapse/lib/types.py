@@ -87,7 +87,7 @@ class Type:
         self.setCmprCtor('range=', self._ctorCmprRange)
 
         self.setNormFunc(s_node.Node, self._normStormNode)
-        self.setNormFunc(s_stormtypes.Ndef, self._normStormNdef)
+        self.setNormFunc(s_stormtypes.NodeRef, self._normStormNodeRef)
 
         self.storlifts = {
             '=': self._storLiftNorm,
@@ -253,7 +253,7 @@ class Type:
             norminfo.pop('adds', None)
         return norm, norminfo
 
-    async def _normStormNdef(self, ndef, view=None):
+    async def _normStormNodeRef(self, ndef, view=None):
         return await self.norm(ndef.valu[1], view=view)
 
     def pack(self):
@@ -785,7 +785,7 @@ class Comp(Type):
             if (typeform := self.modl.form(_type.name)) is not None:
                 adds.append((typeform.name, norm, info))
                 # TODO return an ndef to potentially avoid renorm?
-                # ndef = s_stormtypes.Ndef(((_type.name, norm), info.get('virts')))
+                # ndef = s_stormtypes.NodeRef(((_type.name, norm), info.get('virts')))
                 subs[name] = (_type.typehash, norm, info)
             else:
                 subs[name] = (_type.typehash, norm, info)
@@ -2262,7 +2262,7 @@ class Poly(Type):
             cmprs = {}
 
             realv = val1
-            if (ndefcmpr := bool(isinstance(val1, s_stormtypes.Ndef))):
+            if (ndefcmpr := bool(isinstance(val1, s_stormtypes.NodeRef))):
                 realv = val1.valu[1]
 
             for ctor in ctors.values():
@@ -2272,7 +2272,7 @@ class Poly(Type):
                     pass
 
             async def cmprfunc(val2):
-                if ndefcmpr and val1 == val2:
+                if ndefcmpr and val1.valu == val2:
                     return True
 
                 val2 = val2[1]
@@ -2330,7 +2330,7 @@ class Poly(Type):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
                 valu = valu.ndef[1]
 
-            elif isinstance(valu, s_stormtypes.Ndef):
+            elif isinstance(valu, s_stormtypes.NodeRef):
                 form = self.modl.form(valu.valu[0])
                 if self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
@@ -2372,8 +2372,8 @@ class Poly(Type):
         if vtyp == s_node.Node:
             return await self._normStormNode(valu, view=view)
 
-        if vtyp == s_stormtypes.Ndef:
-            return await self._normStormNdef(valu, view=view)
+        if vtyp == s_stormtypes.NodeRef:
+            return await self._normStormNodeRef(valu, view=view)
 
         elif self.defaultforms is not None:
             for formname in self.defaultforms:
@@ -2427,7 +2427,7 @@ class Poly(Type):
 
         return await self.norm(valu.ndef[1], view=view)
 
-    async def _normStormNdef(self, valu, view=None):
+    async def _normStormNodeRef(self, valu, view=None):
 
         formname = valu.valu[0]
         form = self.modl.form(formname)
@@ -2459,7 +2459,7 @@ class Poly(Type):
         return form.type.repr(formvalu)
 
     async def tostorm(self, valu):
-        return s_stormtypes.Ndef(valu)
+        return s_stormtypes.NodeRef(valu)
 
 class Data(Type):
 

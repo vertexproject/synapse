@@ -728,7 +728,7 @@ class Oper(AstNode):
                     yield node
             return
 
-        if isinstance(valu, s_stormtypes.Ndef):
+        if isinstance(valu, s_stormtypes.NodeRef):
             if (node := await runt.view.getNodeByNdef(valu.valu)) is not None:
                 yield node
             return
@@ -2585,7 +2585,7 @@ class PivotOut(PivotOper):
             if (valu := node.get(name)) is not None:
                 pname = valu[0]
                 if runt.model.prop(pname).type.ispoly:
-                    valu = s_stormtypes.Ndef((valu[1], None))
+                    valu = s_stormtypes.NodeRef((valu[1], None))
                 else:
                     valu = valu[1]
 
@@ -2598,7 +2598,7 @@ class PivotOut(PivotOper):
 
                 for pname, aval in valu:
                     if runt.model.prop(pname).type.ispoly:
-                        aval = s_stormtypes.Ndef((aval, None))
+                        aval = s_stormtypes.NodeRef((aval, None))
 
                     async for pivo in runt.view.nodesByPropValu(pname, '=', aval):
                         yield pivo, path.fork(pivo, link)
@@ -3091,7 +3091,7 @@ class PropPivotOut(PivotOper):
                 if isinstance(srctype.arraytype, s_types.NodeProp):
                     for pname, aval in valu:
                         if runt.model.prop(pname).type.ispoly:
-                            aval = s_stormtypes.Ndef((aval, None))
+                            aval = s_stormtypes.NodeRef((aval, None))
 
                         async for pivo in runt.view.nodesByPropValu(pname, '=', aval):
                             yield pivo, path.fork(pivo, link)
@@ -3125,7 +3125,7 @@ class PropPivotOut(PivotOper):
             if isinstance(srctype, s_types.NodeProp):
                 pname = valu[0]
                 if runt.model.prop(pname).type.ispoly:
-                    valu = s_stormtypes.Ndef((valu[1], None))
+                    valu = s_stormtypes.NodeRef((valu[1], None))
                 else:
                     valu = valu[1]
 
@@ -4136,10 +4136,6 @@ class RelPropCond(Cond):
                 if valu == (None, None):
                     return False
                 valu = valu[0]
-
-            # TODO does this make sense
-#            if isinstance(xval, s_stormtypes.Ndef):
-#                xval = xval.valu[1]
 
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))

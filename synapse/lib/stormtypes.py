@@ -1545,7 +1545,7 @@ class LibBase(Lib):
 
         norm, info = await typeitem.norm(valu)
         if typeitem.ispoly:
-            return Ndef((norm, info.get('virts')))
+            return NodeRef((norm, info.get('virts')))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1558,7 +1558,7 @@ class LibBase(Lib):
         try:
             norm, info = await typeitem.norm(valu)
             if typeitem.ispoly:
-                return (True, Ndef((norm, info.get('virts'))))
+                return (True, NodeRef((norm, info.get('virts'))))
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -6073,7 +6073,7 @@ class NodeData(Prim):
             self.path.setData(self.valu.nid, name, valu)
 
 @registry.registerType
-class Ndef(Prim):
+class NodeRef(Prim):
     '''
     A form and value tuple representing a node.
     '''
@@ -6085,7 +6085,7 @@ class Ndef(Prim):
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
          'type': 'any'},
         {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
-         'type': {'type': 'function', '_funcname': '_methNdefIsForm',
+         'type': {'type': 'function', '_funcname': '_methIsForm',
                   'args': (
                       {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
                   ),
@@ -6124,7 +6124,7 @@ class Ndef(Prim):
             'form': self.valu[0],
             'ndef': self.valu,
             'value': self.valu[1],
-            'isform': self._methNdefIsForm,
+            'isform': self._methIsForm,
         }
 
     async def stormrepr(self):
@@ -6146,7 +6146,7 @@ class Ndef(Prim):
         return await fromprim(self.valu[1]).deref(name)
 
     @stormfunc(readonly=True)
-    async def _methNdefIsForm(self, name):
+    async def _methIsForm(self, name):
         names = await toprim(name)
 
         if not isinstance(names, (list, tuple)):
@@ -9945,7 +9945,7 @@ def fromprim(valu, path=None, basetypes=True):
 async def tostor(valu, packsafe=False):
 
     if not packsafe:
-        if isinstance(valu, (s_node.Node, Ndef)):
+        if isinstance(valu, (s_node.Node, NodeRef)):
             return valu
 
         if isinstance(valu, Node):

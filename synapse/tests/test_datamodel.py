@@ -507,6 +507,15 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(nodes[0].get('range:max'))
             self.propeq(nodes[0], 'range:min', 2)
 
+            await core.nodes('[ test:str=poly :poly={[ test:dep:easy=depr ]} ]')
+            await core.setDeprLock('test:dep:easy', True)
+
+            with self.raises(s_exc.IsDeprLocked):
+                await core.nodes('[ test:str=newp :poly={ test:dep:easy=depr } ]')
+
+            with self.raises(s_exc.IsDeprLocked):
+                await core.nodes('$n={ test:str=poly } [ test:str=newp :poly=$n.props.poly ]')
+
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
         # in sync with the default s_datamodel.Datamodel().types
@@ -1026,6 +1035,16 @@ class DataModelTest(s_t_utils.SynTest):
             self.true(await core.callStorm('test:str=if2 return((:poly).isform(test:str))'))
             self.false(await core.callStorm('test:str=if2 return((:poly).isform(test:str2))'))
 
+            self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
+            self.len(2, await core.nodes('test:str +:polyarry*[.form=test:str]'))
+
+            await core.nodes('[ test:str=cov1 :inhstr=inh ]')
+            self.len(1, await core.nodes('$n={ test:str=cov1 } test:str:poly=$n.props.inhstr'))
+            self.len(1, await core.nodes('$n={ test:str=cov1 } test:str=cov1 +:inhstr=$n.props.inhstr'))
+
+            nodes = await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
+            self.propeq(nodes[0], 'poly', 'inh', form='test:str2')
+
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:poly.form=test:float')
 
@@ -1033,8 +1052,14 @@ class DataModelTest(s_t_utils.SynTest):
                 tdef = ('poly', {'forms': ('test:str',), 'default_forms': ('test:float',)})
                 core.model.addFormProp('test:str', 'polyfail', tdef, {})
 
-            self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
-            self.len(2, await core.nodes('test:str +:polyarry*[.form=test:str]'))
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str:poly.newp')
 
-            await core.nodes('[ test:str=cov1 :inhstr=inh ]')
-            self.len(1, await core.nodes('$n={ test:str=cov1 } test:str:poly=$n.props.inhstr'))
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str:poly.newp.newp')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str:poly.form.newp')
+
+            with self.raises(s_exc.NoSuchForm):
+                core.model.type('poly').repr(('newp', 'newp'))

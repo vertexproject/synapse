@@ -3239,7 +3239,7 @@ class CopyToCmd(Cmd):
 
                     if prop.type.ispoly:
                         # TODO: adjust this to avoid re-get
-                        valu = s_stormtypes.Ndef(node.getWithVirts(name))
+                        valu = s_stormtypes.NodeRef(node.getWithVirts(name))
 
                     await proto.set(name, valu)
 
@@ -3694,7 +3694,7 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
                         if prop.type.ispoly:
-                            valu = s_stormtypes.Ndef((valu, virts))
+                            valu = s_stormtypes.NodeRef((valu, virts))
 
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
