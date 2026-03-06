@@ -1058,7 +1058,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=self.getLogExtra(target_user=useriden, target_username=user.name))
+            logger.warning(mesg)
         for roleiden in ag.gateroles.keys():
             role = self.auth.role(roleiden)
             if role is None:
@@ -1066,7 +1066,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=self.getLogExtra(target_role=roleiden, target_rolename=role.name))
+            logger.warning(mesg)
 
         self._initVaults()
 
@@ -6509,14 +6509,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            # username and user here are logged twice; which represents a
-            # difference between the auth user who initiated the action
-            # and the target user who is executing the runtime.
             info['hash'] = s_storm.queryhash(text)
-            # TODO Understand why this is using s_logging.getLogExtra instead of self.getLogExtra
-            extra = s_logging.getLogExtra(**info)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra=extra)
+                            extra=self.getLogExtra(**info))
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
