@@ -1,0 +1,7 @@
+---
+desc: Deprecated ``synapse.lib.structlog.JsonFormatter``.  It will be removed after
+  April 1st, 2026.
+desc:literal: false
+prs: []
+type: deprecation
+...

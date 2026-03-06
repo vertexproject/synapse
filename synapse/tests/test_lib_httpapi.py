@@ -1947,8 +1947,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.isin('headers', mesg['params'])
                 self.eq(mesg['params']['headers'].get('user-agent'), 'test_request_logging')
                 self.isin('remoteip', mesg['params'])
@@ -1965,8 +1965,8 @@ class HttpApiTest(s_tests.SynTest):
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/active')
                 self.notin('headers', mesg['params'])
-                self.notin('username', mesg['params'])
-                self.notin('user', mesg['params'])
+                self.notin('username', mesg)
+                self.notin('user', mesg)
                 self.isin('remoteip', mesg['params'])
                 self.isin('200 GET /api/v1/active', mesg.get('message'))
 
@@ -1981,8 +1981,8 @@ class HttpApiTest(s_tests.SynTest):
 
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['params'].get('uri'), '/api/v1/login')
-                    self.eq(mesg['params'].get('username'), 'visi')
-                    self.eq(mesg['params'].get('user'), visiiden)
+                    self.eq(mesg['username'], 'visi')
+                    self.eq(mesg['user'], visiiden)
 
                     # session cookie loging populates the data upon reuse
                     with self.getLoggerStream(logname) as stream:
@@ -1992,8 +1992,8 @@ class HttpApiTest(s_tests.SynTest):
 
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['params'].get('uri'), '/api/v1/auth/users')
-                    self.eq(mesg['params'].get('username'), 'visi')
-                    self.eq(mesg['params'].get('user'), visiiden)
+                    self.eq(mesg['username'], 'visi')
+                    self.eq(mesg['user'], visiiden)
 
         async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
 
@@ -2021,8 +2021,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.eq(mesg['params'].get('remoteip'), '1.2.3.4')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
@@ -2039,8 +2039,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.eq(mesg['params'].get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))

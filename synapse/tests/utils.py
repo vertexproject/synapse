@@ -817,21 +817,33 @@ class LoggerStream(io.StringIO):
         self._lines.clear()
         self.seek(0)
         self.truncate()
+        self._event.clear()
 
     def write(self, s):
-        retn = io.StringIO.write(self, s)
+        io.StringIO.write(self, s)
         self._lines.append(s)
         self._event.set()
 
-    async def expect(self, text, count=1, timeout=5, escape=True):
+    async def expect(self, text, count=1, timeout=6, escape=True):
+        '''
+        Expect a string to be present in the logged text.
 
+        Args:
+            text: String to search the logs for.
+            count: Number of occurances of the entry.
+            timeout: Amount of time to wait for the text to be logged.
+            escape: re.escape() the provided text; to to false is text is a regular expression.
+
+        Returns:
+            True if the text is found.
+        '''
         try:
             coro = self._expect(text, count=count, escape=escape)
             await s_common.wait_for(coro, timeout=timeout)
         except TimeoutError:
             logger.warning(f'Pattern [{text}] not found in...')
             [logger.warning(f'    {line}') for line in self._lines]
-            raise s_exc.SynErr(mesg=f'Pattern [{text}] not found!')
+            raise AssertionError(f'Pattern [{text}] not found!')
 
     async def _expect(self, text, count=1, escape=True):
 
@@ -1045,7 +1057,6 @@ class SynTest(unittest.TestCase):
 
     def tearDown(self):
         s_logging.reset()
-        return super().tearDown()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

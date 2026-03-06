@@ -106,7 +106,7 @@ class TestUtils(s_t_utils.SynTest):
             logger.error('ruh roh i am a error message')
             await stream.expect('ruh roh i am a error message', timeout=1)
 
-        with self.raises(s_exc.SynErr):
+        with self.raises(AssertionError):
             await stream.expect('does not exist', timeout=0.01)
 
         self.notin('newp', stream.getvalue())
