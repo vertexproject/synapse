@@ -146,8 +146,9 @@ class ModelRevTest(s_tests.SynTest):
                 conf00 = {'nexslog:en': True}
 
                 async with self.getTestCore(dirn=regrdir00, conf=conf00) as core00:
+                    await self.waitForActiveMigration(core00)
 
-                    self.true(await core00.getLayer().getModelVers() >= (0, 2, 7))
+                    self.ge(await core00.getLayer().getModelVers(), (0, 2, 7))
 
                     conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
 
@@ -168,7 +169,7 @@ class ModelRevTest(s_tests.SynTest):
 
                         await core01.sync()
 
-                        self.true(await core01.getLayer().getModelVers() >= (0, 2, 7))
+                        self.ge(await core01.getLayer().getModelVers(), (0, 2, 7))
 
                         nodes = await core01.nodes('inet:fqdn=baz.com')
                         self.len(1, nodes)

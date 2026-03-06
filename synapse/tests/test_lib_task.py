@@ -41,7 +41,8 @@ class TaskTest(s_test.SynTest):
             self.nn(ret.pop('iden'))
             self.nn(ret.pop('tick'))
             self.eq(ret, {'name': 'test', 'info': {'hehe': 'haha'},
-                          'user': root.iden, 'username': 'root', 'kids': {}})
+                          'user': root.iden, 'username': 'root', 'kids': {},
+                          'protected': False, 'background': False})
 
     async def test_taskvars(self):
         s_task.varset('test', 'foo')

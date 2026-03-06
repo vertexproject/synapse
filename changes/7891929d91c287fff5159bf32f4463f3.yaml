@@ -1,0 +1,7 @@
+---
+desc: Fixed a startup race condition that could cause Storm package ``onload`` queries
+  to run before Storm dmons were loaded.
+desc:literal: false
+prs: []
+type: bug
+...
