@@ -13,8 +13,32 @@ class DocModelTest(s_t_utils.SynTest):
 
         text = str(outp)
         self.isin('# Synapse Data Model', text)
+        self.isin('## Interfaces', text)
         self.isin('## Forms', text)
         self.isin('## Edges', text)
+
+        # Verify interfaces are present
+        self.isin('### `meta:observable`', text)
+
+        # Verify interface forms table is present
+        self.isin('| Form |', text)
+        self.isin('|------|', text)
+
+        # Verify form-level interfaces table is present
+        self.isin('| Interface |', text)
+        self.isin('|-----------|', text)
+
+        # Verify inherited interfaces are fully resolved
+        # edu:class implements ou:attendable which inherits meta:havable,
+        # entity:attendable (which inherits geo:locatable, lang:transcript)
+        classidx = text.index('### `edu:class`')
+        # Find the next form heading after edu:class
+        nextformidx = text.index('### `', classidx + 1)
+        classtext = text[classidx:nextformidx]
+        self.isin('`ou:attendable`', classtext)
+        self.isin('`meta:havable`', classtext)
+        self.isin('`entity:attendable`', classtext)
+        self.isin('`geo:locatable`', classtext)
 
         # Verify forms are present
         self.isin('### `inet:ip`', text)
@@ -39,6 +63,7 @@ class DocModelTest(s_t_utils.SynTest):
 
             text = str(outp)
             self.isin('# Synapse Data Model', text)
+            self.isin('## Interfaces', text)
             self.isin('## Forms', text)
             self.isin('## Edges', text)
 
@@ -57,6 +82,7 @@ class DocModelTest(s_t_utils.SynTest):
                 text = fd.read()
 
             self.isin('# Synapse Data Model', text)
+            self.isin('## Interfaces', text)
             self.isin('## Forms', text)
             self.isin('## Edges', text)
             self.isin('### `inet:ip`', text)
@@ -70,9 +96,18 @@ class DocModelTest(s_t_utils.SynTest):
         lines = text.split('\n')
 
         # Verify forms are sorted alphabetically
-        formlines = [line for line in lines if line.startswith('### `')]
+        formsidx = next(i for i, line in enumerate(lines) if line == '## Forms')
+        edgesidx = next(i for i, line in enumerate(lines) if line == '## Edges')
+        formlines = [line for line in lines[formsidx:edgesidx] if line.startswith('### `')]
         formnames = [line[5:-1] for line in formlines]
         self.eq(formnames, sorted(formnames))
+
+        # Verify interfaces are sorted alphabetically
+        ifaceidx = next(i for i, line in enumerate(lines) if line == '## Interfaces')
+        ifacelines = [line for line in lines[ifaceidx:] if line.startswith('### `')]
+        ifacenames = [line[5:-1] for line in ifacelines]
+        self.eq(ifacenames, sorted(ifacenames))
+        self.gt(len(ifacenames), 0)
 
         # Verify edges are sorted by extracting source/verb/target tuples
         edgeidx = next(i for i, line in enumerate(lines) if line == '## Edges')

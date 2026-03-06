@@ -43,6 +43,26 @@ def _escpipe(text):
 
     return text.replace('|', '\\|').replace('\n', ' ')
 
+def _resolveIfaces(ifacenames, interfaces):
+    '''Recursively resolve all interfaces including inherited ones.'''
+    resolved = []
+    seen = set()
+
+    def _collect(name):
+        if name in seen:
+            return
+        seen.add(name)
+        resolved.append(name)
+        iface = interfaces.get(name)
+        if iface is not None:
+            for subname, _subinfo in iface.get('interfaces', ()):
+                _collect(subname)
+
+    for name in ifacenames:
+        _collect(name)
+
+    return sorted(resolved)
+
 async def genModelMarkdown(core):
     '''Generate a markdown string documenting the data model.'''
 
@@ -51,6 +71,7 @@ async def genModelMarkdown(core):
     types = modeldict.get('types', {})
     forms = modeldict.get('forms', {})
     edges = modeldict.get('edges', [])
+    interfaces = modeldict.get('interfaces', {})
 
     lines = []
     lines.append('# Synapse Data Model')
@@ -59,6 +80,7 @@ async def genModelMarkdown(core):
     lines.append('')
     lines.append('- [Forms](#forms)')
     lines.append('- [Edges](#edges)')
+    lines.append('- [Interfaces](#interfaces)')
     lines.append('')
 
     # Forms section
@@ -77,6 +99,19 @@ async def genModelMarkdown(core):
         if formdoc:
             lines.append(formdoc)
             lines.append('')
+
+        formtype = types.get(formname)
+        if formtype is not None:
+            directifaces = [name for name, _info in formtype.get('info', {}).get('interfaces', ())]
+            allifaces = _resolveIfaces(directifaces, interfaces)
+            if allifaces:
+                lines.append('| Interface |')
+                lines.append('|-----------|')
+
+                for ifname in allifaces:
+                    lines.append(f'| `{ifname}` |')
+
+                lines.append('')
 
         if formprops:
             lines.append('| Property | Type | Doc |')
@@ -120,6 +155,63 @@ async def genModelMarkdown(core):
             lines.append(f'| `{_escpipe(src)}` | `{_escpipe(verb)}` | `{_escpipe(dst)}` | {_escpipe(doc)} |')
 
         lines.append('')
+
+    # Build a mapping of interface name to forms that implement it
+    ifaceforms = {ifname: [] for ifname in interfaces}
+    for formname in sorted(forms.keys()):
+        formtype = types.get(formname)
+        if formtype is None:
+            continue
+        for ifname, _ifinfo in formtype.get('info', {}).get('interfaces', ()):
+            if ifname in ifaceforms:
+                ifaceforms[ifname].append(formname)
+
+    # Interfaces section
+    lines.append('## Interfaces')
+    lines.append('')
+
+    for ifname in sorted(interfaces.keys()):
+
+        ifinfo = interfaces[ifname]
+        ifdoc = ifinfo.get('doc', '')
+
+        lines.append(f'### `{ifname}`')
+        lines.append('')
+        if ifdoc:
+            lines.append(ifdoc)
+            lines.append('')
+
+        ifprops = ifinfo.get('props', ())
+        if ifprops:
+            lines.append('| Property | Type | Doc |')
+            lines.append('|----------|------|-----|')
+
+            for propdef in sorted(ifprops, key=lambda x: x[0]):
+                propname = propdef[0]
+                typedef = propdef[1]
+                propinfo = propdef[2] if len(propdef) > 2 else {}
+
+                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+                    typename = typedef[0]
+                elif isinstance(typedef, str):
+                    typename = typedef
+                else:
+                    typename = ''
+
+                propdoc = _getPropDoc(propinfo, types)
+                lines.append(f'| `:{propname}` | `{_escpipe(typename)}` | {_escpipe(propdoc)} |')
+
+            lines.append('')
+
+        implforms = ifaceforms.get(ifname, [])
+        if implforms:
+            lines.append('| Form |')
+            lines.append('|------|')
+
+            for formname in implforms:
+                lines.append(f'| `{formname}` |')
+
+            lines.append('')
 
     return '\n'.join(lines)
 
