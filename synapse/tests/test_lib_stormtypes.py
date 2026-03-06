@@ -5691,11 +5691,10 @@ class StormTypesTest(s_test.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
-
-            async with self.getTestCoreAndProxy() as (core, prox):
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 mesgs = await core.stormlist('cron.list')
                 self.stormIsInPrint('No cron jobs found', mesgs)
