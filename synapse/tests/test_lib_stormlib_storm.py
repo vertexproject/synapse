@@ -20,7 +20,7 @@ class LibStormTest(s_test.SynTest):
             self.eq(10, await core.callStorm('return($lib.storm.eval($text, cast=int))', opts=opts))
 
             opts = {'vars': {'text': 'WOOT.COM'}}
-            self.eq('woot.com', await core.callStorm('return($lib.storm.eval($text, cast=inet:dns:a:fqdn))', opts=opts))
+            self.eq(('inet:fqdn', 'woot.com'), await core.callStorm('return($lib.storm.eval($text, cast=inet:dns:a:fqdn))', opts=opts))
 
             opts = {'vars': {'text': '(10 + 20)', 'cast': 'inet:port'}}
             self.eq(30, await core.callStorm('return($lib.storm.eval($text, cast=$cast))', opts=opts))

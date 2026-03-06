@@ -113,8 +113,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'public:exponent', 'cccc')
             self.propeq(nodes[0], 'private:exponent', 'bbbb')
             self.propeq(nodes[0], 'private:coefficient', 'dddd')
-            self.propeq(nodes[0], 'public:hashes', [('crypto:hash:sha1', TEST_SHA1)])
-            self.propeq(nodes[0], 'private:hashes', [('crypto:hash:sha256', TEST_SHA256)])
+            self.propeq(nodes[0], 'public:hashes', [TEST_SHA1])
+            self.propeq(nodes[0], 'private:hashes', [TEST_SHA256])
 
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:algorithm'))
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:key:rsa:prime'))
@@ -140,8 +140,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'public:p', 'cccc')
             self.propeq(nodes[0], 'public:q', 'dddd')
             self.propeq(nodes[0], 'public:g', 'eeee')
-            self.propeq(nodes[0], 'public:hashes', [('crypto:hash:sha1', TEST_SHA1)])
-            self.propeq(nodes[0], 'private:hashes', [('crypto:hash:sha256', TEST_SHA256)])
+            self.propeq(nodes[0], 'public:hashes', [TEST_SHA1])
+            self.propeq(nodes[0], 'private:hashes', [TEST_SHA256])
 
             self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
 
@@ -177,8 +177,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'public:h', 'aaca')
             self.propeq(nodes[0], 'public:x', 'aada')
             self.propeq(nodes[0], 'public:y', 'aaea')
-            self.propeq(nodes[0], 'public:hashes', [('crypto:hash:sha1', TEST_SHA1)])
-            self.propeq(nodes[0], 'private:hashes', [('crypto:hash:sha256', TEST_SHA256)])
+            self.propeq(nodes[0], 'public:hashes', [TEST_SHA1])
+            self.propeq(nodes[0], 'private:hashes', [TEST_SHA256])
 
     async def test_model_crypto_currency(self):
 
@@ -191,14 +191,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
                 [ :seed={[ crypto:key:secret=(asdf,) ]} ]
             ''')
-            self.propeq(nodes[0], 'seed', ('crypto:key:secret', '91a14b40da052cb388bf6b6d7723adee'))
+            self.propeq(nodes[0], 'seed', '91a14b40da052cb388bf6b6d7723adee', form='crypto:key:secret')
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.propeq(nodes[0], 'coin', 'btc')
             self.propeq(nodes[0], 'iden', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             # these would explode if the model was wrong
-            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact=(entity:contact, *) ] -> entity:contact'))
+            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact={[ entity:contact=* ]} ] -> entity:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
@@ -258,8 +258,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(node, 'eth:gasused', 10)
             self.propeq(node, 'eth:gaslimit', 20)
             self.propeq(node, 'eth:gasprice', '0.001')
-            self.propeq(node, 'contract:input', 'e8691a37075634ad4c10037e46f8cdc2')
-            self.propeq(node, 'contract:output', '6abdf11bc1f8516aa04984e12d500a1f')
+            self.propeq(node, 'contract:input', 'c7b0fb6229283d0f30a360f8b81d63e5')
+            self.propeq(node, 'contract:output', '074ce17fabf0f083843f83246533deb3')
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)
@@ -292,7 +292,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('transaction'))
-            self.propeq(node, 'bytecode', 'e8691a37075634ad4c10037e46f8cdc2')
+            self.propeq(node, 'bytecode', 'c7b0fb6229283d0f30a360f8b81d63e5')
             self.propeq(node, 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.propeq(node, 'token:name', 'Foo')
             self.propeq(node, 'token:symbol', 'Bar')
@@ -663,14 +663,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ crypto:salthash=*
                     :salt=4141
                     :hash={[ crypto:hash:md5=$md5 ]}
-                    :value=(auth:passwd, woot)
+                    :value={[ auth:passwd=woot ]}
                 ]
             ''', opts=opts)
 
             self.len(1, nodes)
             self.propeq(nodes[0], 'salt', '4141')
-            self.propeq(nodes[0], 'hash', ('crypto:hash:md5', '098f6bcd4621d373cade4e832627b4f6'))
-            self.propeq(nodes[0], 'value', ('auth:passwd', 'woot'))
+            self.propeq(nodes[0], 'hash', '098f6bcd4621d373cade4e832627b4f6', form='crypto:hash:md5')
+            self.propeq(nodes[0], 'value', 'woot', form='auth:passwd')
 
             self.len(1, await core.nodes('crypto:salthash -> auth:passwd'))
             self.len(1, await core.nodes('crypto:salthash -> crypto:hash:md5'))

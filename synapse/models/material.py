@@ -66,9 +66,6 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of material object or specification types.',
             }),
 
-            ('phys:object', ('ndef', {'interface': 'phys:object'}), {
-                'doc': 'A node which represents a physical object.'}),
-
             ('phys:contained:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),

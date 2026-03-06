@@ -268,7 +268,7 @@ class InetModelTest(s_t_utils.SynTest):
                 node = nodes[0]
                 self.eq(node.ndef, ('inet:client', expected_valu))
                 for p, v in expected_props.items():
-                    self.eq(node.get(p), v)
+                    self.propeq(node, p, v)
 
     async def test_email(self):
         formname = 'inet:email'
@@ -628,6 +628,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'seen', (1577836800000000, 1609459200000000, 31622400000000))
 
             self.len(1, await core.nodes('[ inet:fqdn=vertex.link +(uses)> {[ meta:technique=* ]} ]'))
+
+            # Delete a domain node in a lower layer so the _onAddFqdn hook re-adds it during merge
+            await core.nodes('[ inet:fqdn=test.fqdn ]')
+
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            await core.nodes('[ inet:fqdn=cool.test.fqdn ]', opts=opts)
+            await core.nodes('inet:fqdn=test.fqdn | delnode')
+            await core.nodes('$lib.view.get().merge()', opts=opts)
+
+            self.len(1, await core.nodes('[ inet:fqdn=test.fqdn ]'))
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -1480,7 +1492,7 @@ class InetModelTest(s_t_utils.SynTest):
                 node = nodes[0]
                 self.eq(node.ndef, ('inet:server', expected_valu))
                 for p, v in props.items():
-                    self.eq(node.get(p), v)
+                    self.propeq(node, p, v)
 
             nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
             self.propeq(nodes[0], 'dns:resolvers', ('udp://0.0.0.1:53',))
@@ -2791,13 +2803,16 @@ class InetModelTest(s_t_utils.SynTest):
             platform = nodes[0]
 
             nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
-            self.eq(['salesforce'], [n.get('name') for n in nodes])
+            for node in nodes:
+                self.propeq(node, 'name', 'salesforce')
 
             nodes = await core.nodes('inet:service:platform=(slack,) :creator -> *')
-            self.eq(['bar'], [n.get('id') for n in nodes])
+            for node in nodes:
+                self.propeq(node, 'id', 'bar')
 
             nodes = await core.nodes('inet:service:platform=(slack,) :remover -> *')
-            self.eq(['baz'], [n.get('id') for n in nodes])
+            for node in nodes:
+                self.propeq(node, 'id', 'baz')
 
             nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
@@ -2916,13 +2931,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.propeq(nodes[0], 'account', blckacct.ndef[1])
-            self.propeq(nodes[0], 'of', devsgrp.ndef)
+            self.propeq(nodes[0], 'of', devsgrp.ndef[1], form=devsgrp.ndef[0])
             self.propeq(nodes[0], 'period', (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'creator', visiacct.ndef[1])
             self.propeq(nodes[0], 'remover', visiacct.ndef[1])
 
             self.propeq(nodes[1], 'account', visiacct.ndef[1])
-            self.propeq(nodes[1], 'of', devsgrp.ndef)
+            self.propeq(nodes[0], 'of', devsgrp.ndef[1], form=devsgrp.ndef[0])
             self.propeq(nodes[1], 'period', (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
@@ -2957,7 +2972,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'method', 'password.')
-            self.propeq(nodes[0], 'creds', (('auth:passwd', 'cool'),))
+            self.propeq(nodes[0], 'creds', ('cool',))
             self.propeq(nodes[0], 'url', 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
@@ -3043,7 +3058,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             for node in nodes:
                 self.propeq(node, 'platform', platform.ndef[1])
-                self.propeq(node, 'of', gnrlchan.ndef)
+                self.propeq(node, 'of', gnrlchan.ndef[1], form=gnrlchan.ndef[0])
 
             q = '''
             [
@@ -3226,7 +3241,7 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(['#haha', '#hehe'], nodes[0].get('hashtags'))
+            self.propeq(nodes[0], 'hashtags', ['#haha', '#hehe'])
             self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"

@@ -21,7 +21,7 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'name', 'woot')
             self.propeq(nodes[0], 'desc', 'Woot')
             self.propeq(nodes[0], 'type', 'dfir.case.')
-            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, form='syn:user')
             self.propeq(nodes[0], 'created', 1752624000000000)
             self.nn(nodes[0].get('platform'))
 
@@ -39,7 +39,7 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'name', 'Foobar')
             self.propeq(nodes[0], 'desc', 'FooBar')
             self.propeq(nodes[0], 'status', 'planned')
-            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, form='syn:user')
             self.propeq(nodes[0], 'created', 1752624000000000)
             self.propeq(nodes[0], 'period', (1752451200000000, 1752883200000000, 432000000000))
 
@@ -68,8 +68,8 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'name', 'syn3.0')
             self.propeq(nodes[0], 'desc', 'FooBar')
             self.propeq(nodes[0], 'type', 'hehe.haha.')
-            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
-            self.propeq(nodes[0], 'assignee', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, form='syn:user')
+            self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, form='syn:user')
             self.propeq(nodes[0], 'created', 1752624000000000)
             self.propeq(nodes[0], 'completed', 1752624000000000)
 

@@ -292,6 +292,7 @@ testmodel = (
                 'doc': 'A fake type.'}),
 
             ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lowstr', ('str', {'lower': True}), {}),
 
             ('test:time', ('time', {}), {}),
 
@@ -364,6 +365,7 @@ testmodel = (
         ),
         'forms': (
 
+            ('test:lowstr', {}, ()),
             ('test:arrayprop', {}, (
                 ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
@@ -460,6 +462,17 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
+                    'default_forms': ('test:int', 'test:str')}), {}),
+                ('polyarry', ('array', {
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polynonuniq', ('array', {
+                    'uniq': False,
+                    'sorted': False,
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polyint', ('test:interface', {}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -1051,7 +1064,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
-        [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
+        [self.propeq(node, k, v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
         diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
@@ -2052,9 +2065,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         Assert a node property is equal to valu.
         '''
-        # TODO: If polyprop, check pval against valu (with optional form); otherwise shortcut to self.eq
-        # TODO: If polyprop and valu is None assert that prop is not set
-
+        pval = n.repr(prop) if repr else n.get(prop)
         parts = prop.split('.')
 
         if parts[0]:
@@ -2068,8 +2079,22 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             else:
                 ptyp = ptyp.getVirtType(parts[1:])
 
-        pval = n.repr(prop) if repr else n.get(prop)
-        ft = self.sorteq if ptyp.name == 'array' else self.eq
+        if valu is not None and pval is not None:
+            if ptyp.ispoly:
+                if form is not None:
+                    self.eq(pval, (form, valu), msg=msg)
+                    return
+
+                self.eq(pval[1], valu, msg=msg)
+                return
+
+            if ptyp.isarray and ptyp.arraytype.ispoly:
+                if form is None:
+                    pval = [aval[1] for aval in pval]
+                    self.sorteq(pval, valu, msg=msg)
+                    return
+
+        ft = self.sorteq if ptyp.isarray else self.eq
         ft(valu, pval, msg=msg)
 
     def eq(self, x, y, msg=None):
