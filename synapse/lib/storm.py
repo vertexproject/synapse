@@ -1290,10 +1290,10 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
+        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
+
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
-
-        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
