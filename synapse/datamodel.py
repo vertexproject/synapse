@@ -890,6 +890,15 @@ class Model:
         mdef['edges'] = [e.pack() for e in self.edges.values()]
         return [('all', mdef)]
 
+    def _getResolvedIfaces(self):
+        '''Return a copy of interfaces with default template values resolved in docs and types.'''
+        resolved = {}
+        for name, info in self.ifaces.items():
+            template = self._prepIfaceTemplate(info, {})
+            template['$self'] = name
+            resolved[name] = self._convertTemplate(info, name, template)
+        return resolved
+
     def getModelDict(self):
         retn = {
             'metas': (
@@ -903,7 +912,7 @@ class Model:
             'forms': {},
             'edges': [],
             'tagprops': {},
-            'interfaces': self.ifaces.copy()
+            'interfaces': self._getResolvedIfaces()
         }
 
         for tobj in self.types.values():
