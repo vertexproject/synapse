@@ -982,10 +982,6 @@ class Agenda(s_base.Base):
                     excctor = getattr(s_exc, excname, s_exc.SynErr)
                     raise excctor(**errinfo)
 
-        except asyncio.CancelledError:
-            result = 'cancelled'
-            raise
-
         except Exception as e:
             result = f'raised exception {e}'
             logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',

@@ -1755,7 +1755,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # Verify pprint shows <None> when affinity is not set
             job = await core.callStorm('return($lib.cron.get($guid).pprint())', opts=opts)
-            self.eq(job.get('affinity'), '<None>')
+            self.eq(job.get('affinity'), '(null)')
 
     async def test_cron_affinity_mutual_exclusivity(self):
 

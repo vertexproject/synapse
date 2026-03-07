@@ -10244,7 +10244,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'pool': self.valu.get('pool', False),
-            'affinity': self.valu.get('affinity') or '<None>',
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
