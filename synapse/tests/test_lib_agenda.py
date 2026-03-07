@@ -1753,9 +1753,14 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm(q, opts=opts)
             self.none(cdef.get('affinity'))
 
-            # Verify pprint shows <None> when affinity is not set
+            # Verify pprint shows (null) when affinity is not set
             job = await core.callStorm('return($lib.cron.get($guid).pprint())', opts=opts)
             self.eq(job.get('affinity'), '(null)')
+
+            # Test cron.at with affinity
+            q = 'return($lib.cron.at(query=$q, now=(true), affinity="atsvc.cortex...").pack())'
+            cdef = await core.callStorm(q, opts={'vars': {'q': '$lib.print(at)'}})
+            self.eq(cdef.get('affinity'), 'atsvc.cortex...')
 
     async def test_cron_affinity_mutual_exclusivity(self):
 
