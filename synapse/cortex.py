@@ -7064,7 +7064,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt.doc = str(valu)
 
         elif name == 'pool':
-            appt.pool = bool(valu)
+            valu = bool(valu)
+            if valu and appt.affinity:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.pool = valu
+
+        elif name == 'affinity':
+            if valu is not None:
+                valu = str(valu)
+                if appt.pool:
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.affinity = valu
 
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'
