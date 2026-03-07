@@ -999,6 +999,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (4, self._storCortexHiveMigration),
             (5, self._storCleanQueueAuthGates),
             (6, self._storCleanCronAuthGates),
+            (7, self._storMigrDmonDdefView),
         ), nexs=False)
 
         # Perform module loading
@@ -1167,6 +1168,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await self.auth.delAuthGate(info.iden)
 
         logger.warning('...CronJob AuthGate cleanup complete!')
+
+    async def _storMigrDmonDdefView(self):
+        logger.warning('migrating storm dmon ddefs to remove top-level view key')
+        validkeys = ('name', 'storm', 'user', 'iden', 'enabled', 'stormopts')
+        subkv = self.cortexdata.getSubKeyVal('storm:dmons:')
+        for iden, ddef in subkv.items():
+            extrakeys = [k for k in ddef if k not in validkeys]
+            if extrakeys:
+                for k in extrakeys:
+                    ddef.pop(k)
+                subkv.set(iden, ddef)
+        logger.warning('...storm dmon ddef migration complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
