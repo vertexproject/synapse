@@ -8024,6 +8024,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
 
+    async def test_cortex_stor_migr_dmon_ddef_view(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                iden = s_common.guid()
+                ddef = {
+                    'iden': iden,
+                    'user': core.auth.rootuser.iden,
+                    'storm': '$lib.print(hi)',
+                    'view': core.getView().iden,
+                    'enabled': True,
+                    'extra': 'shouldberemoved',
+                }
+                core.cortexdata.getSubKeyVal('storm:dmons:').set(iden, ddef)
+                # Regress the storage version so migration 7 runs on next start
+                core.cellvers.set('cortex:storage', 6)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                subkv = core.cortexdata.getSubKeyVal('storm:dmons:')
+                migrated = subkv.get(iden)
+                self.nn(migrated)
+                self.notin('view', migrated)
+                self.notin('extra', migrated)
+                self.eq(migrated['iden'], iden)
+                self.eq(migrated['storm'], '$lib.print(hi)')
+                self.eq(migrated['user'], core.auth.rootuser.iden)
+                self.true(migrated['enabled'])
+
     async def test_cortex_taxonomy_migr(self):
 
         async with self.getRegrCore('2.157.0-taxonomy-rename') as core:
