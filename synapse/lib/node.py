@@ -515,7 +515,7 @@ class Node(NodeBase):
 
                 if relp[0] == '.':
                     metaname = relp[1:]
-                    if (mtyp := node.view.core.model.metatypes.get(metaname)) is not None:
+                    if metaname in node.view.core.model.metatypes:
                         embdnode[relp] = node.getMeta(metaname)
                     continue
 
