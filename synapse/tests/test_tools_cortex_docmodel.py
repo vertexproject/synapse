@@ -40,6 +40,29 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('`entity:attendable`', classtext)
         self.isin('`geo:locatable`', classtext)
 
+        # Verify interface template variables are resolved
+        # meta:observable uses {title} with default 'node'
+        obsidx = text.index('### `meta:observable`')
+        nextidx = text.index('### `', obsidx + 1)
+        obstext = text[obsidx:nextidx]
+        self.isin('The node was observed during the time interval.', obstext)
+        self.notin('{title}', obstext)
+
+        # geo:locatable uses {title} and {happened} defaults
+        locidx = text.index('### `geo:locatable`')
+        nextidx = text.index('### `', locidx + 1)
+        loctext = text[locidx:nextidx]
+        self.isin('The place where the item was located.', loctext)
+        self.notin('{title}', loctext)
+        self.notin('{happened}', loctext)
+
+        # meta:taxonomy uses {$self} which resolves to interface name
+        taxidx = text.index('### `meta:taxonomy`')
+        nextidx = text.index('### `', taxidx + 1)
+        taxtext = text[taxidx:nextidx]
+        self.isin('`meta:taxonomy`', taxtext)
+        self.notin('{$self}', taxtext)
+
         # Verify forms are present
         self.isin('### `inet:ip`', text)
         self.isin('### `inet:fqdn`', text)

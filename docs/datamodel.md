@@ -9628,14 +9628,14 @@ Properties common to authorable forms.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the {title}. |
-| `:created` | `time` | The time that the {title} was created. |
-| `:desc` | `text` | A description of the {title}. |
-| `:id` | `meta:id` | The {title} ID. |
-| `:supersedes` | `array` | An array of {title} versions which are superseded by this {title}. |
-| `:updated` | `time` | The time that the {title} was last updated. |
-| `:url` | `inet:url` | The URL where the {title} is available. |
-| `:version` | `it:version` | The version of the {title}. |
+| `:contributors` | `array` | An array of contacts which contributed to the document. |
+| `:created` | `time` | The time that the document was created. |
+| `:desc` | `text` | A description of the document. |
+| `:id` | `meta:id` | The document ID. |
+| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:updated` | `time` | The time that the document was last updated. |
+| `:url` | `inet:url` | The URL where the document is available. |
+| `:version` | `it:version` | The version of the document. |
 
 | Form |
 |------|
@@ -9655,11 +9655,11 @@ A common interface for documents.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:body` | `text` | The text of the {title}. |
-| `:file` | `file:bytes` | The file containing the {title} contents. |
-| `:file:name` | `file:base` | The name of the file containing the {title} contents. |
-| `:title` | `str` | The title of the {title}. |
-| `:type` | `{type}` | The type of {title}. |
+| `:body` | `text` | The text of the document. |
+| `:file` | `file:bytes` | The file containing the document contents. |
+| `:file:name` | `file:base` | The name of the file containing the document contents. |
+| `:title` | `str` | The title of the document. |
+| `:type` | `doc:document:type:taxonomy` | The type of document. |
 
 | Form |
 |------|
@@ -9677,7 +9677,7 @@ An interface for forms which may act as a payment instrument.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:account` | `econ:fin:account` | The account contains the funds used by the {title}. |
+| `:account` | `econ:fin:account` | The account contains the funds used by the instrument. |
 
 | Form |
 |------|
@@ -9701,7 +9701,7 @@ An abstract entity which can be resolved to an organization or person.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:resolved` | `entity:resolved` | The resolved entity to which this {title} belongs. |
+| `:resolved` | `entity:resolved` | The resolved entity to which this entity belongs. |
 
 | Form |
 |------|
@@ -9714,8 +9714,8 @@ Properties which are common to actions taken by entities.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:actor` | `entity:actor` | The actor who carried out the {title}. |
-| `:actor:name` | `entity:name` | The name of the actor who carried out the {title}. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 
 | Form |
 |------|
@@ -9744,9 +9744,9 @@ Properties common to events which individuals may attend.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:desc` | `text` | A description of the {title}. |
-| `:parent` | `entity:attendable` | The parent event which hosts the {title}. |
-| `:period` | `ival` | The period of time over which the {title} occurred. |
+| `:desc` | `text` | A description of the event. |
+| `:parent` | `entity:attendable` | The parent event which hosts the event. |
+| `:period` | `ival` | The period of time over which the event occurred. |
 
 ### `entity:contactable`
 
@@ -9755,24 +9755,24 @@ An interface for forms which contain contact info.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
-| `:bio` | `text` | A tagline or bio provided for the {title}. |
+| `:bio` | `text` | A tagline or bio provided for the entity. |
 | `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the {title}. |
-| `:email` | `inet:email` | The primary email address for the {title}. |
-| `:emails` | `array` | An array of alternate email addresses for the {title}. |
-| `:id` | `meta:id` | A type or source specific ID for the {title}. |
+| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the entity. |
+| `:email` | `inet:email` | The primary email address for the entity. |
+| `:emails` | `array` | An array of alternate email addresses for the entity. |
+| `:id` | `meta:id` | A type or source specific ID for the entity. |
 | `:identifiers` | `array` | Additional entity identifiers. |
-| `:lifespan` | `ival` | The lifespan of the {title}. |
-| `:name` | `entity:name` | The primary entity name of the {title}. |
-| `:names` | `array` | An array of alternate entity names for the {title}. |
-| `:phone` | `tel:phone` | The primary phone number for the {title}. |
-| `:phones` | `array` | An array of alternate telephone numbers for the {title}. |
-| `:photo` | `file:bytes` | The profile picture or avatar for this {title}. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the {title}. |
-| `:url` | `inet:url` | The primary url for the {title}. |
-| `:user` | `inet:user` | The primary user name for the {title}. |
-| `:users` | `array` | An array of alternate user names for the {title}. |
-| `:websites` | `array` | Web sites listed for the {title}. |
+| `:lifespan` | `ival` | The lifespan of the entity. |
+| `:name` | `entity:name` | The primary entity name of the entity. |
+| `:names` | `array` | An array of alternate entity names for the entity. |
+| `:phone` | `tel:phone` | The primary phone number for the entity. |
+| `:phones` | `array` | An array of alternate telephone numbers for the entity. |
+| `:photo` | `file:bytes` | The profile picture or avatar for this entity. |
+| `:social:accounts` | `array` | Social media or other online accounts listed for the entity. |
+| `:url` | `inet:url` | The primary url for the entity. |
+| `:user` | `inet:user` | The primary user name for the entity. |
+| `:users` | `array` | An array of alternate user names for the entity. |
+| `:websites` | `array` | Web sites listed for the entity. |
 
 | Form |
 |------|
@@ -9825,8 +9825,8 @@ Properties which apply to entities which may represent a person.
 |----------|------|-----|
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
-| `:title` | `entity:title` | The entity title or role for this {title}. |
-| `:titles` | `array` | An array of alternate entity titles or roles for this {title}. |
+| `:title` | `entity:title` | The entity title or role for this item. |
+| `:titles` | `array` | An array of alternate entity titles or roles for this item. |
 
 | Form |
 |------|
@@ -9840,10 +9840,10 @@ Properties common to executable file formats.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:compiler` | `it:software` | The software used to compile the {executable}. |
-| `:compiler:name` | `meta:name` | The name of the software used to compile the {executable}. |
-| `:packer` | `it:software` | The software used to pack the {executable}. |
-| `:packer:name` | `meta:name` | The name of the software used to pack the {executable}. |
+| `:compiler` | `it:software` | The software used to compile the executable. |
+| `:compiler:name` | `meta:name` | The name of the software used to compile the executable. |
+| `:packer` | `it:software` | The software used to pack the executable. |
+| `:packer:name` | `meta:name` | The name of the software used to pack the executable. |
 
 | Form |
 |------|
@@ -9881,8 +9881,8 @@ Properties common to mime specific file metadata types.
 |----------|------|-----|
 | `:file` | `file:bytes` | The file that the mime info was parsed from. |
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
-| `:file:offs` | `int` | The offset of the {metadata} within the file. |
-| `:file:size` | `int` | The size of the {metadata} within the file. |
+| `:file:offs` | `int` | The offset of the metadata within the file. |
+| `:file:size` | `int` | The size of the metadata within the file. |
 
 | Form |
 |------|
@@ -9924,19 +9924,19 @@ Properties common to items and events which may be geolocated.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:` | `geo:place` | The place where the {title} {happened}. |
-| `:address` | `geo:address` | The postal address where the {title} {happened}. |
-| `:address:city` | `base:name` | The city where the {title} {happened}. |
-| `:altitude` | `geo:altitude` | The altitude where the {title} {happened}. |
-| `:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the {title} {happened}. |
-| `:bbox` | `geo:bbox` | A bounding box which encompasses where the {title} {happened}. |
-| `:country` | `pol:country` | The country where the {title} {happened}. |
-| `:country:code` | `iso:3166:alpha2` | The country code where the {title} {happened}. |
-| `:geojson` | `geo:json` | A GeoJSON representation of where the {title} {happened}. |
-| `:latlong` | `geo:latlong` | The latlong where the {title} {happened}. |
-| `:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the {title} {happened}. |
-| `:loc` | `loc` | The geopolitical location where the {title} {happened}. |
-| `:name` | `geo:name` | The name where the {title} {happened}. |
+| `:` | `geo:place` | The place where the item was located. |
+| `:address` | `geo:address` | The postal address where the item was located. |
+| `:address:city` | `base:name` | The city where the item was located. |
+| `:altitude` | `geo:altitude` | The altitude where the item was located. |
+| `:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the item was located. |
+| `:bbox` | `geo:bbox` | A bounding box which encompasses where the item was located. |
+| `:country` | `pol:country` | The country where the item was located. |
+| `:country:code` | `iso:3166:alpha2` | The country code where the item was located. |
+| `:geojson` | `geo:json` | A GeoJSON representation of where the item was located. |
+| `:latlong` | `geo:latlong` | The latlong where the item was located. |
+| `:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the item was located. |
+| `:loc` | `loc` | The geopolitical location where the item was located. |
+| `:name` | `geo:name` | The name where the item was located. |
 
 | Form |
 |------|
@@ -9958,15 +9958,15 @@ Properties common to network protocol requests and transports.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the {link}. |
-| `:client:host` | `it:host` | The client host which initiated the {link}. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the {link}. |
-| `:flow` | `inet:flow` | The network flow which contained the {link}. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:flow` | `inet:flow` | The network flow which contained the link. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the {link}. |
-| `:server:host` | `it:host` | The server host which received the {link}. |
-| `:server:proc` | `it:exec:proc` | The server process which received the {link}. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 
 | Form |
 |------|
@@ -10022,8 +10022,8 @@ Properties common to most forms within a service platform.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:id` | `meta:id` | A platform specific ID which identifies the {title}. |
-| `:platform` | `inet:service:platform` | The platform which defines the {title}. |
+| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:platform` | `inet:service:platform` | The platform which defines the node. |
 
 ### `inet:service:joinable`
 
@@ -10040,11 +10040,11 @@ Properties common to objects within a service platform.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:creator` | `inet:service:account` | The service account which created the {title}. |
-| `:period` | `ival` | The period when the {title} existed. |
-| `:remover` | `inet:service:account` | The service account which removed or decommissioned the {title}. |
-| `:status` | `inet:service:object:status` | The status of the {title}. |
-| `:url` | `inet:url` | The primary URL associated with the {title}. |
+| `:creator` | `inet:service:account` | The service account which created the object. |
+| `:period` | `ival` | The period when the object existed. |
+| `:remover` | `inet:service:account` | The service account which removed or decommissioned the object. |
+| `:status` | `inet:service:object:status` | The status of the object. |
+| `:url` | `inet:url` | The primary URL associated with the object. |
 
 | Form |
 |------|
@@ -10080,10 +10080,10 @@ Properties common to the nodes which subscribe to services.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:email` | `inet:email` | The primary email address for the {title}. |
-| `:name` | `entity:name` | The primary entity name of the {title}. |
-| `:profile` | `entity:contact` | Current detailed contact information for the {title}. |
-| `:user` | `inet:user` | The primary user name for the {title}. |
+| `:email` | `inet:email` | The primary email address for the subscriber. |
+| `:name` | `entity:name` | The primary entity name of the subscriber. |
+| `:profile` | `entity:contact` | Current detailed contact information for the subscriber. |
+| `:user` | `inet:user` | The primary user name for the subscriber. |
 
 | Form |
 |------|
@@ -10138,8 +10138,8 @@ An interface for items which can be discovered by an actor.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:discovered` | `time` | The earliest known time when the {title} was discovered. |
-| `:discoverer` | `entity:actor` | The earliest known actor which discovered the {title}. |
+| `:discovered` | `time` | The earliest known time when the item was discovered. |
+| `:discoverer` | `entity:actor` | The earliest known actor which discovered the item. |
 
 | Form |
 |------|
@@ -10152,8 +10152,8 @@ An interface used to describe items that can be possessed by an entity.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:owner` | `entity:actor` | The current owner of the {title}. |
-| `:owner:name` | `entity:name` | The name of the current owner of the {title}. |
+| `:owner` | `entity:actor` | The current owner of the item. |
+| `:owner:name` | `entity:name` | The name of the current owner of the item. |
 
 | Form |
 |------|
@@ -10167,8 +10167,8 @@ Properties which are common to matches based on rules.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:matched` | `time` | The time that the rule was evaluated to generate the match. |
-| `:rule` | `{rule:type}` | The rule which matched the target node. |
-| `:target` | `{target:type}` | The target node which matched the {rule}. |
+| `:rule` | `rule:type` | The rule which matched the target node. |
+| `:target` | `ndef` | The target node which matched the rule. |
 | `:version` | `it:version` | The most recent version of the rule evaluated as a match. |
 
 | Form |
@@ -10182,7 +10182,7 @@ Properties common to forms which can be observed.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:seen` | `ival` | The {title} was observed during the time interval. |
+| `:seen` | `ival` | The node was observed during the time interval. |
 
 | Form |
 |------|
@@ -10295,20 +10295,20 @@ Properties common to forms which are created on a per-source basis.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:created` | `time` | The time when the {title} was created. |
-| `:desc` | `text` | A description of the {title}. |
-| `:id` | `meta:id` | A unique ID given to the {title}. |
-| `:ids` | `array` | An array of alternate IDs given to the {title}. |
-| `:name` | `meta:name` | The primary name of the {title}. |
-| `:names` | `array` | A list of alternate names for the {title}. |
-| `:published` | `time` | The time when the reporter published the {title}. |
-| `:reporter` | `entity:actor` | The entity which reported on the {title}. |
-| `:reporter:name` | `entity:name` | The name of the entity which reported on the {title}. |
-| `:resolved` | `{$self}` | The authoritative {title} which this reporting is about. |
-| `:superseded` | `time` | The time when the {title} was superseded. |
-| `:supersedes` | `array` | An array of {title} nodes which are superseded by this {title}. |
-| `:updated` | `time` | The time when the {title} was last updated. |
-| `:url` | `inet:url` | The URL for the {title}. |
+| `:created` | `time` | The time when the item was created. |
+| `:desc` | `text` | A description of the item. |
+| `:id` | `meta:id` | A unique ID given to the item. |
+| `:ids` | `array` | An array of alternate IDs given to the item. |
+| `:name` | `meta:name` | The primary name of the item. |
+| `:names` | `array` | A list of alternate names for the item. |
+| `:published` | `time` | The time when the reporter published the item. |
+| `:reporter` | `entity:actor` | The entity which reported on the item. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the item. |
+| `:resolved` | `meta:reported` | The authoritative item which this reporting is about. |
+| `:superseded` | `time` | The time when the item was superseded. |
+| `:supersedes` | `array` | An array of item nodes which are superseded by this item. |
+| `:updated` | `time` | The time when the item was last updated. |
+| `:url` | `inet:url` | The URL for the item. |
 
 | Form |
 |------|
@@ -10337,7 +10337,7 @@ Properties common to taxonomies.
 | `:base` | `taxon` | The base taxon. |
 | `:depth` | `int` | The depth indexed from 0. |
 | `:desc` | `text` | A definition of the taxonomy entry. |
-| `:parent` | `{$self}` | The taxonomy parent. |
+| `:parent` | `meta:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
 
@@ -10435,7 +10435,7 @@ An interface for forms which can be used by an actor.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:used` | `ival` | The time interval when the {title} was being used. |
+| `:used` | `ival` | The time interval when the item was being used. |
 
 | Form |
 |------|
@@ -10455,9 +10455,9 @@ An interface which is inherited by all organized events.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the {title}. |
-| `:name:base` | `meta:name` | The base name of the {title} (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the {title}. |
+| `:name` | `meta:name` | The name of the event. |
+| `:name:base` | `meta:name` | The base name of the event (for a recurring event). |
+| `:names` | `array` | An array of alternate names for the event. |
 
 | Form |
 |------|
@@ -10470,10 +10470,10 @@ Properties which are common to events which are hosted or sponsored by organizat
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | Contact information for the {title}. |
-| `:organizers` | `array` | An array of {title} organizers. |
-| `:sponsors` | `array` | The entities which sponsored the {title}. |
-| `:website` | `inet:url` | The URL of the {title} website. |
+| `:contact` | `entity:contact` | Contact information for the event. |
+| `:organizers` | `array` | An array of event organizers. |
+| `:sponsors` | `array` | The entities which sponsored the event. |
+| `:website` | `inet:url` | The URL of the event website. |
 
 | Form |
 |------|
@@ -10488,11 +10488,11 @@ Properties common to all physical objects.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:phys:height` | `geo:dist` | The physical height of the {title}. |
-| `:phys:length` | `geo:dist` | The physical length of the {title}. |
-| `:phys:mass` | `mass` | The physical mass of the {title}. |
-| `:phys:volume` | `geo:dist` | The physical volume of the {title}. |
-| `:phys:width` | `geo:dist` | The physical width of the {title}. |
+| `:phys:height` | `geo:dist` | The physical height of the object. |
+| `:phys:length` | `geo:dist` | The physical length of the object. |
+| `:phys:mass` | `mass` | The physical mass of the object. |
+| `:phys:volume` | `geo:dist` | The physical volume of the object. |
+| `:phys:width` | `geo:dist` | The physical width of the object. |
 
 | Form |
 |------|
@@ -10507,18 +10507,18 @@ A common interface for tasks.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:assignee` | `entity:actor` | The actor who is assigned to complete the {task}. |
-| `:completed` | `time` | The time the {task} was completed. |
-| `:created` | `time` | The time the {task} was created. |
-| `:creator` | `entity:actor` | The actor who created the {task}. |
-| `:due` | `time` | The time the {task} must be complete. |
-| `:id` | `meta:id` | The ID of the {task}. |
-| `:parent` | `proj:doable` | The parent task which includes this {task}. |
-| `:priority` | `meta:score` | The priority of the {task}. |
-| `:project` | `proj:project` | The project containing the {task}. |
-| `:sprint` | `proj:sprint` | The sprint that contains the {task}. |
-| `:status` | `int` | The status of the {task}. |
-| `:updated` | `time` | The time the {task} was last updated. |
+| `:assignee` | `entity:actor` | The actor who is assigned to complete the task. |
+| `:completed` | `time` | The time the task was completed. |
+| `:created` | `time` | The time the task was created. |
+| `:creator` | `entity:actor` | The actor who created the task. |
+| `:due` | `time` | The time the task must be complete. |
+| `:id` | `meta:id` | The ID of the task. |
+| `:parent` | `proj:doable` | The parent task which includes this task. |
+| `:priority` | `meta:score` | The priority of the task. |
+| `:project` | `proj:project` | The project containing the task. |
+| `:sprint` | `proj:sprint` | The sprint that contains the task. |
+| `:status` | `int` | The status of the task. |
+| `:updated` | `time` | The time the task was last updated. |
 
 | Form |
 |------|
@@ -10552,15 +10552,15 @@ Properties common to a container used to transport cargo or people.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the {title} was built. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the {title}. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the {title}. |
-| `:max:cargo:mass` | `mass` | The maximum mass the {title} can carry as cargo. |
-| `:max:cargo:volume` | `geo:dist` | The maximum volume the {title} can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the {title} can hold. |
-| `:model` | `base:name` | The model of the {title}. |
-| `:owner` | `entity:actor` | The contact information of the owner of the {title}. |
-| `:serial` | `base:id` | The manufacturer assigned serial number of the {title}. |
+| `:built` | `time` | The date when the object was built. |
+| `:manufacturer` | `entity:actor` | The organization which manufactured the object. |
+| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the object. |
+| `:max:cargo:mass` | `mass` | The maximum mass the object can carry as cargo. |
+| `:max:cargo:volume` | `geo:dist` | The maximum volume the object can carry as cargo. |
+| `:max:occupants` | `int` | The maximum number of occupants the object can hold. |
+| `:model` | `base:name` | The model of the object. |
+| `:owner` | `entity:actor` | The contact information of the owner of the object. |
+| `:serial` | `base:id` | The manufacturer assigned serial number of the object. |
 
 | Form |
 |------|
@@ -10574,18 +10574,18 @@ Properties common to travel schedules.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:arrived` | `time` | The actual arrival time. |
-| `:arrived:place` | `geo:place` | The actual arrival {place}. |
-| `:arrived:point` | `transport:point` | The actual arrival {point}. |
+| `:arrived:place` | `geo:place` | The actual arrival place. |
+| `:arrived:point` | `transport:point` | The actual arrival point. |
 | `:departed` | `time` | The actual departure time. |
-| `:departed:place` | `geo:place` | The actual departure {place}. |
-| `:departed:point` | `transport:point` | The actual departure {point}. |
+| `:departed:place` | `geo:place` | The actual departure place. |
+| `:departed:point` | `transport:point` | The actual departure point. |
 | `:duration` | `duration` | The actual duration. |
 | `:scheduled:arrival` | `time` | The scheduled arrival time. |
-| `:scheduled:arrival:place` | `geo:place` | The scheduled arrival {place}. |
-| `:scheduled:arrival:point` | `transport:point` | The scheduled arrival {point}. |
+| `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
+| `:scheduled:arrival:point` | `transport:point` | The scheduled arrival point. |
 | `:scheduled:departure` | `time` | The scheduled departure time. |
-| `:scheduled:departure:place` | `geo:place` | The scheduled departure {place}. |
-| `:scheduled:departure:point` | `transport:point` | The scheduled departure {point}. |
+| `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
+| `:scheduled:departure:point` | `transport:point` | The scheduled departure point. |
 | `:scheduled:duration` | `duration` | The scheduled duration. |
 
 | Form |
@@ -10598,12 +10598,12 @@ Properties common to a specific trip taken by a vehicle.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:cargo:mass` | `mass` | The cargo mass carried by the {vehicle} on this {trip}. |
-| `:cargo:volume` | `geo:dist` | The cargo volume carried by the {vehicle} on this {trip}. |
-| `:occupants` | `int` | The number of occupants of the {vehicle} on this {trip}. |
-| `:operator` | `entity:actor` | The contact information of the operator of the {trip}. |
-| `:status` | `str` | The status of the {trip}. |
-| `:vehicle` | `transport:vehicle` | The {vehicle} which traveled the {trip}. |
+| `:cargo:mass` | `mass` | The cargo mass carried by the vehicle on this trip. |
+| `:cargo:volume` | `geo:dist` | The cargo volume carried by the vehicle on this trip. |
+| `:occupants` | `int` | The number of occupants of the vehicle on this trip. |
+| `:operator` | `entity:actor` | The contact information of the operator of the trip. |
+| `:status` | `str` | The status of the trip. |
+| `:vehicle` | `transport:vehicle` | The vehicle which traveled the trip. |
 
 | Form |
 |------|
@@ -10617,7 +10617,7 @@ Properties common to a vehicle.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:operator` | `entity:actor` | The contact information of the operator of the {title}. |
+| `:operator` | `entity:actor` | The contact information of the operator of the object. |
 
 | Form |
 |------|
