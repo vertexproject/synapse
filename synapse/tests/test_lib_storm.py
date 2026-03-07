@@ -2168,6 +2168,74 @@ class StormTest(s_t_utils.SynTest):
             self.eq(2, embeds['gprop::name']['ndefs.size'])
             self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
 
+            # embeds include meta prop values
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            embeds = node[1]['embeds']
+            self.nn(embeds['asn']['.created'])
+            self.nn(embeds['asn']['.updated'])
+            self.eq('hehe', embeds['asn']['owner:name'])
+
+            # embeds with meta props and show:storage
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            embeds = node[1]['embeds']
+            self.nn(embeds['asn']['.created'])
+            storage = node[1]['storage']
+            self.nn(storage[0].get('embeds'))
+            self.nn(storage[0]['embeds'].get('asn::.created'))
+            self.nn(storage[0]['embeds'].get('asn::owner:name'))
+
+            # embeds with meta props and show:storage in a fork view
+            # covering the continue-if-unset logic in _joinEmbedStor
+            embfork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            # create a fresh asn node in the base with no extra props
+            await core.nodes('[ inet:asn=20 ]')
+            await core.nodes('[ inet:ip=5.5.5.5 :asn=20 ]')
+
+            # modify the embedded asn node only in the fork layer
+            await core.stormlist('inet:asn=20 [ :owner:name=forkname ]', opts={'view': embfork})
+
+            # the fork layer has owner:name in props but the base does not,
+            # covering "if relProp not in props: continue" for the base layer
+            opts = {'view': embfork, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            embeds = node[1]['embeds']
+            self.nn(embeds['asn']['.created'])
+            self.eq('forkname', embeds['asn']['owner:name'])
+            storage = node[1]['storage']
+            self.len(2, storage)
+            # fork layer should have owner:name embed
+            top = storage[0].get('embeds', {})
+            self.nn(top.get('asn::owner:name'))
+            # base layer should not have owner:name embed (prop not in that layer)
+            bot = storage[1].get('embeds', {})
+            self.none(bot.get('asn::owner:name'))
+            # base layer should still have .created embed
+            self.nn(bot.get('asn::.created'))
+
+            # embeds with meta props in a fork where the embedded node
+            # has no storage at all in the top layer (no meta/props dicts)
+            embfork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': embfork})
+            opts = {'view': embfork2, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            storage = node[1]['storage']
+            self.len(3, storage)
+            # top layer has no storage for the embedded node so no embeds
+            # this covers "if not meta: continue" and "if not props: continue"
+            self.none(storage[0].get('embeds'))
+
+            # empty relprop should not cause an error
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('',)}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            self.isin('asn', node[1]['embeds'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
