@@ -1819,24 +1819,40 @@ class Runtime(s_base.Base):
 
                 await asyncio.sleep(0)
 
-                if relProp[0] == '$':
+                if not relProp or relProp[0] == '$':
                     continue
+
+                isMeta = relProp[0] == '.'
 
                 for idx, layrstor in enumerate(stor):
 
                     await asyncio.sleep(0)
 
-                    props = layrstor.get('props')
-                    if not props:
-                        continue
+                    if isMeta:
+                        metaname = relProp[1:]
+                        meta = layrstor.get('meta')
+                        if not meta:
+                            continue
 
-                    if relProp not in props:
-                        continue
+                        if metaname not in meta:
+                            continue
 
-                    if 'embeds' not in storage[idx]:
-                        storage[idx]['embeds'] = {}
+                        if 'embeds' not in storage[idx]:
+                            storage[idx]['embeds'] = {}
 
-                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+                        storage[idx]['embeds'][f'{nodePath}::{relProp}'] = meta[metaname]
+                    else:
+                        props = layrstor.get('props')
+                        if not props:
+                            continue
+
+                        if relProp not in props:
+                            continue
+
+                        if 'embeds' not in storage[idx]:
+                            storage[idx]['embeds'] = {}
+
+                        storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
 
     async def iterStormPodes(self):
         '''

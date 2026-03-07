@@ -2168,6 +2168,32 @@ class StormTest(s_t_utils.SynTest):
             self.eq(2, embeds['gprop::name']['ndefs.size'])
             self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
 
+            # embeds include meta prop values
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            embeds = node[1]['embeds']
+            self.nn(embeds['asn']['.created'])
+            self.nn(embeds['asn']['.updated'])
+            self.eq('hehe', embeds['asn']['owner:name'])
+
+            # embeds with meta props and show:storage
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            embeds = node[1]['embeds']
+            self.nn(embeds['asn']['.created'])
+            storage = node[1]['storage']
+            self.nn(storage[0].get('embeds'))
+            self.nn(storage[0]['embeds'].get('asn::.created'))
+            self.nn(storage[0]['embeds'].get('asn::owner:name'))
+
+            # empty relprop should not cause an error
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('',)}}, 'show:storage': True}}
+            msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            self.isin('asn', node[1]['embeds'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):

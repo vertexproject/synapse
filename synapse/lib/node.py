@@ -509,6 +509,16 @@ class Node(NodeBase):
                 }
 
             for relp in relprops:
+
+                if not relp:
+                    continue
+
+                if relp[0] == '.':
+                    metaname = relp[1:]
+                    if (mtyp := node.view.core.model.metatypes.get(metaname)) is not None:
+                        embdnode[relp] = node.getMeta(metaname)
+                    continue
+
                 valu, virts = node.getWithVirts(relp)
                 embdnode[relp] = valu
 
