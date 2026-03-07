@@ -918,7 +918,7 @@ class Agenda(s_base.Base):
         except Exception as e:
             logger.warning(
                 f'Affinity service {appt.affinity} unavailable for cron {appt.iden}, running locally: {e}',
-                extra={'synapse': {'iden': appt.iden, 'affinity': appt.affinity}}
+                extra={'synapse': {'iden': appt.iden, 'affinity': appt.affinity}, exc_info=e}
             )
             return None
 
