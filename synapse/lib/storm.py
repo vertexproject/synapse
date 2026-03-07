@@ -1836,11 +1836,6 @@ class Runtime(s_base.Base):
 
                         if metaname not in meta:
                             continue
-
-                        if 'embeds' not in storage[idx]:
-                            storage[idx]['embeds'] = {}
-
-                        storage[idx]['embeds'][f'{nodePath}::{relProp}'] = meta[metaname]
                     else:
                         props = layrstor.get('props')
                         if not props:
@@ -1849,10 +1844,13 @@ class Runtime(s_base.Base):
                         if relProp not in props:
                             continue
 
-                        if 'embeds' not in storage[idx]:
-                            storage[idx]['embeds'] = {}
+                    if (storembeds := storage[idx].get('embeds')) is None:
+                        storembeds = storage[idx]['embeds'] = {}
 
-                        storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+                    if isMeta:
+                        storembeds[f'{nodePath}::{relProp}'] = meta[metaname]
+                    else:
+                        storembeds[f'{nodePath}::{relProp}'] = props[relProp]
 
     async def iterStormPodes(self):
         '''
