@@ -948,6 +948,8 @@ class LibService(Lib):
                                                          'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('service',), 'gate': 'cortex',
+            'desc': 'Controls all service permissions.'},
         {'perm': ('service', 'add'), 'gate': 'cortex',
             'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
         {'perm': ('service', 'del'), 'gate': 'cortex',
@@ -4010,6 +4012,8 @@ class LibQueue(Lib):
                               'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('queue',), 'gate': 'cortex',
+         'desc': 'Controls all queue permissions.'},
         {'perm': ('queue', 'add'), 'gate': 'cortex',
          'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
@@ -8907,6 +8911,8 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
+        {'perm': ('trigger',), 'gate': 'cortex',
+         'desc': 'Controls all trigger permissions.'},
         {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'trigger',
@@ -9544,6 +9550,8 @@ class LibCron(Lib):
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
+        {'perm': ('cron',), 'gate': 'cortex',
+         'desc': 'Controls all cron permissions.'},
         {'perm': ('cron', 'add'), 'gate': 'view',
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
