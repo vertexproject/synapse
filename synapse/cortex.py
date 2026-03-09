@@ -5928,6 +5928,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Duplicate iden specified for dmon: {ddef["iden"]}'
             raise s_exc.DupIden(mesg=mesg)
 
+        s_schemas.reqValidDdef(ddef)
+
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
