@@ -1805,52 +1805,54 @@ class Runtime(s_base.Base):
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from e
 
     async def _joinEmbedStor(self, storage, embeds):
-        for nodePath, relProps in embeds.items():
+        for nodepath, relprops in embeds.items():
 
             await asyncio.sleep(0)
 
-            if (nid := relProps.get('$nid')) is None:
+            if (nid := relprops.get('$nid')) is None:
                 continue
 
             nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
-            for relProp in relProps.keys():
+            for relprop in relprops.keys():
 
                 await asyncio.sleep(0)
 
-                if not relProp or relProp[0] == '$':
+                if not relprop or relprop[0] == '$':
                     continue
 
-                isMeta = relProp[0] == '.'
+                ismeta = relprop[0] == '.'
 
                 for idx, layrstor in enumerate(stor):
 
                     await asyncio.sleep(0)
 
-                    if isMeta:
-                        metaname = relProp[1:]
+                    if ismeta:
+                        metaname = relprop[1:]
                         meta = layrstor.get('meta')
                         if not meta:
                             continue
 
                         if metaname not in meta:
                             continue
+
+                        valu = meta[metaname]
+
                     else:
                         props = layrstor.get('props')
                         if not props:
                             continue
 
-                        if relProp not in props:
+                        if relprop not in props:
                             continue
+
+                        valu = props[relprop]
 
                     if (storembeds := storage[idx].get('embeds')) is None:
                         storembeds = storage[idx]['embeds'] = {}
 
-                    if isMeta:
-                        storembeds[f'{nodePath}::{relProp}'] = meta[metaname]
-                    else:
-                        storembeds[f'{nodePath}::{relProp}'] = props[relProp]
+                    storembeds[f'{nodepath}::{relprop}'] = valu
 
     async def iterStormPodes(self):
         '''
