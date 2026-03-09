@@ -1608,7 +1608,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to add a storm graph.',
              'default': True},
             {'perm': ('storm', 'macro'), 'gate': 'cortex',
-             'desc': 'Controls all storm macro permissions.'},
+             'desc': 'Controls all Storm macro permissions.'},
             {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm macro.',
              'default': True},
