@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.version as s_version
+import synapse.lib.stormbin as s_stormbin
 
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
@@ -294,6 +295,47 @@ class GenPkgTest(s_test.SynTest):
         self.raises(ValueError, s_files.getAssetPath, 'newp.bin')
         self.raises(ValueError, s_files.getAssetPath,
                     '../../../../../../../../../etc/passwd')
+
+    async def test_genpkg_compiled(self):
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+        async with self.getTestCore() as core:
+
+            savepath = s_common.genpath(core.dirn, 'testpkg_compiled.json')
+
+            url = core.getLocalUrl()
+            argv = ('--compiled', '--push', url, '--save', savepath, ymlpath)
+
+            await s_genpkg.main(argv)
+
+            pdef = s_common.yamlload(savepath)
+
+            # Verify storm fields are compiled
+            self.true(pdef['modules'][0]['storm'].startswith('}'))
+            self.true(pdef['commands'][0]['storm'].startswith('}'))
+            self.true(pdef['onload'].startswith('}'))
+
+            for initdef in pdef['inits']['versions']:
+                self.true(initdef['query'].startswith('}'))
+
+            # Verify the compiled package works correctly when pushed to a cortex
+            msgs = await core.stormlist('testpkgcmd')
+            self.stormIsInErr('argument <foo> is required', msgs)
+
+            msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
+            self.stormIsInPrint('Imported Module testmod', msgs)
+
+    async def test_genpkg_compiled_dotstorm(self):
+
+        yamlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml')
+        async with self.getTestCore() as core:
+            url = core.getLocalUrl()
+            argv = ('--compiled', '--push', url, yamlpath)
+            await s_genpkg.main(argv)
+            msgs = await core.stormlist('$lib.import(dotstorm.foo)')
+            self.stormIsInPrint('hello foo', msgs)
+            msgs = await core.stormlist('dotstorm.bar')
+            self.stormIsInPrint('hello bar', msgs)
 
     async def test_genpkg_dotstorm(self):
 
