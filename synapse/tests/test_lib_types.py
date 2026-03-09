@@ -658,7 +658,7 @@ class TypesTest(s_t_utils.SynTest):
             # $salt affects the initial guid computation
             salt00 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
             self.len(1, salt00)
-            self.eq('saltyorg', salt00[0].get('name'))
+            self.propeq(salt00[0], 'name', 'saltyorg')
 
             # Same salt and props produces the same guid
             salt01 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
@@ -666,8 +666,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(salt00[0].ndef, salt01[0].ndef)
 
             # Different salt produces a different initial guid
-            nosalt = s_common.guid([('name', 'saltyorg')])
-            salted = s_common.guid([('name', 'saltyorg'), ('$salt', 'salt1')])
+            nosalt = s_common.guid([('name', ('entity:name', 'saltyorg'))])
+            salted = s_common.guid([('name', ('entity:name', 'saltyorg')), ('$salt', 'salt1')])
             self.ne(nosalt, salted)
             self.eq(salt00[0].ndef[1], salted)
 

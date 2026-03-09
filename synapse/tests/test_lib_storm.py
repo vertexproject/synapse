@@ -2183,7 +2183,7 @@ class StormTest(s_t_utils.SynTest):
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
             self.nn(embeds['asn']['.updated'])
-            self.eq('hehe', embeds['asn']['owner:name'])
+            self.eq('hehe', embeds['asn']['owner:name'][1])
 
             # embeds with meta props and show:storage
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
@@ -2214,7 +2214,7 @@ class StormTest(s_t_utils.SynTest):
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
-            self.eq('forkname', embeds['asn']['owner:name'])
+            self.eq('forkname', embeds['asn']['owner:name'][1])
             storage = node[1]['storage']
             self.len(2, storage)
             # fork layer should have owner:name embed
