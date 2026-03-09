@@ -2293,6 +2293,14 @@ class TypesTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
+            await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})
+
+            await core.nodes('[ test:int=3 :_vers=(v1.2.3, foo1.2.3, 4.5.6) ]')
+            self.len(2, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
+            await core.nodes('test:int=3 [ :_vers-=v1.2.3 ]')
+            self.len(1, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
     async def test_types_typehash(self):
         async with self.getTestCore() as core:
             # TODO: some kind of magic polyprop typehash?

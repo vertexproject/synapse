@@ -541,7 +541,7 @@ class IndxByPoly(IndxBy):
             yield item
 
     def hasIndxNid(self, indx, nid):
-        return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
+        return self.layr.layrslab.hasdup(self.abrv[:8] + indx, nid, db=self.db)
 
     def __repr__(self):
         return f'IndxByPoly: {self.form}:{self.prop}'
@@ -565,7 +565,7 @@ class IndxByPolyArray(IndxByPoly):
 
     def getNodeValu(self, nid, lkey=None):
 
-        if lkey is None:
+        if lkey is None:  # pragma: no cover
             return s_common.novalu
 
         indx = lkey[8:]
@@ -608,9 +608,7 @@ class IndxByPolyKeys(IndxByPoly):
         if lkey is None:  # pragma: no cover
             return s_common.novalu
 
-        indx = lkey[8:]
-
-        if (valu := self.indxToValu(indx)) is not s_common.novalu:
+        if (valu := self.indxToValu(lkey[8:])) is not s_common.novalu:
             return valu
 
         if (nid := self.layr.layrslab.get(lkey, db=self.db)) is None:  # pragma: no cover
@@ -1292,7 +1290,7 @@ class StorTypeFqdn(StorTypeUtf8):
         async for item in StorTypeUtf8._liftUtf8Eq(self, liftby, valu[::-1], reverse=reverse):
             yield item
 
-class StorTypeIpv6(StorType):
+class StorTypeIpv6(StorType):  # pragma: no cover
 
     # no longer in use, remove after 3.0.0 migration is no longer needed
 
@@ -3028,7 +3026,11 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 try:
-                    indxby = IndxByProp(self, form, propname)
+                    if stortype & STOR_FLAG_POLY:
+                        indxby = IndxByPoly(self, form, propname, stortype & STOR_MASK_POLY)
+                    else:
+                        indxby = IndxByProp(self, form, propname)
+
                     for indx in self.getStorIndx(stortype, storvalu):
                         if not indxby.hasIndxNid(indx, nid):
                             yield ('NoPropIndex', {'prop': propname, 'valu': storvalu})
@@ -4768,7 +4770,7 @@ class Layer(s_nexus.Pusher):
             for oldi in self.getStorIndx(stortype, valu, virts=virts):
                 self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
 
-                if realtype == STOR_TYPE_NDEF:
+                if realtype == STOR_TYPE_NDEF:  # pragma: no cover
                     self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
                 elif realtype == STOR_TYPE_NODEPROP:

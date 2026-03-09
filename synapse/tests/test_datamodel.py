@@ -1007,6 +1007,9 @@ class DataModelTest(s_t_utils.SynTest):
             # poly array virtual on a form lift
             self.len(2, await core.nodes('test:str:polyarry*[.port=80]'))
 
+            await core.nodes('test:str=iparry [ :polyarry-={ inet:server=tcp://1.2.3.4:80 } ]')
+            self.len(1, await core.nodes('test:str:polyarry*[.port=80]'))
+
             nodes = await core.nodes('[ test:str=ifarray :polyint={[ test:hasiface=p123 ]} ]')
             self.len(1, await core.nodes('test:hasiface=p123 <- *'))
 

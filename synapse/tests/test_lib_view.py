@@ -1571,6 +1571,28 @@ class ViewTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('meta:name', node.form.name)
 
+            # Rip prop values out of sodes to make them undecodable for coverage
+            layr = core.getLayer()
+            nodes = await core.nodes(f'ou:conference:names*[={long1}]')
+            nid = nodes[0].nid
+
+            sode = layr.getStorNode(nid)
+            sode['props'].pop('names')
+            layr.dirty[nid] = sode
+
+            nodes = await core.nodes(f'transport:sea:vessel:name={long2}')
+            nid = nodes[0].nid
+
+            sode = layr.getStorNode(nid)
+            sode['props'].pop('name')
+            layr.dirty[nid] = sode
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
             with self.raises(s_exc.BadTypeValu):
                 async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
                     pass

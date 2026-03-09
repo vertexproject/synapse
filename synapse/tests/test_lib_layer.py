@@ -2310,8 +2310,17 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByPoly(layr, 'test:str', 'poly', s_layer.STOR_TYPE_UTF8)
             self.eq(str(indxby), 'IndxByPoly: test:str:poly')
 
+            nodes = await core.nodes('[ test:str=newp ]')
+            self.eq(s_common.novalu, indxby.getSodeValu(nodes[0].sodes[0]))
+            self.eq(s_common.novalu, indxby.getNodeValu(s_common.int64en(1337)))
+
             indxby = s_layer.IndxByPolyArray(layr, 'test:str', 'polyarry', s_layer.STOR_TYPE_UTF8)
             self.eq(str(indxby), 'IndxByPolyArray: test:str:polyarry')
+
+            abrv = core.getIndxAbrv(s_layer.INDX_PROP, 'test:str', 'poly')
+            indx = layr.polytype.indx(('test:str', 'a' * 500))[0]
+            self.eq(s_common.novalu, indxby.getNodeValu(nodes[0].nid, lkey=abrv + indx))
+            self.eq(s_common.novalu, indxby.getNodeValu(s_common.int64en(1337), lkey=abrv + indx))
 
             indxby = s_layer.IndxByPolyArrayKeys(layr, 'test:str', 'polyarry', s_layer.STOR_TYPE_UTF8)
             self.eq(str(indxby), 'IndxByPolyArrayKeys: test:str:polyarry')
