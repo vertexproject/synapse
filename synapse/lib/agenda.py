@@ -6,6 +6,8 @@ import logging
 import calendar
 import datetime
 import itertools
+import contextlib
+
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
@@ -922,6 +924,19 @@ class Agenda(s_base.Base):
             )
             return None
 
+    @contextlib.asynccontextmanager
+    async def _getStormGenr(self, appt, opts, timeout=10):
+
+        proxy = await self._getAffinityProxy(appt, timeout=timeout)
+        if proxy is None:
+            yield self.core.storm(appt.query, opts=opts)
+            return
+
+        try:
+            yield proxy.storm(appt.query, opts=opts)
+        finally:
+            proxy.fini()
+
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
@@ -942,10 +957,6 @@ class Agenda(s_base.Base):
         success = False
         loglevel = s_common.normLogLevel(appt.loglevel)
 
-        proxy = None
-        if appt.affinity:
-            proxy = await self._getAffinityProxy(appt)
-
         try:
             opts = {
                 'user': user.iden,
@@ -960,27 +971,24 @@ class Agenda(s_base.Base):
 
             await self.core.feedBeholder('cron:start', {'iden': appt.iden})
 
-            if proxy is not None:
-                stormgenr = proxy.storm(appt.query, opts=opts)
-            else:
-                stormgenr = self.core.storm(appt.query, opts=opts)
+            async with self._getStormGenr(appt, opts, timeout=10) as stormgenr:
 
-            async for mesg in stormgenr:
+                async for mesg in stormgenr:
 
-                if mesg[0] == 'node':
-                    count += 1
+                    if mesg[0] == 'node':
+                        count += 1
 
-                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
-                    text = mesg[1].get('mesg', '<missing message>')
-                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
-                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+                    elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
+                        text = mesg[1].get('mesg', '<missing message>')
+                        extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                        logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
-                elif mesg[0] == 'err':
-                    excname, errinfo = mesg[1]
-                    errinfo.pop('eline', None)
-                    errinfo.pop('efile', None)
-                    excctor = getattr(s_exc, excname, s_exc.SynErr)
-                    raise excctor(**errinfo)
+                    elif mesg[0] == 'err':
+                        excname, errinfo = mesg[1]
+                        errinfo.pop('eline', None)
+                        errinfo.pop('efile', None)
+                        excctor = getattr(s_exc, excname, s_exc.SynErr)
+                        raise excctor(**errinfo)
 
         except Exception as e:
             result = f'raised exception {e}'
@@ -1018,9 +1026,6 @@ class Agenda(s_base.Base):
             }
             if self.core.isactive:
                 await self.core.addCronEdits(appt.iden, edits)
-
-            if proxy is not None:
-                await proxy.fini()
 
             if not self.isfini:
                 # fire beholder event before invoking nexus change (in case readonly)
