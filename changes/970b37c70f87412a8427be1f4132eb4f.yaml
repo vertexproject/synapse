@@ -1,0 +1,7 @@
+---
+desc: Updated ``BadJsonText`` exceptions raised during JSON deserialization to include a trimmed
+  snippet of the input text starting at the error position for additional context.
+desc:literal: false
+prs: []
+type: bugfix
+...
