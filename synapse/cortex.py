@@ -1603,7 +1603,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
 
             {'perm': ('storm', 'graph'), 'gate': 'cortex',
-             'desc': 'Controls all storm graph permissions.'},
+             'desc': 'Controls all Storm graph permissions.'},
             {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
