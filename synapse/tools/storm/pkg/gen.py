@@ -94,7 +94,7 @@ def tryLoadPkgProto(fp, opticdir=None, readonly=False, compiled=False):
         return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly, compiled=compiled)
 
 def _compileStormField(text, mode='storm'):
-    '''Compile a Storm text field into a BASE64: encoded stormbin string.'''
+    '''Compile a Storm text field into a base64-encoded stormbin string.'''
     byts = s_stormbin.compile(text, mode=mode)
     return s_stormbin.enBase64(byts)
 

@@ -549,7 +549,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
                 }
             }
 
-        The ``query`` field may also be a ``BASE64:`` prefixed string containing a compiled
+        The ``query`` field may also be a ``}`` prefixed string containing a compiled
         Storm binary (stormbin) query. See ``$lib.storm.compile()`` for details.
 
     *Returns*
