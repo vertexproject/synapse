@@ -563,10 +563,24 @@ class IndxByPolyArray(IndxByPoly):
         self.prop = prop
         self.abrvlen += self.multilen
 
-    def getSodeValu(self, sode):
-        valt = sode['props'].get(self.prop)
-        if valt is not None:
-            return valt[0]
+    def getNodeValu(self, nid, lkey=None):
+
+        if lkey is None:
+            return s_common.novalu
+
+        indx = lkey[8:]
+        stortype = self.getStorType()
+
+        if (valu := stortype.decodeIndx(indx)) is not s_common.novalu:
+            return valu
+
+        if (sode := self.layr._getStorNode(nid)) is None:
+            return s_common.novalu
+
+        if (storvalu := self.getSodeValu(sode)) is not s_common.novalu:
+            for sval in storvalu:
+                if stortype.indx(sval)[0] == indx:
+                    return sval
 
         return s_common.novalu
 
@@ -718,7 +732,7 @@ class IndxByTagPropVirt(IndxBy):
         mesg += f':{self.prop}.{".".join(self.virts)}'
         return mesg
 
-class IndxByPropArray(IndxBy):
+class IndxByPropArray(IndxByProp):
 
     def __init__(self, layr, form, prop):
         '''
@@ -730,20 +744,30 @@ class IndxByPropArray(IndxBy):
         self.form = form
         self.prop = prop
 
+    def getStorType(self):
+        prop = self.layr.core.model.prop(f'{self.form}:{self.prop}')
+        return self.layr.stortypes[prop.type.arraytype.stortype]
+
     def getNodeValu(self, nid, lkey=None):
-        sode = self.layr._getStorNode(nid)
-        if sode is None: # pragma: no cover
+
+        if lkey is None:
             return s_common.novalu
 
-        props = sode.get('props')
-        if props is None:
+        indx = lkey[self.abrvlen:]
+        stortype = self.getStorType()
+
+        if (valu := stortype.decodeIndx(indx)) is not s_common.novalu:
+            return valu
+
+        if (sode := self.layr._getStorNode(nid)) is None:
             return s_common.novalu
 
-        valt = props.get(self.prop)
-        if valt is None:
-            return s_common.novalu
+        if (storvalu := self.getSodeValu(sode)) is not s_common.novalu:
+            for sval in storvalu:
+                if stortype.indx(sval)[0] == indx:
+                    return sval
 
-        return valt[0]
+        return s_common.novalu
 
     def __repr__(self):
         return f'IndxByPropArray: {self.form}:{self.prop}'
@@ -1124,24 +1148,17 @@ class StorType:
         regx = regex.compile(valu, flags=regex.I)
 
         abrvlen = liftby.abrvlen
-        isarray = isinstance(liftby, IndxByPropArray)
+        ispoly = isinstance(liftby, IndxByPoly)
 
         async for lkey, nid in liftby.keyNidsByPref(reverse=reverse):
 
             await asyncio.sleep(0)
 
-            indx = lkey[abrvlen:]
-
             if (storvalu := liftby.getNodeValu(nid, lkey=lkey)) is s_common.novalu:
                 continue
 
-            if isarray:
-                for sval in storvalu:
-                    if self.indx(sval)[0] == indx:
-                        storvalu = sval
-                        break
-                else:
-                    continue
+            if ispoly:
+                storvalu = storvalu[1]
 
             def regexin(regx, storvalu):
                 if isinstance(storvalu, str):

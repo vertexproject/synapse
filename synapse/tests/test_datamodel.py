@@ -1011,7 +1011,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:hasiface=p123 <- *'))
 
             opts = {'vars': {'long1': 'a' * 500, 'long2': 'a' * 500 + 'b'}}
-            q = '[ test:str=nonuniq :polynonuniq={[ test:int=1 test:int=1 test:str=1 test:str=$long1 test:str=$long2]} ]'
+            q = '[ test:str=nonuniq :polynonuniq={[ test:int=1 test:int=1 test:hasiface=1 test:str=$long1 test:str=$long2]} ]'
             await core.nodes(q, opts=opts)
 
             self.len(3, await core.nodes('test:str:polynonuniq*[=1]'))
@@ -1052,6 +1052,10 @@ class DataModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'poly', 'inh', form='test:str2')
 
             self.len(0, await core.nodes('test:str:poly.form=test:hasiface2'))
+
+            await core.nodes('[ test:str=long :poly={[ test:str=$long1 ]} ]', opts=opts)
+            self.len(3, await core.nodes('test:str:poly~=a'))
+            self.len(1, await core.nodes('test:str:poly~=aa'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:poly.form=test:float')
