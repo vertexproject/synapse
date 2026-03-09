@@ -472,6 +472,23 @@ class DataModelTest(s_t_utils.SynTest):
             self.isin('updated', [m[0] for m in model['metas']])
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
+            # Verify interface template variables are resolved in getModelDict
+            ifaces = model['interfaces']
+
+            obsinfo = ifaces.get('meta:observable')
+            obsprops = {p[0]: p for p in obsinfo['props']}
+            self.eq(obsprops['seen'][2]['doc'], 'The node was observed during the time interval.')
+
+            locinfo = ifaces.get('geo:locatable')
+            locprops = {p[0]: p for p in locinfo['props']}
+            self.isin('The place where the item was located.', locprops[''][2]['doc'])
+            self.notin('{title}', locprops[''][2]['doc'])
+            self.notin('{happened}', locprops[''][2]['doc'])
+
+            taxinfo = ifaces.get('meta:taxonomy')
+            taxprops = {p[0]: p for p in taxinfo['props']}
+            self.eq(taxprops['parent'][1][0], 'meta:taxonomy')
+
             model = (await core.getModelDefs())[0][1]
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 

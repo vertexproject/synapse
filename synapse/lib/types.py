@@ -868,6 +868,7 @@ class Guid(Type):
 
         props = valu.pop('$props', {})
         trycast = valu.pop('$try', False)
+        salt = valu.pop('$salt', s_common.novalu)
 
         if not valu:
             mesg = f'No values provided for form {form.full}'
@@ -885,7 +886,7 @@ class Guid(Type):
             tryprops = props.pop('$try', trycast)
             props = await self._normProps(form, props, view, trycast=tryprops)
 
-        guid, exists = await self._getGuidByNorms(form, norms, view)
+        guid, exists = await self._getGuidByNorms(form, norms, view, salt=salt)
 
         subinfo = {}
         addinfo = []
@@ -933,7 +934,7 @@ class Guid(Type):
 
         return norms
 
-    async def _getGuidByNorms(self, form, norms, view):
+    async def _getGuidByNorms(self, form, norms, view, salt=s_common.novalu):
 
         proplist = []
         for name, info in norms.items():
@@ -941,6 +942,10 @@ class Guid(Type):
 
         # check first for an exact match via our same deconf strategy
         proplist.sort()
+
+        if salt is not s_common.novalu:
+            proplist.append(('$salt', salt))
+
         guid = s_common.guid(proplist)
 
         if not view:

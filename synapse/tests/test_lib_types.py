@@ -655,6 +655,36 @@ class TypesTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:service:rule :object -> *'))
 
+            # $salt affects the initial guid computation
+            salt00 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
+            self.len(1, salt00)
+            self.eq('saltyorg', salt00[0].get('name'))
+
+            # Same salt and props produces the same guid
+            salt01 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
+            self.len(1, salt01)
+            self.eq(salt00[0].ndef, salt01[0].ndef)
+
+            # Different salt produces a different initial guid
+            nosalt = s_common.guid([('name', 'saltyorg')])
+            salted = s_common.guid([('name', 'saltyorg'), ('$salt', 'salt1')])
+            self.ne(nosalt, salted)
+            self.eq(salt00[0].ndef[1], salted)
+
+            # Deconfliction still finds an existing node with matching props
+            salt02 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "othersalt"}) ]')
+            self.len(1, salt02)
+            self.eq(salt00[0].ndef, salt02[0].ndef)
+
+            # $salt works with $props
+            salt03 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1", "$props": {"desc": "a salted org"}}) ]')
+            self.len(1, salt03)
+            self.eq(salt00[0].ndef, salt03[0].ndef)
+            self.eq('a salted org', salt03[0].get('desc'))
+
+            # $salt is not stored as a property
+            self.none(salt00[0].get('$salt'))
+
     async def test_hex(self):
 
         async with self.getTestCore() as core:
