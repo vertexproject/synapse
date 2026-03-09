@@ -3038,7 +3038,7 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             # Non-uniq arrays should yield nodes for each instance of a matching value
-            self.len(1, await core.nodes('[ test:arrayprop=* :strs=(foo, bar, baz, foobar, foobar) ]'))
+            self.len(1, await core.nodes('[ test:arrayprop=(0,) :strs=(foo, bar, baz, foobar, foobar) ]'))
             self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
@@ -3046,7 +3046,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
-            viewopts2 = {'view': viewiden2}
+            viewopts2 = {'view': viewiden2, 'vars': {'long': 'a' * 500}}
 
             await core.nodes('[ test:arrayprop=(foo,) :ints=(1, 2, 3, 3) ]', opts=viewopts2)
             await core.nodes('[ test:arrayprop=(foo,) :ints=(1, 2, 3, 3) ]')
@@ -3054,9 +3054,114 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:arrayprop:ints*[=3]', opts=viewopts2))
             self.len(3, await core.nodes('test:arrayprop:ints*[>1]', opts=viewopts2))
 
+            await core.nodes('test:arrayprop=(foo,) | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('test:arrayprop:ints*[=3]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:ints*[>1]', opts=viewopts2))
+
             # Bad data test coverage
             nodes = await core.nodes('test:str=virts')
             sode = nodes[0].sodes[0]
             sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
             self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
             self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
+
+            forkview = core.getView(viewiden2)
+            await core.nodes('[ test:arrayprop=(0,) :strs=($long, $long) ]', opts=viewopts2)
+            self.len(2, await core.nodes('test:arrayprop:strs*[={[test:str=$long]}]', opts=viewopts2))
+
+            nodes = await core.nodes('[ test:arrayprop=(0,) :strs=(bar,) ]', opts=viewopts2)
+            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'strs', (('test:str', 'a' * 500),))
+
+            self.len(0, await core.nodes('test:arrayprop:strs*[=$long]', opts=viewopts2))
+            self.len(1, await core.nodes('test:arrayprop:strs*[=bar]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:strs*[={[test:str=$long]}]', opts=viewopts2))
+
+            # Non-poly prop handling
+            await core.nodes('[ test:arrayprop=(1,) :plainstr=(v1, v2, v1, v1) ]', opts=viewopts2)
+            await core.nodes('[ test:arrayprop=(1,) :plainstr=(v1, v2, v1, v1) ]')
+
+            self.len(3, await core.nodes('test:arrayprop:plainstr*[=v1]', opts=viewopts2))
+
+            await core.nodes('test:arrayprop=(1,) | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('test:arrayprop:plainstr*[=v1]', opts=viewopts2))
+
+            await core.nodes('[ test:arrayprop=(2,) :plainstr=(v3, v4) ]')
+            nodes = await core.nodes('[ test:arrayprop=(2,) :plainstr=(v4,) ]', opts=viewopts2)
+
+            # Invalid array index coverage
+            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'plainstr', ('a' * 500,))
+
+            self.len(0, await core.nodes('test:arrayprop:plainstr*[=$long]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:plainstr*[=v3]', opts=viewopts2))
+            self.len(1, await core.nodes('test:arrayprop:plainstr*[=v4]', opts=viewopts2))
+
+            q = '''[
+            test:str=iparry
+                :polyarry={[
+                    inet:server=tcp://1.2.3.4:80
+                    inet:server=tcp://1.2.3.4:90
+                    inet:server=tcp://1.2.3.5:80
+                ]}
+            ]'''
+            await core.nodes(q, opts=viewopts2)
+            await core.nodes(q)
+
+            self.len(2, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
+            self.len(3, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+
+            await core.nodes('test:str=iparry [ :polyarry={ inet:server=tcp://1.2.3.4:90 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
+            self.len(1, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
+            self.len(1, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+
+            await core.nodes('test:str=iparry | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+
+            # Multiple virt types
+            q = '''[
+                test:arrayprop=(3,)
+                    :multivirt={[
+                        file:path=`/foo/{$long}`
+                        file:path=`/foo/{$long}`
+                        inet:server=tcp://1.2.3.4:80
+                        inet:server=tcp://1.2.3.4:80
+                ]}
+            ]'''
+            await core.nodes(q, opts=viewopts2)
+
+            self.len(2, await core.nodes('test:arrayprop:multivirt*[.port=80]', opts=viewopts2))
+            self.len(2, await core.nodes('test:arrayprop:multivirt*[.base=$long]', opts=viewopts2))
+
+            # Non-poly virts
+            await core.nodes('[ test:arrayprop=(4,) :vers=(v1.2.3, v1.2.3, foo1.2.3, 4.5.6) ]')
+            await core.nodes('[ test:arrayprop=(4,) :vers=(4.5.6,) ]', opts=viewopts2)
+
+            self.len(1, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:vers*[.semver=1.2.3]', opts=viewopts2))
+
+            await core.nodes('test:arrayprop=(4,) | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:vers*[.semver=1.2.3]', opts=viewopts2))
+
+            # Bad virt data coverage
+            nodes = await core.nodes('[test:str=iparry :polyarry={ inet:server=tcp://1.2.3.4:90 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
+
+            nodes[0].sodes[0]['props']['polyarry'][2].pop('port')
+            self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
+
+            nodes = await core.nodes('test:arrayprop=(3,)', opts=viewopts2)
+            nodes[0].sodes[0]['props']['multivirt'][2]['base'] = {('newp', 9): 2}
+            self.len(0, await core.nodes('test:arrayprop:multivirt*[.base=$long]', opts=viewopts2))
+
+            nodes[0].sodes[0]['props']['multivirt'][2]['port'] = {(90, 9): 2}
+            self.len(0, await core.nodes('test:arrayprop:multivirt*[.port=80]', opts=viewopts2))
+
+            nodes = await core.nodes('[ test:arrayprop=(4,) :vers=(4.5.6,) ]', opts=viewopts2)
+            nodes[0].sodes[0]['props']['vers'][2]['semver'] = {('newp', 9): 1}
+            self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
+
+            nodes[0].sodes[0]['props']['vers'][2].pop('semver')
+            self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))

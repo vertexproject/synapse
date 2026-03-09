@@ -372,6 +372,9 @@ testmodel = (
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
                 ('children', ('array', {'type': 'test:arrayprop'}), {}),
+                ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
+                ('multivirt', ('array', {'type': ('file:path', 'inet:server'), 'uniq': False}), {}),
+                ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
             )),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (

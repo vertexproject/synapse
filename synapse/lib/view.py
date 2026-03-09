@@ -3585,7 +3585,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         if lidx != valulayr:
                             continue
 
-                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                        # currently form is the only liftable poly virt and is always decodable
+                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
                             for vval in pvalu:
                                 if stortype.indx(vval)[0] == indx:
                                     aval = vval
@@ -3605,9 +3606,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
                         if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
                             for (vval, vtyp) in vinfo:
-                                if vtyp != realtype:
-                                    continue
-
                                 if stortype.indx(vval)[0] == indx:
                                     aval = vval
                                     break
@@ -3668,7 +3666,8 @@ class View(s_nexus.Pusher):  # type: ignore
                     if (vinfo := valu[2].get(virts[0])) is None:
                         continue
 
-                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                    # currently there are no non-poly virts that can fail to decode
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
                         for (vval, vtyp) in vinfo:
                             if stortype.indx(vval)[0] == indx:
                                 aval = vval
