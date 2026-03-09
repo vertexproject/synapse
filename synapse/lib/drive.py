@@ -54,8 +54,12 @@ class Drive(s_base.Base):
     async def __anit__(self, slab, name):
         await s_base.Base.__anit__(self)
         self.slab = slab
+        self.onfini(self.slab.fini)
         self.dbname = slab.initdb(f'drive:{name}')
         self.validators = {}
+
+    async def sync(self):
+        await self.slab.sync()
 
     async def getPathNorm(self, path):
 
@@ -603,4 +607,4 @@ class FileDrive(Drive, s_spawner.SpawnerMixin):
 
     async def __anit__(self, path):
         slab = await s_lmdbslab.Slab.anit(path)
-        return await Drive.__anit__(self, slab, 'celldrive')
+        await Drive.__anit__(self, slab, 'celldrive')

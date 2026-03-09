@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import tempfile
@@ -8,6 +9,7 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.const as s_const
 import synapse.lib.link as s_link
 import synapse.lib.process as s_process
 
@@ -27,10 +29,45 @@ def _ioWorkProc(todo, sockpath):
             dmon.share('item', item)
 
             # bind last so we're ready to go...
-            await dmon.listen(f'unix://{sockpath}')
+            try:
+                await dmon.listen(f'unix://{sockpath}')
+            except OSError as e:
+                errpath = sockpath + '.err'
+                try:
+                    with open(errpath, 'w') as f:
+                        f.write(str(e))
+                except OSError:
+                    pass
+                raise
             await item.waitfini()
 
     asyncio.run(workloop())
+
+async def _spawnerWait(sockpath, timeout=30):
+
+    errpath = sockpath + '.err'
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        if os.path.exists(errpath):
+            try:
+                with open(errpath) as f:
+                    err = f.read()
+            except OSError:
+                err = 'unknown'
+            try:
+                os.unlink(errpath)
+            except OSError:
+                pass
+            raise s_exc.FatalErr(mesg=f'IO worker failed to open listening socket at [{sockpath}]: {err}')
+        try:
+            await asyncio.wait_for(s_link.unixwait(sockpath), timeout=1)
+            return
+        except asyncio.TimeoutError:
+            if loop.time() > deadline:
+                raise s_exc.FatalErr(
+                    mesg=f'IO worker failed to open listening socket at [{sockpath}] within {timeout}s'
+                )
 
 class SpawnerMixin:
 
@@ -47,6 +84,8 @@ class SpawnerMixin:
 
         iden = s_common.guid()
 
+        if sockpath is not None and len(sockpath) > s_const.UNIX_PATH_MAX:
+            sockpath = None
         if sockpath is None:
             tmpdir = tempfile.gettempdir()
             sockpath = s_common.genpath(tmpdir, iden)
@@ -56,7 +95,7 @@ class SpawnerMixin:
 
         base.schedCoro(s_process.spawn((_ioWorkProc, (todo, sockpath), {})))
 
-        await s_link.unixwait(sockpath)
+        await _spawnerWait(sockpath)
 
         proxy = await s_telepath.openurl(f'unix://{sockpath}:item')
 

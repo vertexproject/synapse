@@ -1,3 +1,5 @@
+import os
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -340,3 +342,19 @@ class DriveTest(s_t_utils.SynTest):
             self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
             self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
             self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
+
+    async def test_drive_backup_sync(self):
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            celldirn = os.path.join(dirn, 'cell')
+
+            s_common.yamlsave({'backup:dir': backdirn}, celldirn, 'cell.yaml')
+
+            async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
+
+                await cell.addDriveItem({'name': 'testitem'})
+
+                name = await cell.runBackup('drivetest')
+
+            drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
+            self.true(os.path.isfile(drivepath))

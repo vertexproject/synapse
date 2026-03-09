@@ -1942,9 +1942,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
         sockpath = s_common.genpath(self.sockdirn, 'drive')
 
-        if len(sockpath) > s_const.UNIX_PATH_MAX:
-            sockpath = None
-
         spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
         self.drive = await spawner(path)
 
@@ -2817,6 +2814,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async with self.nexslock:
 
                 logger.debug('Syncing LMDB Slabs')
+
+                await self.drive.sync()
 
                 while True:
                     await s_lmdbslab.Slab.syncLoopOnce()
@@ -5393,6 +5392,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             logger.warning('...committing pending transactions.')
+
+            await self.drive.sync()
             await self.slab.syncLoopOnce()
 
             logger.warning('...flushing dirty buffers to disk.')
