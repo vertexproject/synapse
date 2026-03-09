@@ -33,7 +33,6 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.agenda as s_agenda
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.schemas as s_schemas
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
