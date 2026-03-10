@@ -1,0 +1,6 @@
+---
+desc: Added ability to set ``loglevel`` when creating a cron and including it
+  in cron responses.
+desc:literal: false
+prs: []
+type: feat

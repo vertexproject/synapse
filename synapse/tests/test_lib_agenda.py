@@ -319,7 +319,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # Test that isrunning updated, cancelling works
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
-                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
+                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1,
+                        'loglevel': 'CRITICAL'}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
@@ -329,6 +330,7 @@ class AgendaTest(s_t_utils.SynTest):
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
                 self.eq(core.view.iden, appt.task.info.get('view'))
+                self.eq(appt.loglevel, 'CRITICAL')
 
                 self.true(await core._killCronTask(guid))
 

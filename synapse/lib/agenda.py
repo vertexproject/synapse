@@ -358,7 +358,8 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs[:5])
+            'lasterrs': list(self.lasterrs[:5]),
+            'loglevel': self.loglevel
         }
 
     @classmethod

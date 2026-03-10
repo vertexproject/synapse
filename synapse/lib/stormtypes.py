@@ -9873,6 +9873,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         period = kwargs.get('period')
         if not period:
             # TODO: Deprecated, remove in 3.x.x
@@ -9981,7 +9983,8 @@ class LibCron(Lib):
                 'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')
