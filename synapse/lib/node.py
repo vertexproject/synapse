@@ -44,8 +44,7 @@ class NodeBase:
             if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
                 return mtyp.repr(self.getMeta(virts[0]))
 
-            virtgetr = typeitem.getVirtGetr(virts)
-            virttype = typeitem.getVirtType(virts)
+            virttype, virtgetr = typeitem.getVirtInfo(virts)
             return virttype.repr(self.valu(virts=virtgetr))
 
         prop = self.form.props.get(name)
@@ -66,8 +65,7 @@ class NodeBase:
                     return defv
                 typeitem = self.view.core.model.form(valu[0]).type
 
-        virtgetr = typeitem.getVirtGetr(virts)
-        virttype = typeitem.getVirtType(virts)
+        virttype, virtgetr = typeitem.getVirtInfo(virts)
 
         if (valu := self.get(name, virts=virtgetr)) is None:
             return defv

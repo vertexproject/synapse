@@ -2809,18 +2809,12 @@ class FormPivot(PivotOper):
 
                     elif isinstance(prop.type.arraytype, (s_types.Ndef, s_types.NodeProp)):
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
+
                     else:
                         if prop.arraytypehash is not node.form.typehash:
                             ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], norm=True, virts=virts)
                         else:
                             ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=False, virts=virts)
-
-                # TODO: clean this up
-                # elif prop.type.ispoly and not virts:
-                #    if not prop.type.formfilter(node.form):
-                #        ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
-                #    else:
-                #        ngenr = runt.view.nodesByPropValu(prop.full, '=', node)
 
                 else:
                     cmpr = '='
@@ -2828,10 +2822,10 @@ class FormPivot(PivotOper):
                     ispiv = False
                     valu = node.ndef[1]
 
-                    if not prop.type.ispoly:
-                        ptyps = (prop.type,)
-                    else:
+                    if prop.type.ispoly:
                         ptyps = prop.type.getTypeSet()
+                    else:
+                        ptyps = (prop.type,)
 
                     if virts is not None:
                         vtyps = []
@@ -2855,9 +2849,6 @@ class FormPivot(PivotOper):
                         if ispiv:
                             break
 
-                        # TODO: this can't be in the loop
-                        # elif (norm := ptyp.typehash is not node.form.typehash):
-                        #    cmpr = '?='
                     if not norm and ptyp.typehash is not node.form.typehash:
                         norm = True
 
@@ -3613,13 +3604,15 @@ class HasRelPropCond(Cond):
         if virts is None:
             return realnode.has(name)
 
-        # TODO: cleanup
         ptyp = prop.type
         if ptyp.ispoly:
-            if ptyp.virts.get(virts[0]) is None:
-                if (valu := node.get(name)) is None:
-                    return False
-                ptyp = runt.model.form(valu[0]).type
+            if (valu := node.get(name)) is None:
+                return False
+
+            if ptyp.virts.get(virts[0]) is not None:
+                return True
+
+            ptyp = runt.model.form(valu[0]).type
 
         try:
             vgetr = ptyp.getVirtGetr(virts)
@@ -3730,16 +3723,30 @@ class HasAbsPropCond(Cond):
                 formlist.append(prop.form.name)
                 relname = prop.name
 
-            vgetr = None
-            # TODO fix
-            if virts and not prop.type.ispoly:
+            if not virts:
+                async def cond(node, path):
+                    if node.form.name not in formlist:
+                        return False
+                    return node.has(relname)
+
+            elif not prop.type.ispoly:
                 vgetr = prop.type.getVirtGetr(virts)
 
-            async def cond(node, path):
-                if node.form.name not in formlist:
-                    return False
+                async def cond(node, path):
+                    if node.form.name not in formlist:
+                        return False
+                    return node.has(relname, virts=vgetr)
 
-                return node.has(relname, virts=vgetr)
+            else:
+                async def cond(node, path):
+                    if node.form.name not in formlist:
+                        return False
+
+                    if (valu := node.get(relname)) is None:
+                        return False
+
+                    vgetr = runt.model.form(valu[0]).type.getVirtGetr(virts)
+                    return node.has(relname, virts=vgetr)
 
             return cond
 
