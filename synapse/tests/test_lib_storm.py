@@ -2926,6 +2926,25 @@ class StormTest(s_t_utils.SynTest):
                     self.none(await core.getStormVar('init10'))
                     self.nn(await core.getStormVar('init11'))
 
+                    # init queryopts
+
+                    pkg['version'] = '0.8.0'
+                    pkg['inits']['versions'].append({
+                        'version': 12,
+                        'name': 'init12',
+                        'query': '$lib.globals.init12 = $myvar',
+                        'queryopts': {
+                            'vars': {
+                                'myvar': 'heythere',
+                            },
+                        },
+                    })
+
+                    await loadPkg(core, pkg)
+
+                    self.eq(12, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq('heythere', await core.getStormVar('init12'))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:

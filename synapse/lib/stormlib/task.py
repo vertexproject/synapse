@@ -67,6 +67,8 @@ class LibTask(s_stormtypes.Lib):
     )
     _storm_lib_path = ('task',)
     _storm_lib_perms = (
+        {'perm': ('task',), 'gate': 'cortex',
+         'desc': 'Controls all task permissions.'},
         {'perm': ('task', 'get'), 'gate': 'cortex',
          'desc': 'Permits a user to view tasks owned by other users.'},
         {'perm': ('task', 'del'), 'gate': 'cortex',

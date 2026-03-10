@@ -12,6 +12,29 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.234.0 - 2026-02-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a new ``--period`` option to both ``cron.add`` and ``cron.mod``
+  commands for setting or modifying cron job schedules. The older schedule
+  options have been deprecated.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``getNexusChanges`` API could potentially send
+  ``t2:yield`` messages before the initial ``t2:genr`` message.
+  (`#4748 <https://github.com/vertexproject/synapse/pull/4748>`_)
+
+Deprecations
+------------
+- Deprecated ``--minute``, ``--hour``, ``--day``, ``--month``, ``--year``,
+  ``--hourly``, ``--daily``, ``--monthly``, and ``--yearly``options for the
+  ``cron.add`` command.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
 v2.233.1 - 2026-02-11
 =====================
 
