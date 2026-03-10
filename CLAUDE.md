@@ -93,10 +93,10 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 
 ## Key Development CLI Tools
 
-| Tool | Purpose |
-|------|---------|
-| `synapse.tools.storm` | Storm CLI |
-| `synapse.tools.genpkg` | Storm package generation |
+| Tool                            | Purpose |
+|---------------------------------|---------|
+| `synapse.tools.storm`           | Storm CLI |
+| `synapse.tools.storm.pkg.gen`   | Storm package generation |
 | `synapse.tools.utils.changelog` | Generate changelog entry |
 
 ## Documentation
