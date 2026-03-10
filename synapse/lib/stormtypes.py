@@ -819,13 +819,24 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.snap.view.iden
+        if ddef is None:
+            ddef = {}
+
+        ddef.pop('view', None)
+
+        stormopts = ddef.get('stormopts')
+        viewiden = None
+        if stormopts is not None:
+            viewiden = stormopts.get('view')
+        if viewiden is not None:
+            viewiden = await tostr(viewiden)
+            view = self.runt.snap.core.reqView(viewiden)
+        else:
+            viewiden = self.runt.snap.view.iden
+
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
-
-        if ddef is None:
-            ddef = {}
 
         ddef['name'] = name
         ddef['user'] = self.runt.user.iden
