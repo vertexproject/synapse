@@ -3254,7 +3254,6 @@ class CopyToCmd(Cmd):
                             continue
 
                     if prop.type.ispoly:
-                        # TODO: adjust this to avoid re-get
                         valu = s_stormtypes.NodeRef(node.getWithVirts(name))
 
                     await proto.set(name, valu)

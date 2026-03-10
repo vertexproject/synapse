@@ -3419,16 +3419,31 @@ class View(s_nexus.Pusher):  # type: ignore
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
-        norm = (await _type.norm(valu))[0]
+        norm, info = await _type.norm(valu)
 
-        # TODO: split poly handling off to optimize norming?
-        for prop in self.core.model.getPropsByType(name):
-            async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=prop.type.ispoly):
-                yield node
+        if (form := self.core.model.form(name)) is not None:
+            ftyps = form.formtypes[::-1]
+            nrefs = [s_stormtypes.NodeRef(((ftyp, norm), info.get('virts'))) for ftyp in ftyps]
 
-        for prop in self.core.model.getArrayPropsByType(name):
-            async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=prop.type.arraytype.ispoly):
-                yield node
+            for idx, ftyp in enumerate(ftyps):
+                refset = nrefs[idx:]
+                for prop in self.core.model.getPropsByType(ftyp):
+                    for nref in refset:
+                        async for node in self.nodesByPropValu(prop.full, cmpr, nref):
+                            yield node
+
+                for prop in self.core.model.getArrayPropsByType(name):
+                    for nref in refset:
+                        async for node in self.nodesByPropArray(prop.full, cmpr, nref):
+                            yield node
+        else:
+            for prop in self.core.model.getPropsByType(name):
+                async for node in self.nodesByPropValu(prop.full, cmpr, norm, norm=False):
+                    yield node
+
+            for prop in self.core.model.getArrayPropsByType(name):
+                async for node in self.nodesByPropArray(prop.full, cmpr, norm, norm=False):
+                    yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 

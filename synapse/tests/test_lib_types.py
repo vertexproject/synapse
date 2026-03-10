@@ -2333,9 +2333,6 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_types_typehash(self):
         async with self.getTestCore() as core:
-            # TODO: some kind of magic polyprop typehash?
-            # self.true(core.model.form('inet:fqdn').type.typehash is core.model.prop('inet:dns:a:fqdn').type.typehash)
-            # self.true(core.model.form('meta:name').type.typehash is core.model.prop('it:network:name').type.typehash)
             self.true(core.model.form('inet:asn').type.typehash is not core.model.prop('inet:proto:port').type.typehash)
 
             self.true(s_common.isguid(core.model.form('inet:fqdn').type.typehash))

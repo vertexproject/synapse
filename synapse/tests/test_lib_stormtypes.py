@@ -5913,7 +5913,6 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.asn)'))
             props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
-            # TODO: is this how we want to handle returning NodeProps?
             self.eq(('inet:asn', 20), props.get('asn'))
 
             fakeuser = await core.auth.addUser('fakeuser')
@@ -5942,7 +5941,6 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
             self.propeq(nodes[0], 'size', 12)
 
-            # TODO: should iter produce medium weight nodes?
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
             self.eq(('test:int', 12), props.get('size'))

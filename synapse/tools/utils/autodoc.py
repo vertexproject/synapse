@@ -367,7 +367,6 @@ def processFormsProps(rst, dochelp, forms, alledges):
                     rst.addLines(f'        - | :ref:`{hptlink}`', )
                     for k, v in ptopts.items():
                         if ptname == 'array' and k == 'type':
-                            # TODO: how to doc polyprops?
                             if isinstance(v, tuple):
                                 v = 'polyprop'
                             tlink = f'dm-type-{v.replace(":", "-")}'

@@ -580,7 +580,6 @@ class Array(Type):
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
-        # TODO allow polyprop with multiple type+typeopts defs?
         if not typeopts:
             if typename in self.modl.ifaces or ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
                 typename = (typename,)
@@ -784,8 +783,7 @@ class Comp(Type):
 
             if (typeform := self.modl.form(_type.name)) is not None:
                 adds.append((typeform.name, norm, info))
-                # TODO return an ndef to potentially avoid renorm?
-                # ndef = s_stormtypes.NodeRef(((_type.name, norm), info.get('virts')))
+                # TODO: potentially return a NodeRef to avoid a renorm?
                 subs[name] = (_type.typehash, norm, info)
             else:
                 subs[name] = (_type.typehash, norm, info)
@@ -2340,6 +2338,11 @@ class Poly(Type):
                 if self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
                 valu = valu.valu[1]
+
+        if isinstance(valu, s_node.Node):
+            valu = valu.ndef[1]
+        elif isinstance(valu, s_stormtypes.NodeRef):
+            valu = valu.valu[1]
 
         cmprs = {}
         isvalid = False
