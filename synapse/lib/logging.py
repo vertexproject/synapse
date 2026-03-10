@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _log_wins = weakref.WeakSet()
 
 LOG_PUMP_TASK_TIMEOUT = 1
-LOG_QUEUE_SIZES = 1000
+LOG_QUEUE_SIZE = 1000
 
 def excinfo(e, _seen=None):
 
@@ -153,9 +153,9 @@ class StreamHandler(logging.StreamHandler):
     _pump_exit_flag = False
     _glob_handler = None
 
-    _logs_fifo = collections.deque(maxlen=LOG_QUEUE_SIZES)
-    _logs_todo = collections.deque(maxlen=LOG_QUEUE_SIZES)
-    _text_todo = collections.deque(maxlen=LOG_QUEUE_SIZES)
+    _logs_fifo = collections.deque(maxlen=LOG_QUEUE_SIZE)
+    _logs_todo = collections.deque(maxlen=LOG_QUEUE_SIZE)
+    _text_todo = collections.deque(maxlen=LOG_QUEUE_SIZE)
 
     def emit(self, record):
 

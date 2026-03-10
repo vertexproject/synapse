@@ -191,15 +191,15 @@ class LoggingTest(s_test.SynTest):
 
         # Now log messages which will exceed the buffer size. This will log N+1 messages,
         # meaning that buftest-0 will not be present and window1 will be included.
-        for n in range(s_logging.LOG_QUEUE_SIZES):
+        for n in range(s_logging.LOG_QUEUE_SIZE):
             logger.error(f'buftest-{n}')
         logger.error('window1', extra=s_logging.getLogExtra(fini=True))
 
         await asyncio.wait_for(evnt2.wait(), timeout=12)
         self.true(await task)
 
-        self.len(2 + s_logging.LOG_QUEUE_SIZES - 1, msgs)
-        emsgs = ['window0'] + [f'buftest-{n}' for n in range(1, s_logging.LOG_QUEUE_SIZES)] + ['window1']
+        self.len(2 + s_logging.LOG_QUEUE_SIZE - 1, msgs)
+        emsgs = ['window0'] + [f'buftest-{n}' for n in range(1, s_logging.LOG_QUEUE_SIZE)] + ['window1']
         self.eq([m.get('message') for m in msgs], emsgs)
 
         s_logging.reset()
