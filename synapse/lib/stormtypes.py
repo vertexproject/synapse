@@ -9815,8 +9815,17 @@ class LibCron(Lib):
         elif period == 'yearly':
             incunit = 'year'
             incvals = 1
-            reqs['month'] = 1
-            reqs['dayofmonth'] = 1
+            if vals:
+                try:
+                    mstr, dstr = vals.split(':', 1)
+                    reqs['month'] = int(mstr)
+                    reqs['dayofmonth'] = int(dstr)
+                except ValueError:
+                    mesg = f'Invalid month:day value for yearly period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                reqs['month'] = 1
+                reqs['dayofmonth'] = 1
             reqs.setdefault('hour', 0)
             reqs.setdefault('minute', 0)
         else:
