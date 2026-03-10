@@ -830,9 +830,7 @@ class LibDmon(Lib):
             viewiden = stormopts.get('view')
         if viewiden is not None:
             viewiden = await tostr(viewiden)
-            view = self.runt.snap.core.getView(viewiden)
-            if view is None:
-                raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+            view = self.runt.snap.core.reqView(viewiden)
         else:
             viewiden = self.runt.snap.view.iden
 
