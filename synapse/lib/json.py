@@ -18,7 +18,10 @@ def _fallback_loads(s: str | bytes) -> Any:
     try:
         return json.loads(s)
     except json.JSONDecodeError as exc:
-        raise s_exc.BadJsonText(mesg=exc.args[0])
+        import synapse.common as s_common  # Avoid circular import
+        text = s if isinstance(s, str) else s.decode('utf-8', errors='replace')
+        snippet = s_common.trimText(text[exc.pos:])
+        raise s_exc.BadJsonText(mesg=exc.args[0], text=snippet)
 
 def loads(s: str | bytes) -> Any:
     '''
