@@ -5868,6 +5868,14 @@ class StormTypesTest(s_test.SynTest):
             ]
             self.eq(exp, [n.ndef for n in nodes])
 
+            hardware = await core.nodes('[ it:hardware=* :version=1.2.3 ]')
+            arrynode = await core.nodes('[ test:arrayprop=* :vers=(1.2.3,) ]')
+            exp = [hardware[0].ndef, arrynode[0].ndef]
+
+            nodes = await core.nodes('yield $lib.lift.byTypeValue(it:version, 1.2.3)')
+            self.len(2, nodes)
+            self.eq(exp, [n.ndef for n in nodes])
+
             nodes = await core.nodes('''[
                 (test:guid=* :size=5)
                 (test:guid=* :size=6 :tick=2020)

@@ -2327,21 +2327,15 @@ class Poly(Type):
                 if (func := vlifts.get(cmpr)) is not None:
                     return await func(cmpr, valu)
 
-        if cmpr == '=':
-            if isinstance(valu, s_node.Node):
-                if self.formfilter(valu.form):
-                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
-                valu = valu.ndef[1]
-
-            elif isinstance(valu, s_stormtypes.NodeRef):
-                form = self.modl.form(valu.valu[0])
-                if self.formfilter(form):
-                    return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
-                valu = valu.valu[1]
-
         if isinstance(valu, s_node.Node):
+            if self.formfilter(valu.form) and cmpr == '=':
+                return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
             valu = valu.ndef[1]
+
         elif isinstance(valu, s_stormtypes.NodeRef):
+            form = self.modl.form(valu.valu[0])
+            if self.formfilter(form) and cmpr == '=':
+                return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
             valu = valu.valu[1]
 
         cmprs = {}
