@@ -2479,6 +2479,11 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 3))
 
+            await core.nodes('[ test:str=proparray :pdefs=((test:str:somestr, foo), (test:str:somestr, foo)) ]')
+            await core.nodes('[ test:str=proparray :pdefs=((test:int:int2, 3),) ]', opts=viewopts2)
+
+            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:str:somestr]', opts=viewopts2))
+
     async def test_layer_virt_indexes(self):
 
         async with self.getTestCore() as core:
@@ -3114,10 +3119,21 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
             self.len(1, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
 
+            await core.nodes('test:str=iparry [ -:polyarry ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+
             await core.nodes('test:str=iparry | delnode', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+
+            viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
+            viewopts3 = {'view': viewiden3}
+
+            await core.nodes('[ test:str=iparry ]', opts=viewopts3)
+            self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts3))
 
             # Multiple virt types
             q = '''[
@@ -3165,3 +3181,6 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes[0].sodes[0]['props']['vers'][2].pop('semver')
             self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
+
+            nodes = await core.nodes('[ test:str=empty ]')
+            self.eq(((None, None), None), nodes[0].getRawWithLayer('polyarry'))

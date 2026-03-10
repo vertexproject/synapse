@@ -3625,7 +3625,6 @@ class View(s_nexus.Pusher):  # type: ignore
             realtype = cmprvals[0][-1]
             stortype = self.layers[0].stortypes[realtype]
 
-            # TODO: this is weird
             vgetr = None
             if not isinstance(prop.type.arraytype.virtindx.get(virts[0]), str):
                 vgetr = prop.type.arraytype.getVirtGetr(virts)
