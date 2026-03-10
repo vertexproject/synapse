@@ -3319,6 +3319,27 @@ class CellTest(s_t_utils.SynTest):
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
 
+    async def test_cell_task_dedup(self):
+
+        async with self.getTestCell() as cell:
+
+            iden00 = s_common.guid()
+            task00 = {'iden': iden00, 'service': 'peer.cell.synapse'}
+
+            iden01 = s_common.guid()
+            task01 = {'iden': iden01, 'service': 'peer.cell.synapse'}
+
+            async def peerGenr(todo, timeout=None):
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task01))
+
+            with mock.patch.object(cell, 'callPeerGenr', peerGenr):
+                tasks = [task async for task in cell.getTasks()]
+
+            self.len(2, tasks)
+            self.eq([iden00, iden01], [t['iden'] for t in tasks])
+
     async def test_cell_fini_order(self):
 
         with self.getTestDir() as dirn:
