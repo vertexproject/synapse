@@ -1572,8 +1572,9 @@ class LiftOper(Oper):
         ptyp = props[-1].type
 
         for piv in pivs:
-            # TODO can this be done??
             if ptyp.ispoly or isinstance(ptyp, s_types.Ndef):
+                # TODO: check index counts to determine if it is potentially more efficient
+                # to lift poly pivots like this
                 return
 
             if (virt := ptyp.virts.get(piv)) is not None:
@@ -1938,17 +1939,8 @@ class LiftByArrayVirt(LiftOper):
                     yield node
                 return
 
-            if props[0].type.arraytype.ispoly:
-                # TODO fix this makes no sense
-                def cmprkey(node):
-                    return node.get(relname)
-            else:
-                def cmprkey(node):
-                    return node.get(relname)
-                # getr = props[0].type.arraytype.getVirtGetr(vnames)
-
-                # def cmprkey(node):
-                #    return node.get(relname, virts=getr)
+            def cmprkey(node):
+                return node.get(relname)
 
             async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
@@ -2298,18 +2290,30 @@ class LiftPropVirt(LiftProp):
                 yield node
             return
 
+        relname = props[0].name
+
         if metaname is not None:
             def cmprkey(node):
                 return node.getMeta(metaname)
-        elif props[0].type.ispoly:
-            # TODO fix
-            relname = props[0].name
-            def cmprkey(node):
-                return node.get(relname)
-        else:
-            relname = props[0].name
-            vgetr = props[0].type.getVirtGetr(virts)
 
+        elif props[0].type.ispoly:
+
+            if (virt := props[0].type.virts.get(virts[0])) is not None:
+                vgetr = (virt[1],)
+                def cmprkey(node):
+                    return node.get(relname, virts=vgetr)
+
+            else:
+                def cmprkey(node):
+                    if (valu := node.get(relname)) is None:
+                        return None
+
+                    vtyp = runt.model.form(valu[0]).type
+                    (vtyp, vgetr) = vtyp.getVirtInfo(virts)
+
+                    return node.get(relname, virts=vgetr)
+        else:
+            vgetr = props[0].type.getVirtGetr(virts)
             def cmprkey(node):
                 return node.get(relname, virts=vgetr)
 
@@ -2450,15 +2454,28 @@ class LiftPropVirtBy(LiftOper):
             if metaname is not None:
                 def cmprkey(node):
                     return node.getMeta(metaname)
-            else:
-                if props[0].type.ispoly:
-                    # TODO fix
-                    def cmprkey(node):
-                        return node.get(relname)
-                else:
-                    vgetr = props[0].type.getVirtGetr(vnames)
+
+            elif props[0].type.ispoly:
+
+                if (virt := props[0].type.virts.get(vnames[0])) is not None:
+                    vgetr = (virt[1],)
                     def cmprkey(node):
                         return node.get(relname, virts=vgetr)
+
+                else:
+                    def cmprkey(node):
+                        if (valu := node.get(relname)) is None:
+                            return None
+
+                        vtyp = runt.model.form(valu[0]).type
+                        (vtyp, vgetr) = vtyp.getVirtInfo(vnames)
+
+                        return node.get(relname, virts=vgetr)
+
+            else:
+                vgetr = props[0].type.getVirtGetr(vnames)
+                def cmprkey(node):
+                    return node.get(relname, virts=vgetr)
 
             async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node

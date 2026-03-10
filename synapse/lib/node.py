@@ -485,13 +485,10 @@ class Node(NodeBase):
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is not None:
-                ndef = s_common.buid((prop.type.name, valu))
-            elif prop.type.ispoly or 'ndef' in prop.type.types:
-                buid = s_common.buid(valu)
-            else:
+            if not (prop.type.ispoly or 'ndef' in prop.type.types):
                 return None
 
+            buid = s_common.buid(valu)
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
                 step = cache[buid] = await node.view.getNodeByBuid(buid)
