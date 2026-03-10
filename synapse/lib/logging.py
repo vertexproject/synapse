@@ -270,7 +270,7 @@ def setup(**conf):
 
     return conf
 
-def reset(clear_globconf=True):
+def reset(clear=True):
     # This may be called by tests to cleanup loop specific objects
     # ( it does not need to be called by in general by service fini )
 
@@ -289,7 +289,7 @@ def reset(clear_globconf=True):
     StreamHandler._logs_fifo.clear()
     StreamHandler._logs_todo.clear()
 
-    if clear_globconf:
+    if clear:
         _glob_logconf.clear()
         _glob_loginfo.clear()
 
@@ -317,7 +317,7 @@ async def shutdown():  # pragma: no cover
     await _shutdown_task()
 
     # Reset all logging configs except globals since we may need those.
-    reset(clear_globconf=False)
+    reset(clear=False)
 
     fmtclass = JsonFormatter
     if not _glob_logconf.get('structlog'):
