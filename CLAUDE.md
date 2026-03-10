@@ -113,4 +113,4 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 - Follow existing code and documentation syle conventions.
 - Every change **MUST** update the tests to confirm correctness and maintain high code coverage.
 - Every change **MUST** update any existing docs to reflect the change.
-- Any change which effects a user **MUST** have a changelog entry.
+- Any change which affects a user **MUST** have a changelog entry.
