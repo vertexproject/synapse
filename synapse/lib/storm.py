@@ -130,6 +130,12 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add --period yearly { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add --period yearly/05:14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add --period yearly/11:14@13:43 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
