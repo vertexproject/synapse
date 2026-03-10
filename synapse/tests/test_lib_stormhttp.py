@@ -160,6 +160,8 @@ class StormHttpTest(s_test.SynTest):
             '''
             with self.raises(s_exc.BadJsonText) as cm:
                 resp = await core.callStorm(q, opts=badopts)
+            self.isin('Unable to decode HTTP response as json', cm.exception.get('mesg'))
+            self.isin("'not':'json!'}", cm.exception.get('text'))
 
             # params as a urlencoded string
             q = '''
