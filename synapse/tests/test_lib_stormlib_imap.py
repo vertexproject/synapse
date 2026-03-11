@@ -582,7 +582,7 @@ class ImapTest(s_test.SynTest):
             self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
             self.propeq(nodes[0], 'mime', 'message/rfc822')
 
-            byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
+            byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')[1]))])
             data = ''.join((email.get('headers'), email.get('body'))).encode()
             self.eq(data, byts)
 

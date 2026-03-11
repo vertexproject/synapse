@@ -133,12 +133,6 @@ modeldefs = (
                 },
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
 
-            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
-                'doc': 'An item which may be possessed by an entity.'}),
-
-            ('meta:discoverable', ('ndef', {'interface': 'meta:discoverable'}), {
-                'doc': 'FIXME polyprop place holder'}),
-
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
 

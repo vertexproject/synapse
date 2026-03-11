@@ -3253,6 +3253,9 @@ class CopyToCmd(Cmd):
                             await runt.warn(mesg)
                             continue
 
+                    if prop.type.ispoly:
+                        valu = s_stormtypes.NodeRef(node.getWithVirts(name))
+
                     await proto.set(name, valu)
 
                 for name, valu in node.getTags():
@@ -3677,7 +3680,7 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                for name, (valu, stortype, _) in sode.get('props', {}).items():
+                for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
@@ -3705,6 +3708,9 @@ class MergeCmd(Cmd):
                         valurepr = prop.type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
+                        if prop.type.ispoly:
+                            valu = s_stormtypes.NodeRef((valu, virts))
+
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
                             subs.append((s_layer.EDIT_PROP_DEL, (name,)))
@@ -4785,7 +4791,7 @@ class DelNodeCmd(Cmd):
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.get('sha256')
+                sha256 = node.get('sha256')[1]
 
                 await node.delete(force=force)
 
@@ -4874,11 +4880,11 @@ class MoveTagCmd(Cmd):
         tagcycle = [newstr]
         isnow = newt.get('isnow')
         while isnow:
-            if isnow in tagcycle:
+            if isnow[1] in tagcycle:
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
-            tagcycle.append(isnow)
-            newtag = await view.addNode('syn:tag', isnow)
+            tagcycle.append(isnow[1])
+            newtag = await view.addNode('syn:tag', isnow[1])
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4908,7 +4914,7 @@ class MoveTagCmd(Cmd):
 
             olddocurl = node.get('doc:url')
             if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl)
+                await newnode.set('doc:url', olddocurl[1])
 
             oldtitle = node.get('title')
             if oldtitle is not None:
