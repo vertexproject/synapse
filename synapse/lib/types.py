@@ -714,6 +714,9 @@ class Array(Type):
             rval = self.splitstr.join(rval)
         return rval
 
+    async def tostorm(self, valu):
+        return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
+
 class Comp(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP

@@ -6134,6 +6134,11 @@ class NodeRef(Prim):
     def __len__(self):
         return len(self.valu[1])
 
+    def __eq__(self, othr):
+        if isinstance(othr, NodeRef):
+            return othr.valu == self.valu
+        return othr == self.valu[1]
+
     def getObjLocals(self):
         return {
             'form': self.valu[0],

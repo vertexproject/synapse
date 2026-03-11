@@ -1098,3 +1098,15 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchForm):
                 core.model.type('poly').repr(('newp', 'newp'))
+
+            msgs = await core.stormlist('''
+                test:str
+                if (:poly="p1") { $lib.print(cmpr1) }
+                +:polyarry
+                if (:polyarry).has(p10) { $lib.print(cmpr2) }
+                $lib.print(:polyarry)
+            ''')
+            self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == 'cmpr1'])
+            self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == 'cmpr2'])
+
+            self.stormIsInPrint('[2, 5, p10, p11]', msgs)
