@@ -28,5 +28,5 @@ Updated Properties
   The form had the following property updated:
 
 
-    The property ``phone`` had the ``['alts']`` keys added to its definition.
+    The property ``phone`` had the property ``phones`` declared as an alt for it.
 
