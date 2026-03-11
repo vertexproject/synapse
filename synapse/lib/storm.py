@@ -3167,7 +3167,8 @@ class DiffCmd(Cmd):
 
             for tag in tags:
                 if not isinstance(tag, str):
-                    mesg = f'diff --tag arguments must be strings, got {type(tag).__name__}.'
+                    name = await s_stormtypes.totype(tag, basetypes=True)
+                    mesg = f'diff --tag arguments must be strings, got {name}.'
                     raise s_exc.BadArg(mesg=mesg)
 
             layr = runt.snap.view.layers[0]
