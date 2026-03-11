@@ -3170,7 +3170,6 @@ class PropPivot(PivotOper):
                 link['dest'] = prop.full
 
             ptyp = prop.type
-            # TODO FIXME
             if not ptyp.ispoly and virts is not None:
                 ptyp = ptyp.getVirtType(virts)
 
@@ -3179,7 +3178,6 @@ class PropPivot(PivotOper):
                 if not ptyp.ispoly:
                     ptyps = (ptyp,)
                 else:
-                    # TODO move this out
                     ptyps = ptyp.getTypeSet()
                     if virts is not None:
                         vtyps = []
@@ -3223,7 +3221,7 @@ class PropPivot(PivotOper):
 
                 return
 
-            if isinstance(srctype, (s_types.Ndef, s_types.NodeProp)) and prop.isform:
+            if (srctype.ispoly or isinstance(srctype, (s_types.Ndef, s_types.NodeProp))) and prop.isform:
                 if valu[0] != prop.form.name:
                     return
 
@@ -3859,7 +3857,6 @@ class ArrayCond(Cond):
                     return False
 
                 else:
-                    # TODO: rearrange this
                     if (vval := vvals.get(vnames[0])) is None:
                         return False
 
@@ -3873,8 +3870,6 @@ class ArrayCond(Cond):
                         if vtyp.stortype not in cmprs:
                             if (ctor := vtyp.getCmprCtor(cmpr)) is None:
                                 continue
-                                # TODO: should this raise???
-                                # raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
 
                             cmprs[vtyp.stortype] = await ctor(val2)
 
@@ -3983,7 +3978,6 @@ class AbsVirtPropCond(Cond):
 
         forms = set([prop.form.name for prop in props])
 
-        # TODO this is wonky
         if not prop.type.ispoly:
             (ptyp, getr) = prop.type.getVirtInfo(virts)
 
