@@ -154,9 +154,6 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
-
-            ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
-                'doc': 'A node which may act as a payment instrument.'}),
         ),
 
         'interfaces': (

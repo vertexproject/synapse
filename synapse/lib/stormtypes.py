@@ -1557,6 +1557,8 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
+        if typeitem.ispoly:
+            return NodeRef((norm, info.get('virts')))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1568,6 +1570,8 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
+            if typeitem.ispoly:
+                return (True, NodeRef((norm, info.get('virts'))))
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -2712,7 +2716,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if self.runt.model.form(form) is None:
+        if not ptyp.ispoly and self.runt.model.form(form) is None:
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 
@@ -2730,7 +2734,11 @@ class LibLift(Lib):
                 continue
 
             lastvalu = valu
-            yield await self.runt.view.getNodeByNdef((form, valu))
+
+            if ptyp.ispoly:
+                yield await self.runt.view.getNodeByNdef(valu)
+            else:
+                yield await self.runt.view.getNodeByNdef((form, valu))
 
     @stormfunc(readonly=True)
     async def _byPropsDict(self, form, props, errok=False):
@@ -2767,7 +2775,12 @@ class LibLift(Lib):
             counts.sort(key=lambda x: x[0])
 
             count, prop, norm = counts[0]
-            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+
+            cmpr = '='
+            if prop.type.ispoly:
+                cmpr = 'ndef='
+
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, norm, norm=False):
                 await asyncio.sleep(0)
 
                 for count, prop, norm in counts[1:]:
@@ -5360,7 +5373,7 @@ class List(Prim):
         return ret
 
     async def _methListRemove(self, item, all=False):
-        item = await toprim(item)
+        item = await toprim(item, use_list=True)
         all = await tobool(all)
 
         if item not in self.valu:
@@ -5883,7 +5896,15 @@ class NodeProps(Prim):
 
     async def _derefGet(self, name):
         name = await tostr(name)
-        return self.valu.get(name)
+        prop = self.valu.form.reqProp(name)
+
+        if prop.type.ispoly:
+            valu = self.valu.getWithVirts(name)
+            if valu[0] is None:
+                return
+            return await prop.type.tostorm(valu)
+
+        return await prop.type.tostorm(self.valu.get(name))
 
     async def setitem(self, name, valu):
         '''
@@ -6065,6 +6086,94 @@ class NodeData(Prim):
         if self.path is not None:
             # set the data value into the path nodedata dict so it gets sent
             self.path.setData(self.valu.nid, name, valu)
+
+@registry.registerType
+class NodeRef(Prim):
+    '''
+    A form and value tuple representing a node.
+    '''
+    _storm_locals = (
+        {'name': 'form', 'desc': 'Get the form of the tuple.',
+         'type': 'str'},
+        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+         'type': 'list'},
+        {'name': 'value', 'desc': 'Get the valu of the tuple.',
+         'type': 'any'},
+        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
+         'type': {'type': 'function', '_funcname': '_methIsForm',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                  ),
+                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
+
+    )
+    _storm_typename = 'ndef'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        valu, virts = valu
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+        self.exists = None
+        self.virts = virts
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def __int__(self):
+        valu = self.valu[1]
+        if isinstance(valu, str):
+            return int(valu, 0)
+        return int(valu)
+
+    def __str__(self):
+        return str(self.valu[1])
+
+    def __len__(self):
+        return len(self.valu[1])
+
+    def getObjLocals(self):
+        return {
+            'form': self.valu[0],
+            'ndef': self.valu,
+            'value': self.valu[1],
+            'isform': self._methIsForm,
+        }
+
+    async def stormrepr(self):
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        return form.type.repr(self.valu[1])
+
+    def value(self):
+        return self.valu[1]
+
+    @stormfunc(readonly=True)
+    async def _derefGet(self, name):
+        name = await tostr(name)
+
+        if self.virts is not None:
+            if (valu := self.virts.get(name)) is not None:
+                return valu[0]
+
+        return await fromprim(self.valu[1]).deref(name)
+
+    @stormfunc(readonly=True)
+    async def _methIsForm(self, name):
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        for name in names:
+            if name in form.formtypes:
+                return True
+
+        return False
 
 @registry.registerType
 class Node(Prim):
@@ -7202,6 +7311,9 @@ class Layer(Prim):
                 return
 
             norm, info = await prop.type.norm(propvalu, view=False)
+            if prop.type.ispoly:
+                norm = norm[1]
+
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield nid, sref
@@ -9852,7 +9964,7 @@ def fromprim(valu, path=None, basetypes=True):
 async def tostor(valu, packsafe=False):
 
     if not packsafe:
-        if isinstance(valu, s_node.Node):
+        if isinstance(valu, (s_node.Node, NodeRef)):
             return valu
 
         if isinstance(valu, Node):

@@ -134,7 +134,7 @@ class DocModelTest(s_tests.SynTest):
 
             nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
             self.len(1, nodes)
-            self.eq(('bar', 'foo'), nodes[0].get('topics'))
+            self.propeq(nodes[0], 'topics', ('bar', 'foo'))
 
             nodes = await core.nodes('''[
                 doc:reference=*

@@ -139,7 +139,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('hello hello')
-            outp.expect("'fqdn': 'google.com'")
+            outp.expect("'fqdn': ('inet:fqdn', 'google.com')")
             outp.expect('3 nodes')
 
     async def test_csvtool_local(self):

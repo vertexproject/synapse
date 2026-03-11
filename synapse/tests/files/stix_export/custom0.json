@@ -31,7 +31,7 @@
       "modified": "2021-04-29T17:34:49.374Z",
       "name": "redtree",
       "sample_refs": [
-        "file--82c308d6-cd7d-556e-a019-cc2761422776",
+        "file--8b298c9f-20a1-575f-88ec-b966471e836f",
         "file--be944512-fb83-5d5c-8920-b362a3f65ef5"
       ],
       "spec_version": "2.1",
@@ -46,14 +46,14 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "file:bytes",
-            "58f81b208f098f9678f1619e3e866317"
+            "d4b262f31d50777dfec5e46c74d36248"
           ]
         }
       },
       "hashes": {
         "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
       },
-      "id": "file--82c308d6-cd7d-556e-a019-cc2761422776",
+      "id": "file--8b298c9f-20a1-575f-88ec-b966471e836f",
       "mime_type": "application/json",
       "name": "woot.json",
       "size": 333,

@@ -10,20 +10,11 @@ modeldefs = (
             ('transport:point', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
 
-            ('transport:trip', ('ndef', {'interface': 'transport:trip'}), {
-                'doc': 'A trip such as a flight or train ride.'}),
-
             ('transport:stop', ('guid', {}), {
                 'interfaces': (
                     ('transport:schedule', {}),
                 ),
                 'doc': 'A stop made by a vehicle on a trip.'}),
-
-            ('transport:container', ('ndef', {'interface': 'transport:container'}), {
-                'doc': 'A container capable of transporting cargo or personnel.'}),
-
-            ('transport:vehicle', ('ndef', {'interface': 'transport:vehicle'}), {
-                'doc': 'A vehicle such as an aircraft or sea vessel.'}),
 
             ('transport:occupant', ('guid', {}), {
                 'doc': 'An occupant of a vehicle on a trip.'}),

@@ -19,12 +19,12 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(nodes[0], 'name', 'visiland')
-            self.eq(('visitopia',), nodes[0].get('names'))
-            self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'names', ('visitopia',))
+            self.propeq(nodes[0], 'period', (1640995200000000, 1672531200000000, 31536000000000))
             self.propeq(nodes[0], 'code', 'vi')
             self.propeq(nodes[0], 'iso:3166:alpha3', 'vis')
             self.propeq(nodes[0], 'iso:3166:numeric3', 137)
-            self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
+            self.propeq(nodes[0], 'currencies', ('pesos', 'usd', 'vcoins'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
 

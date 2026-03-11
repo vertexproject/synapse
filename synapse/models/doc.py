@@ -153,9 +153,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
-            ('doc:document', ('ndef', {'interface': 'doc:document'}), {
-                'doc': 'A node which implements the document interface.'}),
-
             ('doc:reference', ('guid', {}), {
                 'doc': 'A reference included in a source.'}),
 
