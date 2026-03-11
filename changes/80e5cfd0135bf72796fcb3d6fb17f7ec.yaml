@@ -1,7 +1,0 @@
----
-desc: Fixed ``$lib.dmon.add()`` to allow specifying an alternate view via the ``view``
-  key in ``ddef.stormopts``.
-desc:literal: false
-prs: []
-type: bug
-...
