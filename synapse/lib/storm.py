@@ -3170,11 +3170,9 @@ class DiffCmd(Cmd):
                     mesg = f'diff --tag arguments must be strings, got {type(tag).__name__}.'
                     raise s_exc.BadArg(mesg=mesg)
 
-            tagnames = tags
-
             layr = runt.snap.view.layers[0]
 
-            async for _, buid, sode in layr.liftByTags(tagnames):
+            async for _, buid, sode in layr.liftByTags(tags):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
                 if node is not None:
                     yield node, runt.initPath(node)
