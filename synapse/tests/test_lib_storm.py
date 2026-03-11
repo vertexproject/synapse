@@ -2705,8 +2705,10 @@ class StormTest(s_t_utils.SynTest):
                             }, name=dmonloop)
                         )
                         '''
+                        waiter = core02.waiter(1, 'storm:dmon:add')
                         ddef = await core02.callStorm(q)
                         self.nn(ddef['iden'])
+                        await waiter.wait(timeout=10)
 
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
