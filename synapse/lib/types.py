@@ -715,7 +715,9 @@ class Array(Type):
         return rval
 
     async def tostorm(self, valu):
-        return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
+        if self.arraytype.ispoly:
+            return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
+        return s_msgpack.deepcopy(valu, use_list=True)
 
 class Comp(Type):
 
