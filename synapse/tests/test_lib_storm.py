@@ -1733,6 +1733,10 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('$tags=(con0.foo, con0) diff --tag conalt $tags con1 newp', opts=altview)
             self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
 
+            # test that non-string tag arguments raise BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('diff --tag (42)', opts=altview)
+
             q = '''
             [ ou:name=foo +(bar)> {[ ou:name=bar ]} ]
             { for $i in $lib.range(1001) { $node.data.set($i, $i) }}

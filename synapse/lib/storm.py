@@ -3165,7 +3165,12 @@ class DiffCmd(Cmd):
                 else:
                     tags.append(tag)
 
-            tagnames = [str(t) for t in tags]
+            for tag in tags:
+                if not isinstance(tag, str):
+                    mesg = f'diff --tag arguments must be strings, got {type(tag).__name__}.'
+                    raise s_exc.BadArg(mesg=mesg)
+
+            tagnames = tags
 
             layr = runt.snap.view.layers[0]
 
