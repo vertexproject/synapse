@@ -65,9 +65,6 @@ modeldefs = (
         ),
         'types': (
 
-            ('proj:doable', ('ndef', {'interface': 'proj:doable'}), {
-                'doc': 'Any node which implements the proj:doable interface.'}),
-
             ('proj:task:type:taxonomy', ('taxonomy', {}), {
                 'prevnames': ('proj:ticket:type:taxonomy',),
                 'interfaces': (

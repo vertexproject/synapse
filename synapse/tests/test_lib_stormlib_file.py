@@ -13,7 +13,7 @@ class FileTest(s_test.SynTest):
         # chosen by fair dice role. guaranteed to be random.
         data = s_common.uhex('b73c99dc92ee8dfc8823368b2b125f52822d053fd65267077570a48fd98cd9d8')
         # stable gtor value
-        evalu = '9c8697787f6a3b0a418f90209bc955ff'
+        evalu = 'aca9397e6122d35afa2120a62d8c0d5e'
         hashset = s_hashset.HashSet()
         hashset.update(data)
 
@@ -36,7 +36,7 @@ class FileTest(s_test.SynTest):
             for hashname in ('md5', 'sha1', 'sha256', 'sha512'):
                 hashvalu = nodes[0].get(hashname)
                 self.nn(hashvalu)
-                self.eq(nodes[0].get(hashname), s_common.ehex(hashes.get(hashname)))
+                self.propeq(nodes[0], hashname, s_common.ehex(hashes.get(hashname)))
 
             self.true(await core.axon.has(sha256b))
 
