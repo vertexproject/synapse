@@ -8669,10 +8669,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
             self.len(1, await core.nodes(q))
 
-            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem((test:str, baz)) return(($r, $l))'
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
             valu = await core.callStorm(q)
             self.true(valu[0])
-            self.sorteq(valu[1], [('test:str', 'foo'), ('test:str', 'bar')])
+            self.sorteq(valu[1], ['foo', 'bar'])
 
             # modifying the property value shouldn't update the node
             nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
