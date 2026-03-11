@@ -1725,6 +1725,18 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('diff --tag conalt con1 con0.foo con0 newp', opts=altview)
             self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
 
+            # test passing a list variable to --tag
+            nodes = await core.nodes('$tags=(conalt, con1, con0.foo, con0, newp) diff --tag $tags', opts=altview)
+            self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
+
+            # test passing a mix of list and individual tags
+            nodes = await core.nodes('$tags=(con0.foo, con0) diff --tag conalt $tags con1 newp', opts=altview)
+            self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
+
+            # test that non-string tag arguments raise BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('diff --tag (42)', opts=altview)
+
             q = '''
             [ ou:name=foo +(bar)> {[ ou:name=bar ]} ]
             { for $i in $lib.range(1001) { $node.data.set($i, $i) }}
@@ -2693,8 +2705,10 @@ class StormTest(s_t_utils.SynTest):
                             }, name=dmonloop)
                         )
                         '''
+                        waiter = core00.waiter(1, 'storm:dmon:add')
                         ddef = await core02.callStorm(q)
                         self.nn(ddef['iden'])
+                        await waiter.wait(timeout=10)
 
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
