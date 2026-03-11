@@ -1696,12 +1696,7 @@ class LiftOper(Oper):
                                     for atyp in ptyp.getTypeSet():
                                         if (vinfo := atyp.virts.get(virts[0])) is not None:
                                             ptyp = vinfo[0]
-                                            if (pcmpr := cmprs.get(ptyp.typehash, s_common.novalu)) is s_common.novalu:
-                                                if (ctor := ptyp.getCmprCtor(cmpr)) is None:
-                                                    pcmpr = cmprs[ptyp.typehash] = None
-                                                else:
-                                                    pcmpr = cmprs[ptyp.typehash] = await ctor(valu)
-
+                                            break
                                     pvalu = pvalu[2].get(virts[0])
                     else:
                         pvalu = pivo.get(filtprop)
