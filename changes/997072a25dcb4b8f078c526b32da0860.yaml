@@ -1,0 +1,8 @@
+---
+desc: Fixed ``inet:server``, ``inet:client``, and ``inet:url`` normalization to
+  consistently use brackets for IPv6 addresses. A data migration is included for
+  existing nodes with bare IPv6 addresses.
+desc:literal: false
+prs: []
+type: bug
+...

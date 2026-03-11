@@ -1781,3 +1781,32 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].get('plus'), 'synapse')
             self.eq(nodes[0].get('base'), 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+    async def test_modelrev_0_2_35(self):
+        async with self.getRegrCore('model-0.2.35') as core:
+            # Verify inet:server bare IPv6 was migrated to bracketed form
+            nodes = await core.nodes('inet:server="tcp://[::1]"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ipv6'), '::1')
+            self.eq(nodes[0].get('proto'), 'tcp')
+
+            # Verify inet:client bare IPv6 was migrated
+            nodes = await core.nodes('inet:client="tcp://[::1]"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ipv6'), '::1')
+            self.eq(nodes[0].get('proto'), 'tcp')
+
+            # Verify inet:url bare IPv6 was migrated
+            nodes = await core.nodes('inet:url="http://[::1]/index.html"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ipv6'), '::1')
+            self.eq(nodes[0].get('path'), '/index.html')
+
+            # Verify comp form inet:banner was migrated
+            nodes = await core.nodes('inet:banner')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://[::1]')
+
+            # Verify that IPv4 nodes were not affected
+            nodes = await core.nodes('inet:server="tcp://127.0.0.1:80"')
+            self.len(1, nodes)

@@ -190,8 +190,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
 
-            # IPv6
-            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
+            # IPv6 - bare IPv6 now gets brackets
+            self.eq(t.norm('icmp://::1'), ('icmp://[::1]', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
             self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2, 'proto': 'tcp'}}))
             self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': {'ipv6': '::1', 'proto': 'tcp'}}))
             self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
@@ -200,6 +200,12 @@ class InetModelTest(s_t_utils.SynTest):
                                                            'port': 2,
                                                            'proto': 'tcp',
                                                            }}))
+            # Bare IPv6 v4-mapped also extracts ipv4 sub
+            self.eq(t.norm('tcp://::fFfF:0102:0304'),
+                    ('tcp://[::ffff:1.2.3.4]', {'subs': {'ipv6': '::ffff:1.2.3.4',
+                                                          'ipv4': 0x01020304,
+                                                          'proto': 'tcp',
+                                                          }}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
 
             # Host
@@ -335,6 +341,10 @@ class InetModelTest(s_t_utils.SynTest):
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 'ipv6': '::1',
                 'port': 12345,
+                'proto': 'tcp',
+            }),
+            ('tcp://::1', 'tcp://[::1]', {
+                'ipv6': '::1',
                 'proto': 'tcp',
             }),
             ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
@@ -1407,6 +1417,14 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'tcp',
             }),
+            ('tcp://[::1]', 'tcp://[::1]', {
+                'ipv6': '::1',
+                'proto': 'tcp',
+            }),
+            ('tcp://::1', 'tcp://[::1]', {
+                'ipv6': '::1',
+                'proto': 'tcp',
+            }),
             ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
                 'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
                 'port': 12345,
@@ -1423,7 +1441,12 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.eq(node.get(p), v)
 
+            # Bare and bracketed IPv6 should deconflict to same node
+            nodes = await core.nodes('inet:server="tcp://[::1]"')
+            self.len(1, nodes)
+
             nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].ndef[1], 'gre://[::1]')
             self.eq(nodes[0].get('proto'), 'gre')
 
             nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
@@ -1523,7 +1546,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(valu, expected)
 
             unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
-            url = 'smb://::1/share/path/to/filename.txt'
+            url = 'smb://[::1]/share/path/to/filename.txt'
             valu = t.norm(unc)
             expected = (url, {'subs': {
                 'base': url,
@@ -1658,6 +1681,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[6].get('params'), '')
             self.eq(nodes[6].get('ipv6'), '2010:836b:4179::836b:4179')
             self.eq(nodes[6].get('port'), 443)
+
+            # Bare IPv6 in URLs should get brackets
+            valu = t.norm('http://::1/path')
+            self.eq(valu[0], 'http://[::1]/path')
+            self.eq(valu[1]['subs']['ipv6'], '::1')
+            self.eq(valu[1]['subs']['base'], 'http://[::1]/path')
+            self.eq(valu[1]['subs']['port'], 80)
+
+            # Bare and bracketed IPv6 URLs should deconflict
+            nodes = await core.nodes('[inet:url="http://[::1]/foo" inet:url="http://::1/foo"] | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'http://[::1]/foo')
 
     async def test_url_file(self):
 
@@ -1916,10 +1951,12 @@ class InetModelTest(s_t_utils.SynTest):
         # Handle IPv6 Port Brackets
         host_port = host
         repr_host_port = repr_host
+        repr_host_url = repr_host
 
         if htype == 'ipv6':
             host_port = f'[{host}]'
             repr_host_port = f'[{repr_host}]'
+            repr_host_url = f'[{repr_host}]'
 
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
@@ -1968,10 +2005,10 @@ class InetModelTest(s_t_utils.SynTest):
 
         # unencoded query params are handled nicely
         url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
-        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
+        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host_url}/?q=@foobarbaz', {'subs': {
             'proto': 'https', 'path': '/',
             'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
-            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
+            'base': f'https://visi@vertex.link:neato@burrito@{repr_host_url}/',
             'port': 443,
             'params': '?q=@foobarbaz',
             htype: norm_host,
@@ -1981,9 +2018,9 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no port, but default port valu.
         # Port should be in subs, but not normed URL.
         url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
-        expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
+        expected = (f'https://user:password@{repr_host_url}/a/b/c/?foo=bar&baz=faz', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443,
-            'base': f'https://user:password@{repr_host}/a/b/c/',
+            'base': f'https://user:password@{repr_host_url}/a/b/c/',
             'params': '?foo=bar&baz=faz',
         }})
         self.eq(t.norm(url), expected)
@@ -1991,9 +2028,9 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no port and no default port valu.
         # Port should not be in subs or normed URL.
         url = f'arbitrary://user:password@{host}/a/b/c/'
-        expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
+        expected = (f'arbitrary://user:password@{repr_host_url}/a/b/c/', {'subs': {
             'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host,
-            'base': f'arbitrary://user:password@{repr_host}/a/b/c/',
+            'base': f'arbitrary://user:password@{repr_host_url}/a/b/c/',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
@@ -2029,9 +2066,9 @@ class InetModelTest(s_t_utils.SynTest):
 
         # URL with no path or port or default port.
         url = f'a://{host}'
-        expected = (f'a://{repr_host}', {'subs': {
+        expected = (f'a://{repr_host_url}', {'subs': {
             'proto': 'a', 'path': '', htype: norm_host,
-            'base': f'a://{repr_host}',
+            'base': f'a://{repr_host_url}',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
@@ -2253,7 +2290,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('file'), 'sha256:' + 64 * 'f')
             self.eq(node.get('name'), 'cool')
             self.eq(node.get('posted'), 0)
-            self.eq(node.get('client'), 'tcp://::1')
+            self.eq(node.get('client'), 'tcp://[::1]')
             self.eq(node.get('client:ipv6'), '::1')
 
     async def test_web_follows(self):
@@ -2328,7 +2365,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:web:logon', valu))
             self.eq(node.get('acct'), ('vertex.link', 'vertexmc'))
             self.eq(node.get('time'), 0)
-            self.eq(node.get('client'), 'tcp://::')
+            self.eq(node.get('client'), 'tcp://[::]')
             self.eq(node.get('client:ipv6'), '::')
             self.eq(node.get('logout'), 1)
             self.eq(node.get('loc'), 'ru')
@@ -2400,7 +2437,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:web:mesg', (('vertex.link', 'visi'), ('vertex.link', 'epiphyte'), 0)))
-            self.eq(node.get('client'), 'tcp://::1')
+            self.eq(node.get('client'), 'tcp://[::1]')
             self.eq(node.get('client:ipv6'), '::1')
 
     async def test_web_post(self):
@@ -2457,7 +2494,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:web:post', valu))
-            self.eq(node.get('client'), 'tcp://::1')
+            self.eq(node.get('client'), 'tcp://[::1]')
             self.eq(node.get('client:ipv6'), '::1')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:group=ninjas'))
