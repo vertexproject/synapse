@@ -2268,9 +2268,9 @@ class Poly(Type):
             if (ndefcmpr := bool(isinstance(val1, s_stormtypes.NodeRef))):
                 realv = val1.valu[1]
 
-            for ctor in ctors.values():
+            for thash, ctor in ctors.items():
                 try:
-                    cmprs[ntyp.typehash] = await ctor(realv)
+                    cmprs[thash] = await ctor(realv)
                 except s_exc.BadTypeValu:
                     pass
 
