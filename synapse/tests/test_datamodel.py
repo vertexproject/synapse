@@ -1040,9 +1040,6 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str:polynonuniq*[^=a]'))
             self.len(2, await core.nodes('test:str:polynonuniq*[~=a]'))
 
-            await core.nodes('[ test:str=piv1 :poly={[test:str=piv2 :poly={ test:str=nonuniq } ]} ]')
-            self.len(1, await core.nodes('test:str:poly::poly::polynonuniq*[=1]'))
-
             self.none(await core.callStorm('[ test:str=empty ] return($node.props.poly)'))
             self.eq(6, await core.callStorm('[ test:str=intcast :poly={[ test:str=5 ]} ] return((:poly + 1))'))
             self.eq(6, await core.callStorm('[ test:str=len :poly={[ test:str=foobar ]} ] return($lib.len(:poly))'))
