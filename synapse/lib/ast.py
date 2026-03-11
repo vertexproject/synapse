@@ -5069,9 +5069,9 @@ class EditVirtPropSet(Edit):
             virts = await self.kids[1].compute(runt, path)
 
             try:
-                oldv = node.get(name)
+                oldv, oldvirts = node.getWithVirts(name)
                 valu = await rval.compute(runt, path)
-                newv, norminfo = await prop.type.normVirt(virts[0], oldv, valu)
+                newv, norminfo = await prop.type.normVirt(virts[0], oldv, valu, oldvirts=oldvirts)
 
                 await node.set(name, newv, norminfo=norminfo)
             except excignore:
