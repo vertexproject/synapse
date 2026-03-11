@@ -75,7 +75,6 @@ import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tools.storm.pkg.gen as s_genpkg
