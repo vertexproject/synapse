@@ -1058,7 +1058,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=self.getLogExtra(user=useriden, username=user.name))
+            logger.warning(mesg)
         for roleiden in ag.gateroles.keys():
             role = self.auth.role(roleiden)
             if role is None:
@@ -1066,7 +1066,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=self.getLogExtra(role=roleiden, rolename=role.name))
+            logger.warning(mesg)
 
         self._initVaults()
 
@@ -6449,8 +6449,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
         except s_exc.FatalErr: # pragma: no cover
-            extra = self.getLogExtra(text=text)
-            logger.exception(f'Fatal error while parsing [{text}]', extra=extra)
+            logger.exception(f'Fatal error while parsing [{text}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         astvalu.init(self)
@@ -6460,8 +6459,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover
-            extra = self.getLogExtra(text=args[0])
-            logger.exception(f'Fatal error while parsing [{args}]', extra=extra)
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
@@ -6511,12 +6509,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
-            extra = s_logging.getLogExtra(**info)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra=extra)
+                            extra=self.getLogExtra(**info))
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

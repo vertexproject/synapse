@@ -3528,6 +3528,29 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg['params'].get('view'), view)
+            self.eq(mesg['params'].get('text'), 'help foo')
+            self.eq(mesg['username'], 'root')
+
+            udef = await core.addUser('foouser', )
+            await core.setUserAdmin(udef.get('iden'), True)
+            asfoo = {'user': udef.get('iden')}
+
+            with self.getLoggerStream('synapse.storm') as stream:
+                await alist(core.storm('help ask', opts=asfoo))
+
+            mesg = stream.jsonlines()[0]
+            self.eq(mesg['params'].get('view'), view)
+            self.eq(mesg['params'].get('text'), 'help ask')
+            self.eq(mesg['username'], 'foouser')
+
+            q = '[test:str=hehe] [test:int=$node.value()]'
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                await alist(core.storm(q, opts=asfoo))
+            msgs = stream.jsonlines()
+            emsg = [m for m in msgs if 'Error during storm execution' in m.get('message')][0]
+            self.eq(emsg['params'].get('view'), view)
+            self.eq(emsg['params'].get('text'), q)
+            self.eq(emsg['username'], 'foouser')
 
     async def test_strict(self):
 
