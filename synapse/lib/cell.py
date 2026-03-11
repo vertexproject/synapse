@@ -4717,10 +4717,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getTasks(self, peers=True, timeout=None):
 
+        seen = set()
+
         for task in self.boss.ps():
 
             item = task.packv2()
             item['service'] = self.ahasvcname
+
+            seen.add(item['iden'])
 
             yield item
 
@@ -4734,6 +4738,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not ok: # pragma: no cover
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
+
+            if retn['iden'] in seen:
+                continue
+
+            seen.add(retn['iden'])
 
             yield retn
 
