@@ -18,6 +18,9 @@ Automatic Migrations
 
 Model Changes
 -------------
+- Added a ``phones`` property to the ``ps:contact`` form to store an array of
+  secondary/associated phone numbers.
+  (`#4764 <https://github.com/vertexproject/synapse/pull/4764>`_)
 - See :ref:`userguide_model_v2_235_0` for more detailed model changes.
 
 Features and Enhancements
@@ -25,9 +28,6 @@ Features and Enhancements
 - Added an optional ``queryopts`` field to the Storm package ``inits``
   definition.
   (`#4752 <https://github.com/vertexproject/synapse/pull/4752>`_)
-- Added a ``phones`` property to the ``ps:contact`` form to store an array of
-  secondary/associated phone numbers.
-  (`#4764 <https://github.com/vertexproject/synapse/pull/4764>`_)
 - Added ``gate`` key support when POSTing to the ``/api/v1/auth/user/<id>`` and
   ``/api/v1/auth/role/<id>`` HTTP APIs, allowing ``rules`` and ``admin`` to be
   scoped to a specific auth gate.
