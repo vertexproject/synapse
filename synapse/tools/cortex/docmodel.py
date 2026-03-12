@@ -43,6 +43,46 @@ def _escpipe(text):
 
     return text.replace('|', '\\|').replace('\n', ' ')
 
+def _resolveTypeNames(typedef):
+    '''Resolve a typedef to a list of type name strings, expanding poly types.'''
+    if not typedef:
+        return ['']
+
+    if isinstance(typedef, str):
+        return [typedef]
+
+    if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+        if typedef[0] == 'poly' and len(typedef) >= 2:
+            opts = typedef[1] if isinstance(typedef[1], dict) else {}
+            names = set()
+            ifaces = opts.get('interfaces')
+            if ifaces:
+                names.update(ifaces)
+
+            forms = opts.get('forms')
+            if forms:
+                names.update(forms)
+
+            if names:
+                return sorted(names)
+
+            return ['poly']
+
+        if typedef[0] == 'array' and len(typedef) >= 2:
+            opts = typedef[1] if isinstance(typedef[1], dict) else {}
+            atype = opts.get('type')
+            if atype is not None:
+                if isinstance(atype, str):
+                    return [f'array of {atype}']
+                if isinstance(atype, (list, tuple)):
+                    return [f'array of {", ".join(sorted(atype))}']
+
+            return ['array']
+
+        return [typedef[0]]
+
+    return ['']
+
 def _resolveIfaces(ifacenames, interfaces):
     '''Recursively resolve all interfaces including inherited ones.'''
     resolved = []
@@ -121,15 +161,10 @@ async def genModelMarkdown(core):
                 propinfo = formprops[propname]
 
                 typedef = propinfo.get('type', ())
-                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                    typename = typedef[0]
-                elif isinstance(typedef, str):
-                    typename = typedef
-                else:
-                    typename = ''
-
+                typenames = _resolveTypeNames(typedef)
+                typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
                 propdoc = _getPropDoc(propinfo, types)
-                lines.append(f'| `:{propname}` | `{_escpipe(typename)}` | {_escpipe(propdoc)} |')
+                lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
 
             lines.append('')
 
@@ -191,15 +226,10 @@ async def genModelMarkdown(core):
                 typedef = propdef[1]
                 propinfo = propdef[2] if len(propdef) > 2 else {}
 
-                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                    typename = typedef[0]
-                elif isinstance(typedef, str):
-                    typename = typedef
-                else:
-                    typename = ''
-
+                typenames = _resolveTypeNames(typedef)
+                typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
                 propdoc = _getPropDoc(propinfo, types)
-                lines.append(f'| `:{propname}` | `{_escpipe(typename)}` | {_escpipe(propdoc)} |')
+                lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
 
             lines.append('')
 
