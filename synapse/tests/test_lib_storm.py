@@ -1565,7 +1565,7 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''
             [ ou:org=(org1,)
-                :url=https://vertex.link
+                :phone="+15555555555"
                 :name=haha
                 :desc=cool
                 :lifespan=(2021, ?)
@@ -1600,15 +1600,15 @@ class StormTest(s_t_utils.SynTest):
             self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
             self.propeq(nodes[0], 'name', 'haha')
             self.propeq(nodes[0], 'desc', 'cool')
-            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('phone'))
             self.none(nodes[0].get('lifespan'))
             self.eq(nodes[0].getTagProp('three', 'score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
-            await core.nodes('diff | merge --exclude-props ou:org:url --apply', opts=altview)
+            await core.nodes('diff | merge --exclude-props ou:org:phone --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.propeq(nodes[0], 'lifespan', (1609459200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('phone'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
             await core.nodes('diff | merge --only-tags --apply', opts=altview)

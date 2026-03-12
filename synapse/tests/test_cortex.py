@@ -4214,9 +4214,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     <(refs)+ { [ pol:race=$race ] }
                     +#some.stuff)
                 (ou:org=$orgA
-                   :url=https://foo.bar.com/wat.html)
+                   :email=foo@bar.com)
                 (ou:org=$orgB
-                   :url=https://neato.burrito.org/stuff.html
+                   :email=neato@burrito.org
                    +#rep.stuff)
                 (biz:deal=$biz
                     :buyer={[ ou:org=$orgA ]}
