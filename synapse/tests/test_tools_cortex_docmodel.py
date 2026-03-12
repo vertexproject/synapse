@@ -117,6 +117,50 @@ class DocModelTest(s_t_utils.SynTest):
             self.isin('## Edges', text)
             self.isin('### `inet:ip`', text)
 
+    def test_tools_docmodel_resolvetypenames(self):
+
+        resolve = s_docmodel._resolveTypeNames
+
+        # Falsy inputs
+        self.eq(resolve(None), [''])
+        self.eq(resolve(''), [''])
+        self.eq(resolve(()), [''])
+        self.eq(resolve([]), [''])
+
+        # String input
+        self.eq(resolve('inet:fqdn'), ['inet:fqdn'])
+
+        # Poly with interfaces
+        self.eq(resolve(('poly', {'interfaces': ['b', 'a']})), ['a', 'b'])
+
+        # Poly with forms
+        self.eq(resolve(('poly', {'forms': ['z', 'm']})), ['m', 'z'])
+
+        # Poly with non-dict opts
+        self.eq(resolve(('poly', 'notadict')), ['poly'])
+
+        # Bare poly with no interfaces or forms
+        self.eq(resolve(('poly', {})), ['poly'])
+
+        # Array with string element type
+        self.eq(resolve(('array', {'type': 'inet:fqdn'})), ['array of inet:fqdn'])
+
+        # Array with tuple element type
+        self.eq(resolve(('array', {'type': ('str', 'int')})), ['array of int, str'])
+
+        # Array with non-dict opts
+        self.eq(resolve(('array', 'notadict')), ['array'])
+
+        # Array with no type key
+        self.eq(resolve(('array', {})), ['array'])
+
+        # Generic tuple type (not poly or array)
+        self.eq(resolve(('str', {})), ['str'])
+        self.eq(resolve(('int',)), ['int'])
+
+        # Non-string, non-tuple, non-list input
+        self.eq(resolve(12345), [''])
+
     async def test_tools_docmodel_sorted(self):
 
         outp = self.getTestOutp()
