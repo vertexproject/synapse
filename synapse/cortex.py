@@ -5099,6 +5099,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon = await self.runStormDmon(iden, ddef)
 
         self.stormdmondefs.set(iden, ddef)
+        await self.fire('storm:dmon:add', iden=iden)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
@@ -5118,6 +5119,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
+        await self.fire('storm:dmon:del', iden=iden)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
