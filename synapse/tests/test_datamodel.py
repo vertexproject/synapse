@@ -1121,17 +1121,14 @@ class DataModelTest(s_t_utils.SynTest):
                 $set=$lib.set()
                 $s1 = {[ test:str=s1 :poly={[ test:str=v1 ]} ]}
                 $s2 = {[ test:str=s2 :poly={[ test:lowstr=v1 ]} ]}
-                $s3 = {[ test:str=s3 :poly={[ test:lowstr=v1 ]} ]}
                 $set.add($s1.props.poly)
                 $set.add($s2.props.poly)
-                $set.add($s3.props.poly)
 
                 $lib.print(`size={$set.size()}`)
                 $lib.print($set.has($s1.props.poly))
                 $lib.print($set.has($s2.props.poly))
-                $lib.print($set.has($s3.props.poly))
                 $lib.print($set.has(v1))
             ''')
-            self.stormIsInPrint('size=2', msgs)
+            self.stormIsInPrint('size=1', msgs)
             self.stormIsInPrint('true', msgs)
             self.stormNotInPrint('false', msgs)

@@ -6136,7 +6136,7 @@ class NodeRef(Prim):
 
     def __eq__(self, othr):
         if isinstance(othr, NodeRef):
-            return othr.valu == self.valu
+            return othr.valu[1] == self.valu[1]
         return othr == self.valu[1]
 
     def getObjLocals(self):
