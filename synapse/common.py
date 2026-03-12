@@ -23,7 +23,6 @@ import tarfile
 import binascii
 import builtins
 import tempfile
-import warnings
 import functools
 import itertools
 import threading

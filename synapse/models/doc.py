@@ -261,7 +261,7 @@ modeldefs = (
             ('doc:reference', {}, (
 
                 # FIXME make an interface for these somehow...
-                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software',
+                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software', 'risk:threat',
                                                  'entity:campaign', 'meta:technique', 'plan:phase')}), {
                     'doc': 'The source which contains the reference.'}),
 

@@ -10,9 +10,6 @@ modeldefs = (
             ('transport:point', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
 
-            ('transport:trip', ('ndef', {'interface': 'transport:trip'}), {
-                'doc': 'A trip such as a flight or train ride.'}),
-
             ('transport:stop', ('guid', {}), {
                 'interfaces': (
                     ('transport:schedule', {}),

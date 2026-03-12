@@ -45,9 +45,6 @@ modeldefs = (
                 ),
                 'doc': 'Statistics and demographic data about a person.'}),
 
-            ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
-                'doc': 'An interface inherited by nodes which represent something which can be learned.'}),
-
             ('ps:skill', ('guid', {}), {
                 'interfaces': (
                     ('edu:learnable', {}),

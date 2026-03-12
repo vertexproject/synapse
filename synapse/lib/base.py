@@ -396,6 +396,8 @@ class Base:
 
         for base in list(self.tofini):
             await base.fini()
+        # Do not continue to hold a reference to the last item we iterated on.
+        base = None  # NOQA
 
         await self._kill_active_tasks()
 

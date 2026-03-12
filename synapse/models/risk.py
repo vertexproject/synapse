@@ -366,9 +366,6 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of extortion event types.'}),
-
-            ('risk:mitigatable', ('ndef', {'interface': 'risk:mitigatable'}), {
-                'doc': 'A node whose effect may be reduced by a mitigation.'}),
         ),
         'interfaces': (
 

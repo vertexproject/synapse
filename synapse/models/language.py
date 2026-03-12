@@ -42,9 +42,6 @@ modeldefs = (
                 ),
                 'doc': 'A specific written or spoken language.'}),
 
-            ('lang:transcript', ('ndef', {'interface': 'lang:transcript'}), {
-                'doc': 'A node which implements the lang:transcript interface.'}),
-
             ('lang:statement', ('guid', {}), {
                 'doc': 'A single statement which is part of a transcript.'}),
 

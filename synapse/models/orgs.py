@@ -648,17 +648,17 @@ modeldefs = (
                 ('deck:url', ('inet:url', ()), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
 
-                ('deck:file', ('file:bytes', ()), {
+                ('deck:file', ('file:bytes', {}), {
                     'doc': 'A file containing the presentation materials.'}),
 
-                ('attendee:url', ('inet:url', ()), {
+                ('attendee:url', ('inet:url', {}), {
                     'doc': 'The URL visited by live attendees of the presentation.'}),
 
                 # TODO: should something like this be added to lang:transcript? lang:recording
-                ('recording:url', ('inet:url', ()), {
+                ('recording:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a recording of the presentation.'}),
 
-                ('recording:file', ('file:bytes', ()), {
+                ('recording:file', ('file:bytes', {}), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
             ('ou:enacted:status:taxonomy', {}, ()),

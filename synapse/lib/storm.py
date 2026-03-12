@@ -85,64 +85,76 @@ Add a recurring cron job to a cortex.
 Notes:
     All times are interpreted as UTC.
 
-    All arguments are interpreted as the job period, unless the value ends in
-    an equals sign, in which case the argument is interpreted as the recurrence
-    period.  Only one recurrence period parameter may be specified.
+    The period argument uses a simplified syntax:
+        <periodicity>[/<value>...][@<time>]
 
-    Currently, a fixed unit must not be larger than a specified recurrence
-    period.  i.e. '--hour 7 --minute +15' (every 15 minutes from 7-8am?) is not
-    supported.
+    Periodicity:
+        - hourly: Every hour (defaults to minute 0)
+        - daily: Every day (defaults to 00:00 UTC)
+        - weekly: Every week (defaults to Monday at 00:00 UTC)
+        - monthly: Every month (defaults to day 1 at 00:00 UTC)
+        - yearly: Every year (defaults to January 1 at 00:00 UTC)
 
-    Value values for fixed hours are 0-23 on a 24-hour clock where midnight is 0.
+    Value:
+        - hourly/N: Every N hours
+        - daily/N: Every N days
+        - weekly/day1,day2: Specific weekdays (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+        - monthly/day1,day2: Specific days of month (1-31, negative counts from end)
 
-    If the --day parameter value does not start with a '+' and is an integer, it is
-    interpreted as a fixed day of the month.  A negative integer may be
-    specified to count from the end of the month with -1 meaning the last day
-    of the month.  All fixed day values are clamped to valid days, so for
-    example '-d 31' will run on February 28.
-    If the fixed day parameter is a value in ([Mon, Tue, Wed, Thu, Fri, Sat,
-    Sun] if locale is set to English) it is interpreted as a fixed day of the
-    week.
-
-    Otherwise, if the parameter value starts with a '+', then it is interpreted
-    as a recurrence interval of that many days.
-
-    If no plus-sign-starting parameter is specified, the recurrence period
-    defaults to the unit larger than all the fixed parameters.   e.g. '--minute 5'
-    means every hour at 5 minutes past, and --hour 3, --minute 1 means 3:01 every day.
-
-    At least one optional parameter must be provided.
-
-    All parameters accept multiple comma-separated values.  If multiple
-    parameters have multiple values, all combinations of those values are used.
-
-    All fixed units not specified lower than the recurrence period default to
-    the lowest valid value, e.g. --month +2 will be scheduled at 12:00am the first of
-    every other month.  One exception is if the largest fixed value is day of the
-    week, then the default period is set to be a week.
-
-    A month period with a day of week fixed value is not currently supported.
-
-    Fixed-value year (i.e. --year 2019) is not supported.  See the 'at'
-    command for one-time cron jobs.
-
-    As an alternative to the above options, one may use exactly one of
-    --hourly, --daily, --monthly, --yearly with a colon-separated list of
-    fixed parameters for the value.  It is an error to use both the individual
-    options and these aliases at the same time.
+    Time:
+        - HH:MM (24-hour format, e.g., 14:30 for 2:30 PM)
+        - HH (hour only, minute defaults to 0)
+        - :MM (minute only, for hourly periods)
 
 Examples:
-    Run a query every last day of the month at 3 am
-    cron.add --hour 3 --day -1 {#foo}
+    # Run every day at midnight UTC
+    cron.add daily { $lib.print(daily) }
 
-    Run a query every 8 hours
-    cron.add --hour +8 {#foo}
+    # Run every day at 14:30 UTC
+    cron.add daily@14:30 { $lib.print(daily) }
 
-    Run a query every Wednesday and Sunday at midnight and noon
-    cron.add --hour 0,12 --day Wed,Sun {#foo}
+    # Run every 2 hours at minute 0
+    cron.add hourly/2@:00 { $lib.print(hourly) }
 
-    Run a query every other day at 3:57pm
-    cron.add --day +2 --minute 57 --hour 15 {#foo}
+    # Run every hour at minute 25
+    cron.add hourly@:25 { $lib.print(hourly) }
+
+    # Run every Monday and Wednesday at 10:00 UTC
+    cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
+
+    # Run on the 1st and 15th of every month at noon UTC
+    cron.add monthly/1,15@12:00 { $lib.print(monthly) }
+
+    # Run on the last day of every month at 00:00 UTC
+    cron.add monthly/-1 { $lib.print(monthly) }
+
+    # Run every year on January 1st at midnight UTC
+    cron.add yearly { $lib.print(yearly) }
+'''
+
+modcrondescr = '''
+Modify an existing cron job's properties.
+
+Notes:
+    All times are interpreted as UTC.
+
+    The --period argument uses the same syntax as cron.add:
+        <periodicity>[/<value>...][@<time>]
+
+    Any combination of properties may be modified at the same time.
+
+Examples:
+    # Modify only the query
+    cron.mod <iden> --storm { $lib.print(new_query) }
+
+    # Modify only the period (change to daily at 14:30 UTC)
+    cron.mod <iden> --period daily@14:30
+
+    # Modify both query and period
+    cron.mod <iden> --period weekly/mon,wed@10:00 --storm { $lib.print(updated) }
+
+    # Change to hourly period at minute 25 and enable the cron job
+    cron.mod <iden> --period hourly@:25 --enabled true
 '''
 
 atcrondescr = '''
@@ -763,35 +775,19 @@ stormcmds = (
         'name': 'cron.add',
         'descr': addcrondescr,
         'cmdargs': (
+            ('period', {'help': 'The recurrence period for the cron job.'}),
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--pool', {'action': 'store_true', 'default': False,
                 'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
-            ('--minute', {'help': 'Minute value for job or recurrence period.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
-            ('--doc', {'help': 'An optional doc string for the cron job.'}),
-            ('--hour', {'help': 'Hour value for job or recurrence period.'}),
-            ('--day', {'help': 'Day value for job or recurrence period.'}),
-            ('--month', {'help': 'Month value for job or recurrence period.'}),
-            ('--year', {'help': 'Year value for recurrence period.'}),
-            ('--hourly', {'help': 'Fixed parameters for an hourly job.'}),
-            ('--daily', {'help': 'Fixed parameters for a daily job.'}),
-            ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
-            ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
-            ('--view', {'help': 'View to run the cron job against'}),
+            ('--doc', {'help': 'An optional doc string for the cron job.'}),
+            ('--view', {'help': 'View to run the cron job against.'}),
         ),
         'storm': '''
-            $cron = $lib.cron.add(query=$cmdopts.query,
-                                  minute=$cmdopts.minute,
-                                  hour=$cmdopts.hour,
-                                  day=$cmdopts.day,
+            $cron = $lib.cron.add($cmdopts.period,
+                                  $cmdopts.query,
                                   pool=$cmdopts.pool,
-                                  month=$cmdopts.month,
-                                  year=$cmdopts.year,
-                                  hourly=$cmdopts.hourly,
-                                  daily=$cmdopts.daily,
-                                  monthly=$cmdopts.monthly,
-                                  yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
                                   view=$cmdopts.view,
                                   doc=$cmdopts.doc,
@@ -814,7 +810,7 @@ stormcmds = (
             ('--view', {'help': 'View to run the cron job against'}),
         ),
         'storm': '''
-            $cron = $lib.cron.at(query=$cmdopts.query,
+            $cron = $lib.cron.at($cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
@@ -839,7 +835,7 @@ stormcmds = (
     },
     {
         'name': 'cron.mod',
-        'descr': "Modify an existing cron job.",
+        'descr': modcrondescr,
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
             ('--view', {'help': 'View to move the cron job to.'}),
@@ -851,6 +847,7 @@ stormcmds = (
             ('--enabled', {'help': 'True to enable the cron job, False to disable.'}),
             ('--loglevel', {'help': 'New logging level for the cron job.',
                             'choices': list(s_const.LOG_LEVEL_CHOICES.keys())}),
+            ('--period', {'help': 'The new recurrence period for the cron job.'}),
         ),
         'storm': '''
             $iden = $cmdopts.iden
@@ -1803,43 +1800,59 @@ class Runtime(s_base.Base):
                 async for item in nodegenr:
                     yield item
 
-        except RecursionError:
+        except RecursionError as e:
             mesg = 'Maximum Storm pipeline depth exceeded.'
-            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
+            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from e
 
     async def _joinEmbedStor(self, storage, embeds):
-        for nodePath, relProps in embeds.items():
+        for nodepath, relprops in embeds.items():
 
             await asyncio.sleep(0)
 
-            if (nid := relProps.get('$nid')) is None:
+            if (nid := relprops.get('$nid')) is None:
                 continue
 
             nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
-            for relProp in relProps.keys():
+            for relprop in relprops.keys():
 
                 await asyncio.sleep(0)
 
-                if relProp[0] == '$':
+                if not relprop or relprop[0] == '$':
                     continue
+
+                ismeta = relprop[0] == '.'
 
                 for idx, layrstor in enumerate(stor):
 
                     await asyncio.sleep(0)
 
-                    props = layrstor.get('props')
-                    if not props:
-                        continue
+                    if ismeta:
+                        metaname = relprop[1:]
+                        meta = layrstor.get('meta')
+                        if not meta:
+                            continue
 
-                    if relProp not in props:
-                        continue
+                        if metaname not in meta:
+                            continue
 
-                    if 'embeds' not in storage[idx]:
-                        storage[idx]['embeds'] = {}
+                        valu = meta[metaname]
 
-                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+                    else:
+                        props = layrstor.get('props')
+                        if not props:
+                            continue
+
+                        if relprop not in props:
+                            continue
+
+                        valu = props[relprop]
+
+                    if (storembeds := storage[idx].get('embeds')) is None:
+                        storembeds = storage[idx]['embeds'] = {}
+
+                    storembeds[f'{nodepath}::{relprop}'] = valu
 
     async def iterStormPodes(self):
         '''
@@ -3240,6 +3253,9 @@ class CopyToCmd(Cmd):
                             await runt.warn(mesg)
                             continue
 
+                    if prop.type.ispoly:
+                        valu = s_stormtypes.NodeRef(node.getWithVirts(name))
+
                     await proto.set(name, valu)
 
                 for name, valu in node.getTags():
@@ -3664,7 +3680,7 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                for name, (valu, stortype, _) in sode.get('props', {}).items():
+                for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
@@ -3692,6 +3708,9 @@ class MergeCmd(Cmd):
                         valurepr = prop.type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
+                        if prop.type.ispoly:
+                            valu = s_stormtypes.NodeRef((valu, virts))
+
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
                             subs.append((s_layer.EDIT_PROP_DEL, (name,)))
@@ -4772,7 +4791,7 @@ class DelNodeCmd(Cmd):
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.get('sha256')
+                sha256 = node.get('sha256')[1]
 
                 await node.delete(force=force)
 
@@ -4861,11 +4880,11 @@ class MoveTagCmd(Cmd):
         tagcycle = [newstr]
         isnow = newt.get('isnow')
         while isnow:
-            if isnow in tagcycle:
+            if isnow[1] in tagcycle:
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
-            tagcycle.append(isnow)
-            newtag = await view.addNode('syn:tag', isnow)
+            tagcycle.append(isnow[1])
+            newtag = await view.addNode('syn:tag', isnow[1])
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4895,7 +4914,7 @@ class MoveTagCmd(Cmd):
 
             olddocurl = node.get('doc:url')
             if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl)
+                await newnode.set('doc:url', olddocurl[1])
 
             oldtitle = node.get('title')
             if oldtitle is not None:

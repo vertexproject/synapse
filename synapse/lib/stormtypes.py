@@ -32,6 +32,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
+import synapse.lib.agenda as s_agenda
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.urlhelp as s_urlhelp
@@ -808,13 +809,24 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.view.iden
+        if ddef is None:
+            ddef = {}
+
+        ddef.pop('view', None)
+
+        stormopts = ddef.get('stormopts')
+        viewiden = None
+        if stormopts is not None:
+            viewiden = stormopts.get('view')
+        if viewiden is not None:
+            viewiden = await tostr(viewiden)
+            view = self.runt.view.core.reqView(viewiden)
+        else:
+            viewiden = self.runt.view.iden
+
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
-
-        if ddef is None:
-            ddef = {}
 
         ddef['name'] = name
         ddef['user'] = self.runt.user.iden
@@ -924,6 +936,8 @@ class LibService(Lib):
                                                          'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('service',), 'gate': 'cortex',
+            'desc': 'Controls all service permissions.'},
         {'perm': ('service', 'add'), 'gate': 'cortex',
             'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
         {'perm': ('service', 'del'), 'gate': 'cortex',
@@ -1543,6 +1557,8 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
+        if typeitem.ispoly:
+            return NodeRef((norm, info.get('virts')))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1554,6 +1570,8 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
+            if typeitem.ispoly:
+                return (True, NodeRef((norm, info.get('virts'))))
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -2698,7 +2716,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if self.runt.model.form(form) is None:
+        if not ptyp.ispoly and self.runt.model.form(form) is None:
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 
@@ -2716,7 +2734,11 @@ class LibLift(Lib):
                 continue
 
             lastvalu = valu
-            yield await self.runt.view.getNodeByNdef((form, valu))
+
+            if ptyp.ispoly:
+                yield await self.runt.view.getNodeByNdef(valu)
+            else:
+                yield await self.runt.view.getNodeByNdef((form, valu))
 
     @stormfunc(readonly=True)
     async def _byPropsDict(self, form, props, errok=False):
@@ -2753,7 +2775,12 @@ class LibLift(Lib):
             counts.sort(key=lambda x: x[0])
 
             count, prop, norm = counts[0]
-            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+
+            cmpr = '='
+            if prop.type.ispoly:
+                cmpr = 'ndef='
+
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, norm, norm=False):
                 await asyncio.sleep(0)
 
                 for count, prop, norm in counts[1:]:
@@ -3729,6 +3756,8 @@ class LibQueue(Lib):
                               'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('queue',), 'gate': 'cortex',
+         'desc': 'Controls all queue permissions.'},
         {'perm': ('queue', 'add'), 'gate': 'cortex',
          'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
@@ -5344,7 +5373,7 @@ class List(Prim):
         return ret
 
     async def _methListRemove(self, item, all=False):
-        item = await toprim(item)
+        item = await toprim(item, use_list=True)
         all = await tobool(all)
 
         if item not in self.valu:
@@ -5867,7 +5896,15 @@ class NodeProps(Prim):
 
     async def _derefGet(self, name):
         name = await tostr(name)
-        return self.valu.get(name)
+        prop = self.valu.form.reqProp(name)
+
+        if prop.type.ispoly:
+            valu = self.valu.getWithVirts(name)
+            if valu[0] is None:
+                return
+            return await prop.type.tostorm(valu)
+
+        return await prop.type.tostorm(self.valu.get(name))
 
     async def setitem(self, name, valu):
         '''
@@ -6049,6 +6086,99 @@ class NodeData(Prim):
         if self.path is not None:
             # set the data value into the path nodedata dict so it gets sent
             self.path.setData(self.valu.nid, name, valu)
+
+@registry.registerType
+class NodeRef(Prim):
+    '''
+    A form and value tuple representing a node.
+    '''
+    _storm_locals = (
+        {'name': 'form', 'desc': 'Get the form of the tuple.',
+         'type': 'str'},
+        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+         'type': 'list'},
+        {'name': 'value', 'desc': 'Get the valu of the tuple.',
+         'type': 'any'},
+        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
+         'type': {'type': 'function', '_funcname': '_methIsForm',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                  ),
+                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
+
+    )
+    _storm_typename = 'ndef'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        valu, virts = valu
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+        self.exists = None
+        self.virts = virts
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def __int__(self):
+        valu = self.valu[1]
+        if isinstance(valu, str):
+            return int(valu, 0)
+        return int(valu)
+
+    def __str__(self):
+        return str(self.valu[1])
+
+    def __len__(self):
+        return len(self.valu[1])
+
+    def __eq__(self, othr):
+        if isinstance(othr, NodeRef):
+            return othr.valu == self.valu
+        return othr == self.valu[1]
+
+    def getObjLocals(self):
+        return {
+            'form': self.valu[0],
+            'ndef': self.valu,
+            'value': self.valu[1],
+            'isform': self._methIsForm,
+        }
+
+    async def stormrepr(self):
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        return form.type.repr(self.valu[1])
+
+    def value(self):
+        return self.valu[1]
+
+    @stormfunc(readonly=True)
+    async def _derefGet(self, name):
+        name = await tostr(name)
+
+        if self.virts is not None:
+            if (valu := self.virts.get(name)) is not None:
+                return valu[0]
+
+        return await fromprim(self.valu[1]).deref(name)
+
+    @stormfunc(readonly=True)
+    async def _methIsForm(self, name):
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        for name in names:
+            if name in form.formtypes:
+                return True
+
+        return False
 
 @registry.registerType
 class Node(Prim):
@@ -7186,6 +7316,9 @@ class Layer(Prim):
                 return
 
             norm, info = await prop.type.norm(propvalu, view=False)
+            if prop.type.ispoly:
+                norm = norm[1]
+
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield nid, sref
@@ -8558,6 +8691,8 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
+        {'perm': ('trigger',), 'gate': 'cortex',
+         'desc': 'Controls all trigger permissions.'},
         {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'trigger',
@@ -9094,12 +9229,15 @@ class LibCron(Lib):
         {'name': 'at', 'desc': 'Add a non-recurring Cron Job to the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronAt',
                   'args': (
+                      {'name': 'query', 'type': 'str', 'desc': 'Query for the Cron Job to execute.'},
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The new Cron Job.', }}},
         {'name': 'add', 'desc': 'Add a recurring Cron Job to the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronAdd',
                   'args': (
+                      {'name': 'period', 'type': 'str', 'desc': 'The recurrence period for the Cron Job'},
+                      {'name': 'query', 'type': 'str', 'desc': 'Query for the Cron Job to execute.'},
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The new Cron Job.', }}},
@@ -9135,6 +9273,8 @@ class LibCron(Lib):
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
+        {'perm': ('cron',), 'gate': 'cortex',
+         'desc': 'Controls all cron permissions.'},
         {'perm': ('cron', 'add'), 'gate': 'view',
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
@@ -9301,7 +9441,142 @@ class LibCron(Lib):
 
         return None
 
-    async def _methCronAdd(self, **kwargs):
+    def _parsePeriod(self, text):
+        '''
+        Parse a period string into requirements, increment unit, and increment values.
+        '''
+        reqs = {}
+        incunit = None
+        incvals = None
+
+        parts = text.split('@', 1)
+        base = parts[0]
+        timepart = parts[1] if len(parts) > 1 else None
+
+        if timepart:
+            if ':' in timepart:
+                h, m = timepart.split(':')
+                if h:
+                    try:
+                        reqs['hour'] = int(h, 10)
+                    except ValueError:
+                        mesg = f'Invalid hour value: {h}'
+                        raise s_exc.BadTime(mesg=mesg)
+                if m:
+                    try:
+                        reqs['minute'] = int(m, 10)
+                    except ValueError:
+                        mesg = f'Invalid minute value: {m}'
+                        raise s_exc.BadTime(mesg=mesg)
+            else:
+                try:
+                    reqs['hour'] = int(timepart, 10)
+                except ValueError:
+                    mesg = f'Invalid hour value: {timepart}'
+                    raise s_exc.BadTime(mesg=mesg)
+
+        if '/' in base:
+            period, vals = base.split('/', 1)
+        else:
+            period = base
+            vals = None
+
+        period = period.lower()
+
+        if period == 'hourly':
+            if timepart is None:
+                mesg = 'Hourly period requires explicit minute'
+                raise s_exc.BadTime(mesg=mesg)
+            incunit = 'hour'
+            reqs.setdefault('minute', 0)
+            if vals:
+                incvals = self._parseIncval(vals)
+                if incvals is None:
+                    mesg = 'Invalid increment value for hourly period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                incvals = 1
+            if 'hour' in reqs:
+                if reqs.get('hour') == 0:
+                    reqs.pop('hour', None)
+                else:
+                    mesg = 'Cannot specify hour for hourly period'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+        elif period == 'daily':
+            incunit = 'day'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                incvals = self._parseIncval(vals)
+                if incvals is None:
+                    mesg = f'Invalid increment value for daily period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                incvals = 1
+
+        elif period == 'weekly':
+            incunit = 'dayofweek'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                days = []
+                for v in vals.split(','):
+                    d = self._parseWeekday(v)
+                    if d is None:
+                        mesg = f'Invalid weekday: {v}'
+                        raise s_exc.BadConfValu(mesg=mesg)
+                    days.append(d)
+                incvals = days
+            else:
+                incvals = 0
+
+        elif period == 'monthly':
+            incunit = 'month'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                try:
+                    reqs['dayofmonth'] = [int(v) for v in vals.split(',')]
+                except ValueError:
+                    mesg = f'Invalid day of month value in monthly period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                reqs['dayofmonth'] = 1
+            incvals = 1
+
+        elif period == 'yearly':
+            incunit = 'year'
+            incvals = 1
+            reqs['month'] = 1
+            reqs['dayofmonth'] = 1
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+        else:
+            mesg = f'Unknown period: {period}'
+            raise s_exc.BadConfValu(mesg=mesg)
+
+        for field, fieldname in (
+            ('hour', 'hour'),
+            ('minute', 'minute'),
+            ('dayofmonth', 'day of month'),
+            ('month', 'month'),
+        ):
+            if field not in reqs:
+                continue
+            timeunit = s_agenda.TimeUnit.fromString(field)
+            minval, maxval = s_agenda._UnitBounds[timeunit][0]
+            vals = reqs[field]
+            if not isinstance(vals, (list, tuple)):
+                vals = (vals,)
+            for v in vals:
+                if not (minval <= v <= maxval):
+                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+        return reqs, incunit, incvals
+
+    async def _methCronAdd(self, period, query, **kwargs):
         incunit = None
         incval = None
         reqdict = {}
@@ -9313,101 +9588,13 @@ class LibCron(Lib):
             'minute': (0, 'hour'),
         }
 
-        query = kwargs.get('query', None)
-        if query is None:
-            mesg = 'Query parameter is required.'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
         query = await tostr(query)
 
         try:
-            alias_opts = self._parseAlias(kwargs)
-        except ValueError as e:
-            mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
-        if alias_opts:
-            year = kwargs.get('year')
-            month = kwargs.get('month')
-            day = kwargs.get('day')
-            hour = kwargs.get('hour')
-            minute = kwargs.get('minute')
-
-            if year or month or day or hour or minute:
-                mesg = 'May not use both alias (..ly) and explicit options at the same time'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            opts = alias_opts
-        else:
-            opts = kwargs
-
-        for optname in ('year', 'month', 'day', 'hour', 'minute'):
-            optval = opts.get(optname)
-
-            if optval is None:
-                if incunit is None and not reqdict:
-                    continue
-                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
-                # value, e.g. so --month 2 would run on the *first* of every other month at midnight
-                if optname == 'day':
-                    reqdict['dayofmonth'] = 1
-                else:
-                    reqdict[optname] = valinfo[optname][0]
-                continue
-
-            isreq = not optval.startswith('+')
-
-            if optname == 'day':
-                unit, val = self._parseDay(optval)
-                if val is None:
-                    mesg = f'Failed to parse day value "{optval}"'
-                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                if unit == 'dayofweek':
-                    if incunit is not None:
-                        mesg = 'May not provide a recurrence value with day of week'
-                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                    if reqdict:
-                        mesg = 'May not fix month or year with day of week'
-                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                    incunit, incval = unit, val
-                elif unit == 'day':
-                    incunit, incval = unit, val
-                else:
-                    assert unit == 'dayofmonth'
-                    reqdict[unit] = val
-                continue
-
-            if not isreq:
-                if incunit is not None:
-                    mesg = 'May not provide more than 1 recurrence parameter'
-                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                if reqdict:
-                    mesg = 'Fixed unit may not be larger than recurrence unit'
-                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                incunit = optname
-                incval = self._parseIncval(optval)
-                if incval is None:
-                    mesg = 'Failed to parse parameter'
-                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                continue
-
-            if optname == 'year':
-                mesg = 'Year may not be a fixed value'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
-            reqval = self._parseReq(optname, optval)
-            if reqval is None:
-                mesg = f'Failed to parse fixed parameter "{optval}"'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            reqdict[optname] = reqval
-
-        # If not set, default (incunit, incval) to (1, the next largest unit)
-        if incunit is None:
-            if not reqdict:
-                mesg = 'Must provide at least one optional argument'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            requnit = next(iter(reqdict))  # the first key added is the biggest unit
-            incunit = valinfo[requnit][1]
-            incval = 1
+            reqdict, incunit, incval = self._parsePeriod(period)
+        except (s_exc.BadTime, s_exc.BadConfValu) as e:
+            mesg = f'Failed to parse period: {e.get("mesg")}'
+            raise s_exc.StormRuntimeError(mesg=mesg) from None
 
         cdef = {'storm': query,
                 'reqs': reqdict,
@@ -9441,14 +9628,9 @@ class LibCron(Lib):
 
         return CronJob(self.runt, cdef, path=self.path)
 
-    async def _methCronAt(self, **kwargs):
+    async def _methCronAt(self, query, **kwargs):
         tslist = []
         now = time.time()
-
-        query = kwargs.get('query', None)
-        if query is None:
-            mesg = 'Query parameter is required.'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
 
@@ -9543,6 +9725,17 @@ class LibCron(Lib):
         if 'user' in edits:
             # this permission must be granted cortex wide to prevent abuse...
             self.runt.confirm(('cron', 'set', 'user'))
+
+        if (period := edits.pop('period', None)) is not None:
+            try:
+                reqs, incunit, incvals = self._parsePeriod(period)
+                edits['reqs'] = reqs
+                edits['incunit'] = incunit
+                edits['incvals'] = incvals
+
+            except (s_exc.BadTime, s_exc.BadConfValu) as e:
+                mesg = f'Failed to parse period: {e.get("mesg")}'
+                raise s_exc.StormRuntimeError(mesg=mesg) from None
 
         return await self.runt.view.core.editCronJob(iden, edits)
 
@@ -9776,7 +9969,7 @@ def fromprim(valu, path=None, basetypes=True):
 async def tostor(valu, packsafe=False):
 
     if not packsafe:
-        if isinstance(valu, s_node.Node):
+        if isinstance(valu, (s_node.Node, NodeRef)):
             return valu
 
         if isinstance(valu, Node):

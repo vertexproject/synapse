@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 
 PREFIX_CACHE_SIZE = 1000
+TYPESET_CACHE_SIZE = 1000
 CHILDFORM_CACHE_SIZE = 1000
 CHILDPROP_CACHE_SIZE = 1000
 
@@ -105,11 +106,32 @@ class Prop:
         self.type = self.modl.getTypeClone(typedef)
         self.typehash = self.type.typehash
 
+        form.setProp(name, self)
+
+        self.modl.propsbytype[self.type.name][self.full] = self
+
+        if self.type.ispoly:
+            if (pforms := self.type.forms) is not None:
+                for pform in pforms:
+                    self.modl.propsbytype[pform][self.full] = self
+
+            if (ifaces := self.type.ifaces) is not None:
+                for iface in ifaces:
+                    self.modl.polypropsbyiface[iface][self.full] = self
+
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
 
-        form.setProp(name, self)
-        self.modl.propsbytype[self.type.name][self.full] = self
+            self.modl.arraysbytype[self.type.arraytype.name][self.full] = self
+
+            if self.type.arraytype.ispoly:
+                if (pforms := self.type.arraytype.forms) is not None:
+                    for pform in pforms:
+                        self.modl.arraysbytype[pform][self.full] = self
+
+                if (ifaces := self.type.arraytype.ifaces) is not None:
+                    for iface in ifaces:
+                        self.modl.polyarraysbyiface[iface][self.full] = self
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node):
@@ -272,7 +294,6 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
-        self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
 
@@ -300,7 +321,7 @@ class Form:
             modl.core.addRuntLift(name, func)
 
     def implements(self, ifname):
-        return bool(self._full_ifaces.get(ifname))
+        return ifname in self.ifaces
 
     def reqProtoDef(self, name, propname=None):
 
@@ -360,7 +381,7 @@ class Form:
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
-                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                    if prop.type.arraytype.ispoly or isinstance(prop.type.arraytype, s_types.Ndef):
                         self.refsout['ndefarray'].append(name)
                         continue
 
@@ -372,7 +393,7 @@ class Form:
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
-                elif isinstance(prop.type, s_types.Ndef):
+                elif prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
                     self.refsout['ndef'].append(name)
 
                 elif isinstance(prop.type, s_types.NodeProp):
@@ -513,6 +534,7 @@ class Model:
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
+        self.forminfos = {}
         self.formprevnames = {}
         self.propprevnames = {}
 
@@ -524,8 +546,14 @@ class Model:
 
         self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
+        self.polypropsbyiface = collections.defaultdict(dict)
+        self.polyarraysbyiface = collections.defaultdict(dict)
+
         self.edgesbyn1 = collections.defaultdict(set)
         self.edgesbyn2 = collections.defaultdict(set)
+
+        self.formsetcache = s_cache.LruDict(TYPESET_CACHE_SIZE)
+        self.typesetcache = s_cache.LruDict(TYPESET_CACHE_SIZE)
 
         self.childforms = collections.defaultdict(list)
         self.childformcache = s_cache.LruDict(CHILDFORM_CACHE_SIZE)
@@ -637,6 +665,21 @@ class Model:
 
         info = {
             'virts': (
+                ('form', ('syn:form', {}), {
+                    'computed': True,
+                    'doc': 'The form of node which is referenced.'}),
+
+                ('value', ('data', {}), {
+                    'computed': True,
+                    'doc': 'The primary property value of the node which is referenced.'}),
+            ),
+            'doc': 'A prop which can be of one or more forms.',
+        }
+        item = s_types.Poly(self, 'poly', info, {})
+        self.addBaseType(item)
+
+        info = {
+            'virts': (
                 ('size', ('int', {}), {
                     'computed': True,
                     'doc': 'The number of elements in the array.'}),
@@ -675,16 +718,24 @@ class Model:
         self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def getPropsByType(self, name):
-        props = self.propsbytype.get(name)
-        if props is None:
-            return ()
+        props = self.propsbytype.get(name, {})
+
+        if (form := self.forms.get(name)) is not None:
+            for iface in form.ifaces:
+                if (polyprops := self.polypropsbyiface.get(iface)):
+                    props |= polyprops
+
         # TODO order props based on score...
         return list(props.values())
 
     def getArrayPropsByType(self, name):
-        props = self.arraysbytype.get(name)
-        if props is None:
-            return ()
+        props = self.arraysbytype.get(name, {})
+
+        if (form := self.forms.get(name)) is not None:
+            for iface in form.ifaces:
+                if (polyprops := self.polyarraysbyiface.get(iface)):
+                    props |= polyprops
+
         return list(props.values())
 
     def getTagPropsByType(self, name):
@@ -796,6 +847,48 @@ class Model:
 
         raise exc
 
+    def getTypeSet(self, forms=None, interfaces=None):
+        key = (forms, interfaces)
+        if (types := self.typesetcache.get(key)) is not None:
+            return types
+
+        types = set()
+
+        if forms:
+            for form in forms:
+                for cform in self.getChildForms(form):
+                    types.add(self.form(cform).type)
+
+        if interfaces:
+            for iface in interfaces:
+                for form in self.formsbyiface.get(iface):
+                    types.add(self.form(form).type)
+
+        types = tuple(types)
+        self.typesetcache[key] = types
+        return types
+
+    def getFormSet(self, forms=None, interfaces=None):
+        key = (forms, interfaces)
+        if (formset := self.formsetcache.get(key)) is not None:
+            return formset
+
+        formset = set()
+
+        if forms:
+            for form in forms:
+                for cform in self.getChildForms(form):
+                    formset.add(self.form(cform))
+
+        if interfaces:
+            for iface in interfaces:
+                for form in self.formsbyiface.get(iface):
+                    formset.add(self.form(form))
+
+        formset = tuple(formset)
+        self.formsetcache[key] = formset
+        return formset
+
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
             return forms
@@ -890,6 +983,15 @@ class Model:
         mdef['edges'] = [e.pack() for e in self.edges.values()]
         return [('all', mdef)]
 
+    def _getResolvedIfaces(self):
+        '''Return a copy of interfaces with default template values resolved in docs and types.'''
+        resolved = {}
+        for name, info in self.ifaces.items():
+            template = self._prepIfaceTemplate(info, {})
+            template['$self'] = name
+            resolved[name] = self._convertTemplate(info, name, template)
+        return resolved
+
     def getModelDict(self):
         retn = {
             'metas': (
@@ -903,7 +1005,7 @@ class Model:
             'forms': {},
             'edges': [],
             'tagprops': {},
-            'interfaces': self.ifaces.copy()
+            'interfaces': self._getResolvedIfaces()
         }
 
         for tobj in self.types.values():
@@ -919,6 +1021,27 @@ class Model:
             retn['edges'].append(eobj.pack())
 
         return retn
+
+    def processPropdefs(self, propdefs):
+
+        realdefs = []
+
+        for pname, propdef, propinfo in propdefs:
+            typename, typeinfo = propdef
+
+            if not typeinfo:
+                if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                    typename = (typename,)
+
+            if isinstance(typename, tuple):
+                typeinfo = dict(typeinfo)
+                typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
+                typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+                typename = 'poly'
+
+            realdefs.append((pname, (typename, typeinfo), propinfo))
+
+        return tuple(realdefs)
 
     def addDataModels(self, mods):
         '''
@@ -1016,38 +1139,37 @@ class Model:
                 self.addTagProp(tpname, typedef, tpinfo)
 
         formchildren = collections.defaultdict(list)
-        formnames = set()
         childforms = set()
 
         allforms = []
 
+        # Gather all the forms first
         for _, mdef in mods:
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                formnames.add(formname)
-
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                if (props := info.get('props')) is not None:
-                    formnames.add(name)
-
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                if (props := typeinfo.get('props')) is not None:
-                    formnames.add(typename)
 
             # Allow props declared directly on ctors to become forms...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 if (props := info.get('props')) is not None:
                     allforms.append((name, {}, props))
+                    self.forminfos[name] = {}
 
             # Allow props declared directly on types to become forms...
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     allforms.append((typename, {}, props))
+                    self.forminfos[typename] = {}
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
+                self.forminfos[formname] = forminfo
 
+        # Check for interface props to convert to poly types
+        for name, info in self.ifaces.items():
+            if (pdefs := info.get('props')) is not None:
+                info['props'] = self.processPropdefs(pdefs)
+
+        # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
-            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in formnames:
+            if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.forminfos and self.form(ftyp.subof) is None:
                 formchildren[ftyp.subof].append((formname, forminfo, propdefs))
                 childforms.add(formname)
 
@@ -1056,6 +1178,7 @@ class Model:
                 if formname in childforms and not children:
                     continue
 
+                propdefs = self.processPropdefs(propdefs)
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
                 if (cinfos := formchildren.pop(formname, None)) is not None:
@@ -1221,6 +1344,8 @@ class Model:
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
+        self.forminfos[formname] = forminfo
+
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
@@ -1316,6 +1441,8 @@ class Model:
         if checks:
             self._checkFormDisplay(form)
 
+        self.formsetcache.clear()
+        self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
 
@@ -1350,7 +1477,8 @@ class Model:
                                f' but {curf.full} has no property named {partname}.')
                         raise s_exc.BadFormDef(mesg=mesg)
 
-                    if isinstance(prop.type, s_types.Ndef):
+                    # TODO: check whether poly props could be valid for one of the forms
+                    if prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
                         break
 
                     curf = self.form(prop.type.name)
@@ -1395,7 +1523,10 @@ class Model:
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
+        self.forminfos.pop(formname, None)
 
+        self.formsetcache.clear()
+        self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
 
@@ -1477,10 +1608,6 @@ class Model:
         for formname in self.getChildForms(form.name):
             form = self.form(formname)
             prop = Prop(self, form, name, tdef, info)
-
-            # index the array item types
-            if isinstance(prop.type, s_types.Array):
-                self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
             self.props[prop.full] = prop
 
@@ -1573,8 +1700,6 @@ class Model:
 
         iface = self._reqIface(name)
 
-        form._full_ifaces[name] += 1
-
         if iface.get('deprecated'):
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
@@ -1614,7 +1739,6 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
-        form._full_ifaces[name] -= 1
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
@@ -1672,13 +1796,13 @@ class Model:
             mesg = f'No prop {name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
-        if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)
-
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 
         self.propsbytype[prop.type.name].pop(prop.full, None)
+
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)
 
         if (kids := self.childforms.get(formname)) is not None:
             for kid in kids:

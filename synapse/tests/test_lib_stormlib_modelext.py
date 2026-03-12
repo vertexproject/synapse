@@ -35,13 +35,13 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
 
             nodes = await core.nodes('[_test:typeform="  FoO BaR  "]')
             self.len(1, nodes)
@@ -226,13 +226,13 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :_tick=20210101 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
 
             # Reloading the same data works fine
             opts = {'vars': {'model_defs': model_defs}}
@@ -314,13 +314,13 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :_tick=20210101 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000000)
+            self.propeq(nodes[0], '_tick', 1609459200000000)
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 

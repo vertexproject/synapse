@@ -31,3 +31,9 @@ docker build --no-cache -t vertexproject/synapse-aha:$TAG ${BUILDARGS} -f docker
 docker build --no-cache -t vertexproject/synapse-axon:$TAG ${BUILDARGS} -f docker/images/axon/Dockerfile .
 docker build --no-cache -t vertexproject/synapse-cortex:$TAG ${BUILDARGS} -f docker/images/cortex/Dockerfile .
 docker build --no-cache -t vertexproject/synapse-jsonstor:$TAG ${BUILDARGS} -f docker/images/jsonstor/Dockerfile .
+
+# These images are used exclusively by CI pipelines
+CI_BASE_IMAGE="vertexproject/synapse-ci:${TAG}"
+echo "Building CI images for ${CI_BASE_IMAGE}"
+docker build --no-cache -t $CI_BASE_IMAGE ${BUILDARGS} -f docker/images/ci/Dockerfile .
+docker build --no-cache -t "${CI_BASE_IMAGE}-browsers" ${BUILDARGS} --build-arg CI_BASE_IMAGE=${CI_BASE_IMAGE} -f docker/images/ci-browsers/Dockerfile .

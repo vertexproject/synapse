@@ -12,6 +12,59 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.234.0 - 2026-02-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a new ``--period`` option to both ``cron.add`` and ``cron.mod``
+  commands for setting or modifying cron job schedules. The older schedule
+  options have been deprecated.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``getNexusChanges`` API could potentially send
+  ``t2:yield`` messages before the initial ``t2:genr`` message.
+  (`#4748 <https://github.com/vertexproject/synapse/pull/4748>`_)
+
+Deprecations
+------------
+- Deprecated ``--minute``, ``--hour``, ``--day``, ``--month``, ``--year``,
+  ``--hourly``, ``--daily``, ``--monthly``, and ``--yearly``options for the
+  ``cron.add`` command.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+v2.233.1 - 2026-02-11
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in Storm where a switch statement could have duplicate switch
+  cases.
+  (`#4742 <https://github.com/vertexproject/synapse/pull/4742>`_)
+- Fixed an issue where mirror promotion would incorrectly re-schedule the
+  disconnection timeout task on the client after it was shut down.
+  (`#4743 <https://github.com/vertexproject/synapse/pull/4743>`_)
+
+v2.233.0 - 2026-02-06
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_233_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Add missing exception information to the RecursionLimitError.
+  (`#4735 <https://github.com/vertexproject/synapse/pull/4735>`_)
+
+Notes
+-----
+- Move process related functions from ``synapse.lib.coro`` into
+  ``synapse.lib.process`` and ``synapse.lib.processpool``.
+  (`#4729 <https://github.com/vertexproject/synapse/pull/4729>`_)
+
 v2.232.0 - 2026-02-02
 =====================
 

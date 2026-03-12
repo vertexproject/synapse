@@ -102,6 +102,7 @@ modeldefs = (
                         'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
+                        'alts': ('phones',),
                         'doc': 'The primary phone number for the {title}.'}),
 
                     ('phones', ('array', {'type': 'tel:phone'}), {
@@ -327,6 +328,7 @@ modeldefs = (
                 'template': {'title': 'campaign'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:observable', {}),
                 ),
                 'display': {
                     'columns': (

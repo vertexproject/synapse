@@ -103,12 +103,6 @@ modeldefs = (
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
-            ('crypto:hash', ('ndef', {'interface': 'crypto:hash'}), {
-                'doc': 'A cryptographic hash.'}),
-
-            ('crypto:hashable', ('ndef', {'interface': 'crypto:hashable'}), {
-                'doc': 'A node which can be cryptographically hashed.'}),
-
             ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
                 'doc': 'A node which is a public key.'}),
 
@@ -158,9 +152,6 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'salted hash'}}),
                 ),
                 'doc': 'A salted hash computed for a value.'}),
-
-            ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {
-                'doc': 'A cryptographic key and algorithm.'}),
 
             ('crypto:key:base', ('guid', {}), {
                 'interfaces': (

@@ -7,12 +7,13 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.coro as s_coro
+
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 import stix2validator
 
@@ -227,7 +228,7 @@ _DefaultConfig = {
                             {+:name=twitter return(twitter)}
                             {+:name=facebook return(facebook)}
                         ''',
-                        'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return((:value).1) }',
+                        'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return(:value) }',
                         'account_created': '+:period return($lib.stix.export.timestamp(:period.min))',
                         'account_last_login': '+:seen return($lib.stix.export.timestamp(:seen.max))',
                         'account_first_login': '+:seen return($lib.stix.export.timestamp(:seen.min))',
@@ -652,7 +653,7 @@ class LibStix(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await s_coro.semafork(validateStix, bundle)
+        return await s_processpool.semafork(validateStix, bundle)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def liftBundle(self, bundle):

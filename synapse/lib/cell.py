@@ -54,6 +54,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
 
@@ -176,7 +177,7 @@ async def _iterBackupWork(path, linkinfo):
     logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
 
-    await s_daemon.t2call(link, _doIterBackup, (path,), {})
+    await s_daemon.t2call(link, _doIterBackup, (path,), {}, first=False)
     await link.fini()
 
     logger.info(f'Backup streaming for [{path}] completed.')
@@ -4188,7 +4189,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'Error while bootstrapping cell config.')
             raise
 
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+        s_processpool.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4384,10 +4385,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getTasks(self, peers=True, timeout=None):
 
+        seen = set()
+
         for task in self.boss.ps():
 
             item = task.packv2()
             item['service'] = self.ahasvcname
+
+            seen.add(item['iden'])
 
             yield item
 
@@ -4401,6 +4406,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not ok: # pragma: no cover
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
+
+            if retn['iden'] in seen:
+                continue
+
+            seen.add(retn['iden'])
 
             yield retn
 

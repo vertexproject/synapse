@@ -18,11 +18,11 @@ class PlanModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq('woot cno planner', nodes[0].get('name'))
-            self.eq(1706832000000000, nodes[0].get('created'))
-            self.eq(1706918400000000, nodes[0].get('updated'))
-            self.eq('1.0.0', nodes[0].get('version'))
-            self.eq('https://vertex.link', nodes[0].get('url'))
+            self.propeq(nodes[0], 'name', 'woot cno planner')
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
+            self.propeq(nodes[0], 'url', 'https://vertex.link')
 
             self.len(1, await core.nodes('plan:system :author -> entity:contact +:name=visi'))
 
@@ -42,14 +42,14 @@ class PlanModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
-            self.eq('Recon', nodes[0].get('title'))
-            self.eq('Do some recon.', nodes[0].get('desc'))
-            self.eq(17, nodes[0].get('index'))
-            self.eq('https://vertex.link/recon', nodes[0].get('url'))
-            self.eq('id001', nodes[0].get('id'))
-            self.eq(1706832000000000, nodes[0].get('created'))
-            self.eq(1706918400000000, nodes[0].get('updated'))
-            self.eq('1.0.0', nodes[0].get('version'))
+            self.propeq(nodes[0], 'title', 'Recon')
+            self.propeq(nodes[0], 'desc', 'Do some recon.')
+            self.propeq(nodes[0], 'index', 17)
+            self.propeq(nodes[0], 'url', 'https://vertex.link/recon')
+            self.propeq(nodes[0], 'id', 'id001')
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
 
             self.len(1, await core.nodes('plan:phase :system -> plan:system +:name="Woot CNO Planner"'))
 
@@ -99,12 +99,12 @@ class PlanModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
-            self.eq('Pwn Some Boxes', nodes[0].get('title'))
-            self.eq('Yoink.', nodes[0].get('desc'))
+            self.propeq(nodes[0], 'title', 'Pwn Some Boxes')
+            self.propeq(nodes[0], 'desc', 'Yoink.')
             self.nn(nodes[0].get('author'))
-            self.eq(1706832000000000, nodes[0].get('created'))
-            self.eq(1706918400000000, nodes[0].get('updated'))
-            self.eq('1.0.0', nodes[0].get('version'))
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
 
             self.len(1, await core.nodes('plan:procedure :type -> plan:procedure:type:taxonomy'))
             self.len(1, await core.nodes('plan:procedure :system -> plan:system +:name="Woot CNO Planner"'))
@@ -112,15 +112,15 @@ class PlanModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('plan:procedure :inputs -> plan:procedure:variable')
             self.len(1, nodes)
-            self.eq('network', nodes[0].get('name'))
-            self.eq('cidr', nodes[0].get('type'))
-            self.eq('127.0.0.0/24', nodes[0].get('default'))
+            self.propeq(nodes[0], 'name', 'network')
+            self.propeq(nodes[0], 'type', 'cidr')
+            self.propeq(nodes[0], 'default', '127.0.0.0/24')
             self.nn(nodes[0].get('procedure'))
 
             nodes = await core.nodes('plan:procedure :firststep -> plan:procedure:step')
             self.len(1, nodes)
-            self.eq('Are there vulnerable services?', nodes[0].get('title'))
-            self.eq('Scan the target network and identify available services.', nodes[0].get('desc'))
+            self.propeq(nodes[0], 'title', 'Are there vulnerable services?')
+            self.propeq(nodes[0], 'desc', 'Scan the target network and identify available services.')
             self.nn(nodes[0].get('procedure'))
 
             self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:phase'))
@@ -128,6 +128,6 @@ class PlanModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:procedure:link')
             self.len(1, nodes)
-            self.eq(True, nodes[0].get('condition'))
+            self.propeq(nodes[0], 'condition', True)
             self.nn(nodes[0].get('next'))
             self.nn(nodes[0].get('procedure'))
