@@ -345,8 +345,10 @@ $lib.json.load($string)                      // parse JSON string
 $lib.json.save($data)                        // serialize to JSON string
 
 // Lift
-$lib.lift.byProp($prop)                      // lift nodes by property
-$lib.lift.byForm($form)                      // lift nodes by form
+$lib.lift.byPropAlts($name, $valu, cmpr="=") // lift by prop value including alternates
+$lib.lift.byPropRefs($props, valu=$lib.undef, cmpr="=") // lift nodes referenced by props
+$lib.lift.byPropsDict($form, $propsdict, errok=$lib.false) // lift by multiple prop values
+$lib.lift.byNodeData($name)                  // lift nodes with a given nodedata key
 
 // Version
 $lib.version.synapse                         // synapse version tuple
@@ -390,7 +392,7 @@ $node.data.has("key")                        // check node data exists
 - Parenthesize boolean expressions: `if ($a = null)`, `$x = (true)`, `$list = ([])`
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
 - Use `stop` to skip the current node (not `return()` which exits the function)
-- Use `return()` with empty parens for void returns
+- Use `return()` with empty parens to return `(null)`
 - Comparison uses single `=` (not `==`): `if ($code = 200)`
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
 - Use the most specific syntax which makes sense. (`-(refs)> inet:fqdn` is better than `--> *`)
