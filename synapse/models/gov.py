@@ -55,6 +55,9 @@ modeldefs = (
                 ('identifier', ('str', {}), {
                     'doc': 'The string identifier for the deepest tree element.'}),
             )),
+            ('iso:3166:alpha2', {}, ()),
+            ('iso:3166:alpha3', {}, ()),
+            ('iso:3166:numeric3', {}, ()),
         ),
     }),
     ('gov:us', {

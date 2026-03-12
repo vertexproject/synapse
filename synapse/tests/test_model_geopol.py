@@ -21,12 +21,36 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'name', 'visiland')
             self.propeq(nodes[0], 'names', ('visitopia',))
             self.propeq(nodes[0], 'period', (1640995200000000, 1672531200000000, 31536000000000))
-            self.propeq(nodes[0], 'code', 'vi')
+            self.propeq(nodes[0], 'code', 'vi', form='iso:3166:alpha2')
             self.propeq(nodes[0], 'iso:3166:alpha3', 'vis')
             self.propeq(nodes[0], 'iso:3166:numeric3', 137)
             self.propeq(nodes[0], 'currencies', ('pesos', 'usd', 'vcoins'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
+
+            # test poly code with alpha3
+            nodes = await core.nodes('pol:country [ :code=vis ]')
+            self.propeq(nodes[0], 'code', 'vis', form='iso:3166:alpha3')
+
+            # test poly code with numeric3
+            nodes = await core.nodes('pol:country [ :code=137 ]')
+            self.propeq(nodes[0], 'code', 137, form='iso:3166:numeric3')
+
+            # test poly code with meta:id
+            nodes = await core.nodes('pol:country [ :code=" MYID001" ]')
+            self.propeq(nodes[0], 'code', 'MYID001', form='meta:id')
+
+            # test codes array with mixed types
+            nodes = await core.nodes('pol:country [ :codes=(vi, vis, 137, " MYID001") ]')
+            self.eq(nodes[0].get('codes'), (
+                ('iso:3166:alpha2', 'vi'),
+                ('iso:3166:alpha3', 'vis'),
+                ('iso:3166:numeric3', 137),
+                ('meta:id', 'MYID001'),
+            ))
+            self.len(1, await core.nodes('pol:country:codes*[=vi]'))
+            self.len(1, await core.nodes('pol:country:codes*[=vis]'))
+            self.len(1, await core.nodes('pol:country:codes*[=137]'))
 
             self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
