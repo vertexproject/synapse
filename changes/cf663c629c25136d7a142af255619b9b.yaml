@@ -1,7 +1,0 @@
----
-desc: Migrated Storm Dmon ddefs to remove the top-level ``view`` key and any other
-  additional properties which are no longer valid.
-desc:literal: false
-prs: []
-type: migration
-...
