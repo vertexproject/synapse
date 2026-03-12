@@ -1450,6 +1450,10 @@ class AgendaTest(s_t_utils.SynTest):
                 guid, reqs={'now': True},
                 incunit='day', incvals=1))
 
+            await self.asyncraises(s_exc.BadConfValu, core.updateCronJob(
+                guid, reqs=[{'hour': 12, 'minute': 0}, {'now': True}],
+                incunit='day', incvals=1))
+
             # modify period for a non-recurring job
             cdef = {
                 'creator': core.auth.rootuser.iden,
