@@ -1,0 +1,11 @@
+---
+desc: Added ``synapse.utils.testcov`` pytest plugin that records per-test source
+  coverage to a JSON file when used alongside ``pytest-cov``. Added
+  ``synapse.utils.testcov.show`` tool to perform reverse lookups against the
+  coverage data -- accepts one or more ``FILE[:LINES]`` arguments to find tests
+  that covered specific files and line numbers, or reads ``git diff`` output from
+  stdin automatically when no arguments are provided.
+desc:literal: false
+prs: []
+type: feat
+...
