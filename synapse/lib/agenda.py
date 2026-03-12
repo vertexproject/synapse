@@ -633,6 +633,11 @@ class Agenda(s_base.Base):
             mesg = '"query" key of cdef parameter is not present or empty'
             raise s_exc.BadArg(mesg=mesg)
 
+        valid_loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        if loglevel not in valid_loglevels:
+            mesg = f'If given, loglevel must be one of: {repr(valid_loglevels)}'
+            raise s_exc.BadArg(mesg=mesg)
+
         await self.core.getStormQuery(query)
 
         if not creator:

@@ -9873,7 +9873,11 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
-        loglevel = kwargs.get('loglevel', 'WARNING')
+        loglevel = kwargs.get('loglevel')
+        valid_loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        if loglevel is not None and loglevel not in valid_loglevels:
+            mesg = f'If given, loglevel must be one of: {repr(valid_loglevels)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         period = kwargs.get('period')
         if not period:

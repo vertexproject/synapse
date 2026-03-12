@@ -212,6 +212,12 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
+                # invalid loglevel
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT',
+                        'storm': '$lib.print(hehe)', 'loglevel': 'nope',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
+
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
