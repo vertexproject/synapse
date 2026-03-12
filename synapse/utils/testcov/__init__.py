@@ -8,7 +8,7 @@ import synapse.lib.json as s_json
 
 logger = logging.getLogger(__name__)
 
-class TestCovPlugin:
+class TestCovPlugin: # pragma: no cover
 
     def __init__(self, output):
         self.output = output
@@ -63,7 +63,7 @@ class TestCovPlugin:
         with open(self.output, 'wb') as fp:
             s_json.dump(self.covmap, fp, indent=True)
 
-def pytest_addoption(parser):
+def pytest_addoption(parser): # pragma: no cover
     parser.addoption(
         '--testcov',
         metavar='PATH',
@@ -71,7 +71,7 @@ def pytest_addoption(parser):
         help='Enable per-test coverage mapping and write results to PATH as JSON.',
     )
 
-def pytest_configure(config):
+def pytest_configure(config): # pragma: no cover
     output = config.getoption('--testcov', default=None)
     if output is None:
         return
