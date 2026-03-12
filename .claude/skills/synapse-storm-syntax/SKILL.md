@@ -31,6 +31,8 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 +{ -> inet:ipv4 +:asn=1234 }      // subquery filter (keep)
 -{ -> inet:ipv4 }                  // subquery filter (remove)
 +(:asn=1234 or :asn=5678)         // compound: and, or, not
++$(:client:txbytes >= 100000000)   // expression filter (keep)
+-$($fqdns.size() > 1)             // expression filter (remove)
 ```
 
 ### Pivoting (Graph Traversal)
