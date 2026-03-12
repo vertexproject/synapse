@@ -55,7 +55,7 @@ of generating a user API key:
 
   ::
 
-    storm> ($key, $info)= $lib.auth.users.byname($lib.user.name()).genApiKey('Test Key') $lib.print($key)
+    storm> ($key, $info)= $lib.auth.users.byname($lib.auth.users.get().name).genApiKey('Test Key') $lib.print($key)
     XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
 
 This API Key can then be used to make HTTP API calls. The following example shows
@@ -65,7 +65,7 @@ the response:
   ::
 
     $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
-    --data '{"query": "return($lib.user.name())"}' \
+    --data '{"query": "return($lib.auth.users.get().name)"}' \
     https://localhost:4443/api/v1/storm/call | jq
 
     {

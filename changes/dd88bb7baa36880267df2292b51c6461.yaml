@@ -1,0 +1,7 @@
+---
+desc: 'Removed the ``$lib.user`` Storm library. Use ``$lib.auth.users.get()`` to retrieve
+  the current user object instead.'
+desc:literal: false
+prs: []
+type: deprecation
+...

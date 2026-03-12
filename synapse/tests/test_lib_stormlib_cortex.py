@@ -353,7 +353,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             q = '''$api = $lib.cortex.httpapi.add(testpath00)
             $api.methods.get = ${
                 $view = $lib.view.get()
-                $request.reply(200, body=({'view': $view.iden, "username": $lib.user.name()}) )
+                $request.reply(200, body=({'view': $view.iden, "username": $lib.auth.users.get().name}) )
             }
             return ( ($api.iden, $api.owner.name) )
             '''
@@ -708,7 +708,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             q = '''$api = $lib.cortex.httpapi.add('auth')
             $api.methods.get = ${
-                $request.reply(200, body=({"username": $lib.user.name(), "user": $request.user}) )
+                $request.reply(200, body=({"username": $lib.auth.users.get().name, "user": $request.user}) )
             }
             return ( $api.iden )
             '''
