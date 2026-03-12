@@ -200,14 +200,14 @@ Each lift function returns a tuple of `(cmpr, norm_value, stortype)` triples. Th
 | `Tag` | `STOR_TYPE_UTF8` | -- | Dot-separated tag string |
 | `TagPart` | `STOR_TYPE_UTF8` | -- | Single tag component |
 | `Hex` | `STOR_TYPE_UTF8` | size, zeropad | Hex string with optional fixed size |
-| `Int` | dynamic | size, signed, min, max, enums, fmt, ismin, ismax | stortype from `intstors[(size, signed)]` |
-| `Float` | `STOR_TYPE_FLOAT64` | min, max, minisval, maxisval | IEEE 754 double |
-| `HugeNum` | `STOR_TYPE_HUGENUM` | -- | Arbitrary precision decimal |
+| `Int` | dynamic | size, signed, min, max, enums, enums:strict, fmt, ismin, ismax | stortype from `intstors[(size, signed)]` |
+| `Float` | `STOR_TYPE_FLOAT64` | min, max, minisvalid, maxisvalid | IEEE 754 double |
+| `HugeNum` | `STOR_TYPE_HUGENUM` | units, modulo | Arbitrary precision decimal |
 | `Bool` | `STOR_TYPE_U8` | -- | True/false |
-| `Time` | `STOR_TYPE_TIME` / `MINTIME` / `MAXTIME` | ismin, ismax, precision | Microsecond timestamps |
-| `Duration` | `STOR_TYPE_U64` | -- | Microsecond duration |
-| `Velocity` | `STOR_TYPE_I64` | -- | Meters per second |
-| `Ival` | `STOR_TYPE_IVAL` | -- | Time interval (min, max); virts: min, max |
+| `Time` | `STOR_TYPE_TIME` / `MINTIME` / `MAXTIME` | ismin, ismax, maxfill, precision | Microsecond timestamps |
+| `Duration` | `STOR_TYPE_U64` | signed | Microsecond duration |
+| `Velocity` | `STOR_TYPE_I64` | relative | Meters per second |
+| `Ival` | `STOR_TYPE_IVAL` | precision | Time interval (min, max); virts: min, max, duration, precision |
 | `Loc` | `STOR_TYPE_LOC` | -- | Lat/lon coordinate |
 | `Guid` | `STOR_TYPE_GUID` | -- | 16-byte GUID; `'*'` generates new |
 | `Comp` | `STOR_TYPE_MSGP` | fields, sepr | Composite of named typed fields |
@@ -452,7 +452,7 @@ The same auto-detection logic exists in `Array.postTypeInit()` for array element
 ### Poly Normalization (`Poly.norm()`)
 
 1. If the value is a **Storm Node**, its ndef is used directly (if the node's form passes the filter).
-2. If the value is a **NodeRef** `(form, value)` tuple, the form is validated and the value is normalized via that form's type.
+2. If the value is a **NodeRef** `(form, value)` tuple and the form is valid, its ndef is used directly if the node already exists, otherwise the value is re-normalized via that form's type.
 3. Otherwise, **default forms** are tried in order. The first form whose type successfully normalizes the value wins. If normalization succeeds, the Cortex checks the current view for an existing node to avoid duplicate creation.
 4. If no default forms match, `BadTypeValu` is raised.
 
