@@ -188,7 +188,7 @@ function getNodes(form) {
 // Pass-through (nodes unchanged, side effects persist)
 inet:fqdn { [ +#reviewed ] }
 
-// Yield (replace pipeline with subquery results)
+// Yield (add subquery results to the pipeline)
 yield { inet:fqdn=example.com -> * }
 
 // As node reference in edits
