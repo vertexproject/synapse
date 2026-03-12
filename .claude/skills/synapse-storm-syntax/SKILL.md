@@ -16,8 +16,8 @@ inet:fqdn=example.com              // by primary value
 inet:fqdn:zone=1                   // by property value
 inet:fqdn:zone                     // where property is set
 #tag.name                          // by tag
-#tag.*                             // by tag glob
-entity:contact:names*[=example]            // by array contents
+inet:fqdn#tag.name                 // by form with tag
+entity:contact:names*[=example]    // by array contents
 reverse(inet:fqdn)                 // reverse lift order
 ```
 
