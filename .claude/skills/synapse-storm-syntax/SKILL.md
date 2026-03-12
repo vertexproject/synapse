@@ -26,13 +26,15 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 ### Filtering
 
 ```storm
-+#tag.name                         // keep nodes with tag
--:prop=value                       // remove matching nodes
++#tag.name                        // keep nodes with tag
+-:prop=value                      // remove matching nodes
 +{ -> inet:ipv4 +:asn=1234 }      // subquery filter (keep)
--{ -> inet:ipv4 }                  // subquery filter (remove)
+-{ -> inet:ipv4 }                 // subquery filter (remove)
++{ -> inet:dns:a } < 2            // subquery filter with count compare
 +(:asn=1234 or :asn=5678)         // compound: and, or, not
-+$(:client:txbytes >= 100000000)   // expression filter (keep)
++$(:client:txbytes >= 100)        // expression filter (keep)
 -$($fqdns.size() > 1)             // expression filter (remove)
++:asn::name=woot                  // embed filter syntax using ::
 ```
 
 ### Pivoting (Graph Traversal)
