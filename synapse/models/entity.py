@@ -176,6 +176,9 @@ modeldefs = (
             # FIXME syn:user is an actor...
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'prevnames': ('ou:jobtitle', 'ou:role'),
                 'doc': 'A title or position name used by an entity.'}),
 
