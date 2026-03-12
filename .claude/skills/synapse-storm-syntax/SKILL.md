@@ -114,7 +114,7 @@ $check = ($a > 5 and $b < 10)
 $match = ($str ~= "pattern")
 ```
 
-**Operator precedence** (low→high): `or` → `and` → `not` → comparisons → `+/-` → `*/%` → unary `-` → `**`
+**Operator precedence** (low->high): `or` -> `and` -> `not` -> comparisons -> `+/-` -> `*/%` -> unary `-` -> `**`
 
 ### Strings
 

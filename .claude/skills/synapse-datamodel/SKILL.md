@@ -15,7 +15,7 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
    - **Suggest edges**: Identify relevant light edges for linking nodes together based on the edges section of the model output.
    - **Recommend modeling approaches**: When the user describes a real-world concept, recommend which forms and properties best represent it, and how to connect related nodes via properties and edges.
 
-4. Always cite specific form and property names from the generated model output. Do not guess or hallucinate form/property names — if a form or property does not appear in the output, say so.
+4. Always cite specific form and property names from the generated model output. Do not guess or hallucinate form/property names -- if a form or property does not appear in the output, say so.
 
 5. When the user is connected to a live Cortex, use `python -m synapse.tools.cortex.docmodel --cortex <url>` instead, to capture any extended model from loaded Storm packages.
 
