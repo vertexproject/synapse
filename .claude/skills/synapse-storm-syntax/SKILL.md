@@ -167,7 +167,7 @@ try {
 break                                         // exit loop
 continue                                      // next iteration
 return($value)                                // return from function
-stop                                          // halt current node processing
+stop                                          // terminate an emitter function
 emit $value                                   // emit data to caller
 ```
 
@@ -391,7 +391,6 @@ $node.data.has("key")                        // check node data exists
 - Format strings with backticks for interpolation: `` `text {$var}` ``
 - Parenthesize boolean expressions: `if ($a = null)`, `$x = (true)`, `$list = ([])`
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
-- Use `stop` to skip the current node (not `return()` which exits the function)
 - Use `return()` with empty parens to return `(null)`
 - Comparison uses single `=` (not `==`): `if ($code = 200)`
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
