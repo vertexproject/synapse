@@ -53,6 +53,7 @@ modeldefs = (
                 ('code', (('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'), {
                     'default_forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
                     }), {
+                    'alts': ('codes',),
                     'prevnames': ('iso2',),
                     'doc': 'The country code.'}),
 
