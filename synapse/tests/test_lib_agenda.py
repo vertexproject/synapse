@@ -1787,7 +1787,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(set(incvals), {1})
 
             # modify period to yearly with specific month and day
-            msgs = await core.stormlist('cron.mod $guid --period yearly/03:15', opts=opts)
+            msgs = await core.stormlist('cron.mod $guid --period yearly/03-15', opts=opts)
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
             cron = [c for c in crons if c['iden'] == guid][0]
@@ -1800,7 +1800,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(reqdict['minute'], 0)
 
             # modify period to yearly with specific month, day, and time
-            msgs = await core.stormlist('cron.mod $guid --period yearly/11:30@08:00', opts=opts)
+            msgs = await core.stormlist('cron.mod $guid --period yearly/11-30@08:00', opts=opts)
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
             cron = [c for c in crons if c['iden'] == guid][0]
@@ -1810,6 +1810,51 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(reqdict['month'], 11)
             self.eq(reqdict['dayofmonth'], 30)
             self.eq(reqdict['hour'], 8)
+            self.eq(reqdict['minute'], 0)
+
+            msgs = await core.stormlist('cron.mod $guid --period yearly@13', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.len(1, cron['recs'])
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(reqdict['month'], 1)
+            self.eq(reqdict['dayofmonth'], 1)
+            self.eq(reqdict['hour'], 13)
+            self.eq(reqdict['minute'], 0)
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+
+            # modify period to yearly with multiple month, day, and time
+            msgs = await core.stormlist('cron.mod $guid --period yearly/11-30@08:00,07-12@8,12-10', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.len(3, cron['recs'])
+            reqdict, incunit, incval = cron['recs'][0]
+            self.len(3, cron['recs'])
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+            self.eq(reqdict['month'], 11)
+            self.eq(reqdict['dayofmonth'], 30)
+            self.eq(reqdict['hour'], 8)
+            self.eq(reqdict['minute'], 0)
+
+            reqdict, incunit, incval = cron['recs'][1]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+            self.eq(reqdict['month'], 7)
+            self.eq(reqdict['dayofmonth'], 12)
+            self.eq(reqdict['hour'], 8)
+            self.eq(reqdict['minute'], 0)
+
+            reqdict, incunit, incval = cron['recs'][2]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+            self.eq(reqdict['month'], 12)
+            self.eq(reqdict['dayofmonth'], 10)
+            self.eq(reqdict['hour'], 0)
             self.eq(reqdict['minute'], 0)
 
             # sad
