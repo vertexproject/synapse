@@ -105,7 +105,7 @@ $name = :prop                                // from node property
 $obj.key = "value"                           // item assignment
 
 // Arithmetic: +, -, *, /, %, **
-$result = ($x + $y) * 2
+$result = (($x + $y) * 2)
 
 // Comparison: =, !=, <, >, <=, >=, ~=, ^=, in, not in
 $check = ($a > 5 and $b < 10)
@@ -174,7 +174,7 @@ emit $value                                   // emit data to caller
 ### Functions
 
 ```storm
-function myFunc(arg1, arg2=$lib.null) {
+function myFunc(arg1, arg2=(null)) {
     // own pipeline scope
     return($result)
 }
