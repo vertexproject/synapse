@@ -4,7 +4,7 @@ TRIGGER: When writing, editing, reviewing, or discussing Storm (.storm) files, S
 
 ## Language Overview
 
-Storm is an async pipeline-based graph query language for Synapse. Queries are chains of operations separated by `|` that transform streams of `(node, path)` tuples lazily. Storm files use `/* */` and `//` comments. Inline commands must end with `|` to return to storm operator syntax.
+Storm is an async pipeline-based graph query language for Synapse. Queries are chains of operations and commands that transform streams of `(node, path)` tuples lazily. Storm files use `/* */` and `//` comments. Inline commands must end with `|` to return to storm operator syntax.
 
 ## Syntax Quick Reference
 
@@ -38,11 +38,11 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 ```storm
 -> *                               // pivot to all referenced nodes
 -> inet:ipv4                       // pivot to specific form
--> (inet:ipv4, inet:ipv6)         // pivot to multiple forms
+-> (inet:ipv4, inet:ipv6)          // pivot to multiple forms
 <- *                               // reverse pivot (incoming refs)
 -+> *                              // join pivot (keep source + targets)
 -> { subquery }                    // raw pivot via subquery
-:dns:a -> inet:ipv4               // property-based pivot
+:ipv4 -> inet:ipv4                 // property-based pivot
 
 // Light edge traversal
 -(refs)> *                         // walk N1 edges (outbound)
@@ -174,6 +174,7 @@ emit $value                                   // emit data to caller
 ### Functions
 
 ```storm
+// Callable functions must have a return() statement
 function myFunc(arg1, arg2=(null)) {
     // own pipeline scope
     return($result)
@@ -182,10 +183,32 @@ function myFunc(arg1, arg2=(null)) {
 // Invocation
 $result = $myFunc(val1, arg2=val2)
 
-// Functions can yield nodes
-function getNodes(form) {
-    yield $lib.lift.byProp($form)
+// Emitter functions use the emit / stop keywords to act like a generator
+function getData() {
+    for $item in $getStuff() {
+        emit $item
+        if ($item.foo = "bar") { stop }
+    }
 }
+
+// Invocation must iterate over the results
+for $item in $getData() {
+    $lib.print($item)
+}
+
+// Functions without a return() or emit yield nodes from their pipeline
+function getNodes(valu) {
+    form:prop=$valu +#tag.name
+}
+
+// Invocation yielding the results into the current pipeline
+yield $getNodes(valu)
+
+// Invocation may iterate over the results
+for $n in $getNodes() {
+    $lib.print($n)
+}
+
 ```
 
 ### Subqueries
