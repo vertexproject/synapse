@@ -1,6 +1,0 @@
----
-desc: Fixed the ``Cell.getTasks()`` API to deduplicate tasks which may be reported
-  by multiple links to one peer.
-prs: []
-type: bug
-...
