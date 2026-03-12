@@ -221,9 +221,6 @@ for $n in $getNodes() {
 // Pass-through (nodes unchanged, side effects persist)
 inet:fqdn { [ +#reviewed ] }
 
-// Yield (add subquery results to the pipeline)
-yield { inet:fqdn=example.com -> * }
-
 // As node reference in edits
 [ :account = { [ syn:user=$lib.user.iden ] } ]
 
