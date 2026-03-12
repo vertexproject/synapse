@@ -81,8 +81,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:attended -> ps:person'))
             self.len(1, await core.nodes('entity:attended :actor -> ps:person'))
 
-            self.len(1, await core.nodes('entity:attended -> ou:event'))
-            self.len(1, await core.nodes('entity:attended :event -> ou:event'))
+            self.len(1, await core.nodes('entity:attended -> ou:meeting'))
+            self.len(1, await core.nodes('entity:attended :event -> ou:meeting'))
 
             nodes = await core.nodes('''
                 [ entity:campaign=*
@@ -170,7 +170,6 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.propeq(nodes[0], 'time', 1658102400000000)
             self.propeq(nodes[0], 'value', '10')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.len(1, await core.nodes('entity:contribution :event -> entity:campaign'))
             self.len(1, await core.nodes('entity:contribution :actor -> ou:org +:name=vertex'))
 

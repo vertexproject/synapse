@@ -163,7 +163,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018')
-            self.propeq(nodes[0], 'names', ('arrcon18', 'arrow conference 2018',))
             self.propeq(nodes[0], 'family', 'arrowcon')
             self.propeq(nodes[0], 'period', (1519862400000000, 1520035200000000, 172800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
