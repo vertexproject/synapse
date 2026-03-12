@@ -296,8 +296,6 @@ testmodel = (
 
             ('test:time', ('time', {}), {}),
 
-            ('test:ival', ('ival', {}), {}),
-
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
@@ -507,11 +505,6 @@ testmodel = (
             ('test:hexa', {}, ()),
             ('test:hex4', {}, ()),
             ('test:zeropad', {}, ()),
-            ('test:ival', {}, (
-                ('interval', ('ival', {}), {}),
-                ('daymax', ('ival', {'precision': 'day'}), {}),
-            )),
-
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
                 ('seen', ('ival', {}), {}),

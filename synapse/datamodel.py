@@ -1338,6 +1338,10 @@ class Model:
         if (_type := self.types.get(formname)) is None:
             raise s_exc.NoSuchType(name=formname)
 
+        if _type.virtstor:
+            mesg = 'Forms cannot be created from types with editable virtual properties.'
+            raise s_exc.BadFormDef(mesg=mesg, name=formname)
+
         if (pform := self.form(_type.subof)) is not None:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo

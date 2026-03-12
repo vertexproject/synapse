@@ -354,6 +354,20 @@ class EconTest(s_utils.SynTest):
 
             # error: setting virt on unset price
             nodes = await core.nodes('[ econ:purchase=* ]')
-            iden = nodes[0].iden()
+            guid = nodes[0].ndef[1]
+            opts = {'vars': {'guid': guid}}
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes(f'econ:purchase={iden} [ :price.currency=usd ]')
+                await core.nodes('econ:purchase=$guid [ :price.currency=usd ]', opts=opts)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase=$guid [ :price.asof=2024 ]', opts=opts)
+
+            # currency not set but asof is (covers _getCurrency None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=50.00 :price.asof=2024 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.currency'))
+
+            # asof not set but currency is (covers _getAsof None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=75.00 :price.currency=gbp ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.asof'))
