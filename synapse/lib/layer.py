@@ -4622,6 +4622,17 @@ class Layer(s_nexus.Pusher):
             if virts != oldvirts:
                 sode['props'][prop] = (valu, stortype, virts)
                 self.dirty[nid] = sode
+
+                kvpairs = []
+
+                if oldvirts is not None:
+                    self.stortypes[stortype].delVirtIndxVals(nid, form, prop, oldvirts)
+
+                if virts is not None:
+                    kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, prop, virts))
+
+                return kvpairs
+
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)

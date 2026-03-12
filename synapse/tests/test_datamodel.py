@@ -93,6 +93,13 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadFormDef):
             modl.addDataModels(mods)
 
+    async def test_datamodel_virtstor(self):
+        modl = s_datamodel.Model()
+        modl.addType('test:virt', 'int', {}, {})
+        modl.types['test:virt'].virtstor['fake'] = lambda: None
+        with self.raises(s_exc.BadFormDef):
+            modl.addForm('test:virt', {}, ())
+
     async def test_datamodel_no_interface(self):
         modl = s_datamodel.Model()
         mods = (
