@@ -298,8 +298,6 @@ testmodel = (
 
             ('test:ival', ('ival', {}), {}),
 
-            ('test:price', ('econ:price', {}), {}),
-
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
@@ -513,7 +511,6 @@ testmodel = (
                 ('interval', ('ival', {}), {}),
                 ('daymax', ('ival', {'precision': 'day'}), {}),
             )),
-            ('test:price', {}, ()),
 
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
