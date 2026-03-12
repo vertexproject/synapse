@@ -136,8 +136,8 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country
 
-            self.len(0, await core.nodes('gen.pol.country newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country newp'))
+            self.len(0, await core.nodes('gen.pol.country (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country us'))
@@ -150,8 +150,8 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country.government
 
-            self.len(0, await core.nodes('gen.pol.country.government newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government newp'))
+            self.len(0, await core.nodes('gen.pol.country.government (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country.government us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country.government us'))
