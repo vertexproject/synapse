@@ -1557,6 +1557,10 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(5, crons)
             yearly_cron = [c for c in crons if c['query'] == '$lib.print(yearly)'][0]
             reqdict, incunit, incval = yearly_cron['recs'][0]
+            self.eq(reqdict['month'], 1)
+            self.eq(reqdict['dayofmonth'], 1)
+            self.eq(reqdict['hour'], 0)
+            self.eq(reqdict['minute'], 0)
             self.eq(incunit, 'year')
             self.eq(incval, 1)
 
@@ -1597,13 +1601,52 @@ class AgendaTest(s_t_utils.SynTest):
             msgs = await core.stormlist('cron.add --period hourly@00:25 { $lib.print(ok) }')
             self.stormHasNoWarnErr(msgs)
 
-            # sad
-
-            # test yearly period with specific month and day
-            msgs = await core.stormlist('cron.add --period yearly/03:15 { $lib.print(yearly_specific) }')
+            # test yearly with only hour
+            msgs = await core.stormlist('cron.add --period yearly@14 { $lib.print(yearly_hourly) }')
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
-            yearly_specific = [c for c in crons if c['query'] == '$lib.print(yearly_specific)'][0]
+            yearly_cron = [c for c in crons if c['query'] == '$lib.print(yearly_hourly)'][0]
+            self.len(1, yearly_cron['recs'])
+            reqdict, incunit, incval = yearly_cron['recs'][0]
+            self.eq(reqdict['month'], 1)
+            self.eq(reqdict['dayofmonth'], 1)
+            self.eq(reqdict['hour'], 14)
+            self.eq(reqdict['minute'], 0)
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+
+            # test yearly period with specific time
+            msgs = await core.stormlist('cron.add --period yearly@12:15 { $lib.print(yearly_specific_time) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            yearly_cron = [c for c in crons if c['query'] == '$lib.print(yearly_specific_time)'][0]
+            self.len(1, yearly_cron['recs'])
+            reqdict, incunit, incval = yearly_cron['recs'][0]
+            self.eq(reqdict['month'], 1)
+            self.eq(reqdict['dayofmonth'], 1)
+            self.eq(reqdict['hour'], 12)
+            self.eq(reqdict['minute'], 15)
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+
+            # test yearly period with specific month and day
+            msgs = await core.stormlist('cron.add --period yearly/03-12@14:18 { $lib.print(yearly_super_specific) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            yearly_cron = [c for c in crons if c['query'] == '$lib.print(yearly_super_specific)'][0]
+            self.len(1, yearly_cron['recs'])
+            reqdict, incunit, incval = yearly_cron['recs'][0]
+            self.eq(reqdict['month'], 3)
+            self.eq(reqdict['dayofmonth'], 12)
+            self.eq(reqdict['hour'], 14)
+            self.eq(reqdict['minute'], 18)
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+
+            msgs = await core.stormlist('cron.add --period yearly/03-15 { $lib.print(yearly_only_date) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            yearly_specific = [c for c in crons if c['query'] == '$lib.print(yearly_only_date)'][0]
             reqdict, incunit, incval = yearly_specific['recs'][0]
             self.eq(incunit, 'year')
             self.eq(incval, 1)
@@ -1612,18 +1655,37 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(reqdict['hour'], 0)
             self.eq(reqdict['minute'], 0)
 
-            # test yearly period with specific month, day, and time
-            msgs = await core.stormlist('cron.add --period yearly/06:21@09:00 { $lib.print(yearly_time) }')
+            # test yearly period with multiple specific month, day, and time
+            msgs = await core.stormlist('cron.add --period yearly/06-21@09:00,12-25,12-26@09 { $lib.print(yearly_multi) }')
             self.stormHasNoWarnErr(msgs)
             crons = await core.listCronJobs()
-            yearly_time = [c for c in crons if c['query'] == '$lib.print(yearly_time)'][0]
-            reqdict, incunit, incval = yearly_time['recs'][0]
+            yearly_multi = [c for c in crons if c['query'] == '$lib.print(yearly_multi)'][0]
+            self.len(3, yearly_multi['recs'])
+            reqdict, incunit, incval = yearly_multi['recs'][0]
             self.eq(incunit, 'year')
             self.eq(incval, 1)
             self.eq(reqdict['month'], 6)
             self.eq(reqdict['dayofmonth'], 21)
             self.eq(reqdict['hour'], 9)
             self.eq(reqdict['minute'], 0)
+
+            reqdict, incunit, incval = yearly_multi['recs'][1]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+            self.eq(reqdict['month'], 12)
+            self.eq(reqdict['dayofmonth'], 25)
+            self.eq(reqdict['hour'], 0)
+            self.eq(reqdict['minute'], 0)
+
+            reqdict, incunit, incval = yearly_multi['recs'][2]
+            self.eq(incunit, 'year')
+            self.eq(incval, 1)
+            self.eq(reqdict['month'], 12)
+            self.eq(reqdict['dayofmonth'], 26)
+            self.eq(reqdict['hour'], 9)
+            self.eq(reqdict['minute'], 0)
+
+            # sad
 
             sadpaths = [
                 ('cron.add --period invalid { $lib.print(err) }', 'Unknown period'),
@@ -1640,10 +1702,18 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
                 ('cron.add --period monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),
-                ('cron.add --period yearly/badmonth:01 { $lib.print(err) }', 'Invalid month:day value for yearly period'),
-                ('cron.add --period yearly/01 { $lib.print(err) }', 'Invalid month:day value for yearly period'),
-                ('cron.add --period yearly/13:01 { $lib.print(err) }', 'Failed to parse period'),
-                ('cron.add --period yearly/01:32 { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add --period yearly/badmonth-01 { $lib.print(err) }', 'Invalid month-day value for yearly period'),
+                ('cron.add --period yearly/01 { $lib.print(err) }', 'Invalid month-day value for yearly period'),
+                ('cron.add --period yearly@33 { $lib.print(err) }', 'Invalid hour value'),
+                ('cron.add --period yearly@26:02 { $lib.print(err) }', 'Invalid hour value'),
+                ('cron.add --period yearly/01-01@25 { $lib.print(err) }', 'Invalid hour value'),
+                ('cron.add --period yearly/01-01@25:02 { $lib.print(err) }', 'Invalid hour value'),
+                ('cron.add --period yearly/01-01@21:99 { $lib.print(err) }', 'Invalid minute value'),
+                ('cron.add --period yearly/01-01@21:21,05-04@19:900 { $lib.print(err) }', 'Invalid minute value'),
+                ('cron.add --period yearly/01-01@21:21,swiggityswooty,05-04 { $lib.print(err) }', 'Invalid month-day value for yearly period: swiggityswooty'),
+                ('cron.add --period yearly/13-01 { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add --period yearly/01-32 { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add --period yearly@blorp { $lib.print(err) }', 'Failed to parse period'),
             ]
 
             for cmd, err in sadpaths:
