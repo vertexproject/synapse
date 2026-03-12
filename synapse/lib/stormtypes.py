@@ -6120,7 +6120,7 @@ class NodeRef(Prim):
         self.virts = virts
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu))
+        return hash(self.valu[1])
 
     def __int__(self):
         valu = self.valu[1]
@@ -6136,7 +6136,7 @@ class NodeRef(Prim):
 
     def __eq__(self, othr):
         if isinstance(othr, NodeRef):
-            return othr.valu == self.valu
+            return othr.valu[1] == self.valu[1]
         return othr == self.valu[1]
 
     def getObjLocals(self):
