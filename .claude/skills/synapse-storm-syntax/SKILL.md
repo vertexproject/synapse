@@ -21,7 +21,7 @@ inet:fqdn:zone                     // where property is set
 reverse(inet:fqdn)                 // reverse lift order
 ```
 
-Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefix)
+Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefix), `in`, `not in`
 
 ### Filtering
 
@@ -49,6 +49,12 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 <(refs)- *                         // walk N2 edges (inbound)
 --> *                              // N-walk (multi-hop)
 <-- *                              // reverse N-walk
+
+// Edge join pivots (keep source + targets)
+-(refs)+> *                        // N1 edge join pivot
+<+(refs)- *                        // N2 edge join pivot
+--+> *                             // N-walk join
+<+-- *                             // reverse N-walk join
 ```
 
 ### Edit Blocks `[ ]`
@@ -222,6 +228,24 @@ delnode                                       // delete nodes
 movetag old.tag new.tag                      // rename tags
 graph                                         // generate subgraph
 help [command]                                // show help
+iden $iden                                    // lift node by iden
+background { query }                         // run query in background
+batch --size 100 { query }                   // batch pipeline processing
+copyto $layer                                // copy nodes to layer
+diff                                          // yield added/changed nodes
+edges.del                                     // delete light edges
+intersect { query }                          // intersect pipelines
+lift.byverb $verb                            // lift by edge verb
+merge --apply                                // merge layer changes
+movenodes --srclayer $src --destlayer $dst   // move nodes between layers
+parallel { query }                           // parallel execution
+reindex                                       // reindex nodes
+runas --user $user { query }                 // run as another user
+scrape --refs $text                          // scrape indicators
+sleep $seconds                               // pause execution
+tag.prune #tag                               // prune tag tree
+tree { query }                               // recursive traversal
+view.exec $view { query }                   // execute in view
 ```
 
 ### Key $lib Functions
@@ -292,8 +316,14 @@ $lib.pkg.get(package-name)                   // get package def
 $lib.pkg.get(name).version                   // package version
 $lib.pkg.get(name).vaults.$type.schemas      // vault schemas
 
-// JSON Schema
+// JSON
 $lib.json.schema($schema).validate($data)    // returns ($ok, $result)
+$lib.json.load($string)                      // parse JSON string
+$lib.json.save($data)                        // serialize to JSON string
+
+// Lift
+$lib.lift.byProp($prop)                      // lift nodes by property
+$lib.lift.byForm($form)                      // lift nodes by form
 
 // Version
 $lib.version.synapse                         // synapse version tuple
@@ -304,17 +334,27 @@ $lib.version.synapse                         // synapse version tuple
 ```storm
 $node.form()                                 // form name string
 $node.ndef()                                 // (form, value) tuple
+$node.iden()                                 // node identity hash
+$node.nid                                    // node ID in the layer
 $node.value()                                // primary value
 $node.repr()                                 // human representation
+$node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
 $node.props.propname                         // specific property
 $node.isform("inet:fqdn")                   // check form type
-$node.has(:prop)                             // check property exists
-$node.get(:prop)                             // get property value
 $node.tags()                                 // get tags dict
+$node.difftags($tags)                        // diff tags vs current
 $node.globtags(pattern)                      // match tags by glob
+$node.edges()                                // iterate light edges
+$node.addEdge($verb, $n2iden)               // add a light edge
+$node.delEdge($verb, $n2iden)               // delete a light edge
+$node.protocol()                             // get protocol name
+$node.protocols()                            // get all protocols
+$node.getByLayer()                           // get node per layer
+$node.getStorNodes()                         // get storage nodes
 $node.data.set("key", $value)               // set node data
 $node.data.get("key")                        // get node data
+$node.data.has("key")                        // check node data exists
 ```
 
 ## Storm Package Conventions
