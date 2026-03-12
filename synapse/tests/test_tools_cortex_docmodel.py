@@ -63,6 +63,9 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('`meta:taxonomy`', taxtext)
         self.notin('{$self}', taxtext)
 
+        # Verify poly types are resolved to their actual type names
+        self.notin('| `poly` |', text)
+
         # Verify forms are present
         self.isin('### `inet:ip`', text)
         self.isin('### `inet:fqdn`', text)
