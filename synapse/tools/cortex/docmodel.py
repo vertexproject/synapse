@@ -54,13 +54,17 @@ def _resolveTypeNames(typedef):
     if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
         if typedef[0] == 'poly' and len(typedef) >= 2:
             opts = typedef[1] if isinstance(typedef[1], dict) else {}
+            names = set()
             ifaces = opts.get('interfaces')
             if ifaces:
-                return sorted(ifaces)
+                names.update(ifaces)
 
             forms = opts.get('forms')
             if forms:
-                return sorted(forms)
+                names.update(forms)
+
+            if names:
+                return sorted(names)
 
             return ['poly']
 

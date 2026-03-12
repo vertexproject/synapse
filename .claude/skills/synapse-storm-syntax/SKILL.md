@@ -72,7 +72,7 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ :tags --= $list ]                           // remove multiple (--=)
 [ -:asn ]                                     // delete property
 [ :prop ?= value ]                            // try-set (ignore type errors)
-[ *unset= value ]                             // set only if unset (conditional)
+[ :prop*unset= value ]                        // set only if unset (conditional)
 
 // Tag operations
 [ +#tag.name ]                                // add tag

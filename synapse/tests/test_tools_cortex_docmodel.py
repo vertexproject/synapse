@@ -136,6 +136,9 @@ class DocModelTest(s_t_utils.SynTest):
         # Poly with forms
         self.eq(resolve(('poly', {'forms': ['z', 'm']})), ['m', 'z'])
 
+        # Poly with both interfaces and forms aggregated, uniqued, and sorted
+        self.eq(resolve(('poly', {'interfaces': ['c', 'a'], 'forms': ['b', 'a']})), ['a', 'b', 'c'])
+
         # Poly with non-dict opts
         self.eq(resolve(('poly', 'notadict')), ['poly'])
 
