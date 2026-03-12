@@ -1443,6 +1443,9 @@ modeldefs = (
                 ),
                 'doc': 'A single HTTP request.'}),
 
+            ('inet:hyperlink', ('guid', {}), {
+                'doc': 'A URL link embedded in a message.'}),
+
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -1568,8 +1571,6 @@ modeldefs = (
                 ),
                 'doc': 'A unique email message header.'}),
 
-            ('inet:email:message:link', ('guid', {}), {
-                'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
@@ -1704,8 +1705,6 @@ modeldefs = (
                 ),
                 'doc': 'A message or post created by an account.'}),
 
-            ('inet:service:message:link', ('guid', {}), {
-                'doc': 'A URL link included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -2066,7 +2065,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow which delivered the message.'}),
 
-                ('links', ('array', {'type': 'inet:email:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -2080,13 +2079,6 @@ modeldefs = (
                 ('value', ('str', {}), {
                     'computed': True,
                     'doc': 'The value of the email header.'}),
-            )),
-
-            ('inet:email:message:link', {}, (
-                ('url', ('inet:url', {}), {
-                    'doc': 'The url contained within the email message.'}),
-                ('text', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:asn', {}, (
@@ -2361,6 +2353,15 @@ modeldefs = (
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
+            )),
+
+            ('inet:hyperlink', {}, (
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL target of the hyperlink.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:iface:type:taxonomy', {}, ()),
@@ -3048,7 +3049,7 @@ modeldefs = (
                 ('repost', ('inet:service:message', {}), {
                     'doc': 'The original message reposted by this message.'}),
 
-                ('links', ('array', {'type': 'inet:service:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links contained within the message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -3080,14 +3081,8 @@ modeldefs = (
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
-            ('inet:service:message:link', {}, (
 
-                ('title', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL contained within the message.'}),
-            )),
 
             ('inet:service:emote', {}, (
 
