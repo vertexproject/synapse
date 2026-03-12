@@ -17,7 +17,7 @@ inet:fqdn:zone=1                   // by property value
 inet:fqdn:zone                     // where property is set
 #tag.name                          // by tag
 #tag.*                             // by tag glob
-:prop*[range=(200,400)]            // by array contents
+entity:contact:names*[=example]            // by array contents
 reverse(inet:fqdn)                 // reverse lift order
 ```
 
