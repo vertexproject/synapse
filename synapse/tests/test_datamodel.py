@@ -1047,6 +1047,9 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str:polynonuniq*[^=a]'))
             self.len(2, await core.nodes('test:str:polynonuniq*[~=a]'))
 
+            await core.nodes('[ test:str=piv1 :poly={[test:str=piv2 :poly={ test:str=nonuniq } ]} ]')
+            self.len(1, await core.nodes('test:str:poly::poly::polynonuniq*[=1]'))
+
             self.none(await core.callStorm('[ test:str=empty ] return($node.props.poly)'))
             self.eq(6, await core.callStorm('[ test:str=intcast :poly={[ test:str=5 ]} ] return((:poly + 1))'))
             self.eq(6, await core.callStorm('[ test:str=len :poly={[ test:str=foobar ]} ] return($lib.len(:poly))'))
@@ -1102,3 +1105,37 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchForm):
                 core.model.type('poly').repr(('newp', 'newp'))
+
+            msgs = await core.stormlist('''
+                test:str
+                if (:poly="p1") { $lib.print(cmpr1) }
+                +:polyarry
+                if (:polyarry).has(p10) { $lib.print(cmpr2) }
+                $lib.print(:polyarry)
+            ''')
+            self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == 'cmpr1'])
+            self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == 'cmpr2'])
+
+            self.stormIsInPrint('[2, 5, p10, p11]', msgs)
+
+            msgs = await core.stormlist('$set=$lib.set(p1, foo) test:str=faz if $set.has(:poly) { $lib.print(yes) }')
+            self.stormIsInPrint('yes', msgs)
+
+            msgs = await core.stormlist('$set=$lib.set(newp, nope) test:str=faz if $set.has(:poly) { $lib.print(yes) }')
+            self.stormNotInPrint('yes', msgs)
+
+            msgs = await core.stormlist('''
+                $set=$lib.set()
+                $s1 = {[ test:str=s1 :poly={[ test:str=v1 ]} ]}
+                $s2 = {[ test:str=s2 :poly={[ test:lowstr=v1 ]} ]}
+                $set.add($s1.props.poly)
+                $set.add($s2.props.poly)
+
+                $lib.print(`size={$set.size()}`)
+                $lib.print($set.has($s1.props.poly))
+                $lib.print($set.has($s2.props.poly))
+                $lib.print($set.has(v1))
+            ''')
+            self.stormIsInPrint('size=1', msgs)
+            self.stormIsInPrint('true', msgs)
+            self.stormNotInPrint('false', msgs)
