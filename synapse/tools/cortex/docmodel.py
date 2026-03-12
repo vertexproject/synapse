@@ -64,6 +64,17 @@ def _resolveTypeNames(typedef):
 
             return ['poly']
 
+        if typedef[0] == 'array' and len(typedef) >= 2:
+            opts = typedef[1] if isinstance(typedef[1], dict) else {}
+            atype = opts.get('type')
+            if atype is not None:
+                if isinstance(atype, str):
+                    return [f'array of {atype}']
+                if isinstance(atype, (list, tuple)):
+                    return [f'array of {", ".join(sorted(atype))}']
+
+            return ['array']
+
         return [typedef[0]]
 
     return ['']

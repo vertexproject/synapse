@@ -66,6 +66,10 @@ class DocModelTest(s_t_utils.SynTest):
         # Verify poly types are resolved to their actual type names
         self.notin('| `poly` |', text)
 
+        # Verify array types are resolved to show their element type
+        self.notin('| `array` |', text)
+        self.isin('`array of inet:fqdn`', text)
+
         # Verify forms are present
         self.isin('### `inet:ip`', text)
         self.isin('### `inet:fqdn`', text)
