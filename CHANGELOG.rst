@@ -32,7 +32,7 @@ Features and Enhancements
   ``/api/v1/auth/role/<id>`` HTTP APIs, allowing ``rules`` and ``admin`` to be
   scoped to a specific auth gate.
   (`#4766 <https://github.com/vertexproject/synapse/pull/4766>`_)
-- Add a layer of caching for API Key and Password handling, to decrease
+- Added a layer of caching for API Key and Password handling, to decrease
   duplicate work done for subsequent authentication requests.
   (`#4774 <https://github.com/vertexproject/synapse/pull/4774>`_)
 - Updated the ``diff --tag`` Storm command to accept list variables in addition
