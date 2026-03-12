@@ -6120,7 +6120,7 @@ class NodeRef(Prim):
         self.virts = virts
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu))
+        return hash(self.valu[1])
 
     def __int__(self):
         valu = self.valu[1]
