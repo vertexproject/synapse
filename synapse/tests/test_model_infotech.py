@@ -493,7 +493,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]
 
             opts = {'vars': {'sids': sids}}
-            nodes = await core.nodes('for $sid in $sids {[ it:host:account=* :windows:sid=$sid ]}', opts=opts)
+            nodes = await core.nodes('for $sid in $sids {[ it:host:account:windows=* :sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
             nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> it:host')
@@ -535,6 +535,75 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
             self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
+    async def test_it_host_account_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:account:posix with all props
+            nodes = await core.nodes('''
+                init { $host = $lib.guid() }
+                [
+                    it:host:account:posix=*
+                        :user=visi
+                        :host=$host
+                        :uid=1001
+                        :gid=1001
+                        :gecos=42
+                        :home=/home/visi
+                        :shell=/bin/bash
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:account:posix')
+            self.propeq(node, 'user', 'visi')
+            self.nn(node.get('host'))
+            self.propeq(node, 'uid', 1001)
+            self.propeq(node, 'gid', 1001)
+            self.propeq(node, 'gecos', 42)
+            self.propeq(node, 'home', '/home/visi')
+            self.propeq(node, 'shell', '/bin/bash')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Test it:host:account:windows with all props
+            nodes = await core.nodes('''
+                init { $host = $lib.guid() }
+                [
+                    it:host:account:windows=*
+                        :user=admin
+                        :host=$host
+                        :sid=S-1-5-21-0-0-0-500
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=admin@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:account:windows')
+            self.propeq(node, 'user', 'admin')
+            self.nn(node.get('host'))
+            self.propeq(node, 'sid', 'S-1-5-21-0-0-0-500')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Verify querying it:host:account returns both parent and child form nodes
+            nodes = await core.nodes('it:host:account')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:account:posix']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:account:windows']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:account:posix :host -> it:host'))
+            self.len(1, await core.nodes('it:host:account:windows :host -> it:host'))
 
     async def test_it_software(self):
         # Test all prodsoft and prodsoft associated linked forms

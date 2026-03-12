@@ -673,6 +673,12 @@ modeldefs = (
                 'prevnames': ('it:account',),
                 'doc': 'A local account on a host.'}),
 
+            ('it:host:account:posix', ('it:host:account', {}), {
+                'doc': 'A POSIX account on a host.'}),
+
+            ('it:host:account:windows', ('it:host:account', {}), {
+                'doc': 'A Windows account on a host.'}),
+
             ('it:host:group', ('guid', {}), {
                 'prevnames': ('it:group',),
                 'doc': 'A local group on a host.'}),
@@ -1457,34 +1463,41 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the account is registered.'}),
 
-                ('posix:uid', ('int', {}), {
-                    'ex': '1001',
-                    'doc': 'The user ID of the account.'}),
-
-                ('posix:gid', ('int', {}), {
-                    'ex': '1001',
-                    'doc': 'The primary group ID of the account.'}),
-
-                ('posix:gecos', ('int', {}), {
-                    'doc': 'The GECOS field for the POSIX account.'}),
-
-                ('posix:home', ('file:path', {}), {
-                    'ex': '/home/visi',
-                    'doc': "The path to the POSIX account's home directory."}),
-
-                ('posix:shell', ('file:path', {}), {
-                    'ex': '/bin/bash',
-                    'doc': "The path to the POSIX account's default shell."}),
-
-                ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
-
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
                 ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that the account is a member of.'}),
             )),
+
+            ('it:host:account:posix', {}, (
+
+                ('uid', ('int', {}), {
+                    'ex': '1001',
+                    'doc': 'The user ID of the account.'}),
+
+                ('gid', ('int', {}), {
+                    'ex': '1001',
+                    'doc': 'The primary group ID of the account.'}),
+
+                ('gecos', ('int', {}), {
+                    'doc': 'The GECOS field for the account.'}),
+
+                ('home', ('file:path', {}), {
+                    'ex': '/home/visi',
+                    'doc': "The path to the account's home directory."}),
+
+                ('shell', ('file:path', {}), {
+                    'ex': '/bin/bash',
+                    'doc': "The path to the account's default shell."}),
+            )),
+
+            ('it:host:account:windows', {}, (
+
+                ('sid', ('it:os:windows:sid', {}), {
+                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
+            )),
+
             ('it:host:group', {}, (
 
                 ('name', ('meta:name', {}), {
