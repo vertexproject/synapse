@@ -309,6 +309,24 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:discovery :actor -> entity:contact'))
             self.len(1, await core.nodes('entity:discovery :item -> risk:vuln'))
 
+    async def test_entity_title(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                $actor = {[ entity:contact=({"name": "apt28"}) ]}
+
+                [ entity:title="software developer" ]
+
+                { [ <(targeted)+ $actor ] }
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:title', 'software developer'))
+
+            self.isin('risk:targetable', core.model.form('entity:title').ifaces)
+
+            self.len(1, await core.nodes('entity:title="software developer" <(targeted)- entity:contact'))
+
     async def test_entity_relationship(self):
 
         async with self.getTestCore() as core:
