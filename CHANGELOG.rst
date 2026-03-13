@@ -6,6 +6,57 @@
 Synapse Changelog
 *****************
 
+v2.235.0 - 2026-03-12
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated Storm Dmon ddefs to remove the top-level ``view`` key and any other
+  additional properties which are no longer valid.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added a ``phones`` property to the ``ps:contact`` form to store an array of
+  secondary/associated phone numbers.
+  (`#4764 <https://github.com/vertexproject/synapse/pull/4764>`_)
+- See :ref:`userguide_model_v2_235_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added an optional ``queryopts`` field to the Storm package ``inits``
+  definition.
+  (`#4752 <https://github.com/vertexproject/synapse/pull/4752>`_)
+- Added ``gate`` key support when POSTing to the ``/api/v1/auth/user/<id>`` and
+  ``/api/v1/auth/role/<id>`` HTTP APIs, allowing ``rules`` and ``admin`` to be
+  scoped to a specific auth gate.
+  (`#4766 <https://github.com/vertexproject/synapse/pull/4766>`_)
+- Added a layer of caching for API key and password handling, to decrease
+  duplicate work done for subsequent authentication requests.
+  (`#4774 <https://github.com/vertexproject/synapse/pull/4774>`_)
+- Updated the ``diff --tag`` Storm command to accept list variables in addition
+  to individual tag arguments.
+  (`#4783 <https://github.com/vertexproject/synapse/pull/4783>`_)
+
+Bugfixes
+--------
+- Fixed the ``Cell.getTasks()`` API to deduplicate tasks which may be reported
+  by multiple links to one peer.
+  (`#4769 <https://github.com/vertexproject/synapse/pull/4769>`_)
+- Fixed ``$lib.dmon.add()`` to allow specifying an alternate view via the
+  ``view`` key in ``ddef.stormopts``.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- Updated ``BadJsonText`` exceptions raised during JSON deserialization to
+  include a trimmed snippet of the input text starting at the error position
+  for additional context.
+  (`#4773 <https://github.com/vertexproject/synapse/pull/4773>`_)
+
+Notes
+-----
+- Added information about ``SynTask`` data when printing asyncio tasks in
+  response to receving a ``SIGUSR2`` signal.
+  (`#4728 <https://github.com/vertexproject/synapse/pull/4728>`_)
 
 v2.234.0 - 2026-02-25
 =====================
