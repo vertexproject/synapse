@@ -510,17 +510,17 @@ class InfotechModelTest(s_t_utils.SynTest):
                 }
                 [
                     it:host:login=*
-                        :client=(tcp://1.2.3.4:5678)
+                        :client=tcp://1.2.3.4:5678
                         :client:host=$chost
-                        :server=(tcp://5.6.7.8:443)
+                        :server=tcp://5.6.7.8:443
                         :server:host=$shost
                 ]
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'client', 'tcp://1.2.3.4:5678')
-            self.propeq(nodes[0], 'client:host', nodes[0].get('client:host'))
+            self.nn(nodes[0].get('client:host'))
             self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
-            self.propeq(nodes[0], 'server:host', nodes[0].get('server:host'))
+            self.nn(nodes[0].get('server:host'))
 
             # FIXME :domain
             # nodes = await core.nodes('it:host:account -> it:domain')
