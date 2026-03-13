@@ -503,18 +503,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
 
             # test inet:proto:link interface properties on it:host:login
-            nodes = await core.nodes('''[
-                it:host:login=*
-                    :client=(tcp://1.2.3.4:5678)
-                    :client:host={[ it:host=* ]}
-                    :server=(tcp://5.6.7.8:443)
-                    :server:host={[ it:host=* ]}
-            ]''')
+            nodes = await core.nodes('''
+                init {
+                    $chost = $lib.guid()
+                    $shost = $lib.guid()
+                }
+                [
+                    it:host:login=*
+                        :client=(tcp://1.2.3.4:5678)
+                        :client:host=$chost
+                        :server=(tcp://5.6.7.8:443)
+                        :server:host=$shost
+                ]
+            ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('client'))
-            self.nn(nodes[0].get('client:host'))
-            self.nn(nodes[0].get('server'))
-            self.nn(nodes[0].get('server:host'))
+            self.propeq(nodes[0], 'client', 'tcp://1.2.3.4:5678')
+            self.propeq(nodes[0], 'client:host', nodes[0].get('client:host'))
+            self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
+            self.propeq(nodes[0], 'server:host', nodes[0].get('server:host'))
 
             # FIXME :domain
             # nodes = await core.nodes('it:host:account -> it:domain')
