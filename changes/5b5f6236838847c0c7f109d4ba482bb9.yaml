@@ -1,8 +1,0 @@
----
-desc: Change ``pol:country:code`` to a poly type supporting ``iso:3166:alpha2``, ``iso:3166:alpha3``,
-  ``iso:3166:numeric3``, and ``meta:id``. Add ``pol:country:codes`` array property of the same
-  poly type. Add ``iso:3166:alpha2``, ``iso:3166:alpha3``, and ``iso:3166:numeric3`` form definitions.
-desc:literal: false
-prs: []
-type: model
-...
