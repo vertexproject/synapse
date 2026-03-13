@@ -5196,7 +5196,7 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
 
-                await core.addUserRule(visi.iden, (True, ('telepath', 'open', 'tcp')))
+                await core.addUserRule(visi.iden, (True, ('telepath', 'open')))
 
                 msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
                 self.stormHasNoWarnErr(msgs)

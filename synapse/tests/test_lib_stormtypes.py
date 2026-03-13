@@ -3285,7 +3285,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': user, 'vars': varz}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts)
-            await core.addUserRule(user, (True, ('telepath', 'open', 'cell')))
+            await core.addUserRule(user, (True, ('telepath', 'open')))
             self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
             # SynErr exceptions are allowed through. They can be caught by storm.
