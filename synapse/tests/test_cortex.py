@@ -6282,11 +6282,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('''
                 $q = $lib.queue.add(visi)
-                $lib.user.vars.foo = $(10)
+                $lib.auth.users.get().vars.foo = $(10)
 
                 $lib.dmon.add(${
 
-                    $foo = $lib.user.vars.foo
+                    $foo = $lib.auth.users.get().vars.foo
 
                     $lib.queue.byname(visi).put(step)
 
@@ -6296,7 +6296,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }
 
-                    $lib.user.vars.foo = $(20)
+                    $lib.auth.users.get().vars.foo = $(20)
 
                 }, name=wootdmon)
 
@@ -7815,11 +7815,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Proxy our storm requests as the admin user
                 opts = {'user': admin}
 
-                self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
+                self.eq('admin', await prox.callStorm('return( $lib.auth.users.get().name  )', opts=opts))
 
                 with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
 
-                    q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
+                    q = 'return( ($lib.auth.users.get().name, $lib.auth.users.add(lowuser) ))'
                     (whoami, udef) = await prox.callStorm(q, opts=opts)
                     self.eq('admin', whoami)
                     self.eq('lowuser', udef.get('name'))

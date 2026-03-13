@@ -222,7 +222,7 @@ for $n in $getNodes() {
 inet:fqdn { [ +#reviewed ] }
 
 // As node reference in edits
-[ :account = { [ syn:user=$lib.user.iden ] } ]
+[ :account = { [ syn:user=$lib.auth.users.get().iden ] } ]
 
 // Embedded query expression
 $file = ${ [ file:bytes=$sha256 ] }
@@ -316,9 +316,9 @@ $resp.reason                                  // status reason
 $hashes = $lib.axon.hashset($sha256)         // get hash set
 
 // Auth
-$lib.user.iden                               // current user iden
-$lib.user.vars.$key                          // per-user variable
-$lib.user.allowed($perm)                     // check permission
+$lib.auth.users.get().iden                   // current user iden
+$lib.auth.users.get().vars.$key              // per-user variable
+$lib.auth.users.get().allowed($perm)         // check permission
 $lib.globals.$key                            // global variable
 $lib.auth.users.get($iden)                   // get user by iden
 $lib.auth.users.byname($name)               // get user by name

@@ -1719,7 +1719,7 @@ This allows creating endpoints that run in one of three modes:
 These three modes can be demonstrated by configuring endpoints that will echo back the current user::
 
     // Create a query object that we will use for each handler
-    $echo=${ $request.reply(200, body=$lib.user.name()) }
+    $echo=${ $request.reply(200, body=$lib.auth.users.get().name) }
 
     // Create the first endpoint with a default configuration.
     $api0 = $lib.cortex.httpapi.add('demo/owner')
