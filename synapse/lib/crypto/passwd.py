@@ -136,7 +136,7 @@ async def generateApiKey(iden=None):
 
 def parseApiKey(valu):
     if '+' in valu or '/' in valu:
-        return False, f'Invalid character in API key.'
+        return False, 'Invalid character in API key.'
     try:
         buf = base64.b64decode(valu.encode('utf-8'), altchars=b'-_', validate=True)
     except binascii.Error as e:
