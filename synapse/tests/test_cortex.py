@@ -3212,6 +3212,58 @@ class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
     '''
+    async def test_storm_on_callbacks(self):
+
+        async with self.getTestCore() as core:
+
+            # Test on:add callback - creating a test:onstorm node should auto-set :tick
+            nodes = await core.nodes('[test:onstorm=*]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+            self.eq(nodes[0].get('tick'), 1735689600000000)
+
+            # Test on:set callback - setting :name should copy it to :hehe
+            nodes = await core.nodes('[test:onstorm=* :name=foobar]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('hehe'), 'foobar')
+
+            # Test on:set fires on update too
+            iden = nodes[0].ndef[1]
+            nodes = await core.nodes(f'test:onstorm={iden} [:name=bazqux]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('hehe'), 'bazqux')
+
+            # Test on:del callback - deleting :ondelprop should set :hehe to "deleted"
+            nodes = await core.nodes(f'test:onstorm={iden} [:ondelprop=hi]')
+            self.len(1, nodes)
+            nodes = await core.nodes(f'test:onstorm={iden} [-:ondelprop]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('hehe'), 'deleted')
+
+            # Test that on:add callbacks run as root (non-admin user can trigger)
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('node', 'add')))
+            await visi.addRule((True, ('node', 'prop', 'set')))
+            opts = {'user': visi.iden}
+            nodes = await core.nodes('[test:onstorm=*]', opts=opts)
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
+            # Test error handling - bad storm query in on callback logs error but doesn't crash
+            with self.getAsyncLoggerStream('synapse.datamodel', 'storm error') as stream:
+                await core.addFormProp('test:onstorm', '_badstorm', ('str', {}), {
+                    'on': {'set': {'q': '| badcommand'}},
+                })
+                nodes = await core.nodes(f'test:onstorm={iden} [:_badstorm=test]')
+                self.true(await stream.wait(timeout=6))
+                self.len(1, nodes)
+
+        # Test it:dev:str on:add callback sets :norm
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ it:dev:str=Foobar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('norm'), 'foobar')
+
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

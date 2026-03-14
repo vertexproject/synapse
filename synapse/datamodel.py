@@ -133,6 +133,10 @@ class Prop:
                     for iface in ifaces:
                         self.modl.polyarraysbyiface[iface][self.full] = self
 
+        ondef = self.info.get('on', {})
+        self.onstormset = ondef.get('set', {}).get('q')
+        self.onstormdel = ondef.get('del', {}).get('q')
+
         if self.deprecated or self.type.deprecated:
             async def depfunc(node):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
@@ -205,6 +209,15 @@ class Prop:
             except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
+        if self.onstormset is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormset)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception('onset() storm error for %s' % (self.full,))
+
     async def wasDel(self, node):
         for func in self.ondels:
             try:
@@ -213,6 +226,15 @@ class Prop:
                 raise
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
+
+        if self.onstormdel is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormdel)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception('ondel() storm error for %s' % (self.full,))
 
     def pack(self):
         info = {
@@ -304,6 +326,10 @@ class Form:
 
         self.locked = False
         self.deprecated = self.type.deprecated
+
+        ondef = self.info.get('on', {})
+        self.onstormadd = ondef.get('add', {}).get('q')
+        self.onstormdel = ondef.get('del', {}).get('q')
 
         if self.deprecated:
             async def depfunc(node):
@@ -451,6 +477,15 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
+        if self.onstormadd is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormadd)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception('onadd() storm error for %s' % (self.name,))
+
     async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
@@ -464,6 +499,15 @@ class Form:
                 raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
+
+        if self.onstormdel is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormdel)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception('ondel() storm error for %s' % (self.name,))
 
     def prop(self, name: str):
         '''

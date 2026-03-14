@@ -2422,6 +2422,18 @@ class View(s_nexus.Pusher):  # type: ignore
         layer = self.layers[0]
         await layer.confirmLayerEditPerms(user, layer.iden, delete=True)
 
+    async def runOnStorm(self, node, storm):
+        '''Execute a Storm query as a data model on-event callback.'''
+        if self.core.migration or self.core.safemode:
+            return
+
+        query = await self.core.getStormQuery(storm)
+        opts = {}
+        async with await s_storm.Runtime.anit(query, self, opts=opts, user=self.core.auth.rootuser) as runt:
+            runt.asroot = True
+            runt.addInput(node)
+            await s_common.aspin(runt.execute())
+
     async def runTagAdd(self, node, tag, useriden):
 
         if self.core.migration or self.core.safemode:
