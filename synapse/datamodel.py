@@ -213,8 +213,6 @@ class Prop:
             if not node.view.core.migration and not node.view.core.safemode:
                 try:
                     await node.view.runOnStorm(node, self.onstormset)
-                except asyncio.CancelledError:
-                    raise
                 except Exception:
                     logger.exception('onset() storm error for %s' % (self.full,))
 
@@ -231,8 +229,6 @@ class Prop:
             if not node.view.core.migration and not node.view.core.safemode:
                 try:
                     await node.view.runOnStorm(node, self.onstormdel)
-                except asyncio.CancelledError:
-                    raise
                 except Exception:
                     logger.exception('ondel() storm error for %s' % (self.full,))
 
@@ -481,8 +477,6 @@ class Form:
             if not node.view.core.migration and not node.view.core.safemode:
                 try:
                     await node.view.runOnStorm(node, self.onstormadd)
-                except asyncio.CancelledError:
-                    raise
                 except Exception:
                     logger.exception('onadd() storm error for %s' % (self.name,))
 
@@ -504,8 +498,6 @@ class Form:
             if not node.view.core.migration and not node.view.core.safemode:
                 try:
                     await node.view.runOnStorm(node, self.onstormdel)
-                except asyncio.CancelledError:
-                    raise
                 except Exception:
                     logger.exception('ondel() storm error for %s' % (self.name,))
 
