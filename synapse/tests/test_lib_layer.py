@@ -1796,7 +1796,7 @@ class LayerTest(s_t_utils.SynTest):
             ldef = [m[1] for m in msgs if m[0] == 'print'][0]
             # Get the layer and verify the cachesize
             layers = await core.callStorm('return($lib.layer.list())')
-            newlayr = [l for l in layers if l.get('cachesize') == 30000]
+            newlayr = [lyr for lyr in layers if lyr.get('cachesize') == 30000]
             self.len(1, newlayr)
 
         # Test invalid cachesize
