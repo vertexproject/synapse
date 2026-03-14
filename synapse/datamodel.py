@@ -1173,14 +1173,20 @@ class Model:
             # Allow props declared directly on ctors to become forms...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 if (props := info.get('props')) is not None:
-                    allforms.append((name, {}, props))
-                    self.forminfos[name] = {}
+                    forminfo = {}
+                    if (ondef := info.get('on')) is not None:
+                        forminfo['on'] = ondef
+                    allforms.append((name, forminfo, props))
+                    self.forminfos[name] = forminfo
 
             # Allow props declared directly on types to become forms...
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
-                    allforms.append((typename, {}, props))
-                    self.forminfos[typename] = {}
+                    forminfo = {}
+                    if (ondef := typeinfo.get('on')) is not None:
+                        forminfo['on'] = ondef
+                    allforms.append((typename, forminfo, props))
+                    self.forminfos[typename] = forminfo
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
@@ -1210,21 +1216,6 @@ class Model:
 
         # now we can load all the forms...
         addForms(allforms)
-
-        # load form/prop hooks
-        for _, mdef in mods:
-
-            if (hdef := mdef.get('hooks')) is not None:
-                if (prehooks := hdef.get('pre')) is not None:
-                    for propname, func in prehooks.get('props', ()):
-                        self.core._setPropSetHook(propname, func)
-
-                if (posthooks := hdef.get('post')) is not None:
-                    for formname, func in posthooks.get('forms', ()):
-                        self.form(formname).onAdd(func)
-
-                    for propname, func in posthooks.get('props', ()):
-                        self.prop(propname).onSet(func)
 
         # now we can load edge definitions...
         for _, mdef in mods:

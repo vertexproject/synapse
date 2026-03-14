@@ -802,9 +802,6 @@ class ProtoNode(s_node.NodeBase):
         if cval is not None and norminfo.get('merge', True):
             valu = prop.type.merge(cval, valu)
 
-        if self.node is not None:
-            await self.editor.view.core._callPropSetHook(self.node, prop, valu)
-
         self.props[prop.name] = (valu, virts)
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)

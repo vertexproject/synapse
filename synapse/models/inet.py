@@ -5,7 +5,6 @@ import urllib.parse
 
 import idna
 import regex
-import collections
 import unicodedata
 
 import synapse.exc as s_exc
@@ -1153,100 +1152,6 @@ class Url(s_types.Str):
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
 
-async def _onAddFqdn(node):
-
-    fqdn = node.ndef[1]
-    domain = node.get('domain')
-
-    async with node.view.getEditor() as editor:
-        protonode = editor.loadNode(node)
-        if domain is None:
-            await protonode.set('iszone', False)
-            await protonode.set('issuffix', True)
-            return
-
-        if protonode.get('issuffix') is None:
-            await protonode.set('issuffix', False)
-
-        parent = await node.view.getNodeByNdef(domain)
-        if parent is None:
-            parent = await editor.addNode('inet:fqdn', domain[1])
-
-        if parent.get('issuffix'):
-            await protonode.set('iszone', True)
-            await protonode.set('zone', node.ndef[1])
-            return
-
-        await protonode.set('iszone', False)
-
-        if parent.get('iszone'):
-            await protonode.set('zone', domain[1])
-            return
-
-        zone = parent.get('zone')
-        if zone is not None:
-            await protonode.set('zone', zone[1])
-
-async def _onSetFqdnIsSuffix(node):
-
-    fqdn = node.ndef[1]
-
-    issuffix = node.get('issuffix')
-
-    async with node.view.getEditor() as editor:
-        async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-            await asyncio.sleep(0)
-
-            if child.get('iszone') == issuffix:
-                continue
-
-            protonode = editor.loadNode(child)
-            await protonode.set('iszone', issuffix)
-
-async def _onSetFqdnIsZone(node):
-
-    iszone = node.get('iszone')
-    if iszone:
-        await node.set('zone', node.ndef[1])
-        return
-
-    # we are not a zone...
-
-    domain = node.get('domain')
-    if not domain:
-        await node.pop('zone')
-        return
-
-    parent = await node.view.addNode('inet:fqdn', domain[1])
-
-    zone = parent.get('zone')
-    if zone is None:
-        await node.pop('zone')
-        return
-
-    await node.set('zone', zone[1])
-
-async def _onSetFqdnZone(node):
-
-    todo = collections.deque([node.ndef])
-    zone = node.get('zone')
-
-    async with node.view.getEditor() as editor:
-        while todo:
-            fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
-                await asyncio.sleep(0)
-
-                # if they are their own zone level, skip
-                if child.get('iszone') or child.get('zone') == zone:
-                    continue
-
-                # the have the same zone we do
-                protonode = editor.loadNode(child)
-                await protonode.set('zone', zone[1])
-
-                todo.append(child.ndef)
-
 modeldefs = (
     ('inet', {
         'ctors': (
@@ -1295,6 +1200,26 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
+                'on': {'add': {'q': '''
+                    $domain = :domain
+                    if ($domain = $lib.null) {
+                        [ :iszone=$lib.false :issuffix=$lib.true ]
+                    } else {
+                        if (:issuffix = $lib.null) { [ :issuffix=$lib.false ] }
+                        { [ inet:fqdn=$domain ] }
+                        if (:domain::issuffix) {
+                            [ :iszone=$lib.true :zone=$node.value() ]
+                        } else {
+                            [ :iszone=$lib.false ]
+                            if (:domain::iszone) {
+                                [ :zone=$domain ]
+                            } else {
+                                $zone = :domain::zone
+                                if ($zone != $lib.null) { [ :zone=$zone ] }
+                            }
+                        }
+                    }
+                '''}},
                 'props': (
                     ('domain', ('inet:fqdn', {}), {
                         'computed': True,
@@ -1305,12 +1230,38 @@ modeldefs = (
                         'doc': 'The host part of the FQDN.'}),
 
                     ('issuffix', ('bool', {}), {
+                        'on': {'set': {'q': '''
+                            $issuffix = :issuffix
+                            -> inet:fqdn:domain +(:iszone != $issuffix) [ :iszone=$issuffix ]
+                        '''}},
                         'doc': 'True if the FQDN is considered a suffix.'}),
 
                     ('iszone', ('bool', {}), {
+                        'on': {'set': {'q': '''
+                            if (:iszone) {
+                                [ :zone=$node.value() ]
+                            } else {
+                                $domain = :domain
+                                if ($domain = $lib.null) {
+                                    [ -:zone ]
+                                } else {
+                                    { [ inet:fqdn=$domain ] }
+                                    $zone = :domain::zone
+                                    if ($zone = $lib.null) {
+                                        [ -:zone ]
+                                    } else {
+                                        [ :zone=$zone ]
+                                    }
+                                }
+                            }
+                        '''}},
                         'doc': 'True if the FQDN is considered a zone.'}),
 
                     ('zone', ('inet:fqdn', {}), {
+                        'on': {'set': {'q': '''
+                            $zone = :zone
+                            -> inet:fqdn:domain -:iszone +(:zone != $zone) [ :zone=$zone ]
+                        '''}},
                         'doc': 'The zone level parent for this FQDN.'}),
                 ),
                 'ex': 'vertex.link',
@@ -3195,17 +3146,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-        'hooks': {
-            'post': {
-                'forms': (
-                    ('inet:fqdn', _onAddFqdn),
-                ),
-                'props': (
-                    ('inet:fqdn:zone', _onSetFqdnZone),
-                    ('inet:fqdn:iszone', _onSetFqdnIsZone),
-                    ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                )
-            }
-        },
     }),
 )
