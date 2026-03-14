@@ -1458,6 +1458,9 @@ class Model:
         if checks:
             self._checkFormDisplay(form)
 
+        if hasattr(_type, 'postFormInit'):
+            _type.postFormInit(form)
+
         self.formsetcache.clear()
         self.typesetcache.clear()
         self.childformcache.clear()
