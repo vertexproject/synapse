@@ -1232,18 +1232,10 @@ modeldefs = (
                         'on': {'set': {'q': '''
                             if (:iszone) {
                                 [ :zone=$node ]
+                            } elif (:domain::zone) {
+                                [ :zone=:domain::zone ]
                             } else {
-                                $domain = :domain
-                                if ($domain = (null)) {
-                                    [ -:zone ]
-                                } else {
-                                    $zone = :domain::zone
-                                    if ($zone = (null)) {
-                                        [ -:zone ]
-                                    } else {
-                                        [ :zone=$zone ]
-                                    }
-                                }
+                                [ -:zone ]
                             }
                         '''}},
                         'doc': 'True if the FQDN is considered a zone.'}),
