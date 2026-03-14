@@ -10,30 +10,8 @@
 Data Model
 ##########
 
-Synapse's knowledge graph is built on a robust, extensible data model that represents a broad range of data
-and relationships. The data model (and associated :ref:`analytical-model`) allow both data and assertions to be
-represented in a structured, consistent manner. With Synapse, analysts no longer need to rely on prose reports to
-understand the current state of analysis (and fuse those reports into still more prose to revise their assessments).
-Instead, analysts (and algorithms) can ask analytical questions **directly** of the data - and answer those questions
-quickly and easily.
-
-Prose and structured data have their pros, cons, and relevant use cases:
-
-- Prose allows an analyst to use natural language to convey any caveats or uncertainties around analytical assessments
-  or conclusions, and long-form reporting is the most effective way to communicate with many stakeholders. But prose can
-  be confusing or subject to misinterpretation - a situation that is compounded if reports also need to be translated
-  into other languages. In addition, prose is static (until or unless it is revised), so may quickly become outdated in
-  the face of new data or revised assessments.
-
-- When representing data and analysis within a structured model, analysts lose some ability to qualify assessments. But
-  structure imposes clarity; a good data model removes ambiguity and ensures that key objects, relationships, and 
-  assessments are well-defined and self-evident - even without accompanying prose. This makes it much easier for analysts
-  to validate both ground-truth observations and the conclusions based upon them. In addition, structured data may be
-  portable (exportable), making it easier to share both data and analysis with others. Finally, a knowledge graph based on
-  a robust data model can grow and be modified at will, so the graph remains a living representation of the current state
-  of an organization's collective knowledge.
-
-This section provides background on Synapse's key data model components and their use.
+This section describes the core building blocks of Synapse's data model — types, forms, nodes, properties, edges, and
+tags — and explains how they work together.
 
 .. TIP::
   
@@ -67,7 +45,7 @@ including how it should be normalized, if necessary, for both storage (including
 
 Synapse's data model includes standard types such as integers and strings, but also defines a range of additional types
 such as globally unique identifiers (``guid``), date/time values (``time``), time intervals (``ival``), and tags (``syn:tag``).
-Forms (see below) may also be specialized types.
+Forms may also be specialized types (see below).
 
 For example, the form representing an IP address (``inet:ip``) is its own type. An IP address is stored as a tuple of integers
 (the tuple consists of the protocol version - 4 or 6 - and the integer value of the IPv4 or IPv6 address). The ``inet:ip`` type
@@ -104,7 +82,7 @@ All properties (including primary properties) must have a defined **type**. In m
 (e.g., the form ``inet:fqdn`` has a type of ``inet:fqdn``).
 
 Forms may have **secondary properties** that record additional information about the form or further describe it.
-Secondary properties are form-specific. The may be:
+Secondary properties are form-specific. They may be:
 
 - explicitly defined for each form;
 - implemented on the form via an :ref:`data-interface`; or
@@ -126,7 +104,7 @@ Interface
 +++++++++
 
 An **interface** is used to define and group similar forms within Synapse's data model. An interface can be used
-to reference or collectively work with all forms that implement the interface. This simplifies model definitions
+to refer to or collectively work with all forms that implement the interface. This simplifies model definitions
 and provides flexibility and consistency when working with model elements.
 
 .. TIP::
@@ -137,8 +115,8 @@ Interfaces have two primary uses:
 
 - **Ensure consistent form definitions**. An interface can define a set of **secondary properties** that should be
   present on a set of related forms. Instead of explicitly defining the secondary properties on each form, the forms
-  can simply **implement** an interface and its associated properties. This makes it easier to define objects in the
-  data model and ensures properties are used and named consistently.
+  can **implement** an interface and its associated properties. This makes it easier to define objects and ensures
+  properties are used and named consistently.
   
   **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes
   (``it:exec:file:write``) or process execution (``it:exec:proc``). These forms represent similar operations and
@@ -164,8 +142,8 @@ Interfaces have two primary uses:
   of defining multiple ``<n1> -(targeted)> <n2>`` relationships for every possible ``n1`` and ``n2``, we can use two
   interfaces to account for all combinations. The ``entity:action`` interface is implemented by forms that represent
   activity carried out by an agent or actor (e.g., ``risk:attack``). The ``risk:targetable`` interface is implemented
-  by forms that can be the target of any activity (e.g., ``ou:industry`` or ``risk:vuln``). Using interfaces, all
-  possible combinations of actions and targets can be defined with a single edge relationship:
+  by forms that can be the target of any activity (e.g., ``ou:industry``). Using interfaces, all possible combinations
+  of actions and targets can be defined with a single edge relationship:
   
   ::
     
@@ -184,38 +162,34 @@ Inheritance
 +++++++++++
 
 **Inheritance** (also known as form inheritance) allows forms in Synapse to inherit the properties and characteristics
-of a base or parent form. The base form is more generic, while the inheriting forms represent more specific or specialized
-instances of the base form. An inheriting form may define additional secondary properties along with the inherited
-properties. Alternatively, the forms may have identical properties, with the inheriting form having a more specific name
-that provides context or distinguishes use cases. 
+of a base or parent form. The base form is more generic, while the inheriting forms represent more specific instances 
+of the base form. An inheriting form may define its own secondary properties in addition to the inherited properties.
+Alternatively, the inheriting form may use all of the properties of the parent form and simply use a more specific form
+name that provides context or distinguishes a use case. 
 
-Inheritance is hierarchical and can proceed through multiple levels, with each level defining a more specific or
-specialized object.
+Inheritance is hierarchical and can proceed through multiple levels, with each level defining a more specialized object.
 
 **Example**: A technique (``meta:technique``) is a method used to carry out a task. In threat intelligence, analysts
-often track offensive techniques - the methods used by threat actors to achieve their goals are behavioral  "fingerprints"
+often track offensive techniques - the methods used by threat actors to achieve their goals are behavioral "fingerprints"
 used to identify and group related activity.
 
 A mitigation (``risk:mitigation``) is a set of steps taken to address (reduce or eliminate) risk. Risks can mitigated in
 various ways - using different **techniques**. A ``risk:mitigation`` is a more specialized ``meta:technique``, one that is
 specifically focused on defensive activity. ``risk:mitigation`` **inherits** all of the properties of ``meta:technique``,
-while its name reflects that it is a technique with a particular purpose.
+while its name reflects that it is a technique with a particular purpose.`
+
+**Example**: ``meta:rule`` can represent any generic detection logic, with a ``-(detects)>`` edge to indicate what the
+rule is meant to identify, and a ``-(matches)>`` edge to represent something the rule matched or fired on. The base
+``meta:rule`` form is extended by forms for specific kinds of detection logic, such as ``it:app:snort:rule`` and
+``it:app:yara:rule``.
 
 .. TIP::
   
   The term **extends** may be used interchangeably with **inherits**. We can say that ``risk:mitigation`` **inherits**
   from ``meta:technique`` or that ``risk:mitigation`` **extends** the ``meta:technique`` parent form.
 
-Inheritance is also useful for creating generalized forms that can be used to capture basic data. These generic forms can
-then be extended with more specific forms that inherit from the generic base.
-
-For example, ``meta:rule`` can represent any generic detection logic, with a ``-(detects)>`` edge to indicate what the
-rule is meant to identify, and a ``-(matches)>`` edge to represent something the rule matched or fired on. The base
-``meta:rule`` form is extended by forms for specific kinds of detection logic, such as ``it:app:snort:rule`` and
-``it:app:yara:rule``.
-
-Unlike interfaces (which act as composable building blocks), **inheritance** is hierarchical - forms inherit from a parent
-form, which may inherit from another parent form, and so on.
+In contrast to interfaces (which act as composable building blocks), **inheritance** is hierarchical - forms inherit
+from a parent form, which may inherit from another parent form, and so on.
 
 Inheritance can be used in :ref:`gloss-storm` operations to make it easier to work with nodes of forms that inherit
 from each other. For example, performing a Storm operation (lift, filter, pivot, etc.) using a **base** form will
@@ -307,9 +281,9 @@ Every form consists of (at minimum) a **primary property**: the name of the form
 value to be provided for individual instances (nodes) of that form. All forms must be designed so that their
 primary property value is unique across all instances (nodes) of that form.
 
-This uniqueness is straightforward for simple objects such as FQDNs or email addresses. Ensuring "uniqueness" for
-more complex nodes (such as those representing a :ref:`node-relationship` or an :ref:`node-event`) can be more
-challenging; these forms are often :ref:`gloss-guid` forms.
+This uniqueness is straightforward for simple objects such as fully qualified domain names (FQDNs) or email
+addresses. Ensuring "uniqueness" for more complex nodes (such as those representing a :ref:`node-relationship`
+or an :ref:`node-event`) can be more challenging; these forms are often :ref:`gloss-guid` forms.
 
 Because a primary property uniquely defines a node, **its value cannot be modified once the node is created**.
 To "change" a node's primary property value you must delete and re-create the node.
@@ -359,7 +333,7 @@ properties are set automatically by Synapse.
 - ``.created`` is set for all nodes. The value is the date/time that the node was created within that instance
   of Synapse (Cortex).
 
-- ``.updated``, is set on node creation and updated when any change is made to a node. The value is the most
+- ``.updated`` is set on node creation and updated when any change is made to a node. The value is the most
   recent date/time that any aspect of the node was modified.
 
 .. _data-prop-virt:
@@ -428,15 +402,14 @@ Relative properties are also used for display purposes within Synapse for visual
 Lightweight Edge
 ----------------
 
-Lightweight edges (commonly known as **light edges**) are used in Synapse to provide greater flexibility and improved
-performance when representing certain types of relationships. A light edge is similar to an edge in a traditional
-directed graph; each light edge links exactly two nodes (``n1`` and ``n2``), and consists of:
+Lightweight edges (commonly known as **light edges** because they carry no properties or tags) are used in Synapse
+to provide greater flexibility and improved performance when representing certain types of relationships. A light edge
+is similar to an edge in a traditional directed graph; each light edge links exactly two nodes (``n1`` and ``n2``),
+and consists of:
 
 - A **direction.** Light edge relationships only make sense in one direction, given the forms that they link. For
   example, an article can reference an indicator such as an MD5 hash, but an MD5 hash does not "reference" an article.
 - A **"verb"** that represents the relationship (e.g., ``refs`` for "references" in the example above).
-
-Light edges do not have properties, and you cannot apply tags to light edges - hence the "light" in light edge.
 
 Light edges are used for performance and flexibility in certain use cases. For example:
 
@@ -445,7 +418,7 @@ Light edges are used for performance and flexibility in certain use cases. For e
 - When the objects (nodes) involved in the relationship may vary. That is, either the ``n1`` or ``n2`` node (or both)
   may be more than one kind of node, depending on the context of the relationship. Examples include ``meta:source -(seen)> *``
   (where a data source may "see", observe, or provide data on any ``n2`` object) and ``* -(refs)> *`` (where a
-  variety of ``n1`` nodes may "reference" or contairisk:n a reference to any ``n2`` node).
+  variety of ``n1`` nodes may "reference" or contain a reference to any ``n2`` node).
 - When the objects (nodes) to be linked do not share any properties in common (i.e., that could allow the nodes to
   be implicitly linked via a shared property value / pivot relationship).
 
@@ -559,7 +532,7 @@ Simple Form
 A simple form refers to a form whose primary property is a single value. Simple forms are commonly used
 to represent an :ref:`node-object` and are the most readily understood from a modeling perspective. The "object
 itself" is unique by definition, so the form's primary property value is the object. Examples of simple forms
-include FQDNs, IP addresses, hashes, and so on.
+include fully qualified domain names (FQDNs), IP addresses, hashes, and so on.
 
 .. _form-comp:
 
@@ -579,7 +552,7 @@ form represents the knowledge that a given domain resolved to a specific IP at s
 Guid Form
 ---------
 
-A guid (Globally Unique Identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account
+A guid (globally unique identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account
 for cases where it is impossible to uniquely define a thing based on a property or set of properties. Guids are
 also useful for cases where the amount of data available to create a particular object (node) may vary greatly -
 that is, not all properties or details are available from all data sources. A guid form gives you the flexibility
@@ -646,8 +619,8 @@ relationship occurred at a specific point in time. Events represent the combinat
 (``:time``) or interval (``:period``) for when the event represented by the node occurred. Examples of event
 forms include an individual login to an account, a specific DNS query issued by a host, or a conference. 
 
-Most event nodes are guid nodes with a ``:time`` or ``:period`` property and various secondary properties that
-are specific to the kind of event.
+Most event nodes are guid (globally unique identifier) nodes with a ``:time`` or ``:period`` property and various
+secondary properties that are specific to the kind of event.
 
 An individual DNS request (``inet:dns:request``) is an example of an individual time-based event node:
 
@@ -674,35 +647,18 @@ difference between **instance knowledge** and **fused knowledge**.
   events. Fused knowledge forms capture the time period (interval) over which **all** known occurrences of an
   event took place.
 
-Instance knowledge and fused knowledge represent differences in data granularity. Whether to create an event node
-or a relationship node (or both) depends on how much detail is required for your analysis. This consideration
-often applies to relationships that change over time, particularly those that may change frequently.
+DNS records are a good example of these differences. One option to represent and track DNS A records is to create
+individual events every time you query the domain’s current resolution (i.e., using ``inet:dns:request`` and
+``inet:dns:answer`` forms). This represents a very high degree of granularity as the nodes will record the exact
+time a domain resolved to a given IP based on each individual query. However, the number of these nodes could
+quickly reach into the hundreds of millions if you create them for every resolution of every domain you want to track.
 
-DNS records are a good example of these differences. The IP address that a domain resolves to may change
-infrequently (e.g., for a website hosted on a stable server) or may change quite often (e.g., where the IP is
-dynamically assigned or where load balancing is used).
+In contrast, an ``inet:dns:a`` node can record that a domain resolved to an IP address during a given **period**
+of time – a "first observed" and "last observed" (``.seen``) range. The timestamps can be extended (earlier or later)
+based on additional observations.
 
-One option to represent and track DNS A records is to create individual events every time you query the domain’s
-current resolution (i.e., using ``inet:dns:request`` and ``inet:dns:answer`` forms). This represents a very high 
-degree of granularity as the nodes will record the exact time a domain resolved to a given IP based on each individual
-query. The nodes can also capture additional detail such as the querying client, the responding server, the response
-code, and so on. However, the number of such nodes could readily reach into the hundreds of millions if you create
-nodes for every resolution of every domain you want to track.
-
-On the other hand, it may be sufficient to know that a domain resolved to an IP address during a given **period**
-of time – a "first observed" and "last observed" (``.seen``) range. A single ``inet:dns:a`` node can be created
-to show that domain ``woot.com`` resolved to IP address ``1.2.3.4``, where the earliest observed resolution was
-2024/08/06 at 13:56 and the most recently observed resolution was 2025/05/29 at 7:32. These timestamps can be
-extended (earlier or later) if additional data changes our observation boundaries.
-
-This second approach loses some granularity:
-
-- The domain is not guaranteed to have resolved to that IP **continuously** throughout the entire time period.
-- Given only this node, we don’t know **exactly** when the domain resolved to the IP address during that time
-  period, except for the earliest and most recent observations.
-
-However, this fused knowledge may be sufficient for our needs and may be preferable to creating thousands of nodes
-for individual DNS resolutions.
+This second approach loses some granularity, but may be sufficient for our needs and preferable to creating thousands
+of nodes for individual DNS resolutions.
 
 Of course, a hybrid approach is also possible, where most DNS A record data is recorded in fused ``inet:dns:a``
 nodes but high-resolution, point-in-time ``inet:dns:request`` and ``inet:dns:answer`` nodes are created when

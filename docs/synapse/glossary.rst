@@ -432,7 +432,7 @@ Edge, Lightweight (Light)
 In Synapse, a lightweight (light) edge is a mechanism that links two arbitrary forms via a user-defined
 verb that describes the linking relationship. Light edges are not forms and so do not support secondary 
 properties or tags. They are meant to simplify performance, representation of data, and Synapse hypergraph
-navigation for many use cases. Contrast with :ref:`gloss-form-edge`.
+navigation for many use cases.
 
 .. _gloss-embed-col:
 
@@ -800,12 +800,11 @@ See :ref:`gloss-form-inheritance`.
 Interface
 ---------
 
-In Synapse, an interface is a data model element that defines a set of secondary properties that are common to a
-set of related forms. Forms that should have these secondary properties can be defined so as to "implement" the
-interface and its properties, as opposed to explicitly declaring each property on each form.
-
-An interface can also be a :ref:`gloss-type`. When a :ref:`gloss-secondary-property` has a type that is also an
-interface, the property value can be set to the :ref:`gloss-ndef` of any node (form) that implements the interface.
+In Synapse, an interface is used to define and group similar forms within Synapse's data model. Forms (or
+other interfaces) can **implement** an interface. The interface can be used to collectively refer (i.e.,
+in data model definitions or Storm queries) to the set of forms that implement the interface. Interfaces
+can optionally define a set of secondary properties that should be present on forms that implement the
+interface.
 
 See the :ref:`data-interface` section of the the :ref:`data-model-terms` document for additional detail.
 
@@ -1005,7 +1004,7 @@ Node, Runtime
 
 Runtime nodes (also known as "runt nodes" for short) are nodes that do not persist within a Cortex but are created at
 runtime when a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as
-data model elements such as forms (``syn:form``) and properties (``syn:prop``).
+data model elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 
@@ -1154,7 +1153,7 @@ Property
 Within Synapse, properties are individual elements that define a :ref:`gloss-form` or (along with their specific
 values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
 
-See the :ref:`data-props` section in the :ref:`data-model-terms` document for additional detail.
+See the :ref:`data-prop` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-prop-col:
 
@@ -1490,8 +1489,8 @@ T
 Tag
 ---
 
-Within Synapse, a tag is a label applied to a node that provides additional context about the node. Tags typically
-represent assessments or judgements about the data represented by the node.
+Within Synapse, a tag is a label applied to a node that provides additional context. Tags may represent
+assessments about a node or can be used to group related nodes.
 
 See the :ref:`data-tag` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -1682,7 +1681,7 @@ Type
 Within Synapse, a type is the definition of a data element within the data model. A type describes what the element
 is and enforces how it should look, including how it should be normalized.
 
-See the :ref:`data-types` section in the :ref:`data-model-terms` document for additional detail.
+See the :ref:`data-type` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-type-base:
 
