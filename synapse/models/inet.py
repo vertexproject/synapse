@@ -1210,13 +1210,7 @@ modeldefs = (
                         if (:domain::issuffix) {
                             [ :iszone=(true) :zone=$node.value() ]
                         } else {
-                            [ :iszone=(false) ]
-                            if (:domain::iszone) {
-                                [ :zone=$domain ]
-                            } else {
-                                $zone = :domain::zone
-                                if ($zone != (null)) { [ :zone=$zone ] }
-                            }
+                            [ :iszone=(false) :zone?=:domain::zone ]
                         }
                     }
                 '''}},
