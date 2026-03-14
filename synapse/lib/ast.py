@@ -156,7 +156,10 @@ class AstNode:
         return False
 
     def optimize(self):
+        if getattr(self, '_optimized', False):
+            return
         [k.optimize() for k in self.kids]
+        self._optimized = True
 
     def __iter__(self):
         for kid in self.kids:

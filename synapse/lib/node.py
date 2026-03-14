@@ -1458,7 +1458,7 @@ class Path:
 
         self.display = None
         self.metadata = {}
-        self.nodedata = collections.defaultdict(dict)
+        self.nodedata = {}
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -1496,7 +1496,12 @@ class Path:
         return await s_stormtypes.toprim(dict(self.metadata))
 
     def setData(self, nid, name, valu):
-        self.nodedata[nid][name] = valu
+        nd = self.nodedata.get(nid)
+        if nd is None:
+            nd = {}
+            self.nodedata[nid] = nd
+
+        nd[name] = valu
 
     def popData(self, nid, name, defv=None):
         if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:

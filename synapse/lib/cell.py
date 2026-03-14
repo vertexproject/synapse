@@ -3614,13 +3614,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return {'synapse': extra}
 
     async def _getSpawnLogConf(self):
+        if (conf := getattr(self, '_spawnlogconf', None)) is not None:
+            return dict(conf)
+
         conf = self.conf.get('_log_conf')
         if conf:
             conf = conf.copy()
         else:
             conf = s_common._getLogConfFromEnv()
         conf['log_setup'] = False
-        return conf
+        self._spawnlogconf = conf
+        return dict(conf)
 
     def modCellConf(self, conf):
         '''
@@ -3640,6 +3644,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.info(f'Setting cell config override for [{key}]')
 
         self.conf.update(conf)
+        self._spawnlogconf = None
         s_common.yamlmod(conf, self.dirn, 'cell.mods.yaml')
 
     def popCellConf(self, name):
@@ -3661,6 +3666,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             None
         '''
         self.conf.pop(name, None)
+        self._spawnlogconf = None
         self.conf.reqConfValid()
         s_common.yamlpop(name, self.dirn, 'cell.mods.yaml')
         logger.info(f'Removed cell config override for [{name}]')

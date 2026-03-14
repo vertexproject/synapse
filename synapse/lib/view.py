@@ -2432,8 +2432,7 @@ class View(s_nexus.Pusher):  # type: ignore
             user = runt.user
 
         query = await self.core.getStormQuery(storm)
-        opts = {}
-        async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+        async with await s_storm.Runtime.anit(query, self, user=user) as runt:
             runt.asroot = True
             runt.addInput(node)
             await s_common.aspin(runt.execute())
