@@ -1201,16 +1201,15 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
                 'on': {'add': {'q': '''
-                    $domain = :domain
-                    if ($domain = (null)) {
-                        [ :iszone=(false) :issuffix=(true) ]
-                    } else {
+                    if (:domain) {
                         if (:issuffix = (null)) { [ :issuffix=(false) ] }
                         if (:domain::issuffix) {
-                            [ :iszone=(true) :zone=$node.value() ]
+                            [ :iszone=(true) :zone=$node ]
                         } else {
                             [ :iszone=(false) :zone?=:domain::zone ]
                         }
+                    } else {
+                        [ :iszone=(false) :issuffix=(true) ]
                     }
                 '''}},
                 'props': (
@@ -1232,7 +1231,7 @@ modeldefs = (
                     ('iszone', ('bool', {}), {
                         'on': {'set': {'q': '''
                             if (:iszone) {
-                                [ :zone=$node.value() ]
+                                [ :zone=$node ]
                             } else {
                                 $domain = :domain
                                 if ($domain = (null)) {
