@@ -2427,9 +2427,13 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.core.migration or self.core.safemode:
             return
 
+        user = self.core.auth.rootuser
+        if (runt := s_scope.get('runt')) is not None:
+            user = runt.user
+
         query = await self.core.getStormQuery(storm)
         opts = {}
-        async with await s_storm.Runtime.anit(query, self, opts=opts, user=self.core.auth.rootuser) as runt:
+        async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             runt.asroot = True
             runt.addInput(node)
             await s_common.aspin(runt.execute())

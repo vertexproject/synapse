@@ -3240,7 +3240,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('hehe'), 'deleted')
 
-            # Test that on:add callbacks run as root (non-admin user can trigger)
+            # Test that callbacks run as the calling user with asroot elevation
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node', 'add')))
             await visi.addRule((True, ('node', 'prop', 'set')))
