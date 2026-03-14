@@ -1118,6 +1118,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._spawnlogconf = None
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -3614,7 +3615,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return {'synapse': extra}
 
     async def _getSpawnLogConf(self):
-        if (conf := getattr(self, '_spawnlogconf', None)) is not None:
+        if (conf := self._spawnlogconf) is not None:
             return dict(conf)
 
         conf = self.conf.get('_log_conf')
