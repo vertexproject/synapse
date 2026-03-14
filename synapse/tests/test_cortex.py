@@ -3250,7 +3250,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('tick'))
 
             # Test error handling - bad storm query in on callback logs error but doesn't crash
-            with self.getAsyncLoggerStream('synapse.datamodel', 'storm error') as stream:
+            with self.getAsyncLoggerStream('synapse.datamodel', 'model callback error') as stream:
                 await core.addFormProp('test:onstorm', '_badstorm', ('str', {}), {
                     'on': {'set': {'q': '| badcommand'}},
                 })

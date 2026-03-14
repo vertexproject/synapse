@@ -214,7 +214,7 @@ class Prop:
                 try:
                     await node.view.runOnStorm(node, self.onstormset)
                 except Exception:
-                    logger.exception('onset() storm error for %s' % (self.full,))
+                    logger.exception('on.set model callback error for %s' % (self.full,))
 
     async def wasDel(self, node):
         for func in self.ondels:
@@ -230,7 +230,7 @@ class Prop:
                 try:
                     await node.view.runOnStorm(node, self.onstormdel)
                 except Exception:
-                    logger.exception('ondel() storm error for %s' % (self.full,))
+                    logger.exception('on.del model callback error for %s' % (self.full,))
 
     def pack(self):
         info = {
@@ -478,7 +478,7 @@ class Form:
                 try:
                     await node.view.runOnStorm(node, self.onstormadd)
                 except Exception:
-                    logger.exception('onadd() storm error for %s' % (self.name,))
+                    logger.exception('on.add model callback error for %s' % (self.name,))
 
     async def wasDeleted(self, node):
         '''
@@ -499,7 +499,7 @@ class Form:
                 try:
                     await node.view.runOnStorm(node, self.onstormdel)
                 except Exception:
-                    logger.exception('ondel() storm error for %s' % (self.name,))
+                    logger.exception('on.del model callback error for %s' % (self.name,))
 
     def prop(self, name: str):
         '''
