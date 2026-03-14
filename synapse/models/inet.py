@@ -1206,7 +1206,6 @@ modeldefs = (
                         [ :iszone=(false) :issuffix=(true) ]
                     } else {
                         if (:issuffix = (null)) { [ :issuffix=(false) ] }
-                        { [ inet:fqdn=$domain ] }
                         if (:domain::issuffix) {
                             [ :iszone=(true) :zone=$node.value() ]
                         } else {
@@ -1239,7 +1238,6 @@ modeldefs = (
                                 if ($domain = (null)) {
                                     [ -:zone ]
                                 } else {
-                                    { [ inet:fqdn=$domain ] }
                                     $zone = :domain::zone
                                     if ($zone = (null)) {
                                         [ -:zone ]
