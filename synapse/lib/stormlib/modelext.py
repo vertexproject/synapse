@@ -129,7 +129,7 @@ class LibModelExt(s_stormtypes.Lib):
         basetype = await s_stormtypes.tostr(basetype)
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
-        s_stormtypes.confirm(('model', 'form', 'add', formname))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.addForm(formname, basetype, typeopts, typeinfo)
 
     async def addFormProp(self, formname, propname, typedef, propinfo):
@@ -137,7 +137,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
-        s_stormtypes.confirm(('model', 'prop', 'add', formname))
+        s_stormtypes.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
@@ -147,7 +147,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
-        s_stormtypes.confirm(('model', 'tagprop', 'add'))
+        s_stormtypes.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
@@ -155,14 +155,14 @@ class LibModelExt(s_stormtypes.Lib):
 
     async def delForm(self, formname):
         formname = await s_stormtypes.tostr(formname)
-        s_stormtypes.confirm(('model', 'form', 'del', formname))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.delForm(formname)
 
     async def delFormProp(self, formname, propname, force=False):
         formname = await s_stormtypes.tostr(formname)
         propname = await s_stormtypes.tostr(propname)
         force = await s_stormtypes.tobool(force)
-        s_stormtypes.confirm(('model', 'prop', 'del', formname))
+        s_stormtypes.confirm(('model', 'admin'))
 
         if force is True:
             meta = {'user': self.runt.user.iden, 'time': s_common.now()}
@@ -174,7 +174,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         force = await s_stormtypes.tobool(force)
 
-        s_stormtypes.confirm(('model', 'tagprop', 'del'))
+        s_stormtypes.confirm(('model', 'admin'))
 
         if force:
             meta = {'user': self.runt.user.iden, 'time': s_common.now()}
@@ -207,7 +207,7 @@ class LibModelExt(s_stormtypes.Lib):
         if n2form == '*':
             n2form = None
 
-        s_stormtypes.confirm(('model', 'edge', 'add'))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.addEdge((n1form, verb, n2form), edgeinfo)
 
     async def delEdge(self, n1form, verb, n2form):
@@ -225,7 +225,7 @@ class LibModelExt(s_stormtypes.Lib):
         if n2form == '*':
             n2form = None
 
-        s_stormtypes.confirm(('model', 'edge', 'del'))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.delEdge((n1form, verb, n2form))
 
     async def addType(self, typename, basetype, typeopts, typeinfo):
@@ -233,10 +233,10 @@ class LibModelExt(s_stormtypes.Lib):
         basetype = await s_stormtypes.tostr(basetype)
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
-        s_stormtypes.confirm(('model', 'type', 'add', typename))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.addType(typename, basetype, typeopts, typeinfo)
 
     async def delType(self, typename):
         typename = await s_stormtypes.tostr(typename)
-        s_stormtypes.confirm(('model', 'type', 'del', typename))
+        s_stormtypes.confirm(('model', 'admin'))
         await self.runt.view.core.delType(typename)

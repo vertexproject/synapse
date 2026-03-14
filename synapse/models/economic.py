@@ -1,6 +1,19 @@
 modeldefs = (
     ('econ', {
 
+        'ctors': (
+            ('econ:price', 'synapse.lib.types.Price', {}, {
+                'doc': 'The amount of money expected, required, or given in payment for something.',
+                'ex': '2.20',
+                'virts': (
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency denomination of the price.'}),
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the price was sampled or recorded.'}),
+                ),
+            }),
+        ),
+
         'types': (
 
             ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
@@ -73,10 +86,6 @@ modeldefs = (
             ('econ:invoice', ('guid', {}), {
                 'doc': 'An invoice issued requesting payment.'}),
 
-            ('econ:price', ('hugenum', {}), {
-                'doc': 'The amount of money expected, required, or given in payment for something.',
-                'ex': '2.20'}),
-
             ('econ:currency', ('str', {'lower': True}), {
                 'doc': 'The name of a system of money in general use.',
                 'ex': 'usd'}),
@@ -145,9 +154,6 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
-
-            ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
-                'doc': 'A node which may act as a payment instrument.'}),
         ),
 
         'interfaces': (

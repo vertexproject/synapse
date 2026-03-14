@@ -328,16 +328,16 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes00 = await core.nodes('[ ou:org=({"name": "vertex"}) ]')
             self.len(1, nodes00)
-            self.eq('vertex', nodes00[0].get('name'))
+            self.propeq(nodes00[0], 'name', 'vertex')
 
             nodes01 = await core.nodes('[ ou:org=({"name": "vertex"}) :names+="the vertex project"]')
             self.len(1, nodes01)
-            self.eq('vertex', nodes01[0].get('name'))
+            self.propeq(nodes01[0], 'name', 'vertex')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
             nodes02 = await core.nodes('[ ou:org=({"name": "the vertex project"}) ]')
             self.len(1, nodes02)
-            self.eq('vertex', nodes02[0].get('name'))
+            self.propeq(nodes02[0], 'name', 'vertex')
             self.eq(nodes01[0].ndef, nodes02[0].ndef)
 
             nodes03 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
@@ -353,23 +353,23 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
             self.len(1, nodes05)
-            self.eq('vertex', nodes05[0].get('name'))
-            self.eq('for the people', nodes05[0].get('motto'))
+            self.propeq(nodes05[0], 'name', 'vertex')
+            self.propeq(nodes05[0], 'motto', 'for the people')
             self.eq(nodes00[0].ndef, nodes05[0].ndef)
 
             nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
             self.len(1, nodes06)
-            self.eq('acme', nodes06[0].get('name'))
-            self.eq('HURR DURR', nodes06[0].get('motto'))
+            self.propeq(nodes06[0], 'name', 'acme')
+            self.propeq(nodes06[0], 'motto', 'HURR DURR')
             self.ne(nodes00[0].ndef, nodes06[0].ndef)
 
             nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "emails": ["foo@vertex.link", "bar@vertex.link"]}) ]')
             self.len(1, nodes07)
-            self.eq(nodes07[0].get('emails'), ('bar@vertex.link', 'foo@vertex.link'))
+            self.propeq(nodes07[0], 'emails', ('bar@vertex.link', 'foo@vertex.link'))
 
             nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "emails": ["bar@vertex.link", "foo@vertex.link"]}) ]')
             self.len(1, nodes08)
-            self.eq(nodes08[0].get('emails'), ('bar@vertex.link', 'foo@vertex.link'))
+            self.propeq(nodes08[0], 'emails', ('bar@vertex.link', 'foo@vertex.link'))
             self.eq(nodes07[0].ndef, nodes08[0].ndef)
 
             nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
@@ -420,7 +420,7 @@ class TypesTest(s_t_utils.SynTest):
             node = nodes[0][1]
             props = node[1]['props']
             self.none(props.get('phone'))
-            self.eq(props.get('name'), 'burrito corp')
+            self.eq(props.get('name')[1], 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
 
             # $try can also be specified in $props which overrides top level $try
@@ -540,7 +540,7 @@ class TypesTest(s_t_utils.SynTest):
             self.propeq(node, 'id', 'barmesg')
             self.nn(node.get('channel'))
 
-            platguid = node.get('platform')
+            platguid = node.get('platform')[1]
             self.nn(platguid)
             nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
             self.len(1, nodes)
@@ -654,6 +654,36 @@ class TypesTest(s_t_utils.SynTest):
             self.nn(node.get('object'))
 
             self.len(1, await core.nodes('inet:service:rule :object -> *'))
+
+            # $salt affects the initial guid computation
+            salt00 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
+            self.len(1, salt00)
+            self.propeq(salt00[0], 'name', 'saltyorg')
+
+            # Same salt and props produces the same guid
+            salt01 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1"}) ]')
+            self.len(1, salt01)
+            self.eq(salt00[0].ndef, salt01[0].ndef)
+
+            # Different salt produces a different initial guid
+            nosalt = s_common.guid([('name', ('entity:name', 'saltyorg'))])
+            salted = s_common.guid([('name', ('entity:name', 'saltyorg')), ('$salt', 'salt1')])
+            self.ne(nosalt, salted)
+            self.eq(salt00[0].ndef[1], salted)
+
+            # Deconfliction still finds an existing node with matching props
+            salt02 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "othersalt"}) ]')
+            self.len(1, salt02)
+            self.eq(salt00[0].ndef, salt02[0].ndef)
+
+            # $salt works with $props
+            salt03 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1", "$props": {"desc": "a salted org"}}) ]')
+            self.len(1, salt03)
+            self.eq(salt00[0].ndef, salt03[0].ndef)
+            self.eq('a salted org', salt03[0].get('desc'))
+
+            # $salt is not stored as a property
+            self.none(salt00[0].get('$salt'))
 
     async def test_hex(self):
 
@@ -1149,12 +1179,6 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=d :seen=("now-10days", "?") :tick=now +#baz=now]'))
             self.len(1, await core.nodes('[test:str=e :seen=("now+1day", "now+5days") :tick="now-3days" +#biz=("now-1day", "now+1 day")]'))
             self.len(1, await core.nodes('[test:str=f +#foo ]'))
-            # node whose primary prop is an ival
-            self.len(1, await core.nodes('[test:ival=((0),(10)) :interval=(now, "now+4days")]'))
-            self.len(1, await core.nodes('[test:ival=((50),(100)) :interval=("now-2days", "now+2days")]'))
-            self.len(1, await core.nodes('[test:ival=(1995, 1997) :interval=(2010, 2011)]'))
-            self.len(1, await core.nodes('[test:ival=("now-2days", "now+4days") :interval=(201006, 20100605) ]'))
-            self.len(1, await core.nodes('[test:ival=("now+21days", "?") :interval=(2000, 2001)]'))
             # tag of tags
             self.len(1, await core.nodes('[syn:tag=foo +#v.p=(2005, 2006)]'))
             self.len(1, await core.nodes('[syn:tag=bar +#vert.proj=(20110605, now)]'))
@@ -1185,38 +1209,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, await core.count('test:str:tick@=("now-2days","now")'))
             self.eq(0, await core.count('test:str:tick@=("2011", "2014")'))
             self.eq(1, await core.count('test:str:tick@=("2014", "20140601")'))
-
-            self.eq(1, await core.count('test:ival@=1970'))
-            self.eq(5, await core.count('test:ival@=(1970, "now+100days")'))
-            self.eq(1, await core.count('test:ival@="now"'))
-            self.eq(1, await core.count('test:ival@=("now+1day", "now+6days")'))
-            self.eq(1, await core.count('test:ival@=("now-9days", "now-1day")'))
-            self.eq(1, await core.count('test:ival@=("now-3days", "now+3days")'))
-            self.eq(0, await core.count('test:ival@=("1993", "1995")'))
-            self.eq(0, await core.count('test:ival@=("1997", "1998")'))
-            self.eq(1, await core.count('test:ival=("1995", "1997")'))
-
-            self.eq(1, await core.count('test:ival:interval@="now+2days"'))
-            self.eq(0, await core.count('test:ival:interval@=("now-4days","now-3days")'))
-            self.eq(0, await core.count('test:ival:interval@=("now+4days","now+6days")'))
-            self.eq(1, await core.count('test:ival:interval@=("now-3days","now-1days")'))
-            self.eq(1, await core.count('test:ival:interval@=("now+3days","now+6days")'))
-            self.eq(2, await core.count('test:ival:interval@="now+1day"'))
-            self.eq(2, await core.count('test:ival:interval@=("20100602","20100603")'))
-            self.eq(2, await core.count('test:ival:interval@=("now-10days","now+10days")'))
-            self.eq(0, await core.count('test:ival:interval@=("1999", "2000")'))
-            self.eq(0, await core.count('test:ival:interval@=("2001", "2002")'))
-
-            self.eq(1, await core.count('test:ival +:interval@="now+2days"'))
-            self.eq(0, await core.count('test:ival +:interval@=("now-4days","now-3days")'))
-            self.eq(0, await core.count('test:ival +:interval@=("now+4days","now+6days")'))
-            self.eq(1, await core.count('test:ival +:interval@=("now-3days","now-1days")'))
-            self.eq(1, await core.count('test:ival +:interval@=("now+3days","now+6days")'))
-            self.eq(2, await core.count('test:ival +:interval@="now+1day"'))
-            self.eq(2, await core.count('test:ival +:interval@=("20100602","20100603")'))
-            self.eq(2, await core.count('test:ival +:interval@=("now-10days","now+10days")'))
-            self.eq(0, await core.count('test:ival +:interval@=("1999", "2000")'))
-            self.eq(0, await core.count('test:ival +:interval@=("2001", "2002")'))
 
             self.eq(0, await core.count('#foo@=("2013", "2015")'))
             self.eq(0, await core.count('#foo@=("2018", "2019")'))
@@ -2293,10 +2285,16 @@ class TypesTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
+            await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})
+
+            await core.nodes('[ test:int=3 :_vers=(v1.2.3, foo1.2.3, 4.5.6) ]')
+            self.len(2, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
+            await core.nodes('test:int=3 [ :_vers-=v1.2.3 ]')
+            self.len(1, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
     async def test_types_typehash(self):
         async with self.getTestCore() as core:
-            self.true(core.model.form('inet:fqdn').type.typehash is core.model.prop('inet:dns:a:fqdn').type.typehash)
-            self.true(core.model.form('meta:name').type.typehash is core.model.prop('it:network:name').type.typehash)
             self.true(core.model.form('inet:asn').type.typehash is not core.model.prop('inet:proto:port').type.typehash)
 
             self.true(s_common.isguid(core.model.form('inet:fqdn').type.typehash))

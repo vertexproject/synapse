@@ -680,6 +680,7 @@ datamodel_basetypes = [
     'array',
     'data',
     'nodeprop',
+    'poly',
     'hugenum',
     'taxon',
     'taxonomy',
@@ -865,6 +866,7 @@ _reqValidPkgdefSchema = {
                 'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
                 'version': {'type': 'integer', 'minimum': 0},
             },
             'additionalProperties': False,
@@ -1105,7 +1107,6 @@ _reqValidDdefSchema = {
     'properties': {
         'name': {'type': 'string'},
         'storm': {'type': 'string'},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'enabled': {'type': 'boolean', 'default': True},
@@ -1116,7 +1117,7 @@ _reqValidDdefSchema = {
             ]
         }
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'user', 'storm'],
     'definitions': {
         'stormopts': {

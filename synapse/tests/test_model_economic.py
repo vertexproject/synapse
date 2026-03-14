@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
-import synapse.tests.utils as s_utils
-
 import synapse.common as s_common
+import synapse.tests.utils as s_utils
 
 class EconTest(s_utils.SynTest):
 
@@ -308,3 +307,67 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:invoice -> econ:purchase'))
             self.len(1, await core.nodes('econ:invoice :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:invoice :recipient -> entity:contact'))
+
+    async def test_model_econ_price_virts(self):
+
+        async with self.getTestCore() as core:
+
+            # set currency virt on a price
+            nodes = await core.nodes('[ econ:purchase=* :price=13.37 :price.currency=usd ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price', '13.37')
+            self.propeq(nodes[0], 'price.currency', 'usd')
+
+            # set asof virt, verify currency is preserved
+            nodes = await core.nodes('econ:purchase:price=13.37 [ :price.asof=2024 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price.currency', 'usd')
+            self.propeq(nodes[0], 'price.asof', 1704067200000000)
+
+            # update currency, verify asof is preserved
+            nodes = await core.nodes('econ:purchase:price=13.37 [ :price.currency=eur ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price.currency', 'eur')
+            self.propeq(nodes[0], 'price.asof', 1704067200000000)
+
+            # lift by currency virt
+            self.len(1, await core.nodes('econ:purchase:price.currency=eur'))
+            self.len(0, await core.nodes('econ:purchase:price.currency=usd'))
+
+            # lift by asof virt
+            self.len(1, await core.nodes('econ:purchase:price.asof=2024'))
+
+            # filter by virt
+            self.len(1, await core.nodes('econ:purchase +:price.currency=eur'))
+            self.len(0, await core.nodes('econ:purchase +:price.currency=usd'))
+
+            # backward compat: price without virts still works
+            nodes = await core.nodes('[ econ:purchase=* :price=99.99 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price', '99.99')
+            self.none(nodes[0].get('price.currency'))
+            self.none(nodes[0].get('price.asof'))
+
+            # price comparisons still work with virts set
+            self.len(1, await core.nodes('econ:purchase:price=13.37 +:price>10'))
+            self.len(1, await core.nodes('econ:purchase:price=13.37 +:price<20'))
+
+            # error: setting virt on unset price
+            nodes = await core.nodes('[ econ:purchase=* ]')
+            guid = nodes[0].ndef[1]
+            opts = {'vars': {'guid': guid}}
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase=$guid [ :price.currency=usd ]', opts=opts)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase=$guid [ :price.asof=2024 ]', opts=opts)
+
+            # currency not set but asof is (covers _getCurrency None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=50.00 :price.asof=2024 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.currency'))
+
+            # asof not set but currency is (covers _getAsof None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=75.00 :price.currency=gbp ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.asof'))

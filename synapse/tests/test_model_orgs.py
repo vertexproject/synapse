@@ -85,7 +85,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :type=corp.llc
                     :logo=*
                     :phone="+15555555555"
-                    :url=https://vertex.link
+                    :websites+=https://vertex.link
                     :lifespan=(2016, *)
                     :motto="Synapse or it didn't happen!"
                     :parent=*
@@ -101,7 +101,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'names', ('vertex',))
             self.propeq(nodes[0], 'type', 'corp.llc.')
             self.propeq(nodes[0], 'phone', '15555555555')
-            self.propeq(nodes[0], 'url', 'https://vertex.link')
+            self.propeq(nodes[0], 'websites', ('https://vertex.link',))
             self.propeq(nodes[0], 'lifespan', (1451606400000000, 9223372036854775806, 18446744073709551614))
             self.nn(nodes[0].get('logo'))
             self.nn(nodes[0].get('parent'))
@@ -183,7 +183,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :name='arrowcon 2018 dinner'
                     :desc='arrowcon dinner'
                     :period=(201803011900, 201803012200)
-                    :parent=(ou:conference, 39f8d9599cd663b00013bfedf69dcf53)
+                    :parent={[ ou:conference=39f8d9599cd663b00013bfedf69dcf53 ]}
                     :place=39f8d9599cd663b00013bfedf69dcf53
                     :website=http://arrowcon.org/2018/dinner
             ]''')
@@ -191,14 +191,14 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('ou:event', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018 dinner')
             self.propeq(nodes[0], 'desc', 'arrowcon dinner')
-            self.propeq(nodes[0], 'parent', ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
+            self.propeq(nodes[0], 'parent', '39f8d9599cd663b00013bfedf69dcf53', form='ou:conference')
             self.propeq(nodes[0], 'period', (1519930800000000, 1519941600000000, 10800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
             self.propeq(nodes[0], 'website', 'http://arrowcon.org/2018/dinner')
 
             nodes = await core.nodes('''[
                 ou:id=*
-                    :value=(meta:id, Woot99)
+                    :value={[ meta:id=Woot99 ]}
                     :issuer={[ ou:org=* :name="ny dmv" ]}
                     :issuer:name="ny dmv"
                     :recipient={[ entity:contact=* :name=visi ]}
@@ -209,7 +209,7 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
 
             self.len(1, nodes)
-            self.propeq(nodes[0], 'value', ('meta:id', 'Woot99'))
+            self.propeq(nodes[0], 'value', 'Woot99', form='meta:id')
             self.propeq(nodes[0], 'issuer:name', 'ny dmv')
             self.propeq(nodes[0], 'status', 'valid.')
             self.propeq(nodes[0], 'type', 'us.state.dmv.driverslicense.')
@@ -395,8 +395,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'updated', 1729209600000000)
             self.propeq(nodes[0], 'completed', 1729209600000000)
 
-            self.propeq(nodes[0], 'creator', ('syn:user', core.auth.rootuser.iden))
-            self.propeq(nodes[0], 'assignee', ('syn:user', visi.iden))
+            self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, form='syn:user')
+            self.propeq(nodes[0], 'assignee', visi.iden, form='syn:user')
 
             self.nn(nodes[0].get('scope'))
 

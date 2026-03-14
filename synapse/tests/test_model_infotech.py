@@ -146,7 +146,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'time', 1700179200000000)
             self.propeq(nodes[0], 'verdict', 30)
             self.propeq(nodes[0], 'scanner:name', 'visi scan')
-            self.propeq(nodes[0], 'target', ('file:bytes', '09d214b60cdc6378a45de889fbb084cc'))
+            self.propeq(nodes[0], 'target', ('file:bytes', 'fa1caa2924199d7b4bab0f57ebdbb7ec'))
             self.propeq(nodes[0], 'signame', 'omgwtfbbq')
             self.propeq(nodes[0], 'categories', ('baz faz', 'foo bar'))
 
@@ -450,7 +450,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     (it:host:login=*
                         :period=(20210314,202103140201)
                         :account=$acct
-                        :host=$host
+                        :server:host=$host
                         :creds={[ auth:passwd=cool ]}
                         :flow={[ inet:flow=(foo,) ]})
                 ]
@@ -463,10 +463,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             # self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('contact'))
 
-            self.nn(nodes[1].get('host'))
+            self.nn(nodes[1].get('server:host'))
             self.nn(nodes[1].get('account'))
             self.propeq(nodes[1], 'period', (1615680000000000, 1615687260000000, 7260000000))
-            self.propeq(nodes[1], 'creds', (('auth:passwd', 'cool'),))
+            self.propeq(nodes[1], 'creds', ('cool',))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
@@ -496,11 +496,31 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('for $sid in $sids {[ it:host:account=* :windows:sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
-            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> it:host')
+            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login :server:host -> it:host')
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
             self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
+
+            # test inet:proto:link interface properties on it:host:login
+            nodes = await core.nodes('''
+                init {
+                    $chost = $lib.guid()
+                    $shost = $lib.guid()
+                }
+                [
+                    it:host:login=*
+                        :client=tcp://1.2.3.4:5678
+                        :client:host=$chost
+                        :server=tcp://5.6.7.8:443
+                        :server:host=$shost
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'client', 'tcp://1.2.3.4:5678')
+            self.nn(nodes[0].get('client:host'))
+            self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
+            self.nn(nodes[0].get('server:host'))
 
             # FIXME :domain
             # nodes = await core.nodes('it:host:account -> it:domain')
@@ -1492,14 +1512,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'mutex', 'OnlyOnce')
             self.propeq(node, 'family', 'beacon')
             self.propeq(node, 'campaigncode', 'WootWoot')
-            self.eq(('http://1.2.3.4', 'tcp://visi:secret@vertex.link'), node.get('servers'))
+            self.propeq(node, 'servers', ('http://1.2.3.4', 'tcp://visi:secret@vertex.link'))
             self.propeq(node, 'connect:delay', 3600000000)
             self.propeq(node, 'connect:interval', 28800000000)
             self.propeq(node, 'raw', {'hehe': 'haha'})
-            self.eq(('https://0.0.0.0:443',), node.get('listens'))
-            self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
-            self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
-            self.eq(('https://woot.com', 'https://foo.bar',), node.get('decoys'))
+            self.propeq(node, 'listens', ('https://0.0.0.0:443',))
+            self.propeq(node, 'proxies', ('socks5://visi:secret@1.2.3.4:1234',))
+            self.propeq(node, 'dns:resolvers', ('udp://8.8.8.8:53',))
+            self.propeq(node, 'decoys', ('https://woot.com', 'https://foo.bar',))
 
     async def test_infotech_query(self):
 

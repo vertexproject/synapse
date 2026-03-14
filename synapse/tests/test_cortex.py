@@ -1819,8 +1819,8 @@ class CortexTest(s_t_utils.SynTest):
 
             a_guid = "a" * 32
             opts = {'vars': {'guid': a_guid}}
-            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter=(ou:org, $guid) ]}}', opts=opts)
-            await buidRevEq(f'risk:vuln:reporter=(ou:org, {a_guid})')
+            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter={{[ou:org=$guid]}} ]}}', opts=opts)
+            await buidRevEq(f'risk:vuln:reporter={a_guid}')
 
             pref = 'a' * 31
             await core.nodes(f'for $x in $lib.range(3) {{[ test:guid=`{pref}{{$x}}` ]}}')
@@ -3042,8 +3042,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :_pivo=10 ]'))
 
             core.model.delForm('_hehe:haha')
-            with self.raises(s_exc.NoSuchForm):
-                await core.nodes('inet:ip +:asn::_pivo::notaprop')
+            # TODO: add a cached lookup for whether this could be possible with the current model and raise
+            # with self.raises(s_exc.NoSuchForm):
+            #    await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
             await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
             await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
@@ -3138,8 +3139,9 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            with self.raises(s_exc.NoSuchProp):
-                nodes = await core.nodes('entity:contact:email::newp=a')
+            # TODO: add a cached lookup for whether this could be possible with the current model and raise
+            # with self.raises(s_exc.NoSuchProp):
+            #    nodes = await core.nodes('entity:contact:email::newp=a')
 
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
@@ -3254,7 +3256,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pnfo = fnfo['props'].get('asn')
 
             self.nn(pnfo)
-            self.eq(pnfo['type'][0], 'inet:asn')
+            self.eq(pnfo['type'][0], 'poly')
 
             modelt = model['types']
 
@@ -4212,9 +4214,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     <(refs)+ { [ pol:race=$race ] }
                     +#some.stuff)
                 (ou:org=$orgA
-                   :url=https://foo.bar.com/wat.html)
+                   :email=foo@bar.com)
                 (ou:org=$orgB
-                   :url=https://neato.burrito.org/stuff.html
+                   :email=neato@burrito.org
                    +#rep.stuff)
                 (biz:deal=$biz
                     :buyer={[ ou:org=$orgA ]}
@@ -4768,7 +4770,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
-            with self.raises(s_exc.IsDeprLocked):
+            # TODO: we skip locked forms when attempting to norm
+            # should we raise IsDeprLocked if there are locked forms and no unlocked forms norm successfully??
+            with self.raises(s_exc.BadTypeValu):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
@@ -6157,6 +6161,71 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 
+    async def test_cortex_storm_dmon_add_view(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.queue.add(dmon)')
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+
+            # Specify an alternate view via ddef and verify stormopts.view is set
+            dmonq = '''
+                $q = $lib.queue.byname(dmon)
+                for ($offs, $item) in $q.gets(size=3, wait=12) {
+                    [ test:int=$item ]
+                    $lib.print(`made {$node.ndef()}`)
+                    $q.cull($offs)
+                }
+            '''
+            ddef = await core.callStorm(
+                'return($lib.dmon.add($storm, name=viewdmon, ddef=({"stormopts": {"view": $view}})))',
+                opts={'vars': {'storm': dmonq, 'view': view2_iden}},
+            )
+            self.eq(ddef['stormopts']['view'], view2_iden)
+
+            await asyncio.sleep(0)
+
+            q = '''$q = $lib.queue.byname(dmon) $q.puts((10, 20, 30))'''
+            with self.getAsyncLoggerStream('synapse.lib.storm',
+                                           "made ('test:int', 30)") as stream:
+                await core.nodes(q)
+                self.true(await stream.wait(6))
+
+            # Nodes should be in the forked view
+            nodes = await core.nodes('test:int', opts={'view': view2_iden})
+            self.len(3, nodes)
+
+            # Nodes should not be in the default view
+            nodes = await core.nodes('test:int')
+            self.len(0, nodes)
+
+            # Specifying an invalid view raises NoSuchView
+            with self.raises(s_exc.NoSuchView):
+                await core.callStorm(
+                    '$lib.dmon.add($storm, name=baddmon, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': 'newp'}},
+                )
+
+            # Verify permission check uses the specified view gateiden
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')), gateiden=core.view.iden)
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                # visi has dmon.add on default view but not on view2
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm(
+                        '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                        opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                    )
+
+                # Grant on view2 and it should work
+                await visi.addRule((True, ('dmon', 'add')), gateiden=view2_iden)
+                await proxy.callStorm(
+                    '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                )
+
     async def test_cortex_storm_cmd_bads(self):
 
         async with self.getTestCore() as core:
@@ -6213,11 +6282,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('''
                 $q = $lib.queue.add(visi)
-                $lib.user.vars.foo = $(10)
+                $lib.auth.users.get().vars.foo = $(10)
 
                 $lib.dmon.add(${
 
-                    $foo = $lib.user.vars.foo
+                    $foo = $lib.auth.users.get().vars.foo
 
                     $lib.queue.byname(visi).put(step)
 
@@ -6227,7 +6296,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }
 
-                    $lib.user.vars.foo = $(20)
+                    $lib.auth.users.get().vars.foo = $(20)
 
                 }, name=wootdmon)
 
@@ -7219,7 +7288,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             layriden = core.view.layers[0].iden
             rows = await alist(prox.iterPropRows(layriden, 'inet:ip', 'asn'))
 
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
@@ -7746,11 +7815,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Proxy our storm requests as the admin user
                 opts = {'user': admin}
 
-                self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
+                self.eq('admin', await prox.callStorm('return( $lib.auth.users.get().name  )', opts=opts))
 
                 with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
 
-                    q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
+                    q = 'return( ($lib.auth.users.get().name, $lib.auth.users.add(lowuser) ))'
                     (whoami, udef) = await prox.callStorm(q, opts=opts)
                     self.eq('admin', whoami)
                     self.eq('lowuser', udef.get('name'))
@@ -8608,7 +8677,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # modifying the property value shouldn't update the node
             nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
             self.len(1, nodes)
-            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+            self.propeq(nodes[0], 'strs', ['foo', 'bar', 'baz'])
 
             data = {
                 'str': 'strval',

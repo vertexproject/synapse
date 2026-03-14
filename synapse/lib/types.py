@@ -32,6 +32,7 @@ class Type:
 
     # a fast-access way to determine if the type is an array
     # ( due to hot-loop needs in the storm runtime )
+    ispoly = False
     isarray = False
     ismutable = False
 
@@ -86,6 +87,7 @@ class Type:
         self.setCmprCtor('range=', self._ctorCmprRange)
 
         self.setNormFunc(s_node.Node, self._normStormNode)
+        self.setNormFunc(s_stormtypes.NodeRef, self._normStormNodeRef)
 
         self.storlifts = {
             '=': self._storLiftNorm,
@@ -129,6 +131,9 @@ class Type:
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         self.typehash = sys.intern(s_common.guid((ctor, s_common.flatten(normopts))))
 
+    def __hash__(self):
+        return hash(self.typehash)
+
     async def _storLiftSafe(self, cmpr, valu):
         try:
             return await self.storlifts['=']('=', valu)
@@ -154,6 +159,9 @@ class Type:
 
     async def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
+
+    def getStorType(self, valu):
+        return self.stortype
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
@@ -211,13 +219,13 @@ class Type:
             return vinfo[0], (virt[1],) + vinfo[1]
         return virt[0], (virt[1],)
 
-    async def normVirt(self, name, valu, newvirt):
+    async def normVirt(self, name, valu, newvirt, oldvirts=None):
         func = self.virtstor.get(name, s_common.novalu)
         if func is s_common.novalu:
             mesg = f'No editable virtual prop named {name} on type {self.name}.'
             raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
-        return await func(valu, newvirt)
+        return await func(valu, newvirt, oldvirts=oldvirts)
 
     def getRuntPode(self):
 
@@ -244,6 +252,9 @@ class Type:
             norminfo['skipadd'] = True
             norminfo.pop('adds', None)
         return norm, norminfo
+
+    async def _normStormNodeRef(self, ndef, view=None):
+        return await self.norm(ndef.valu[1], view=view)
 
     def pack(self):
         info = {
@@ -569,6 +580,15 @@ class Array(Type):
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
+        if not typeopts:
+            if typename in self.modl.ifaces or ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                typename = (typename,)
+
+        if isinstance(typename, tuple):
+            typeopts['forms'] = tuple(tname for tname in typename if tname in self.modl.forminfos)
+            typeopts['interfaces'] = tuple(tname for tname in typename if tname in self.modl.ifaces)
+            typename = 'poly'
+
         basetype = self.modl.type(typename)
         if basetype is None:
             mesg = f'Array type ({self.name}) based on unknown type: {typename}.'
@@ -635,7 +655,7 @@ class Array(Type):
 
         adds = []
         norms = []
-        virts = {}
+        virts = collections.defaultdict(lambda: collections.defaultdict(int))
 
         form = self.modl.form(self.arraytype.name)
 
@@ -644,7 +664,13 @@ class Array(Type):
                 if (info := newinfos.get(item)) is not None:
                     norm = item
                 else:
-                    norm, info = await self.arraytype.norm(item, view=view)
+                    if self.arraytype.ispoly:
+                        formname = item[0]
+                        norm, info = await self.modl.form(formname).type.norm(item[1], view=view)
+                        norm = (formname, norm)
+                    else:
+                        norm, info = await self.arraytype.norm(item, view=view)
+
                     info['skipadd'] = True
             else:
                 norm, info = await self.arraytype.norm(item, view=view)
@@ -657,10 +683,10 @@ class Array(Type):
                     adds.append((form.name, norm, info))
 
             if (virt := info.get('virts')) is not None:
-                virts[norm] = virt
+                for vkey, vval in virt.items():
+                    virts[vkey][vval] += 1
 
         if self.isuniq:
-
             uniqs = []
             uniqhas = set()
 
@@ -675,20 +701,10 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        norminfo = {'adds': adds}
-
-        if virts:
-            realvirts = {}
-
-            for norm in norms:
-                if (virt := virts.get(norm)) is not None:
-                    for vkey, (vval, vtyp) in virt.items():
-                        if (curv := realvirts.get(vkey)) is not None:
-                            curv[0].append(vval)
-                        else:
-                            realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
-
-            norminfo['virts'] = realvirts
+        norminfo = {
+            'adds': adds,
+            'virts': {vkey: dict(vval) for vkey, vval in virts.items()}
+        }
 
         return tuple(norms), norminfo
 
@@ -697,6 +713,11 @@ class Array(Type):
         if self.splitstr:
             rval = self.splitstr.join(rval)
         return rval
+
+    async def tostorm(self, valu):
+        if self.arraytype.ispoly:
+            return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
+        return s_stormtypes.List(s_msgpack.deepcopy(valu, use_list=True))
 
 class Comp(Type):
 
@@ -763,16 +784,17 @@ class Comp(Type):
             _type = self.fieldtypes[name]
 
             norm, info = await _type.norm(valu[i], view=view)
-
-            subs[name] = (_type.typehash, norm, info)
             norms.append(norm)
+
+            if (typeform := self.modl.form(_type.name)) is not None:
+                adds.append((typeform.name, norm, info))
+                # TODO: potentially return a NodeRef to avoid a renorm?
+                subs[name] = (_type.typehash, norm, info)
+            else:
+                subs[name] = (_type.typehash, norm, info)
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
-
-            typeform = self.modl.form(_type.name)
-            if typeform is not None:
-                adds.append((typeform.name, norm, info))
 
             adds.extend(info.get('adds', ()))
 
@@ -849,6 +871,7 @@ class Guid(Type):
 
         props = valu.pop('$props', {})
         trycast = valu.pop('$try', False)
+        salt = valu.pop('$salt', s_common.novalu)
 
         if not valu:
             mesg = f'No values provided for form {form.full}'
@@ -866,7 +889,7 @@ class Guid(Type):
             tryprops = props.pop('$try', trycast)
             props = await self._normProps(form, props, view, trycast=tryprops)
 
-        guid, exists = await self._getGuidByNorms(form, norms, view)
+        guid, exists = await self._getGuidByNorms(form, norms, view, salt=salt)
 
         subinfo = {}
         addinfo = []
@@ -914,7 +937,7 @@ class Guid(Type):
 
         return norms
 
-    async def _getGuidByNorms(self, form, norms, view):
+    async def _getGuidByNorms(self, form, norms, view, salt=s_common.novalu):
 
         proplist = []
         for name, info in norms.items():
@@ -922,6 +945,10 @@ class Guid(Type):
 
         # check first for an exact match via our same deconf strategy
         proplist.sort()
+
+        if salt is not s_common.novalu:
+            proplist.append(('$salt', salt))
+
         guid = s_common.guid(proplist)
 
         if not view:
@@ -955,7 +982,12 @@ class Guid(Type):
 
         # lift starting with the lowest count
         count, prop, norm = counts[0]
-        async for node in view.nodesByPropAlts(prop, '=', norm, norm=False):
+
+        cmpr = '='
+        if prop.type.ispoly:
+            cmpr = 'ndef='
+
+        async for node in view.nodesByPropAlts(prop, cmpr, norm, norm=False):
             await asyncio.sleep(0)
 
             # filter on the remaining props/alts
@@ -1256,6 +1288,60 @@ class HugeNum(Type):
             return valu <= base
         return cmpr
 
+class Price(HugeNum):
+
+    def postTypeInit(self):
+        HugeNum.postTypeInit(self)
+        self.currtype = self.modl.type('econ:currency')
+        self.asoftype = self.modl.type('time')
+
+        self.virts |= {
+            'currency': (self.currtype, self._getCurrency),
+            'asof': (self.asoftype, self._getAsof),
+        }
+        self.virtstor |= {
+            'currency': self._storVirtCurrency,
+            'asof': self._storVirtAsof,
+        }
+        self.virtindx |= {
+            'currency': 'currency',
+            'asof': 'asof',
+        }
+
+    def _getCurrency(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+        if (vval := virts.get('currency')) is None:
+            return None
+        return vval[0]
+
+    def _getAsof(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+        if (vval := virts.get('asof')) is None:
+            return None
+        return vval[0]
+
+    async def _storVirtCurrency(self, valu, newcurr, oldvirts=None):
+        if valu is None:
+            mesg = 'Cannot set currency on an unset price value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
+        norm, _ = await self.currtype.norm(newcurr)
+        virts = dict(oldvirts) if oldvirts else {}
+        virts['currency'] = (norm, self.currtype.stortype)
+        return valu, {'merge': False, 'virts': virts}
+
+    async def _storVirtAsof(self, valu, newasof, oldvirts=None):
+        if valu is None:
+            mesg = 'Cannot set asof on an unset price value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
+        norm, _ = await self.asoftype.norm(newasof)
+        virts = dict(oldvirts) if oldvirts else {}
+        virts['asof'] = (norm, self.asoftype.stortype)
+        return valu, {'merge': False, 'virts': virts}
+
 class IntBase(Type):
 
     def __init__(self, modl, name, info, opts, skipinit=False):
@@ -1273,6 +1359,8 @@ class IntBase(Type):
             '<=': self._storLiftNorm,
             '>=': self._storLiftNorm,
         })
+
+        self.storlifts.pop('~=', None)
 
         self.setNormFunc(decimal.Decimal, self._normPyDecimal)
         self.setNormFunc(s_stormtypes.Number, self._normNumber)
@@ -1763,7 +1851,7 @@ class Ival(Type):
             return self.prec
         return vval[0]
 
-    async def _storVirtMin(self, valu, newmin):
+    async def _storVirtMin(self, valu, newmin, oldvirts=None):
         newv, norminfo = await self.norm(newmin)
         minv = newv[0]
 
@@ -1788,7 +1876,7 @@ class Ival(Type):
         maxv = max(newv[1], maxv)
         return (minv, maxv, maxv - minv), norminfo
 
-    async def _storVirtMax(self, valu, newmax):
+    async def _storVirtMax(self, valu, newmax, oldvirts=None):
         minv = self.unksize
         if valu is not None:
             minv = valu[0]
@@ -1813,7 +1901,7 @@ class Ival(Type):
 
         return (minv, maxv, maxv - minv), norminfo
 
-    async def _storVirtDuration(self, valu, newdura):
+    async def _storVirtDuration(self, valu, newdura, oldvirts=None):
         dura, norminfo = await self.duratype.norm(newdura)
         norminfo['merge'] = False
 
@@ -1841,7 +1929,7 @@ class Ival(Type):
         mesg = 'Cannot set duration on an ival with known start/end times.'
         raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
-    async def _storVirtPrec(self, valu, newprec):
+    async def _storVirtPrec(self, valu, newprec, oldvirts=None):
         if valu is None:
             mesg = 'Cannot set precision on an empty ival value.'
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
@@ -2101,8 +2189,6 @@ class Ndef(Type):
         if isinstance(valu[0], str):
             return valu[0]
 
-        return tuple(v[0] for v in valu)
-
     async def _normStormNode(self, valu, view=None):
         if self.formfilter is not None:
             self.formfilter(valu.form)
@@ -2144,6 +2230,297 @@ class Ndef(Type):
 
         repv = form.type.repr(formvalu)
         return (formname, repv)
+
+class Poly(Type):
+
+    stortype = s_layer.STOR_TYPE_POLY
+
+    ispoly = True
+
+    _opt_defs = (
+        ('default_forms', None),    # type: ignore
+        ('forms', None),            # type: ignore
+        ('interfaces', None),       # type: ignore
+    )
+
+    def postTypeInit(self):
+
+        self.formtype = self.modl.type('syn:form')
+        self.valuetype = self.modl.type('data')
+        self.virts |= {
+            'form': (self.formtype, self._getForm),
+            'value': (self.valuetype, self._getValue),
+        }
+
+        self.virtindx |= {
+            'form': None,
+        }
+
+        self.virtlifts |= {
+            'form': {'=': self._storLiftForm},
+        }
+
+        self.forms = self.opts.get('forms')
+        self.ifaces = self.opts.get('interfaces')
+
+        if self.forms is not None:
+            forms = set(self.forms)
+
+        if self.ifaces is not None:
+            ifaces = set(self.ifaces)
+
+        def filtfunc(form):
+            if self.forms is not None and any(f in forms for f in form.formtypes):
+                return True
+
+            if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
+                return True
+
+            return False
+
+        self.formfilter = filtfunc
+
+        self.defaultforms = self.opts.get('default_forms')
+        if self.defaultforms is None:
+            if (self.forms and len(self.forms) == 1 and not self.ifaces):
+                self.defaultforms = self.forms
+        else:
+            for form in self.defaultforms:
+                if form not in self.forms:
+                    mesg = f'Default forms must be all be allowed on {self.name}.'
+                    raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
+
+    def reqFormAllowed(self, form):
+        if self.formfilter(form):
+            return
+
+        mesg = f'Value of form {form.name} is not allowed for {self.name}'
+        if self.forms is not None:
+            mesg += f' forms={self.forms}'
+
+        if self.ifaces is not None:
+            mesg += f' interfaces={self.ifaces}'
+
+        raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
+
+    def getTypeSet(self):
+        return self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
+
+    def getFormSet(self):
+        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
+
+    def getCmprCtor(self, name):
+        ctors = {}
+        types = self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
+
+        for ntyp in types:
+            if (ctor := ntyp.getCmprCtor(name)) is not None:
+                ctors[ntyp.typehash] = ctor
+
+        if not ctors:
+            return None
+
+        async def ctor(val1):
+            cmprs = {}
+
+            realv = val1
+            if (ndefcmpr := bool(isinstance(val1, s_stormtypes.NodeRef))):
+                realv = val1.valu[1]
+
+            for thash, ctor in ctors.items():
+                try:
+                    cmprs[thash] = await ctor(realv)
+                except s_exc.BadTypeValu:
+                    pass
+
+            async def cmprfunc(val2):
+                if ndefcmpr and val1.valu == val2:
+                    return True
+
+                val2 = val2[1]
+                for cmpr in cmprs.values():
+                    if await cmpr(val2):
+                        return True
+                return False
+            return cmprfunc
+
+        return ctor
+
+    def getVirtIndx(self, virts):
+        name = virts[0]
+
+        if len(virts) > 1:
+            if (virt := self.virts.get(name)) is None:
+                raise s_exc.NoSuchVirt.init(name, self)
+            return virt[0].getVirtIndx(virts[1:])
+
+        for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
+            if (indx := ntyp.virtindx.get(name, s_common.novalu)) is not s_common.novalu:
+                return indx
+        else:
+            mesg = f'Virtual prop {name} is not valid for any types supported by {self.name}.'
+            raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
+
+    async def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+
+        form = self.modl.reqForm(valu)
+        self.reqFormAllowed(form)
+
+        return (('form=', valu, self.stortype),)
+
+    def _getForm(self, valu):
+        return valu[0][0]
+
+    def _getValue(self, valu):
+        return valu[0][1]
+
+    def getStorType(self, valu):
+        form = self.modl.reqForm(valu[0])
+        return s_layer.STOR_FLAG_POLY | form.type.stortype
+
+    async def getStorCmprs(self, cmpr, valu, virts=None):
+
+        if virts is not None:
+            if (vlifts := self.virtlifts.get(virts[0])) is not None:
+                if (func := vlifts.get(cmpr)) is not None:
+                    return await func(cmpr, valu)
+
+        if isinstance(valu, s_node.Node):
+            if self.formfilter(valu.form) and cmpr == '=':
+                return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
+            valu = valu.ndef[1]
+
+        elif isinstance(valu, s_stormtypes.NodeRef):
+            form = self.modl.form(valu.valu[0])
+            if self.formfilter(form) and cmpr == '=':
+                return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
+            valu = valu.valu[1]
+
+        cmprs = {}
+        isvalid = False
+        novirts = False
+        badtype = False
+
+        for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
+            try:
+                for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
+                    cmprs[ncmpr] = True
+                isvalid = True
+            except s_exc.NoSuchVirt:
+                novirts = True
+            except s_exc.BadTypeValu:
+                badtype = True
+            except s_exc.NoSuchCmpr:
+                pass
+
+        if not isvalid:
+            if badtype:
+                mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)
+            elif novirts:
+                mesg = f'Virtual prop {virts[0]} is not valid for any types supported by {self.name}.'
+                raise s_exc.NoSuchVirt.init(virts[0], self, mesg=mesg)
+            else:
+                mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+                raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return tuple((cmpr, cval, stortype | s_layer.STOR_FLAG_POLY) for (cmpr, cval, stortype) in cmprs)
+
+    async def norm(self, valu, view=None):
+        vtyp = type(valu)
+
+        if vtyp == s_node.Node:
+            return await self._normStormNode(valu, view=view)
+
+        if vtyp == s_stormtypes.NodeRef:
+            return await self._normStormNodeRef(valu, view=view)
+
+        elif self.defaultforms is not None:
+            for formname in self.defaultforms:
+                form = self.modl.form(formname)
+                if form.locked:
+                    continue
+
+                try:
+                    norm, forminfo = await form.type.norm(valu, view=view)
+
+                    if view is None:
+                        view = False
+                        if (runt := s_scope.get('runt')) is not None:
+                            view = runt.view
+
+                    exists = False
+                    if view:
+                        for cform in self.modl.getChildForms(formname):
+                            if await view.getNodeByNdef((cform, norm)) is not None:
+                                formname = cform
+                                exists = True
+                                break
+                    info = {}
+
+                    if not exists:
+                        info['adds'] = ((formname, norm, forminfo),)
+
+                    if (subs := forminfo.get('subs')) is not None:
+                        info['subs'] = subs
+
+                    if (virts := forminfo.get('virts')) is not None:
+                        info['virts'] = dict(virts)
+
+                    return (formname, norm), info
+
+                except s_exc.BadTypeValu:
+                    if len(self.defaultforms) > 1:
+                        continue
+                    raise
+
+        raise s_exc.BadTypeValu(name=self.name, mesg=f'no norm for type: {vtyp}.')
+
+    async def _normStormNode(self, valu, view=None):
+
+        if self.formfilter(valu.form):
+            if valu.form.locked:
+                formname = valu.form.name
+                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+
+            return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
+
+        return await self.norm(valu.ndef[1], view=view)
+
+    async def _normStormNodeRef(self, valu, view=None):
+
+        formname = valu.valu[0]
+        form = self.modl.form(formname)
+
+        if self.formfilter(form):
+            if form.locked:
+                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+
+            if not valu.exists and await view.getNodeByNdef(valu.valu) is not None:
+                valu.exists = True
+                return valu.valu, {'skipadd': True, 'virts': valu.virts}
+            else:
+                norm, forminfo = await form.type.norm(valu.valu[1], view=view)
+                info = {'adds': ((formname, norm, forminfo),)}
+
+                if (virts := forminfo.get('virts')) is not None:
+                    info['virts'] = dict(virts)
+
+                return (formname, norm), info
+
+        return await self.norm(valu.valu[1], view=view)
+
+    def repr(self, norm):
+        formname, formvalu = norm
+
+        if (form := self.modl.form(formname)) is None:
+            raise s_exc.NoSuchForm.init(formname)
+
+        return form.type.repr(formvalu)
+
+    async def tostorm(self, valu):
+        return s_stormtypes.NodeRef(valu)
 
 class Data(Type):
 
@@ -2844,7 +3221,7 @@ class Time(IntBase):
             return self.prec
         return vval[0]
 
-    async def _storVirtPrec(self, valu, newprec):
+    async def _storVirtPrec(self, valu, newprec, oldvirts=None):
         if valu is None:
             mesg = 'Cannot set precision on an empty time value.'
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)

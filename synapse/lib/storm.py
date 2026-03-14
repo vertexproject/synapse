@@ -1089,7 +1089,7 @@ stormcmds = (
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                     [ meta:note=*
                         :text=$text
-                        :creator={[ syn:user=$lib.user.iden ]}
+                        :creator={[ syn:user=$lib.auth.users.get().iden ]}
                         :created=.created
                         :updated=.created ]
                     if $type {[ :type=$type ]}
@@ -1805,38 +1805,54 @@ class Runtime(s_base.Base):
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from e
 
     async def _joinEmbedStor(self, storage, embeds):
-        for nodePath, relProps in embeds.items():
+        for nodepath, relprops in embeds.items():
 
             await asyncio.sleep(0)
 
-            if (nid := relProps.get('$nid')) is None:
+            if (nid := relprops.get('$nid')) is None:
                 continue
 
             nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
-            for relProp in relProps.keys():
+            for relprop in relprops.keys():
 
                 await asyncio.sleep(0)
 
-                if relProp[0] == '$':
+                if not relprop or relprop[0] == '$':
                     continue
+
+                ismeta = relprop[0] == '.'
 
                 for idx, layrstor in enumerate(stor):
 
                     await asyncio.sleep(0)
 
-                    props = layrstor.get('props')
-                    if not props:
-                        continue
+                    if ismeta:
+                        metaname = relprop[1:]
+                        meta = layrstor.get('meta')
+                        if not meta:
+                            continue
 
-                    if relProp not in props:
-                        continue
+                        if metaname not in meta:
+                            continue
 
-                    if 'embeds' not in storage[idx]:
-                        storage[idx]['embeds'] = {}
+                        valu = meta[metaname]
 
-                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+                    else:
+                        props = layrstor.get('props')
+                        if not props:
+                            continue
+
+                        if relprop not in props:
+                            continue
+
+                        valu = props[relprop]
+
+                    if (storembeds := storage[idx].get('embeds')) is None:
+                        storembeds = storage[idx]['embeds'] = {}
+
+                    storembeds[f'{nodepath}::{relprop}'] = valu
 
     async def iterStormPodes(self):
         '''
@@ -3100,6 +3116,10 @@ class DiffCmd(Cmd):
         // Lift nodes by multiple tags (results are uniqued)
 
         diff --tag cno.mal.redtree rep.vt
+
+        // Lift nodes by tags specified in a list variable
+
+        $tags=(cno.mal.redtree, rep.vt) diff --tag $tags
     '''
     name = 'diff'
     readonly = True
@@ -3126,10 +3146,22 @@ class DiffCmd(Cmd):
 
         if self.opts.tag:
 
-            tagnames = [await s_stormtypes.tostr(tag) for tag in self.opts.tag]
+            tags = []
+            for tag in self.opts.tag:
+                tag = await s_stormtypes.toprim(tag)
+                if isinstance(tag, (list, tuple)):
+                    tags.extend(tag)
+                else:
+                    tags.append(tag)
+
+            for tag in tags:
+                if not isinstance(tag, str):
+                    name = await s_stormtypes.totype(tag, basetypes=True)
+                    mesg = f'diff --tag arguments must be strings, got {name}.'
+                    raise s_exc.BadArg(mesg=mesg)
 
             layr = runt.view.wlyr
-            async for nid, sode in layr.liftByTags(tagnames):
+            async for nid, sode in layr.liftByTags(tags):
                 node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
@@ -3236,6 +3268,9 @@ class CopyToCmd(Cmd):
                                    f'value: {node.iden()} {prop.full} = {valurepr}'
                             await runt.warn(mesg)
                             continue
+
+                    if prop.type.ispoly:
+                        valu = s_stormtypes.NodeRef(node.getWithVirts(name))
 
                     await proto.set(name, valu)
 
@@ -3661,7 +3696,7 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                for name, (valu, stortype, _) in sode.get('props', {}).items():
+                for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
@@ -3689,6 +3724,9 @@ class MergeCmd(Cmd):
                         valurepr = prop.type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
+                        if prop.type.ispoly:
+                            valu = s_stormtypes.NodeRef((valu, virts))
+
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
                             subs.append((s_layer.EDIT_PROP_DEL, (name,)))
@@ -4769,7 +4807,7 @@ class DelNodeCmd(Cmd):
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.get('sha256')
+                sha256 = node.get('sha256')[1]
 
                 await node.delete(force=force)
 
@@ -4858,11 +4896,11 @@ class MoveTagCmd(Cmd):
         tagcycle = [newstr]
         isnow = newt.get('isnow')
         while isnow:
-            if isnow in tagcycle:
+            if isnow[1] in tagcycle:
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
-            tagcycle.append(isnow)
-            newtag = await view.addNode('syn:tag', isnow)
+            tagcycle.append(isnow[1])
+            newtag = await view.addNode('syn:tag', isnow[1])
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4892,7 +4930,7 @@ class MoveTagCmd(Cmd):
 
             olddocurl = node.get('doc:url')
             if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl)
+                await newnode.set('doc:url', olddocurl[1])
 
             oldtitle = node.get('title')
             if oldtitle is not None:

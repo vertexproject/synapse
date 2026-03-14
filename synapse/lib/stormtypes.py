@@ -809,13 +809,24 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.view.iden
+        if ddef is None:
+            ddef = {}
+
+        ddef.pop('view', None)
+
+        stormopts = ddef.get('stormopts')
+        viewiden = None
+        if stormopts is not None:
+            viewiden = stormopts.get('view')
+        if viewiden is not None:
+            viewiden = await tostr(viewiden)
+            view = self.runt.view.core.reqView(viewiden)
+        else:
+            viewiden = self.runt.view.iden
+
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
-
-        if ddef is None:
-            ddef = {}
 
         ddef['name'] = name
         ddef['user'] = self.runt.user.iden
@@ -925,6 +936,8 @@ class LibService(Lib):
                                                          'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('service',), 'gate': 'cortex',
+            'desc': 'Controls all service permissions.'},
         {'perm': ('service', 'add'), 'gate': 'cortex',
             'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
         {'perm': ('service', 'del'), 'gate': 'cortex',
@@ -946,12 +959,6 @@ class LibService(Lib):
             'wait': self._libSvcWait,
         }
 
-    async def _checkSvcGetPerm(self, ssvc):
-        '''
-        Helper to handle service.get.* permissions
-        '''
-        self.runt.confirm(('service', 'get', ssvc.iden))
-
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
         sdef = {
@@ -969,7 +976,7 @@ class LibService(Lib):
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
-        await self._checkSvcGetPerm(ssvc)
+        self.runt.confirm(('service', 'get'))
         return Service(self.runt, ssvc)
 
     @stormfunc(readonly=True)
@@ -1001,7 +1008,7 @@ class LibService(Lib):
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-        await self._checkSvcGetPerm(ssvc)
+        self.runt.confirm(('service', 'get'))
 
         # Short circuit asyncio.wait_for logic by checking the ready event
         # value. If we call wait_for with a timeout=0 we'll almost always
@@ -1544,6 +1551,8 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
+        if typeitem.ispoly:
+            return NodeRef((norm, info.get('virts')))
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1555,6 +1564,8 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
+            if typeitem.ispoly:
+                return (True, NodeRef((norm, info.get('virts'))))
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -2699,7 +2710,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if self.runt.model.form(form) is None:
+        if not ptyp.ispoly and self.runt.model.form(form) is None:
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 
@@ -2717,7 +2728,11 @@ class LibLift(Lib):
                 continue
 
             lastvalu = valu
-            yield await self.runt.view.getNodeByNdef((form, valu))
+
+            if ptyp.ispoly:
+                yield await self.runt.view.getNodeByNdef(valu)
+            else:
+                yield await self.runt.view.getNodeByNdef((form, valu))
 
     @stormfunc(readonly=True)
     async def _byPropsDict(self, form, props, errok=False):
@@ -2754,7 +2769,12 @@ class LibLift(Lib):
             counts.sort(key=lambda x: x[0])
 
             count, prop, norm = counts[0]
-            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+
+            cmpr = '='
+            if prop.type.ispoly:
+                cmpr = 'ndef='
+
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, norm, norm=False):
                 await asyncio.sleep(0)
 
                 for count, prop, norm in counts[1:]:
@@ -3730,6 +3750,8 @@ class LibQueue(Lib):
                               'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('queue',), 'gate': 'cortex',
+         'desc': 'Controls all queue permissions.'},
         {'perm': ('queue', 'add'), 'gate': 'cortex',
          'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
@@ -3995,9 +4017,7 @@ class LibTelepath(Lib):
 
     async def _methTeleOpen(self, url):
         url = await tostr(url)
-        scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
         try:
             return Proxy(self.runt, await self.runt.getTeleProxy(url))
         except s_exc.SynErr:
@@ -5345,7 +5365,7 @@ class List(Prim):
         return ret
 
     async def _methListRemove(self, item, all=False):
-        item = await toprim(item)
+        item = await toprim(item, use_list=True)
         all = await tobool(all)
 
         if item not in self.valu:
@@ -5868,7 +5888,15 @@ class NodeProps(Prim):
 
     async def _derefGet(self, name):
         name = await tostr(name)
-        return self.valu.get(name)
+        prop = self.valu.form.reqProp(name)
+
+        if prop.type.ispoly:
+            valu = self.valu.getWithVirts(name)
+            if valu[0] is None:
+                return
+            return await prop.type.tostorm(valu)
+
+        return await prop.type.tostorm(self.valu.get(name))
 
     async def setitem(self, name, valu):
         '''
@@ -6050,6 +6078,99 @@ class NodeData(Prim):
         if self.path is not None:
             # set the data value into the path nodedata dict so it gets sent
             self.path.setData(self.valu.nid, name, valu)
+
+@registry.registerType
+class NodeRef(Prim):
+    '''
+    A form and value tuple representing a node.
+    '''
+    _storm_locals = (
+        {'name': 'form', 'desc': 'Get the form of the tuple.',
+         'type': 'str'},
+        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+         'type': 'list'},
+        {'name': 'value', 'desc': 'Get the valu of the tuple.',
+         'type': 'any'},
+        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
+         'type': {'type': 'function', '_funcname': '_methIsForm',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                  ),
+                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
+
+    )
+    _storm_typename = 'ndef'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        valu, virts = valu
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+        self.exists = None
+        self.virts = virts
+
+    def __hash__(self):
+        return hash(self.valu[1])
+
+    def __int__(self):
+        valu = self.valu[1]
+        if isinstance(valu, str):
+            return int(valu, 0)
+        return int(valu)
+
+    def __str__(self):
+        return str(self.valu[1])
+
+    def __len__(self):
+        return len(self.valu[1])
+
+    def __eq__(self, othr):
+        if isinstance(othr, NodeRef):
+            return othr.valu[1] == self.valu[1]
+        return othr == self.valu[1]
+
+    def getObjLocals(self):
+        return {
+            'form': self.valu[0],
+            'ndef': self.valu,
+            'value': self.valu[1],
+            'isform': self._methIsForm,
+        }
+
+    async def stormrepr(self):
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        return form.type.repr(self.valu[1])
+
+    def value(self):
+        return self.valu[1]
+
+    @stormfunc(readonly=True)
+    async def _derefGet(self, name):
+        name = await tostr(name)
+
+        if self.virts is not None:
+            if (valu := self.virts.get(name)) is not None:
+                return valu[0]
+
+        return await fromprim(self.valu[1]).deref(name)
+
+    @stormfunc(readonly=True)
+    async def _methIsForm(self, name):
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        runt = s_scope.get('runt')
+        form = runt.view.core.model.reqForm(self.valu[0])
+        for name in names:
+            if name in form.formtypes:
+                return True
+
+        return False
 
 @registry.registerType
 class Node(Prim):
@@ -7187,6 +7308,9 @@ class Layer(Prim):
                 return
 
             norm, info = await prop.type.norm(propvalu, view=False)
+            if prop.type.ispoly:
+                norm = norm[1]
+
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield nid, sref
@@ -7275,9 +7399,7 @@ class Layer(Prim):
             mesg = '$layr.addPull() requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
 
         async with await s_telepath.openurl(url):
             pass
@@ -7320,10 +7442,7 @@ class Layer(Prim):
             mesg = '$layer.addPush() requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        scheme = url.split('://')[0]
-
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
 
         async with await s_telepath.openurl(url):
             pass
@@ -8559,6 +8678,8 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
+        {'perm': ('trigger',), 'gate': 'cortex',
+         'desc': 'Controls all trigger permissions.'},
         {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'trigger',
@@ -9139,6 +9260,8 @@ class LibCron(Lib):
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
+        {'perm': ('cron',), 'gate': 'cortex',
+         'desc': 'Controls all cron permissions.'},
         {'perm': ('cron', 'add'), 'gate': 'view',
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
@@ -9833,7 +9956,7 @@ def fromprim(valu, path=None, basetypes=True):
 async def tostor(valu, packsafe=False):
 
     if not packsafe:
-        if isinstance(valu, s_node.Node):
+        if isinstance(valu, (s_node.Node, NodeRef)):
             return valu
 
         if isinstance(valu, Node):

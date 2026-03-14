@@ -65,9 +65,6 @@ modeldefs = (
                     ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The primary url for the {title}.'}),
-
                     ('lifespan', ('ival', {}), {
                         'virts': (
 
@@ -83,7 +80,15 @@ modeldefs = (
                         'doc': 'The lifespan of the {title}.'}),
 
                     # FIXME place of birth / death?
-                    # FIXME lang
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('lang', ('lang:language', {}), {
+                        'doc': 'The primary language of the {title}.'}),
+
+                    ('langs', ('array', {'type': 'lang:language'}), {
+                        'doc': 'An array of alternate languages for the {title}.'}),
 
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
@@ -92,6 +97,7 @@ modeldefs = (
                         'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
+                        'alts': ('phones',),
                         'doc': 'The primary phone number for the {title}.'}),
 
                     ('phones', ('array', {'type': 'tel:phone'}), {
@@ -158,29 +164,21 @@ modeldefs = (
 
         'types': (
 
-            ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
-                'doc': 'An event where individuals may attend or participate.'}),
-
-            ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
-                'doc': 'A node which implements the entity:contactable interface.'}),
-
             ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
                 'doc': 'A fully resolved entity such as a person or organization.'}),
 
             ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                 'doc': 'A singular entity such as a person.'}),
 
-            ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
-                'doc': 'A node which inherits the entity:identifier interface.'}),
-
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
 
             # FIXME syn:user is an actor...
-            ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
-                'doc': 'An entity which has initiative to act.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'prevnames': ('ou:jobtitle', 'ou:role'),
                 'doc': 'A title or position name used by an entity.'}),
 

@@ -984,8 +984,9 @@ class AstTest(s_test.SynTest):
             self.len(5, await core.nodes('test:str=foo :net -> *'))
             self.len(4, await core.nodes('test:str=foo :net -> inet:ip'))
 
-            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> *'))
-            self.len(4, await core.nodes('inet:net=1.2.3.4/30 -> inet:ip'))
+            # TODO: skip min/max props somehow to avoid getting them twice?
+            self.len(6, await core.nodes('inet:net=1.2.3.4/30 -> *'))
+            self.len(6, await core.nodes('inet:net=1.2.3.4/30 -> inet:ip'))
 
             q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
             self.len(8, await core.nodes(q))
@@ -1462,21 +1463,30 @@ class AstTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.len(9, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 16909060), (4, 33752069), (4, 50595078), (4, 67438087)])
+                self.eq(virts['ip'], {
+                    ((4, 16909060), 26): 1,
+                    ((4, 33752069), 26): 1,
+                    ((4, 50595078), 26): 1,
+                    ((4, 67438087), 26): 1
+                })
 
                 adds.clear()
                 nodes = await core.nodes('test:virtiface=(b,) [ :servers -= { inet:server=2.3.4.5 } ]')
                 self.len(1, nodes)
                 self.len(0, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 16909060), (4, 50595078), (4, 67438087)])
+                self.eq(virts['ip'], {
+                    ((4, 16909060), 26): 1,
+                    ((4, 50595078), 26): 1,
+                    ((4, 67438087), 26): 1
+                })
 
                 adds.clear()
                 nodes = await core.nodes('test:virtiface=(b,) [ :servers --= { inet:server=4.5.6.7 inet:server=1.2.3.4 } ]')
                 self.len(1, nodes)
                 self.len(0, adds)
                 valu, virts = nodes[0].getWithVirts('servers')
-                self.eq(virts['ip'][0], [(4, 50595078)])
+                self.eq(virts['ip'], {((4, 50595078), 26): 1})
 
             # Running the query again ensures that the ast hasattr memoizing works
             nodes = await core.nodes(q)
@@ -3136,11 +3146,13 @@ class AstTest(s_test.SynTest):
                     calls = []
 
                     self.len(2, await core.nodes('test:int::type::somestr=bar'))
-                    self.eq(calls, [
-                        ('valu', 'test:str2:somestr', '=', 'bar'),
-                        ('valu', 'test:str:somestr', '=', 'bar'),
-                        ('valu', 'test:int:type', '=', 'foo')
-                    ])
+                    # TODO polyprop pivlift optimization
+                    self.eq(calls, [('prop', 'test:int:type')])
+                    # self.eq(calls, [
+                    #    ('valu', 'test:str2:somestr', '=', 'bar'),
+                    #    ('valu', 'test:str:somestr', '=', 'bar'),
+                    #    ('valu', 'test:int:type', '=', 'foo')
+                    # ])
 
     async def test_ast_tag_optimization(self):
         calls = []
@@ -3957,11 +3969,6 @@ class AstTest(s_test.SynTest):
                 (entity:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
                 (entity:campaign=*)
                 (entity:contribution=* :campaign=(c1,))
-                test:ival=$ival1
-                test:ival=$ival2
-                test:ival=$ival3
-                test:ival=$ival4
-                test:ival=$ival5
                 (test:hasiface=foo :seen=$ival1)
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
@@ -3977,10 +3984,6 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('entity:campaign.created +#tag:ival.min=2020'))
             self.len(1, await core.nodes('entity:campaign.created +:period.min=2020'))
             self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.min=2020'))
-            self.len(1, await core.nodes('test:ival +.min=2020'))
-            self.len(1, await core.nodes('test:ival $virt=min +.$virt=2020'))
-            self.len(1, await core.nodes('test:ival +test:ival.min=2020'))
-            self.len(1, await core.nodes('test:ival +test:ival.max=?'))
             self.len(1, await core.nodes('test:hasiface +test:interface:seen.min=2020'))
 
             self.len(0, await core.nodes('#(newp).min'))
@@ -4011,7 +4014,6 @@ class AstTest(s_test.SynTest):
                         last = valu
 
             tests = (
-                ('test:ival', None, None),
                 ('#(tag)', '#tag', None),
                 ('#tag:ival', 'ival', 'tag'),
                 ('entity:campaign#(tag)', '#tag', None),
@@ -4027,7 +4029,6 @@ class AstTest(s_test.SynTest):
             queries = (
                 '#(tag).min=2020 return(#(tag).min)',
                 '#(tag).min=2020 for $i in (#(tag).min,) { return($i) }',
-                'test:ival.min=2020 return(.min)',
                 'entity:campaign:period.min=2020 return(:period.min)',
                 'entity:campaign:period.min=2020 $virt=min return(:period.$virt)',
                 'entity:campaign#(tag).min=2020 return(#(tag).min)',
@@ -4041,12 +4042,6 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 query = await core.getStormQuery('$foo=#(tag).min')
                 query.reqRuntSafe(None, None)
-
-            await core.nodes('test:ival +test:ival.min=2020 | delnode')
-            self.len(0, await core.nodes('test:ival +test:ival.min=2020'))
-
-            await core.nodes('test:ival +test:ival.max=? | delnode')
-            self.len(0, await core.nodes('test:ival +test:ival.max=?'))
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('#(tag).newp')

@@ -387,7 +387,7 @@ a more "human friendly" method.
 
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
-.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
+.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :websites+=https://www.justice.gov/ :name="U.S. Department of Justice" ]
 .. storm-pre:: [ entity:contact=d41d8cd98f00b204e9800998ecf8427e :org:name="U.S. Department of Justice" :place:address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :place:loc="us.dc.washington" ]
 .. storm-cli:: entity:contact:org:name="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 

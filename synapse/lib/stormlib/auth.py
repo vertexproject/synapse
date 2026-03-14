@@ -1574,71 +1574,6 @@ class LibAuth(s_stormtypes.Lib):
         return self.runt.view.core.getPermDef(perm)
 
 @s_stormtypes.registry.registerLib
-class LibUser(s_stormtypes.Lib):
-    '''
-    A Storm Library for interacting with data about the current user.
-    '''
-    _storm_locals = (
-        {'name': 'name', 'desc': 'Get the name of the current runtime user.',
-         'type': {'type': 'function', '_funcname': '_libUserName',
-                  'returns': {'type': 'str', 'desc': 'The username.', }}},
-        {'name': 'allowed', 'desc': 'Check if the current user has a given permission.',
-         'type': {'type': 'function', '_funcname': '_libUserAllowed',
-                  'args': (
-                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
-                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
-                  ),
-                  'returns': {'type': 'boolean',
-                              'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
-         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
-                  'returns': {'type': 'auth:user:vars'}}},
-        {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
-        'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
-                 'returns': {'type': 'auth:user:profile', }}},
-        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
-    )
-    _storm_lib_path = ('user', )
-
-    def getObjLocals(self):
-        return {
-            'name': self._libUserName,
-            'iden': self.runt.user.iden,
-            'allowed': self._libUserAllowed,
-        }
-
-    def addLibFuncs(self):
-        super().addLibFuncs()
-        self.locls.update({
-            'json': UserJson(self.runt, self.runt.user.iden),
-        })
-
-        self.ctors.update({
-            'vars': self._ctorUserVars,
-            'profile': self._ctorUserProfile,
-        })
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _libUserName(self):
-        return self.runt.user.name
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _libUserAllowed(self, permname, gateiden=None, default=False):
-        permname = await s_stormtypes.toprim(permname)
-        gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
-        default = await s_stormtypes.tobool(default)
-
-        perm = permname.split('.')
-        return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
-
-    def _ctorUserProfile(self, path=None):
-        return UserProfile(self.runt, self.runt.user.iden)
-
-    def _ctorUserVars(self, path=None):
-        return UserVars(self.runt, self.runt.user.iden)
-
-@s_stormtypes.registry.registerLib
 class LibUsers(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with Auth Users in the Cortex.
@@ -1680,11 +1615,25 @@ class LibUsers(s_stormtypes.Lib):
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
+        {'perm': ('auth',), 'gate': 'cortex',
+         'desc': 'Controls all auth permissions.'},
+        {'perm': ('auth', 'role'), 'gate': 'cortex',
+         'desc': 'Controls all auth role permissions.'},
+        {'perm': ('auth', 'role', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a role.'},
+        {'perm': ('auth', 'role', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a role.'},
+        {'perm': ('auth', 'role', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth role property.'},
         {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
          'desc': 'Permits a user to change the name of a role.'},
         {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
          'desc': 'Permits a user to modify rules of a role.'},
 
+        {'perm': ('auth', 'self'), 'gate': 'cortex',
+         'desc': 'Controls all auth self permissions.'},
+        {'perm': ('auth', 'self', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth self property.'},
          {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
          'desc': 'Permits a user to change their own email address.',
          'default': True},
@@ -1697,6 +1646,18 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'self', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage their API keys.',
          'default': True},
+        {'perm': ('auth', 'user'), 'gate': 'cortex',
+         'desc': 'Controls all auth user permissions.'},
+        {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a user.'},
+        {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a user.'},
+        {'perm': ('auth', 'user', 'get'), 'gate': 'cortex',
+         'desc': 'Controls all auth user get permissions.'},
+        {'perm': ('auth', 'user', 'pop'), 'gate': 'cortex',
+         'desc': 'Controls all auth user pop permissions.'},
+        {'perm': ('auth', 'user', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth user property.'},
         {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
          'desc': 'Controls granting roles to a user.'},
         {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',

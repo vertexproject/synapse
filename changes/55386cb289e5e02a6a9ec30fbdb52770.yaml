@@ -1,0 +1,6 @@
+---
+desc: Add ``risk:targetable`` interface to ``entity:title``.
+desc:literal: false
+prs: []
+type: model
+...

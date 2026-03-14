@@ -596,6 +596,8 @@ class Fqdn(s_types.Type):
             '=': self._storLiftEq,
         })
 
+        self.storlifts.pop('range=', None)
+
         self.hosttype = self.modl.type('str').clone({'lower': True})
         self.booltype = self.modl.type('bool')
 
@@ -1166,24 +1168,24 @@ async def _onAddFqdn(node):
         if protonode.get('issuffix') is None:
             await protonode.set('issuffix', False)
 
-        parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.view.getNodeByNdef(domain)
         if parent is None:
-            parent = await editor.addNode('inet:fqdn', domain)
+            parent = await editor.addNode('inet:fqdn', domain[1])
 
         if parent.get('issuffix'):
             await protonode.set('iszone', True)
-            await protonode.set('zone', fqdn)
+            await protonode.set('zone', node.ndef[1])
             return
 
         await protonode.set('iszone', False)
 
         if parent.get('iszone'):
-            await protonode.set('zone', domain)
+            await protonode.set('zone', domain[1])
             return
 
         zone = parent.get('zone')
         if zone is not None:
-            await protonode.set('zone', zone)
+            await protonode.set('zone', zone[1])
 
 async def _onSetFqdnIsSuffix(node):
 
@@ -1203,11 +1205,9 @@ async def _onSetFqdnIsSuffix(node):
 
 async def _onSetFqdnIsZone(node):
 
-    fqdn = node.ndef[1]
-
     iszone = node.get('iszone')
     if iszone:
-        await node.set('zone', fqdn)
+        await node.set('zone', node.ndef[1])
         return
 
     # we are not a zone...
@@ -1217,24 +1217,24 @@ async def _onSetFqdnIsZone(node):
         await node.pop('zone')
         return
 
-    parent = await node.view.addNode('inet:fqdn', domain)
+    parent = await node.view.addNode('inet:fqdn', domain[1])
 
     zone = parent.get('zone')
     if zone is None:
         await node.pop('zone')
         return
 
-    await node.set('zone', zone)
+    await node.set('zone', zone[1])
 
 async def _onSetFqdnZone(node):
 
-    todo = collections.deque([node.ndef[1]])
+    todo = collections.deque([node.ndef])
     zone = node.get('zone')
 
     async with node.view.getEditor() as editor:
         while todo:
             fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
                 await asyncio.sleep(0)
 
                 # if they are their own zone level, skip
@@ -1243,9 +1243,9 @@ async def _onSetFqdnZone(node):
 
                 # the have the same zone we do
                 protonode = editor.loadNode(child)
-                await protonode.set('zone', zone)
+                await protonode.set('zone', zone[1])
 
-                todo.append(child.ndef[1])
+                todo.append(child.ndef)
 
 modeldefs = (
     ('inet', {
@@ -1443,6 +1443,9 @@ modeldefs = (
                 ),
                 'doc': 'A single HTTP request.'}),
 
+            ('inet:hyperlink', ('guid', {}), {
+                'doc': 'A URL link embedded in a message.'}),
+
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -1513,9 +1516,6 @@ modeldefs = (
                 ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
-                'doc': 'A node which inherits the inet:service:object interface.'}),
-
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:action', {}),
@@ -1571,8 +1571,6 @@ modeldefs = (
                 ),
                 'doc': 'A unique email message header.'}),
 
-            ('inet:email:message:link', ('guid', {}), {
-                'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
@@ -1671,9 +1669,6 @@ modeldefs = (
                 ),
                 'doc': 'An authenticated session.'}),
 
-            ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
-                'doc': 'A node which implements the inet:service:joinable interface.'}),
-
             ('inet:service:role', ('guid', {}), {
                 'template': {'title': 'service role'},
                 'interfaces': (
@@ -1710,8 +1705,6 @@ modeldefs = (
                 ),
                 'doc': 'A message or post created by an account.'}),
 
-            ('inet:service:message:link', ('guid', {}), {
-                'doc': 'A URL link included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1757,9 +1750,6 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'doc': 'A subscription to a service platform or instance.'}),
-
-            ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
-                'doc': 'A node which may subscribe to a service subscription.'}),
 
             ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -2075,7 +2065,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow which delivered the message.'}),
 
-                ('links', ('array', {'type': 'inet:email:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -2089,13 +2079,6 @@ modeldefs = (
                 ('value', ('str', {}), {
                     'computed': True,
                     'doc': 'The value of the email header.'}),
-            )),
-
-            ('inet:email:message:link', {}, (
-                ('url', ('inet:url', {}), {
-                    'doc': 'The url contained within the email message.'}),
-                ('text', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:asn', {}, (
@@ -2370,6 +2353,15 @@ modeldefs = (
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
+            )),
+
+            ('inet:hyperlink', {}, (
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL target of the hyperlink.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:iface:type:taxonomy', {}, ()),
@@ -3057,7 +3049,7 @@ modeldefs = (
                 ('repost', ('inet:service:message', {}), {
                     'doc': 'The original message reposted by this message.'}),
 
-                ('links', ('array', {'type': 'inet:service:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links contained within the message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -3089,14 +3081,8 @@ modeldefs = (
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
-            ('inet:service:message:link', {}, (
 
-                ('title', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL contained within the message.'}),
-            )),
 
             ('inet:service:emote', {}, (
 
