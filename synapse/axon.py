@@ -168,7 +168,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
                 return False
 
             # ranges are *inclusive*...
-            self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
+            self.set_header('Content-Range', f'bytes {soff}-{eoff - 1}/{self.blobsize}')
             self.set_header('Content-Length', str(cont_len))
             # TODO eventually support multi-range returns
         else:

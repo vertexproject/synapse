@@ -20,7 +20,7 @@ def printrole(role, outp):
     outp.printf('  Gates:')
     for gateiden, gateinfo in role.get('authgates', {}).items():
         outp.printf(f'    {gateiden}')
-        outp.printf(f'      Admin: {gateinfo.get("admin") == True}')
+        outp.printf(f'      Admin: {gateinfo.get("admin") == True}')  # noqa: E712
         for indx, rule in enumerate(gateinfo.get('rules', ())):
             outp.printf(f'      [{str(indx).ljust(3)}] - {s_common.reprauthrule(rule)}')
 

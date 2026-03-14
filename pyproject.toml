@@ -60,7 +60,6 @@ dev = [
     'pytest>=7.2.0,<8.0.0',
     'autopep8>=2.0.4,<3.0.0',
     'pytest-cov>=4.0.0,<5.0.0',
-    'pycodestyle>=2.10.0,<3.0.0',
     'bump2version>=1.0.1,<1.1.0',
     'pytest-xdist>=3.0.2,<4.0.0',
     'coverage>=7.0.0,<8.0.0',
@@ -102,13 +101,26 @@ include = [
     'scripts/*.py',
     'examples/*.py',
 ]
+exclude = [
+    'synapse/vendor/*',
+]
 target-version = "py311"
+line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E251", # Whitespace around kwargs; preview rule
-    "F821",  # Check for undefined names - this is generally fatal
-    "W191", "W191", "W292", "W293", "W391",  # Whitespace checks; W391 is a preview rule.
-    "W605", # invalid escape sequence
+    "E101", "E111", "E114",
+    "E201", "E202", "E203", "E221", "E222", "E223", "E224", "E225", "E226", "E227", "E228", "E231", "E241", "E242", "E251",
+    "E265",
+    "E303", "E304",
+    "E502",
+    "E711", "E712", "E713", "E714", "E721",
+    "E741", "E742", "E743",
+    "F821",
+    "W191", "W291", "W292", "W293", "W391",
+    "W605",
 ]
 preview = true
+
+[tool.ruff.lint.per-file-ignores]
+"synapse/tests/test_lib_scrape.py" = ["W291"]

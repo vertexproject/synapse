@@ -124,12 +124,9 @@ commands:
           # a single runner using xdist.
           name: syntax
           command: |
-            pip install "pycodestyle>=2.10.0,<3.0.0" ruff
+            pip install ruff
             if [ -n "${RUN_SYNTAX}" ]; then
                 ruff check
-                pycodestyle synapse
-                pycodestyle scripts
-                pycodestyle examples
             fi
 
       - run:

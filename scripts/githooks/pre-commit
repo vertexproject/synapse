@@ -2,7 +2,7 @@
 """
 Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
 
-Requires pycodestyle and nbstripout to be installed.
+Requires ruff and nbstripout to be installed.
 
 Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
@@ -46,12 +46,12 @@ def lint_python():
             with open(filename, 'w') as f:
                 system('git', 'show', ':' + name, stdout=f)
 
-        args = ['pycodestyle', f'--config={gitdir}/setup.cfg']
+        args = ['ruff', 'check', f'--config={gitdir}/pyproject.toml']
         args.append('.')
         output = system(*args, cwd=tempdir)
         shutil.rmtree(tempdir)
         if output:
-            print('PEP8 style violations have been detected.  Please fix them\n'
+            print('Style violations have been detected.  Please fix them\n'
                   'or force the commit with "git commit --no-verify".\n')
             print(output.decode('utf-8'),)
             sys.exit(1)
