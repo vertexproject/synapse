@@ -1224,7 +1224,7 @@ modeldefs = (
                     ('issuffix', ('bool', {}), {
                         'on': {'set': {'q': '''
                             $issuffix = :issuffix
-                            -> inet:fqdn:domain +(:iszone != $issuffix) [ :iszone=$issuffix ]
+                            -> inet:fqdn:domain [ :iszone=$issuffix ]
                         '''}},
                         'doc': 'True if the FQDN is considered a suffix.'}),
 
@@ -1243,7 +1243,7 @@ modeldefs = (
                     ('zone', ('inet:fqdn', {}), {
                         'on': {'set': {'q': '''
                             $zone = :zone
-                            -> inet:fqdn:domain -:iszone +(:zone != $zone) [ :zone=$zone ]
+                            -> inet:fqdn:domain -:iszone [ :zone=$zone ]
                         '''}},
                         'doc': 'The zone level parent for this FQDN.'}),
                 ),
