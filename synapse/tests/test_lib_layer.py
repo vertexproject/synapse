@@ -1738,6 +1738,72 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq(info00, await core.callStorm('return($lib.layer.get().pack())'))
 
+    async def test_layer_cachesize(self):
+
+        # Test default cache size
+        async with self.getTestCore() as core:
+            layr = core.getView().layers[0]
+            self.eq(layr.buidcache.maxsize, s_layer.BUID_CACHE_SIZE)
+
+        # Test env var override
+        with self.setTstEnvars(SYN_CORTEX_LAYER_CACHE_SIZE='20000'):
+            async with self.getTestCore() as core:
+                layr = core.getView().layers[0]
+                self.eq(layr.buidcache.maxsize, 20000)
+
+        # Test layer config override (takes priority over env var)
+        with self.setTstEnvars(SYN_CORTEX_LAYER_CACHE_SIZE='20000'):
+            async with self.getTestCore() as core:
+                ldef = await core.addLayer({'cachesize': 5000})
+                layr = core.getLayer(ldef['iden'])
+                self.eq(layr.buidcache.maxsize, 5000)
+
+        # Test Storm set/get for cachesize
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                layr = core.getView().layers[0]
+
+                # Set cachesize via Storm
+                self.eq(50000, await core.callStorm('''
+                    $layer = $lib.layer.get()
+                    $layer.set(cachesize, 50000)
+                    return($layer.get(cachesize))
+                '''))
+
+                # Verify the buidcache was resized
+                self.eq(layr.buidcache.maxsize, 50000)
+
+                # Verify it persists in pack
+                info = await core.callStorm('return($lib.layer.get().pack())')
+                self.eq(info['cachesize'], 50000)
+
+            # Verify persistence across restart
+            async with self.getTestCore(dirn=dirn) as core:
+
+                layr = core.getView().layers[0]
+                self.eq(layr.buidcache.maxsize, 50000)
+
+                info = await core.callStorm('return($lib.layer.get().pack())')
+                self.eq(info['cachesize'], 50000)
+
+        # Test cachesize via layer.add Storm command
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('layer.add --cachesize 30000')
+            self.stormHasNoWarnErr(msgs)
+
+            ldef = [m[1] for m in msgs if m[0] == 'print'][0]
+            # Get the layer and verify the cachesize
+            layers = await core.callStorm('return($lib.layer.list())')
+            newlayr = [l for l in layers if l.get('cachesize') == 30000]
+            self.len(1, newlayr)
+
+        # Test invalid cachesize
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadOptValu):
+                await core.callStorm('$layer = $lib.layer.get() $layer.set(cachesize, 0)')
+
     async def test_reindex_byarray(self):
 
         async with self.getRegrCore('reindex-byarray2') as core:
