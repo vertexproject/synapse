@@ -54,7 +54,6 @@ class AstNode:
         self.kids = []
         self.astinfo = astinfo
         self.hasast = {}
-        self._optimized = False
         [self.addKid(k) for k in kids]
 
     def getAstText(self):
@@ -157,10 +156,7 @@ class AstNode:
         return False
 
     def optimize(self):
-        if self._optimized:
-            return
         [k.optimize() for k in self.kids]
-        self._optimized = True
 
     def __iter__(self):
         for kid in self.kids:
