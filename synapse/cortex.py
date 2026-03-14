@@ -1230,7 +1230,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return tuple(permdefs)
 
-
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
