@@ -1202,10 +1202,10 @@ modeldefs = (
                 ),
                 'on': {'add': {'q': '''
                     $domain = :domain
-                    if ($domain = $lib.null) {
+                    if ($domain = (null)) {
                         [ :iszone=(false) :issuffix=(true) ]
                     } else {
-                        if (:issuffix = $lib.null) { [ :issuffix=(false) ] }
+                        if (:issuffix = (null)) { [ :issuffix=(false) ] }
                         { [ inet:fqdn=$domain ] }
                         if (:domain::issuffix) {
                             [ :iszone=(true) :zone=$node.value() ]
@@ -1215,7 +1215,7 @@ modeldefs = (
                                 [ :zone=$domain ]
                             } else {
                                 $zone = :domain::zone
-                                if ($zone != $lib.null) { [ :zone=$zone ] }
+                                if ($zone != (null)) { [ :zone=$zone ] }
                             }
                         }
                     }
@@ -1242,12 +1242,12 @@ modeldefs = (
                                 [ :zone=$node.value() ]
                             } else {
                                 $domain = :domain
-                                if ($domain = $lib.null) {
+                                if ($domain = (null)) {
                                     [ -:zone ]
                                 } else {
                                     { [ inet:fqdn=$domain ] }
                                     $zone = :domain::zone
-                                    if ($zone = $lib.null) {
+                                    if ($zone = (null)) {
                                         [ -:zone ]
                                     } else {
                                         [ :zone=$zone ]
