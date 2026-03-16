@@ -152,7 +152,7 @@ class DocModelTest(s_tests.SynTest):
 
             nodes = await core.nodes('''[
                 doc:reference=*
-                    :source={[ risk:vuln=* :cve=cve-2025-12345 ]}
+                    :source={[ risk:vuln=* :id=cve-2025-12345 ]}
                     :text="an exploit example"
                     :doc:url=https://github.com/foo/bar/exploit.py
                     +#test01
