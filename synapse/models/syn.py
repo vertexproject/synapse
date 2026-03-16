@@ -1,82 +1,6 @@
 import logging
 
-import synapse.exc as s_exc
-
-import synapse.lib.types as s_types
-
 logger = logging.getLogger(__name__)
-
-class SynUser(s_types.Guid):
-
-    async def _normPyStr(self, text, view=None):
-
-        core = self.modl.core
-        if core is not None:
-
-            # direct use of an iden takes precedence...
-            user = core.auth.user(text)
-            if user is not None:
-                return user.iden, {}
-
-            user = core.auth._getUserByName(text)
-            if user is not None:
-                return user.iden, {}
-
-        if text == '*':
-            mesg = f'{self.name} values must be a valid username or a guid.'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
-
-        try:
-            return await s_types.Guid._normPyStr(self, text)
-        except s_exc.BadTypeValu:
-            mesg = f'No user named {text} and value is not a guid.'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
-
-    def repr(self, iden):
-
-        core = self.modl.core
-        if core is not None:
-            user = core.auth.user(iden)
-            if user is not None:
-                return user.name
-
-        return iden
-
-class SynRole(s_types.Guid):
-
-    async def _normPyStr(self, text, view=None):
-
-        core = self.modl.core
-        if core is not None:
-
-            # direct use of an iden takes precedence...
-            role = core.auth.role(text)
-            if role is not None:
-                return role.iden, {}
-
-            role = core.auth._getRoleByName(text)
-            if role is not None:
-                return role.iden, {}
-
-        if text == '*':
-            mesg = f'{self.name} values must be a valid rolename or a guid.'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
-
-        try:
-            return await s_types.Guid._normPyStr(self, text)
-        except s_exc.BadTypeValu:
-            mesg = f'No role named {text} and value is not a guid.'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
-
-    def repr(self, iden):
-
-        core = self.modl.core
-        if core is not None:
-            role = core.auth.role(iden)
-            if role is not None:
-                return role.name
-
-        return iden
 
 async def _liftRuntSynCmd(view, prop, cmprvalu=None):
 
@@ -144,13 +68,13 @@ modeldefs = (
     ('syn', {
 
         'ctors': (
-            ('syn:user', 'synapse.models.syn.SynUser', {}, {
+            ('syn:user', 'synapse.lib.types.SynUser', {}, {
                 'interfaces': (
                     ('entity:actor', {}),
                 ),
                 'doc': 'A Synapse user.'}),
 
-            ('syn:role', 'synapse.models.syn.SynRole', {}, {
+            ('syn:role', 'synapse.lib.types.SynRole', {}, {
                 'doc': 'A Synapse role.'}),
         ),
         'types': (

@@ -1,15 +1,23 @@
 import sys
+import copy
+import socket
+import string
 import asyncio
 import decimal
+import hashlib
 import logging
 import binascii
 import collections
+import urllib.parse
+import unicodedata
 
+import idna
 import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.gis as s_gis
 import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
@@ -17,11 +25,18 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
+import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
+import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.scope as s_scope
+
+import synapse.lookup.iana as s_l_iana
+import synapse.lookup.phonenum as s_l_phone
+
+import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
 
 logger = logging.getLogger(__name__)
 
@@ -3522,3 +3537,2415 @@ class TimePrecision(IntBase):
         if (rval := s_time.preclookup.get(valu)) is not None:
             return rval
         raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Invalid time precision value.')
+
+# Inet constants
+ipaddress = s_common.ipaddress
+drivre = regex.compile(r'^\w[:|]')
+fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
+udots = regex.compile(r'[\u3002\uff0e\uff61]')
+cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
+rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
+urlfangs = regex.compile('^(hxxp|hxxps)$')
+
+ipv6_multicast_scopes = {
+    'ff00:': 'reserved',
+    'ff01:': 'interface-local',
+    'ff02:': 'link-local',
+    'ff03:': 'realm-local',
+    'ff04:': 'admin-local',
+    'ff05:': 'site-local',
+    'ff08:': 'organization-local',
+    'ff0e:': 'global',
+    'ff0f:': 'reserved',
+}
+
+scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
+
+# Geospace constants
+units = {
+    'mm': 1,
+    'millimeter': 1,
+    'millimeters': 1,
+
+    'cm': 10,
+    'centimeter': 10,
+    'centimeters': 10,
+
+    # international foot
+    'foot': 304.8,
+    'feet': 304.8,
+
+    'm': 1000,
+    'meter': 1000,
+    'meters': 1000,
+
+    # international mile
+    'mile': 1609344,
+    'miles': 1609344,
+
+    'km': 1000000,
+    'kilometer': 1000000,
+    'kilometers': 1000000,
+
+    # international yard
+    'yard': 914.4,
+    'yards': 914.4,
+}
+
+distrepr = (
+    (1000000.0, 'km'),
+    (1000.0, 'm'),
+    (10.0, 'cm'),
+)
+
+arearepr = (
+    (1000000.0, 'sq.km'),
+    (1000.0, 'sq.m'),
+    (10.0, 'sq.cm'),
+)
+
+areaunits = {
+    'mm²': 1,
+    'sq.mm': 1,
+
+    'cm²': 10,
+    'sq.cm': 10,
+
+    # international foot
+    'foot²': 304.8,
+    'feet²': 304.8,
+    'sq.feet': 304.8,
+
+    'm²': 1000,
+    'sq.m': 1000,
+    'sq.meters': 1000,
+
+    # international mile
+    'mile²': 1609344,
+    'miles²': 1609344,
+    'sq.miles': 1609344,
+
+    'km²': 1000000,
+    'sq.km': 1000000,
+
+    # international yard
+    'yard²': 914.4,
+    'sq.yards': 914.4,
+}
+
+areachars = {'.'}.union(s_grammar.alphaset)
+
+# Infotech constants (CPE)
+ALPHA = '[A-Za-z]'
+DIGIT = '[0-9]'
+UNRESERVED = r'[A-Za-z0-9\-\.\_~]'
+SPEC1 = '%01'
+SPEC2 = '%02'
+SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
+PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3c|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
+STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
+STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
+STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
+REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
+LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
+PART = '[hoa]?'
+VENDOR = STRING
+PRODUCT = STRING
+VERSION = STRING
+UPDATE = STRING
+EDITION = STRING
+LANG = f'{LANGTAG}?'
+COMPONENT_LIST = f'''
+    (?:
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION}:{LANG} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION} |
+        {PART}:{VENDOR}:{PRODUCT} |
+        {PART}:{VENDOR} |
+        {PART}
+    )
+'''
+
+cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNORECASE)
+cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
+
+FSB_ESCAPE_CHARS = [
+    '!', '"', '#', '$', '%', '&', "'", '(', ')',
+    '+', ',', '/', ':', ';', '<', '=', '>', '@',
+    '[', ']', '^', '`', '{', '|', '}', '~',
+    '\\', '?', '*'
+]
+
+FSB_VALID_CHARS = ['-', '.', '_']
+FSB_VALID_CHARS.extend(string.ascii_letters)
+FSB_VALID_CHARS.extend(string.digits)
+FSB_VALID_CHARS.extend(FSB_ESCAPE_CHARS)
+
+URI_PERCENT_CHARS = [
+    # Do the percent first so we don't double encode by accident
+    ('%25', '%'),
+    ('%21', '!'), ('%22', '"'), ('%23', '#'), ('%24', '$'), ('%26', '&'), ('%27', "'"),
+    ('%28', '('), ('%29', ')'), ('%2a', '*'), ('%2b', '+'), ('%2c', ','), ('%2f', '/'), ('%3a', ':'),
+    ('%3b', ';'), ('%3c', '<'), ('%3d', '='), ('%3e', '>'), ('%3f', '?'), ('%40', '@'), ('%5b', '['),
+    ('%5c', '\\'), ('%5d', ']'), ('%5e', '^'), ('%60', '`'), ('%7b', '{'), ('%7c', '|'), ('%7d', '}'),
+    ('%7e', '~'),
+]
+
+UNSPECIFIED = ('', '*')
+
+PART_IDX_PART = 0
+PART_IDX_VENDOR = 1
+PART_IDX_PRODUCT = 2
+PART_IDX_VERSION = 3
+PART_IDX_UPDATE = 4
+PART_IDX_EDITION = 5
+PART_IDX_LANG = 6
+PART_IDX_SW_EDITION = 7
+PART_IDX_TARGET_SW = 8
+PART_IDX_TARGET_HW = 9
+PART_IDX_OTHER = 10
+
+class Passwd(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.md5 = self.modl.type('crypto:hash:md5')
+        self.sha1 = self.modl.type('crypto:hash:sha1')
+        self.sha256 = self.modl.type('crypto:hash:sha256')
+
+    async def norm(self, valu, view=None):
+        retn = await Str.norm(self, valu)
+        retn[1].setdefault('subs', {})
+        byts = retn[0].encode('utf8')
+        retn[1]['subs'].update({
+            'md5': (self.md5.typehash, hashlib.md5(byts, usedforsecurity=False).hexdigest(), {}),
+            'sha1': (self.sha1.typehash, hashlib.sha1(byts, usedforsecurity=False).hexdigest(), {}),
+            'sha256': (self.sha256.typehash, hashlib.sha256(byts).hexdigest(), {}),
+        })
+        return retn
+
+class FileBase(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.exttype = self.modl.type('str')
+
+    async def _normPyStr(self, valu, view=None):
+
+        norm = valu.strip().lower().replace('\\', '/')
+        if norm.find('/') != -1:
+            mesg = 'file:base may not contain /'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
+
+        info = {}
+        if norm.find('.') != -1:
+            info['subs'] = {'ext': (self.exttype.typehash, norm.rsplit('.', 1)[1], {})}
+
+        return norm, info
+
+class FilePath(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.exttype = self.modl.type('str')
+        self.basetype = self.modl.type('file:base')
+
+        self.virtindx |= {
+            'dir': 'dir',
+            'ext': 'ext',
+            'base': 'base',
+        }
+
+        self.virts |= {
+            'dir': (self, self._getDir),
+            'ext': (self.exttype, self._getExt),
+            'base': (self.basetype, self._getBase),
+        }
+
+    def _getDir(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('dir')) is None:
+            return None
+
+        return valu[0]
+
+    def _getExt(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ext')) is None:
+            return None
+
+        return valu[0]
+
+    def _getBase(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('base')) is None:
+            return None
+
+        return valu[0]
+
+    async def _normPyStr(self, valu, view=None):
+
+        if len(valu) == 0:
+            return '', {}
+
+        valu = valu.strip().lower().replace('\\', '/')
+        if not valu:
+            return '', {}
+
+        lead = ''
+        if valu[0] == '/':
+            lead = '/'
+
+        valu = valu.strip('/')
+        if not valu:
+            return '', {}
+
+        if valu in ('.', '..'):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Cannot norm a bare relative path.')
+
+        path = []
+        vals = [v for v in valu.split('/') if v]
+        for part in vals:
+            if part == '.':
+                continue
+
+            if part == '..':
+                if len(path):
+                    path.pop()
+
+                continue
+
+            path.append(part)
+
+        if len(path) == 0:
+            return '', {}
+
+        fullpath = lead + '/'.join(path)
+
+        base = path[-1]
+        subs = {'base': (self.basetype.typehash, base, {})}
+        virts = {'base': (base, self.basetype.stortype)}
+
+        if '.' in base:
+            ext = base.rsplit('.', 1)[1]
+            extsub = (self.exttype.typehash, ext, {})
+            subs['ext'] = extsub
+            subs['base'][2]['subs'] = {'ext': extsub}
+            virts['ext'] = (ext, self.exttype.stortype)
+
+        if len(path) > 1:
+            dirn, info = await self._normPyStr(lead + '/'.join(path[:-1]))
+            subs['dir'] = (self.typehash, dirn, info)
+            virts['dir'] = (dirn, self.stortype)
+
+        return fullpath, {'subs': subs, 'virts': virts}
+
+class SynUser(Guid):
+
+    async def _normPyStr(self, text, view=None):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            user = core.auth.user(text)
+            if user is not None:
+                return user.iden, {}
+
+            user = core.auth._getUserByName(text)
+            if user is not None:
+                return user.iden, {}
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return await Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            user = core.auth.user(iden)
+            if user is not None:
+                return user.name
+
+        return iden
+
+class SynRole(Guid):
+
+    async def _normPyStr(self, text, view=None):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            role = core.auth.role(text)
+            if role is not None:
+                return role.iden, {}
+
+            role = core.auth._getRoleByName(text)
+            if role is not None:
+                return role.iden, {}
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return await Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            role = core.auth.role(iden)
+            if role is not None:
+                return role.name
+
+        return iden
+
+class CvssV2(Str):
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            return s_chop.cvss2_normalize(text), {}
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
+
+class CvssV3(Str):
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            return s_chop.cvss3x_normalize(text), {}
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
+
+class DnsName(Str):
+
+    def postTypeInit(self):
+
+        Str.postTypeInit(self)
+        self.inarpa = '.in-addr.arpa'
+        self.inarpa6 = '.ip6.arpa'
+
+        self.iptype = self.modl.type('inet:ip')
+        self.fqdntype = self.modl.type('inet:fqdn')
+
+        self.setNormFunc(str, self._normPyStr)
+
+    async def _normPyStr(self, valu, view=None):
+        # Backwards compatible
+        norm = valu.lower()
+        norm = norm.strip()  # type: str
+        # Break out fqdn / ipv4 / ipv6 subs :D
+        subs = {}
+        # ipv4
+        if norm.isnumeric():
+            # do-nothing for integer only strs
+            pass
+        elif norm.endswith(self.inarpa):
+            # Strip, reverse, check if ipv4
+            temp = norm[:-len(self.inarpa)]
+            temp = '.'.join(temp.split('.')[::-1])
+            try:
+                ipv4norm, info = await self.iptype.norm(temp)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['ip'] = (self.iptype.typehash, ipv4norm, info)
+        elif norm.endswith(self.inarpa6):
+            parts = [c for c in norm[:-len(self.inarpa6)][::-1] if c != '.']
+            try:
+                if len(parts) != 32:
+                    raise s_exc.BadTypeValu(mesg='Invalid number of ipv6 parts')
+                temp = (6, int(''.join(parts), 16))
+                ipv6norm, info = await self.iptype.norm(temp)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['ip'] = (self.iptype.typehash, ipv6norm, info)
+        else:
+            # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
+            try:
+                ipnorm, info = await self.iptype.norm(norm)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['ip'] = (self.iptype.typehash, ipnorm, info)
+                return norm, {'subs': subs}
+
+            # Lastly, try give the norm'd valu a shot as an inet:fqdn
+            try:
+                fqdnnorm, info = await self.fqdntype.norm(norm)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['fqdn'] = (self.fqdntype.typehash, fqdnnorm, info)
+
+        return norm, {'subs': subs}
+
+class Phone(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.opts['globsuffix'] = True
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+        self.loctype = self.modl.type('loc')
+
+    def _digits(self, text):
+        return ''.join([c for c in text if c.isdigit()])
+
+    async def _normPyStr(self, valu, view=None):
+        digs = self._digits(valu)
+        if not digs:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='requires a digit string')
+        subs = {}
+        try:
+            info = s_l_phone.getPhoneInfo(int(digs))
+        except Exception as e:  # pragma: no cover
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Failed to get phone info') from None
+        cc = info.get('cc')
+        if cc is not None:
+            subs['loc'] = (self.loctype.typehash, cc, {})
+        # TODO prefix based validation?
+        return digs, {'subs': subs}
+
+    async def _normPyInt(self, valu, view=None):
+        if valu < 1:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='phone int must be greater than 0')
+        return await self._normPyStr(str(valu))
+
+    def repr(self, valu):
+        # XXX geo-aware reprs are practically a function of cc which
+        # XXX the raw value may only have after doing a s_l_phone lookup
+        if valu[0] == '1' and len(valu) == 11:
+            area = valu[1:4]
+            pref = valu[4:7]
+            numb = valu[7:11]
+            return '+1 (%s) %s-%s' % (area, pref, numb)
+
+        return '+' + valu
+
+class Imsi(Int):
+
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+
+        self.mcctype = self.modl.type('tel:mob:mcc')
+
+        return Int.postTypeInit(self)
+
+    async def _normPyInt(self, valu, view=None):
+        imsi = str(valu)
+        ilen = len(imsi)
+        if ilen > 15:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='invalid imsi len: %d' % (ilen,))
+
+        mcc = imsi[0:3]
+        # TODO full imsi analysis tree
+        return valu, {'subs': {'mcc': (self.mcctype.typehash, mcc, {})}}
+
+# TODO: support pre 2004 "old" imei format
+class Imei(Int):
+
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+
+        self.inttype = self.modl.type('int')
+        self.tactype = self.modl.type('tel:mob:tac')
+
+        return Int.postTypeInit(self)
+
+    def _imeicsum(self, text):
+        '''
+        Calculate the imei check byte.
+        '''
+        digs = []
+        for i in range(14):
+
+            v = int(text[i])
+            if i % 2:
+                v *= 2
+
+            [digs.append(int(x)) for x in str(v)]
+
+        chek = 0
+        valu = sum(digs)
+        remd = valu % 10
+        if remd != 0:
+            chek = 10 - remd
+
+        return str(chek)
+
+    def chop_imei(self, imei):
+        valu = int(imei)
+        tac = int(imei[0:8])
+        snr = int(imei[8:14])
+        return valu, {'subs': {'tac': (self.tactype.typehash, tac, {}),
+                               'serial': (self.inttype.typehash, snr, {})}}
+
+    async def _normPyInt(self, valu, view=None):
+        imei = str(valu)
+        ilen = len(imei)
+
+        # we are missing our optional check digit
+        # lets add it for consistency...
+        if ilen == 14:
+            imei += self._imeicsum(imei)
+            return self.chop_imei(imei)
+
+        # if we *have* our check digit, lets check it
+        elif ilen == 15:
+            if self._imeicsum(imei) != imei[-1]:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='invalid imei checksum byte')
+            return self.chop_imei(imei)
+
+        raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                mesg='Failed to norm IMEI')
+
+class Dist(Int):
+
+    _opt_defs = (
+        ('baseoff', 0),  # type: ignore
+    ) + Int._opt_defs
+
+    def postTypeInit(self):
+        Int.postTypeInit(self)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+        self.baseoff = self.opts.get('baseoff')
+
+    async def _normPyInt(self, valu, view=None):
+        return valu, {}
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            mesg = f'Distance requires a valid number and unit. No valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+        unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
+
+        mult = units.get(unit.lower())
+        if mult is None:
+            mesg = f'Unknown unit of distance: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        norm = int(valu * mult) + self.baseoff
+        if norm < 0:
+            mesg = f'A geo:dist may not be negative: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
+
+    def repr(self, norm):
+
+        valu = norm - self.baseoff
+
+        text = None
+
+        absv = abs(valu)
+        for base, unit in distrepr:
+            if absv >= base:
+                size = absv / base
+                text = '%s %s' % (size, unit)
+                break
+
+        if text is None:
+            text = '%d mm' % (absv,)
+
+        if valu < 0:
+            text = f'-{text}'
+
+        return text
+
+class Area(Int):
+
+    def postTypeInit(self):
+        Int.postTypeInit(self)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+
+    async def _normPyInt(self, valu, view=None):
+        return valu, {}
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            mesg = f'Area requires a valid number and unit, no valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+        unit, off = s_grammar.nom(text, off, areachars)
+
+        mult = areaunits.get(unit.lower())
+        if mult is None:
+            mesg = f'Unknown unit of area: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        norm = int(valu * mult)
+        if norm < 0:
+            mesg = f'A geo:area may not be negative: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
+
+    def repr(self, norm):
+
+        text = None
+        for base, unit in arearepr:
+            if norm >= base:
+                size = norm / base
+                text = f'{size} {unit}'
+                break
+
+        if text is None:
+            text = f'{norm} sq.mm'
+
+        return text
+
+class LatLong(Type):
+
+    stortype = s_layer.STOR_TYPE_LATLONG
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.setCmprCtor('near=', self._cmprNear)
+        self.storlifts.update({
+            'near=': self._storLiftNear,
+        })
+
+        self.lattype = self.modl.type('geo:latitude')
+        self.lontype = self.modl.type('geo:longitude')
+
+    async def _normCmprValu(self, valu):
+        latlong, dist = valu
+        rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
+        rdist = (await self.modl.type('geo:dist').norm(dist))[0]
+        return rlatlong, rdist
+
+    async def _cmprNear(self, valu):
+        latlong, dist = await self._normCmprValu(valu)
+
+        async def cmpr(valu):
+            if s_gis.haversine(valu, latlong) <= dist:
+                return True
+            return False
+        return cmpr
+
+    async def _storLiftNear(self, cmpr, valu):
+        latlong = (await self.norm(valu[0]))[0]
+        dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
+        return ((cmpr, (latlong, dist), self.stortype),)
+
+    async def _normPyStr(self, valu, view=None):
+        valu = tuple(valu.strip().split(','))
+        return await self._normPyTuple(valu)
+
+    async def _normPyTuple(self, valu, view=None):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Valu must contain valid latitude,longitude')
+
+        try:
+            latv, latfo = await self.lattype.norm(valu[0])
+            lonv, lonfo = await self.lontype.norm(valu[1])
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=str(e)) from None
+
+        return (latv, lonv), {'subs': {'lat': (self.lattype.typehash, latv, latfo),
+                                       'lon': (self.lontype.typehash, lonv, lonfo)}}
+
+    def repr(self, norm):
+        return f'{norm[0]},{norm[1]}'
+
+class Cpe22Str(Str):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        Str.postTypeInit(self)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+        self.cpe23type = self.modl.type('it:sec:cpe')
+
+    def _isValidCpe22(self, text):
+        rgx = cpe22_regex.fullmatch(text)
+        return rgx is not None
+
+    def _cpesplit(self, text):
+        part = ''
+        parts = []
+
+        genr = iter(text)
+        try:
+            while True:
+
+                c = next(genr)
+
+                if c == '\\':
+                    c += next(genr)
+
+                if c == ':':
+                    parts.append(part)
+                    part = ''
+                    continue
+
+                part += c
+
+        except StopIteration:
+            parts.append(part)
+
+        return [part.strip() for part in parts]
+
+    def _zipCpe22(self, parts):
+        parts = list(parts)
+        while parts and parts[-1] in ('', '*'):
+            parts.pop()
+        text = ':'.join(parts[:7])
+        return f'cpe:/{text}'
+
+    def _chopCpe22(self, text):
+        '''
+        CPE 2.2 Formatted String
+        https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+        '''
+        if not text.startswith('cpe:/'): # pragma: no cover
+            mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+            raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+        _, text = text.split(':/', 1)
+        parts = self._cpesplit(text)
+        if len(parts) > 7:
+            mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
+            raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+        return parts
+
+    async def _normPyStr(self, valu, view=None):
+
+        text = valu.lower()
+
+        if text.startswith('cpe:/'):
+
+            if not self._isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+            parts = self._chopCpe22(text)
+        elif text.startswith('cpe:2.3:'):
+
+            if not self.cpe23type._isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+            parts = self._cpesplit(text[8:])
+        else:
+            mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        v2_2 = self._zipCpe22(parts)
+
+        if not self._isValidCpe22(v2_2): # pragma: no cover
+            mesg = 'CPE 2.2 string appears to be invalid.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+        return v2_2, {}
+
+    async def _normPyList(self, parts, view=None):
+        return self._zipCpe22(parts), {}
+
+class Cpe23Str(Str):
+    '''
+    CPE 2.3 Formatted String
+
+    ::
+
+        https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+
+        (Section 6.2)
+
+        cpe:2.3: part : vendor : product : version : update : edition :
+            language : sw_edition : target_sw : target_hw : other
+
+        * = "any"
+        - = N/A
+    '''
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        Str.postTypeInit(self)
+
+        self.cpe22 = self.modl.type('it:sec:cpe:v2_2')
+        self.strtype = self.modl.type('str').clone({'lower': True})
+        self.metatype = self.modl.type('meta:name')
+
+    def _isValidCpe23(self, text):
+        rgx = cpe23_regex.fullmatch(text)
+        return rgx is not None
+
+    def _fsb_escape(self, text):
+        ret = ''
+        if text in ('*', '-'):
+            return text
+
+        # Check validity of text first
+        if (invalid := [char for char in text if char not in FSB_VALID_CHARS]):
+            badchars = ', '.join(invalid)
+            mesg = f'Invalid CPE 2.3 character(s) ({badchars}) detected.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=text)
+
+        textlen = len(text)
+
+        for idx, char in enumerate(text):
+            if char not in FSB_ESCAPE_CHARS:
+                ret += char
+                continue
+
+            escchar = f'\\{char}'
+
+            # The only character in the string
+            if idx == 0 and idx == textlen - 1:
+                ret += escchar
+                continue
+
+            # Handle the backslash as a special case
+            if char == '\\':
+                if idx == 0:
+                    # Its the first character and escaping another special character
+                    if text[idx + 1] in FSB_ESCAPE_CHARS:
+                        ret += char
+                    else:
+                        ret += escchar
+
+                    continue
+
+                if idx == textlen - 1:
+                    # Its the last character and being escaped
+                    if text[idx - 1] == '\\':
+                        ret += char
+                    else:
+                        ret += escchar
+
+                    continue
+
+                # The backslash is in the middle somewhere
+
+                # It's already escaped or it's escaping a special char
+                if text[idx - 1] == '\\' or text[idx + 1] in FSB_ESCAPE_CHARS:
+                    ret += char
+                    continue
+
+                # Lone backslash, escape it and move on
+                ret += escchar
+                continue
+
+            # First char, no look behind
+            if idx == 0:
+                # Escape the first character and go around
+                ret += escchar
+                continue
+
+            escaped = text[idx - 1] == '\\'
+
+            if not escaped:
+                ret += escchar
+                continue
+
+            ret += char
+
+        return ret
+
+    def _fsb_unescape(self, text):
+        ret = ''
+        textlen = len(text)
+
+        for idx, char in enumerate(text):
+            # The last character so we can't look ahead
+            if idx == textlen - 1:
+                ret += char
+                continue
+
+            if char == '\\' and text[idx + 1] in FSB_ESCAPE_CHARS:
+                continue
+
+            ret += char
+
+        return ret
+
+    def _uri_quote(self, text):
+        for (pct, char) in URI_PERCENT_CHARS:
+            text = text.replace(char, pct)
+        return text
+
+    def _uri_unquote(self, text):
+        # iterate backwards so we do the % last to avoid double unquoting
+        # example: "%2521" would turn into "%21" which would then replace into "!"
+        for (pct, char) in URI_PERCENT_CHARS[::-1]:
+            text = text.replace(pct, char)
+        return text
+
+    def _uri_pack(self, edition, sw_edition, target_sw, target_hw, other):
+        # If the four extended attributes are unspecified, only return the edition value
+        if (sw_edition in UNSPECIFIED and target_sw in UNSPECIFIED and target_hw in UNSPECIFIED and other in UNSPECIFIED):
+            return edition
+
+        ret = [edition, '', '', '', '']
+
+        if sw_edition not in UNSPECIFIED:
+            ret[1] = sw_edition
+
+        if target_sw not in UNSPECIFIED:
+            ret[2] = target_sw
+
+        if target_hw not in UNSPECIFIED:
+            ret[3] = target_hw
+
+        if other not in UNSPECIFIED:
+            ret[4] = other
+
+        return '~' + '~'.join(ret)
+
+    def _uri_unpack(self, edition):
+        if edition.startswith('~') and edition.count('~') == 5:
+            return edition[1:].split('~', 5)
+        return None
+
+    async def _normPyStr(self, valu, view=None):
+        text = valu.lower()
+        if text.startswith('cpe:2.3:'):
+
+            # Validate the CPE 2.3 string immediately
+            if not self._isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+            parts = self.cpe22._cpesplit(text[8:])
+            if len(parts) > 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
+                raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
+
+            v2_3 = 'cpe:2.3:' + ':'.join(parts)
+
+            v2_2 = copy.copy(parts)
+            for idx, part in enumerate(v2_2):
+                if part == '*':
+                    v2_2[idx] = ''
+                    continue
+
+                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
+                    v2_2[idx] = ''
+                    continue
+
+                part = self._fsb_unescape(part)
+                v2_2[idx] = self._uri_quote(part)
+
+            v2_2[PART_IDX_EDITION] = self._uri_pack(
+                v2_2[PART_IDX_EDITION],
+                v2_2[PART_IDX_SW_EDITION],
+                v2_2[PART_IDX_TARGET_SW],
+                v2_2[PART_IDX_TARGET_HW],
+                v2_2[PART_IDX_OTHER]
+            )
+
+            v2_2 = self.cpe22._zipCpe22(v2_2[:7])
+
+            # Now validate the downconvert
+            if not self.cpe22._isValidCpe22(v2_2): # pragma: no cover
+                mesg = 'Invalid CPE 2.3 to CPE 2.2 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
+
+            parts = [self._fsb_unescape(k) for k in parts]
+
+        elif text.startswith('cpe:/'):
+
+            # Validate the CPE 2.2 string immediately
+            if not self.cpe22._isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+            v2_2 = text
+            # automatically normalize CPE 2.2 format to CPE 2.3
+            parts = self.cpe22._chopCpe22(text)
+
+            # Account for blank fields
+            for idx, part in enumerate(parts):
+                if not part:
+                    parts[idx] = '*'
+
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
+
+            # URI bindings can pack extended attributes into the
+            # edition field, handle that here.
+            unpacked = self._uri_unpack(parts[PART_IDX_EDITION])
+            if unpacked:
+                (edition, sw_edition, target_sw, target_hw, other) = unpacked
+
+                if edition:
+                    parts[PART_IDX_EDITION] = edition
+                else:
+                    parts[PART_IDX_EDITION] = '*'
+
+                if sw_edition:
+                    parts[PART_IDX_SW_EDITION] = sw_edition
+
+                if target_sw:
+                    parts[PART_IDX_TARGET_SW] = target_sw
+
+                if target_hw:
+                    parts[PART_IDX_TARGET_HW] = target_hw
+
+                if other:
+                    parts[PART_IDX_OTHER] = other
+
+            parts = [self._uri_unquote(part) for part in parts]
+
+            # This feels a little uninuitive to escape parts for "escaped" and
+            # unescape parts for "parts" but values in parts could be incorrectly
+            # escaped or incorrectly unescaped so just do both.
+            escaped = [self._fsb_escape(part) for part in parts]
+            parts = [self._fsb_unescape(part) for part in parts]
+
+            v2_3 = 'cpe:2.3:' + ':'.join(escaped)
+
+            # Now validate the upconvert
+            if not self._isValidCpe23(v2_3): # pragma: no cover
+                mesg = 'Invalid CPE 2.2 to CPE 2.3 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
+
+        else:
+            mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        styp = self.strtype.typehash
+
+        subs = {
+            'part': (styp, parts[PART_IDX_PART], {}),
+            'vendor': (self.metatype.typehash, parts[PART_IDX_VENDOR], {}),
+            'product': (styp, parts[PART_IDX_PRODUCT], {}),
+            'version': (styp, parts[PART_IDX_VERSION], {}),
+            'update': (styp, parts[PART_IDX_UPDATE], {}),
+            'edition': (styp, parts[PART_IDX_EDITION], {}),
+            'language': (styp, parts[PART_IDX_LANG], {}),
+            'sw_edition': (styp, parts[PART_IDX_SW_EDITION], {}),
+            'target_sw': (styp, parts[PART_IDX_TARGET_SW], {}),
+            'target_hw': (styp, parts[PART_IDX_TARGET_HW], {}),
+            'other': (styp, parts[PART_IDX_OTHER], {}),
+            'v2_2': (self.cpe22.typehash, v2_2, {}),
+        }
+
+        return v2_3, {'subs': subs}
+
+class SemVer(Int):
+    '''
+    Provides support for parsing a semantic version string into its component
+    parts. This normalizes a version string into an integer to allow version
+    ordering.  Prerelease information is disregarded for integer comparison
+    purposes, as we cannot map an arbitrary pre-release version into a integer
+    value
+
+    Major, minor and patch levels are represented as integers, with a max
+    width of 20 bits.  The comparable integer value representing the semver
+    is the bitwise concatenation of the major, minor and patch levels.
+
+    Prerelease and build information will be parsed out and available as
+    strings if that information is present.
+    '''
+    def postTypeInit(self):
+        Int.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    async def _normPyStr(self, valu, view=None):
+        valu = valu.strip()
+        if not valu:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='No text left after stripping whitespace')
+
+        info = s_version.parseSemver(valu)
+        if info is None:
+            info = s_version.parseVersionParts(valu)
+            if info is None:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Unable to parse string as a semver.')
+
+        valu = s_version.packVersion(info.get('major'), info.get('minor', 0), info.get('patch', 0))
+
+        return valu, {}
+
+    async def _normPyInt(self, valu, view=None):
+        if valu < 0:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Cannot norm a negative integer as a semver.')
+        if valu > s_version.mask60:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
+        major, minor, patch = s_version.unpackVersion(valu)
+        valu = s_version.packVersion(major, minor, patch)
+        return valu, {}
+
+    def repr(self, valu):
+        major, minor, patch = s_version.unpackVersion(valu)
+        valu = s_version.fmtVersion(major, minor, patch)
+        return valu
+
+class ItVersion(Str):
+
+    def postTypeInit(self):
+
+        Str.postTypeInit(self)
+        self.semver = self.modl.type('it:semver')
+
+        self.virtindx |= {
+            'semver': 'semver',
+        }
+
+        self.virts |= {
+            'semver': (self.semver, self._getSemVer),
+        }
+
+    def _getSemVer(self, valu):
+
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('semver')) is None: # pragma: no cover
+            return None
+
+        return valu[0]
+
+    async def _normPyStr(self, valu, view=None):
+
+        norm, info = await Str._normPyStr(self, valu)
+
+        try:
+            semv, semvinfo = await self.semver.norm(norm)
+            subs = info.setdefault('subs', {})
+            virts = info.setdefault('virts', {})
+            subs['semver'] = (self.semver.typehash, semv, semvinfo)
+            virts['semver'] = (semv, self.semver.stortype)
+        except s_exc.BadTypeValu:
+            # It's ok for a version to not be semver compatible.
+            pass
+
+        return norm, info
+
+class IPAddr(Type):
+
+    stortype = s_layer.STOR_TYPE_IPADDR
+
+    _opt_defs = (
+        ('version', None),   # type: ignore
+    )
+
+    def postTypeInit(self):
+
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+        })
+
+        self.reqvers = self.opts.get('version')
+
+        self.typetype = self.modl.type('str')
+        self.verstype = self.modl.type('int').clone({'enums': ((4, '4'), (6, '6'))})
+        self.scopetype = self.typetype.clone({'enums': scopes_enum})
+
+    def _getAddrType(self, ip):
+
+        if ip.is_multicast:
+            return 'multicast'
+
+        if ip.is_loopback:
+            return 'loopback'
+
+        if ip.is_link_local:
+            return 'linklocal'
+
+        if ip.is_private:
+            return 'private'
+
+        if ip.is_reserved:
+            return 'reserved'
+
+        if ip in rfc6598:
+            return 'shared'
+
+        return 'unicast'
+
+    def _getAddrScope(self, ipv6):
+
+        if ipv6.is_loopback:
+            return 'link-local'
+
+        if ipv6.is_link_local:
+            return 'link-local'
+
+        if ipv6.is_multicast:
+            pref = ipv6.compressed[:5]
+            return ipv6_multicast_scopes.get(pref, 'unassigned')
+
+        return 'global'
+
+    async def _ctorCmprEq(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = await self.getCidrRange(valu)
+
+                async def cmpr(norm):
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = await self.getNetRange(valu)
+
+                async def cmpr(norm):
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+        return await Type._ctorCmprEq(self, valu)
+
+    async def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+
+                minv, maxv = await self.getCidrRange(valu)
+                while minv <= maxv:
+                    yield minv
+                    minv = (minv[0], minv[1] + 1)
+
+                return
+
+            if valu.find('-') != -1:
+
+                minv, maxv = await self.getNetRange(valu)
+                while minv <= maxv:
+                    yield minv
+                    minv = (minv[0], minv[1] + 1)
+
+                return
+
+        yield valu
+
+    async def _normPyTuple(self, valu, view=None):
+
+        if any((len(valu) != 2,
+                type(valu[0]) is not int,
+                type(valu[1]) is not int)):
+
+            mesg = f'Invalid IP address tuple: {valu}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        vers = valu[0]
+
+        if self.reqvers is not None and vers != self.reqvers:
+            mesg = f'Invalid IP address version: got {vers} expected {self.reqvers}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        subs = {'version': (self.verstype.typehash, vers, {})}
+
+        if vers == 4:
+            try:
+                ipaddr = ipaddress.IPv4Address(valu[1])
+            except ValueError as e:
+                mesg = f'Invalid IP address tuple: {valu}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+        elif vers == 6:
+            try:
+                ipaddr = ipaddress.IPv6Address(valu[1])
+                subs['scope'] = (self.scopetype.typehash, self._getAddrScope(ipaddr), {})
+            except ValueError as e:
+                mesg = f'Invalid IP address tuple: {valu}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+        else:
+            mesg = f'Invalid IP address tuple: {valu}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        subs['type'] = (self.typetype.typehash, self._getAddrType(ipaddr), {})
+
+        return valu, {'subs': subs}
+
+    async def _normPyStr(self, text, view=None):
+
+        valu = text.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
+        valu = s_chop.printables(valu)
+
+        subs = {}
+
+        if valu.find(':') != -1:
+            if self.reqvers is not None and self.reqvers != 6:
+                mesg = f'Invalid IP address version, expected an IPv4, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            try:
+                byts = socket.inet_pton(socket.AF_INET6, valu)
+                addr = (6, int.from_bytes(byts, 'big'))
+                ipaddr = ipaddress.IPv6Address(addr[1])
+                subs |= {'version': (self.verstype.typehash, 6, {}),
+                         'scope': (self.scopetype.typehash, self._getAddrScope(ipaddr), {})}
+                # v4 = v6.ipv4_mapped
+            except OSError as e:
+                mesg = f'Invalid IP address: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg) from None
+        else:
+            if self.reqvers is not None and self.reqvers != 4:
+                mesg = f'Invalid IP address version, expected an IPv6, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            try:
+                byts = socket.inet_pton(socket.AF_INET, valu)
+            except OSError:
+                try:
+                    byts = socket.inet_aton(valu)
+                except OSError as e:
+                    mesg = f'Invalid IP address: {text}'
+                    raise s_exc.BadTypeValu(mesg=mesg) from None
+
+            addr = (4, int.from_bytes(byts, 'big'))
+            ipaddr = ipaddress.IPv4Address(addr[1])
+            subs['version'] = (self.verstype.typehash, 4, {})
+
+        subs['type'] = (self.typetype.typehash, self._getAddrType(ipaddr), {})
+
+        return addr, {'subs': subs}
+
+    def repr(self, norm):
+
+        vers, addr = norm
+
+        if vers == 4:
+            byts = addr.to_bytes(4, 'big')
+            return socket.inet_ntop(socket.AF_INET, byts)
+
+        if vers == 6:
+            byts = addr.to_bytes(16, 'big')
+            return socket.inet_ntop(socket.AF_INET6, byts)
+
+        mesg = 'IP proto version {vers} is not supported!'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    async def getNetRange(self, text):
+        minstr, maxstr = text.split('-', 1)
+        minv, info = await self.norm(minstr)
+        maxv, info = await self.norm(maxstr)
+
+        if minv[0] != maxv[0]:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'IP address version mismatch in range "{text}"')
+
+        return minv, maxv
+
+    async def getCidrRange(self, text):
+        addr, mask_str = text.split('/', 1)
+        (vers, addr), info = await self.norm(addr)
+
+        if vers == 4:
+            try:
+                mask_int = int(mask_str)
+            except ValueError:
+                raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                        mesg=f'Invalid CIDR Mask "{text}"')
+
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                        mesg=f'Invalid CIDR Mask "{text}"')
+
+            mask = cidrmasks[mask_int]
+
+            minv = addr & mask[0]
+            return (vers, minv), (vers, minv + mask[1] - 1)
+
+        else:
+            try:
+                netw = ipaddress.IPv6Network(text, strict=False)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+
+            minv = int(netw[0])
+            maxv = int(netw[-1])
+            return (6, minv), (6, maxv)
+
+    async def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = await self.getCidrRange(valu)
+                maxv = (maxv[0], maxv[1])
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+            if valu.find('-') != -1:
+                minv, maxv = await self.getNetRange(valu)
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+        return await self._storLiftNorm(cmpr, valu)
+
+    async def _ctorCmprGe(self, text):
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return valu >= norm
+        return cmpr
+
+    async def _ctorCmprLe(self, text):
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return valu <= norm
+        return cmpr
+
+    async def _ctorCmprGt(self, text):
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return valu > norm
+        return cmpr
+
+    async def _ctorCmprLt(self, text):
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return valu < norm
+        return cmpr
+
+class SockAddr(Str):
+
+    _opt_defs = (
+        ('defport', None),     # type: ignore
+        ('defproto', 'tcp'),   # type: ignore
+    ) + Str._opt_defs
+
+    protos = ('tcp', 'udp', 'icmp', 'gre')
+    noports = ('gre', 'icmp')
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.iptype = self.modl.type('inet:ip')
+        self.porttype = self.modl.type('inet:port')
+        self.prototype = self.modl.type('str').clone({'lower': True})
+
+        self.defport = self.opts.get('defport')
+        self.defproto = self.opts.get('defproto')
+
+        self.virtindx |= {
+            'ip': 'ip',
+            'port': 'port',
+        }
+
+        self.virts |= {
+            'ip': (self.iptype, self._getIP),
+            'port': (self.porttype, self._getPort),
+        }
+
+    def _getIP(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ip')) is None:
+            return None
+
+        return valu[0]
+
+    def _getPort(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('port')) is None:
+            return None
+
+        return valu[0]
+
+    async def _normPort(self, valu):
+        parts = valu.split(':', 1)
+        if len(parts) == 2:
+            valu, port = parts
+            port = (await self.porttype.norm(port))[0]
+            return valu, port, f':{port}'
+
+        if self.defport:
+            return valu, self.defport, f':{self.defport}'
+
+        return valu, None, ''
+
+    async def _normPyStr(self, valu, view=None):
+        orig = valu
+        subs = {}
+        virts = {}
+
+        # no protos use case sensitivity yet...
+        valu = valu.lower()
+
+        proto = self.defproto
+        parts = valu.split('://', 1)
+        if len(parts) == 2:
+            proto, valu = parts
+
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:sockaddr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
+
+        subs['proto'] = (self.prototype.typehash, proto, {})
+
+        valu = valu.strip().strip('/')
+
+        # Treat as IPv6 if starts with [ or contains multiple :
+        if valu.startswith('['):
+            match = srv6re.match(valu)
+            if match:
+                ipv6, port = match.groups()
+
+                ipv6, norminfo = await self.iptype.norm(ipv6)
+                host = self.iptype.repr(ipv6)
+                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+                virts['ip'] = (ipv6, self.iptype.stortype)
+
+                portstr = ''
+                if port is not None:
+                    port, norminfo = await self.porttype.norm(port)
+                    subs['port'] = (self.porttype.typehash, port, norminfo)
+                    virts['port'] = (port, self.porttype.stortype)
+                    portstr = f':{port}'
+
+                elif self.defport:
+                    subs['port'] = (self.porttype.typehash, self.defport, {})
+                    virts['port'] = (self.defport, self.porttype.stortype)
+                    portstr = f':{self.defport}'
+
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
+                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
+
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
+
+        elif valu.count(':') >= 2:
+            ipv6, norminfo = await self.iptype.norm(valu)
+            host = self.iptype.repr(ipv6)
+            subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+            virts['ip'] = (ipv6, self.iptype.stortype)
+
+            if self.defport:
+                subs['port'] = (self.porttype.typehash, self.defport, {})
+                virts['port'] = (self.defport, self.porttype.stortype)
+                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
+
+            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
+
+        # Otherwise treat as IPv4
+        valu, port, pstr = await self._normPort(valu)
+        if port:
+            subs['port'] = (self.porttype.typehash, port, {})
+            virts['port'] = (port, self.porttype.stortype)
+
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
+        ipv4, norminfo = await self.iptype.norm(valu)
+        ipv4_repr = self.iptype.repr(ipv4)
+        subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
+        virts['ip'] = (ipv4, self.iptype.stortype)
+
+        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
+
+    async def _normPyTuple(self, valu, view=None):
+        ipaddr, norminfo = await self.iptype.norm(valu)
+
+        ip_repr = self.iptype.repr(ipaddr)
+        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
+        proto = self.defproto
+
+        if self.defport:
+            subs['port'] = (self.porttype.typehash, self.defport, {})
+            virts['port'] = (self.defport, self.porttype.stortype)
+            if ipaddr[0] == 6:
+                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
+            else:
+                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
+
+        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
+
+class Email(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.usertype = self.modl.type('inet:user')
+        self.plustype = self.modl.type('str').clone({'lower': True})
+
+    async def _normPyStr(self, valu, view=None):
+
+        try:
+            user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
+
+        plus = None
+        if len(parts := user.split('+', 1)) == 2:
+            baseuser, plus = parts
+            plus = plus.strip().lower()
+
+        try:
+            fqdnnorm, fqdninfo = await self.fqdntype.norm(fqdn)
+            usernorm, userinfo = await self.usertype.norm(user)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+        norm = f'{usernorm}@{fqdnnorm}'
+
+        info = {
+            'subs': {
+                'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
+                'user': (self.usertype.typehash, usernorm, userinfo),
+            }
+        }
+
+        if plus is not None:
+            info['subs']['plus'] = (self.plustype.typehash, plus, {})
+            info['subs']['base'] = (self.typehash, f'{baseuser}@{fqdnnorm}', {
+                'subs': {
+                    'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
+                    'user': (self.usertype.typehash, baseuser, {}),
+                }
+            })
+
+        return norm, info
+
+class Fqdn(Type):
+
+    stortype = s_layer.STOR_TYPE_FQDN
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
+        self.storlifts.pop('range=', None)
+
+        self.hosttype = self.modl.type('str').clone({'lower': True})
+        self.booltype = self.modl.type('bool')
+
+    async def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu == '':
+                mesg = 'Cannot generate fqdn index bytes for a empty string.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+            if valu == '*':
+                return (
+                    ('=', '*', self.stortype),
+                )
+
+            if valu.startswith('*.'):
+                norm, info = await self.norm(valu[2:])
+                return (
+                    ('=', f'*.{norm}', self.stortype),
+                )
+
+            if valu.startswith('*'):
+                norm, info = await self.norm(valu[1:])
+                return (
+                    ('=', f'*{norm}', self.stortype),
+                )
+
+            if '*' in valu:
+                mesg = 'Wild card may only appear at the beginning.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+        return await self._storLiftNorm(cmpr, valu)
+
+    async def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:fqdn='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            async def cmpr(valu):
+                return False
+            return cmpr
+
+        if text[0] == '*':
+            cval = text[1:]
+            async def cmpr(valu):
+                return valu.endswith(cval)
+            return cmpr
+
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return norm == valu
+        return cmpr
+
+    async def _normPyStr(self, valu, view=None):
+
+        valu = unicodedata.normalize('NFKC', valu)
+
+        valu = regex.sub(udots, '.', valu)
+        valu = valu.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
+        # strip leading/trailing .
+        valu = valu.strip().strip('.')
+
+        try:
+            valu = idna.encode(valu, uts46=True).decode('utf8')
+        except idna.IDNAError:
+            try:
+                valu = valu.encode('idna').decode('utf8').lower()
+            except UnicodeError:
+                mesg = 'Failed to encode/decode the value with idna/utf8.'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg=mesg) from None
+
+        if not fqdnre.match(valu):
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
+
+        # Make sure we *don't* get an IP address
+        try:
+            socket.inet_pton(socket.AF_INET, valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='FQDN Got an IP address instead')
+        except OSError:
+            pass
+
+        parts = valu.split('.', 1)
+        subs = pinfo = {'host': (self.hosttype.typehash, parts[0], {})}
+
+        while len(parts) == 2:
+            nextfo = {}
+            domain = parts[1]
+            pinfo['domain'] = (self.typehash, domain, {'subs': nextfo})
+
+            parts = domain.split('.', 1)
+            nextfo['host'] = (self.hosttype.typehash, parts[0], {})
+
+            pinfo = nextfo
+            await asyncio.sleep(0)
+
+        pinfo['issuffix'] = (self.booltype.typehash, 1, {})
+
+        return valu, {'subs': subs}
+
+    def repr(self, valu):
+        try:
+            return idna.decode(valu.encode('utf8'), uts46=True)
+        except idna.IDNAError:
+            try:
+                return valu.encode('utf8').decode('idna')
+            except UnicodeError:
+                return valu
+
+    def postFormInit(self, form):
+        form.onAdd(self._onAddFqdn)
+        form.props['issuffix'].onSet(self._onSetIsSuffix)
+        form.props['iszone'].onSet(self._onSetIsZone)
+        form.props['zone'].onSet(self._onSetZone)
+
+    async def _onAddFqdn(self, node):
+
+        domain = node.get('domain')
+
+        async with node.view.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
+
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
+
+            parent = await node.view.getNodeByNdef(domain)
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain[1])
+
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', node.ndef[1])
+                return
+
+            await protonode.set('iszone', False)
+
+            if parent.get('iszone'):
+                await protonode.set('zone', domain[1])
+                return
+
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone[1])
+
+    async def _onSetIsSuffix(self, node):
+
+        fqdn = node.ndef[1]
+        issuffix = node.get('issuffix')
+
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
+
+    async def _onSetIsZone(self, node):
+
+        iszone = node.get('iszone')
+        if iszone:
+            await node.set('zone', node.ndef[1])
+            return
+
+        domain = node.get('domain')
+        if not domain:
+            await node.pop('zone')
+            return
+
+        parent = await node.view.addNode('inet:fqdn', domain[1])
+
+        zone = parent.get('zone')
+        if zone is None:
+            await node.pop('zone')
+            return
+
+        await node.set('zone', zone[1])
+
+    async def _onSetZone(self, node):
+
+        todo = collections.deque([node.ndef])
+        zone = node.get('zone')
+
+        async with node.view.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
+                    await asyncio.sleep(0)
+
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
+
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone[1])
+
+                    todo.append(child.ndef)
+
+class HttpCookie(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.strtype = self.modl.type('str')
+
+    async def _normPyStr(self, text, view=None):
+
+        text = text.strip()
+        parts = text.split('=', 1)
+
+        name = parts[0].split(';', 1)[0].strip()
+        if len(parts) == 1:
+            return text, {'subs': {'name': (self.strtype.typehash, name, {})}}
+
+        valu = parts[1].split(';', 1)[0].strip()
+        return text, {'subs': {'name': (self.strtype.typehash, name, {}), 'value': (self.strtype.typehash, valu, {})}}
+
+    async def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+            cookies = valu.split(';')
+            for cookie in [c.strip() for c in cookies]:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        if isinstance(valu, (list, tuple)):
+
+            for cookie in valu:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        yield valu
+
+class IPRange(Range):
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ip', {})
+        Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
+        self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
+
+        self.pivs |= {
+            'inet:ip': ('range=', None),
+        }
+
+        self.virtindx |= {
+            'mask': 'mask',
+            'size': 'size',
+        }
+
+        self.virts |= {
+            'mask': (self.masktype, self._getMask),
+            'size': (self.sizetype, self._getSize),
+        }
+
+    def _getMask(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('mask')) is None:
+            return None
+
+        return valu[0]
+
+    def _getSize(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('size')) is None:
+            return None
+
+        return valu[0]
+
+    def repr(self, norm):
+        if (cidr := self._getCidr(norm)) is not None:
+            return str(cidr)
+
+        minv, maxv = Range.repr(self, norm)
+        return f'{minv}-{maxv}'
+
+    def _getCidr(self, norm):
+        (minv, maxv) = norm
+
+        if minv[0] == 4:
+            minv = ipaddress.IPv4Address(minv[1])
+            maxv = ipaddress.IPv4Address(maxv[1])
+        else:
+            minv = ipaddress.IPv6Address(minv[1])
+            maxv = ipaddress.IPv6Address(maxv[1])
+
+        cidr = None
+        for iprange in ipaddress.summarize_address_range(minv, maxv):
+            if cidr is not None:
+                return
+            cidr = iprange
+
+        return cidr
+
+    async def _normPyStr(self, valu, view=None):
+
+        if '-' in valu:
+            norm, info = await super()._normPyStr(valu)
+            size = (await self.sizetype.norm(norm[1][1] - norm[0][1] + 1))[0]
+            info['virts'] = {'size': (size, self.sizetype.stortype)}
+
+            if (cidr := self._getCidr(norm)) is not None:
+                info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+            return norm, info
+
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
+        (vers, ip_int) = (await self.subtype.norm(ip_str))[0]
+
+        if vers == 4:
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Invalid CIDR Mask')
+
+            mask = cidrmasks[mask_int]
+            network, netinfo = await self.subtype.norm((4, ip_int & mask[0]))
+            broadcast, binfo = await self.subtype.norm((4, network[1] + mask[1] - 1))
+
+        else:
+            try:
+                netw = ipaddress.IPv6Network(valu)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+            network, netinfo = await self.subtype.norm((6, int(netw.network_address)))
+            broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
+
+        size = (await self.sizetype.norm(broadcast[1] - network[1] + 1))[0]
+
+        return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
+                                               'max': (self.subtype.typehash, broadcast, binfo)},
+                                      'virts': {'mask': (mask_int, self.masktype.stortype),
+                                                'size': (size, self.sizetype.stortype)}}
+
+    async def _normPyTuple(self, valu, view=None):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
+
+        minv, minfo = await self.subtype.norm(valu[0])
+        maxv, maxfo = await self.subtype.norm(valu[1])
+
+        if minv[0] != maxv[0]:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'IP address version mismatch in range "{valu}"')
+
+        if minv[1] > maxv[1]:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='minval cannot be greater than maxval')
+
+        size = (await self.sizetype.norm(maxv[1] - minv[1] + 1))[0]
+
+        info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
+                         'max': (self.subtype.typehash, maxv, maxfo)},
+                'virts': {'size': (size, self.sizetype.stortype)}}
+
+        if (cidr := self._getCidr((minv, maxv))) is not None:
+            info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+        return (minv, maxv), info
+
+class Rfc2822Addr(Str):
+    '''
+    An RFC 2822 compatible email address parser
+    '''
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.metatype = self.modl.type('meta:name')
+        self.emailtype = self.modl.type('inet:email')
+
+    async def _normPyStr(self, valu, view=None):
+
+        # remove quotes for normalized version
+        valu = valu.replace('"', ' ').replace("'", ' ')
+        valu = valu.strip().lower()
+        valu = ' '.join(valu.split())
+
+        try:
+            name, addr = s_v_email_utils.parseaddr(valu, strict=True)
+        except Exception as e:  # pragma: no cover
+            # not sure we can ever really trigger this with a string as input
+            mesg = f'email.utils.parsaddr failed: {str(e)}'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=mesg) from None
+
+        if not name and not addr:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'No name or email parsed from {valu}')
+
+        subs = {}
+        if name:
+            subs['name'] = (self.metatype.typehash, name, {})
+
+        try:
+            mail, norminfo = await self.emailtype.norm(addr)
+
+            subs['email'] = (self.emailtype.typehash, mail, norminfo)
+            if name:
+                valu = '%s <%s>' % (name, mail)
+            else:
+                valu = mail
+        except s_exc.BadTypeValu as e:
+            pass  # it's all good, we just dont have a valid email addr
+
+        return valu, {'subs': subs}
+
+class Url(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.iptype = self.modl.type('inet:ip')
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.porttype = self.modl.type('inet:port')
+        self.passtype = self.modl.type('auth:passwd')
+        self.strtype = self.modl.type('str')
+        self.lowstrtype = self.modl.type('str').clone({'lower': True})
+
+    async def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:url='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            async def cmpr(valu):
+                return False
+            return cmpr
+
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return norm == valu
+
+        return cmpr
+
+    async def _normPyStr(self, valu, view=None):
+        valu = valu.strip()
+        orig = valu
+        subs = {}
+        proto = ''
+        authparts = None
+        hostparts = ''
+        pathpart = ''
+        parampart = ''
+        local = False
+        isUNC = False
+
+        if valu.startswith('\\\\'):
+            orig = s_chop.uncnorm(valu)
+            # Fall through to original norm logic
+
+        # Protocol
+        for splitter in ('://///', ':////'):
+            try:
+                proto, valu = orig.split(splitter, 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                isUNC = True
+                break
+            except Exception:
+                proto = valu = ''
+
+        if not proto:
+            try:
+                proto, valu = orig.split('://', 1)
+                proto = proto.lower()
+            except Exception:
+                pass
+
+        if not proto:
+            try:
+                proto, valu = orig.split(':', 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                assert valu
+                local = True
+            except Exception:
+                proto = valu = ''
+
+        if not proto or not valu:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Invalid/Missing protocol') from None
+
+        proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
+
+        subs['proto'] = (self.lowstrtype.typehash, proto, {})
+        # Query params first
+        queryrem = ''
+        if '?' in valu:
+            valu, queryrem = valu.split('?', 1)
+            # TODO break out query params separately
+
+        # Resource Path
+        parts = valu.split('/', 1)
+        subs['path'] = (self.strtype.typehash, '', {})
+        if len(parts) == 2:
+            valu, pathpart = parts
+            if local:
+                if drivre.match(valu):
+                    pathpart = '/'.join((valu, pathpart))
+                    valu = ''
+            # Ordering here matters due to the differences between how windows and linux filepaths are encoded
+            # *nix paths: file://<host>/some/chosen/path
+            # for windows path: file://<host>/c:/some/chosen/path
+            # the split above will rip out the starting slash on *nix, so we need it back before making the path
+            # sub, but for windows we need to only when constructing the full url (and not the path sub)
+            if proto == 'file' and drivre.match(pathpart):
+                # make the path sub before adding in the slash separator so we don't end up with "/c:/foo/bar"
+                # as part of the subs
+                # per the rfc, only do this for things that start with a drive letter
+                subs['path'] = (self.strtype.typehash, pathpart, {})
+                pathpart = f'/{pathpart}'
+            else:
+                pathpart = f'/{pathpart}'
+                subs['path'] = (self.strtype.typehash, pathpart, {})
+
+        if queryrem:
+            parampart = f'?{queryrem}'
+        subs['params'] = (self.strtype.typehash, parampart, {})
+
+        # Optional User/Password
+        parts = valu.rsplit('@', 1)
+        if len(parts) == 2:
+            authparts, valu = parts
+            userpass = authparts.split(':', 1)
+            subs['user'] = (self.lowstrtype.typehash, urllib.parse.unquote(userpass[0].lower()), {})
+            if len(userpass) == 2:
+                passnorm, passinfo = await self.passtype.norm(urllib.parse.unquote(userpass[1]))
+                subs['passwd'] = (self.passtype.typehash, passnorm, passinfo)
+
+        # Host (FQDN, IPv4, or IPv6)
+        host = None
+        port = None
+
+        # Treat as IPv6 if starts with [ or contains multiple :
+        if valu.startswith('[') or valu.count(':') >= 2:
+            try:
+                match = srv6re.match(valu)
+                if match:
+                    valu, port = match.groups()
+
+                ipv6, norminfo = await self.iptype.norm(valu)
+                host = self.iptype.repr(ipv6)
+                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+
+                if match:
+                    host = f'[{host}]'
+
+            except Exception:
+                pass
+
+        else:
+            # FQDN and IPv4 handle ports the same way
+            fqdnipv4_parts = valu.split(':', 1)
+            part = fqdnipv4_parts[0]
+            if len(fqdnipv4_parts) == 2:
+                port = fqdnipv4_parts[1]
+
+            # IPv4
+            try:
+                # Norm and repr to handle fangs
+                ipv4, norminfo = await self.iptype.norm(part)
+                host = self.iptype.repr(ipv4)
+                subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
+            except Exception:
+                pass
+
+            # FQDN
+            if host is None:
+                try:
+                    host, norminfo = await self.fqdntype.norm(part)
+                    subs['fqdn'] = (self.fqdntype.typehash, host, norminfo)
+                except Exception:
+                    pass
+
+            # allow MSFT specific wild card syntax
+            # https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
+            if host is None and part == '+':
+                host = '+'
+
+        if host and local:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Host specified on local-only file URI') from None
+
+        # Optional Port
+        if port is not None:
+            port, norminfo = await self.porttype.norm(port)
+            subs['port'] = (self.porttype.typehash, port, norminfo)
+        else:
+            # Look up default port for protocol, but don't add it back into the url
+            defport = s_l_iana.services.get(proto)
+            if defport:
+                subs['port'] = (self.porttype.typehash, *(await self.porttype.norm(defport)))
+
+        # Set up Normed URL
+        if isUNC:
+            hostparts += '//'
+
+        if authparts:
+            hostparts = f'{authparts}@'
+
+        if host is not None:
+            hostparts = f'{hostparts}{host}'
+            if port is not None:
+                hostparts = f'{hostparts}:{port}'
+
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if not hostparts and not pathpart:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Missing address/url') from None
+
+        base = f'{proto}://{hostparts}{pathpart}'
+        subs['base'] = (self.strtype.typehash, base, {})
+        norm = f'{base}{parampart}'
+        return norm, {'subs': subs}

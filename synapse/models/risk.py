@@ -1,27 +1,3 @@
-import synapse.exc as s_exc
-
-import synapse.lib.chop as s_chop
-import synapse.lib.types as s_types
-
-
-class CvssV2(s_types.Str):
-
-    async def _normPyStr(self, text, view=None):
-        try:
-            return s_chop.cvss2_normalize(text), {}
-        except s_exc.BadDataValu as exc:
-            mesg = exc.get('mesg')
-            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
-
-class CvssV3(s_types.Str):
-
-    async def _normPyStr(self, text, view=None):
-        try:
-            return s_chop.cvss3x_normalize(text), {}
-        except s_exc.BadDataValu as exc:
-            mesg = exc.get('mesg')
-            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
-
 alertstatus = (
     (0, 'new'),
     (10, 'enrichment'),
@@ -34,10 +10,10 @@ alertstatus = (
 modeldefs = (
     ('risk', {
         'ctors': (
-            ('cvss:v2', 'synapse.models.risk.CvssV2', {}, {
+            ('cvss:v2', 'synapse.lib.types.CvssV2', {}, {
                 'doc': 'A CVSS v2 vector string.', 'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)'
             }),
-            ('cvss:v3', 'synapse.models.risk.CvssV3', {}, {
+            ('cvss:v3', 'synapse.lib.types.CvssV3', {}, {
                 'doc': 'A CVSS v3.x vector string.', 'ex': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
             }),
         ),

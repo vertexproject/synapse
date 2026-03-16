@@ -25,7 +25,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             s = buf.decode()
             self.isin('Base types are defined via Python classes.', s)
-            self.isin('synapse.models.inet.SockAddr', s)
+            self.isin('synapse.lib.types.SockAddr', s)
             self.isin('Regular types are derived from BaseTypes.', s)
             self.isin(r'inet\:server', s)
 
