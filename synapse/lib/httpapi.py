@@ -534,7 +534,7 @@ class StormHandler(Handler):
         Creates or validates an opts dict with the current session useriden.
 
         If the session useriden differs from the user key, validate the user
-        has the impersonate permission ( that may require a round trip to authcell ).
+        is an admin.
 
         Notes:
             This API sets up HTTP response values if it returns None.
@@ -553,7 +553,9 @@ class StormHandler(Handler):
 
         opts.setdefault('user', useriden)
         if opts.get('user') != useriden:
-            if not await self.allowed(('impersonate',)):
+            if not await self.isUserAdmin():
+                mesg = f'User ({self.web_username}) requires admin privileges to impersonate another user.'
+                self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
                 return None
 
         return opts
