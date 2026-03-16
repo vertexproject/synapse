@@ -652,6 +652,7 @@ modeldefs = (
                 ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
+                # TODO: what are the correct options for node here?
                 ('node', ('meta:havable', {}), {
                     'doc': 'The node which represents the asset.'}),
 

@@ -1697,6 +1697,7 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability detected in the asset.'}),
 
+                # TODO: should this be an interface for things that can be vulnerable?
                 ('asset', (('risk:targetable', 'meta:observable', 'meta:havable'), {}), {
                     'doc': 'The node which is vulnerable.'}),
 
