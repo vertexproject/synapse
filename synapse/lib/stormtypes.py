@@ -7953,6 +7953,9 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+        elif name == 'cache:size':
+            valu = await toint(valu)
+
         elif name == 'logedits':
             valu = await tobool(valu)
 

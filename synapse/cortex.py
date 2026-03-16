@@ -839,6 +839,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
         },
+        'layers:cache:size': {
+            'default': None,
+            'description': 'Default buid cache size for new layers.',
+            'type': ['integer', 'null'],
+        },
         'provenance:en': {  # TODO: Remove in 3.0.0
             'default': False,
             'description': 'This no longer does anything.',
