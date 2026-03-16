@@ -1,5 +1,5 @@
 ---
-desc: The ``impersonate`` permission has been removed. Only admin users can impersonate other users via the ``user`` opt.
+desc: The ``impersonate`` permission has been removed. Only global admins can impersonate other users via the ``user`` opt.
 desc:literal: false
 prs: []
 type: feat
