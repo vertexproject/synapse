@@ -819,13 +819,24 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.snap.view.iden
+        if ddef is None:
+            ddef = {}
+
+        ddef.pop('view', None)
+
+        stormopts = ddef.get('stormopts')
+        viewiden = None
+        if stormopts is not None:
+            viewiden = stormopts.get('view')
+        if viewiden is not None:
+            viewiden = await tostr(viewiden)
+            view = self.runt.snap.core.reqView(viewiden)
+        else:
+            viewiden = self.runt.snap.view.iden
+
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
-
-        if ddef is None:
-            ddef = {}
 
         ddef['name'] = name
         ddef['user'] = self.runt.user.iden
@@ -935,6 +946,8 @@ class LibService(Lib):
                                                          'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('service',), 'gate': 'cortex',
+            'desc': 'Controls all service permissions.'},
         {'perm': ('service', 'add'), 'gate': 'cortex',
             'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
         {'perm': ('service', 'del'), 'gate': 'cortex',
@@ -3997,6 +4010,8 @@ class LibQueue(Lib):
                               'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('queue',), 'gate': 'cortex',
+         'desc': 'Controls all queue permissions.'},
         {'perm': ('queue', 'add'), 'gate': 'cortex',
          'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
@@ -7938,6 +7953,9 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+        elif name == 'cache:size':
+            valu = await toint(valu)
+
         elif name == 'logedits':
             valu = await tobool(valu)
 
@@ -8894,6 +8912,8 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
+        {'perm': ('trigger',), 'gate': 'cortex',
+         'desc': 'Controls all trigger permissions.'},
         {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'trigger',
@@ -9531,6 +9551,8 @@ class LibCron(Lib):
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
+        {'perm': ('cron',), 'gate': 'cortex',
+         'desc': 'Controls all cron permissions.'},
         {'perm': ('cron', 'add'), 'gate': 'view',
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
@@ -9840,6 +9862,12 @@ class LibCron(Lib):
         incval = None
         reqdict = {}
         pool = await tobool(kwargs.get('pool', False))
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
+            if pool:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -9960,6 +9988,7 @@ class LibCron(Lib):
         cdef = {'storm': query,
                 'reqs': reqdict,
                 'pool': pool,
+                'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -9990,6 +10019,10 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -10041,6 +10074,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'affinity': affinity,
                 'creator': self.runt.user.iden
                 }
 
@@ -10232,6 +10266,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'pool': self.valu.get('pool', False),
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
