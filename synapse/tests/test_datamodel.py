@@ -456,23 +456,23 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('test:interface', 'matches', None), {})
 
-            core.model.addEdge(('inet:fqdn', 'zip', 'phys:tangible'), {})
+            core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
             edges = core.model.edgesbyn2.get('transport:air:craft')
             self.true(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
-            self.isin(('inet:fqdn', 'zip', 'phys:tangible'), [e.edgetype for e in edges])
+            self.isin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
 
-            core.model.addEdge(('phys:tangible', 'zop', 'inet:fqdn'), {})
+            core.model.addEdge(('phys:object', 'zop', 'inet:fqdn'), {})
             edges = core.model.edgesbyn1.get('transport:air:craft')
-            self.isin(('phys:tangible', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
+            self.isin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
 
-            core.model.delEdge(('inet:fqdn', 'zip', 'phys:tangible'))
+            core.model.delEdge(('inet:fqdn', 'zip', 'phys:object'))
             edges = core.model.edgesbyn2.get('transport:air:craft')
             self.false(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
-            self.notin(('inet:fqdn', 'zip', 'phys:tangible'), [e.edgetype for e in edges])
+            self.notin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
 
-            core.model.delEdge(('phys:tangible', 'zop', 'inet:fqdn'))
+            core.model.delEdge(('phys:object', 'zop', 'inet:fqdn'))
             edges = core.model.edgesbyn1.get('transport:air:craft')
-            self.notin(('phys:tangible', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
+            self.notin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
 
             model = await core.getModelDict()
             self.isin('created', [m[0] for m in model['metas']])

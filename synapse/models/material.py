@@ -55,6 +55,16 @@ modeldefs = (
                         'doc': 'The physical height of the {title}.'}),
                 ),
             }),
+
+            ('phys:object', {
+                'doc': 'Properties common to physical objects.',
+                'template': {'title': 'object'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('phys:tangible', {}),
+                ),
+                'props': (),
+            }),
         ),
 
         'types': (
@@ -76,8 +86,7 @@ modeldefs = (
 
             ('mat:item', ('guid', {}), {
                 'interfaces': (
-                    ('meta:havable', {}),
-                    ('phys:tangible', {'template': {'title': 'item'}}),
+                    ('phys:object', {'template': {'title': 'item'}}),
                 ),
                 'doc': 'A GUID assigned to a material object.'}),
 
@@ -104,10 +113,10 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period where the container held the object.'}),
 
-                ('object', ('phys:tangible', {}), {
+                ('object', ('phys:object', {}), {
                     'doc': 'The object held within the container.'}),
 
-                ('container', ('phys:tangible', {}), {
+                ('container', ('phys:object', {}), {
                     'doc': 'The container which held the object.'}),
             )),
             ('mat:item', {}, (

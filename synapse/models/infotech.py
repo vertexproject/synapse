@@ -640,8 +640,7 @@ modeldefs = (
             ('it:host', ('guid', {}), {
                 'template': {'title': 'host'},
                 'interfaces': (
-                    ('meta:havable', {}),
-                    ('phys:tangible', {}),
+                    ('phys:object', {}),
                     ('inet:service:object', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
