@@ -101,7 +101,7 @@ reqValidLdef = s_config.getJsValidator({
         'lockmemory': {'type': 'boolean'},
         'lmdb:growsize': {'type': 'integer'},
         'logedits': {'type': 'boolean', 'default': True},
-        'cachesize': {'type': 'integer', 'minimum': 1},
+        'cache:size': {'type': ['integer', 'null'], 'minimum': 1},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
     },
@@ -203,20 +203,6 @@ class LayerApi(s_cell.CellApi):
         return self.layr.iden
 
 BUID_CACHE_SIZE = 10000
-
-def _getBuidCacheSize(layrinfo):
-    '''
-    Resolve the BUID cache size with priority: layer config > env var > default.
-    '''
-    cachesize = layrinfo.get('cachesize')
-    if cachesize is not None:
-        return cachesize
-
-    envar = os.environ.get('SYN_CORTEX_LAYER_CACHE_SIZE')
-    if envar is not None:
-        return int(envar)
-
-    return BUID_CACHE_SIZE
 
 STOR_TYPE_UTF8 = 1
 
@@ -1527,7 +1513,7 @@ class Layer(s_nexus.Pusher):
         self.windows = set()
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
-        self.buidcache = s_cache.LruDict(_getBuidCacheSize(self.layrinfo))
+        self.buidcache = s_cache.LruDict(self._getBuidCacheSize())
 
         self.onfini(self._onLayrFini)
 
@@ -1540,6 +1526,20 @@ class Layer(s_nexus.Pusher):
 
         # this must be last!
         self.readonly = layrinfo.get('readonly')
+
+    def _getBuidCacheSize(self):
+        '''
+        Resolve the BUID cache size with priority: layer config > cortex conf > default.
+        '''
+        cachesize = self.layrinfo.get('cache:size')
+        if cachesize is not None:
+            return cachesize
+
+        cachesize = self.core.conf.get('layers:cache:size')
+        if cachesize is not None:
+            return cachesize
+
+        return BUID_CACHE_SIZE
 
     def _reqNotReadOnly(self):
         if self.readonly and not self.core.migration:
@@ -2824,14 +2824,14 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'cachesize', 'logedits', 'readonly', 'mirror', 'upstream'):
+        if name not in ('name', 'desc', 'cache:size', 'logedits', 'readonly', 'mirror', 'upstream'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        if name == 'cachesize':
+        if name == 'cache:size':
             valu = int(valu)
             if valu < 1:
-                mesg = 'cachesize must be >= 1'
+                mesg = 'cache:size must be >= 1'
                 raise s_exc.BadOptValu(mesg=mesg)
 
             self.buidcache = s_cache.LruDict(valu)
