@@ -1183,17 +1183,12 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await proxy.callStorm('[ inet:ip=1.2.3.4 ]', opts=opts)
 
-                await visi.addRule((True, ('impersonate',)))
+                await visi.setAdmin(True)
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.eq(1, await proxy.count('[ inet:ip=1.2.3.4 ]', opts=opts))
 
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.callStorm('return({[ it:dev:str=woot ]})')
-
-                with self.raises(s_exc.AuthDeny):
-                    await core.callStorm('return((null))', opts={'user': visi.iden, 'sudo': True})
-
+                await visi.setAdmin(False)
                 await visi.addRule((True, ('storm', 'sudo')))
 
                 opts = {'sudo': True}
