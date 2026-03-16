@@ -174,7 +174,8 @@ modeldefs = (
 
             ('transport:container', {
                 'interfaces': (
-                    ('phys:object', {}),
+                    ('meta:havable', {}),
+                    ('phys:tangible', {}),
                 ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
@@ -564,7 +565,7 @@ modeldefs = (
 
             ('transport:cargo', {}, (
 
-                ('object', ('phys:object', {}), {
+                ('object', ('phys:tangible', {}), {
                     'doc': 'The physical object being transported.'}),
 
                 ('trip', ('transport:trip', {}), {

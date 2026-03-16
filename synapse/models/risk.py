@@ -347,7 +347,7 @@ modeldefs = (
             (('risk:compromise', 'stole', 'meta:observable'), {
                 'doc': 'The target node was stolen or copied as a result of the compromise.'}),
 
-            (('risk:compromise', 'stole', 'phys:object'), {
+            (('risk:compromise', 'stole', 'phys:tangible'), {
                 'doc': 'The target node was stolen as a result of the compromise.'}),
 
             (('risk:leak', 'leaked', 'meta:observable'), {

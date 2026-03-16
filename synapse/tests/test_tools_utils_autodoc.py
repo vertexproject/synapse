@@ -50,7 +50,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.isin('This type implements the following interfaces:', s)
             self.isin('''('inet:service:object', {''', s)
-            self.isin('''('phys:object', {''', s)
+            self.isin('''('phys:tangible', {''', s)
 
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()

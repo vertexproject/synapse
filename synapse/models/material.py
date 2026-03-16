@@ -31,11 +31,10 @@ modeldefs = (
 
         'interfaces': (
 
-            ('phys:object', {
-                'doc': 'Properties common to all physical objects.',
+            ('phys:tangible', {
+                'doc': 'Properties common to nodes which have or capture physical characteristics.',
                 'template': {'title': 'object'},
                 'interfaces': (
-                    ('meta:havable', {}),
                     ('geo:locatable', {}),
                 ),
                 'props': (
@@ -77,7 +76,8 @@ modeldefs = (
 
             ('mat:item', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {'template': {'title': 'item'}}),
+                    ('meta:havable', {}),
+                    ('phys:tangible', {'template': {'title': 'item'}}),
                 ),
                 'doc': 'A GUID assigned to a material object.'}),
 
@@ -104,10 +104,10 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period where the container held the object.'}),
 
-                ('object', ('phys:object', {}), {
+                ('object', ('phys:tangible', {}), {
                     'doc': 'The object held within the container.'}),
 
-                ('container', ('phys:object', {}), {
+                ('container', ('phys:tangible', {}), {
                     'doc': 'The container which held the object.'}),
             )),
             ('mat:item', {}, (
