@@ -554,6 +554,8 @@ class StormHandler(Handler):
         opts.setdefault('user', useriden)
         if opts.get('user') != useriden:
             if not await self.isUserAdmin():
+                mesg = f'User ({self.web_username}) requires admin privileges to impersonate another user.'
+                self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
                 return None
 
         return opts
