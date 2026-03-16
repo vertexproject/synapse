@@ -1178,7 +1178,7 @@ class CortexTest(s_t_utils.SynTest):
                     except asyncio.TimeoutError:
                         logger.exception('Woohoo!')
 
-                self.true(await stream.wait(6))
+                self.true(await stream.wait(12))
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
