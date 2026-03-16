@@ -840,6 +840,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
         },
+        'layers:cache:size': {
+            'default': None,
+            'description': 'Default buid cache size for new layers.',
+            'type': ['integer', 'null'],
+        },
         'provenance:en': {  # TODO: Remove in 3.0.0
             'default': False,
             'description': 'This no longer does anything.',
@@ -1000,6 +1005,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (4, self._storCortexHiveMigration),
             (5, self._storCleanQueueAuthGates),
             (6, self._storCleanCronAuthGates),
+            (7, self._storMigrDmonDdefView),
         ), nexs=False)
 
         # Perform module loading
@@ -1168,6 +1174,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await self.auth.delAuthGate(info.iden)
 
         logger.warning('...CronJob AuthGate cleanup complete!')
+
+    async def _storMigrDmonDdefView(self):
+        logger.warning('migrating storm dmon ddefs to remove top-level view key')
+        validkeys = ('name', 'storm', 'user', 'iden', 'enabled', 'stormopts')
+        subkv = self.cortexdata.getSubKeyVal('storm:dmons:')
+        for iden, ddef in subkv.items():
+            extrakeys = [k for k in ddef if k not in validkeys]
+            if extrakeys:
+                for k in extrakeys:
+                    ddef.pop(k)
+                subkv.set(iden, ddef)
+        logger.warning('...storm dmon ddef migration complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -1415,6 +1433,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCorePerms(self):
         self._cortex_permdefs.extend((
+            {'perm': ('axon',), 'gate': 'cortex',
+             'desc': 'Controls all Axon permissions.'},
             {'perm': ('axon', 'upload'), 'gate': 'cortex',
              'desc': 'Controls the ability to upload a file to the Axon.'},
             {'perm': ('axon', 'get'), 'gate': 'cortex',
@@ -1424,6 +1444,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
 
+            {'perm': ('layer',), 'gate': 'cortex',
+             'desc': 'Controls all layer permissions.'},
             {'perm': ('layer', 'add'), 'gate': 'cortex',
              'desc': 'Controls the ability to add Layers to the cortex.'},
             {'perm': ('layer', 'del'), 'gate': 'cortex',
@@ -1433,6 +1455,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to read/lift from a specific Layer.'},
 
+            {'perm': ('layer', 'set'), 'gate': 'layer',
+             'desc': 'Controls setting any layer property.'},
             {'perm': ('layer', 'set', 'name'), 'gate': 'layer',
              'desc': 'Controls the ability set a layer name.'},
             {'perm': ('layer', 'set', 'desc'), 'gate': 'layer',
@@ -1445,6 +1469,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to write to a specific Layer.'},
 
+            {'perm': ('model',), 'gate': 'cortex',
+             'desc': 'Controls all model permissions.'},
+            {'perm': ('model', 'form'), 'gate': 'cortex',
+             'desc': 'Controls all model form permissions.'},
             {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model forms.'},
             {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
@@ -1456,6 +1484,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting specific extended model forms.',
              'ex': 'model.form.del._foo:bar'},
 
+            {'perm': ('model', 'type'), 'gate': 'cortex',
+             'desc': 'Controls all model type permissions.'},
             {'perm': ('model', 'type', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model types.'},
             {'perm': ('model', 'type', 'add', '<type>'), 'gate': 'cortex',
@@ -1467,6 +1497,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting specific extended model types.',
              'ex': 'model.type.del._foo:bar'},
 
+            {'perm': ('model', 'prop'), 'gate': 'cortex',
+             'desc': 'Controls all model property permissions.'},
             {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model properties.'},
             {'perm': ('model', 'prop', 'add', '<form>'), 'gate': 'cortex',
@@ -1478,16 +1510,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting specific extended model properties and values.',
              'ex': 'model.prop.del._foo:bar'},
 
+            {'perm': ('model', 'tagprop'), 'gate': 'cortex',
+             'desc': 'Controls all model tag property permissions.'},
             {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model tag properties and values.'},
             {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model tag properties and values.'},
 
+            {'perm': ('model', 'univ'), 'gate': 'cortex',
+             'desc': 'Controls all model universal property permissions.'},
             {'perm': ('model', 'univ', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model universal properties.'},
             {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model universal properties and values.'},
 
+            {'perm': ('model', 'edge'), 'gate': 'cortex',
+             'desc': 'Controls all model edge permissions.'},
             {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model edges.'},
             {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
@@ -1506,6 +1544,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
 
+            {'perm': ('node', 'edge'), 'gate': 'layer',
+             'desc': 'Controls all node edge permissions in a layer.'},
             {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
              'desc': 'Controls adding light edges to a node.'},
             {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
@@ -1551,6 +1591,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.prop.del.inet:ipv4.asn',
              'desc': 'Controls removing a specific property from a form of node in a layer.'},
 
+            {'perm': ('node', 'data'), 'gate': 'layer',
+             'desc': 'Controls all node data permissions in a layer.'},
             {'perm': ('node', 'data', 'set'), 'gate': 'layer',
              'desc': 'Permits a user to set node data in a given layer.'},
             {'perm': ('node', 'data', 'set', '<varname>'), 'gate': 'layer',
@@ -1562,11 +1604,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.data.pop.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
+            {'perm': ('pkg',), 'gate': 'cortex',
+             'desc': 'Controls all package permissions.'},
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
 
+            {'perm': ('storm',), 'gate': 'cortex',
+             'desc': 'Controls all Storm permissions.'},
             {'perm': ('storm', 'asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
             'desc': 'Deprecated. Please use Storm modules to implement functionality requiring root privileges.'},
             {'perm': ('storm', 'asroot', 'mod', '<modname>'), 'gate': 'cortex',
@@ -1575,9 +1621,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'sudo'), 'gate': 'cortex',
             'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
 
+            {'perm': ('storm', 'graph'), 'gate': 'cortex',
+             'desc': 'Controls all Storm graph permissions.'},
             {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
+            {'perm': ('storm', 'macro'), 'gate': 'cortex',
+             'desc': 'Controls all Storm macro permissions.'},
             {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm macro.',
              'default': True},
@@ -1585,11 +1635,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to edit/set/delete a storm macro.'},
             {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
-
-            {'perm': ('task', 'get'), 'gate': 'cortex',
-             'desc': 'Controls access to view other users tasks.'},
-            {'perm': ('task', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to terminate other users tasks.'},
 
             {'perm': ('view',), 'gate': 'cortex',
              'desc': 'Controls all view permissions.'},
@@ -1602,6 +1647,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('view', 'read'), 'gate': 'view',
              'desc': 'Controls read access to view.'},
 
+            {'perm': ('view', 'set'), 'gate': 'view',
+             'desc': 'Controls setting any view property.'},
             {'perm': ('view', 'set', 'name'), 'gate': 'view',
              'desc': 'Controls access to set a view name.'},
             {'perm': ('view', 'set', 'desc'), 'gate': 'view',
@@ -5887,6 +5934,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Duplicate iden specified for dmon: {ddef["iden"]}'
             raise s_exc.DupIden(mesg=mesg)
 
+        s_schemas.reqValidDdef(ddef)
+
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
@@ -5966,6 +6015,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon = await self.runStormDmon(iden, ddef)
 
         self.stormdmondefs.set(iden, ddef)
+        await self.fire('storm:dmon:add', iden=iden)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
@@ -5985,6 +6035,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
+        await self.fire('storm:dmon:del', iden=iden)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
@@ -7070,7 +7121,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt.doc = str(valu)
 
         elif name == 'pool':
-            appt.pool = bool(valu)
+            valu = bool(valu)
+            if valu and appt.affinity:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.pool = valu
+
+        elif name == 'affinity':
+            if valu is not None:
+                valu = str(valu)
+                if appt.pool:
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.affinity = valu
 
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'

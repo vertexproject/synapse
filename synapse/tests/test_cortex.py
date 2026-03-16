@@ -6384,6 +6384,71 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 
+    async def test_cortex_storm_dmon_add_view(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.queue.add(dmon)')
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+
+            # Specify an alternate view via ddef and verify stormopts.view is set
+            dmonq = '''
+                $q = $lib.queue.get(dmon)
+                for ($offs, $item) in $q.gets(size=3, wait=12) {
+                    [ test:int=$item ]
+                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $q.cull($offs)
+                }
+            '''
+            ddef = await core.callStorm(
+                'return($lib.dmon.add($storm, name=viewdmon, ddef=({"stormopts": {"view": $view}})))',
+                opts={'vars': {'storm': dmonq, 'view': view2_iden}},
+            )
+            self.eq(ddef['stormopts']['view'], view2_iden)
+
+            await asyncio.sleep(0)
+
+            q = '''$q = $lib.queue.get(dmon) $q.puts((10, 20, 30))'''
+            with self.getAsyncLoggerStream('synapse.lib.storm',
+                                           "made ('test:int', 30)") as stream:
+                await core.nodes(q)
+                self.true(await stream.wait(6))
+
+            # Nodes should be in the forked view
+            nodes = await core.nodes('test:int', opts={'view': view2_iden})
+            self.len(3, nodes)
+
+            # Nodes should not be in the default view
+            nodes = await core.nodes('test:int')
+            self.len(0, nodes)
+
+            # Specifying an invalid view raises NoSuchView
+            with self.raises(s_exc.NoSuchView):
+                await core.callStorm(
+                    '$lib.dmon.add($storm, name=baddmon, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': 'newp'}},
+                )
+
+            # Verify permission check uses the specified view gateiden
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')), gateiden=core.view.iden)
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                # visi has dmon.add on default view but not on view2
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm(
+                        '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                        opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                    )
+
+                # Grant on view2 and it should work
+                await visi.addRule((True, ('dmon', 'add')), gateiden=view2_iden)
+                await proxy.callStorm(
+                    '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                )
+
     async def test_cortex_storm_cmd_bads(self):
 
         async with self.getTestCore() as core:
@@ -7958,6 +8023,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
+
+    async def test_cortex_stor_migr_dmon_ddef_view(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                iden = s_common.guid()
+                ddef = {
+                    'iden': iden,
+                    'user': core.auth.rootuser.iden,
+                    'storm': '$lib.print(hi)',
+                    'view': core.getView().iden,
+                    'enabled': True,
+                    'extra': 'shouldberemoved',
+                }
+                core.cortexdata.getSubKeyVal('storm:dmons:').set(iden, ddef)
+                # Regress the storage version so migration 7 runs on next start
+                core.cellvers.set('cortex:storage', 6)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                subkv = core.cortexdata.getSubKeyVal('storm:dmons:')
+                migrated = subkv.get(iden)
+                self.nn(migrated)
+                self.notin('view', migrated)
+                self.notin('extra', migrated)
+                self.eq(migrated['iden'], iden)
+                self.eq(migrated['storm'], '$lib.print(hi)')
+                self.eq(migrated['user'], core.auth.rootuser.iden)
+                self.true(migrated['enabled'])
 
     async def test_cortex_taxonomy_migr(self):
 
