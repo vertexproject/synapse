@@ -1,0 +1,7 @@
+---
+desc: Added ``affinity`` option to cron jobs to prefer running Storm queries
+  on a specific AHA service with fallback to local execution.
+desc:literal: false
+prs: []
+type: feat
+...
