@@ -840,7 +840,7 @@ class HttpApiTest(s_tests.SynTest):
             newpuser = s_common.guid()
 
             await visi.setPasswd('secret')
-            await visi.addRule((True, ('impersonate',)))
+            await visi.setAdmin(True)
 
             opts = {'user': core.auth.rootuser.iden}
 

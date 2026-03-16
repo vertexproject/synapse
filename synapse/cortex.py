@@ -241,7 +241,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('impersonate',))
+            self.user.reqAdmin()
 
         return opts
 
