@@ -3249,14 +3249,40 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('tick'))
 
-            # Test error handling - bad storm query in on callback logs error but doesn't crash
-            with self.getAsyncLoggerStream('synapse.datamodel', 'model callback error') as stream:
+            # Test error handling - bad storm query in on.set callback logs error but doesn't crash
+            with self.getAsyncLoggerStream('synapse.datamodel', 'on.set model callback error') as stream:
                 await core.addFormProp('test:onstorm', '_badstorm', ('str', {}), {
                     'on': {'set': {'q': '| badcommand'}},
                 })
                 nodes = await core.nodes(f'test:onstorm={iden} [:_badstorm=test]')
                 self.true(await stream.wait(timeout=6))
                 self.len(1, nodes)
+
+            # Test error handling - bad storm query in on.del prop callback logs error but doesn't crash
+            with self.getAsyncLoggerStream('synapse.datamodel', 'on.del model callback error') as stream:
+                await core.addFormProp('test:onstorm', '_baddel', ('str', {}), {
+                    'on': {'del': {'q': '| badcommand'}},
+                })
+                await core.nodes(f'test:onstorm={iden} [:_baddel=test]')
+                nodes = await core.nodes(f'test:onstorm={iden} [-:_baddel]')
+                self.true(await stream.wait(timeout=6))
+                self.len(1, nodes)
+
+            # Test error handling - bad storm query in form on.add callback logs error but doesn't crash
+            form = core.model.form('test:onstorm')
+            saved = form.onstormadd
+            form.onstormadd = '| badcommand'
+            with self.getAsyncLoggerStream('synapse.datamodel', 'on.add model callback error') as stream:
+                nodes = await core.nodes('[test:onstorm=*]')
+                self.true(await stream.wait(timeout=6))
+                self.len(1, nodes)
+
+            # Test error handling - bad storm query in form on.del callback logs error but doesn't crash
+            form.onstormadd = saved
+            form.onstormdel = '| badcommand'
+            with self.getAsyncLoggerStream('synapse.datamodel', 'on.del model callback error') as stream:
+                nodes = await core.nodes('test:onstorm | delnode')
+                self.true(await stream.wait(timeout=6))
 
         # Test it:dev:str on:add callback sets :norm
         async with self.getTestCore() as core:
