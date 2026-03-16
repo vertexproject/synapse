@@ -8074,7 +8074,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # internal kill still works
 
                     self.nn(rtask := core01.boss.get(task['iden']))
-                    await rtask.kill()
+                    await rtask.kill(safe=False)
                     self.none(core01.boss.get(task['iden']))
 
     async def test_cortex_vaults(self):

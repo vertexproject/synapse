@@ -1120,7 +1120,7 @@ class SynTest(unittest.TestCase):
         '''
         Wait for any tasks that may occur after anit() returns the object.
         '''
-        self.true(await s_coro.event_wait(core._migration_evnt))
+        self.true(await s_coro.event_wait(core._migration_evnt, timeout=30))
 
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None, maxvers=None):

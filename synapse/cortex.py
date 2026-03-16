@@ -1748,6 +1748,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initServicePassive(self):
 
+        self._migration_evnt.clear()
+
         await self.stormdmons.stop()
 
         for view in self.views.values():

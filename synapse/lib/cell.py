@@ -4803,7 +4803,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         task = self.boss.get(iden)
         if task is not None:
-            await task.safeKill()
+            await task.kill()
             return True
 
         if not peers:
@@ -4833,7 +4833,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if (task.user.iden == user.iden) or isallowed:
             logger.info(f'Killing task: {iden}')
-            await task.safeKill()
+            await task.kill()
             logger.info(f'Task killed: {iden}')
             return True
 

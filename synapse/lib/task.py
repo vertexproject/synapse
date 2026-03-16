@@ -97,14 +97,11 @@ class Task(s_base.Base):
 
         self.kids[synt.iden] = synt
 
-    async def kill(self):
+    async def kill(self, safe=True):
+        if safe and self.protected:
+            raise s_exc.SynErr(mesg=f'Task {self.name} is protected.', iden=self.iden)
         # task kill and fini are the same...
         await self.fini()
-
-    async def safeKill(self):
-        if self.protected:
-            raise s_exc.SynErr(mesg=f'Task {self.name} is protected.')
-        await self.kill()
 
     def pack(self):
 

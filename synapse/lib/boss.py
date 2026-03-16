@@ -79,7 +79,7 @@ class Boss(s_base.Base):
             user: The User who owns the task.
             taskiden: An optional GUID for the task.
             info: An optional information dictionary containing information about the task.
-            protected (bool): Whether the task can be killed with safeKill()
+            protected (bool): If true, the task cannot be killed with kill(safe=True).
 
         Returns:
             s_task.Task: The Synapse Task object.
