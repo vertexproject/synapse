@@ -277,6 +277,8 @@ stormcmds = (
                             'action': 'store_true'}),
             ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--cache-size', {'help': 'Number of storage nodes to cache.', 'type': 'int',
+                              'dest': 'cache:size'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),

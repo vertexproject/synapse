@@ -153,3 +153,15 @@ class PasswdTest(s_t_utils.SynTest):
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
         self.eq(valu, 'Incorrect length, got 8')
+
+        # An otherwise valid key, but with standard base64 chars instead
+        # of the altchars we specified. This covers CVE-2025-12781 behavior.
+        badkeys_invalid_alts = (
+            'bcr_T1bNJURuN4+7CY5CqSuuK_Uvqg5Uv47W5YQ58RA=',
+            'bcr/T1bNJURuN4-7CY5CqSuuK/Uvqg5Uv47W5YQ58RA=',
+            'bcr/T1bNJURuN4+7CY5CqSuuK/Uvqg5Uv47W5YQ58RA=',
+        )
+        for badkey in badkeys_invalid_alts:
+            isok, valu = s_passwd.parseApiKey(badkey)
+            self.false(isok)
+            self.isin('Invalid character in API key.', valu)
