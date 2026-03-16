@@ -3067,18 +3067,18 @@ class InetModelTest(s_t_utils.SynTest):
                     :role=$devsiden
                     :public=$lib.false
                     :repost=*
-                    :mentions=(
-                        (inet:service:role, $devsiden),
-                        (inet:service:account, $blckiden),
-                        (inet:service:account, $blckiden),
-                    )
+                    :mentions={[
+                         (inet:service:role=$devsiden)
+                         (inet:service:account=$blckiden)
+                         (inet:service:account=$blckiden)
+                    ]}
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
-                    :mentions?=((file:attachment, *),)
+                    :mentions?={[ file:attachment=* ]}
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)

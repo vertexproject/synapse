@@ -16,9 +16,6 @@ modeldefs = (
 
         'types': (
 
-            ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
-                'doc': 'A product or service which may be sold.'}),
-
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),
 
@@ -282,7 +279,7 @@ modeldefs = (
                     'doc': 'The total cost of this receipt line item.'}),
 
                 # FIXME rename biz:sellable? donation / volunteers
-                ('item', ('biz:sellable', {}), {
+                ('item', (('biz:product', 'biz:service'), {}), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
             )),

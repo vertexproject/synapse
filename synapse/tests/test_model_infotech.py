@@ -146,7 +146,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'time', 1700179200000000)
             self.propeq(nodes[0], 'verdict', 30)
             self.propeq(nodes[0], 'scanner:name', 'visi scan')
-            self.propeq(nodes[0], 'target', ('file:bytes', 'fa1caa2924199d7b4bab0f57ebdbb7ec'))
+            self.propeq(nodes[0], 'target', 'fa1caa2924199d7b4bab0f57ebdbb7ec')
             self.propeq(nodes[0], 'signame', 'omgwtfbbq')
             self.propeq(nodes[0], 'categories', ('baz faz', 'foo bar'))
 
@@ -1209,7 +1209,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
                 $rule = { it:app:yara:rule:id=V-31337 }
-                [ it:app:yara:match=({"rule": $rule, "target": ["file:bytes", $file]})
+                [ it:app:yara:match=({"rule": $rule, "target": $file})
                     :version=1.2.3
                     :matched=20200202
                 ]
@@ -1543,7 +1543,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'language', 'sql')
             self.propeq(nodes[0], 'opts', {"foo": "bar"})
             self.propeq(nodes[0], 'text', 'SELECT * FROM threats')
-            self.propeq(nodes[0], 'account', ('syn:user', core.auth.rootuser.iden))
+            self.propeq(nodes[0], 'account', core.auth.rootuser.iden, form='syn:user')
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
 
             self.len(1, await core.nodes('it:exec:query :account -> syn:user'))
@@ -1857,7 +1857,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :time=2023081808190828
                     :mitigated=2023081808190930
                     :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
-                    :asset=(inet:server, tcp://1.2.3.4:443)
+                    :asset={[ inet:server=tcp://1.2.3.4:443 ]}
                     :priority=high
                     :severity=highest
                 ]
@@ -1964,7 +1964,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'key', 'foo/bar/baz')
             self.propeq(nodes[0], 'name', 'faz')
-            self.propeq(nodes[0], 'value', ('it:dev:int', 0xf0))
+            self.propeq(nodes[0], 'value', 0xf0, form='it:dev:int')
             self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))

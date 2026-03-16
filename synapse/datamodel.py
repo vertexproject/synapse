@@ -1022,6 +1022,23 @@ class Model:
 
         return retn
 
+    def processPropdef(self, pdef):
+
+        pname, propdef, propinfo = pdef
+        typename, typeinfo = propdef
+
+        if not typeinfo:
+            if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                typename = (typename,)
+
+        if isinstance(typename, tuple):
+            typeinfo = dict(typeinfo)
+            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
+            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+            typename = 'poly'
+
+        return (pname, (typename, typeinfo), propinfo)
+
     def processPropdefs(self, propdefs):
 
         realdefs = []
@@ -1619,12 +1636,20 @@ class Model:
 
         return template
 
-    def _convertTemplate(self, item, formname, template):
+    def _convertTemplate(self, item, formname, template, otemplate=None):
+
+        if otemplate is None:
+            otemplate = {k: v for k, v in template.items() if not isinstance(v, str)}
+            template = {k: v for k, v in template.items() if isinstance(v, str)}
 
         if isinstance(item, str):
 
             if item == '$self':
                 return formname
+
+            if item and item[0] == '{' and item[-1] == '}':
+                if (repl := otemplate.get(item[1:-1])) is not None:
+                    return repl
 
             item = s_common.format(item, **template)
 
@@ -1636,10 +1661,10 @@ class Model:
             return item
 
         if isinstance(item, dict):
-            return {self._convertTemplate(k, formname, template): self._convertTemplate(v, formname, template) for (k, v) in item.items()}
+            return {self._convertTemplate(k, formname, template, otemplate=otemplate): self._convertTemplate(v, formname, template, otemplate=otemplate) for (k, v) in item.items()}
 
         if isinstance(item, (list, tuple)):
-            return tuple([self._convertTemplate(v, formname, template) for v in item])
+            return tuple([self._convertTemplate(v, formname, template, otemplate=otemplate) for v in item])
 
         return item
 
@@ -1685,6 +1710,8 @@ class Model:
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
+
+            propname, typedef, propinfo = self.processPropdef((propname, typedef, propinfo))
 
             # allow form props to take precedence
             if (prop := form.prop(propname)) is None:

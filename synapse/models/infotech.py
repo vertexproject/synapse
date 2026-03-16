@@ -1097,15 +1097,16 @@ modeldefs = (
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
-            ('it:app:yara:target', ('ndef', {'forms': ('file:bytes', 'it:exec:proc',
-                                                          'inet:ip', 'inet:fqdn', 'inet:url')}), {
-                'doc': 'An ndef type which is limited to forms which YARA rules can match.'}),
-
             ('it:app:yara:match', ('guid', {}), {
                 'interfaces': (
                     ('meta:matchish', {'template': {'rule': 'YARA rule',
                                                     'rule:type': 'it:app:yara:rule',
-                                                    'match:type': 'it:app:yara:target'}}),
+                                                    'target:type': (
+                                                        'file:bytes',
+                                                        'it:exec:proc',
+                                                        'inet:ip',
+                                                        'inet:fqdn',
+                                                        'inet:url')}}),
                 ),
                 'doc': 'A YARA rule which can match files, processes, or network traffic.'}),
 
@@ -1126,12 +1127,9 @@ modeldefs = (
                 'interfaces': (
                     ('meta:matchish', {'template': {'rule': 'Snort rule',
                                        'rule:type': 'it:app:snort:rule',
-                                       'target:type': 'it:app:snort:target'}}),
+                                       'target:type': 'inet:flow'}}),
                 ),
                 'doc': 'An instance of a snort rule hit.'}),
-
-            ('it:app:snort:target', ('ndef', {'forms': ('inet:flow',)}), {
-                'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
 
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
@@ -1699,7 +1697,7 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability detected in the asset.'}),
 
-                ('asset', ('ndef', {}), {
+                ('asset', (('risk:targetable', 'meta:observable', 'meta:havable'), {}), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('desc', ('str', {}), {
@@ -1747,7 +1745,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', ('ndef', {'forms': ('file:bytes', 'it:dev:int', 'it:dev:str')}), {
+                ('value', (('file:bytes', 'it:dev:int', 'it:dev:str'), {}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),
@@ -2099,8 +2097,7 @@ modeldefs = (
                                           'typeopts': {'lower': True, 'onespace': True}}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
-                ('target', ('ndef', {'forms': ('file:bytes', 'it:exec:proc', 'it:host',
-                                               'inet:fqdn', 'inet:url', 'inet:ip')}), {
+                ('target', (('file:bytes', 'it:exec:proc', 'it:host', 'inet:fqdn', 'inet:url', 'inet:ip'), {}), {
                     'doc': 'The target of the scan.'}),
 
                 ('multi:scan', ('it:av:scan:result', {}), {
@@ -2137,7 +2134,7 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('account', ('ndef', {'forms': ('it:host:account', 'inet:service:account')}), {
+                ('account', (('it:host:account', 'inet:service:account'), {}), {
                     'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
@@ -2252,7 +2249,7 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('account', ('ndef', {'forms': ('syn:user', 'it:host:account', 'inet:service:account')}), {
+                ('account', (('syn:user', 'it:host:account', 'inet:service:account'), {}), {
                     'doc': 'The account which executed the query.'}),
 
                 ('platform', ('inet:service:platform', {}), {
@@ -2601,7 +2598,7 @@ modeldefs = (
 
             ('it:app:snort:match', {}, (
 
-                ('target', ('ndef', {'forms': ('inet:flow',)}), {
+                ('target', ('inet:flow', {}), {
                     'doc': 'The node which matched the snort rule.'}),
 
                 ('sensor', ('it:host', {}), {
@@ -2656,11 +2653,7 @@ modeldefs = (
             )),
 
             ('it:app:yara:rule', {}, ()),
-            ('it:app:yara:match', {}, (
-                ('target', ('ndef', {'forms': ('file:bytes', 'it:host:proc', 'inet:ip',
-                                               'inet:fqdn', 'inet:url')}), {
-                    'doc': 'The node which matched the YARA rule.'}),
-            )),
+            ('it:app:yara:match', {}, ()),
 
             ('it:sec:c2:config', {}, (
 

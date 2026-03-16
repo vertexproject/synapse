@@ -193,7 +193,7 @@ modeldefs = (
             ('doc:resume:type:taxonomy', {}, ()),
             ('doc:resume', {}, (
 
-                ('contact', ('entity:individual', {}), {
+                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
                     'doc': 'Contact information for subject of the resume.'}),
 
                 ('summary', ('text', {}), {
@@ -241,7 +241,7 @@ modeldefs = (
                 ('parties', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The entities bound by the contract.'}),
 
-                ('signers', ('array', {'type': 'entity:individual'}), {
+                ('signers', ('array', {'type': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                     'doc': 'The individuals who signed the contract.'}),
 
                 ('period', ('ival', {}), {
@@ -259,8 +259,15 @@ modeldefs = (
 
             ('doc:reference', {}, (
 
-                ('source', ('ndef', {'forms': ('doc:report', 'risk:vuln', 'risk:tool:software', 'risk:threat',
-                                                 'entity:campaign', 'meta:technique', 'plan:phase')}), {
+                ('source', ((
+                        'doc:report',
+                        'risk:vuln',
+                        'risk:tool:software',
+                        'risk:threat',
+                        'entity:campaign',
+                        'meta:technique',
+                        'plan:phase'
+                    ), {}), {
                     'doc': 'The source which contains the reference.'}),
 
                 ('text', ('str', {}), {

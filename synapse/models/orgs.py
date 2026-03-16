@@ -652,7 +652,7 @@ modeldefs = (
                 ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
-                ('node', ('ndef', {}), {
+                ('node', ('meta:havable', {}), {
                     'doc': 'The node which represents the asset.'}),
 
                 ('place', ('geo:place', {}), {
@@ -672,7 +672,7 @@ modeldefs = (
                 ('team', ('ou:team', {}), {
                     'doc': 'The team that the position is a member of.'}),
 
-                ('contact', ('entity:individual', {}), {
+                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
                     'doc': 'The contact info for the person who holds the position.'}),
 
                 ('title', ('entity:title', {}), {
@@ -711,7 +711,7 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('presenters', ('array', {'type': 'entity:individual'}), {
+                ('presenters', ('array', {'type': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
                 ('deck:url', ('inet:url', {}), {
@@ -772,10 +772,11 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
+                ('doc', (('doc:policy', 'doc:standard', 'doc:requirement'), {}), {
                     'doc': 'The document enacted by the organization.'}),
 
-                ('scope', ('ndef', {}), {
+                # TODO: what valid scopes are there?
+                ('scope', (('ou:team', 'ou:org'), {}), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),

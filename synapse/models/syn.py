@@ -169,7 +169,7 @@ modeldefs = (
             ('syn:cmd', ('str', {}), {
                 'doc': 'A Synapse storm command.'
             }),
-            ('syn:deleted', ('ndef', {}), {
+            ('syn:deleted', ('data', {}), {
                 'doc': 'A node present below the write layer which has been deleted.'
             }),
         ),
@@ -267,6 +267,10 @@ modeldefs = (
             ('syn:deleted', {'runt': True}, (
                 ('nid', ('int', {}), {
                     'doc': 'The nid for the node that was deleted.', 'computed': True}),
+                ('form', ('str', {}), {
+                    'doc': 'The form for the node that was deleted.', 'computed': True}),
+                ('value', ('data', {}), {
+                    'doc': 'The primary property value for the node that was deleted.', 'computed': True}),
                 ('sodes', ('data', {}), {
                     'doc': 'The layer storage nodes for the node that was deleted.', 'computed': True}),
             )),

@@ -48,7 +48,7 @@ modeldefs = (
 
             ('belief:subscriber', {}, (
 
-                ('contact', ('entity:individual', {}), {
+                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
                     'doc': 'The individual who subscribes to the belief system.'}),
 
                 ('system', ('belief:system', {}), {

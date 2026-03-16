@@ -431,7 +431,7 @@ class GeoTest(s_t_utils.SynTest):
                 [ geo:telem=*
                     :time=20220618
                     :desc=foobar
-                    :node=(test:int, 1234)
+                    :node={[ tel:phone=1234 ]}
 
                     :place={[ geo:place=({"name": "Woot"}) ]}
                     :place:loc=us.ny.woot
@@ -454,8 +454,8 @@ class GeoTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'foobar')
             self.propeq(nodes[0], 'place:name', 'woot')
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
-            self.eq(('test:int', 1234), nodes[0].get('node'))
-            self.len(1, await core.nodes('test:int=1234'))
+            self.propeq(nodes[0], 'node', '1234', form='tel:phone')
+            self.len(1, await core.nodes('tel:phone=1234'))
 
             self.nn(nodes[0].get('place'))
             self.nn('us.ny.woot', nodes[0].get('place:loc'))

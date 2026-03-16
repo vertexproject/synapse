@@ -156,19 +156,13 @@ modeldefs = (
             ('entity:abstract', {
                 'template': {'title': 'entity'},
                 'props': (
-                    ('resolved', ('entity:resolved', {}), {
+                    ('resolved', (('ou:org', 'ps:person'), {}), {
                         'doc': 'The resolved entity to which this {title} belongs.'}),
                 ),
                 'doc': 'An abstract entity which can be resolved to an organization or person.'}),
         ),
 
         'types': (
-
-            ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
-                'doc': 'A fully resolved entity such as a person or organization.'}),
-
-            ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
-                'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
@@ -379,7 +373,7 @@ modeldefs = (
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the contact list.'}),
 
-                ('source', ('ndef', {'forms': ('it:host', 'inet:service:account', 'file:bytes')}), {
+                ('source', (('it:host', 'inet:service:account', 'file:bytes'), {}), {
                     'doc': 'The source that the contact list was extracted from.'}),
             )),
 
@@ -422,7 +416,7 @@ modeldefs = (
 
             ('entity:attendee', {}, (
 
-                ('person', ('entity:individual', {}), {
+                ('person', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
                     'doc': 'The person who attended the event.'}),
 
                 ('period', ('ival', {}), {

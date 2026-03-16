@@ -640,7 +640,7 @@ class TypesTest(s_t_utils.SynTest):
             self.propeq(node, 'size', 5)
 
             opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
-            nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
+            nodes = await core.nodes('''[ it:app:yara:match=* :target={[ file:bytes=({"sha256": $sha256}) ]} ]''', opts=opts)
             self.len(1, nodes)
 
             nodes = await core.nodes('it:app:yara:match -> *')
@@ -1537,19 +1537,9 @@ class TypesTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm(('newp',)))
 
             await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
-            await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
-            await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
-
-            self.len(1, await core.nodes('risk:vulnerable.created +:node.form=it:dev:int'))
-            self.len(1, await core.nodes('risk:vulnerable.created +:node.form=inet:fqdn'))
-            self.len(0, await core.nodes('risk:vulnerable.created +:node.form=it:dev:str'))
 
             self.len(1, await core.nodes('test:str.created +:ndefs*[.form=it:dev:int]'))
             self.len(0, await core.nodes('test:str.created +:ndefs*[.form=it:dev:str]'))
-
-            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node.form)'))
-
-            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node.form)'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str.created +:ndefs*[.form>it:dev:str]')

@@ -343,7 +343,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :priority:confidentiality=highest
                     :priority:integrity=highest
                     :priority:availability=highest
-                    :node = (it:host, *)
+                    :node = {[ it:host=* ]}
                     :period=(2016, ?)
                     :status=deployed
                     :org={[ ou:org=* :name=vertex ]}
@@ -351,7 +351,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :operator={[ entity:contact=* :name=bar ]}
                 ]''')
             self.len(1, nodes)
-            self.eq((1451606400000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'name', 'visi laptop')
             self.propeq(nodes[0], 'type', 'host.laptop.')
             self.propeq(nodes[0], 'status', 'deployed.')
@@ -380,7 +380,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :completed=20241018
                     :creator={[ syn:user=root ]}
                     :assignee={[ syn:user=visi ]}
-                    :scope=(ou:team, *)
+                    :scope={[ ou:team=* ]}
 
                     <(shows)+ {[ meta:rule=* ]}
                 ]

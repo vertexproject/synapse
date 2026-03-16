@@ -103,9 +103,6 @@ modeldefs = (
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
-            ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
-                'doc': 'A node which is a public key.'}),
-
             ('crypto:hash:md5', ('hex', {'size': 32}), {
                 'ex': ex_md5,
                 'interfaces': (
@@ -659,7 +656,7 @@ modeldefs = (
 
             ('crypto:x509:cert', {}, (
 
-                ('key', ('crypto:pki:key', {}), {
+                ('key', (('crypto:key:rsa', 'crypto:key:dsa'), {}), {
                     'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {
