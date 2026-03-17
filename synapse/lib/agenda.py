@@ -17,6 +17,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.schemas as s_schemas
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -626,6 +627,7 @@ class Agenda(s_base.Base):
         view = cdef.get('view')
         created = cdef.get('created')
         loglevel = cdef.get('loglevel', 'WARNING')
+        s_schemas.reqValidLoglevel(loglevel)
 
         pool = cdef.get('pool', False)
         affinity = cdef.get('affinity')
@@ -642,11 +644,6 @@ class Agenda(s_base.Base):
 
         if not query:
             mesg = '"query" key of cdef parameter is not present or empty'
-            raise s_exc.BadArg(mesg=mesg)
-
-        valid_loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-        if loglevel not in valid_loglevels:
-            mesg = f'If given, loglevel must be one of: {repr(valid_loglevels)}'
             raise s_exc.BadArg(mesg=mesg)
 
         await self.core.getStormQuery(query)
