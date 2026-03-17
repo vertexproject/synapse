@@ -493,7 +493,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]
 
             opts = {'vars': {'sids': sids}}
-            nodes = await core.nodes('for $sid in $sids {[ it:host:account:windows=* :sid=$sid ]}', opts=opts)
+            nodes = await core.nodes('for $sid in $sids {[ it:host:windows:account=* :sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
             nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login :server:host -> it:host')
@@ -560,11 +560,11 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            # Test it:host:account:posix with all props
+            # Test it:host:posix:account with all props
             nodes = await core.nodes('''
                 init { $host = $lib.guid() }
                 [
-                    it:host:account:posix=*
+                    it:host:posix:account=*
                         :user=visi
                         :host=$host
                         :uid=1001
@@ -579,7 +579,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[0], 'it:host:account:posix')
+            self.eq(node.ndef[0], 'it:host:posix:account')
             self.propeq(node, 'user', 'visi')
             self.nn(node.get('host'))
             self.propeq(node, 'uid', 1001)
@@ -591,11 +591,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('contact'))
             self.nn(node.get('service:account'))
 
-            # Test it:host:account:windows with all props
+            # Test it:host:windows:account with all props
             nodes = await core.nodes('''
                 init { $host = $lib.guid() }
                 [
-                    it:host:account:windows=*
+                    it:host:windows:account=*
                         :user=admin
                         :host=$host
                         :sid=S-1-5-21-0-0-0-500
@@ -606,7 +606,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[0], 'it:host:account:windows')
+            self.eq(node.ndef[0], 'it:host:windows:account')
             self.propeq(node, 'user', 'admin')
             self.nn(node.get('host'))
             self.propeq(node, 'sid', 'S-1-5-21-0-0-0-500')
@@ -616,14 +616,14 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             # Verify querying it:host:account returns both parent and child form nodes
             nodes = await core.nodes('it:host:account')
-            posix = [n for n in nodes if n.ndef[0] == 'it:host:account:posix']
-            windows = [n for n in nodes if n.ndef[0] == 'it:host:account:windows']
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:account']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:account']
             self.len(1, posix)
             self.len(1, windows)
 
             # Verify pivot from child forms works
-            self.len(1, await core.nodes('it:host:account:posix :host -> it:host'))
-            self.len(1, await core.nodes('it:host:account:windows :host -> it:host'))
+            self.len(1, await core.nodes('it:host:posix:account :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:account :host -> it:host'))
 
     async def test_it_software(self):
         # Test all prodsoft and prodsoft associated linked forms

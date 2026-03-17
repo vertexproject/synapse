@@ -670,10 +670,10 @@ modeldefs = (
                 'prevnames': ('it:account',),
                 'doc': 'A local account on a host.'}),
 
-            ('it:host:account:posix', ('it:host:account', {}), {
+            ('it:host:posix:account', ('it:host:account', {}), {
                 'doc': 'A POSIX account on a host.'}),
 
-            ('it:host:account:windows', ('it:host:account', {}), {
+            ('it:host:windows:account', ('it:host:account', {}), {
                 'doc': 'A Windows account on a host.'}),
 
             ('it:host:group', ('guid', {}), {
@@ -1470,7 +1470,7 @@ modeldefs = (
                     'doc': 'Groups that the account is a member of.'}),
             )),
 
-            ('it:host:account:posix', {}, (
+            ('it:host:posix:account', {}, (
 
                 ('uid', ('int', {}), {
                     'ex': '1001',
@@ -1492,7 +1492,7 @@ modeldefs = (
                     'doc': "The path to the account's default shell."}),
             )),
 
-            ('it:host:account:windows', {}, (
+            ('it:host:windows:account', {}, (
 
                 ('sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the account.'}),
