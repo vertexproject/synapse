@@ -839,6 +839,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
         },
+        'layers:cache:size': {
+            'default': None,
+            'description': 'Default buid cache size for new layers.',
+            'type': ['integer', 'null'],
+        },
         'provenance:en': {  # TODO: Remove in 3.0.0
             'default': False,
             'description': 'This no longer does anything.',
@@ -7008,10 +7013,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             incunit = s_agenda.TimeUnit.fromString(incunit)
 
         if reqs is not None:
-            reqs = self._convert_reqdict(reqs)
-            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
-                mesg = "Recurring jobs may not be scheduled to run 'now'"
-                raise s_exc.BadConfValu(mesg)
+            if isinstance(reqs, Mapping):
+                reqs = self._convert_reqdict(reqs)
+                if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadConfValu(mesg)
+            else:
+                nreqs = []
+                for req in reqs:
+                    nr = self._convert_reqdict(req)
+                    if incunit is not None and s_agenda.TimeUnit.NOW in nr:
+                        mesg = "Recurring jobs may not be scheduled to run 'now'"
+                        raise s_exc.BadConfValu(mesg)
+                    nreqs.append(nr)
+                reqs = nreqs
 
         cdef = {}
         if query is not None:
@@ -7110,7 +7125,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt.doc = str(valu)
 
         elif name == 'pool':
-            appt.pool = bool(valu)
+            valu = bool(valu)
+            if valu and appt.affinity:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.pool = valu
+
+        elif name == 'affinity':
+            if valu is not None:
+                valu = str(valu)
+                if appt.pool:
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+            appt.affinity = valu
 
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'

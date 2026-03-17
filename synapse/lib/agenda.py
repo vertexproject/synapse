@@ -6,11 +6,14 @@ import logging
 import calendar
 import datetime
 import itertools
+import contextlib
+
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
@@ -257,6 +260,7 @@ class _Appt:
         'doc',
         'name',
         'pool',
+        'affinity',
         'created',
         'enabled',
         'errcount',
@@ -270,12 +274,13 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, affinity=None, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
         self.stor = stor
         self.pool = pool
+        self.affinity = affinity
         self.iden = iden
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -342,6 +347,7 @@ class _Appt:
             'doc': self.doc,
             'name': self.name,
             'pool': self.pool,
+            'affinity': self.affinity,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -374,6 +380,7 @@ class _Appt:
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.pool = val.get('pool', False)
+        appt.affinity = val.get('affinity')
         appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -621,6 +628,10 @@ class Agenda(s_base.Base):
         loglevel = cdef.get('loglevel', 'WARNING')
 
         pool = cdef.get('pool', False)
+        affinity = cdef.get('affinity')
+
+        if affinity and pool:
+            raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
 
         indx = self._next_indx
         self._next_indx += 1
@@ -648,7 +659,7 @@ class Agenda(s_base.Base):
 
         # TODO: this is insane. Make _Appt take the cdef directly...
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
-                           created=created, pool=pool, loglevel=loglevel)
+                           created=created, pool=pool, affinity=affinity, loglevel=loglevel)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -904,6 +915,34 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
+    async def _getAffinityProxy(self, appt, timeout=10):
+        '''
+        Attempt to get a telepath proxy to the affinity service.
+        Returns None if the service is unavailable.
+        '''
+        try:
+            prox = await s_telepath.openurl(f'aha://{appt.affinity}', timeout=timeout)
+            return prox
+        except Exception as e:
+            logger.warning(
+                f'Affinity service {appt.affinity} unavailable for cron {appt.iden}, running locally: {e}',
+                extra={'synapse': {'iden': appt.iden, 'affinity': appt.affinity}}
+            )
+            return None
+
+    @contextlib.asynccontextmanager
+    async def _getStormGenr(self, appt, opts, timeout=10):
+
+        proxy = await self._getAffinityProxy(appt, timeout=timeout)
+        if proxy is None:
+            yield self.core.storm(appt.query, opts=opts)
+            return
+
+        try:
+            yield proxy.storm(appt.query, opts=opts)
+        finally:
+            proxy.fini()
+
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
@@ -938,22 +977,24 @@ class Agenda(s_base.Base):
 
             await self.core.feedBeholder('cron:start', {'iden': appt.iden})
 
-            async for mesg in self.core.storm(appt.query, opts=opts):
+            async with self._getStormGenr(appt, opts, timeout=10) as stormgenr:
 
-                if mesg[0] == 'node':
-                    count += 1
+                async for mesg in stormgenr:
 
-                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
-                    text = mesg[1].get('mesg', '<missing message>')
-                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
-                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+                    if mesg[0] == 'node':
+                        count += 1
 
-                elif mesg[0] == 'err':
-                    excname, errinfo = mesg[1]
-                    errinfo.pop('eline', None)
-                    errinfo.pop('efile', None)
-                    excctor = getattr(s_exc, excname, s_exc.SynErr)
-                    raise excctor(**errinfo)
+                    elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
+                        text = mesg[1].get('mesg', '<missing message>')
+                        extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                        logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+
+                    elif mesg[0] == 'err':
+                        excname, errinfo = mesg[1]
+                        errinfo.pop('eline', None)
+                        errinfo.pop('efile', None)
+                        excctor = getattr(s_exc, excname, s_exc.SynErr)
+                        raise excctor(**errinfo)
 
         except asyncio.CancelledError:
             result = 'cancelled'
