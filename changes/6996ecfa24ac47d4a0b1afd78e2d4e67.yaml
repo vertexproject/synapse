@@ -1,0 +1,6 @@
+---
+desc: Add ``on`` key support in data model property and form info declarations for Storm event callbacks.
+desc:literal: true
+prs: []
+type: feat
+...

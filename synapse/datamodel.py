@@ -133,6 +133,10 @@ class Prop:
                     for iface in ifaces:
                         self.modl.polyarraysbyiface[iface][self.full] = self
 
+        ondef = self.info.get('on', {})
+        self.onstormset = ondef.get('set', {}).get('q')
+        self.onstormdel = ondef.get('del', {}).get('q')
+
         if self.deprecated or self.type.deprecated:
             async def depfunc(node):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
@@ -205,6 +209,13 @@ class Prop:
             except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
+        if self.onstormset is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormset)
+                except Exception:
+                    logger.exception(f'on.set model callback error for {self.full}')
+
     async def wasDel(self, node):
         for func in self.ondels:
             try:
@@ -213,6 +224,13 @@ class Prop:
                 raise
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
+
+        if self.onstormdel is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormdel)
+                except Exception:
+                    logger.exception(f'on.del model callback error for {self.full}')
 
     def pack(self):
         info = {
@@ -304,6 +322,10 @@ class Form:
 
         self.locked = False
         self.deprecated = self.type.deprecated
+
+        ondef = self.info.get('on', {})
+        self.onstormadd = ondef.get('add', {}).get('q')
+        self.onstormdel = ondef.get('del', {}).get('q')
 
         if self.deprecated:
             async def depfunc(node):
@@ -451,6 +473,13 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
+        if self.onstormadd is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormadd)
+                except Exception:
+                    logger.exception(f'on.add model callback error for {self.name}')
+
     async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
@@ -464,6 +493,13 @@ class Form:
                 raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
+
+        if self.onstormdel is not None:
+            if not node.view.core.migration and not node.view.core.safemode:
+                try:
+                    await node.view.runOnStorm(node, self.onstormdel)
+                except Exception:
+                    logger.exception(f'on.del model callback error for {self.name}')
 
     def prop(self, name: str):
         '''
@@ -1129,14 +1165,20 @@ class Model:
             # Allow props declared directly on ctors to become forms...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 if (props := info.get('props')) is not None:
-                    allforms.append((name, {}, props))
-                    self.forminfos[name] = {}
+                    forminfo = {}
+                    if (ondef := info.get('on')) is not None:
+                        forminfo['on'] = ondef
+                    allforms.append((name, forminfo, props))
+                    self.forminfos[name] = forminfo
 
             # Allow props declared directly on types to become forms...
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
-                    allforms.append((typename, {}, props))
-                    self.forminfos[typename] = {}
+                    forminfo = {}
+                    if (ondef := typeinfo.get('on')) is not None:
+                        forminfo['on'] = ondef
+                    allforms.append((typename, forminfo, props))
+                    self.forminfos[typename] = forminfo
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
@@ -1166,21 +1208,6 @@ class Model:
 
         # now we can load all the forms...
         addForms(allforms)
-
-        # load form/prop hooks
-        for _, mdef in mods:
-
-            if (hdef := mdef.get('hooks')) is not None:
-                if (prehooks := hdef.get('pre')) is not None:
-                    for propname, func in prehooks.get('props', ()):
-                        self.core._setPropSetHook(propname, func)
-
-                if (posthooks := hdef.get('post')) is not None:
-                    for formname, func in posthooks.get('forms', ()):
-                        self.form(formname).onAdd(func)
-
-                    for propname, func in posthooks.get('props', ()):
-                        self.prop(propname).onSet(func)
 
         # now we can load edge definitions...
         for _, mdef in mods:
@@ -1422,6 +1449,9 @@ class Model:
 
         if checks:
             self._checkFormDisplay(form)
+
+        if hasattr(_type, 'postFormInit'):
+            _type.postFormInit(form)
 
         self.formsetcache.clear()
         self.typesetcache.clear()

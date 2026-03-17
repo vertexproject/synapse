@@ -609,9 +609,6 @@ suslevels = (
 
 attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
 
-async def _onFormItDevStr(node):
-    await node.set('norm', node.ndef[1])
-
 modeldefs = (
     ('it', {
         'ctors': (
@@ -1545,7 +1542,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A brief description of the screenshot.'})
             )),
-            ('it:dev:str', {}, (
+            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node ]'}}}, (
 
                 ('norm', ('str', {'lower': True}), {
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
