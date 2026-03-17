@@ -1711,3 +1711,179 @@ class AgendaTest(s_t_utils.SynTest):
             # modify with invalid weekday
             msgs = await core.stormlist('cron.mod $guid --period weekly/badday', opts=opts)
             self.stormIsInErr('Invalid weekday', msgs)
+
+    async def test_cron_affinity(self):
+
+        async with self.getTestCore() as core:
+
+            # Test creating a cron job with affinity
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'storm': '$lib.print(test)',
+                'reqs': {'hour': 10},
+                'incunit': 'day',
+                'incvals': 1,
+                'affinity': 'mysvc.cortex...',
+            }
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+            self.eq(adef.get('affinity'), 'mysvc.cortex...')
+
+            # Verify affinity in pack
+            opts = {'vars': {'guid': guid}}
+            cdef = await core.callStorm('return($lib.cron.get($guid).pack())', opts=opts)
+            self.eq(cdef.get('affinity'), 'mysvc.cortex...')
+
+            # Verify pprint includes affinity
+            job = await core.callStorm('return($lib.cron.get($guid).pprint())', opts=opts)
+            self.eq(job.get('affinity'), 'mysvc.cortex...')
+
+            # Verify cron.stat includes affinity
+            msgs = await core.stormlist(f'cron.stat {guid}')
+            self.stormIsInPrint('affinity:', msgs)
+            self.stormIsInPrint('mysvc.cortex...', msgs)
+
+            # Modify affinity via set
+            q = '$cron=$lib.cron.get($guid) $cron.set(affinity, "othersvc.cortex...") return($cron.pack())'
+            cdef = await core.callStorm(q, opts=opts)
+            self.eq(cdef.get('affinity'), 'othersvc.cortex...')
+
+            # Clear affinity
+            q = '$cron=$lib.cron.get($guid) $cron.set(affinity, $lib.null) return($cron.pack())'
+            cdef = await core.callStorm(q, opts=opts)
+            self.none(cdef.get('affinity'))
+
+            # Verify pprint shows (null) when affinity is not set
+            job = await core.callStorm('return($lib.cron.get($guid).pprint())', opts=opts)
+            self.eq(job.get('affinity'), '(null)')
+
+            # Test cron.at with affinity
+            q = 'return($lib.cron.at(query=$q, now=(true), affinity="atsvc.cortex...").pack())'
+            cdef = await core.callStorm(q, opts={'vars': {'q': '$lib.print(at)'}})
+            self.eq(cdef.get('affinity'), 'atsvc.cortex...')
+
+    async def test_cron_affinity_mutual_exclusivity(self):
+
+        async with self.getTestCore() as core:
+
+            # Creating with both pool and affinity should fail
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'storm': '$lib.print(test)',
+                'reqs': {'hour': 10},
+                'incunit': 'day',
+                'incvals': 1,
+                'pool': True,
+                'affinity': 'mysvc.cortex...',
+            }
+            with self.raises(s_exc.BadConfValu):
+                await core.addCronJob(cdef)
+
+            # Create with pool, then try to set affinity
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'storm': '$lib.print(test)',
+                'reqs': {'hour': 10},
+                'incunit': 'day',
+                'incvals': 1,
+                'pool': True,
+            }
+            adef = await core.addCronJob(cdef)
+            guid = adef.get('iden')
+            opts = {'vars': {'guid': guid}}
+
+            with self.raises(s_exc.BadConfValu):
+                q = '$cron=$lib.cron.get($guid) $cron.set(affinity, "mysvc.cortex...")'
+                await core.callStorm(q, opts=opts)
+
+            # Create with affinity, then try to set pool
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'storm': '$lib.print(test)',
+                'reqs': {'hour': 10},
+                'incunit': 'day',
+                'incvals': 1,
+                'affinity': 'mysvc.cortex...',
+            }
+            adef = await core.addCronJob(cdef)
+            guid2 = adef.get('iden')
+            opts2 = {'vars': {'guid': guid2}}
+
+            with self.raises(s_exc.BadConfValu):
+                q = '$cron=$lib.cron.get($guid) $cron.set(pool, $lib.true)'
+                await core.callStorm(q, opts=opts2)
+
+            # Test via storm command
+            msgs = await core.stormlist('cron.add --pool --affinity mysvc... --period daily { $lib.print(test) }')
+            self.stormIsInErr('Cron jobs may not have both affinity and pool set', msgs)
+
+    async def test_cron_affinity_fallback(self):
+
+        async with self.getTestCore() as core:
+
+            # Create a cron with affinity pointing to a non-existent service
+            # It should fall back to local execution
+            with self.getAsyncLoggerStream('synapse.lib.agenda', 'unavailable for cron') as stream:
+                cdef = {
+                    'creator': core.auth.rootuser.iden,
+                    'storm': '$lib.queue.gen(afftest).put(ran)',
+                    'reqs': {'now': True},
+                    'affinity': 'nonexistent.cortex...',
+                }
+                await core.addCronJob(cdef)
+
+                self.true(await stream.wait(timeout=12))
+
+            # Verify the query ran locally (fallback)
+            q = 'return($lib.queue.gen(afftest).get((0), wait=(true)))'
+            valu = await asyncio.wait_for(core.callStorm(q), timeout=12)
+            self.nn(valu)
+
+    async def test_cron_affinity_execution(self):
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+
+                    self.len(1, await core00.nodes('[inet:asn=0]'))
+                    await core01.sync()
+                    self.len(1, await core01.nodes('inet:asn=0'))
+
+                    # Create a cron with affinity pointing to 01.cortex
+                    evt = asyncio.Event()
+
+                    async def task():
+                        async for mesg in core00.behold():
+                            if mesg.get('event') == 'cron:stop':
+                                evt.set()
+
+                    core00.schedCoro(task())
+
+                    guid = s_common.guid()
+                    cdef = {
+                        'creator': core00.auth.rootuser.iden,
+                        'iden': guid,
+                        'storm': '[inet:asn=42]',
+                        'reqs': {'now': True},
+                        'affinity': '01.cortex...',
+                    }
+                    await core00.addCronJob(cdef)
+
+                    self.true(await asyncio.wait_for(evt.wait(), timeout=12))
+
+                    opts = {'vars': {'iden': guid}, 'mirror': False}
+                    get_cron = 'return($lib.cron.get($iden).pack())'
+                    cdef00 = await core00.callStorm(get_cron, opts=opts)
+                    self.eq(cdef00.get('affinity'), '01.cortex...')
+                    self.true(cdef00.get('lastresult', '').startswith('finished successfully'))

@@ -1800,7 +1800,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -7953,6 +7953,9 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+        elif name == 'cache:size':
+            valu = await toint(valu)
+
         elif name == 'logedits':
             valu = await tobool(valu)
 
@@ -9859,6 +9862,12 @@ class LibCron(Lib):
         incval = None
         reqdict = {}
         pool = await tobool(kwargs.get('pool', False))
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
+            if pool:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -9979,6 +9988,7 @@ class LibCron(Lib):
         cdef = {'storm': query,
                 'reqs': reqdict,
                 'pool': pool,
+                'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -10009,6 +10019,10 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -10060,6 +10074,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'affinity': affinity,
                 'creator': self.runt.user.iden
                 }
 
@@ -10251,6 +10266,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'pool': self.valu.get('pool', False),
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
