@@ -9923,7 +9923,7 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
-        loglevel = kwargs.get('loglevel')
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         period = kwargs.get('period')
         if not period:
