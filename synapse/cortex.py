@@ -1221,7 +1221,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormMacro(self, name, user=None):
 
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -1326,7 +1326,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         byts = self.slab.pop(name.encode(), db=self.macrodb)
 
@@ -7013,10 +7013,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             incunit = s_agenda.TimeUnit.fromString(incunit)
 
         if reqs is not None:
-            reqs = self._convert_reqdict(reqs)
-            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
-                mesg = "Recurring jobs may not be scheduled to run 'now'"
-                raise s_exc.BadConfValu(mesg)
+            if isinstance(reqs, Mapping):
+                reqs = self._convert_reqdict(reqs)
+                if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadConfValu(mesg)
+            else:
+                nreqs = []
+                for req in reqs:
+                    nr = self._convert_reqdict(req)
+                    if incunit is not None and s_agenda.TimeUnit.NOW in nr:
+                        mesg = "Recurring jobs may not be scheduled to run 'now'"
+                        raise s_exc.BadConfValu(mesg)
+                    nreqs.append(nr)
+                reqs = nreqs
 
         cdef = {}
         if query is not None:
@@ -7613,7 +7623,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault secrets must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
@@ -7651,7 +7661,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault configs must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 

@@ -4145,7 +4145,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         insecure_marker = 'https+insecure://'
         kwargs = {}
         if rurl.startswith(insecure_marker):
-            logger.warning(f'Disabling SSL verification for restore request.')
+            logger.warning('Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
             rurl = 'https://' + rurl[len(insecure_marker):]
 
@@ -4497,7 +4497,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf.setConfFromFile(path)
             conf.setConfFromFile(mods_path, force=True)
         except:
-            logger.exception(f'Error while bootstrapping cell config.')
+            logger.exception('Error while bootstrapping cell config.')
             raise
 
         s_processpool.set_pool_logging(logger, logconf=conf['_log_conf'])
@@ -5375,7 +5375,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'The service is already frozen.'
             raise s_exc.BadState(mesg=mesg)
 
-        logger.warning(f'Freezing service for volume snapshot.')
+        logger.warning('Freezing service for volume snapshot.')
 
         logger.warning('...acquiring nexus lock to prevent edits.')
 

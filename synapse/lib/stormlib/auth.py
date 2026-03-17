@@ -1265,8 +1265,8 @@ class User(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
@@ -1527,8 +1527,8 @@ class Role(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
