@@ -108,7 +108,7 @@ modeldefs = (
 
             ('ps:workhist', {}, (
 
-                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'The contact which has the work history.'}),
 
                 ('org', ('ou:org', {}), {
@@ -173,10 +173,10 @@ modeldefs = (
                 ('course', ('edu:course', {}), {
                     'doc': 'The course being taught in the class.'}),
 
-                ('instructor', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('instructor', ('entity:individual', {}), {
                     'doc': 'The primary instructor for the class.'}),
 
-                ('assistants', ('array', {'type': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+                ('assistants', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of assistant/co-instructor contacts.'}),
 
                 ('period', ('ival', {'precision': 'day'}), {
@@ -194,7 +194,7 @@ modeldefs = (
             )),
             ('ps:education', {}, (
 
-                ('student', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('student', ('entity:individual', {}), {
                     'doc': 'The student who attended the educational institution.'}),
 
                 ('institution', ('ou:org', {}), {
@@ -210,7 +210,7 @@ modeldefs = (
             )),
             ('ps:achievement', {}, (
 
-                ('awardee', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('awardee', ('entity:individual', {}), {
                     'doc': 'The recipient of the award.'}),
 
                 ('award', ('ou:award', {}), {
@@ -237,7 +237,7 @@ modeldefs = (
                     'prevnames': ('asof',),
                     'doc': 'The time the vitals were gathered or computed.'}),
 
-                ('individual', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('individual', ('entity:individual', {}), {
                     'prevnames': ('contact', 'person'),
                     'doc': 'The individual that the vitals are about.'}),
 

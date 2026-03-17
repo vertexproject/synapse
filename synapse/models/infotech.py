@@ -1097,16 +1097,15 @@ modeldefs = (
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
+            ('it:app:yara:target', ('poly', {'forms': ('file:bytes', 'it:exec:proc',
+                                                          'inet:ip', 'inet:fqdn', 'inet:url')}), {
+                'doc': 'An ndef type which is limited to forms which YARA rules can match.'}),
+
             ('it:app:yara:match', ('guid', {}), {
                 'interfaces': (
                     ('meta:matchish', {'template': {'rule': 'YARA rule',
                                                     'rule:type': 'it:app:yara:rule',
-                                                    'target:type': (
-                                                        'file:bytes',
-                                                        'it:exec:proc',
-                                                        'inet:ip',
-                                                        'inet:fqdn',
-                                                        'inet:url')}}),
+                                                    'target:type': 'it:app:yara:target'}}),
                 ),
                 'doc': 'A YARA rule which can match files, processes, or network traffic.'}),
 

@@ -533,7 +533,7 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {

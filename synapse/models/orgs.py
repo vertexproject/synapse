@@ -673,7 +673,7 @@ modeldefs = (
                 ('team', ('ou:team', {}), {
                     'doc': 'The team that the position is a member of.'}),
 
-                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'The contact info for the person who holds the position.'}),
 
                 ('title', ('entity:title', {}), {
@@ -712,7 +712,7 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('presenters', ('array', {'type': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+                ('presenters', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
                 ('deck:url', ('inet:url', {}), {

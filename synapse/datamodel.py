@@ -1022,22 +1022,26 @@ class Model:
 
         return retn
 
-    def processPropdef(self, pdef):
+    def processPropdefs(self, propdefs):
 
-        pname, propdef, propinfo = pdef
-        typename, typeinfo = propdef
+        realdefs = []
 
-        if not typeinfo:
-            if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
+        for pname, propdef, propinfo in propdefs:
+            typename, typeinfo = propdef
 
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-            typename = 'poly'
+            if not typeinfo:
+                if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                    typename = (typename,)
 
-        return (pname, (typename, typeinfo), propinfo)
+            if isinstance(typename, tuple):
+                typeinfo = dict(typeinfo)
+                typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
+                typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
+                typename = 'poly'
+
+            realdefs.append((pname, (typename, typeinfo), propinfo))
+
+        return tuple(realdefs)
 
     def addDataModels(self, mods):
         '''
@@ -1141,7 +1145,7 @@ class Model:
         # Check for interface props to convert to poly types
         for name, info in self.ifaces.items():
             if (pdefs := info.get('props')) is not None:
-                info['props'] = tuple(self.processPropdef(pdef) for pdef in pdefs)
+                info['props'] = self.processPropdefs(pdefs)
 
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
@@ -1154,7 +1158,7 @@ class Model:
                 if formname in childforms and not children:
                     continue
 
-                propdefs = tuple(self.processPropdef(pdef) for pdef in propdefs)
+                propdefs = self.processPropdefs(propdefs)
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
                 if (cinfos := formchildren.pop(formname, None)) is not None:
@@ -1615,20 +1619,12 @@ class Model:
 
         return template
 
-    def _convertTemplate(self, item, formname, template, objreplace=None):
-
-        if objreplace is None:
-            objreplace = {k: v for k, v in template.items() if not isinstance(v, str)}
-            template = {k: v for k, v in template.items() if isinstance(v, str)}
+    def _convertTemplate(self, item, formname, template):
 
         if isinstance(item, str):
 
             if item == '$self':
                 return formname
-
-            if item and item[0] == '{' and item[-1] == '}':
-                if (repl := objreplace.get(item[1:-1])) is not None:
-                    return repl
 
             item = s_common.format(item, **template)
 
@@ -1640,10 +1636,10 @@ class Model:
             return item
 
         if isinstance(item, dict):
-            return {self._convertTemplate(k, formname, template, objreplace=objreplace): self._convertTemplate(v, formname, template, objreplace=objreplace) for (k, v) in item.items()}
+            return {self._convertTemplate(k, formname, template): self._convertTemplate(v, formname, template) for (k, v) in item.items()}
 
         if isinstance(item, (list, tuple)):
-            return tuple([self._convertTemplate(v, formname, template, objreplace=objreplace) for v in item])
+            return tuple([self._convertTemplate(v, formname, template) for v in item])
 
         return item
 
@@ -1688,9 +1684,7 @@ class Model:
 
         iface = self._prepFormIface(form, iface, ifinfo)
 
-        for pdef in iface.get('props', ()):
-
-            propname, typedef, propinfo = self.processPropdef(pdef)
+        for propname, typedef, propinfo in iface.get('props', ()):
 
             # allow form props to take precedence
             if (prop := form.prop(propname)) is None:

@@ -193,7 +193,7 @@ modeldefs = (
             ('doc:resume:type:taxonomy', {}, ()),
             ('doc:resume', {}, (
 
-                ('contact', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information for subject of the resume.'}),
 
                 ('summary', ('text', {}), {
@@ -241,7 +241,7 @@ modeldefs = (
                 ('parties', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The entities bound by the contract.'}),
 
-                ('signers', ('array', {'type': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+                ('signers', ('array', {'type': 'entity:individual'}), {
                     'doc': 'The individuals who signed the contract.'}),
 
                 ('period', ('ival', {}), {

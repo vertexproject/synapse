@@ -164,6 +164,9 @@ modeldefs = (
 
         'types': (
 
+            ('entity:individual', ('poly', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+                'doc': 'A singular entity such as a person.'}),
+
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
 
@@ -416,7 +419,7 @@ modeldefs = (
 
             ('entity:attendee', {}, (
 
-                ('person', (('ps:person', 'entity:contact', 'inet:service:account'), {}), {
+                ('person', ('entity:individual', {}), {
                     'doc': 'The person who attended the event.'}),
 
                 ('period', ('ival', {}), {
