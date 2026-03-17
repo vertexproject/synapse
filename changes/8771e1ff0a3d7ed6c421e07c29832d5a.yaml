@@ -1,0 +1,7 @@
+---
+desc: Added support to the ``--period`` option for both ``cron.add`` and ``cron.mod``
+  for running ``yearly`` jobs on a specific date and time.
+desc:literal: false
+prs: []
+type: feat
+...

@@ -1095,14 +1095,14 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('Provided iden does not match any processes.', msgs)
 
                 # Try a kill with a numeric identifier - this won't match
-                msgs = await alist(prox.storm(f'ps.kill 123412341234'))
+                msgs = await alist(prox.storm('ps.kill 123412341234'))
                 self.stormIsInErr('Provided iden does not match any processes.', msgs)
 
                 # Give user explicit permissions to list
                 await core.addUserRule(bond.iden, (True, ('task', 'get')))
 
                 # Match all tasks
-                msgs = await alist(prox.storm(f"ps.kill ''"))
+                msgs = await alist(prox.storm("ps.kill ''"))
                 self.stormIsInErr('Provided iden matches more than one process.', msgs)
 
                 msgs = await alist(prox.storm('ps.list'))
@@ -1498,7 +1498,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
             self.false(await core.callStorm(r'''return($lib.regex.matches('^foo$', foobar))'''))
-            self.false(await core.callStorm(f'return($lib.regex.matches(foo, " foobar"))'))
+            self.false(await core.callStorm('return($lib.regex.matches(foo, " foobar"))'))
 
             self.eq(('oo',), await core.callStorm(r'''return($lib.regex.search('([aeiou]+)', foobar))'''))
             self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
@@ -1576,7 +1576,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(hstr, nodes[0].get('data'))
 
-            text = f'''tel:mob:telem=$n2 $bar = :data
+            text = '''tel:mob:telem=$n2 $bar = :data
                     [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
             msgs = await core.stormlist(text, opts={'vars': {'n2': node2.ndef[1], 'n3': n3}})
             self.stormHasNoWarnErr(msgs)
@@ -4350,7 +4350,7 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(idens, core.layers)
 
             # Create a new layer with a name
-            q = f'$lib.print($lib.layer.add(({{"name": "foo"}})).iden)'
+            q = '$lib.print($lib.layer.add(({"name": "foo"})).iden)'
             for mesg in await core.stormlist(q):
                 if mesg[0] == 'print':
                     namedlayer = mesg[1]['mesg']
@@ -4365,11 +4365,11 @@ class StormTypesTest(s_test.SynTest):
 
             # Sad paths
 
-            q = f'$lib.layer.get(foo)'
+            q = '$lib.layer.get(foo)'
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes(q)
 
-            q = f'$lib.layer.del(foo)'
+            q = '$lib.layer.del(foo)'
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes(q)
 
@@ -4425,7 +4425,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test add layer opts
                 layers = set(core.layers.keys())
-                q = f'layer.add --lockmemory --growsize 5000'
+                q = 'layer.add --lockmemory --growsize 5000'
                 mesgs = await core.stormlist(q)
                 locklayr = list(set(core.layers.keys()) - layers)[0]
 
@@ -4783,14 +4783,14 @@ class StormTypesTest(s_test.SynTest):
 
             asderp = {'user': derp.iden, 'vars': {'altlayr': altlayr}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'return($lib.view.add(($altlayr,)))', opts=asderp)
+                await core.callStorm('return($lib.view.add(($altlayr,)))', opts=asderp)
 
             asderp = {'user': derp.iden, 'vars': {'altview': altview}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'return($lib.view.get($altview).fork())', opts=asderp)
+                await core.callStorm('return($lib.view.get($altview).fork())', opts=asderp)
 
             # Fork the main view
-            q = f'''
+            q = '''
                 $view=$lib.view.get().fork()
                 return(($view.iden, $view.layers.index(0).iden))
             '''
@@ -4865,7 +4865,7 @@ class StormTypesTest(s_test.SynTest):
             # Sad paths
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
+            await self.asyncraises(s_exc.CantMergeView, core.nodes('$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
             await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
@@ -4949,7 +4949,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
 
             self.stormIsInPrint(f'Creator: {root.iden}', mesgs)
-            self.stormIsInPrint(f'readonly: False', mesgs)
+            self.stormIsInPrint('readonly: False', mesgs)
 
             for viden, v in core.views.items():
                 self.stormIsInPrint(viden, mesgs)
@@ -5832,7 +5832,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint('Deleted cron job', mesgs)
 
-                q = f"cron.del xxx"
+                q = "cron.del xxx"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -6021,10 +6021,10 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInErr('Provided iden does not match any', mesgs)
 
                     # Test 'enable' 'disable' commands
-                    mesgs = await core.stormlist(f'cron.enable xxx')
+                    mesgs = await core.stormlist('cron.enable xxx')
                     self.stormIsInErr('Provided iden does not match any', mesgs)
 
-                    mesgs = await core.stormlist(f'cron.disable xxx')
+                    mesgs = await core.stormlist('cron.disable xxx')
                     self.stormIsInErr('Provided iden does not match any', mesgs)
 
                     mesgs = await core.stormlist(f'cron.disable {guid[:6]}')

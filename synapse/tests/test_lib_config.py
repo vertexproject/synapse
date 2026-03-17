@@ -411,7 +411,7 @@ class ConfTest(s_test.SynTest):
         # test the handler
         with self.raises(s_exc.NoSuchFile):
             s_config.localSchemaRefHandler(
-                f'https://loop.vertex.link/foo/bar/baz/newp.json'
+                'https://loop.vertex.link/foo/bar/baz/newp.json'
             )
 
         with self.raises(s_exc.BadUrl):

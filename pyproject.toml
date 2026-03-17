@@ -57,6 +57,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    'ruff>0.15.0,<1.0.0',
     'pytest>=7.2.0,<8.0.0',
     'autopep8>=2.0.4,<3.0.0',
     'pytest-cov>=4.0.0,<5.0.0',
@@ -141,7 +142,9 @@ select = [
     "E741", # Ambiguous variable name: {name}
     "E742", # Ambiguous class name: {name}
     "E743", # Ambiguous function name: {name}
+    "F541", # f-string without any placeholders
     "F821",  # Undefined name {name}. {tip}
+    "RUF006", # Store a reference to the return value of {expr}.{method}
     "W191", # Indentation contains tabs
     "W291", # Trailing whitespace
     "W292", # No newline at end of file

@@ -74,7 +74,7 @@ class CmdHiveTest(s_t_utils.SynTest):
                     fh.write('{"foo": 123}')
 
                 outp.clear()
-                await cmdr.runCmdLine(f'hive edit foo/foo asimplestring')
+                await cmdr.runCmdLine('hive edit foo/foo asimplestring')
                 await cmdr.runCmdLine('hive get foo/foo')
                 self.true(outp.expect('foo/foo:\nasimplestring'))
 
@@ -107,39 +107,39 @@ class CmdHiveTest(s_t_utils.SynTest):
                 # Editor tests
                 outp.clear()
                 with self.setTstEnvars(EDITOR='', VISUAL=''):
-                    await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
+                    await cmdr.runCmdLine('hive edit foo/bar3 --editor')
                     self.true(outp.expect('Environment variable VISUAL or EDITOR must be set for --editor'))
 
                 outp.clear()
                 with self.setTstEnvars(EDITOR='echo \'{"foo": 42}\' > '):
 
-                    await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
+                    await cmdr.runCmdLine('hive edit foo/bar3 --editor')
                     await cmdr.runCmdLine('hive get foo/bar3')
                     self.true(outp.expect("foo/bar3:\n{'foo': 42}"))
 
                 outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
-                    await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
+                    await cmdr.runCmdLine('hive edit foo/bar4 --editor')
                     await cmdr.runCmdLine('hive get foo/bar4')
                     self.true(outp.expect('foo/bar4:\n(1, 2, 3)'))
 
                 outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
-                    await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
+                    await cmdr.runCmdLine('hive edit foo/bar4 --editor')
                     self.true(outp.expect('Valu not changed.  Not writing key.'))
 
                 outp.clear()
                 await cmdr.item.setHiveKey(('foo', 'notJson'), {'newp': b'deadb33f'})
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
-                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor')
+                    await cmdr.runCmdLine('hive edit foo/notJson --editor')
                     self.true(outp.expect('Value is not JSON-encodable, therefore not editable.'))
 
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
-                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor --string')
+                    await cmdr.runCmdLine('hive edit foo/notJson --editor --string')
                     self.true(outp.expect('Existing value is not a string, therefore not editable as a string'))
                     await cmdr.item.setHiveKey(('foo', 'notJson'), 'foo')
                     outp.clear()
 
-                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor --string')
+                    await cmdr.runCmdLine('hive edit foo/notJson --editor --string')
                     await cmdr.runCmdLine('hive get foo/notJson')
                     self.true(outp.expect("foo/notJson:\n[1,2,3]"))

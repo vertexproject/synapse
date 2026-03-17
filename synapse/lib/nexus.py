@@ -204,7 +204,7 @@ class NexsRoot(s_base.Base):
             shutil.rmtree(fn)
 
         os.makedirs(fn, exist_ok=True)
-        logger.warning(f'Moving existing nexslog')
+        logger.warning('Moving existing nexslog')
         try:
             os.replace(nexspath, fn)
         except OSError as e:  # pragma: no cover
@@ -728,7 +728,7 @@ class NexsRoot(s_base.Base):
                             respfutu.set_result(retn)
 
             except s_exc.LinkShutDown:
-                logger.warning(f'mirror loop: leader closed the connection.')
+                logger.warning('mirror loop: leader closed the connection.')
 
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')

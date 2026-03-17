@@ -619,7 +619,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Method: GET', msgs)
             self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path}))',
                                 msgs)
-            self.stormIsInPrint(f'Method: HEAD', msgs)
+            self.stormIsInPrint('Method: HEAD', msgs)
             self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}))', msgs)
             self.stormIsInPrint('No vars are set for the handler.', msgs)
 
