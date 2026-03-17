@@ -42,7 +42,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth + 1:3}: {call.strip()}')
             continue
 
         try:
