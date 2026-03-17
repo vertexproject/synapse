@@ -142,7 +142,8 @@ select = [
     "E741", # Ambiguous variable name: {name}
     "E742", # Ambiguous class name: {name}
     "E743", # Ambiguous function name: {name}
-    "F821",  # Undefined name {name}. {tip}
+    "F821", # Undefined name {name}. {tip}
+    "F541", # f-string without any placeholders
     "W191", # Indentation contains tabs
     "W291", # Trailing whitespace
     "W292", # No newline at end of file
