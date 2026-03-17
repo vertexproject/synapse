@@ -2595,9 +2595,6 @@ modeldefs = (
 
             ('it:app:snort:match', {}, (
 
-                ('target', ('inet:flow', {}), {
-                    'doc': 'The node which matched the snort rule.'}),
-
                 ('sensor', ('it:host', {}), {
                     'doc': 'The sensor host node that produced the match.'}),
 
