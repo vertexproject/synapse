@@ -101,9 +101,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
 
-                    :id = VISI-0000
+                    :id = CVE-2013-0000
                     :ids = (VISI-B-0000,)
-                    :cve = CVE-2013-0000
 
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
                     :cvss:v2_0:score=1.0
@@ -138,7 +137,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'vendor:fixed', 1578960000000000)
             self.propeq(nodes[0], 'published', 1578960000000000)
 
-            self.propeq(nodes[0], 'id', 'VISI-0000')
+            self.propeq(nodes[0], 'id', 'CVE-2013-0000', form='it:sec:cve')
             self.propeq(nodes[0], 'ids', ('VISI-B-0000',))
 
             self.propeq(nodes[0], 'cvss:v2', 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
@@ -160,11 +159,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'cvss:v3_1:score:temporal', 3.2)
             self.propeq(nodes[0], 'cvss:v3_1:score:environmental', 3.3)
 
-            self.len(2, await core.nodes('risk:vuln:id=VISI-0000 -> meta:id'))
-            self.len(1, await core.nodes('risk:vuln:id=VISI-0000 :discoverer -> entity:contact'))
-
-            self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 -> it:sec:cve'))
-            self.len(1, await core.nodes('risk:vuln:cve=CVE-2013-0000 :cve -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 :id -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 :discoverer -> entity:contact'))
 
             self.len(1, await core.nodes('risk:attack :actor -> entity:contact'))
 

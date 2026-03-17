@@ -1438,8 +1438,8 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( risk:threat=* :name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-    .. storm-pre:: risk:threat:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
+    .. storm-pre:: [ ( risk:threat=* :name='sparkling unicorn' ) (risk:vuln=* :id=cve-2012-0158) ]
+    .. storm-pre:: risk:threat:name='sparkling unicorn' [ +(uses)> { risk:vuln:id=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
     .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::
