@@ -16,6 +16,7 @@ import tempfile
 
 def system(*args, **kwargs):
     kwargs.setdefault('stdout', subprocess.PIPE)
+    kwargs.setdefault('encoding', 'utf-8')
     proc = subprocess.run(args, **kwargs)
     return proc.returncode, proc.stdout, proc.stderr
 
@@ -23,8 +24,8 @@ def main():
     lint_python()
 
 def lint_python():
-    gitdir = system('git', 'rev-parse', '--show-toplevel')[1].decode('utf-8').strip()
-    files = system('git', 'diff', '--cached', '--name-only')[1].decode('utf-8')
+    gitdir = system('git', 'rev-parse', '--show-toplevel')[1].strip()
+    files = system('git', 'diff', '--cached', '--name-only')[1]
     pyfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
     nbfiles = [os.path.join(gitdir, file.strip()) for file in files.split('\n') if file.strip().endswith('.ipynb')]
 
@@ -51,12 +52,12 @@ def lint_python():
         if code != 0:
             print('Style violations have been detected.  Please fix them\n'
                   'or force the commit with "git commit --no-verify".\n')
-            print(stdout.decode('utf-8'),)
+            print(stdout)
             sys.exit(1)
     if nbfiles:
         print('Ipython notebooks detected - stripping their output automatically and re-adding them.')
-        output = system('nbstripout', '--help')[1].decode('utf-8')
-        if 'notebook' in output:
+        stdout = system('nbstripout', '--help')[1]
+        if 'notebook' in stdout:
             for nbfp in nbfiles:
                 nbfp = os.path.join(gitdir, nbfp)
                 args = ['nbstripout', nbfp]
