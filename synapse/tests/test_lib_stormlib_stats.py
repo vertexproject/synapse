@@ -162,16 +162,16 @@ class StatsTest(s_test.SynTest):
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3 --reverse --by-name')
             self.stormIsInPrint(chartsizerev_byname, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --bar-width 10')
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --bar-width 10')
             self.stormIsInPrint(chartwidth, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --bar-width 10 --by-name')
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --bar-width 10 --by-name')
             self.stormIsInPrint(chartwidth_byname, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --label-max-width 1')
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --label-max-width 1')
             self.stormIsInPrint(chartlabelwidth, msgs)
 
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --label-max-width 1 --by-name')
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --label-max-width 1 --by-name')
             self.stormIsInPrint(chartlabelwidth_byname, msgs)
 
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+"')

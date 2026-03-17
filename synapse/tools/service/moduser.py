@@ -78,7 +78,7 @@ async def main(argv, outp=s_output.stdout):
                 return 0
 
             elif opts.username is None:
-                outp.printf(f'ERROR: A username argument is required when --list is not specified.')
+                outp.printf('ERROR: A username argument is required when --list is not specified.')
                 return 1
 
             if opts.gate:

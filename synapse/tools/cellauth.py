@@ -197,7 +197,7 @@ async def handleModify(opts):
                 if delrule is not None:
                     await cell.delAuthRule(opts.name, delrule, gateiden=delgate)
                 else:
-                    outp.printf(f'rule index is out of range')
+                    outp.printf('rule index is out of range')
 
             try:
                 user = await cell.getAuthInfo(opts.name)
@@ -237,7 +237,7 @@ async def handleList(opts):
                 await printuser(user, cell=cell, details=opts.detail)
                 return 0
 
-            outp.printf(f'getting users and roles')
+            outp.printf('getting users and roles')
 
             outp.printf('users:')
             for user in await cell.getAuthUsers():
