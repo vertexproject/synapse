@@ -959,12 +959,6 @@ class LibService(Lib):
             'wait': self._libSvcWait,
         }
 
-    async def _checkSvcGetPerm(self, ssvc):
-        '''
-        Helper to handle service.get.* permissions
-        '''
-        self.runt.confirm(('service', 'get', ssvc.iden))
-
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
         sdef = {
@@ -982,7 +976,7 @@ class LibService(Lib):
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
-        await self._checkSvcGetPerm(ssvc)
+        self.runt.confirm(('service', 'get'))
         return Service(self.runt, ssvc)
 
     @stormfunc(readonly=True)
@@ -1014,7 +1008,7 @@ class LibService(Lib):
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-        await self._checkSvcGetPerm(ssvc)
+        self.runt.confirm(('service', 'get'))
 
         # Short circuit asyncio.wait_for logic by checking the ready event
         # value. If we call wait_for with a timeout=0 we'll almost always
@@ -4023,9 +4017,7 @@ class LibTelepath(Lib):
 
     async def _methTeleOpen(self, url):
         url = await tostr(url)
-        scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
         try:
             return Proxy(self.runt, await self.runt.getTeleProxy(url))
         except s_exc.SynErr:
@@ -6120,7 +6112,7 @@ class NodeRef(Prim):
         self.virts = virts
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu))
+        return hash(self.valu[1])
 
     def __int__(self):
         valu = self.valu[1]
@@ -6136,7 +6128,7 @@ class NodeRef(Prim):
 
     def __eq__(self, othr):
         if isinstance(othr, NodeRef):
-            return othr.valu == self.valu
+            return othr.valu[1] == self.valu[1]
         return othr == self.valu[1]
 
     def getObjLocals(self):
@@ -7407,9 +7399,7 @@ class Layer(Prim):
             mesg = '$layr.addPull() requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
 
         async with await s_telepath.openurl(url):
             pass
@@ -7452,10 +7442,7 @@ class Layer(Prim):
             mesg = '$layer.addPush() requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        scheme = url.split('://')[0]
-
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('telepath', 'open', scheme))
+        self.runt.confirm(('telepath', 'open'))
 
         async with await s_telepath.openurl(url):
             pass

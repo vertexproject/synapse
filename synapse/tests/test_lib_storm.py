@@ -1288,12 +1288,6 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['virts'].get('mask'), 24)
             self.eq(nodes[0][1]['virts'].get('size'), 256)
 
-            msgs = await core.stormlist('[ test:ival=(2020, 2021) ]', opts=opts)
-            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            self.eq(nodes[0][1]['virts'].get('min'), 1577836800000000)
-            self.eq(nodes[0][1]['virts'].get('max'), 1609459200000000)
-            self.eq(nodes[0][1]['virts'].get('duration'), 31622400000000)
-
             fork = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = fork
 
@@ -1416,6 +1410,18 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('diff --tag conalt con1 con0.foo con0 newp', opts=altview)
             self.sorteq(['con0', 'con1'], [n.get('name')[1] for n in nodes])
+
+            # test passing a list variable to --tag
+            nodes = await core.nodes('$tags=(conalt, con1, con0.foo, con0, newp) diff --tag $tags', opts=altview)
+            self.sorteq(['con0', 'con1'], [n.get('name')[1] for n in nodes])
+
+            # test passing a mix of list and individual tags
+            nodes = await core.nodes('$tags=(con0.foo, con0) diff --tag conalt $tags con1 newp', opts=altview)
+            self.sorteq(['con0', 'con1'], [n.get('name')[1] for n in nodes])
+
+            # test that non-string tag arguments raise BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('diff --tag (42)', opts=altview)
 
             q = '''
             [ test:str=foo +(refs)> {[ test:str=bar ]} ]
@@ -1565,7 +1571,7 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''
             [ ou:org=(org1,)
-                :url=https://vertex.link
+                :phone="+15555555555"
                 :name=haha
                 :desc=cool
                 :lifespan=(2021, ?)
@@ -1600,15 +1606,15 @@ class StormTest(s_t_utils.SynTest):
             self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
             self.propeq(nodes[0], 'name', 'haha')
             self.propeq(nodes[0], 'desc', 'cool')
-            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('phone'))
             self.none(nodes[0].get('lifespan'))
             self.eq(nodes[0].getTagProp('three', 'score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
-            await core.nodes('diff | merge --exclude-props ou:org:url --apply', opts=altview)
+            await core.nodes('diff | merge --exclude-props ou:org:phone --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.propeq(nodes[0], 'lifespan', (1609459200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('phone'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
             await core.nodes('diff | merge --only-tags --apply', opts=altview)
@@ -2479,11 +2485,11 @@ class StormTest(s_t_utils.SynTest):
                             }, name=dmonloop)
                         )
                         '''
+                        waiter = core00.waiter(1, 'storm:dmon:add')
                         ddef = await core02.callStorm(q)
                         self.nn(ddef['iden'])
+                        await waiter.wait(timeout=10)
 
-                        # getStormDmons is a from_leader API so make sure it has applied to change
-                        await core02.sync()
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
                         self.eq(dmons[0]['iden'], ddef['iden'])
@@ -5190,7 +5196,7 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
 
-                await core.addUserRule(visi.iden, (True, ('telepath', 'open', 'tcp')))
+                await core.addUserRule(visi.iden, (True, ('telepath', 'open')))
 
                 msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
                 self.stormHasNoWarnErr(msgs)

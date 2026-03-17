@@ -431,7 +431,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                 :data = $flow
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
-                :author:user ?= $lib.user.iden
+                :author:user ?= $lib.auth.users.get().iden
                 :author:contact = {[ entity:contact = (attack-flow, $name, $contact_information)
                                         :name = $name
                                         :email = $contact_information

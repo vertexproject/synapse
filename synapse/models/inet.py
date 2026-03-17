@@ -1,11 +1,11 @@
 import socket
 import asyncio
 import logging
+import collections
 import urllib.parse
 
 import idna
 import regex
-import collections
 import unicodedata
 
 import synapse.exc as s_exc
@@ -712,6 +712,100 @@ class Fqdn(s_types.Type):
             except UnicodeError:
                 return valu
 
+    def postFormInit(self, form):
+        form.onAdd(self._onAddFqdn)
+        form.props['issuffix'].onSet(self._onSetIsSuffix)
+        form.props['iszone'].onSet(self._onSetIsZone)
+        form.props['zone'].onSet(self._onSetZone)
+
+    async def _onAddFqdn(self, node):
+
+        domain = node.get('domain')
+
+        async with node.view.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
+
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
+
+            parent = await node.view.getNodeByNdef(domain)
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain[1])
+
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', node.ndef[1])
+                return
+
+            await protonode.set('iszone', False)
+
+            if parent.get('iszone'):
+                await protonode.set('zone', domain[1])
+                return
+
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone[1])
+
+    async def _onSetIsSuffix(self, node):
+
+        fqdn = node.ndef[1]
+        issuffix = node.get('issuffix')
+
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
+
+    async def _onSetIsZone(self, node):
+
+        iszone = node.get('iszone')
+        if iszone:
+            await node.set('zone', node.ndef[1])
+            return
+
+        domain = node.get('domain')
+        if not domain:
+            await node.pop('zone')
+            return
+
+        parent = await node.view.addNode('inet:fqdn', domain[1])
+
+        zone = parent.get('zone')
+        if zone is None:
+            await node.pop('zone')
+            return
+
+        await node.set('zone', zone[1])
+
+    async def _onSetZone(self, node):
+
+        todo = collections.deque([node.ndef])
+        zone = node.get('zone')
+
+        async with node.view.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
+                    await asyncio.sleep(0)
+
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
+
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone[1])
+
+                    todo.append(child.ndef)
+
 class HttpCookie(s_types.Str):
 
     def postTypeInit(self):
@@ -1153,100 +1247,6 @@ class Url(s_types.Str):
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
 
-async def _onAddFqdn(node):
-
-    fqdn = node.ndef[1]
-    domain = node.get('domain')
-
-    async with node.view.getEditor() as editor:
-        protonode = editor.loadNode(node)
-        if domain is None:
-            await protonode.set('iszone', False)
-            await protonode.set('issuffix', True)
-            return
-
-        if protonode.get('issuffix') is None:
-            await protonode.set('issuffix', False)
-
-        parent = await node.view.getNodeByNdef(domain)
-        if parent is None:
-            parent = await editor.addNode('inet:fqdn', domain[1])
-
-        if parent.get('issuffix'):
-            await protonode.set('iszone', True)
-            await protonode.set('zone', node.ndef[1])
-            return
-
-        await protonode.set('iszone', False)
-
-        if parent.get('iszone'):
-            await protonode.set('zone', domain[1])
-            return
-
-        zone = parent.get('zone')
-        if zone is not None:
-            await protonode.set('zone', zone[1])
-
-async def _onSetFqdnIsSuffix(node):
-
-    fqdn = node.ndef[1]
-
-    issuffix = node.get('issuffix')
-
-    async with node.view.getEditor() as editor:
-        async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-            await asyncio.sleep(0)
-
-            if child.get('iszone') == issuffix:
-                continue
-
-            protonode = editor.loadNode(child)
-            await protonode.set('iszone', issuffix)
-
-async def _onSetFqdnIsZone(node):
-
-    iszone = node.get('iszone')
-    if iszone:
-        await node.set('zone', node.ndef[1])
-        return
-
-    # we are not a zone...
-
-    domain = node.get('domain')
-    if not domain:
-        await node.pop('zone')
-        return
-
-    parent = await node.view.addNode('inet:fqdn', domain[1])
-
-    zone = parent.get('zone')
-    if zone is None:
-        await node.pop('zone')
-        return
-
-    await node.set('zone', zone[1])
-
-async def _onSetFqdnZone(node):
-
-    todo = collections.deque([node.ndef])
-    zone = node.get('zone')
-
-    async with node.view.getEditor() as editor:
-        while todo:
-            fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
-                await asyncio.sleep(0)
-
-                # if they are their own zone level, skip
-                if child.get('iszone') or child.get('zone') == zone:
-                    continue
-
-                # the have the same zone we do
-                protonode = editor.loadNode(child)
-                await protonode.set('zone', zone[1])
-
-                todo.append(child.ndef)
-
 modeldefs = (
     ('inet', {
         'ctors': (
@@ -1443,6 +1443,9 @@ modeldefs = (
                 ),
                 'doc': 'A single HTTP request.'}),
 
+            ('inet:hyperlink', ('guid', {}), {
+                'doc': 'A URL link embedded in a message.'}),
+
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -1568,8 +1571,6 @@ modeldefs = (
                 ),
                 'doc': 'A unique email message header.'}),
 
-            ('inet:email:message:link', ('guid', {}), {
-                'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
@@ -1704,8 +1705,6 @@ modeldefs = (
                 ),
                 'doc': 'A message or post created by an account.'}),
 
-            ('inet:service:message:link', ('guid', {}), {
-                'doc': 'A URL link included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -2066,7 +2065,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow which delivered the message.'}),
 
-                ('links', ('array', {'type': 'inet:email:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -2080,13 +2079,6 @@ modeldefs = (
                 ('value', ('str', {}), {
                     'computed': True,
                     'doc': 'The value of the email header.'}),
-            )),
-
-            ('inet:email:message:link', {}, (
-                ('url', ('inet:url', {}), {
-                    'doc': 'The url contained within the email message.'}),
-                ('text', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:asn', {}, (
@@ -2361,6 +2353,15 @@ modeldefs = (
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
+            )),
+
+            ('inet:hyperlink', {}, (
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL target of the hyperlink.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:iface:type:taxonomy', {}, ()),
@@ -3048,7 +3049,7 @@ modeldefs = (
                 ('repost', ('inet:service:message', {}), {
                     'doc': 'The original message reposted by this message.'}),
 
-                ('links', ('array', {'type': 'inet:service:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links contained within the message.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
@@ -3080,14 +3081,8 @@ modeldefs = (
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
-            ('inet:service:message:link', {}, (
 
-                ('title', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL contained within the message.'}),
-            )),
 
             ('inet:service:emote', {}, (
 
@@ -3200,17 +3195,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-        'hooks': {
-            'post': {
-                'forms': (
-                    ('inet:fqdn', _onAddFqdn),
-                ),
-                'props': (
-                    ('inet:fqdn:zone', _onSetFqdnZone),
-                    ('inet:fqdn:iszone', _onSetFqdnIsZone),
-                    ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                )
-            }
-        },
     }),
 )

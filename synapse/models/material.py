@@ -31,11 +31,10 @@ modeldefs = (
 
         'interfaces': (
 
-            ('phys:object', {
-                'doc': 'Properties common to all physical objects.',
+            ('phys:tangible', {
+                'doc': 'Properties common to nodes which have or capture physical characteristics.',
                 'template': {'title': 'object'},
                 'interfaces': (
-                    ('meta:havable', {}),
                     ('geo:locatable', {}),
                 ),
                 'props': (
@@ -55,6 +54,16 @@ modeldefs = (
                     ('phys:height', ('geo:dist', {}), {
                         'doc': 'The physical height of the {title}.'}),
                 ),
+            }),
+
+            ('phys:object', {
+                'doc': 'Properties common to physical objects.',
+                'template': {'title': 'object'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('phys:tangible', {}),
+                ),
+                'props': (),
             }),
         ),
 

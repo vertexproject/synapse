@@ -193,13 +193,13 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm('''
                     $lib.model.ext.addType(_test:type, str, ({}), ({}))
                 ''', opts=opts)
-            self.isin('permission model.type.add._test:type', cm.exception.get('mesg'))
+            self.isin('permission model.admin', cm.exception.get('mesg'))
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.callStorm('''
                     $lib.model.ext.delType(_test:type)
                 ''', opts=opts)
-            self.isin('permission model.type.del._test:type', cm.exception.get('mesg'))
+            self.isin('permission model.admin', cm.exception.get('mesg'))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('''

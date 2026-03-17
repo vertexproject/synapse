@@ -2806,10 +2806,10 @@ class StormTypesTest(s_test.SynTest):
         # Do not include persistent vars support in this test see
         # test_persistent_vars for that behavior.
         async with self.getTestCore() as core:
-            q = '$lib.print($lib.user.name())'
+            q = '$lib.print($lib.auth.users.get().name)'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('root', mesgs)
-            self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
+            self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.auth.users.get().iden)'))
 
             msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
             self.stormIsInPrint('auth:user', msgs)
@@ -2819,14 +2819,14 @@ class StormTypesTest(s_test.SynTest):
 
             visi = await core.auth.getUserByName('visi')
             opts = {'user': visi.iden}
-            self.true(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.true))', opts=opts))
-            self.false(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.false))', opts=opts))
+            self.true(await core.callStorm('return($lib.auth.users.get().allowed(foo.bar, default=$lib.true))', opts=opts))
+            self.false(await core.callStorm('return($lib.auth.users.get().allowed(foo.bar, default=$lib.false))', opts=opts))
 
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 async with core.getLocalProxy() as prox:
-                    # User setup for $lib.user.vars() tests
+                    # User setup for $lib.auth.users.get().vars() tests
 
                     ret1 = await prox.addUser('user1', passwd='secret')
                     iden1 = ret1.get('iden')
@@ -2884,7 +2884,7 @@ class StormTypesTest(s_test.SynTest):
                     self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': [4, 0, 0], 'userkey': 'lessThanSekrit'}")
 
                     # Storing a valu gets toprim()'d
-                    q = '[test:str=test] $lib.user.vars.mynode = $node return($lib.user.vars.mynode)'
+                    q = '[test:str=test] $lib.auth.users.get().vars.mynode = $node return($lib.auth.users.get().vars.mynode)'
                     data = await prox.callStorm(q)
                     self.eq(data, 'test')
 
@@ -2897,21 +2897,21 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
 
-                    q = '''$lib.user.vars.somekey = hehe
-                    $valu=$lib.user.vars.somekey
+                    q = '''$lib.auth.users.get().vars.somekey = hehe
+                    $valu=$lib.auth.users.get().vars.somekey
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.stormIsInPrint('hehe', mesgs)
 
-                    q = '''$lib.user.vars.somekey = hehe
-                    $lib.user.vars.anotherkey = weee
-                    [test:str=$lib.user.vars.somekey]
+                    q = '''$lib.auth.users.get().vars.somekey = hehe
+                    $lib.auth.users.get().vars.anotherkey = weee
+                    [test:str=$lib.auth.users.get().vars.somekey]
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.len(1, await core.nodes('test:str=hehe'))
 
-                    listq = '''for ($key, $valu) in $lib.user.vars {
+                    listq = '''for ($key, $valu) in $lib.auth.users.get().vars {
                         $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
@@ -2920,7 +2920,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('somekey is hehe', mesgs)
                     self.stormIsInPrint('anotherkey is weee', mesgs)
 
-                    popq = '''$lib.user.vars.anotherkey = $lib.undef'''
+                    popq = '''$lib.auth.users.get().vars.anotherkey = $lib.undef'''
                     mesgs = await s_test.alist(uprox.storm(popq))
 
                     mesgs = await s_test.alist(uprox.storm(listq))
@@ -2991,8 +2991,8 @@ class StormTypesTest(s_test.SynTest):
 
                     # The StormHiveDict is safe when computing things
                     q = '''[test:int=1234]
-                    $lib.user.vars.someint = $node.value()
-                    [test:str=$lib.user.vars.someint]
+                    $lib.auth.users.get().vars.someint = $node.value()
+                    [test:str=$lib.auth.users.get().vars.someint]
                     '''
                     mesgs = await uprox.storm(q).list()
                     podes = [m[1] for m in mesgs if m[0] == 'node']
@@ -3285,7 +3285,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': user, 'vars': varz}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts)
-            await core.addUserRule(user, (True, ('telepath', 'open', 'cell')))
+            await core.addUserRule(user, (True, ('telepath', 'open')))
             self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
             # SynErr exceptions are allowed through. They can be caught by storm.
@@ -5763,11 +5763,11 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.mod {guid[:6]} --storm {{#foo}}').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.user.iden').list()
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.auth.users.get().iden').list()
                     self.stormIsInErr('must have permission cron.set.user', mesgs)
 
                     await prox.addUserRule(bond.iden, (True, ('cron', 'set', 'user')))
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.user.iden').list()
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.auth.users.get().iden').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
                     await prox.addUserRule(bond.iden, (True, ('cron', 'del')), gateiden=guid)
@@ -5783,7 +5783,7 @@ class StormTypesTest(s_test.SynTest):
             await visi.setAdmin(True)
 
             opts = {'user': visi.iden}
-            await core.nodes('$lib.user.profile."cortex:view" = $lib.view.get().fork().iden', opts=opts)
+            await core.nodes('$lib.auth.users.get().profile."cortex:view" = $lib.view.get().fork().iden', opts=opts)
 
             self.nn(visi.profile.get('cortex:view'))
 

@@ -65,9 +65,6 @@ modeldefs = (
                     ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The primary url for the {title}.'}),
-
                     ('lifespan', ('ival', {}), {
                         'virts': (
 
@@ -83,7 +80,15 @@ modeldefs = (
                         'doc': 'The lifespan of the {title}.'}),
 
                     # FIXME place of birth / death?
-                    # FIXME lang
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('lang', ('lang:language', {}), {
+                        'doc': 'The primary language of the {title}.'}),
+
+                    ('langs', ('array', {'type': 'lang:language'}), {
+                        'doc': 'An array of alternate languages for the {title}.'}),
 
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
@@ -171,6 +176,9 @@ modeldefs = (
             # FIXME syn:user is an actor...
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'prevnames': ('ou:jobtitle', 'ou:role'),
                 'doc': 'A title or position name used by an entity.'}),
 

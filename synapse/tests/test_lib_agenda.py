@@ -745,7 +745,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             fork = await core.callStorm('$fork = $lib.view.get().fork().iden return ( $fork )')
 
-            q = '$lib.log.info(`I am a cron job run by {$lib.user.name()} in {$lib.view.get().iden}`)'
+            q = '$lib.log.info(`I am a cron job run by {$lib.auth.users.get().name} in {$lib.view.get().iden}`)'
             msgs = await core.stormlist('cron.add hourly@:01 $q', opts={'vars': {'q': q}, 'view': fork})
             self.stormHasNoErr(msgs)
 

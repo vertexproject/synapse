@@ -1089,7 +1089,7 @@ stormcmds = (
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                     [ meta:note=*
                         :text=$text
-                        :creator={[ syn:user=$lib.user.iden ]}
+                        :creator={[ syn:user=$lib.auth.users.get().iden ]}
                         :created=.created
                         :updated=.created ]
                     if $type {[ :type=$type ]}
@@ -3116,6 +3116,10 @@ class DiffCmd(Cmd):
         // Lift nodes by multiple tags (results are uniqued)
 
         diff --tag cno.mal.redtree rep.vt
+
+        // Lift nodes by tags specified in a list variable
+
+        $tags=(cno.mal.redtree, rep.vt) diff --tag $tags
     '''
     name = 'diff'
     readonly = True
@@ -3142,10 +3146,22 @@ class DiffCmd(Cmd):
 
         if self.opts.tag:
 
-            tagnames = [await s_stormtypes.tostr(tag) for tag in self.opts.tag]
+            tags = []
+            for tag in self.opts.tag:
+                tag = await s_stormtypes.toprim(tag)
+                if isinstance(tag, (list, tuple)):
+                    tags.extend(tag)
+                else:
+                    tags.append(tag)
+
+            for tag in tags:
+                if not isinstance(tag, str):
+                    name = await s_stormtypes.totype(tag, basetypes=True)
+                    mesg = f'diff --tag arguments must be strings, got {name}.'
+                    raise s_exc.BadArg(mesg=mesg)
 
             layr = runt.view.wlyr
-            async for nid, sode in layr.liftByTags(tagnames):
+            async for nid, sode in layr.liftByTags(tags):
                 node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)

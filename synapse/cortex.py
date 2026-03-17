@@ -241,7 +241,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('impersonate',))
+            self.user.reqAdmin()
 
         return opts
 
@@ -377,7 +377,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended types must begin with _
         '''
-        self.user.confirm(('model', 'type', 'add', typename))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addType(typename, basetype, typeopts, typeinfo)
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
@@ -386,14 +386,14 @@ class CoreApi(s_cell.CellApi):
 
         Extended forms *must* begin with _
         '''
-        self.user.confirm(('model', 'form', 'add', formname))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addForm(formname, basetype, typeopts, typeinfo)
 
     async def delForm(self, formname):
         '''
         Remove an extended form from the data model.
         '''
-        self.user.confirm(('model', 'form', 'del', formname))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delForm(formname)
 
     async def addFormProp(self, form, prop, tdef, info):
@@ -402,7 +402,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        self.user.confirm(('model', 'prop', 'add', form))
+        self.user.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(prop):
             mesg = f'Invalid prop name {prop}'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
@@ -412,14 +412,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove an extended property from the given form.
         '''
-        self.user.confirm(('model', 'prop', 'del', form))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delFormProp(form, name)
 
     async def addTagProp(self, name, tdef, info):
         '''
         Add a tag property to record data about tags on nodes.
         '''
-        self.user.confirm(('model', 'tagprop', 'add'))
+        self.user.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(name):
             mesg = f'Invalid prop name {name}'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
@@ -429,7 +429,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove a previously added tag property.
         '''
-        self.user.confirm(('model', 'tagprop', 'del'))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delTagProp(name)
 
     async def addEdge(self, edge, edgeinfo):
@@ -438,7 +438,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended edge definitions must use a verb which begins with _
         '''
-        self.user.confirm(('model', 'edge', 'add'))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addEdge(edge, edgeinfo)
 
     async def addStormPkg(self, pkgdef, *, verify=False):
@@ -738,7 +738,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
-        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1085,60 +1084,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to write to a specific Layer.'},
 
-            {'perm': ('model',), 'gate': 'cortex',
-             'desc': 'Controls all model permissions.'},
-            {'perm': ('model', 'form'), 'gate': 'cortex',
-             'desc': 'Controls all model form permissions.'},
-            {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model forms.'},
-            {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model forms.',
-             'ex': 'model.form.add._foo:bar'},
-            {'perm': ('model', 'form', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model forms.'},
-            {'perm': ('model', 'form', 'del', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model forms.',
-             'ex': 'model.form.del._foo:bar'},
-
-            {'perm': ('model', 'type'), 'gate': 'cortex',
-             'desc': 'Controls all model type permissions.'},
-            {'perm': ('model', 'type', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model types.'},
-            {'perm': ('model', 'type', 'add', '<type>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model types.',
-             'ex': 'model.type.add._foo:bar'},
-            {'perm': ('model', 'type', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model types.'},
-            {'perm': ('model', 'type', 'del', '<type>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model types.',
-             'ex': 'model.type.del._foo:bar'},
-
-            {'perm': ('model', 'prop'), 'gate': 'cortex',
-             'desc': 'Controls all model property permissions.'},
-            {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model properties.'},
-            {'perm': ('model', 'prop', 'add', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model properties.',
-             'ex': 'model.prop.add._foo:bar'},
-            {'perm': ('model', 'prop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model properties and values.'},
-            {'perm': ('model', 'prop', 'del', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model properties and values.',
-             'ex': 'model.prop.del._foo:bar'},
-
-            {'perm': ('model', 'tagprop'), 'gate': 'cortex',
-             'desc': 'Controls all model tag property permissions.'},
-            {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model tag properties and values.'},
-            {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model tag properties and values.'},
-
-            {'perm': ('model', 'edge'), 'gate': 'cortex',
-             'desc': 'Controls all model edge permissions.'},
-            {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model edges.'},
-            {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model edges.'},
+            {'perm': ('model', 'admin'), 'gate': 'cortex',
+             'desc': 'Controls the ability to modify the extended data model.'},
 
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
@@ -1282,15 +1229,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         permdefs.sort(key=lambda x: x['perm'])
 
         return tuple(permdefs)
-
-    def _setPropSetHook(self, name, hook):
-        self._propSetHooks[name] = hook
-
-    async def _callPropSetHook(self, node, prop, norm):
-        hook = self._propSetHooks.get(prop.full)
-        if hook is None:
-            return
-        await hook(node, prop, norm)
 
     async def initServiceRuntime(self):
 
@@ -5099,6 +5037,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon = await self.runStormDmon(iden, ddef)
 
         self.stormdmondefs.set(iden, ddef)
+        await self.fire('storm:dmon:add', iden=iden)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
@@ -5118,6 +5057,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
+        await self.fire('storm:dmon:del', iden=iden)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)

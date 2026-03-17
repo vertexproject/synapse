@@ -699,7 +699,7 @@ geolocation, and DNS PTR data using various Storm commands.
 You are using ``risk:attack`` nodes in Synapse to represent attacks, and linking the attack to key objects used in the attack
 with a ``-(uses)>`` light edge. (For example, a ``risk:attack`` representing a phishing attempt can be linked to the relevant
 email message (``file:bytes`` node) or email metadata nodes (such as ``inet:email:message``, ``inet:email:message:attachment``,
-or ``inet:email:message:link``).
+or ``inet:hyperlink``).
 
 If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp.phish.attach`` to represent a malicious
 attachment used in a phishing attack), you want to pivot to the technique (``meta:technique``) represented by the tag (e.g., 

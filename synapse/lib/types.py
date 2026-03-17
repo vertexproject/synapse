@@ -219,13 +219,13 @@ class Type:
             return vinfo[0], (virt[1],) + vinfo[1]
         return virt[0], (virt[1],)
 
-    async def normVirt(self, name, valu, newvirt):
+    async def normVirt(self, name, valu, newvirt, oldvirts=None):
         func = self.virtstor.get(name, s_common.novalu)
         if func is s_common.novalu:
             mesg = f'No editable virtual prop named {name} on type {self.name}.'
             raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
-        return await func(valu, newvirt)
+        return await func(valu, newvirt, oldvirts=oldvirts)
 
     def getRuntPode(self):
 
@@ -1288,6 +1288,60 @@ class HugeNum(Type):
             return valu <= base
         return cmpr
 
+class Price(HugeNum):
+
+    def postTypeInit(self):
+        HugeNum.postTypeInit(self)
+        self.currtype = self.modl.type('econ:currency')
+        self.asoftype = self.modl.type('time')
+
+        self.virts |= {
+            'currency': (self.currtype, self._getCurrency),
+            'asof': (self.asoftype, self._getAsof),
+        }
+        self.virtstor |= {
+            'currency': self._storVirtCurrency,
+            'asof': self._storVirtAsof,
+        }
+        self.virtindx |= {
+            'currency': 'currency',
+            'asof': 'asof',
+        }
+
+    def _getCurrency(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+        if (vval := virts.get('currency')) is None:
+            return None
+        return vval[0]
+
+    def _getAsof(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+        if (vval := virts.get('asof')) is None:
+            return None
+        return vval[0]
+
+    async def _storVirtCurrency(self, valu, newcurr, oldvirts=None):
+        if valu is None:
+            mesg = 'Cannot set currency on an unset price value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
+        norm, _ = await self.currtype.norm(newcurr)
+        virts = dict(oldvirts) if oldvirts else {}
+        virts['currency'] = (norm, self.currtype.stortype)
+        return valu, {'merge': False, 'virts': virts}
+
+    async def _storVirtAsof(self, valu, newasof, oldvirts=None):
+        if valu is None:
+            mesg = 'Cannot set asof on an unset price value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
+        norm, _ = await self.asoftype.norm(newasof)
+        virts = dict(oldvirts) if oldvirts else {}
+        virts['asof'] = (norm, self.asoftype.stortype)
+        return valu, {'merge': False, 'virts': virts}
+
 class IntBase(Type):
 
     def __init__(self, modl, name, info, opts, skipinit=False):
@@ -1797,7 +1851,7 @@ class Ival(Type):
             return self.prec
         return vval[0]
 
-    async def _storVirtMin(self, valu, newmin):
+    async def _storVirtMin(self, valu, newmin, oldvirts=None):
         newv, norminfo = await self.norm(newmin)
         minv = newv[0]
 
@@ -1822,7 +1876,7 @@ class Ival(Type):
         maxv = max(newv[1], maxv)
         return (minv, maxv, maxv - minv), norminfo
 
-    async def _storVirtMax(self, valu, newmax):
+    async def _storVirtMax(self, valu, newmax, oldvirts=None):
         minv = self.unksize
         if valu is not None:
             minv = valu[0]
@@ -1847,7 +1901,7 @@ class Ival(Type):
 
         return (minv, maxv, maxv - minv), norminfo
 
-    async def _storVirtDuration(self, valu, newdura):
+    async def _storVirtDuration(self, valu, newdura, oldvirts=None):
         dura, norminfo = await self.duratype.norm(newdura)
         norminfo['merge'] = False
 
@@ -1875,7 +1929,7 @@ class Ival(Type):
         mesg = 'Cannot set duration on an ival with known start/end times.'
         raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
-    async def _storVirtPrec(self, valu, newprec):
+    async def _storVirtPrec(self, valu, newprec, oldvirts=None):
         if valu is None:
             mesg = 'Cannot set precision on an empty ival value.'
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
@@ -3167,7 +3221,7 @@ class Time(IntBase):
             return self.prec
         return vval[0]
 
-    async def _storVirtPrec(self, valu, newprec):
+    async def _storVirtPrec(self, valu, newprec, oldvirts=None):
         if valu is None:
             mesg = 'Cannot set precision on an empty time value.'
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)

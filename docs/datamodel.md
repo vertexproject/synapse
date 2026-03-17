@@ -1601,10 +1601,13 @@ A set of contact information which is used by an entity.
 | `:death:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the contact died. |
 | `:death:place:loc` | `loc` | The geopolitical location where the contact died. |
 | `:death:place:name` | `geo:name` | The name where the contact died. |
+| `:desc` | `text` | A description of the contact. |
 | `:email` | `inet:email` | The primary email address for the contact. |
 | `:emails` | `array` | An array of alternate email addresses for the contact. |
 | `:id` | `meta:id` | A type or source specific ID for the contact. |
 | `:identifiers` | `array` | Additional entity identifiers. |
+| `:lang` | `lang:language` | The primary language of the contact. |
+| `:langs` | `array` | An array of alternate languages for the contact. |
 | `:lifespan` | `ival` | The lifespan of the contact. |
 | `:name` | `entity:name` | The primary entity name of the contact. |
 | `:names` | `array` | An array of alternate entity names for the contact. |
@@ -1632,7 +1635,6 @@ A set of contact information which is used by an entity.
 | `:title` | `entity:title` | The entity title or role for this contact. |
 | `:titles` | `array` | An array of alternate entity titles or roles for this contact. |
 | `:type` | `entity:contact:type:taxonomy` | The contact type. |
-| `:url` | `inet:url` | The primary url for the contact. |
 | `:user` | `inet:user` | The primary user name for the contact. |
 | `:users` | `array` | An array of alternate user names for the contact. |
 | `:websites` | `array` | Web sites listed for the contact. |
@@ -1778,10 +1780,13 @@ Historical contact information about another contact.
 | `:creds` | `array` | An array of non-ephemeral credentials. |
 | `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the contact history. |
 | `:current` | `entity:contactable` | The current version of this historical contact. |
+| `:desc` | `text` | A description of the contact history. |
 | `:email` | `inet:email` | The primary email address for the contact history. |
 | `:emails` | `array` | An array of alternate email addresses for the contact history. |
 | `:id` | `meta:id` | A type or source specific ID for the contact history. |
 | `:identifiers` | `array` | Additional entity identifiers. |
+| `:lang` | `lang:language` | The primary language of the contact history. |
+| `:langs` | `array` | An array of alternate languages for the contact history. |
 | `:lifespan` | `ival` | The lifespan of the contact history. |
 | `:name` | `entity:name` | The primary entity name of the contact history. |
 | `:names` | `array` | An array of alternate entity names for the contact history. |
@@ -1802,7 +1807,6 @@ Historical contact information about another contact.
 | `:place:loc` | `loc` | The geopolitical location where the contact history was located. |
 | `:place:name` | `geo:name` | The name where the contact history was located. |
 | `:social:accounts` | `array` | Social media or other online accounts listed for the contact history. |
-| `:url` | `inet:url` | The primary url for the contact history. |
 | `:user` | `inet:user` | The primary user name for the contact history. |
 | `:users` | `array` | An array of alternate user names for the contact history. |
 | `:websites` | `array` | Web sites listed for the contact history. |
@@ -7052,6 +7056,8 @@ An organization, such as a company or military unit.
 | `:id` | `meta:id` | A type or source specific ID for the organization. |
 | `:identifiers` | `array` | Additional entity identifiers. |
 | `:industries` | `array` | The industries associated with the org. |
+| `:lang` | `lang:language` | The primary language of the organization. |
+| `:langs` | `array` | An array of alternate languages for the organization. |
 | `:lifespan` | `ival` | The lifespan of the organization. |
 | `:logo` | `file:bytes` | An image file representing the logo for the organization. |
 | `:motto` | `lang:phrase` | The motto used by the organization. |
@@ -7080,7 +7086,6 @@ An organization, such as a company or military unit.
 | `:social:accounts` | `array` | Social media or other online accounts listed for the organization. |
 | `:tag` | `syn:tag` | A base tag used to encode assessments made by the organization. |
 | `:type` | `ou:org:type:taxonomy` | The type of organization. |
-| `:url` | `inet:url` | The primary url for the organization. |
 | `:user` | `inet:user` | The primary user name for the organization. |
 | `:users` | `array` | An array of alternate user names for the organization. |
 | `:vitals` | `ou:vitals` | The most recent/accurate ou:vitals for the org. |
@@ -7649,10 +7654,13 @@ A person or persona.
 | `:death:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the person died. |
 | `:death:place:loc` | `loc` | The geopolitical location where the person died. |
 | `:death:place:name` | `geo:name` | The name where the person died. |
+| `:desc` | `text` | A description of the person. |
 | `:email` | `inet:email` | The primary email address for the person. |
 | `:emails` | `array` | An array of alternate email addresses for the person. |
 | `:id` | `meta:id` | A type or source specific ID for the person. |
 | `:identifiers` | `array` | Additional entity identifiers. |
+| `:lang` | `lang:language` | The primary language of the person. |
+| `:langs` | `array` | An array of alternate languages for the person. |
 | `:lifespan` | `ival` | The lifespan of the person. |
 | `:name` | `entity:name` | The primary entity name of the person. |
 | `:names` | `array` | An array of alternate entity names for the person. |
@@ -7677,7 +7685,6 @@ A person or persona.
 | `:social:accounts` | `array` | Social media or other online accounts listed for the person. |
 | `:title` | `entity:title` | The entity title or role for this person. |
 | `:titles` | `array` | An array of alternate entity titles or roles for this person. |
-| `:url` | `inet:url` | The primary url for the person. |
 | `:user` | `inet:user` | The primary user name for the person. |
 | `:users` | `array` | An array of alternate user names for the person. |
 | `:vitals` | `ps:vitals` | The most recent vitals for the person. |
@@ -8211,6 +8218,8 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:id` | `meta:id` | A unique ID given to the threat. |
 | `:identifiers` | `array` | Additional entity identifiers. |
 | `:ids` | `array` | An array of alternate IDs given to the threat. |
+| `:lang` | `lang:language` | The primary language of the threat. |
+| `:langs` | `array` | An array of alternate languages for the threat. |
 | `:lifespan` | `ival` | The lifespan of the threat. |
 | `:name` | `entity:name` | The primary name of the threat according to the source. |
 | `:names` | `array` | A list of alternate names for the threat according to the source. |
@@ -8241,7 +8250,6 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:tag` | `syn:tag` | The tag used to annotate nodes that are associated with the threat cluster. |
 | `:type` | `risk:threat:type:taxonomy` | A type for the threat, as a taxonomy entry. |
 | `:updated` | `time` | The time when the threat was last updated. |
-| `:url` | `inet:url` | The URL for the threat. |
 | `:user` | `inet:user` | The primary user name for the threat. |
 | `:users` | `array` | An array of alternate user names for the threat. |
 | `:websites` | `array` | Web sites listed for the threat. |

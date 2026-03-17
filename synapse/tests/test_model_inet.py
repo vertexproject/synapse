@@ -2599,9 +2599,9 @@ class InetModelTest(s_t_utils.SynTest):
                 :received:from:fqdn=smtp.vertex.link
                 :flow=$flow
                 :links={[
-                    inet:email:message:link=*
+                    inet:hyperlink=*
                         :url=https://www.vertex.link
-                        :text=Vertex
+                        :title=Vertex
                 ]}
                 :attachments={[
                     file:attachment=*
@@ -2626,12 +2626,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:replyto=root@root.com'))
 
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:hyperlink +:title=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:attachment +:path=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
-            self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
+            self.len(1, await core.nodes('inet:email:message -> inet:hyperlink +:url=https://www.vertex.link +:title=Vertex'))
             self.len(1, await core.nodes('inet:email:message -> file:attachment +:path=sploit.exe +:file'))
 
             self.len(1, await core.nodes('inet:email:header limit 1 | [:seen=2022]'))
@@ -2987,7 +2987,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'client', client.ndef[1])
 
             q = '''
-            [ inet:service:message:link=(blackout, developers, 1715856900000000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
+            [ inet:hyperlink=(blackout, developers, 1715856900000000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
                 :title="Deadpool & Wolverine | Official Teaser | In Theaters July 26"
                 :url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
             ]

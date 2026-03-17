@@ -23,7 +23,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
     _storm_query = '''
     function __voted(votes) {
         for $vote in $votes {
-            if ($vote.user = $lib.user.iden) {
+            if ($vote.user = $lib.auth.users.get().iden) {
                 return((true))
             }
         }
@@ -43,7 +43,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
             if (not $summary) { continue }
             if ($todo) {
                 if ($summary.merging) { continue }
-                if ($summary.merge.creator = $lib.user.iden) { continue }
+                if ($summary.merge.creator = $lib.auth.users.get().iden) { continue }
                 if ($__voted($summary.votes)) { continue }
                 if (not $__canvote($summary.quorum.roles)) { continue }
             }

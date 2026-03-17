@@ -450,7 +450,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     (it:host:login=*
                         :period=(20210314,202103140201)
                         :account=$acct
-                        :host=$host
+                        :server:host=$host
                         :creds={[ auth:passwd=cool ]}
                         :flow={[ inet:flow=(foo,) ]})
                 ]
@@ -463,7 +463,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             # self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('contact'))
 
-            self.nn(nodes[1].get('host'))
+            self.nn(nodes[1].get('server:host'))
             self.nn(nodes[1].get('account'))
             self.propeq(nodes[1], 'period', (1615680000000000, 1615687260000000, 7260000000))
             self.propeq(nodes[1], 'creds', ('cool',))
@@ -496,11 +496,31 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('for $sid in $sids {[ it:host:account:windows=* :sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
-            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> it:host')
+            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login :server:host -> it:host')
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
             self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
+
+            # test inet:proto:link interface properties on it:host:login
+            nodes = await core.nodes('''
+                init {
+                    $chost = $lib.guid()
+                    $shost = $lib.guid()
+                }
+                [
+                    it:host:login=*
+                        :client=tcp://1.2.3.4:5678
+                        :client:host=$chost
+                        :server=tcp://5.6.7.8:443
+                        :server:host=$shost
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'client', 'tcp://1.2.3.4:5678')
+            self.nn(nodes[0].get('client:host'))
+            self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
+            self.nn(nodes[0].get('server:host'))
 
             # FIXME :domain
             # nodes = await core.nodes('it:host:account -> it:domain')

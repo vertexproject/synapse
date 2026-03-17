@@ -136,8 +136,8 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country
 
-            self.len(0, await core.nodes('gen.pol.country newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country newp'))
+            self.len(0, await core.nodes('gen.pol.country (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country us'))
@@ -150,8 +150,8 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country.government
 
-            self.len(0, await core.nodes('gen.pol.country.government newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government newp'))
+            self.len(0, await core.nodes('gen.pol.country.government (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country.government us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country.government us'))
@@ -235,7 +235,7 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
             self.len(1, nodes01 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
-            self.propeq(nodes00[0], 'id', 'CVE-2024-0123')
+            self.propeq(nodes00[0], 'id', 'CVE-2024-0123', form='it:sec:cve')
             self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
@@ -246,7 +246,7 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes := await core.nodes('gen.risk.vuln cve-2024-0123 otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.propeq(nodes[0], 'id', 'CVE-2024-0123')
+            self.propeq(nodes[0], 'id', 'CVE-2024-0123', form='it:sec:cve')
             self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 

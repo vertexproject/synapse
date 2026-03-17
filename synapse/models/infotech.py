@@ -609,9 +609,6 @@ suslevels = (
 
 attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
 
-async def _onFormItDevStr(node):
-    await node.set('norm', node.ndef[1])
-
 modeldefs = (
     ('it', {
         'ctors': (
@@ -685,6 +682,9 @@ modeldefs = (
 
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
+                'interfaces': (
+                    ('inet:proto:link', {'template': {'link': 'login'}}),
+                ),
                 'doc': 'A host specific login session.'}),
 
             ('it:host:hosted:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
@@ -1524,8 +1524,9 @@ modeldefs = (
             )),
             ('it:host:login', {}, (
 
-                ('host', ('it:host', {}), {
-                    'doc': 'The host on which the activity occurred.'}),
+                ('server:host', ('it:host', {}), {
+                    'prevnames': ('host',),
+                    'doc': 'The server host which received the login.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The period when the login session was active.'}),
@@ -1538,9 +1539,6 @@ modeldefs = (
 
                 ('creds', ('array', {'type': 'auth:credential'}), {
                     'doc': 'The credentials that were used to login.'}),
-
-                ('flow', ('inet:flow', {}), {
-                    'doc': 'The network flow which initiated the login.'}),
             )),
             ('it:host:hosted:url', {}, (
 
@@ -1560,7 +1558,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A brief description of the screenshot.'})
             )),
-            ('it:dev:str', {}, (
+            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node ]'}}}, (
 
                 ('norm', ('str', {'lower': True}), {
                     'doc': 'Lower case normalized version of the it:dev:str.'}),

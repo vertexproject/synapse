@@ -4,32 +4,99 @@ class EntityModelTest(s_t_utils.SynTest):
 
     async def test_model_entity(self):
 
-        # FIXME fully test entity:contact
         async with self.getTestCore() as core:
+
             nodes = await core.nodes('''[
                 entity:contact=*
+                    :type=person.employee
                     :name=visi
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
+                    :desc="a cool entity"
+                    :bio="a short bio"
+                    :lang={[ lang:language=* :name=english ]}
+                    :langs={[ lang:language=* :name=spanish ]}
                     :email=visi@vertex.link
+                    :emails=(visi@gmail.com, visi@yahoo.com)
+                    :phone="+15555555555"
+                    :phones=("+15555555556",)
+                    :user=invisig0th
+                    :users=(visi0th, invisig0th2)
+                    :photo={[ file:bytes=* ]}
+                    :banner={[ file:bytes=* ]}
+                    :id=VTX-0001
                     :creds={[ auth:passwd=cool ]}
                     :websites+=https://vertex.link
                     :social:accounts={[ inet:service:account=({"name": "invisig0th"}) ]}
+                    :org={[ ou:org=({"name": "vertex"}) ]}
+                    :org:name=vertex
+                    :title="lead developer"
+                    :titles=("senior dev", "team lead")
+                    :resolved={[ ps:person=* ]}
                     :birth:place:country:code=us
                     :death:place:country:code=zz
                     :place:address:city="  new York  city "
             ]''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'visi')
-            self.propeq(nodes[0], 'names', ('visi k', 'visi stark'))
-            self.propeq(nodes[0], 'email', 'visi@vertex.link')
-            self.propeq(nodes[0], 'creds', ('cool',))
-            self.propeq(nodes[0], 'websites', ('https://vertex.link',))
-            self.propeq(nodes[0], 'birth:place:country:code', 'us')
-            self.propeq(nodes[0], 'death:place:country:code', 'zz')
-            self.propeq(nodes[0], 'place:address:city', 'new york city')
-            self.len(1, nodes[0].get('social:accounts'))
+            node = nodes[0]
+
+            # entity:contact own props
+            self.propeq(node, 'type', 'person.employee.')
+
+            # entity:contactable interface props
+            self.propeq(node, 'id', 'VTX-0001')
+            self.propeq(node, 'name', 'visi')
+            self.propeq(node, 'names', ('visi k', 'visi stark'))
+            self.propeq(node, 'desc', 'a cool entity')
+            self.propeq(node, 'bio', 'a short bio')
+            self.propeq(node, 'email', 'visi@vertex.link')
+            self.propeq(node, 'emails', ('visi@gmail.com', 'visi@yahoo.com'))
+            self.propeq(node, 'phone', '15555555555')
+            self.propeq(node, 'phones', ('15555555556',))
+            self.propeq(node, 'user', 'invisig0th')
+            self.propeq(node, 'users', ('invisig0th2', 'visi0th'))
+            self.nn(node.get('photo'))
+            self.nn(node.get('banner'))
+            self.propeq(node, 'creds', ('cool',))
+            self.propeq(node, 'websites', ('https://vertex.link',))
+            self.len(1, node.get('social:accounts'))
+
+            # entity:contactable :lang / :langs
+            self.nn(node.get('lang'))
+            self.len(1, node.get('langs'))
+            self.len(1, await core.nodes('entity:contact :lang -> lang:language +:name=english'))
+            self.len(1, await core.nodes('entity:contact :langs -> lang:language +:name=spanish'))
+
+            # entity:contactable :desc text type preserves case
+            self.propeq(node, 'desc', 'a cool entity')
+
+            # entity:contactable :url is removed (use :websites)
+            self.none(core.model.prop('entity:contact:url'))
+
+            # entity:contactable :lifespan
+            self.propeq(node, 'lifespan', (219628800000000, 9223372036854775807, 0xffffffffffffffff))
+
+            # entity:singular interface props
+            self.nn(node.get('org'))
+            self.propeq(node, 'org:name', 'vertex')
+            self.propeq(node, 'title', 'lead developer')
+            self.propeq(node, 'titles', ('senior dev', 'team lead'))
+
+            # entity:abstract interface props
+            self.nn(node.get('resolved'))
+
+            # geo:locatable interface props
+            self.propeq(node, 'birth:place:country:code', 'us')
+            self.propeq(node, 'death:place:country:code', 'zz')
+            self.propeq(node, 'place:address:city', 'new york city')
+
+            # pivots
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
+            self.len(1, await core.nodes('entity:contact :photo -> file:bytes'))
+            self.len(1, await core.nodes('entity:contact :banner -> file:bytes'))
+            self.len(1, await core.nodes('entity:contact :org -> ou:org'))
+            self.len(1, await core.nodes('entity:contact :resolved -> ps:person'))
+            self.len(1, await core.nodes('entity:contact -> entity:contact:type:taxonomy'))
 
             nodes = await core.nodes('''
                 $item = {[ transport:air:craft=* ]}
@@ -199,6 +266,66 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('source')[0], 'it:host')
             self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
             self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
+
+            # entity:history inherits entity:contactable
+            nodes = await core.nodes('''[
+                entity:history=*
+                    :current={[ entity:contact=({"name": "histcontact"}) ]}
+                    :name="old name"
+                    :desc="historical description"
+                    :lang={[ lang:language=* :name=french ]}
+                    :langs={[ lang:language=* :name=german ]}
+                    :email=old@vertex.link
+                    :phone="+15551234567"
+                    :user=olduser
+                    :websites+=https://old.vertex.link
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('current'))
+            self.propeq(nodes[0], 'name', 'old name')
+            self.propeq(nodes[0], 'desc', 'historical description')
+            self.nn(nodes[0].get('lang'))
+            self.len(1, nodes[0].get('langs'))
+            self.propeq(nodes[0], 'email', 'old@vertex.link')
+            self.propeq(nodes[0], 'phone', '15551234567')
+            self.propeq(nodes[0], 'user', 'olduser')
+            self.propeq(nodes[0], 'websites', ('https://old.vertex.link',))
+            self.len(1, await core.nodes('entity:history :current -> entity:contact'))
+            self.len(1, await core.nodes('entity:history :lang -> lang:language +:name=french'))
+            self.len(1, await core.nodes('entity:history :langs -> lang:language +:name=german'))
+            self.none(core.model.prop('entity:history:url'))
+
+            # entity:discovery
+            nodes = await core.nodes('''[
+                entity:discovery=*
+                    :actor={[ entity:contact=({"name": "discoverer"}) ]}
+                    :time=20230601
+                    :item={[ risk:vuln=({"name": "log4shell"}) ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.propeq(nodes[0], 'time', 1685577600000000)
+            self.nn(nodes[0].get('item'))
+            self.len(1, await core.nodes('entity:discovery :actor -> entity:contact'))
+            self.len(1, await core.nodes('entity:discovery :item -> risk:vuln'))
+
+    async def test_entity_title(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                $actor = {[ entity:contact=({"name": "apt28"}) ]}
+
+                [ entity:title="software developer" ]
+
+                { [ <(targeted)+ $actor ] }
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:title', 'software developer'))
+
+            self.isin('risk:targetable', core.model.form('entity:title').ifaces)
+
+            self.len(1, await core.nodes('entity:title="software developer" <(targeted)- entity:contact'))
 
     async def test_entity_relationship(self):
 

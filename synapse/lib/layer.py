@@ -1779,17 +1779,6 @@ class StorTypeIval(StorType):
             self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
             self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
 
-    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
-        try:
-            indxtype = self.propindx.get(cmpr, IndxByProp)
-            indxby = indxtype(self.layr, form, None)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
-            yield item
-
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxtype = self.propindx.get(cmpr, IndxByProp)
@@ -4483,14 +4472,6 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((abrv + indx, nid))
             self.indxcounts.inc(abrv)
 
-        if stortype == STOR_TYPE_IVAL:
-            dura = self.ivaltype.getDurationIndx(valu)
-            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
-            kvpairs.append((duraabrv + dura, nid))
-
-            maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
-            kvpairs.append((maxabrv + indx[8:], nid))
-
         if virts is not None:
             kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, None, virts))
 
@@ -4550,15 +4531,6 @@ class Layer(s_nexus.Pusher):
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv, -1)
-
-        if stortype == STOR_TYPE_IVAL:
-            dura = self.ivaltype.getDurationIndx(valu)
-            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
-            self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-
-            indx = indx[8:]
-            maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
-            self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
 
         if virts is not None:
             self.stortypes[stortype].delVirtIndxVals(nid, form, None, virts)
@@ -4622,6 +4594,17 @@ class Layer(s_nexus.Pusher):
             if virts != oldvirts:
                 sode['props'][prop] = (valu, stortype, virts)
                 self.dirty[nid] = sode
+
+                kvpairs = []
+
+                if oldvirts is not None:
+                    self.stortypes[stortype].delVirtIndxVals(nid, form, prop, oldvirts)
+
+                if virts is not None:
+                    kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, prop, virts))
+
+                return kvpairs
+
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)

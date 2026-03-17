@@ -12,7 +12,7 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:
-            iface = core.model.ifaces.get('phys:object')
+            iface = core.model.ifaces.get('phys:tangible')
             self.eq('object', iface['template']['title'])
             core.model.addType('woot:one', 'guid', {}, {
                 'display': {
@@ -92,6 +92,13 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadFormDef):
             modl.addDataModels(mods)
+
+    async def test_datamodel_virtstor(self):
+        modl = s_datamodel.Model()
+        modl.addType('test:virt', 'int', {}, {})
+        modl.types['test:virt'].virtstor['fake'] = lambda: None
+        with self.raises(s_exc.BadFormDef):
+            modl.addForm('test:virt', {}, ())
 
     async def test_datamodel_no_interface(self):
         modl = s_datamodel.Model()
@@ -1110,3 +1117,25 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == 'cmpr2'])
 
             self.stormIsInPrint('[2, 5, p10, p11]', msgs)
+
+            msgs = await core.stormlist('$set=$lib.set(p1, foo) test:str=faz if $set.has(:poly) { $lib.print(yes) }')
+            self.stormIsInPrint('yes', msgs)
+
+            msgs = await core.stormlist('$set=$lib.set(newp, nope) test:str=faz if $set.has(:poly) { $lib.print(yes) }')
+            self.stormNotInPrint('yes', msgs)
+
+            msgs = await core.stormlist('''
+                $set=$lib.set()
+                $s1 = {[ test:str=s1 :poly={[ test:str=v1 ]} ]}
+                $s2 = {[ test:str=s2 :poly={[ test:lowstr=v1 ]} ]}
+                $set.add($s1.props.poly)
+                $set.add($s2.props.poly)
+
+                $lib.print(`size={$set.size()}`)
+                $lib.print($set.has($s1.props.poly))
+                $lib.print($set.has($s2.props.poly))
+                $lib.print($set.has(v1))
+            ''')
+            self.stormIsInPrint('size=1', msgs)
+            self.stormIsInPrint('true', msgs)
+            self.stormNotInPrint('false', msgs)

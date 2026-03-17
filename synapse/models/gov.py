@@ -37,7 +37,7 @@ modeldefs = (
                 'ex': 'usa',
                 'doc': 'An ISO 3166 Alpha-3 country code.'}),
 
-            ('iso:3166:numeric3', ('int', {'min': 0, 'max': 999, 'fmt': '%.3d'}), {
+            ('iso:3166:numeric3', ('str', {'regex': '^[0-9]{3}$'}), {
                 'prevnames': ('pol:isonum',),
                 'ex': '840',
                 'doc': 'An ISO 3166 Numeric-3 country code.'}),
@@ -55,6 +55,9 @@ modeldefs = (
                 ('identifier', ('str', {}), {
                     'doc': 'The string identifier for the deepest tree element.'}),
             )),
+            ('iso:3166:alpha2', {}, ()),
+            ('iso:3166:alpha3', {}, ()),
+            ('iso:3166:numeric3', {}, ()),
         ),
     }),
     ('gov:us', {

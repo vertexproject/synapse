@@ -670,10 +670,10 @@ class StormSvcTest(s_test.SynTest):
 
                     # No permissions is a failure too!
                     msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
-                    self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
+                    self.stormIsInErr('must have permission service.get', msgs)
 
                     # storm service permissions should use svcidens
-                    await user.addRule((True, ('service', 'get', iden)))
+                    await user.addRule((True, ('service', 'get')))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
@@ -703,12 +703,6 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, [m for m in msgs if m[0] == 'err'])
                     self.stormIsInPrint('yup', msgs)
 
-                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
-                    self.len(0, [m for m in msgs if m[0] == 'err'])
-                    self.stormIsInPrint('yup', msgs)
-
-                    await user.delRule((True, ('service', 'get', iden)))
-                    await user.addRule((True, ('service', 'get')))
                     msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
                     self.len(0, [m for m in msgs if m[0] == 'err'])
                     self.stormIsInPrint('yup', msgs)

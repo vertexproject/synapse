@@ -85,7 +85,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :type=corp.llc
                     :logo=*
                     :phone="+15555555555"
-                    :url=https://vertex.link
+                    :websites+=https://vertex.link
                     :lifespan=(2016, *)
                     :motto="Synapse or it didn't happen!"
                     :parent=*
@@ -101,7 +101,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'names', ('vertex',))
             self.propeq(nodes[0], 'type', 'corp.llc.')
             self.propeq(nodes[0], 'phone', '15555555555')
-            self.propeq(nodes[0], 'url', 'https://vertex.link')
+            self.propeq(nodes[0], 'websites', ('https://vertex.link',))
             self.propeq(nodes[0], 'lifespan', (1451606400000000, 9223372036854775806, 18446744073709551614))
             self.nn(nodes[0].get('logo'))
             self.nn(nodes[0].get('parent'))

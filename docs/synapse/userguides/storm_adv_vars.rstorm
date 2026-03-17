@@ -499,7 +499,7 @@ evaluated, enclose the query in curly braces (``{ <storm query> }``).
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
+    .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :websites+=https://vertex.link/ ]
     .. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
 
 

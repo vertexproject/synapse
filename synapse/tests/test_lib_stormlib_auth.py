@@ -277,8 +277,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.isin(('axon',), perms)
             self.isin(('layer',), perms)
             self.isin(('layer', 'set'), perms)
-            self.isin(('model',), perms)
-            self.isin(('model', 'form'), perms)
+            self.isin(('model', 'admin'), perms)
             self.isin(('node', 'edge'), perms)
             self.isin(('node', 'data'), perms)
             self.isin(('pkg',), perms)
@@ -550,17 +549,17 @@ class StormLibAuthTest(s_test.SynTest):
     async def test_stormlib_auth_userjson(self):
 
         async with self.getTestCore() as core:
-            self.none(await core.callStorm('return($lib.user.json.get(foo))'))
-            self.none(await core.callStorm('return($lib.user.json.get(foo, prop=bar))'))
-            self.true(await core.callStorm('return($lib.user.json.set(hi, ({"foo": "bar", "baz": "faz"})))'))
-            self.true(await core.callStorm('return($lib.user.json.set(bye/bye, ({"zip": "zop", "bip": "bop"})))'))
-            self.eq('bar', await core.callStorm('return($lib.user.json.get(hi, prop=foo))'))
-            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.user.json.get(hi))'))
+            self.none(await core.callStorm('return($lib.auth.users.get().json.get(foo))'))
+            self.none(await core.callStorm('return($lib.auth.users.get().json.get(foo, prop=bar))'))
+            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hi, ({"foo": "bar", "baz": "faz"})))'))
+            self.true(await core.callStorm('return($lib.auth.users.get().json.set(bye/bye, ({"zip": "zop", "bip": "bop"})))'))
+            self.eq('bar', await core.callStorm('return($lib.auth.users.get().json.get(hi, prop=foo))'))
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.auth.users.get().json.get(hi))'))
 
-            await core.callStorm('$lib.user.json.set(hi, hehe, prop=foo)')
+            await core.callStorm('$lib.auth.users.get().json.set(hi, hehe, prop=foo)')
             items = await core.callStorm('''
             $list = ()
-            for $item in $lib.user.json.iter() { $list.append($item) }
+            for $item in $lib.auth.users.get().json.iter() { $list.append($item) }
             return($list)
             ''')
             self.eq(items, (
@@ -570,7 +569,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             items = await core.callStorm('''
             $list = ()
-            for $item in $lib.user.json.iter(path=bye) { $list.append($item) }
+            for $item in $lib.auth.users.get().json.iter(path=bye) { $list.append($item) }
             return($list)
             ''')
             self.eq(items, (
@@ -585,12 +584,12 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))', opts=asvisi)
 
-            self.none(await core.callStorm('return($lib.user.json.get(hi))', opts=asvisi))
-            await core.callStorm('if (not $lib.user.json.has(hehe)) { $lib.user.json.set(hehe, ({})) }', opts=asvisi)
+            self.none(await core.callStorm('return($lib.auth.users.get().json.get(hi))', opts=asvisi))
+            await core.callStorm('if (not $lib.auth.users.get().json.has(hehe)) { $lib.auth.users.get().json.set(hehe, ({})) }', opts=asvisi)
 
-            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
-            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
-            self.eq('haha', await core.callStorm('return($lib.user.json.get(hehe, prop=foo))', opts=asvisi))
+            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.eq('haha', await core.callStorm('return($lib.auth.users.get().json.get(hehe, prop=foo))', opts=asvisi))
 
             self.eq('haha', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
             self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.set(hehe, lolz, prop=foo))'))
@@ -610,13 +609,13 @@ class StormLibAuthTest(s_test.SynTest):
             othr = await core.auth.addUser('othr')
             asothr = {'user': othr.iden}
 
-            await core.callStorm('$lib.user.vars.foo = foovalu', opts=asvisi)
+            await core.callStorm('$lib.auth.users.get().vars.foo = foovalu', opts=asvisi)
 
-            msgs = await core.stormlist('for $valu in $lib.user.vars { $lib.print($valu) }', opts=asvisi)
+            msgs = await core.stormlist('for $valu in $lib.auth.users.get().vars { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("('foo', 'foovalu')", msgs)
 
-            self.true(await core.callStorm("return(('foo' in $lib.user.vars))", opts=asvisi))
-            self.false(await core.callStorm("return(('newp' in $lib.user.vars))", opts=asvisi))
+            self.true(await core.callStorm("return(('foo' in $lib.auth.users.get().vars))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.auth.users.get().vars))", opts=asvisi))
 
             q = 'return($lib.auth.users.byname(visi).vars.foo)'
             self.eq('foovalu', await core.callStorm(q, opts=asvisi))
@@ -632,21 +631,21 @@ class StormLibAuthTest(s_test.SynTest):
             await core.callStorm('$lib.auth.users.byname(visi).vars.foo=$lib.undef')
             self.none(await core.callStorm('return($lib.auth.users.byname(visi).vars.foo)'))
 
-            await core.callStorm('$lib.user.profile.bar = foovalu', opts=asvisi)
+            await core.callStorm('$lib.auth.users.get().profile.bar = foovalu', opts=asvisi)
 
-            self.eq('foovalu', await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
+            self.eq('foovalu', await core.callStorm('return($lib.auth.users.get().profile.bar)', opts=asvisi))
 
-            self.true(await core.callStorm("return(('bar' in $lib.user.profile))", opts=asvisi))
-            self.false(await core.callStorm("return(('newp' in $lib.user.profile))", opts=asvisi))
+            self.true(await core.callStorm("return(('bar' in $lib.auth.users.get().profile))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.auth.users.get().profile))", opts=asvisi))
 
             q = "return(('newp' in $lib.auth.users.byname(visi).profile))"
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
 
-            msgs = await core.stormlist('for $valu in $lib.user.profile { $lib.print($valu) }', opts=asvisi)
+            msgs = await core.stormlist('for $valu in $lib.auth.users.get().profile { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("['bar', 'foovalu']", msgs)
 
-            await core.callStorm('$lib.user.profile.bar = $lib.undef', opts=asvisi)
-            self.none(await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
+            await core.callStorm('$lib.auth.users.get().profile.bar = $lib.undef', opts=asvisi)
+            self.none(await core.callStorm('return($lib.auth.users.get().profile.bar)', opts=asvisi))
 
     async def test_stormlib_auth_user_vars_dict_mutability(self):
 
@@ -658,35 +657,35 @@ class StormLibAuthTest(s_test.SynTest):
                 visi = await core00.auth.addUser('visi')
                 asvisi = {'user': visi.iden}
 
-                valu = await core00.callStorm('return($lib.user.vars.newp)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().vars.newp)', opts=asvisi)
                 self.none(valu)
 
                 q = '''
-                  $lib.user.vars.testlist = (foo, bar, baz)
-                  $lib.user.vars.testdict = ({"foo": "bar"})
+                  $lib.auth.users.get().vars.testlist = (foo, bar, baz)
+                  $lib.auth.users.get().vars.testdict = ({"foo": "bar"})
                 '''
                 await core00.callStorm(q, opts=asvisi)
 
                 # Can mutate list values?
-                valu = await core00.callStorm('$tl = $lib.user.vars.testlist $tl.rem(bar) return($tl)', opts=asvisi)
+                valu = await core00.callStorm('$tl = $lib.auth.users.get().vars.testlist $tl.rem(bar) return($tl)', opts=asvisi)
                 self.eq(valu, ['foo', 'baz'])
 
                 # List mutations don't persist
-                valu = await core00.callStorm('return($lib.user.vars.testlist)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().vars.testlist)', opts=asvisi)
                 self.eq(valu, ['foo', 'bar', 'baz'])
 
                 # Can mutate dict values?
-                valu = await core00.callStorm('$td = $lib.user.vars.testdict $td.bar=foo return($td)', opts=asvisi)
+                valu = await core00.callStorm('$td = $lib.auth.users.get().vars.testdict $td.bar=foo return($td)', opts=asvisi)
                 self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
 
                 # Dict mutations don't persist
-                valu = await core00.callStorm('return($lib.user.vars.testdict)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().vars.testdict)', opts=asvisi)
                 self.eq(valu, {'foo': 'bar'})
 
                 # user vars iteration returns mutable objects
                 q = '''
                     $ret = ({})
-                    for ($key, $valu) in $lib.user.vars {
+                    for ($key, $valu) in $lib.auth.users.get().vars {
                       $ret.$key = $valu
                     }
                     $ret.testdict.boo = bar
@@ -709,35 +708,35 @@ class StormLibAuthTest(s_test.SynTest):
                 visi = await core00.auth.addUser('visi')
                 asvisi = {'user': visi.iden}
 
-                valu = await core00.callStorm('return($lib.user.profile.newp)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().profile.newp)', opts=asvisi)
                 self.none(valu)
 
                 q = '''
-                  $lib.user.profile.testlist = (foo, bar, baz)
-                  $lib.user.profile.testdict = ({"foo": "bar"})
+                  $lib.auth.users.get().profile.testlist = (foo, bar, baz)
+                  $lib.auth.users.get().profile.testdict = ({"foo": "bar"})
                 '''
                 await core00.callStorm(q, opts=asvisi)
 
                 # Can mutate list values?
-                valu = await core00.callStorm('$tl = $lib.user.profile.testlist $tl.rem(bar) return($tl)', opts=asvisi)
+                valu = await core00.callStorm('$tl = $lib.auth.users.get().profile.testlist $tl.rem(bar) return($tl)', opts=asvisi)
                 self.eq(valu, ['foo', 'baz'])
 
                 # List mutations don't persist
-                valu = await core00.callStorm('return($lib.user.profile.testlist)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().profile.testlist)', opts=asvisi)
                 self.eq(valu, ['foo', 'bar', 'baz'])
 
                 # Can mutate dict values?
-                valu = await core00.callStorm('$td = $lib.user.profile.testdict $td.bar=foo return($td)', opts=asvisi)
+                valu = await core00.callStorm('$td = $lib.auth.users.get().profile.testdict $td.bar=foo return($td)', opts=asvisi)
                 self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
 
                 # Dict mutations don't persist
-                valu = await core00.callStorm('return($lib.user.profile.testdict)', opts=asvisi)
+                valu = await core00.callStorm('return($lib.auth.users.get().profile.testdict)', opts=asvisi)
                 self.eq(valu, {'foo': 'bar'})
 
                 # user profile iteration returns mutable objects
                 q = '''
                     $ret = ({})
-                    for ($key, $valu) in $lib.user.profile {
+                    for ($key, $valu) in $lib.auth.users.get().profile {
                       $ret.$key = $valu
                     }
                     $ret.testdict.boo = bar
@@ -1683,14 +1682,14 @@ class StormLibAuthTest(s_test.SynTest):
 
                 headers0 = {'X-API-KEY': bkk0}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
-                                       json={'query': 'return( $lib.user.name() )'})
+                                       json={'query': 'return( $lib.auth.users.get().name )'})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
                 self.eq('root', answ['result'])
 
                 headers0 = {'X-API-KEY': ltk0}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
-                                       json={'query': 'return( $lib.user.name() )'})
+                                       json={'query': 'return( $lib.auth.users.get().name )'})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
                 self.eq('lowuser', answ['result'])

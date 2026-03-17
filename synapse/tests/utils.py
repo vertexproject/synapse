@@ -296,8 +296,6 @@ testmodel = (
 
             ('test:time', ('time', {}), {}),
 
-            ('test:ival', ('ival', {}), {}),
-
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
@@ -362,6 +360,7 @@ testmodel = (
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
             ('test:protocol', ('int', {}), {}),
+            ('test:onstorm', ('guid', {}), {}),
         ),
         'forms': (
 
@@ -507,11 +506,6 @@ testmodel = (
             ('test:hexa', {}, ()),
             ('test:hex4', {}, ()),
             ('test:zeropad', {}, ()),
-            ('test:ival', {}, (
-                ('interval', ('ival', {}), {}),
-                ('daymax', ('ival', {'precision': 'day'}), {}),
-            )),
-
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -564,6 +558,17 @@ testmodel = (
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
                     'doc': 'Another value adjustable in a different way.'}),
+            )),
+
+            ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
+                ('tick', ('time', {}), {}),
+                ('name', ('str', {}), {
+                    'on': {'set': {'q': '[ :hehe=$node.props.name ]'}},
+                }),
+                ('hehe', ('str', {}), {}),
+                ('ondelprop', ('str', {}), {
+                    'on': {'del': {'q': '[ :hehe="deleted" ]'}},
+                }),
             )),
         ),
         'edges': (
