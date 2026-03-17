@@ -23,7 +23,7 @@ class CmdBossTest(s_t_utils.SynTest):
             self.true(outp.expect('0 tasks found.'))
 
             async def runLongStorm():
-                async for _ in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                async for _ in core.storm(f'[ test:str=foo test:str={"x" * 100} ] | sleep 10 | [ test:str=endofquery ]'):
                     evnt.set()
 
             task = realcore.schedCoro(runLongStorm())

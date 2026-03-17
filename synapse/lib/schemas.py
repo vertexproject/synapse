@@ -96,6 +96,7 @@ _CronJobSchema = {
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
+        'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
         'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
