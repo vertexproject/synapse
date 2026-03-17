@@ -1825,7 +1825,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # Create a cron with affinity pointing to a non-existent service
             # It should fall back to local execution
-            with self.getAsyncLoggerStream('synapse.lib.agenda', 'unavailable for cron') as stream:
+            with self.getLoggerStream('synapse.lib.agenda',) as stream:
                 cdef = {
                     'creator': core.auth.rootuser.iden,
                     'storm': '$lib.queue.gen(afftest).put(ran)',
@@ -1834,7 +1834,7 @@ class AgendaTest(s_t_utils.SynTest):
                 }
                 await core.addCronJob(cdef)
 
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('unavailable for cron', timeout=12)
 
             # Verify the query ran locally (fallback)
             q = 'return($lib.queue.gen(afftest).get((0), wait=(true)))'

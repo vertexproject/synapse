@@ -6422,10 +6422,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await asyncio.sleep(0)
 
             q = '''$q = $lib.queue.get(dmon) $q.puts((10, 20, 30))'''
-            with self.getAsyncLoggerStream('synapse.lib.storm',
-                                           "made ('test:int', 30)") as stream:
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 await core.nodes(q)
-                self.true(await stream.wait(6))
+                await stream.expect("made ('test:int', 30)")
 
             # Nodes should be in the forked view
             nodes = await core.nodes('test:int', opts={'view': view2_iden})
