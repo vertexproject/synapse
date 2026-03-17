@@ -447,7 +447,7 @@ modeldefs = (
 
             ('geo:telem', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {'template': {'title': 'object'}}),
+                    ('phys:tangible', {'template': {'title': 'object'}}),
                     ('geo:locatable', {'template': {'title': 'object'}}),
                 ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),

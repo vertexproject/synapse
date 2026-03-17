@@ -61,7 +61,7 @@ modeldefs = (
             ('ps:vitals', ('guid', {}), {
                 'template': {'title': 'person'},
                 'interfaces': (
-                    ('phys:object', {}),
+                    ('phys:tangible', {}),
                 ),
                 'doc': 'Statistics and demographic data about a person.'}),
 
