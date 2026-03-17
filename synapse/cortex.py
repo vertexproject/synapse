@@ -7013,10 +7013,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             incunit = s_agenda.TimeUnit.fromString(incunit)
 
         if reqs is not None:
-            reqs = self._convert_reqdict(reqs)
-            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
-                mesg = "Recurring jobs may not be scheduled to run 'now'"
-                raise s_exc.BadConfValu(mesg)
+            if isinstance(reqs, Mapping):
+                reqs = self._convert_reqdict(reqs)
+                if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadConfValu(mesg)
+            else:
+                nreqs = []
+                for req in reqs:
+                    nr = self._convert_reqdict(req)
+                    if incunit is not None and s_agenda.TimeUnit.NOW in nr:
+                        mesg = "Recurring jobs may not be scheduled to run 'now'"
+                        raise s_exc.BadConfValu(mesg)
+                    nreqs.append(nr)
+                reqs = nreqs
 
         cdef = {}
         if query is not None:

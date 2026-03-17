@@ -286,10 +286,11 @@ class BaseTest(s_t_utils.SynTest):
             await asyncio.sleep(0.1)
             await base.fini()
 
-        loop.create_task(callfini())
+        task = loop.create_task(callfini())
         # actually wait...
         self.true(await base.waitfini(timeout=0.3))
         self.true(base.isfini)
+        self.none(await task)
 
         # bounce off the isfini block
         self.true(await base.waitfini(timeout=0.3))
