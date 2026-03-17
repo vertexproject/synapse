@@ -199,7 +199,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             # Color test
             outp.clear()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
+            await cmdr.runCmdLine(f'storm test:{"x" * 50} -> * -> $')
             outp.expect('-> *')
             outp.expect('Syntax Error')
 
