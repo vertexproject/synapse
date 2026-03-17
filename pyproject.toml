@@ -109,16 +109,41 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E101", "E111", "E114",
-    "E201", "E202", "E203", "E221", "E222", "E223", "E224", "E225", "E226", "E227", "E228", "E231", "E241", "E242", "E251",
-    "E265",
-    "E303", "E304",
-    "E502",
-    "E711", "E712", "E713", "E714", "E721",
-    "E741", "E742", "E743",
-    "F821",
-    "W191", "W291", "W292", "W293", "W391",
-    "W605",
+    "E101", # Indentation is not a multiple of {indent_width}
+    "E111", # Indentation is not a multiple of {indent_width}
+    "E114", # Indentation is not a multiple of {indent_width} (comment)
+    "E201", # Whitespace after '{symbol}'
+    "E202", # Whitespace before '{symbol}'
+    "E203", # Whitespace before '{symbol}'
+    "E204", # Whitespace after decorator
+    "E221", # Multiple spaces before operator
+    "E222", # Multiple spaces after operator
+    "E223", # Tab before operator
+    "E224", # Tab after operator
+    "E225", # Missing whitespace around operator
+    "E226", # Missing whitespace around arithmetic operator
+    "E227", # Missing whitespace around bitwise or shift operator
+    "E228", # Missing whitespace around modulo operator
+    "E231", # Missing whitespace after {}
+    "E241", # Multiple spaces after comma
+    "E242", # Tab after comma
+    "E251", # Unexpected spaces around keyword / parameter equals
+    "E265", # Block comment should start with #
+    "E303", # Too many blank lines
+    "E304", # Blank lines found after function decorator
+    "E502", # Redundant backslash,
+    "E703", # Statement ends with an unnecessary semicolon
+    "E711", # Comparison to None should be cond is None
+    "E712", # Avoid equality comparisons to True; use {cond}: for truth checks
+    "E713", # Test for membership should be not in
+    "E714", # Test for object identity should be is not
+    "E721", # Use is and is not for type comparisons, or isinstance() for isinstance checks
+    "F821",  # Undefined name {name}. {tip}
+    "W191", # Indentation contains tabs
+    "W292", # No newline at end of file
+    "W293", # Blank line contains whitespace
+    "W391", # Too many newlines at end of {domain}
+    "W605", # Invalid escape sequence: {ch}
 ]
 preview = true
 
