@@ -1196,6 +1196,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._save_optimized = False
+        self._last_optimized = None
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -1310,6 +1312,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        self.optimizeddb = self.slab.initdb('cell:optimized')  # time -> optimization record
+
+        if self._save_optimized:
+            lkey = s_common.int64en(self._last_optimized['init']['time'])
+            self.slab.put(lkey, s_msgpack.en(self._last_optimized), db=self.optimizeddb)
+            self._save_optimized = False
+
+        else:
+            last = self.slab.last(db=self.optimizeddb)
+            if last is not None:
+                self._last_optimized = s_msgpack.un(last[1])
 
         # for runtime cell configuration values
         self.slab.initdb('cell:conf')
@@ -1642,6 +1656,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not lmdbs: # pragma: no cover
             return
 
+        inittime = s_common.now()
+        initsize = s_common.getDirSize(self.dirn)
+
         logger.warning('Beginning onboot optimization (this could take a while)...')
 
         size = len(lmdbs)
@@ -1663,6 +1680,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     os.rename(dstpath, srcpath)
 
             logger.warning('... onboot optimization complete!')
+
+            finitime = s_common.now()
+            finisize = s_common.getDirSize(self.dirn)
+
+            optinfo = {
+                'init': {
+                    'time': inittime,
+                    'size': initsize,
+                },
+                'fini': {
+                    'time': finitime,
+                    'size': finisize,
+                },
+            }
+
+            self._last_optimized = optinfo
+            self._save_optimized = True
 
         except Exception as e: # pragma: no cover
             logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
@@ -4866,6 +4900,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'nexus': nxfo,
             },
             'features': self.features,
+            'optimized': self._last_optimized,
         }
         return ret
 

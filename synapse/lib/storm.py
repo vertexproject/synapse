@@ -277,6 +277,8 @@ stormcmds = (
                             'action': 'store_true'}),
             ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--cache-size', {'help': 'Number of storage nodes to cache.', 'type': 'int',
+                              'dest': 'cache:size'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -711,6 +713,8 @@ stormcmds = (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--pool', {'action': 'store_true', 'default': False,
                 'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -741,6 +745,7 @@ stormcmds = (
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
                                   pool=$cmdopts.pool,
+                                  affinity=$cmdopts.affinity,
                                   month=$cmdopts.month,
                                   year=$cmdopts.year,
                                   hourly=$cmdopts.hourly,
@@ -769,6 +774,8 @@ stormcmds = (
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
             ('--iden', {'help': 'A set iden to assign to the new cron job'}),
             ('--view', {'help': 'View to run the cron job against'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
@@ -778,7 +785,8 @@ stormcmds = (
                                  dt=$cmdopts.dt,
                                  now=$cmdopts.now,
                                  iden=$cmdopts.iden,
-                                 view=$cmdopts.view)
+                                 view=$cmdopts.view,
+                                 affinity=$cmdopts.affinity)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -906,6 +914,7 @@ stormcmds = (
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print(`pool:            {$job.pool}`)
+                $lib.print(`affinity:        {$job.affinity}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)
