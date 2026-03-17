@@ -1,6 +1,0 @@
----
-desc: Add a layer of caching for API Key and Password handling, to decrease duplicate work done for subsequent authentication requests.
-desc:literal: false
-prs: []
-type: feat
-...

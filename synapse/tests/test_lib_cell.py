@@ -942,6 +942,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(info.get('features'), cell.features)
                 self.eq(info.get('features', {}).get('testvalu'), 2)
 
+                self.none(info.get('optimized'))
+
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
@@ -2765,13 +2767,25 @@ class CellTest(s_t_utils.SynTest):
 
                 conf = {'onboot:optimize': True}
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    pass
+                    info = await core.getCellInfo()
+                    optimized = info.get('optimized')
+                    self.nn(optimized)
+                    self.nn(optimized['init']['time'])
+                    self.nn(optimized['init']['size'])
+                    self.nn(optimized['fini']['time'])
+                    self.nn(optimized['fini']['size'])
+                    self.le(optimized['init']['time'], optimized['fini']['time'])
 
             stream.seek(0)
             self.isin('onboot optimization complete!', stream.read())
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+            # Verify optimization record persists across restarts without optimization
+            async with self.getTestCore(dirn=dirn) as core:
+                info = await core.getCellInfo()
+                self.eq(info.get('optimized'), optimized)
 
             _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
             realstat = os.stat

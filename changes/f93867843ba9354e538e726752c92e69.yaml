@@ -1,7 +1,0 @@
----
-desc: Added ``gate`` key support when POSTing to the ``/api/v1/auth/user/<id>`` and ``/api/v1/auth/role/<id>``
-  HTTP APIs, allowing ``rules`` and ``admin`` to be scoped to a specific auth gate.
-desc:literal: false
-prs: []
-type: feat
-...
