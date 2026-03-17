@@ -50,7 +50,7 @@ def lint_python():
         args.append('.')
         output = system(*args, cwd=tempdir)
         shutil.rmtree(tempdir)
-        if output:
+        if output and b'All checks passed' not in output:
             print('Style violations have been detected.  Please fix them\n'
                   'or force the commit with "git commit --no-verify".\n')
             print(output.decode('utf-8'),)
