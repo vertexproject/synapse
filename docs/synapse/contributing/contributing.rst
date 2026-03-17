@@ -337,8 +337,7 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
 
    ::
 
-      cp scripts/githooks/pre-commit .git/hooks/pre-commit
-      chmod +x .git/hooks/pre-commit
+      ln -s ../../scripts/githooks/pre-commit .git/hooks/pre-commit
 
 
 #. After installing the hook, attempting a commit with a syntax error will fail
