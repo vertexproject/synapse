@@ -135,7 +135,8 @@ Interfaces have two primary uses:
   
 - **Simplify data model definitions by grouping similar forms**. An interface can represent the set of forms that
   implement the interface. This makes it easier to indicate the various forms that can be used to set a property
-  value or that can be the source or target of a light edge.
+  value (i.e., the set of acceptable types or forms for a property) or that can be the source or target of a light
+  edge.
   
   **Example**: Malicious activity (attacks, compromises) can target a variety of objects (organizations, industries,
   individuals). In Synapse this relationship is represented by a ``-(targeted)>`` :ref:`data-light-edge`. Instead
@@ -191,10 +192,12 @@ rule is meant to identify, and a ``-(matches)>`` edge to represent something the
 In contrast to interfaces (which act as composable building blocks), **inheritance** is hierarchical - forms inherit
 from a parent form, which may inherit from another parent form, and so on.
 
-Inheritance can be used in :ref:`gloss-storm` operations to make it easier to work with nodes of forms that inherit
-from each other. For example, performing a Storm operation (lift, filter, pivot, etc.) using a **base** form will
-perform that operation for the base form and all forms that inherit from the base. See the :ref:`userguide_storm_ref`
-for details.
+Inheritance can be used in data model definitions and :ref:`gloss-storm` operations to make it easier to work with
+nodes of forms that inherit from each other. For example, if you define a property's type to be a base type or form,
+the property value can be set to the base or any form that inherits from the base.
+
+Similarly, performing a Storm operation (lift, filter, pivot, etc.) using a **base** form will perform that operation
+for the base form and all forms that inherit from the base. See the :ref:`userguide_storm_ref` for details.
 
 .. _form-namespace:
 
@@ -308,19 +311,20 @@ associated secondary property values. Any secondary properties derived from a no
 Any secondary properties that are not derived from a node's primary property are **optional.** Their values can be
 set if the data is available and relevant to your use case; otherwise they can remain unset. For example, an IP node
 (``inet:ip``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ip:asn``).
-All optional secondary property values can be set, modified, or removed as needed.
+Optional secondary property values can be set, modified, or removed as needed.
 
-For any secondary property whose type is also a form, you can optionally define **multiple** types (forms) that
-can be used to set that property value. For example, in Synapse various entities can conduct activity or play a
-role (such as author, contributor, payer, or reporter) in an action. Depending on the context (and the available
-data), an entity can be represented as a person (``ps:person``), an organization (``ou:org``), a threat (``risk:threat``),
-or a set of contact information (``entity:contact``). A property such as ``risk:compromise:actor`` can be defined
-so that any of those forms can be set as the value for the ``:actor`` property.
+For any optional (non-derived) secondary property, you can optionally define **multiple** types that can be used
+to set that property value. For example, in Synapse various entities can conduct activity or play a role (such as
+author, contributor, payer, or reporter) in an action. Depending on the context (and the available data), an entity
+can be represented as a person (``ps:person``), an organization (``ou:org``), a threat (``risk:threat``), or a set
+of contact information (``entity:contact``). A property such as ``risk:compromise:actor`` can be defined so that
+any of those forms can be set as the value for the ``:actor`` property.
 
 .. TIP::
 
-  In some cases you can use an **interface** to easily specify the set of forms that can be used for a particular property
-  value without needing to enumerate the individual forms. See :ref:`data-interface` for details.
+  Both **interfaces** and **inheritance** can be used to easily specify the set of types that can be used for a
+  particular property value without needing to enumerate the individual types. See :ref:`data-interface` and
+  :ref:`data-inheritance` for details.
 
 .. _data-prop-meta:
 
@@ -488,12 +492,14 @@ Extending the Data Model
 Synapse's data model is extensible by design, so the model can expand to encompass more analytically relevant objects,
 relationships, and events.
 
-The **preferred** method for extending the data model is to add new data model elements to the Synapse base model (i.e.,
-the existing data model / source code) as needed. This way, changes and expansions are available to all Synapse users,
-and organizations do not independently create similar modifications.
+**The preferred method for extending the data model is for The Vertex Project to incorporate new model elements into the Synapse base model**
+(i.e., the existing data model / source code). This way, changes and expansions are available to **all** Synapse
+users (both Enterprise and open source), as opposed to organizations creating one-off modifications.
 
-That said, users can extend the data model on their own using the :ref:`stormlibs-lib-model-ext` libraries. You can
-create:
+That said, users can extend the data model on their own using the :ref:`stormlibs-lib-model-ext` libraries (though
+see the caveats below).
+
+You can create:
 
 - **Extended forms** to represent new objects.
 - **Extended properties**, either on an existing form or as part of an extended form.
@@ -514,7 +520,8 @@ official Synapse base model. To avoid this, extended element names must begin wi
   Before you extend Synapse's data model, we **strongly encourage** you to reach out to The Vertex Project
   - you can easily contact us through our `Slack`_ channel. We are happy to discuss your use case, help
   determine whether a base model update or an extended model element is the best solution, and ensure
-  that any model updates or extensions are made are in accordance with best practices.
+  that any model updates or extensions are consistent with existing model conventions and align with best
+  practices.
 
 .. _data-form-types:
 
