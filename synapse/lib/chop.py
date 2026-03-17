@@ -262,14 +262,14 @@ def uncnorm(valu):
     filename = ''
 
     if not valu.startswith('\\\\'):
-        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Does not start with \\\\.')
+        raise s_exc.BadTypeValu(mesg='Invalid UNC path: Does not start with \\\\.')
 
     parts = valu.split('\\')
     # e.g.: \\\\server\\share\\path\\file -> ['', '', 'server', 'share', 'path', 'file']
 
     # host name and share name are mandatory
     if len(parts) < 4:
-        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Host name and share name are required.')
+        raise s_exc.BadTypeValu(mesg='Invalid UNC path: Host name and share name are required.')
 
     host = parts[2]
     share = parts[3]
@@ -277,7 +277,7 @@ def uncnorm(valu):
     # Share name length should be 1-80 characters
     sharelen = len(share)
     if sharelen == 0 or sharelen > 80:
-        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Share name must be 1-80 characters.')
+        raise s_exc.BadTypeValu(mesg='Invalid UNC path: Share name must be 1-80 characters.')
 
     if len(parts) > 4:
         parts = parts[4:]
@@ -286,7 +286,7 @@ def uncnorm(valu):
         for path in paths:
             if len(path) > 255:
                 raise s_exc.BadTypeValu(
-                    mesg=f'Invalid UNC path: Path component longer than 255 characters.',
+                    mesg='Invalid UNC path: Path component longer than 255 characters.',
                     valu=path
                 )
 
@@ -296,7 +296,7 @@ def uncnorm(valu):
             fparts = filename.split(':')
             if len(fparts[0]) > 255:
                 raise s_exc.BadTypeValu(
-                    mesg=f'Invalid UNC path: Filename longer than 255 characters.',
+                    mesg='Invalid UNC path: Filename longer than 255 characters.',
                     valu=fparts[0]
                 )
 
@@ -313,7 +313,7 @@ def uncnorm(valu):
             port = int(port)
         except ValueError:
             raise s_exc.BadTypeValu(
-                mesg=f'Invalid UNC path: Invalid port.',
+                mesg='Invalid UNC path: Invalid port.',
                 valu=port
             )
 
