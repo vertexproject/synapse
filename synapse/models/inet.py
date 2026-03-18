@@ -2978,10 +2978,10 @@ modeldefs = (
                 ('denied', ('bool', {}), {
                     'doc': 'Set to (true) to denote that the rule is an explicit deny.'}),
 
-                ('object', ('ndef', {'interface': 'inet:service:object'}), {
+                ('object', ('inet:service:object', {}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:role')}), {
+                ('grantee', (('inet:service:account', 'inet:service:role'), {}), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3076,13 +3076,9 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:role')}}), {
+                ('mentions', ('array', {'type': ('inet:service:account', 'inet:service:role')}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
-
-
-
 
             ('inet:service:emote', {}, (
 

@@ -513,7 +513,7 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'doc': 'A description of the telemetry sample.'}),
 
-                ('node', ('ndef', {}), {
+                ('node', ('meta:observable', {}), {
                     'doc': 'The node that was observed at the associated time and place.'}),
             )),
 

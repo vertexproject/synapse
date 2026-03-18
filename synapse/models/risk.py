@@ -564,7 +564,7 @@ modeldefs = (
                     'doc': 'The time window where the node was vulnerable.'}),
 
                 # TODO - interface for things which can be vulnerable?
-                ('node', ('ndef', {}), {
+                ('node', (('risk:targetable', 'meta:havable', 'meta:observable'), {}), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('mitigated', ('bool', {}), {

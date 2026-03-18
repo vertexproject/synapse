@@ -421,7 +421,7 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:vulnerable=*
                     :period=(2022, ?)
-                    :node=(inet:fqdn, vertex.link)
+                    :node={[ inet:fqdn=vertex.link ]}
                     :vuln={[ risk:vuln=* :name=redtree ]}
                     :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
@@ -435,8 +435,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('vuln'))
             self.propeq(nodes[0], 'mitigated', True)
-            self.eq((1640995200000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
-            self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
+            self.propeq(nodes[0], 'period', (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
+            self.propeq(nodes[0], 'node', 'vertex.link')
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))

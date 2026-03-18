@@ -155,12 +155,12 @@ class DnsModelTest(s_t_utils.SynTest):
             self.none(node.get('name:fqdn'))
             self.propeq(node, 'name:ip', (6, 0xffff01020304))
             # Try inet:dns:answer now
-            nodes = await core.nodes('[inet:dns:answer=* :request=$valu :record=(inet:dns:a, (vertex.link, 2.3.4.5))]',
+            nodes = await core.nodes('[inet:dns:answer=* :request=$valu :record={[ inet:dns:a=(vertex.link, 2.3.4.5) ]} ]',
                                      opts={'vars': {'valu': req_ndef[1]}})
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'request', req_ndef[1])
-            self.propeq(node, 'record', ('inet:dns:a', ('vertex.link', (4, 0x02030405))))
+            self.propeq(node, 'record', ('vertex.link', (4, 0x02030405)), form='inet:dns:a')
             self.len(1, await core.nodes('inet:dns:a=(vertex.link, 2.3.4.5)'))
             # It is also possible for us to record a request from imperfect data
             # An example of that is dns data from a malware sandbox where the client
@@ -323,51 +323,51 @@ class DnsModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             # a record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:a, $valu)]', opts={'vars': {'valu': (fqdn0, ip0)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:a=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip0)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:a', (fqdn0, ip0)))
+            self.propeq(node, 'record', (fqdn0, ip0), form='inet:dns:a')
             # ns record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:ns, $valu)]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:ns=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:ns', (fqdn0, fqdn1)))
+            self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:ns')
             # rev record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:rev, $valu)]', opts={'vars': {'valu': (ip0, fqdn0)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:rev=$valu ]} ]', opts={'vars': {'valu': (ip0, fqdn0)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:rev', (ip0, fqdn0)))
+            self.propeq(node, 'record', (ip0, fqdn0), form='inet:dns:rev')
             # aaaa record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:aaaa, $valu)]', opts={'vars': {'valu': (fqdn0, ip1)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:aaaa=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:aaaa', (fqdn0, ip1)))
+            self.propeq(node, 'record', (fqdn0, ip1), form='inet:dns:aaaa')
             # rev ipv6 record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:rev, $valu)]', opts={'vars': {'valu': (ip1, fqdn0)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:rev=$valu ]} ]', opts={'vars': {'valu': (ip1, fqdn0)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:rev', (ip1, fqdn0)))
+            self.propeq(node, 'record', (ip1, fqdn0), form='inet:dns:rev')
             # cname record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:cname, $valu)]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:cname=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:cname', (fqdn0, fqdn1)))
+            self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:cname')
             # mx record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:mx, $valu)]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:mx=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:mx', (fqdn0, fqdn1)))
+            self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:mx')
             # soa record
             guid = s_common.guid((fqdn0, fqdn1, email0))
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:soa, $valu)]', opts={'vars': {'valu': guid}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:soa=$valu ]} ]', opts={'vars': {'valu': guid}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:soa', guid))
+            self.propeq(node, 'record', guid, form='inet:dns:soa')
             # txt record
-            nodes = await core.nodes('[inet:dns:answer=* :record=(inet:dns:txt, $valu)]', opts={'vars': {'valu': (fqdn0, 'Oh my!')}})
+            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:txt=$valu ]} ]', opts={'vars': {'valu': (fqdn0, 'Oh my!')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'record', ('inet:dns:txt', (fqdn0, 'Oh my!')))
+            self.propeq(node, 'record', (fqdn0, 'Oh my!'), form='inet:dns:txt')
             # time prop
             nodes = await core.nodes('[inet:dns:answer=* :time=2018]')
             self.len(1, nodes)
