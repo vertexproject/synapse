@@ -1813,9 +1813,11 @@ class LibUser(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'Get the name of the current runtime user.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libUserName',
                   'returns': {'type': 'str', 'desc': 'The username.', }}},
         {'name': 'allowed', 'desc': 'Check if the current user has a given permission.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libUserAllowed',
                   'args': (
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
@@ -1825,10 +1827,14 @@ class LibUser(s_stormtypes.Lib):
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
         {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': 'user:vars:dict', },
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': 'user:profile:dict', },
-        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
+        {'name': 'iden',
+         'deprecated': {'eolvers': 'v3.0.0'},
+         'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
 
@@ -1849,10 +1855,14 @@ class LibUser(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libUserName(self):
+        s_common.deprecated('$lib.user.name')
+        await self.runt.snap.warnonce('$lib.user.name is deprecated.')
         return self.runt.user.name
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libUserAllowed(self, permname, gateiden=None, default=False):
+        s_common.deprecated('$lib.user.allowed')
+        await self.runt.snap.warnonce('$lib.user.allowed is deprecated.')
         permname = await s_stormtypes.toprim(permname)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         default = await s_stormtypes.tobool(default)

@@ -15,15 +15,12 @@ logger = logging.getLogger(__name__)
 _glob_loop = None
 _glob_thrd = None
 
-<<<<<<< synapse-2xx-deprecations
 # TODO Remove me in 3xx - this is just to avoid a circular import on synapse.common
 def _deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
     return mesg
 
-=======
->>>>>>> master
 def _asynciostacks(*args, **kwargs):  # pragma: no cover
     '''
     A signal handler used to print asyncio task stacks and thread stacks.
