@@ -1231,7 +1231,7 @@ Within the data model, secondary properties may be defined with optional constra
 Property, Virtual
 -----------------
 
-A **virtual property** is a component of a property value (primary or secondary, including  meta properties)
+A **virtual property** is a component of a property value (primary or secondary)
 that can be accessed "virtually" without being explicitly declared or set as an independent property. Virtual
 properties provide the flexibility to navigate (lift, filter, pivot) data in Synapse without the need to explicitly
 declare duplicative properties that may record conflicting values.
