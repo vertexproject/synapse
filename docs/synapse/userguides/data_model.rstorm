@@ -503,7 +503,7 @@ You can create:
 
 - **Extended forms** to represent new objects.
 - **Extended properties**, either on an existing form or as part of an extended form.
-- **Extended edges**, to define a new edges and the allowed source (``n1``) and target (``n2``) forms.
+- **Extended edges**, to define new edges and the allowed source (``n1``) and target (``n2``) forms.
 
 Extended model elements may create name collisions with existing (or future) forms, properties, and edges in the
 official Synapse base model. To avoid this, extended element names must begin with an underscore. This includes:
