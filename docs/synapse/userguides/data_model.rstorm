@@ -174,7 +174,7 @@ Inheritance is hierarchical and can proceed through multiple levels, with each l
 often track offensive techniques - the methods used by threat actors to achieve their goals are behavioral "fingerprints"
 used to identify and group related activity.
 
-A mitigation (``risk:mitigation``) is a set of steps taken to address (reduce or eliminate) risk. Risks can mitigated in
+A mitigation (``risk:mitigation``) is a set of steps taken to address (reduce or eliminate) risk. Risks can be mitigated in
 various ways - using different **techniques**. A ``risk:mitigation`` is a more specialized ``meta:technique``, one that is
 specifically focused on defensive activity. ``risk:mitigation`` **inherits** all of the properties of ``meta:technique``,
 while its name reflects that it is a technique with a particular purpose.`
