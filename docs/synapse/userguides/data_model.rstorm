@@ -362,7 +362,7 @@ virtual properties ``:seen.min``, ``:seen.max``, and ``:seen.duration``
   Synapse uses a dot (``.``) to separate a virtual component of a property from the property name. Virtual
   properties of secondary properties can be accessed using the syntax above. Similarly, virtual properties
   of primary properties can be accessed by appending ``.<prop>`` to the form name. For example,
-  ``inet:server.port = 8080``.
+  ``inet:server.port = 8080`` or ``+.port=8080``.
   
   See the :ref:`prop-namespace` section for additional detail.
 
