@@ -293,7 +293,7 @@ modeldefs = (
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',
                 'template': {'rule': 'rule', 'rule:type': 'rule:type',
-                             'target:type': 'ndef'},
+                             'target:type': ''},
                 'props': (
 
                     ('rule', ('{rule:type}', {}), {

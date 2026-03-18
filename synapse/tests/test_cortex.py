@@ -3024,9 +3024,6 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ip +:asn::_pivo')
             self.len(1, nodes)
 
-            await core.nodes('[ risk:vulnerable=* :node=(inet:ip, 1.2.3.4) ]')
-            self.len(1, await core.nodes('risk:vulnerable +:node::asn::owner:name'))
-
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 

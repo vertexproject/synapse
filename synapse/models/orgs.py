@@ -652,7 +652,8 @@ modeldefs = (
                 ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
-                ('node', ('ndef', {}), {
+                # TODO: what are the correct options for node here?
+                ('node', ('meta:havable', {}), {
                     'doc': 'The node which represents the asset.'}),
 
                 ('place', ('geo:place', {}), {
@@ -772,10 +773,11 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
+                ('doc', (('doc:policy', 'doc:standard', 'doc:requirement'), {}), {
                     'doc': 'The document enacted by the organization.'}),
 
-                ('scope', ('ndef', {}), {
+                # TODO: what valid scopes are there?
+                ('scope', (('ou:team', 'ou:org'), {}), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),
