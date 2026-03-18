@@ -18,6 +18,7 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
         self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
+        self.eq(exc.exception.get('text'), 'newp')
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('')

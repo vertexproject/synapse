@@ -837,6 +837,8 @@ class Snap(s_base.Base):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
+            if path.display:
+                pode[1]['display'] = path.display
 
             if dolink:
                 pode[1]['links'] = path.links

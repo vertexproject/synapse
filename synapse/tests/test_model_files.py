@@ -56,19 +56,19 @@ class FileTest(s_t_utils.SynTest):
             self.stormIsInErr(f'invalid file:bytes sha256 value: Non-hexadecimal digit found - valu={badv}', msgs)
 
             msgs = await core.stormlist('[file:bytes=base64:foo]')
-            self.stormIsInErr(f'invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=guid:foo]')
-            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
+            self.stormIsInErr('guid is not a guid - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=newp:foo]')
-            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
+            self.stormIsInErr('unable to norm as file:bytes - valu=newp:foo', msgs)
 
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
@@ -163,7 +163,7 @@ class FileTest(s_t_utils.SynTest):
 
             # uuid
             opts = {'vars': {'file': fnode.get('sha256')}}
-            uuid = await core.nodes(f'''[
+            uuid = await core.nodes('''[
                 file:mime:macho:uuid=*
                     :file=$file
                     :type=27
@@ -176,7 +176,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq('sha256:' + file0, uuid.get('file'))
 
             # version
-            ver = await core.nodes(f'''[
+            ver = await core.nodes('''[
                 file:mime:macho:version=*
                     :file=$file
                     :type=42
@@ -194,7 +194,7 @@ class FileTest(s_t_utils.SynTest):
             # segment
             seghash = 'e' * 64
             opts = {'vars': {'file': file0, 'sha256': seghash}}
-            seg = await core.nodes(f'''[
+            seg = await core.nodes('''[
                 file:mime:macho:segment=*
                     :file=$file
                     :type=1
@@ -218,7 +218,7 @@ class FileTest(s_t_utils.SynTest):
 
             # section
             opts = {'vars': {'seg': seg.ndef[1]}}
-            sect = await core.nodes(f'''[
+            sect = await core.nodes('''[
                 file:mime:macho:section=*
                     :segment=$seg
                     :name="__text"
@@ -496,7 +496,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
                 self.eq(6371137800, n.get('altitude'))
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 ps:contact=$conguid
                     :name="Steve Rogers"
                     :title="Captain"
@@ -668,3 +668,40 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
             self.len(1, await core.nodes('file:attachment -> file:path'))
+
+    async def test_model_file_mime_pdf(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ file:mime:pdf=*
+                    :id=Foo-10
+                    :file=*
+                    :title="Synapse Sizing Guide"
+                    :subject="How to size a Synapse deployment."
+                    :author:name=Vertex
+                    :created=20260115
+                    :updated=20260115
+                    :language:name=Klingon
+                    :tool:name="Google Docs Renderer"
+                    :producer:name="Zip Zop Software"
+                    :keywords=(foo, bar)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'Foo-10')
+            self.eq(nodes[0].get('title'), 'Synapse Sizing Guide')
+            self.eq(nodes[0].get('subject'), 'How to size a Synapse deployment.')
+            self.eq(nodes[0].get('keywords'), ('bar', 'foo'))
+            self.eq(nodes[0].get('tool:name'), 'google docs renderer')
+            self.eq(nodes[0].get('author:name'), 'vertex')
+            self.eq(nodes[0].get('language:name'), 'klingon')
+            self.eq(nodes[0].get('producer:name'), 'zip zop software')
+            self.eq(nodes[0].get('created'), 1768435200000)
+            self.eq(nodes[0].get('updated'), 1768435200000)
+            self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))
+            self.len(1, await core.nodes('file:mime:pdf :author:name -> entity:name'))
+            self.len(1, await core.nodes('file:mime:pdf :language:name -> lang:name'))
+            self.len(1, await core.nodes('file:mime:pdf :tool:name -> it:prod:softname'))
+            self.len(1, await core.nodes('file:mime:pdf :producer:name -> it:prod:softname'))
+            self.len(2, await core.nodes('file:mime:pdf :keywords -> media:topic'))

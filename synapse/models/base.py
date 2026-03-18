@@ -213,6 +213,13 @@ class BaseModule(s_module.CoreModule):
 
                 (('meta:rule', 'detects', None), {
                     'doc': 'The meta:rule is designed to detect instances of the target node.'}),
+
+                (('meta:rule', 'generated', 'risk:alert'), {
+                    'doc': 'The meta:rule generated the risk:alert node.'}),
+
+                (('meta:rule', 'generated', 'it:log:event'), {
+                    'doc': 'The meta:rule generated the it:log:event node.'}),
+
             ),
             'forms': (
 

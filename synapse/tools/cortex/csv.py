@@ -7,7 +7,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.coro as s_coro
+
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version

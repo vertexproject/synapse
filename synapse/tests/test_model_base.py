@@ -266,7 +266,7 @@ class BaseTest(s_t_utils.SynTest):
             await core.nodes('[(edge:refs=($ndef, (test:int, (1234))))]', opts={'vars': {'ndef': node.ndef}})
 
             # Gather up all the nodes in the cluster
-            nodes = await core.nodes(f'graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
+            nodes = await core.nodes('graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
             self.len(5, nodes)
 
     async def test_model_base_rules(self):

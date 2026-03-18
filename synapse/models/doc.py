@@ -1,4 +1,3 @@
-import synapse.exc as s_exc
 import synapse.lib.module as s_module
 
 class DocModule(s_module.CoreModule):

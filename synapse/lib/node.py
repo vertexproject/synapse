@@ -755,6 +755,7 @@ class Path:
             'node': self.node,
         }
 
+        self.display = None
         self.metadata = {}
 
     def getVar(self, name, defv=s_common.novalu):

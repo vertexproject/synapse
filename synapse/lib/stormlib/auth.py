@@ -1,4 +1,3 @@
-import copy
 import asyncio
 
 import synapse.exc as s_exc
@@ -1266,8 +1265,8 @@ class User(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
@@ -1528,8 +1527,8 @@ class Role(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
@@ -1889,7 +1888,7 @@ class LibUsers(s_stormtypes.Lib):
         {'name': 'get', 'desc': 'Get a specific User by iden.',
          'type': {'type': 'function', '_funcname': '_methUsersGet',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve. Returns the current user if not specified.', 'default': None},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
                               'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
@@ -1903,11 +1902,25 @@ class LibUsers(s_stormtypes.Lib):
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
+        {'perm': ('auth',), 'gate': 'cortex',
+         'desc': 'Controls all auth permissions.'},
+        {'perm': ('auth', 'role'), 'gate': 'cortex',
+         'desc': 'Controls all auth role permissions.'},
+        {'perm': ('auth', 'role', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a role.'},
+        {'perm': ('auth', 'role', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a role.'},
+        {'perm': ('auth', 'role', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth role property.'},
         {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
          'desc': 'Permits a user to change the name of a role.'},
         {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
          'desc': 'Permits a user to modify rules of a role.'},
 
+        {'perm': ('auth', 'self'), 'gate': 'cortex',
+         'desc': 'Controls all auth self permissions.'},
+        {'perm': ('auth', 'self', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth self property.'},
          {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
          'desc': 'Permits a user to change their own email address.',
          'default': True},
@@ -1920,6 +1933,18 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'self', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage their API keys.',
          'default': True},
+        {'perm': ('auth', 'user'), 'gate': 'cortex',
+         'desc': 'Controls all auth user permissions.'},
+        {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a user.'},
+        {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a user.'},
+        {'perm': ('auth', 'user', 'get'), 'gate': 'cortex',
+         'desc': 'Controls all auth user get permissions.'},
+        {'perm': ('auth', 'user', 'pop'), 'gate': 'cortex',
+         'desc': 'Controls all auth user pop permissions.'},
+        {'perm': ('auth', 'user', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth user property.'},
         {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
          'desc': 'Controls granting roles to a user.'},
         {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
@@ -1938,13 +1963,13 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',
          'desc': 'Controls adding rules to a user.'},
 
-        {'perm': ('auth', 'user', 'get', 'profile', '<name>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'get', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to retrieve their profile information.',
          'ex': 'auth.user.get.profile.fullname'},
-        {'perm': ('auth', 'user', 'pop', 'profile', '<name>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'pop', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to remove profile information.',
          'ex': 'auth.user.pop.profile.fullname'},
-        {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'set', 'profile', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
          'ex': 'auth.user.set.profile.fullname'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
@@ -1969,7 +1994,9 @@ class LibUsers(s_stormtypes.Lib):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methUsersGet(self, iden):
+    async def _methUsersGet(self, iden=None):
+        if iden is None:
+            iden = self.runt.user.iden
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])

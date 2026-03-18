@@ -499,12 +499,12 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
 
             with self.raises(s_exc.LinkShutDown):
-                await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
+                await s_telepath.openurl('ssl://localhost/foo', port=port, certdir=dmon.certdir)
 
-            async with await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
+            async with await s_telepath.openurl('ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
                 self.eq(20, await proxy.bar(15, 5))
 
-            async with await s_telepath.openurl(f'ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
+            async with await s_telepath.openurl('ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
                 self.eq(20, await proxy.bar(15, 5))
 
     async def test_telepath_tls(self):
@@ -545,17 +545,17 @@ class TeleTest(s_t_utils.SynTest):
             dmon.certdir.genHostCert('nolisten')
 
             dmon.share('foo', foo)
-            addr = await dmon.listen(f'ssl://127.0.0.1:0?hostname=hehe,haha')
+            addr = await dmon.listen('ssl://127.0.0.1:0?hostname=hehe,haha')
 
-            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=hehe', port=addr[1]) as prox:
+            async with await s_telepath.openurl('ssl://127.0.0.1/foo?hostname=hehe', port=addr[1]) as prox:
                 self.eq(30, await prox.bar(10, 20))
 
-            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=haha', port=addr[1]) as prox:
+            async with await s_telepath.openurl('ssl://127.0.0.1/foo?hostname=haha', port=addr[1]) as prox:
                 self.eq(30, await prox.bar(10, 20))
 
             # Default does not match expected hostname
             with self.raises(s_exc.BadCertHost) as cm:
-                url = f'ssl://127.0.0.1/foo?hostname=nolisten'
+                url = 'ssl://127.0.0.1/foo?hostname=nolisten'
                 async with await s_telepath.openurl(url, port=addr[1]) as prox:
                     pass
             mesg = cm.exception.get('mesg')
@@ -1325,15 +1325,13 @@ class TeleTest(s_t_utils.SynTest):
 
     async def test_telepath_default_port(self):
         # Test default ports for dmon listening AND telepath connections.
+
+        # Note: This is the ONLY test that should be listening on a fixed port (27492 - the default telepath port)
+        # Relevant when testing with SYNDEV_AUDIT_PORT_BINDS and SYNDEV_AUDIT_PORT_BINDS_RAISE.
+
         async with await s_daemon.Daemon.anit() as dmon:
             url = 'tcp://127.0.0.1/'
-            try:
-                addr, port = await dmon.listen(url)
-            except OSError as e:
-                if e.errno == 98:
-                    self.skip('Port 27492 already bound, skipping test.')
-                else:
-                    raise
+            _, port = await dmon.listen(url)
             self.eq(port, 27492)
 
             foo = Foo()
@@ -1521,3 +1519,40 @@ class TeleTest(s_t_utils.SynTest):
                     # With the correct hostname on link.info we validate the subsequent link creation.
                     foo.link.set('hostname', sni)
                     self.eq('woot', await foo.echo('woot'))
+
+    async def test_telepath_getviewdef(self):
+
+        async with self.getTestCore() as core:
+
+            layr = await core.addLayer()
+            layriden = layr.get('iden')
+            view = await core.addView({'layers': (layriden,)})
+            viewiden = view.get('iden')
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef(viewiden)
+                self.nn(vdef)
+                self.eq(vdef.get('iden'), viewiden)
+                self.isin('layers', vdef)
+                self.isin('created', vdef)
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef('newp')
+                self.none(vdef)
+
+            testuser = await core.auth.addUser('testuser')
+            await testuser.setPasswd('secret')
+
+            layr2 = await core.addLayer()
+            layriden2 = layr2.get('iden')
+            view2 = await core.addView({'layers': (layriden2,)})
+            viewiden2 = view2.get('iden')
+
+            async with core.getLocalProxy(user='testuser') as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getViewDef(viewiden2)
+
+            async with core.getLocalProxy() as prox:
+                vdef = await prox.getViewDef(viewiden2)
+                self.nn(vdef)
+                self.eq(vdef.get('iden'), viewiden2)

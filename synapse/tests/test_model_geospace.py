@@ -215,7 +215,7 @@ class GeoTest(s_t_utils.SynTest):
 
             place = s_common.guid()
             opts = {'vars': {'place': place, 'loc': 'us.hehe.haha', 'valu': (ndef, latlong, stamp)}}
-            nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
+            nodes = await core.nodes('[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))

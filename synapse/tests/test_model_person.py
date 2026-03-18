@@ -141,6 +141,7 @@ class PsModelTest(s_t_utils.SynTest):
                 'phone': '12345678910',
                 'phone:fax': '12345678910',
                 'phone:work': '12345678910',
+                'phones': ('19876543210', '18001234567'),
                 'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
                 'imid': (490154203237518, 310150123456789),
                 'names': ('vi', 'si'),
@@ -168,6 +169,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :dob=$p.dob :dod=$p.dod :url=$p.url
                     :email=$p.email :email:work=$p."email:work"
                     :phone=$p.phone :phone:fax=$p."phone:fax" :phone:work=$p."phone:work"
+                    :phones=$p.phones
                     :address=$p.address :imid=$p.imid :names=$p.names :orgnames=$p.orgnames
                     :emails=$p.emails :web:accts=$p."web:accts" :users=$p.users
                     :crypto:address=$p."crypto:address" :id:numbers=$p."id:numbers"
@@ -208,6 +210,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('phone'), '12345678910')
             self.eq(node.get('phone:fax'), '12345678910')
             self.eq(node.get('phone:work'), '12345678910')
+            self.eq(node.get('phones'), ('18001234567', '19876543210'))
             self.eq(node.get('address'), '1 iron suit drive, san francisco, ca, 22222, usa')
             self.eq(node.get('imid'), (490154203237518, 310150123456789))
             self.eq(node.get('imid:imei'), 490154203237518)
@@ -239,6 +242,7 @@ class PsModelTest(s_t_utils.SynTest):
                         'lang': lang00,
                         'name': 'vi',
                         'orgname': 'vertex',
+                        'phone': '18001234567',
                         'title': 'haha',
                         'user': 'invisigoth',
                     },
@@ -308,7 +312,7 @@ class PsModelTest(s_t_utils.SynTest):
             course = nodes[0].ndef[1]
             self.len(1, await core.nodes(f'edu:course={course} :prereqs -> edu:course'))
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 ps:contactlist=*
                     :contacts=(*,*)
                     :source:host=*

@@ -41,7 +41,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth + 1:3}: {call.strip()}')
             continue
 
         try:
@@ -400,6 +400,8 @@ class Base:
 
         for base in list(self.tofini):
             await base.fini()
+        # Do not continue to hold a reference to the last item we iterated on.
+        base = None  # NOQA
 
         await self._kill_active_tasks()
 
@@ -452,6 +454,10 @@ class Base:
             yield self
         finally:
             self.off(evnt, func)
+
+    def _wouldfini(self):
+        '''Check if a Base would be fini() if fini() was called on it.'''
+        return self._syn_refs == 1
 
     async def waitfini(self, timeout=None):
         '''

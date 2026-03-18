@@ -55,6 +55,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
 
@@ -178,7 +179,7 @@ async def _iterBackupWork(path, linkinfo):
     logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
 
-    await s_daemon.t2call(link, _doIterBackup, (path,), {})
+    await s_daemon.t2call(link, _doIterBackup, (path,), {}, first=False)
     await link.fini()
 
     logger.info(f'Backup streaming for [{path}] completed.')
@@ -1195,6 +1196,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._save_optimized = False
+        self._last_optimized = None
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -1309,6 +1312,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        self.optimizeddb = self.slab.initdb('cell:optimized')  # time -> optimization record
+
+        if self._save_optimized:
+            lkey = s_common.int64en(self._last_optimized['init']['time'])
+            self.slab.put(lkey, s_msgpack.en(self._last_optimized), db=self.optimizeddb)
+            self._save_optimized = False
+
+        else:
+            last = self.slab.last(db=self.optimizeddb)
+            if last is not None:
+                self._last_optimized = s_msgpack.un(last[1])
 
         # for runtime cell configuration values
         self.slab.initdb('cell:conf')
@@ -1563,7 +1578,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
-        # we inherit from Pusher to make the Cell a Base subclass
+
+        # First we teardown our activebase if it is set. This allows those tasks to be
+        # cancelled and do any cleanup that they may need to perform.
+        if self._wouldfini() and self.activebase:
+            await self.activebase.fini()
+
+        # we inherit from Pusher to make the Cell a Base subclass, so we tear it down through that.
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
@@ -1635,6 +1656,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not lmdbs: # pragma: no cover
             return
 
+        inittime = s_common.now()
+        initsize = s_common.getDirSize(self.dirn)
+
         logger.warning('Beginning onboot optimization (this could take a while)...')
 
         size = len(lmdbs)
@@ -1643,7 +1667,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
-                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
@@ -1656,6 +1680,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     os.rename(dstpath, srcpath)
 
             logger.warning('... onboot optimization complete!')
+
+            finitime = s_common.now()
+            finisize = s_common.getDirSize(self.dirn)
+
+            optinfo = {
+                'init': {
+                    'time': inittime,
+                    'size': initsize,
+                },
+                'fini': {
+                    'time': finitime,
+                    'size': finisize,
+                },
+            }
+
+            self._last_optimized = optinfo
+            self._save_optimized = True
 
         except Exception as e: # pragma: no cover
             logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
@@ -4104,7 +4145,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         insecure_marker = 'https+insecure://'
         kwargs = {}
         if rurl.startswith(insecure_marker):
-            logger.warning(f'Disabling SSL verification for restore request.')
+            logger.warning('Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
             rurl = 'https://' + rurl[len(insecure_marker):]
 
@@ -4128,7 +4169,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                         content_length = int(resp.headers.get('content-length', 0))
                         if content_length > 100:
-                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
+                            logger.warning(f'Downloading {content_length / s_const.megabyte:.3f} MB of data.')
                             pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
                         else:  # pragma: no cover
                             logger.warning(f'Odd content-length encountered: {content_length}')
@@ -4144,7 +4185,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             if pvals and tsize > pvals[0]:
                                 pvals.pop(0)
                                 percentage = (tsize / content_length) * 100
-                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
+                                logger.warning(f'Downloaded {tsize / s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
@@ -4456,10 +4497,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf.setConfFromFile(path)
             conf.setConfFromFile(mods_path, force=True)
         except:
-            logger.exception(f'Error while bootstrapping cell config.')
+            logger.exception('Error while bootstrapping cell config.')
             raise
 
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+        s_processpool.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4708,10 +4749,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getTasks(self, peers=True, timeout=None):
 
+        seen = set()
+
         for task in self.boss.ps():
 
             item = task.packv2()
             item['service'] = self.ahasvcname
+
+            seen.add(item['iden'])
 
             yield item
 
@@ -4725,6 +4770,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not ok: # pragma: no cover
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
+
+            if retn['iden'] in seen:
+                continue
+
+            seen.add(retn['iden'])
 
             yield retn
 
@@ -4815,6 +4865,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if mirror is not None:
             mirror = s_urlhelp.sanitizeUrl(mirror)
 
+        nxfo = await self.nexsroot.getNexsInfo()
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4829,13 +4881,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'active': self.isactive,
                 'safemode': self.safemode,
                 'started': self.startms,
-                'ready': self.nexsroot.ready.is_set(),
+                'ready': nxfo['ready'],  # TODO: Remove in 3.x.x
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
-                'nexsindx': await self.getNexsIndx(),
-                'uplink': self.nexsroot.miruplink.is_set(),
+                'nexsindx': nxfo['indx'],  # TODO: Remove in 3.x.x
+                'uplink': nxfo['uplink:ready'],  # TODO: Remove in 3.x.x
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
@@ -4844,9 +4896,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 },
                 'network': {
                     'https': self.https_listeners,
-                }
+                },
+                'nexus': nxfo,
             },
             'features': self.features,
+            'optimized': self._last_optimized,
         }
         return ret
 
@@ -5321,7 +5375,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'The service is already frozen.'
             raise s_exc.BadState(mesg=mesg)
 
-        logger.warning(f'Freezing service for volume snapshot.')
+        logger.warning('Freezing service for volume snapshot.')
 
         logger.warning('...acquiring nexus lock to prevent edits.')
 

@@ -206,6 +206,6 @@ methods make the data as consistent and "clean" as possible to facilitate naviga
 
 .. _APT1: https://v.vtx.lk/apt1-report
 
-.. |graph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Undirected_graph_no_background.svg/320px-Undirected_graph_no_background.svg.png 
-.. |directedgraph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Directed_acyclic_graph_3.svg/320px-Directed_acyclic_graph_3.svg.png
-.. |hypergraph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Hypergraph-wikipedia.svg/320px-Hypergraph-wikipedia.svg.png
+.. |graph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Undirected_graph_no_background.svg/330px-Undirected_graph_no_background.svg.png 
+.. |directedgraph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Directed_acyclic_graph_3.svg/330px-Directed_acyclic_graph_3.svg.png
+.. |hypergraph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Hypergraph-wikipedia.svg/330px-Hypergraph-wikipedia.svg.png

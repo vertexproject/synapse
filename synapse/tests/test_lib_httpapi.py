@@ -746,6 +746,103 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                     self.eq('AuthDeny', retn.get('code'))
 
+    async def test_http_auth_gate(self):
+        '''
+        Test the gate key in /api/v1/auth/user/<iden> and /api/v1/auth/role/<iden>.
+        '''
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            gateiden = core.view.iden
+
+            async with self.getHttpSess() as sess:
+
+                # Create an admin user to make API calls and a non-admin user for gate testing
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    visiiden = item['result']['iden']
+
+                info = {'name': 'noob', 'passwd': 'nooblet'}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    noobiden = item['result']['iden']
+
+                info = {'name': 'analysts'}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                    item = await resp.json()
+                    analystiden = item['result']['iden']
+
+                # Set user rules scoped to a gate
+                rules = [(True, ('view', 'read'))]
+                info = {'rules': rules, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify rules were applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_user = next(u for u in gate['users'] if u['iden'] == noobiden)
+                self.isin((True, ('view', 'read')), gate_user['rules'])
+
+                udef = await core.getUserDef(noobiden)
+                self.eq((), udef['rules'])
+
+                # Set user admin scoped to a gate
+                info = {'admin': True, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify admin was applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_user = next(u for u in gate['users'] if u['iden'] == noobiden)
+                self.true(gate_user['admin'])
+
+                udef = await core.getUserDef(noobiden)
+                self.false(udef['admin'])
+
+                # Set role rules scoped to a gate
+                rules = [(True, ('view', 'read'))]
+                info = {'rules': rules, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify role rules were applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_role = next(r for r in gate['roles'] if r['iden'] == analystiden)
+                self.isin((True, ('view', 'read')), gate_role['rules'])
+
+                rdef = await core.getRoleDef(analystiden)
+                self.eq((), rdef['rules'])
+
+                # Without gate key, rules are applied globally (default behavior unchanged)
+                rules = [(True, ('node', 'add'))]
+                info = {'rules': rules}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                udef = await core.getUserDef(noobiden)
+                self.isin((True, ('node', 'add')), udef['rules'])
+
+                info = {'rules': rules}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                rdef = await core.getRoleDef(analystiden)
+                self.isin((True, ('node', 'add')), rdef['rules'])
+
     async def test_http_impersonate(self):
 
         async with self.getTestCore() as core:
@@ -1054,6 +1151,7 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
                     await core.callStorm('cron.move $cron $view', opts=opts)
                     await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.mod $cron --period daily@10:00', opts=opts)
                     await core.callStorm('cron.disable $cron', opts=opts)
                     await core.callStorm('cron.enable $cron', opts=opts)
                     await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
@@ -1084,6 +1182,7 @@ class HttpApiTest(s_tests.SynTest):
                         'layer:set',
                         'cron:move',
                         'cron:edit:query',
+                        'cron:edit:period',
                         'cron:disable',
                         'cron:enable',
                         'cron:edit:name',

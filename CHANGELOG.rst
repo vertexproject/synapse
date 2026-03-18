@@ -6,6 +6,186 @@
 Synapse Changelog
 *****************
 
+v2.235.0 - 2026-03-12
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated Storm Dmon ddefs to remove the top-level ``view`` key and any other
+  additional properties which are no longer valid.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added a ``phones`` property to the ``ps:contact`` form to store an array of
+  secondary/associated phone numbers.
+  (`#4764 <https://github.com/vertexproject/synapse/pull/4764>`_)
+- See :ref:`userguide_model_v2_235_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added an optional ``queryopts`` field to the Storm package ``inits``
+  definition.
+  (`#4752 <https://github.com/vertexproject/synapse/pull/4752>`_)
+- Added ``gate`` key support when POSTing to the ``/api/v1/auth/user/<id>`` and
+  ``/api/v1/auth/role/<id>`` HTTP APIs, allowing ``rules`` and ``admin`` to be
+  scoped to a specific auth gate.
+  (`#4766 <https://github.com/vertexproject/synapse/pull/4766>`_)
+- Added a layer of caching for API key and password handling, to decrease
+  duplicate work done for subsequent authentication requests.
+  (`#4774 <https://github.com/vertexproject/synapse/pull/4774>`_)
+- Updated the ``diff --tag`` Storm command to accept list variables in addition
+  to individual tag arguments.
+  (`#4783 <https://github.com/vertexproject/synapse/pull/4783>`_)
+
+Bugfixes
+--------
+- Fixed the ``Cell.getTasks()`` API to deduplicate tasks which may be reported
+  by multiple links to one peer.
+  (`#4769 <https://github.com/vertexproject/synapse/pull/4769>`_)
+- Fixed ``$lib.dmon.add()`` to allow specifying an alternate view via the
+  ``view`` key in ``ddef.stormopts``.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- Updated ``BadJsonText`` exceptions raised during JSON deserialization to
+  include a trimmed snippet of the input text starting at the error position
+  for additional context.
+  (`#4773 <https://github.com/vertexproject/synapse/pull/4773>`_)
+
+Notes
+-----
+- Added information about ``SynTask`` data when printing asyncio tasks in
+  response to receving a ``SIGUSR2`` signal.
+  (`#4728 <https://github.com/vertexproject/synapse/pull/4728>`_)
+
+v2.234.0 - 2026-02-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a new ``--period`` option to both ``cron.add`` and ``cron.mod``
+  commands for setting or modifying cron job schedules. The older schedule
+  options have been deprecated.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``getNexusChanges`` API could potentially send
+  ``t2:yield`` messages before the initial ``t2:genr`` message.
+  (`#4748 <https://github.com/vertexproject/synapse/pull/4748>`_)
+
+Deprecations
+------------
+- Deprecated ``--minute``, ``--hour``, ``--day``, ``--month``, ``--year``,
+  ``--hourly``, ``--daily``, ``--monthly``, and ``--yearly``options for the
+  ``cron.add`` command.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+v2.233.1 - 2026-02-11
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in Storm where a switch statement could have duplicate switch
+  cases.
+  (`#4742 <https://github.com/vertexproject/synapse/pull/4742>`_)
+- Fixed an issue where mirror promotion would incorrectly re-schedule the
+  disconnection timeout task on the client after it was shut down.
+  (`#4743 <https://github.com/vertexproject/synapse/pull/4743>`_)
+
+v2.233.0 - 2026-02-06
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_233_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Add missing exception information to the RecursionLimitError.
+  (`#4735 <https://github.com/vertexproject/synapse/pull/4735>`_)
+
+Notes
+-----
+- Move process related functions from ``synapse.lib.coro`` into
+  ``synapse.lib.process`` and ``synapse.lib.processpool``.
+  (`#4729 <https://github.com/vertexproject/synapse/pull/4729>`_)
+
+v2.232.0 - 2026-02-02
+=====================
+
+Model Changes
+-------------
+- Added a ``generated`` edge between ``meta:rule`` and the following forms:
+  ``risk:alert`` and ``it:log:event``.
+  (`#4687 <https://github.com/vertexproject/synapse/pull/4687>`_)
+- See :ref:`userguide_model_v2_232_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated mirror writeback behavior to timeout requests due to being
+  disconnected from the leader rather than due to execution time.
+  (`#4676 <https://github.com/vertexproject/synapse/pull/4676>`_)
+- Added a ``getViewDef`` Telepath method for returning a view definition if the
+  user has view read permission for it.
+  (`#4692 <https://github.com/vertexproject/synapse/pull/4692>`_)
+- Updated the ``getCellInfo()`` APIs to include information about whether a
+  Cell has entered into readonly mode and why it has gone readonly.
+  (`#4700 <https://github.com/vertexproject/synapse/pull/4700>`_)
+- Refined a few permissions declarations to use consistent names in their
+  descriptions.
+  (`#4712 <https://github.com/vertexproject/synapse/pull/4712>`_)
+  (`#4717 <https://github.com/vertexproject/synapse/pull/4717>`_)
+  (`#4719 <https://github.com/vertexproject/synapse/pull/4719>`_)
+
+Bugfixes
+--------
+- Resolved a race condition when shutting down the Cortex when using an
+  embedded JSONStor.
+  (`#4640 <https://github.com/vertexproject/synapse/pull/4640>`_)
+- Fixed an issue with ``$lib.repr()`` where Python exceptions could be raised.
+  Invalid inputs now raise a ``BadArg`` exception.
+  (`#4723 <https://github.com/vertexproject/synapse/pull/4723>`_)
+
+Notes
+-----
+- When shutting down a Cell, coroutines run using the ``addActiveTask()`` API
+  will be cancelled as the first part of the Cell shutdown.
+  (`#4640 <https://github.com/vertexproject/synapse/pull/4640>`_)
+- Added the ``setproctitle`` Python library to the ``synapse[dev]``
+  requirements. This increases the functionality of ``pytest-xdist``.
+  (`#4640 <https://github.com/vertexproject/synapse/pull/4640>`_)
+- Added checks to the Nexus system to prevent proposing changes or starting to
+  execute changes if the Nexus system has been shut down. This scenario will
+  now cause ``IsFini`` errors to be raised.
+  (`#4640 <https://github.com/vertexproject/synapse/pull/4640>`_)
+
+v2.231.0 - 2026-01-21
+=====================
+
+Model Changes
+-------------
+- Added ``file:mime:pdf`` to capture PDF metadata.
+  (`#4675 <https://github.com/vertexproject/synapse/pull/4675>`_)
+- See :ref:`userguide_model_v2_231_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.quorum.merge.list()`` API and ``quorum.merge.list`` command to
+  enumerate pending merges.
+  (`#4663 <https://github.com/vertexproject/synapse/pull/4663>`_)
+- Modified ``$lib.auth.users.get()`` to return the current user if a user ID is
+  not specified.
+  (`#4663 <https://github.com/vertexproject/synapse/pull/4663>`_)
+- Added ``colorize`` command to set color values on nodes output by Storm.
+  (`#4668 <https://github.com/vertexproject/synapse/pull/4668>`_)
+- Updated Storm package loading to embed the module and package names into
+  modconf values. These can be accessed via ``$modconf.pkgmeta.modname`` and
+  ``$modconf.pkgmeta.pkgname``.
+  (`#4678 <https://github.com/vertexproject/synapse/pull/4678>`_)
+- Updated vault error messages to be clearer and more informative.
+  (`#4688 <https://github.com/vertexproject/synapse/pull/4688>`_)
+
 v2.230.0 - 2026-01-08
 =====================
 

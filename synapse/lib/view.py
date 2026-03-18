@@ -130,6 +130,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.mergetask = None
 
+    def getParentQuorum(self):
+
+        if self.parent is None:
+            return None
+
+        return self.parent.info.get('quorum')
+
     def reqParentQuorum(self):
 
         if self.parent is None:
@@ -961,7 +968,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
-            logger.warning(f'callStorm cancelled',
+            logger.warning('callStorm cancelled',
                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 

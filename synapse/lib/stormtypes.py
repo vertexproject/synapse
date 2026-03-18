@@ -31,6 +31,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
+import synapse.lib.agenda as s_agenda
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
@@ -818,13 +819,24 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.snap.view.iden
+        if ddef is None:
+            ddef = {}
+
+        ddef.pop('view', None)
+
+        stormopts = ddef.get('stormopts')
+        viewiden = None
+        if stormopts is not None:
+            viewiden = stormopts.get('view')
+        if viewiden is not None:
+            viewiden = await tostr(viewiden)
+            view = self.runt.snap.core.reqView(viewiden)
+        else:
+            viewiden = self.runt.snap.view.iden
+
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
-
-        if ddef is None:
-            ddef = {}
 
         ddef['name'] = name
         ddef['user'] = self.runt.user.iden
@@ -934,14 +946,14 @@ class LibService(Lib):
                                                          'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('service',), 'gate': 'cortex',
+            'desc': 'Controls all service permissions.'},
         {'perm': ('service', 'add'), 'gate': 'cortex',
             'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
         {'perm': ('service', 'del'), 'gate': 'cortex',
             'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
         {'perm': ('service', 'get'), 'gate': 'cortex',
             'desc': 'Controls the ability to get the Service object for any Storm Service.'},
-        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
          'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
     )
@@ -1415,6 +1427,26 @@ class LibBase(Lib):
                               'desc': 'A deep copy of the primitive object.', }}},
     )
 
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'del'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'del', '<varname>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
+
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
         self.stors['debug'] = self._setRuntDebug
@@ -1592,7 +1624,12 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        return self._reqTypeByName(name).repr(valu)
+        try:
+            return self._reqTypeByName(name).repr(valu)
+        except s_exc.SynErr:
+            raise
+        except Exception as e:
+            raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
@@ -1763,7 +1800,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -2772,11 +2809,13 @@ class LibAxon(Lib):
 @registry.registerLib
 class LibBytes(Lib):
     '''
-    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
+    A Storm Library for interacting with bytes.
     '''
     _storm_locals = (
         {'name': 'put', 'desc': '''
             Save the given bytes variable to the Axon the Cortex is configured to use.
+
+            This is deprecated; please use ``$lib.axon.put()`` instead.
 
             Examples:
                 Save a base64 encoded buffer to the Axon::
@@ -2785,6 +2824,7 @@ class LibBytes(Lib):
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesPut',
                   'args': (
                       {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
@@ -2792,6 +2832,8 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
         {'name': 'has', 'desc': '''
             Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+            This is deprecated; please use ``$lib.axon.has()`` instead.
 
             Examples:
                 Check if the Axon has a given file::
@@ -2805,6 +2847,7 @@ class LibBytes(Lib):
 
                     Has bytes
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesHas',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
@@ -2813,11 +2856,14 @@ class LibBytes(Lib):
         {'name': 'size', 'desc': '''
             Return the size of the bytes stored in the Axon for the given sha256.
 
+            This is deprecated; please use ``$lib.axon.size()`` instead.
+
             Examples:
                 Get the size for a file given a variable named ``$sha256``::
 
                     $size = $lib.bytes.size($sha256)
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesSize',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
@@ -2827,12 +2873,15 @@ class LibBytes(Lib):
         {'name': 'hashset', 'desc': '''
             Return additional hashes of the bytes stored in the Axon for the given sha256.
 
+            This is deprecated; please use ``$lib.axon.hashset()`` instead.
+
             Examples:
                 Get the md5 hash for a file given a variable named ``$sha256``::
 
                     $hashset = $lib.bytes.hashset($sha256)
                     $md5 = $hashset.md5
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesHashset',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
@@ -2841,11 +2890,14 @@ class LibBytes(Lib):
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
+            This is deprecated; please use ``$lib.axon.upload()`` instead.
+
             Examples:
                 Upload bytes from a generator::
 
                     ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
             ''',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_libBytesUpload',
                   'args': (
                       {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
@@ -2874,7 +2926,6 @@ class LibBytes(Lib):
     )
 
     _storm_lib_path = ('bytes',)
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.axon`` function.'}
 
     def getObjLocals(self):
         return {
@@ -3959,6 +4010,8 @@ class LibQueue(Lib):
                               'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
+        {'perm': ('queue',), 'gate': 'cortex',
+         'desc': 'Controls all queue permissions.'},
         {'perm': ('queue', 'add'), 'gate': 'cortex',
          'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
@@ -4204,9 +4257,7 @@ class LibTelepath(Lib):
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
-        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
-         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+         'desc': 'Controls the ability to open a telepath URL. USE WITH CAUTION.'},
     )
 
     def getObjLocals(self):
@@ -5854,25 +5905,6 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
-    _storm_lib_perms = (
-        {'perm': ('globals',), 'gate': 'cortex',
-            'desc': 'Used to control all operations for global variables.'},
-
-        {'perm': ('globals', 'get'), 'gate': 'cortex',
-            'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control read access to a specific global variable.'},
-
-        {'perm': ('globals', 'set'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to a specific global variable.'},
-
-        {'perm': ('globals', 'pop'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to a specific global variable.'},
-    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
@@ -7921,6 +7953,9 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+        elif name == 'cache:size':
+            valu = await toint(valu)
+
         elif name == 'logedits':
             valu = await tobool(valu)
 
@@ -8711,9 +8746,13 @@ class View(Prim):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
+        merge = view.getMergeRequest()
+        if merge is None:
+            return None
+
         retn = {
-            'quorum': view.reqParentQuorum(),
-            'merge': view.getMergeRequest(),
+            'merge': merge,
+            'quorum': view.getParentQuorum(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
             'offset': await view.layers[0].getEditIndx(),
@@ -8725,7 +8764,6 @@ class View(Prim):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        quorum = view.reqParentQuorum()
         return view.getMergeRequest()
 
     async def delMergeRequest(self):
@@ -8874,6 +8912,8 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
+        {'perm': ('trigger',), 'gate': 'cortex',
+         'desc': 'Controls all trigger permissions.'},
         {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'trigger',
@@ -9468,14 +9508,15 @@ class LibCron(Lib):
                                'Only a single matching prefix will be retrieved.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The requested cron job.', }}},
-        {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
                                'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'],
-                       'desc': 'The new Storm query for the Cron Job.', }
+                      {'name': 'query', 'type': ['str', 'storm:query', 'null'],
+                       'desc': 'The new Storm query for the Cron Job.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to modify the cron job.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
         {'name': 'move', 'desc': 'Move a cron job to a new view.',
@@ -9510,6 +9551,8 @@ class LibCron(Lib):
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
+        {'perm': ('cron',), 'gate': 'cortex',
+         'desc': 'Controls all cron permissions.'},
         {'perm': ('cron', 'add'), 'gate': 'view',
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
@@ -9679,11 +9722,193 @@ class LibCron(Lib):
 
         return None
 
+    def _parseTimePart(self, timepart):
+        reqs = {}
+        if ':' in timepart:
+            h, m = timepart.split(':')
+            if h:
+                try:
+                    reqs['hour'] = int(h, 10)
+                except ValueError:
+                    mesg = f'Invalid hour value: {h}'
+                    raise s_exc.BadTime(mesg=mesg)
+            if m:
+                try:
+                    reqs['minute'] = int(m, 10)
+                except ValueError:
+                    mesg = f'Invalid minute value: {m}'
+                    raise s_exc.BadTime(mesg=mesg)
+        else:
+            try:
+                reqs['hour'] = int(timepart, 10)
+            except ValueError:
+                mesg = f'Invalid hour value: {timepart}'
+                raise s_exc.BadTime(mesg=mesg)
+
+        return reqs
+
+    def _validateFields(self, reqs):
+        for field, fieldname in (
+            ('hour', 'hour'),
+            ('minute', 'minute'),
+            ('dayofmonth', 'day of month'),
+            ('month', 'month'),
+        ):
+            if field not in reqs:
+                continue
+            timeunit = s_agenda.TimeUnit.fromString(field)
+            minval, maxval = s_agenda._UnitBounds[timeunit][0]
+            vals = reqs[field]
+            if not isinstance(vals, (list, tuple)):
+                vals = (vals,)
+            for v in vals:
+                if not (minval <= v <= maxval):
+                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+    def _parsePeriodYearly(self, text):
+        reqs = []
+
+        vals = None
+
+        if '/' in text:
+            _, vals = text.split('/', 1)
+            for dtstr in vals.split(','):
+                req = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+                parts = dtstr.split('@')
+
+                dmstr = parts[0]
+                if '@' in dtstr:
+                    tstr = parts[1]
+                    req.update(self._parseTimePart(tstr))
+
+                try:
+                    mstr, dstr = dmstr.split('-')
+                    req['month'] = int(mstr)
+                    req['dayofmonth'] = int(dstr)
+                except ValueError:
+                    mesg = f'Invalid month-day value for yearly period: {dtstr}'
+                    raise s_exc.BadTime(mesg=mesg)
+                self._validateFields(req)
+
+                reqs.append(req)
+        elif '@' in text:
+            _, tstr = text.split('@', 1)
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+            reqs.update(self._parseTimePart(tstr))
+            self._validateFields(reqs)
+        else:
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+
+        return reqs, 'year', 1
+
+    def _parsePeriod(self, text):
+        '''
+        Parse a period string into requirements, increment unit, and increment values.
+        '''
+        reqs = {}
+        incunit = None
+        incvals = None
+
+        parts = text.split('@', 1)
+        base = parts[0]
+
+        if '/' in base:
+            period, vals = base.split('/', 1)
+        else:
+            period = base
+            vals = None
+
+        period = period.lower()
+        if period == 'yearly':
+            return self._parsePeriodYearly(text)
+
+        timepart = parts[1] if len(parts) > 1 else None
+
+        if timepart:
+            reqs.update(self._parseTimePart(timepart))
+
+        if period == 'hourly':
+            if timepart is None:
+                mesg = 'Hourly period requires explicit minute'
+                raise s_exc.BadTime(mesg=mesg)
+            incunit = 'hour'
+            reqs.setdefault('minute', 0)
+            if vals:
+                incvals = self._parseIncval(vals)
+                if incvals is None:
+                    mesg = 'Invalid increment value for hourly period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                incvals = 1
+            if 'hour' in reqs:
+                if reqs.get('hour') == 0:
+                    reqs.pop('hour', None)
+                else:
+                    mesg = 'Cannot specify hour for hourly period'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+        elif period == 'daily':
+            incunit = 'day'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                incvals = self._parseIncval(vals)
+                if incvals is None:
+                    mesg = f'Invalid increment value for daily period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                incvals = 1
+
+        elif period == 'weekly':
+            incunit = 'dayofweek'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                days = []
+                for v in vals.split(','):
+                    d = self._parseWeekday(v)
+                    if d is None:
+                        mesg = f'Invalid weekday: {v}'
+                        raise s_exc.BadConfValu(mesg=mesg)
+                    days.append(d)
+                incvals = days
+            else:
+                incvals = 0
+
+        elif period == 'monthly':
+            incunit = 'month'
+            reqs.setdefault('hour', 0)
+            reqs.setdefault('minute', 0)
+            if vals:
+                try:
+                    reqs['dayofmonth'] = [int(v) for v in vals.split(',')]
+                except ValueError:
+                    mesg = f'Invalid day of month value in monthly period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                reqs['dayofmonth'] = 1
+            incvals = 1
+
+        else:
+            mesg = f'Unknown period: {period}'
+            raise s_exc.BadConfValu(mesg=mesg)
+
+        self._validateFields(reqs)
+
+        return reqs, incunit, incvals
+
     async def _methCronAdd(self, **kwargs):
         incunit = None
         incval = None
         reqdict = {}
         pool = await tobool(kwargs.get('pool', False))
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
+            if pool:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -9698,98 +9923,113 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
-        try:
-            alias_opts = self._parseAlias(kwargs)
-        except ValueError as e:
-            mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
-        if alias_opts:
-            year = kwargs.get('year')
-            month = kwargs.get('month')
-            day = kwargs.get('day')
-            hour = kwargs.get('hour')
-            minute = kwargs.get('minute')
-
-            if year or month or day or hour or minute:
-                mesg = 'May not use both alias (..ly) and explicit options at the same time'
+        period = kwargs.get('period')
+        if not period:
+            # TODO: Deprecated, remove in 3.x.x
+            s_common.deprecated('$lib.cron.add() called without period argument', curv='v2.234.0')
+            try:
+                alias_opts = self._parseAlias(kwargs)
+            except ValueError as e:
+                mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
                 raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            opts = alias_opts
-        else:
-            opts = kwargs
 
-        for optname in ('year', 'month', 'day', 'hour', 'minute'):
-            optval = opts.get(optname)
+            if alias_opts:
+                year = kwargs.get('year')
+                month = kwargs.get('month')
+                day = kwargs.get('day')
+                hour = kwargs.get('hour')
+                minute = kwargs.get('minute')
 
-            if optval is None:
-                if incunit is None and not reqdict:
-                    continue
-                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
-                # value, e.g. so --month 2 would run on the *first* of every other month at midnight
-                if optname == 'day':
-                    reqdict['dayofmonth'] = 1
-                else:
-                    reqdict[optname] = valinfo[optname][0]
-                continue
-
-            isreq = not optval.startswith('+')
-
-            if optname == 'day':
-                unit, val = self._parseDay(optval)
-                if val is None:
-                    mesg = f'Failed to parse day value "{optval}"'
+                if year or month or day or hour or minute:
+                    mesg = 'May not use both alias (..ly) and explicit options at the same time'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                if unit == 'dayofweek':
+                opts = alias_opts
+            else:
+                opts = kwargs
+
+            for optname in ('year', 'month', 'day', 'hour', 'minute'):
+                optval = opts.get(optname)
+
+                if optval is None:
+                    if incunit is None and not reqdict:
+                        continue
+                    # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
+                    # value, e.g. so --month 2 would run on the *first* of every other month at midnight
+                    if optname == 'day':
+                        reqdict['dayofmonth'] = 1
+                    else:
+                        reqdict[optname] = valinfo[optname][0]
+                    continue
+
+                isreq = not optval.startswith('+')
+
+                if optname == 'day':
+                    unit, val = self._parseDay(optval)
+                    if val is None:
+                        mesg = f'Failed to parse day value "{optval}"'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    if unit == 'dayofweek':
+                        if incunit is not None:
+                            mesg = 'May not provide a recurrence value with day of week'
+                            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                        if reqdict:
+                            mesg = 'May not fix month or year with day of week'
+                            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                        incunit, incval = unit, val
+                    elif unit == 'day':
+                        incunit, incval = unit, val
+                    else:
+                        assert unit == 'dayofmonth'
+                        reqdict[unit] = val
+                    continue
+
+                if not isreq:
                     if incunit is not None:
-                        mesg = 'May not provide a recurrence value with day of week'
+                        mesg = 'May not provide more than 1 recurrence parameter'
                         raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
                     if reqdict:
-                        mesg = 'May not fix month or year with day of week'
+                        mesg = 'Fixed unit may not be larger than recurrence unit'
                         raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                    incunit, incval = unit, val
-                elif unit == 'day':
-                    incunit, incval = unit, val
-                else:
-                    assert unit == 'dayofmonth'
-                    reqdict[unit] = val
-                continue
+                    incunit = optname
+                    incval = self._parseIncval(optval)
+                    if incval is None:
+                        mesg = 'Failed to parse parameter'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    continue
 
-            if not isreq:
-                if incunit is not None:
-                    mesg = 'May not provide more than 1 recurrence parameter'
+                if optname == 'year':
+                    mesg = 'Year may not be a fixed value'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                if reqdict:
-                    mesg = 'Fixed unit may not be larger than recurrence unit'
+
+                reqval = self._parseReq(optname, optval)
+                if reqval is None:
+                    mesg = f'Failed to parse fixed parameter "{optval}"'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                incunit = optname
-                incval = self._parseIncval(optval)
-                if incval is None:
-                    mesg = 'Failed to parse parameter'
+                reqdict[optname] = reqval
+
+            # If not set, default (incunit, incval) to (1, the next largest unit)
+            if incunit is None:
+                if not reqdict:
+                    mesg = 'Must provide at least one optional argument'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                continue
+                requnit = next(iter(reqdict))  # the first key added is the biggest unit
+                incunit = valinfo[requnit][1]
+                incval = 1
 
-            if optname == 'year':
-                mesg = 'Year may not be a fixed value'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+        else:
+            if any(kwargs.get(k) for k in ('year', 'month', 'day', 'hour', 'minute', 'hourly', 'daily', 'monthly', 'yearly')):
+                raise s_exc.StormRuntimeError(mesg='Cannot mix --period with legacy time arguments', kwargs=kwargs)
 
-            reqval = self._parseReq(optname, optval)
-            if reqval is None:
-                mesg = f'Failed to parse fixed parameter "{optval}"'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            reqdict[optname] = reqval
-
-        # If not set, default (incunit, incval) to (1, the next largest unit)
-        if incunit is None:
-            if not reqdict:
-                mesg = 'Must provide at least one optional argument'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            requnit = next(iter(reqdict))  # the first key added is the biggest unit
-            incunit = valinfo[requnit][1]
-            incval = 1
+            try:
+                reqdict, incunit, incval = self._parsePeriod(period)
+            except (s_exc.BadTime, s_exc.BadConfValu) as e:
+                mesg = f'Failed to parse period: {e.get("mesg")}'
+                raise s_exc.StormRuntimeError(mesg=mesg) from None
 
         cdef = {'storm': query,
                 'reqs': reqdict,
                 'pool': pool,
+                'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -9820,6 +10060,10 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -9871,6 +10115,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'affinity': affinity,
                 'creator': self.runt.user.iden
                 }
 
@@ -9897,13 +10142,25 @@ class LibCron(Lib):
         gatekeys = ((self.runt.user.iden, ('cron', 'del'), iden),)
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methCronMod(self, prefix, query):
+    async def _methCronMod(self, prefix, query, **kwargs):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        query = await tostr(query)
+        query = await tostr(query, noneok=True)
 
-        todo = s_common.todo('updateCronJob', iden, query)
+        reqs = None
+        incunit = None
+        incvals = None
+
+        period = kwargs.get('period')
+        if period is not None:
+            try:
+                reqs, incunit, incvals = self._parsePeriod(period)
+            except (s_exc.BadTime, s_exc.BadConfValu) as e:
+                mesg = f'Failed to parse period: {e.get("mesg")}'
+                raise s_exc.StormRuntimeError(mesg=mesg) from None
+
+        todo = s_common.todo('updateCronJob', iden, query=query, reqs=reqs, incunit=incunit, incvals=incvals)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
         return iden
@@ -10050,6 +10307,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'pool': self.valu.get('pool', False),
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
