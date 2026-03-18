@@ -10,8 +10,8 @@
 Data Model
 ##########
 
-This section describes the core building blocks of Synapse's data model — types, forms, nodes, properties, edges, and
-tags — and explains how they work together.
+This section describes the core building blocks of Synapse's data model - types, forms, nodes, properties, edges, and
+tags - and explains how they work together.
 
 .. TIP::
   
@@ -313,8 +313,8 @@ set if the data is available and relevant to your use case; otherwise they can r
 (``inet:ip``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ip:asn``).
 Optional secondary property values can be set, modified, or removed as needed.
 
-For any optional (non-derived) secondary property, you can optionally define **multiple** types that can be used
-to set that property value. For example, in Synapse various entities can conduct activity or play a role (such as
+All properties must have a type. For any secondary property, you can optionally define **multiple** types that can be
+used to set that property value. For example, in Synapse various entities can conduct activity or play a role (such as
 author, contributor, payer, or reporter) in an action. Depending on the context (and the available data), an entity
 can be represented as a person (``ps:person``), an organization (``ou:org``), a threat (``risk:threat``), or a set
 of contact information (``entity:contact``). A property such as ``risk:compromise:actor`` can be defined so that
@@ -345,8 +345,8 @@ properties are set automatically by Synapse.
 Virtual Property
 ++++++++++++++++
 
-A **virtual property** is a component of a secondary property value that can be accessed "virtually" without being
-explicitly declared or set as an independent property value.
+A **virtual property** is a component of a property value (primary or secondary, including  meta properties)
+that can be accessed "virtually" without being explicitly declared or set as an independent property.
 
 For example, some network-related forms include a ``:server`` property (``inet:server``). A server consists of a
 protocol, IP, and port. It is useful to be able to access the IP or port component of the server value directly,
@@ -354,14 +354,17 @@ but it does not make sense to add all three as separate properties. Instead, you
 alone, and access the IP and port components via the **virtual properties** ``:server.ip`` and ``:server.port``.
 
 Similarly, many time-based properties in Synapse represent a date range (e.g., ``:seen``). These interval (``ival``)
-properties are stored as pair of ``time`` values. It can be useful to access the first or last interval ``time`` value
-independently, or to calculate the length of the interval. These values can be accessed as the virtual properties
-``:seen.min``, ``:seen.max``, and ``:seen.duration``
+properties are stored as triple of ``(min, max, duration)``. These values can be accessed independently as the
+virtual properties ``:seen.min``, ``:seen.max``, and ``:seen.duration``
 
 .. TIP::
   
-  Synapse uses a dot (``.``) to separate a virtual component of a secondary property from the property name. See the
-  :ref:`prop-namespace` section for additional detail.
+  Synapse uses a dot (``.``) to separate a virtual component of a property from the property name. Virtual
+  properties of secondary properties can be accessed using the syntax above. Similarly, virtual properties
+  of primary properties can be accessed by appending ``.<prop>`` to the form name. For example,
+  ``inet:server.port = 8080``.
+  
+  See the :ref:`prop-namespace` section for additional detail.
 
 .. _prop-extend:
 
