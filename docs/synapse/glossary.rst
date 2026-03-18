@@ -83,6 +83,13 @@ binaries based on their SHA-256 hash for deduplication. The default Axon impleme
 B
 =
 
+.. _gloss-base-form:
+
+Base Form
+---------
+
+See :ref:`gloss-form-base`.
+
 .. _gloss-base-tag:
 
 Base Tag
@@ -425,7 +432,7 @@ Edge, Lightweight (Light)
 In Synapse, a lightweight (light) edge is a mechanism that links two arbitrary forms via a user-defined
 verb that describes the linking relationship. Light edges are not forms and so do not support secondary 
 properties or tags. They are meant to simplify performance, representation of data, and Synapse hypergraph
-navigation for many use cases. Contrast with :ref:`gloss-form-edge`.
+navigation for many use cases.
 
 .. _gloss-embed-col:
 
@@ -546,6 +553,14 @@ associated types.
 
 See the :ref:`data-form` section in the :ref:`data-model-terms` document for additional detail.
 
+.. _gloss-form-base:
+
+Form, Base
+----------
+
+In Synapse's :ref:`gloss-form-inheritance`, a base form is the most fundamental form that other forms inherit from.
+
+See also :ref:`gloss-parent-form`.
 
 .. _gloss-form-comp:
 
@@ -562,10 +577,9 @@ Form, Extended
 --------------
 
 A custom form added outside of the base Synapse :ref:`gloss-data-model` to represent specialized data. Extended
-forms can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that whenever possible, it is
-preferable to expand the base Synapse data model to account for novel use cases instead of creating specialized
-extended forms.
+forms can be added with the :ref:`stormlibs-lib-model-ext` libraries.
 
+See the section on :ref:`data-model-extend` for details.
 
 .. _gloss-form-guid:
 
@@ -577,6 +591,14 @@ In the Synpase :ref:`gloss-data-model`, a specialized case of a :ref:`gloss-simp
 additional considerations as to whether or not they are :ref:`gloss-deconflictable` in Synapse. Examples of Guid
 forms include file execution data (e.g., ``it:file:exec:read``) or articles (``media:news``).
 
+.. _gloss-form-parent:
+
+Parent Form
+-----------
+
+In Synapse's :ref:`gloss-form-inheritance`, a parent form is a form that other form(s) inherit from. A parent form 
+may have its own parent form, or may be a :ref:`gloss-base-form`.
+
 .. _gloss-form-simple:
 
 Form, Simple
@@ -584,6 +606,20 @@ Form, Simple
 
 In the Synapse :ref:`gloss-data-model`, a category of form whose primary property is a single typed value. Examples
 include domains (``inet:fqdn``) or hashes (e.g., ``hash:md5``).
+
+.. _gloss-form-inheritance:
+
+Form Inheritance
+----------------
+
+In the Synapse data model, forms can be structured hierarchically so that more specific or specialized forms
+inherit from / extend a more generic form (a :ref:`gloss-base-form` or :ref:`gloss-parent-form`). The inheriting
+form gains all of the properties defined on its parent form(s) and may also have its own additional unique secondary
+properties.
+
+See the :ref:`data-inheritance` section of the the :ref:`data-model-terms` document for additional detail.
+
+Contrast with :ref:`gloss-interface`.
 
 .. _gloss-func-callable:
 
@@ -752,16 +788,27 @@ Ingest Tool
 
 See :ref:`gloss-tool-ingest`.
 
+.. _gloss-inheritance:
+
+Inheritance
+-----------
+
+See :ref:`gloss-form-inheritance`.
+
 .. _gloss-interface:
 
 Interface
 ---------
 
-In Synapse, an interface is a data model element that defines a set of secondary properties that are common to a
-set of related forms. Forms that should have these secondary properties can be defined so as to "inherit" the
-interface and its properties, as opposed to explicitly declaring each property on each form.
+In Synapse, an interface is used to define and group similar forms within Synapse's data model. Forms (or
+other interfaces) can **implement** an interface. The interface can be used to collectively refer (i.e.,
+in data model definitions or Storm queries) to the set of forms that implement the interface. Interfaces
+can optionally define a set of secondary properties that should be present on forms that implement the
+interface.
 
-See the :ref:`interface` section of the the :ref:`data-model-terms` document for additional detail.
+See the :ref:`data-interface` section of the the :ref:`data-model-terms` document for additional detail.
+
+Contrast with :ref:`gloss-form-inheritance`.
 
 .. _gloss-inst-know:
 
@@ -868,6 +915,13 @@ Merge
 Within Synapse, merge refers to the process of copying changes made within a forked (see :ref:`gloss-fork`) 
 :ref:`gloss-view` into the original view.
 
+.. _gloss-meta-prop:
+
+Meta Property
+-------------
+
+See :ref:`gloss-prop-meta`.
+
 .. _gloss-model:
 
 Model
@@ -943,14 +997,14 @@ Node Definition
 
 See :ref:`gloss-ndef`.
 
-.. _gloss-node-runt:
+.. _gloss-node-runtime:
 
-Node, Runt
-----------
+Node, Runtime
+-------------
 
-Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when
-a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
-elements like forms (``syn:form``) and properties (``syn:prop``).
+Runtime nodes (also known as "runt nodes" for short) are nodes that do not persist within a Cortex but are created at
+runtime when a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as
+data model elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 
@@ -1009,6 +1063,13 @@ A package is a set of commands and library code used to implement a :ref:`gloss-
 service is loaded into a Cortex, the Cortex verifies that the service is legitimate and then requests the service's
 packages in order to load any extended Storm commands associated with the service and any library code used to
 implement the service.
+
+.. _gloss-parent-form:
+
+Parent Form
+-----------
+
+See :ref:`gloss-form-parent`.
 
 .. _gloss-path-var-col:
 
@@ -1092,7 +1153,7 @@ Property
 Within Synapse, properties are individual elements that define a :ref:`gloss-form` or (along with their specific
 values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
 
-See the :ref:`data-props` section in the :ref:`data-model-terms` document for additional detail.
+See the :ref:`data-prop` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-prop-col:
 
@@ -1112,7 +1173,7 @@ and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` 
 ``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ip=1.2.3.4``. 
 
 Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
-primary property. Because derived properties are based on primary property values, derived
+primary property. Because derived properties are based on primary property values, derived 
 secondary properties are always read-only (i.e., cannot be modified once set).
 
 
@@ -1121,17 +1182,18 @@ secondary properties are always read-only (i.e., cannot be modified once set).
 Property, Extended
 ------------------
 
-Within Synapse, an extended property is a custom property added to an existing form to capture specialized data.
-For example, extended properties may be added to the data model by a :ref:`gloss-power-up` in order to record
-vendor-specific data (such as a "risk" score).
+Within Synapse, an extended property is a custom property added to an existing form to capture specialized data. 
+Extended properties can be added with the :ref:`stormlibs-lib-model-ext` libraries.
 
-Extended properties can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that we strongly
-recommend that any extended properties be added within a custom namespace; specifically, that property names
-begin with an underscore and include a vendor or source name (if appropriate) as the first namespace element.
+See the section on :ref:`data-model-extend` for details.
 
-An example of an extended property is the ``:_virustotal:reputation`` score added to some forms to account
-for VirusTotal-specific data returned by that Power-Up (e.g., ``inet:fqdn:_virustotal:reputation``).
+.. _gloss-prop-meta:
 
+Property, Meta
+--------------
+
+Within Synapse, a meta property is a :ref:`gloss-secondary-prop` that is applicable to **all** forms. For example,
+``.created`` is a meta property whose value is the date/time when the associated node was created in a Cortex.
 
 .. _gloss-prop-primary:
 
@@ -1164,14 +1226,15 @@ Within the data model, secondary properties may be defined with optional constra
 - Any normalization (outside of type-specific normalization) that should occur for the property (such as converting
   a string to all lowercase).
 
-.. _gloss-prop-universal:
+.. _gloss-prop-virt:
 
-Property, Universal
--------------------
+Property, Virtual
+-----------------
 
-Within Synapse, a universal property is a :ref:`gloss-secondary-prop` that is applicable to all forms and may
-optionally be set for any form where the property is applicable. For example, ``.created`` is a universal property
-whose value is the date/time when the associated node was created in a Cortex.
+A **virtual property** is a component of a property value (primary or secondary)
+that can be accessed "virtually" without being explicitly declared or set as an independent property. Virtual
+properties provide the flexibility to navigate (lift, filter, pivot) data in Synapse without the need to explicitly
+declare duplicative properties that may record conflicting values.
 
 Q
 =
@@ -1245,12 +1308,12 @@ Within Synapse, a rule is a structure used to assign (grant or prohibit) a speci
 ``node.tag`` or ``!view.del``). A rule is assigned to a :ref:`gloss-user` or a :ref:`gloss-role`.
 
 
-.. _gloss-runt-node:
+.. _gloss-runtime-node:
 
-Runt Node
----------
+Runtime Node
+------------
 
-See :ref:`gloss-node-runt`.
+See :ref:`gloss-node-runtime`.
 
 .. _gloss-runtime-safe:
 
@@ -1427,8 +1490,8 @@ T
 Tag
 ---
 
-Within Synapse, a tag is a label applied to a node that provides additional context about the node. Tags typically
-represent assessments or judgements about the data represented by the node.
+Within Synapse, a tag is a label applied to a node that provides additional context. Tags may represent
+assessments about a node or can be used to group related nodes.
 
 See the :ref:`data-tag` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -1675,13 +1738,6 @@ converting certain string-based values to all lowercase, and so on.
 U
 =
 
-.. _gloss-universal-prop:
-
-Universal Property
-------------------
-
-See :ref:`gloss-prop-universal`.
-
 .. _gloss-user:
 
 User
@@ -1733,6 +1789,13 @@ In multi-layer systems, a view consists of the set of layers that should be visi
 order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer
 is writeable by that view's users, with subsequent (lower) layers read-only. Explicit actions can push upper-layer
 writes downward (merge) into lower layers.
+
+.. _gloss-virt-prop:
+
+Virtual Property
+----------------
+
+See :ref:`gloss-prop-virt`.
 
 W
 =
