@@ -1,12 +1,9 @@
-import asyncio
 import logging
 
 import regex
 
-import synapse.common as s_common
 
 import synapse.lib.scrape as s_scrape
-import synapse.lib.spooled as s_spooled
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.processpool as s_processpool
 

@@ -190,7 +190,7 @@ class EntityModelTest(s_t_utils.SynTest):
             # FIXME this seems like it should work...
             # self.len(1, await core.nodes('entity:campaign --> entity:goal'))
             self.len(1, await core.nodes('entity:campaign -(had)> entity:goal'))
-            self.len(1, await core.nodes(f'entity:campaign:id=Foo :slogan -> lang:phrase'))
+            self.len(1, await core.nodes('entity:campaign:id=Foo :slogan -> lang:phrase'))
 
             nodes = await core.nodes('''
                 [ meta:technique=*

@@ -267,7 +267,7 @@ class NexusTest(s_t_utils.SynTest):
                             await asyncio.wait_for(core.addView(vdef), 0.1)
 
                     # This will get the lock and succeed
-                    vdef = {'layers': (deflayr,), 'name': f'waitview'}
+                    vdef = {'layers': (deflayr,), 'name': 'waitview'}
                     core.schedCoro(core.addView(vdef))
                     evnt.set()
 

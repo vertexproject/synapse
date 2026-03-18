@@ -1,4 +1,3 @@
-import datetime
 
 import synapse.exc as s_exc
 

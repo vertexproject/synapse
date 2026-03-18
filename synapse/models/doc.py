@@ -1,5 +1,3 @@
-import synapse.exc as s_exc
-
 modeldefs = (
     ('doc', {
         'interfaces': (

@@ -13,7 +13,6 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
-import synapse.lib.scrape as s_scrape
 import synapse.lookup.iana as s_l_iana
 
 import synapse.vendor.cpython.lib.email.utils as s_v_email_utils

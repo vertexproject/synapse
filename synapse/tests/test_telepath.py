@@ -389,12 +389,12 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
 
             with self.raises(s_exc.LinkShutDown):
-                await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
+                await s_telepath.openurl('ssl://localhost/foo', port=port, certdir=dmon.certdir)
 
-            async with await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
+            async with await s_telepath.openurl('ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
                 self.eq(20, await proxy.bar(15, 5))
 
-            async with await s_telepath.openurl(f'ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
+            async with await s_telepath.openurl('ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
                 self.eq(20, await proxy.bar(15, 5))
 
     async def test_telepath_tls(self):
@@ -435,17 +435,17 @@ class TeleTest(s_t_utils.SynTest):
             dmon.certdir.genHostCert('nolisten')
 
             dmon.share('foo', foo)
-            addr = await dmon.listen(f'ssl://127.0.0.1:0?hostname=hehe,haha')
+            addr = await dmon.listen('ssl://127.0.0.1:0?hostname=hehe,haha')
 
-            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=hehe', port=addr[1]) as prox:
+            async with await s_telepath.openurl('ssl://127.0.0.1/foo?hostname=hehe', port=addr[1]) as prox:
                 self.eq(30, await prox.bar(10, 20))
 
-            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=haha', port=addr[1]) as prox:
+            async with await s_telepath.openurl('ssl://127.0.0.1/foo?hostname=haha', port=addr[1]) as prox:
                 self.eq(30, await prox.bar(10, 20))
 
             # Default does not match expected hostname
             with self.raises(s_exc.BadCertHost) as cm:
-                url = f'ssl://127.0.0.1/foo?hostname=nolisten'
+                url = 'ssl://127.0.0.1/foo?hostname=nolisten'
                 async with await s_telepath.openurl(url, port=addr[1]) as prox:
                     pass
             mesg = cm.exception.get('mesg')

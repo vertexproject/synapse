@@ -22,11 +22,9 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
@@ -35,7 +33,6 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.crypto.passwd as s_passwd
 import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.service.backup as s_tools_backup
@@ -834,6 +831,8 @@ class CellTest(s_t_utils.SynTest):
 
                 self.eq(info.get('features'), cell.features)
                 self.eq(info.get('features', {}).get('testvalu'), 2)
+
+                self.none(info.get('optimized'))
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
@@ -2566,13 +2565,25 @@ class CellTest(s_t_utils.SynTest):
 
                 conf = {'onboot:optimize': True}
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    pass
+                    info = await core.getCellInfo()
+                    optimized = info.get('optimized')
+                    self.nn(optimized)
+                    self.nn(optimized['init']['time'])
+                    self.nn(optimized['init']['size'])
+                    self.nn(optimized['fini']['time'])
+                    self.nn(optimized['fini']['size'])
+                    self.le(optimized['init']['time'], optimized['fini']['time'])
 
             stream.seek(0)
             self.isin('onboot optimization complete!', stream.read())
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+            # Verify optimization record persists across restarts without optimization
+            async with self.getTestCore(dirn=dirn) as core:
+                info = await core.getCellInfo()
+                self.eq(info.get('optimized'), optimized)
 
             _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
             realstat = os.stat

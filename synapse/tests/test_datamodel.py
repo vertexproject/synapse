@@ -1,4 +1,3 @@
-import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 

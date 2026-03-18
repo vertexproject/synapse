@@ -68,7 +68,7 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
     if summary:
         for path, _ in items:
             if not (path.endswith('.mpk') or path.endswith('.nodes')):
-                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
+                outp.printf('Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
                 return 1
 
     for path, item in items:

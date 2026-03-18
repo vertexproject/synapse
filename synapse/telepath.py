@@ -6,14 +6,12 @@ import os
 import ssl
 import copy
 import time
-import yaml
 import asyncio
 import logging
 import contextlib
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
@@ -22,7 +20,6 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
-import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)

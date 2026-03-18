@@ -17,7 +17,6 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
-import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
@@ -25,10 +24,8 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.service.backup as s_t_backup
 
 import synapse.tests.utils as s_test
-import synapse.tests.files as s_test_files
 
 from synapse.tests.utils import alist
 
@@ -1325,7 +1322,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
             self.false(await core.callStorm(r'''return($lib.regex.matches('^foo$', foobar))'''))
-            self.false(await core.callStorm(f'return($lib.regex.matches(foo, " foobar"))'))
+            self.false(await core.callStorm('return($lib.regex.matches(foo, " foobar"))'))
 
             self.eq(('oo',), await core.callStorm(r'''return($lib.regex.search('([aeiou]+)', foobar))'''))
             self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
@@ -1403,7 +1400,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'data', hstr)
 
-            text = f'''tel:mob:telem=$n2 $bar = :data
+            text = '''tel:mob:telem=$n2 $bar = :data
                     [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
             msgs = await core.stormlist(text, opts={'vars': {'n2': node2.ndef[1], 'n3': n3}})
             self.stormHasNoWarnErr(msgs)
@@ -4312,7 +4309,7 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(idens, core.layers)
 
             # Create a new layer with a name
-            q = f'$lib.print($lib.layer.add(({{"name": "foo"}})).iden)'
+            q = '$lib.print($lib.layer.add(({"name": "foo"})).iden)'
             for mesg in await core.stormlist(q):
                 if mesg[0] == 'print':
                     namedlayer = mesg[1]['mesg']
@@ -4327,11 +4324,11 @@ class StormTypesTest(s_test.SynTest):
 
             # Sad paths
 
-            q = f'$lib.layer.get(foo)'
+            q = '$lib.layer.get(foo)'
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes(q)
 
-            q = f'$lib.layer.del(foo)'
+            q = '$lib.layer.del(foo)'
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes(q)
 
@@ -4387,7 +4384,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test add layer opts
                 layers = set(core.layers.keys())
-                q = f'layer.add --growsize 5000'
+                q = 'layer.add --growsize 5000'
                 mesgs = await core.stormlist(q)
                 growlayr = list(set(core.layers.keys()) - layers)[0]
 
@@ -4589,14 +4586,14 @@ class StormTypesTest(s_test.SynTest):
 
             asderp = {'user': derp.iden, 'vars': {'altlayr': altlayr}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'return($lib.view.add(($altlayr,)))', opts=asderp)
+                await core.callStorm('return($lib.view.add(($altlayr,)))', opts=asderp)
 
             asderp = {'user': derp.iden, 'vars': {'altview': altview}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'return($lib.view.get($altview).fork())', opts=asderp)
+                await core.callStorm('return($lib.view.get($altview).fork())', opts=asderp)
 
             # Fork the main view
-            q = f'''
+            q = '''
                 $view=$lib.view.get().fork()
                 return(($view.iden, $view.layers.index(0).iden))
             '''
@@ -4671,7 +4668,7 @@ class StormTypesTest(s_test.SynTest):
             # Sad paths
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
+            await self.asyncraises(s_exc.CantMergeView, core.nodes('$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
             await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
@@ -4755,7 +4752,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
 
             self.stormIsInPrint(f'Creator: {root.iden}', mesgs)
-            self.stormIsInPrint(f'readonly: False', mesgs)
+            self.stormIsInPrint('readonly: False', mesgs)
 
             for viden, v in core.views.items():
                 self.stormIsInPrint(viden, mesgs)

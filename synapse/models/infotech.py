@@ -1,14 +1,11 @@
 import copy
 import string
-import asyncio
 import logging
 
 import regex
 
 import synapse.exc as s_exc
 import synapse.data as s_data
-
-import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types

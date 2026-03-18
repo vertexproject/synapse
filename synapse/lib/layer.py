@@ -71,7 +71,6 @@ import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
 import synapse.lib.cell as s_cell
@@ -79,12 +78,10 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
-import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
 import synapse.lib.spooled as s_spooled
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.slabseqn as s_slabseqn
 
 from synapse.lib.msgpack import deepcopy
 
@@ -101,6 +98,8 @@ reqValidLdef = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'growsize': {'type': 'integer'},
+        'lmdb:growsize': {'type': 'integer'},
+        'cache:size': {'type': ['integer', 'null'], 'minimum': 1},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
     },
@@ -2587,13 +2586,27 @@ class Layer(s_nexus.Pusher):
 
         self.windows = set()
 
-        self.nidcache = s_cache.LruDict(NID_CACHE_SIZE)
+        self.nidcache = s_cache.LruDict(self._getNidCacheSize())
         self.weakcache = weakref.WeakValueDictionary()
 
         self.onfini(self._onLayrFini)
 
         # this must be last!
         self.readonly = layrinfo.get('readonly')
+
+    def _getNidCacheSize(self):
+        '''
+        Resolve the NID cache size with priority: layer config > cortex conf > default.
+        '''
+        cachesize = self.layrinfo.get('cache:size')
+        if cachesize is not None:
+            return cachesize
+
+        cachesize = self.core.conf.get('layers:cache:size')
+        if cachesize is not None:
+            return cachesize
+
+        return NID_CACHE_SIZE
 
     def _reqNotReadOnly(self):
         if self.readonly and not self.core.migration:
@@ -3204,11 +3217,19 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'readonly'):
+        if name not in ('name', 'desc', 'cache:size', 'readonly'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        if name == 'readonly':
+        if name == 'cache:size':
+            valu = int(valu)
+            if valu < 1:
+                mesg = 'cache:size must be >= 1'
+                raise s_exc.BadOptValu(mesg=mesg)
+
+            self.nidcache = s_cache.LruDict(valu)
+
+        elif name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
 

@@ -271,10 +271,10 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
 
-            self.len(1, await core.nodes(f'ou:preso -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:preso :sponsors -> entity:contact'))
-            self.len(1, await core.nodes(f'ou:preso :organizers -> entity:contact'))
-            self.len(2, await core.nodes(f'ou:preso :presenters -> entity:contact'))
+            self.len(1, await core.nodes('ou:preso -> ou:conference'))
+            self.len(1, await core.nodes('ou:preso :sponsors -> entity:contact'))
+            self.len(1, await core.nodes('ou:preso :organizers -> entity:contact'))
+            self.len(2, await core.nodes('ou:preso :presenters -> entity:contact'))
 
             nodes = await core.nodes('''[
                 ou:contest=*
@@ -305,10 +305,10 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq((20, 30), nodes[0].get('place:latlong'))
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
 
-            self.len(1, await core.nodes(f'ou:contest -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:contest :parent -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:contest :sponsors -> entity:contact'))
-            self.len(1, await core.nodes(f'ou:contest :organizers -> entity:contact'))
+            self.len(1, await core.nodes('ou:contest -> ou:conference'))
+            self.len(1, await core.nodes('ou:contest :parent -> ou:conference'))
+            self.len(1, await core.nodes('ou:contest :sponsors -> entity:contact'))
+            self.len(1, await core.nodes('ou:contest :organizers -> entity:contact'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)

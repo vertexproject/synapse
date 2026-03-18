@@ -6,7 +6,6 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.view as s_view

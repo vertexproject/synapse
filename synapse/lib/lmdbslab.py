@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import threading
 import collections
 
 import logging
@@ -20,7 +19,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.slabseqn as s_slabseqn
 

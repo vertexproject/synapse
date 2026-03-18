@@ -4,13 +4,10 @@ Async/Coroutine related utilities.
 import asyncio
 import inspect
 import logging
-import functools
 import contextlib
 
 logger = logging.getLogger(__name__)
 
-import synapse.glob as s_glob
-import synapse.common as s_common
 
 def iscoro(item):
     return inspect.iscoroutine(item)

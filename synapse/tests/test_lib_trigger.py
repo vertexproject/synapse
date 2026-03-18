@@ -313,7 +313,7 @@ class TrigTest(s_t_utils.SynTest):
             self.eq(trigger.get('view'), view.iden)
             with self.raises(s_exc.BadArg) as exc:
                 await view.setTriggerInfo(trigiden, {'view': viewiden})
-            self.eq(exc.exception.get('mesg'), f'Invalid key name provided: view')
+            self.eq(exc.exception.get('mesg'), 'Invalid key name provided: view')
             await view.delTrigger(trigiden)
 
             # Trigger list

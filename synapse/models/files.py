@@ -1,9 +1,5 @@
-import base64
-import hashlib
-import binascii
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lookup.pe as s_l_pe
 import synapse.lookup.macho as s_l_macho

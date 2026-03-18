@@ -1717,7 +1717,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
-            logger.warning(f'callStorm cancelled',
+            logger.warning('callStorm cancelled',
                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 

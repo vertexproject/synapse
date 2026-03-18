@@ -490,7 +490,7 @@ def _validateConfig(runt, config):
                 alltypes.add(name)
 
     if not isinstance(maxsize, int):
-        mesg = f'STIX Bundle config maxsize option must be an integer.'
+        mesg = 'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
     if maxsize > 10000 and not runt.allowed(perm_maxsize):
@@ -500,7 +500,7 @@ def _validateConfig(runt, config):
 
     formmaps = config.get('forms')
     if formmaps is None:
-        mesg = f'STIX Bundle config is missing "forms" mappings.'
+        mesg = 'STIX Bundle config is missing "forms" mappings.'
         raise s_exc.NeedConfValu(mesg=mesg)
 
     for formname, formconf in formmaps.items():

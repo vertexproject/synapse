@@ -55,7 +55,7 @@ class FeedTest(s_t_utils.SynTest):
 
             with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
                 await s_feed.main(argv, outp=outp)
-                outp.expect(f'Cortex version 0.0.0 is outside of synapse.tools.cortex.feed supported range')
+                outp.expect('Cortex version 0.0.0 is outside of synapse.tools.cortex.feed supported range')
 
     async def test_synnodes_offset(self):
 

@@ -13,7 +13,6 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
-import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
@@ -130,6 +129,21 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add yearly { $lib.print(yearly) }
+
+    # Run every year on January 1st at 07:00 UTC
+    cron.add yearly@07 { $lib.print(yearly) }
+
+    # Run every year on January 1st at 12:21 UTC
+    cron.add yearly@12:21 { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add yearly/05-14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add yearly/11-14@13:43 { $lib.print(yearly) }
+
+    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    cron.add yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
@@ -290,6 +304,8 @@ stormcmds = (
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--cache-size', {'help': 'Number of storage nodes to cache.', 'type': 'int',
+                              'dest': 'cache:size'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
@@ -779,6 +795,8 @@ stormcmds = (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--pool', {'action': 'store_true', 'default': False,
                 'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -788,6 +806,7 @@ stormcmds = (
             $cron = $lib.cron.add($cmdopts.period,
                                   $cmdopts.query,
                                   pool=$cmdopts.pool,
+                                  affinity=$cmdopts.affinity,
                                   iden=$cmdopts.iden,
                                   view=$cmdopts.view,
                                   doc=$cmdopts.doc,
@@ -808,6 +827,8 @@ stormcmds = (
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
             ('--iden', {'help': 'A set iden to assign to the new cron job'}),
             ('--view', {'help': 'View to run the cron job against'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
         ),
         'storm': '''
             $cron = $lib.cron.at($cmdopts.query,
@@ -817,7 +838,8 @@ stormcmds = (
                                  dt=$cmdopts.dt,
                                  now=$cmdopts.now,
                                  iden=$cmdopts.iden,
-                                 view=$cmdopts.view)
+                                 view=$cmdopts.view,
+                                 affinity=$cmdopts.affinity)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -943,6 +965,7 @@ stormcmds = (
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print(`pool:            {$job.pool}`)
+                $lib.print(`affinity:        {$job.affinity}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)
@@ -2917,7 +2940,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)

@@ -5,7 +5,6 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 
-import synapse.tools.service.backup as s_t_backup
 
 import synapse.tests.utils as s_test
 
@@ -1073,7 +1072,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
-            self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+            self.len(3, await core.callStorm('return($lib.auth.users.list())'))
 
             msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({core.auth.allrole.iden}))')
             self.stormIsInPrint('auth:role', msgs)

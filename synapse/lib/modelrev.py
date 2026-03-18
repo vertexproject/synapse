@@ -1,4 +1,3 @@
-import regex
 import logging
 
 import synapse.exc as s_exc

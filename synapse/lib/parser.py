@@ -215,7 +215,7 @@ class AstConverter(lark.Transformer):
 
     def _parseJsonToken(self, tokn):
 
-        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and tokn.value[0] not in ('"', "'"):
 
             valu = tokn.value
             astinfo = self.metaToAstInfo(tokn)

@@ -12,7 +12,6 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
 

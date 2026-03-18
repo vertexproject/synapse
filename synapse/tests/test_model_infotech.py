@@ -1,4 +1,3 @@
-import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7,7 +6,6 @@ import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scrape as s_scrape
 
-import synapse.models.crypto as s_m_crypto
 
 import synapse.tests.files as s_t_files
 import synapse.tests.utils as s_t_utils
@@ -1158,23 +1156,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
                 self.len(1, nodes)
                 self.propeq(nodes[0], 'path', 'c:/windows/system32/calc.exe')
-                self.len(1, await core.nodes(f'*($prop).dir=c:/windows/system32', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).base=calc.exe', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).ext=exe', opts=opts))
+                self.len(1, await core.nodes('*($prop).dir=c:/windows/system32', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=calc.exe', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=exe', opts=opts))
 
                 nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
                 self.len(1, nodes)
                 self.propeq(nodes[0], 'path', 'c:/users/blackout/script.ps1')
-                self.len(1, await core.nodes(f'*($prop).dir=c:/users/blackout', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).base=script.ps1', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).ext=ps1', opts=opts))
+                self.len(1, await core.nodes('*($prop).dir=c:/users/blackout', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=script.ps1', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=ps1', opts=opts))
 
                 nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
                 self.len(1, nodes)
                 self.propeq(nodes[0], 'path', 'c:/users/admin/superscript.bat')
-                self.len(1, await core.nodes(f'*($prop).dir=c:/users/admin', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).base=superscript.bat', opts=opts))
-                self.len(1, await core.nodes(f'*($prop).ext=bat', opts=opts))
+                self.len(1, await core.nodes('*($prop).dir=c:/users/admin', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=superscript.bat', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=bat', opts=opts))
 
     async def test_it_app_yara(self):
 

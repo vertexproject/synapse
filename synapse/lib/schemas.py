@@ -100,6 +100,7 @@ _CronJobSchema = {
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
+        'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
         'ver': {'type': 'integer'},
         'indx': {'type': 'integer'},

@@ -1567,7 +1567,7 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(valu, expected)
 
             for proto in ('https', 'hxxps', 'hXXps'):
-                url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
+                url = 'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
                 valu = await t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
                 expected = (url, {'subs': {
                     'base': (t.strtype.typehash, url, {}),
@@ -2758,7 +2758,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             provname = 'Slack Corp'
             opts = {'vars': {'provname': provname}}
-            nodes = await core.nodes(f'gen.ou.org $provname', opts=opts)
+            nodes = await core.nodes('gen.ou.org $provname', opts=opts)
             self.len(1, nodes)
             provider = nodes[0]
 

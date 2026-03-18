@@ -9,7 +9,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)

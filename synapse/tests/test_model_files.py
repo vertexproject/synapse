@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_t_utils
 
@@ -617,7 +616,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
                 self.propeq(n, 'altitude', 6371137800)
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 entity:contact=$conguid
                     :name="Steve Rogers"
                     :title="Captain"

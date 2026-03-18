@@ -164,7 +164,7 @@ class AhaTest(s_test.SynTest):
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cell.synapse] offline.') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.aha', 'Set [0.cell.synapse] offline.') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
 
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
@@ -603,7 +603,7 @@ class AhaTest(s_test.SynTest):
                     self.none(yamlconf.get('aha:admin'))
 
                     self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
+                    self.eq('ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
 
