@@ -142,8 +142,9 @@ select = [
     "E741", # Ambiguous variable name: {name}
     "E742", # Ambiguous class name: {name}
     "E743", # Ambiguous function name: {name}
+    "F401", # Unused imports
     "F541", # f-string without any placeholders
-    "F821",  # Undefined name {name}. {tip}
+    "F821", # Undefined name {name}. {tip}
     "RUF006", # Store a reference to the return value of {expr}.{method}
     "W191", # Indentation contains tabs
     "W291", # Trailing whitespace
