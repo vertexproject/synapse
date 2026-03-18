@@ -130,6 +130,21 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add --period yearly { $lib.print(yearly) }
+
+    # Run every year on January 1st at 07:00 UTC
+    cron.add --period yearly@07 { $lib.print(yearly) }
+
+    # Run every year on January 1st at 12:21 UTC
+    cron.add --period yearly@12:21 { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add --period yearly/05-14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add --period yearly/11-14@13:43 { $lib.print(yearly) }
+
+    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    cron.add --period yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
@@ -277,6 +292,8 @@ stormcmds = (
                             'action': 'store_true'}),
             ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--cache-size', {'help': 'Number of storage nodes to cache.', 'type': 'int',
+                              'dest': 'cache:size'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -711,6 +728,8 @@ stormcmds = (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--pool', {'action': 'store_true', 'default': False,
                 'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -741,6 +760,7 @@ stormcmds = (
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
                                   pool=$cmdopts.pool,
+                                  affinity=$cmdopts.affinity,
                                   month=$cmdopts.month,
                                   year=$cmdopts.year,
                                   hourly=$cmdopts.hourly,
@@ -769,6 +789,8 @@ stormcmds = (
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
             ('--iden', {'help': 'A set iden to assign to the new cron job'}),
             ('--view', {'help': 'View to run the cron job against'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
@@ -778,7 +800,8 @@ stormcmds = (
                                  dt=$cmdopts.dt,
                                  now=$cmdopts.now,
                                  iden=$cmdopts.iden,
-                                 view=$cmdopts.view)
+                                 view=$cmdopts.view,
+                                 affinity=$cmdopts.affinity)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -906,6 +929,7 @@ stormcmds = (
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print(`pool:            {$job.pool}`)
+                $lib.print(`affinity:        {$job.affinity}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)
@@ -2333,11 +2357,11 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         if (deprecated := argdef.get('deprecated')) is not None:
             mesg = deprmesg(names[0], deprecated)
-            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2928,7 +2952,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)

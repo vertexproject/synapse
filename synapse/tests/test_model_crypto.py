@@ -120,7 +120,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
-            nodes = await core.nodes(f'''
+            nodes = await core.nodes('''
                 [
                     crypto:currency:transaction=(t1,)
                         :hash=0x01020304

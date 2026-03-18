@@ -485,6 +485,10 @@ back to ``false``. It is not necessary to optimize the databases on every boot o
 service, but regularly scheduling an optimization pass based on the write activity of
 the service will help ensure optimal performance.
 
+When an optimization is performed, the service records the time and directory size before
+and after the optimization. This information is available in the ``optimized`` key of the
+dictionary returned by ``getCellInfo()`` and persists across restarts.
+
 .. note::
 
     During the optimization process, the service will make an optimized copy of each

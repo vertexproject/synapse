@@ -1800,7 +1800,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -7953,6 +7953,9 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+        elif name == 'cache:size':
+            valu = await toint(valu)
+
         elif name == 'logedits':
             valu = await tobool(valu)
 
@@ -9719,6 +9722,86 @@ class LibCron(Lib):
 
         return None
 
+    def _parseTimePart(self, timepart):
+        reqs = {}
+        if ':' in timepart:
+            h, m = timepart.split(':')
+            if h:
+                try:
+                    reqs['hour'] = int(h, 10)
+                except ValueError:
+                    mesg = f'Invalid hour value: {h}'
+                    raise s_exc.BadTime(mesg=mesg)
+            if m:
+                try:
+                    reqs['minute'] = int(m, 10)
+                except ValueError:
+                    mesg = f'Invalid minute value: {m}'
+                    raise s_exc.BadTime(mesg=mesg)
+        else:
+            try:
+                reqs['hour'] = int(timepart, 10)
+            except ValueError:
+                mesg = f'Invalid hour value: {timepart}'
+                raise s_exc.BadTime(mesg=mesg)
+
+        return reqs
+
+    def _validateFields(self, reqs):
+        for field, fieldname in (
+            ('hour', 'hour'),
+            ('minute', 'minute'),
+            ('dayofmonth', 'day of month'),
+            ('month', 'month'),
+        ):
+            if field not in reqs:
+                continue
+            timeunit = s_agenda.TimeUnit.fromString(field)
+            minval, maxval = s_agenda._UnitBounds[timeunit][0]
+            vals = reqs[field]
+            if not isinstance(vals, (list, tuple)):
+                vals = (vals,)
+            for v in vals:
+                if not (minval <= v <= maxval):
+                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+    def _parsePeriodYearly(self, text):
+        reqs = []
+
+        vals = None
+
+        if '/' in text:
+            _, vals = text.split('/', 1)
+            for dtstr in vals.split(','):
+                req = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+                parts = dtstr.split('@')
+
+                dmstr = parts[0]
+                if '@' in dtstr:
+                    tstr = parts[1]
+                    req.update(self._parseTimePart(tstr))
+
+                try:
+                    mstr, dstr = dmstr.split('-')
+                    req['month'] = int(mstr)
+                    req['dayofmonth'] = int(dstr)
+                except ValueError:
+                    mesg = f'Invalid month-day value for yearly period: {dtstr}'
+                    raise s_exc.BadTime(mesg=mesg)
+                self._validateFields(req)
+
+                reqs.append(req)
+        elif '@' in text:
+            _, tstr = text.split('@', 1)
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+            reqs.update(self._parseTimePart(tstr))
+            self._validateFields(reqs)
+        else:
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+
+        return reqs, 'year', 1
+
     def _parsePeriod(self, text):
         '''
         Parse a period string into requirements, increment unit, and increment values.
@@ -9729,29 +9812,6 @@ class LibCron(Lib):
 
         parts = text.split('@', 1)
         base = parts[0]
-        timepart = parts[1] if len(parts) > 1 else None
-
-        if timepart:
-            if ':' in timepart:
-                h, m = timepart.split(':')
-                if h:
-                    try:
-                        reqs['hour'] = int(h, 10)
-                    except ValueError:
-                        mesg = f'Invalid hour value: {h}'
-                        raise s_exc.BadTime(mesg=mesg)
-                if m:
-                    try:
-                        reqs['minute'] = int(m, 10)
-                    except ValueError:
-                        mesg = f'Invalid minute value: {m}'
-                        raise s_exc.BadTime(mesg=mesg)
-            else:
-                try:
-                    reqs['hour'] = int(timepart, 10)
-                except ValueError:
-                    mesg = f'Invalid hour value: {timepart}'
-                    raise s_exc.BadTime(mesg=mesg)
 
         if '/' in base:
             period, vals = base.split('/', 1)
@@ -9760,6 +9820,13 @@ class LibCron(Lib):
             vals = None
 
         period = period.lower()
+        if period == 'yearly':
+            return self._parsePeriodYearly(text)
+
+        timepart = parts[1] if len(parts) > 1 else None
+
+        if timepart:
+            reqs.update(self._parseTimePart(timepart))
 
         if period == 'hourly':
             if timepart is None:
@@ -9823,34 +9890,11 @@ class LibCron(Lib):
                 reqs['dayofmonth'] = 1
             incvals = 1
 
-        elif period == 'yearly':
-            incunit = 'year'
-            incvals = 1
-            reqs['month'] = 1
-            reqs['dayofmonth'] = 1
-            reqs.setdefault('hour', 0)
-            reqs.setdefault('minute', 0)
         else:
             mesg = f'Unknown period: {period}'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        for field, fieldname in (
-            ('hour', 'hour'),
-            ('minute', 'minute'),
-            ('dayofmonth', 'day of month'),
-            ('month', 'month'),
-        ):
-            if field not in reqs:
-                continue
-            timeunit = s_agenda.TimeUnit.fromString(field)
-            minval, maxval = s_agenda._UnitBounds[timeunit][0]
-            vals = reqs[field]
-            if not isinstance(vals, (list, tuple)):
-                vals = (vals,)
-            for v in vals:
-                if not (minval <= v <= maxval):
-                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
-                    raise s_exc.BadConfValu(mesg=mesg)
+        self._validateFields(reqs)
 
         return reqs, incunit, incvals
 
@@ -9859,6 +9903,12 @@ class LibCron(Lib):
         incval = None
         reqdict = {}
         pool = await tobool(kwargs.get('pool', False))
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
+            if pool:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -9979,6 +10029,7 @@ class LibCron(Lib):
         cdef = {'storm': query,
                 'reqs': reqdict,
                 'pool': pool,
+                'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -10009,6 +10060,10 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -10060,6 +10115,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'affinity': affinity,
                 'creator': self.runt.user.iden
                 }
 
@@ -10251,6 +10307,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'pool': self.valu.get('pool', False),
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',

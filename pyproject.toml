@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.234.0'
+version = '2.235.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -57,10 +57,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    'ruff>0.15.0,<1.0.0',
     'pytest>=7.2.0,<8.0.0',
     'autopep8>=2.0.4,<3.0.0',
     'pytest-cov>=4.0.0,<5.0.0',
-    'pycodestyle>=2.10.0,<3.0.0',
     'bump2version>=1.0.1,<1.1.0',
     'pytest-xdist>=3.0.2,<4.0.0',
     'coverage>=7.0.0,<8.0.0',
@@ -102,13 +102,58 @@ include = [
     'scripts/*.py',
     'examples/*.py',
 ]
+exclude = [
+    'synapse/vendor/*',
+]
 target-version = "py311"
+line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E251", # Whitespace around kwargs; preview rule
-    "F821",  # Check for undefined names - this is generally fatal
-    "W191", "W191", "W292", "W293", "W391",  # Whitespace checks; W391 is a preview rule.
-    "W605", # invalid escape sequence
+    "E101", # Indentation is not a multiple of {indent_width}
+    "E111", # Indentation is not a multiple of {indent_width}
+    "E114", # Indentation is not a multiple of {indent_width} (comment)
+    "E201", # Whitespace after '{symbol}'
+    "E202", # Whitespace before '{symbol}'
+    "E203", # Whitespace before '{symbol}'
+    "E204", # Whitespace after decorator
+    "E221", # Multiple spaces before operator
+    "E222", # Multiple spaces after operator
+    "E223", # Tab before operator
+    "E224", # Tab after operator
+    "E225", # Missing whitespace around operator
+    "E226", # Missing whitespace around arithmetic operator
+    "E227", # Missing whitespace around bitwise or shift operator
+    "E228", # Missing whitespace around modulo operator
+    "E231", # Missing whitespace after {}
+    "E241", # Multiple spaces after comma
+    "E242", # Tab after comma
+    "E251", # Unexpected spaces around keyword / parameter equals
+    "E265", # Block comment should start with #
+    "E303", # Too many blank lines
+    "E304", # Blank lines found after function decorator
+    "E502", # Redundant backslash,
+    "E703", # Statement ends with an unnecessary semicolon
+    "E711", # Comparison to None should be cond is None
+    "E712", # Avoid equality comparisons to True; use {cond}: for truth checks
+    "E713", # Test for membership should be not in
+    "E714", # Test for object identity should be is not
+    "E721", # Use is and is not for type comparisons, or isinstance() for isinstance checks
+    "E741", # Ambiguous variable name: {name}
+    "E742", # Ambiguous class name: {name}
+    "E743", # Ambiguous function name: {name}
+    "F401", # Unused imports
+    "F541", # f-string without any placeholders
+    "F821", # Undefined name {name}. {tip}
+    "RUF006", # Store a reference to the return value of {expr}.{method}
+    "W191", # Indentation contains tabs
+    "W291", # Trailing whitespace
+    "W292", # No newline at end of file
+    "W293", # Blank line contains whitespace
+    "W391", # Too many newlines at end of {domain}
+    "W605", # Invalid escape sequence: {ch}
 ]
 preview = true
+
+[tool.ruff.lint.per-file-ignores]
+"synapse/tests/test_lib_scrape.py" = ["W291"]

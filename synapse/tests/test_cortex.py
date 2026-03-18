@@ -4838,7 +4838,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            node = (await core0.nodes('[ test:int=4 ]'))[0]
             pack = node.pack()
             pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
             podes.append(pack)
@@ -6287,7 +6287,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 asuser['vars'] = {'iden': iden}
 
                 with self.raises(s_exc.AuthDeny):
-                    await core.callStorm(f'$lib.dmon.del($iden)', opts=asuser)
+                    await core.callStorm('$lib.dmon.del($iden)', opts=asuser)
 
                 # remove the dmon without a nexus entry to verify recover works
                 await core._delStormDmon(iden)
@@ -8383,27 +8383,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, 'foo', self)
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, 'foo', self)
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, self, 'bar')
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, self, 'bar')
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchIden) as exc:
                 # iden not valid
                 await core.setVaultPerm(giden, '1234', s_cell.PERM_EDIT)
-            self.eq(f'Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
+            self.eq('Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid scope

@@ -1,7 +1,0 @@
----
-desc: Updated the ``diff --tag`` Storm command to accept list variables in addition
-  to individual tag arguments.
-desc:literal: false
-prs: []
-type: feat
-...

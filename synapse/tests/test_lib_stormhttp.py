@@ -655,7 +655,7 @@ class StormHttpTest(s_test.SynTest):
 
             size, sha256 = await core.axon.put(b'asdf')
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
-            resp = await core.callStorm(f'return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
+            resp = await core.callStorm('return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 

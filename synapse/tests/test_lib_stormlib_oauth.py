@@ -1,7 +1,6 @@
 import os
 import yarl
 import base64
-import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -77,7 +76,7 @@ class HttpOAuth2Token(s_httpapi.Handler):
                 self.set_status(400)
                 self.write({
                     'error': 'invalid_request',
-                    'error_description': f'basic auth missing Basic ?'
+                    'error_description': 'basic auth missing Basic ?'
                 })
                 return False
 

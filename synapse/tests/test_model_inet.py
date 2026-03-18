@@ -3082,7 +3082,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             provname = 'Slack Corp'
             opts = {'vars': {'provname': provname}}
-            nodes = await core.nodes(f'gen.ou.org $provname', opts=opts)
+            nodes = await core.nodes('gen.ou.org $provname', opts=opts)
             self.len(1, nodes)
             provider = nodes[0]
 

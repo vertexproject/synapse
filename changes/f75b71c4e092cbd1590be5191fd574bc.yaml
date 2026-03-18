@@ -1,6 +1,0 @@
----
-desc: Added an optional ``queryopts`` field to the Storm package ``inits`` definition.
-desc:literal: false
-prs: []
-type: feat
-...

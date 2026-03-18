@@ -1,4 +1,3 @@
-from unittest import mock
 
 import regex
 
@@ -979,10 +978,10 @@ class ScrapeTest(s_t_utils.SynTest):
         self.eq({email[0], 'bar.io', fqdn[0], }, {n[1] for n in s_scrape.scrape(txt)})
 
         # ensure extra-iana tlds included as tld
-        txt = f'hehe woot.onion woot.bit haha'
+        txt = 'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
 
-        txt = f'hehe trickbot.bazar haha'
+        txt = 'hehe trickbot.bazar haha'
         self.isin('trickbot.bazar', [n[1] for n in s_scrape.scrape(txt)])
 
     def test_refang(self):

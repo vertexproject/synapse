@@ -1,7 +1,0 @@
----
-desc: Added a ``phones`` property to the ``ps:contact`` form to store an array of secondary/associated
-  phone numbers.
-desc:literal: false
-prs: []
-type: feat
-...
