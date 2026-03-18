@@ -345,7 +345,7 @@ properties are set automatically by Synapse.
 Virtual Property
 ++++++++++++++++
 
-A **virtual property** is a component of a property value (primary or secondary, including  meta properties)
+A **virtual property** is a component of a property value (primary or secondary)
 that can be accessed "virtually" without being explicitly declared or set as an independent property.
 
 For example, some network-related forms include a ``:server`` property (``inet:server``). A server consists of a
