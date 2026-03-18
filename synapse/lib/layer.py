@@ -2274,7 +2274,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 5)
         self.layrvers = 5
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _layrV4toV5(self):
 
@@ -2308,7 +2308,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 5)
         self.layrvers = 5
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _v5ToV7Buid(self, buid):
 
@@ -2670,7 +2670,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 10)
         self.layrvers = 10
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _layrV10toV11(self):
 

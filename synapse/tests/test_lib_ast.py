@@ -3820,12 +3820,12 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             # Lift node, get prop via implicit pivot, assign data prop to var, update var
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
+            q = 'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})
 
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
+            q = 'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})

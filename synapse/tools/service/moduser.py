@@ -28,7 +28,7 @@ def printuser(user, outp):
     outp.printf('  Gates:')
     for gateiden, gateinfo in user.get('authgates', {}).items():
         outp.printf(f'    {gateiden}')
-        outp.printf(f'      Admin: {gateinfo.get("admin") == True}')
+        outp.printf(f'      Admin: {gateinfo.get("admin") == True}')  # noqa: E712
         for indx, rule in enumerate(gateinfo.get('rules', ())):
             outp.printf(f'      [{str(indx).ljust(3)}] - {s_common.reprauthrule(rule)}')
 
@@ -78,7 +78,7 @@ async def main(argv, outp=s_output.stdout):
                 return 0
 
             elif opts.username is None:
-                outp.printf(f'ERROR: A username argument is required when --list is not specified.')
+                outp.printf('ERROR: A username argument is required when --list is not specified.')
                 return 1
 
             if opts.gate:
