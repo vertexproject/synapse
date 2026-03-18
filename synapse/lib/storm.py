@@ -2952,7 +2952,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)

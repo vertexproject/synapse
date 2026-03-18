@@ -312,7 +312,7 @@ class PsModelTest(s_t_utils.SynTest):
             course = nodes[0].ndef[1]
             self.len(1, await core.nodes(f'edu:course={course} :prereqs -> edu:course'))
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 ps:contactlist=*
                     :contacts=(*,*)
                     :source:host=*
