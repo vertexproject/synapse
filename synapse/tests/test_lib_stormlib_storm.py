@@ -131,7 +131,7 @@ class LibStormTest(s_test.SynTest):
                     if ($mesg.0 = "print") { $lib.print($mesg) }
                 }
             ''', opts={'user': visi.iden})
-            self.stormIsInErr('must have permission impersonate', msgs)
+            self.stormIsInErr('requires global admin permissions', msgs)
             self.stormNotInPrint('lolz', msgs)
 
             # no opts provided

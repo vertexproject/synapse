@@ -241,7 +241,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('impersonate',))
+            self.user.reqAdmin()
 
         return opts
 
@@ -738,7 +738,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
-        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1230,15 +1229,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         permdefs.sort(key=lambda x: x['perm'])
 
         return tuple(permdefs)
-
-    def _setPropSetHook(self, name, hook):
-        self._propSetHooks[name] = hook
-
-    async def _callPropSetHook(self, node, prop, norm):
-        hook = self._propSetHooks.get(prop.full)
-        if hook is None:
-            return
-        await hook(node, prop, norm)
 
     async def initServiceRuntime(self):
 

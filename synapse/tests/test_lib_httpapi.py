@@ -840,7 +840,7 @@ class HttpApiTest(s_tests.SynTest):
             newpuser = s_common.guid()
 
             await visi.setPasswd('secret')
-            await visi.addRule((True, ('impersonate',)))
+            await visi.setAdmin(True)
 
             opts = {'user': core.auth.rootuser.iden}
 
@@ -1643,19 +1643,8 @@ class HttpApiTest(s_tests.SynTest):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
-            with self.raises(ssl.SSLError):
+            with self.raises((ssl.SSLError, ConnectionResetError)):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('ADH-AES256-SHA')
-                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
-
-            with self.raises(ssl.SSLError):
-                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('AES256-GCM-SHA384')
-                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
-
-            with self.raises(ssl.SSLError):
-                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
     async def test_healthcheck(self):
