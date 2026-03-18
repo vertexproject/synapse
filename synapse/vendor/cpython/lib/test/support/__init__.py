@@ -7,18 +7,18 @@
 if __name__ != 'synapse.vendor.cpython.lib.test.support':  # pragma: no cover
     raise ImportError('support must be imported from the test package')
 
-import contextlib  # noqa: F401
-import dataclasses  # noqa: F401
+import contextlib
+import dataclasses
 import functools
 import os
-import re  # noqa: F401
-import stat  # noqa: F401
-import sys  # noqa: F401
-import sysconfig  # noqa: F401
+import re
+import stat
+import sys
+import sysconfig
 import time
-import types  # noqa: F401
+import types
 import unittest
-import warnings  # noqa: F401
+import warnings
 
 __all__ = [
     # miscellaneous
