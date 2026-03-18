@@ -129,7 +129,7 @@ Interfaces have two primary uses:
   example). They act as "building blocks" that can be composed and applied where appropriate.
   
   **Example**: The ``inet:service:base`` interface consists of a few basic properties common to Internet-based
-  service architectures. The ``inet:service:base`` interface is implemented by   the ``inet:service:object`` and
+  service architectures. The ``inet:service:base`` interface is implemented by the ``inet:service:object`` and
   ``inet:service:action`` interfaces, which define additional properties specific to "things" and "activities".
   These interfaces are then implemented by relevant forms such as ``inet:service:channel`` or ``inet:service:login``.
   
