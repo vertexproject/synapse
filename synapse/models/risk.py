@@ -107,7 +107,7 @@ modeldefs = (
             ('risk:attack', ('guid', {}), {
                 'template': {'title': 'attack'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:event', {}),
                     ('meta:reported', {}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
@@ -137,7 +137,7 @@ modeldefs = (
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                 ),
                 'display': {
                     'columns': (
@@ -236,12 +236,12 @@ modeldefs = (
             ('risk:leak', ('guid', {}), {
                 'template': {'title': 'leak'},
                 'interfaces': (
+                    ('entity:event', {}),
                     ('meta:reported', {}),
-                    ('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'disclosed'}},
+                        {'type': 'prop', 'opts': {'name': 'time'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'owner::name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
@@ -265,7 +265,7 @@ modeldefs = (
                 'template': {'title': 'extortion'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                 ),
                 'display': {
                     'columns': (
@@ -735,7 +735,7 @@ modeldefs = (
             ('risk:leak:type:taxonomy', {}, ()),
             ('risk:leak', {}, (
 
-                ('disclosed', ('time', {}), {
+                ('time', ('time', {}), {
                     'doc': 'The time the leaked information was disclosed.'}),
 
                 ('owner', ('entity:actor', {}), {
