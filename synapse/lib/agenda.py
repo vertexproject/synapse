@@ -935,7 +935,7 @@ class Agenda(s_base.Base):
         try:
             yield proxy.storm(appt.query, opts=opts)
         finally:
-            proxy.fini()
+            await proxy.fini()
 
     async def _runJob(self, user, appt):
         '''
