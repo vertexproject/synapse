@@ -30,7 +30,6 @@ import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
