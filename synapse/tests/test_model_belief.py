@@ -26,17 +26,3 @@ class BeliefModelTest(s_test.SynTest):
 
             self.len(2, await core.nodes('belief:system -(has)> belief:tenet +:desc=Lol'))
 
-            nodes = await core.nodes('''[
-                belief:subscriber=*
-                    :contact={[ entity:contact=* :name=visi ]}
-                    :system={ belief:system:type=hehe.haha }
-                    :period=(20230209, 20230210)
-                    +(follows)> { belief:tenet:name="zip zop" }
-            ]''')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('system'))
-            self.nn(nodes[0].get('contact'))
-
-            self.propeq(nodes[0], 'period', (1675900800000000, 1675987200000000, 86400000000))
-
-            self.len(1, await core.nodes('belief:subscriber -(follows)> belief:tenet'))

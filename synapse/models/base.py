@@ -287,6 +287,9 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:believable', {
+                'doc': 'An interface implemented by forms which may be believed in by an actor.'}),
+
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (

@@ -82,7 +82,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'title', 'lead developer')
             self.propeq(node, 'titles', ('senior dev', 'team lead'))
 
-            # entity:abstract interface props
+            # entity:resolvable interface props
             self.nn(node.get('resolved'))
 
             # geo:locatable interface props
@@ -347,3 +347,22 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.len(1, await core.nodes('entity:relationship :reporter -> ou:org'))
+
+    async def test_entity_believed(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                entity:believed=*
+                    :actor={[ entity:contact=* :name=visi ]}
+                    :belief={[ belief:system=* ]}
+                    :period=(20230209, 20230210)
+                    +(followed)> {[ belief:tenet=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('belief'))
+
+            self.propeq(nodes[0], 'period', (1675900800000000, 1675987200000000, 86400000000))
+
+            self.len(1, await core.nodes('entity:believed -(followed)> belief:tenet'))

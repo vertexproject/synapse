@@ -4,6 +4,7 @@ modeldefs = (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
+                    ('meta:believable', {}),
                 ),
                 'doc': 'A taxonomy of hypothesis types.'}),
 
