@@ -12,7 +12,6 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
 
@@ -108,6 +107,133 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # by pref
                 self.eq([b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
                 self.eq([], list(slab.scanKeysByPref(b'z', db=dupsdb)))
+
+    async def test_lmdbslab_multiscan(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+
+                pref = b'tpref'
+                multilen = 8
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'newp', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xff', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(b'\xff', multilen, b'\xff', db=testdb)))
+
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfuz', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=testdb)
+                await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=testdb)
+                await slab.put(pref + (b'\xff' * 8) + b'bfoo', b'haha', db=testdb)
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                await slab.put(b'zpref' + s_common.int64en(2) + b'afaz', b'haha', db=testdb)
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=testdb)))
+
+                self.eq(exp[::-1], await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'a', db=testdb)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'0', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'abaq', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xff', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xfe', db=testdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPrefBack(pref, multilen, b'\xfe', db=testdb)))
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                    (pref + s_common.int64en(0) + b'bfoo', b'haha'),
+                    (pref + (b'\xff' * 8) + b'bfoo', b'haha'),
+                    (pref + s_common.int64en(0) + b'cfuz', b'haha'),
+                    (pref + s_common.int64en(0) + b'dfoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb)))
+                self.eq(exp[3:], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'bfoo', db=testdb)))
+                self.eq(exp[:3], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb, lmax=b'afoo')))
+                self.eq(exp[:1], await s_t_utils.alist(slab.multiScanByRange(pref, multilen, b'abar', db=testdb, lmax=b'afaa')))
+
+                self.eq(exp[4::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'bfoo', db=testdb)))
+                self.eq(exp[2::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afoo', db=testdb, lmin=b'abar')))
+                self.eq(exp[0::-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afaa', db=testdb, lmin=b'abar')))
+                self.eq(exp[2:1:-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afoo', db=testdb, lmin=b'afbz')))
+                self.eq(exp[1:0:-1], await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'afaz', db=testdb, lmin=b'abaz')))
+                self.eq((), await s_t_utils.alist(slab.multiScanByRangeBack(pref, multilen, b'aa', db=testdb)))
+
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'abar', b'hoho', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'afoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'bfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'cfuz', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(0) + b'dfoo', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(2) + b'afaz', b'haha', db=dupsdb)
+                await slab.put(pref + (b'\xff' * 8) + b'bfoo', b'haha', db=dupsdb)
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(0) + b'abar', b'hoho'),
+                    (pref + s_common.int64en(2) + b'afaz', b'haha'),
+                    (pref + s_common.int64en(0) + b'afoo', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'a', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                await slab.put(b'zpref' + s_common.int64en(2) + b'afaz', b'haha', db=dupsdb)
+                self.eq((), await s_t_utils.alist(slab.multiScanByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                exp = [e[0] for e in exp]
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'afuz', db=dupsdb)))
+
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByRange(pref, multilen, b'abar', lmax=b'afoo', db=dupsdb)))
+
+                exp = (
+                    pref + s_common.int64en(0) + b'abar',
+                    pref + s_common.int64en(2) + b'afaz',
+                    pref + s_common.int64en(0) + b'afoo',
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByPref(pref, multilen, b'a', db=dupsdb, nodup=True)))
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByRange(pref, multilen, b'abar', lmax=b'afoo', db=dupsdb, nodup=True)))
+
+                await slab.put(pref + s_common.int64en(2) + b'abar', b'haha', db=dupsdb)
+                await slab.put(pref + s_common.int64en(5) + b'abar', b'hoho', db=dupsdb)
+                await slab.put(pref + (b'\xff' * 8) + b'abar', b'haha', db=dupsdb)
+
+                exp = (
+                    (pref + s_common.int64en(0) + b'abar', b'haha'),
+                    (pref + s_common.int64en(0) + b'abar', b'hoho'),
+                    (pref + s_common.int64en(2) + b'abar', b'haha'),
+                    (pref + s_common.int64en(5) + b'abar', b'hoho'),
+                    (pref + (b'\xff' * 8) + b'abar', b'haha'),
+                )
+                self.eq(exp, await s_t_utils.alist(slab.multiScanByDups(pref, multilen, b'abar', db=dupsdb)))
+                self.eq(exp[::-1], await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'abar', db=dupsdb)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'zz', db=dupsdb)))
+                self.eq((), await s_t_utils.alist(slab.multiScanByDupsBack(pref, multilen, b'aa', db=dupsdb)))
+
+                exp = [e[0] for e in exp]
+                self.eq(exp, await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'abar', db=dupsdb)))
+                self.eq(exp[1:], await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'abar', db=dupsdb, nodup=True)))
+
+                self.eq((), await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'afuz', db=dupsdb)))
 
     async def test_lmdbslab_base(self):
 

@@ -1,11 +1,11 @@
 import socket
 import asyncio
 import logging
+import collections
 import urllib.parse
 
 import idna
 import regex
-import collections
 import unicodedata
 
 import synapse.exc as s_exc
@@ -13,7 +13,6 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
-import synapse.lib.scrape as s_scrape
 import synapse.lookup.iana as s_l_iana
 
 import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
@@ -545,6 +544,7 @@ class Email(s_types.Str):
 
         self.fqdntype = self.modl.type('inet:fqdn')
         self.usertype = self.modl.type('inet:user')
+        self.plustype = self.modl.type('str').clone({'lower': True})
 
     async def _normPyStr(self, valu, view=None):
 
@@ -554,6 +554,11 @@ class Email(s_types.Str):
             mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        plus = None
+        if len(parts := user.split('+', 1)) == 2:
+            baseuser, plus = parts
+            plus = plus.strip().lower()
+
         try:
             fqdnnorm, fqdninfo = await self.fqdntype.norm(fqdn)
             usernorm, userinfo = await self.usertype.norm(user)
@@ -561,12 +566,23 @@ class Email(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = f'{usernorm}@{fqdnnorm}'
+
         info = {
             'subs': {
                 'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
                 'user': (self.usertype.typehash, usernorm, userinfo),
             }
         }
+
+        if plus is not None:
+            info['subs']['plus'] = (self.plustype.typehash, plus, {})
+            info['subs']['base'] = (self.typehash, f'{baseuser}@{fqdnnorm}', {
+                'subs': {
+                    'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
+                    'user': (self.usertype.typehash, baseuser, {}),
+                }
+            })
+
         return norm, info
 
 class Fqdn(s_types.Type):
@@ -578,6 +594,8 @@ class Fqdn(s_types.Type):
         self.storlifts.update({
             '=': self._storLiftEq,
         })
+
+        self.storlifts.pop('range=', None)
 
         self.hosttype = self.modl.type('str').clone({'lower': True})
         self.booltype = self.modl.type('bool')
@@ -692,6 +710,100 @@ class Fqdn(s_types.Type):
                 return valu.encode('utf8').decode('idna')
             except UnicodeError:
                 return valu
+
+    def postFormInit(self, form):
+        form.onAdd(self._onAddFqdn)
+        form.props['issuffix'].onSet(self._onSetIsSuffix)
+        form.props['iszone'].onSet(self._onSetIsZone)
+        form.props['zone'].onSet(self._onSetZone)
+
+    async def _onAddFqdn(self, node):
+
+        domain = node.get('domain')
+
+        async with node.view.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
+
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
+
+            parent = await node.view.getNodeByNdef(domain)
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain[1])
+
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', node.ndef[1])
+                return
+
+            await protonode.set('iszone', False)
+
+            if parent.get('iszone'):
+                await protonode.set('zone', domain[1])
+                return
+
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone[1])
+
+    async def _onSetIsSuffix(self, node):
+
+        fqdn = node.ndef[1]
+        issuffix = node.get('issuffix')
+
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
+
+    async def _onSetIsZone(self, node):
+
+        iszone = node.get('iszone')
+        if iszone:
+            await node.set('zone', node.ndef[1])
+            return
+
+        domain = node.get('domain')
+        if not domain:
+            await node.pop('zone')
+            return
+
+        parent = await node.view.addNode('inet:fqdn', domain[1])
+
+        zone = parent.get('zone')
+        if zone is None:
+            await node.pop('zone')
+            return
+
+        await node.set('zone', zone[1])
+
+    async def _onSetZone(self, node):
+
+        todo = collections.deque([node.ndef])
+        zone = node.get('zone')
+
+        async with node.view.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
+                    await asyncio.sleep(0)
+
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
+
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone[1])
+
+                    todo.append(child.ndef)
 
 class HttpCookie(s_types.Str):
 
@@ -1134,113 +1246,6 @@ class Url(s_types.Str):
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
 
-async def _onAddFqdn(node):
-
-    fqdn = node.ndef[1]
-    domain = node.get('domain')
-
-    async with node.view.getEditor() as editor:
-        protonode = editor.loadNode(node)
-        if domain is None:
-            await protonode.set('iszone', False)
-            await protonode.set('issuffix', True)
-            return
-
-        if protonode.get('issuffix') is None:
-            await protonode.set('issuffix', False)
-
-        parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
-        if parent is None:
-            parent = await editor.addNode('inet:fqdn', domain)
-
-        if parent.get('issuffix'):
-            await protonode.set('iszone', True)
-            await protonode.set('zone', fqdn)
-            return
-
-        await protonode.set('iszone', False)
-
-        if parent.get('iszone'):
-            await protonode.set('zone', domain)
-            return
-
-        zone = parent.get('zone')
-        if zone is not None:
-            await protonode.set('zone', zone)
-
-async def _onSetFqdnIsSuffix(node):
-
-    fqdn = node.ndef[1]
-
-    issuffix = node.get('issuffix')
-
-    async with node.view.getEditor() as editor:
-        async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-            await asyncio.sleep(0)
-
-            if child.get('iszone') == issuffix:
-                continue
-
-            protonode = editor.loadNode(child)
-            await protonode.set('iszone', issuffix)
-
-async def _onSetFqdnIsZone(node):
-
-    fqdn = node.ndef[1]
-
-    iszone = node.get('iszone')
-    if iszone:
-        await node.set('zone', fqdn)
-        return
-
-    # we are not a zone...
-
-    domain = node.get('domain')
-    if not domain:
-        await node.pop('zone')
-        return
-
-    parent = await node.view.addNode('inet:fqdn', domain)
-
-    zone = parent.get('zone')
-    if zone is None:
-        await node.pop('zone')
-        return
-
-    await node.set('zone', zone)
-
-async def _onSetFqdnZone(node):
-
-    todo = collections.deque([node.ndef[1]])
-    zone = node.get('zone')
-
-    async with node.view.getEditor() as editor:
-        while todo:
-            fqdn = todo.pop()
-            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-                await asyncio.sleep(0)
-
-                # if they are their own zone level, skip
-                if child.get('iszone') or child.get('zone') == zone:
-                    continue
-
-                # the have the same zone we do
-                protonode = editor.loadNode(child)
-                await protonode.set('zone', zone)
-
-                todo.append(child.ndef[1])
-
-async def _onSetWhoisText(node):
-
-    text = node.get('text')
-    if (fqdn := node.get('fqdn')) is None:
-        return
-
-    for form, valu in s_scrape.scrape(text):
-
-        if form == 'inet:email':
-            await node.view.addNode('inet:whois:email', (fqdn, valu))
-
 modeldefs = (
     ('inet', {
         'ctors': (
@@ -1289,6 +1294,24 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
+                'props': (
+                    ('domain', ('inet:fqdn', {}), {
+                        'computed': True,
+                        'doc': 'The parent domain for the FQDN.'}),
+
+                    ('host', ('str', {'lower': True}), {
+                        'computed': True,
+                        'doc': 'The host part of the FQDN.'}),
+
+                    ('issuffix', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a suffix.'}),
+
+                    ('iszone', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a zone.'}),
+
+                    ('zone', ('inet:fqdn', {}), {
+                        'doc': 'The zone level parent for this FQDN.'}),
+                ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
@@ -1334,6 +1357,9 @@ modeldefs = (
                 'doc': 'An IPv4 address.'}),
 
             ('inet:asn', ('int', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'ASN'}}),
+                ),
                 'doc': 'An Autonomous System Number (ASN).'}),
 
             ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
@@ -1347,6 +1373,9 @@ modeldefs = (
                 'doc': 'A historical record of an IP address being assigned to an AS.'}),
 
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'address range'}}),
+                ),
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
@@ -1387,15 +1416,15 @@ modeldefs = (
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
 
-            ('inet:group', ('str', {}), {
-                'doc': 'A group name string.'}),
-
             ('inet:http:header:name', ('str', {'lower': True}), {}),
 
             ('inet:http:header', ('comp', {'fields': (('name', 'inet:http:header:name'), ('value', 'str'))}), {
                 'doc': 'An HTTP protocol header key/value.'}),
 
             ('inet:http:request:header', ('inet:http:header', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'HTTP request header'}}),
+                ),
                 'doc': 'An HTTP request header.'}),
 
             ('inet:http:response:header', ('inet:http:header', {}), {
@@ -1412,6 +1441,9 @@ modeldefs = (
                     ('inet:proto:request', {}),
                 ),
                 'doc': 'A single HTTP request.'}),
+
+            ('inet:hyperlink', ('guid', {}), {
+                'doc': 'A URL link embedded in a message.'}),
 
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1449,9 +1481,15 @@ modeldefs = (
                 ),
                 'doc': 'A network protocol banner string presented by a server.'}),
 
+            ('inet:serverfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'host server and file'}}),
+                ),
+                'doc': 'A file hosted by a server.'}),
+
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
+                    ('meta:observable', {'template': {'title': 'hosted file and URL'}}),
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
@@ -1477,9 +1515,6 @@ modeldefs = (
                 ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
-                'doc': 'A node which inherits the inet:service:object interface.'}),
-
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:action', {}),
@@ -1490,19 +1525,19 @@ modeldefs = (
                 'doc': 'A single result from a web search.'}),
 
             ('inet:whois:record', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'prevnames': ('inet:whois:rec',),
                 'doc': 'An FQDN whois registration record.'}),
-
-            ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'whois email address'}}),
-                ),
-                'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
                 'doc': 'Query details used to retrieve an IP record.'}),
 
             ('inet:whois:iprecord', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'registration record'}}),
+                ),
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
@@ -1530,13 +1565,11 @@ modeldefs = (
                 'doc': 'An email header name.'}),
 
             ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'email header'}}),
+                ),
                 'doc': 'A unique email message header.'}),
 
-            ('inet:email:message:attachment', ('guid', {}), {
-                'doc': 'A file which was attached to an email message.'}),
-
-            ('inet:email:message:link', ('guid', {}), {
-                'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
@@ -1635,16 +1668,13 @@ modeldefs = (
                 ),
                 'doc': 'An authenticated session.'}),
 
-            ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
-                'doc': 'A node which implements the inet:service:joinable interface.'}),
-
-            ('inet:service:group', ('guid', {}), {
-                'template': {'title': 'service group'},
+            ('inet:service:role', ('guid', {}), {
+                'template': {'title': 'service role'},
                 'interfaces': (
                     ('inet:service:object', {}),
                     ('inet:service:joinable', {}),
                 ),
-                'doc': 'A group or role which contains member accounts.'}),
+                'doc': 'A role which contains member accounts.'}),
 
             ('inet:service:channel', ('guid', {}), {
                 'template': {'title': 'channel'},
@@ -1674,11 +1704,6 @@ modeldefs = (
                 ),
                 'doc': 'A message or post created by an account.'}),
 
-            ('inet:service:message:link', ('guid', {}), {
-                'doc': 'A URL link included within a message.'}),
-
-            ('inet:service:message:attachment', ('guid', {}), {
-                'doc': 'A file attachment included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1724,9 +1749,6 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'doc': 'A subscription to a service platform or instance.'}),
-
-            ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
-                'doc': 'A node which may subscribe to a service subscription.'}),
 
             ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1924,8 +1946,16 @@ modeldefs = (
                     ('inet:service:object', {}),
                 ),
                 'props': (
-                    ('banner', ('file:bytes', {}), {
-                        'doc': 'A banner or hero image used on the subscriber profile page.'}),
+                    ('name', ('entity:name', {}), {
+                        'doc': 'The primary entity name of the {title}.'}),
+                    ('email', ('inet:email', {}), {
+                        'doc': 'The primary email address for the {title}.'}),
+                    ('user', ('inet:user', {}), {
+                        'doc': 'The primary user name for the {title}.'}),
+                    ('creds', ('array', {'type': 'auth:credential'}), {
+                        'doc': 'An array of non-ephemeral credentials.'}),
+                    ('profile', ('entity:contact', {}), {
+                        'doc': 'Current detailed contact information for the {title}.'}),
                 ),
             }),
 
@@ -2034,10 +2064,10 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow which delivered the message.'}),
 
-                ('links', ('array', {'type': 'inet:email:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
-                ('attachments', ('array', {'type': 'inet:email:message:attachment'}), {
+                ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files attached to the email message.'}),
             )),
 
@@ -2050,26 +2080,12 @@ modeldefs = (
                     'doc': 'The value of the email header.'}),
             )),
 
-            ('inet:email:message:attachment', {}, (
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The attached file.'}),
-                ('name', ('file:path', {}), {
-                    'doc': 'The name of the attached file.'}),
-            )),
-
-            ('inet:email:message:link', {}, (
-                ('url', ('inet:url', {}), {
-                    'doc': 'The url contained within the email message.'}),
-                ('text', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
-            )),
-
             ('inet:asn', {}, (
 
                 ('owner', ('entity:actor', {}), {
                     'doc': 'The entity which registered the ASN.'}),
 
-                ('owner:name', ('meta:name', {}), {
+                ('owner:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
@@ -2134,38 +2150,23 @@ modeldefs = (
                 }),
             )),
 
-            # FIXME - inet:proto:link? Is this really an it:host:fetch?
-            ('inet:download', {}, (
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was downloaded.'
-                }),
-                ('fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN used to resolve the server.'
-                }),
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was downloaded.'
-                }),
-                ('server', ('inet:server', {}), {
-                    'doc': 'The socket address of the server.'
-                }),
-                ('server:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the server.'
-                }),
-                ('client', ('inet:client', {}), {
-                    'doc': 'The socket address of the client.'
-                }),
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The it:host node for the client.'
-                }),
-            )),
-
             ('inet:email', {}, (
+
                 ('user', ('inet:user', {}), {
                     'computed': True,
                     'doc': 'The username of the email address.'}),
+
                 ('fqdn', ('inet:fqdn', {}), {
                     'computed': True,
                     'doc': 'The domain of the email address.'}),
+
+                ('plus', ('str', {'lower': True}), {
+                    'computed': True,
+                    'doc': 'The optional email address "tag".'}),
+
+                ('base', ('inet:email', {}), {
+                    'computed': True,
+                    'doc': 'The base email address which is populated if the email address contains a user with a +<tag>.'}),
             )),
 
             ('inet:flow', {}, (
@@ -2259,28 +2260,6 @@ modeldefs = (
                     'doc': 'The client address the host used as a network egress.'}),
             )),
 
-            ('inet:fqdn', {}, (
-                ('domain', ('inet:fqdn', {}), {
-                    'computed': True,
-                    'doc': 'The parent domain for the FQDN.',
-                }),
-                ('host', ('str', {'lower': True}), {
-                    'computed': True,
-                    'doc': 'The host part of the FQDN.',
-                }),
-                ('issuffix', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a suffix.',
-                }),
-                ('iszone', ('bool', {}), {
-                    'doc': 'True if the FQDN is considered a zone.',
-                }),
-                ('zone', ('inet:fqdn', {}), {
-                    'doc': 'The zone level parent for this FQDN.',
-                }),
-            )),
-
-            ('inet:group', {}, ()),
-
             ('inet:http:request:header', {}, (
 
                 ('name', ('inet:http:header:name', {}), {'computed': True,
@@ -2335,11 +2314,14 @@ modeldefs = (
                 ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the request.'}),
 
+                ('header:host', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN parsed from the "Host:" header in the request.'}),
+
+                ('header:referer', ('inet:url', {}), {
+                    'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
                 ('body', ('file:bytes', {}), {
                     'doc': 'The body of the HTTP request.'}),
-
-                ('referer', ('inet:url', {}), {
-                    'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
@@ -2370,6 +2352,15 @@ modeldefs = (
 
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
+            )),
+
+            ('inet:hyperlink', {}, (
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL target of the hyperlink.'}),
+
+                ('title', ('str', {}), {
+                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
             )),
 
             ('inet:iface:type:taxonomy', {}, ()),
@@ -2438,12 +2429,12 @@ modeldefs = (
                 ('vendor', ('ou:org', {}), {
                     'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
             ('inet:rfc2822:addr', {}, (
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'computed': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
@@ -2517,6 +2508,16 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The optional username used to access the URL.'}),
 
+            )),
+
+            ('inet:serverfile', {}, (
+                ('server', ('inet:server', {}), {
+                    'computed': True,
+                    'doc': 'The server which hosted the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'computed': True,
+                    'doc': 'The file that was hosted on the server.'}),
             )),
 
             ('inet:urlfile', {}, (
@@ -2607,10 +2608,10 @@ modeldefs = (
                 ('expires', ('time', {}), {
                     'doc': 'The "expires" time from the whois record.'}),
 
-                ('registrar', ('meta:name', {}), {
+                ('registrar', ('entity:name', {}), {
                     'doc': 'The registrar name from the whois record.'}),
 
-                ('registrant', ('meta:name', {}), {
+                ('registrant', ('entity:name', {}), {
                     'doc': 'The registrant name from the whois record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact'}), {
@@ -2619,15 +2620,6 @@ modeldefs = (
                 ('nameservers', ('array', {'type': 'inet:fqdn', 'uniq': False, 'sorted': False}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
 
-            )),
-
-            ('inet:whois:email', {}, (
-
-                ('fqdn', ('inet:fqdn', {}), {'computed': True,
-                    'doc': 'The domain with a whois record containing the email address.'}),
-
-                ('email', ('inet:email', {}), {'computed': True,
-                    'doc': 'The email address associated with the domain whois record.'}),
             )),
 
             ('inet:whois:ipquery', {}, (
@@ -2712,7 +2704,7 @@ modeldefs = (
                 ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
-                # FIXME ownable interface?
+                # FIXME ownable interface? currently has :owner via meta:havable
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that owns/operates the access point.'}),
             )),
@@ -2903,7 +2895,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
 
                 ('software', ('it:software', {}), {
@@ -2934,6 +2926,9 @@ modeldefs = (
 
                 ('parent', ('inet:service:account', {}), {
                     'doc': 'A parent account which owns this account.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this account.'}),
             )),
 
             ('inet:service:relationship:type:taxonomy', {}, ()),
@@ -2950,13 +2945,16 @@ modeldefs = (
                     'doc': 'The type of relationship between the source and the target.'}),
             )),
 
-            ('inet:service:group', {}, (
+            ('inet:service:role', {}, (
 
-                ('name', ('inet:group', {}), {
-                    'doc': 'The name of the group on this platform.'}),
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the role on this platform.'}),
 
                 ('profile', ('entity:contact', {}), {
-                    'doc': 'Current detailed contact information for this group.'}),
+                    'doc': 'Current detailed contact information for this role.'}),
+
+                ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    'doc': 'An array of rules associated with this role.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
@@ -2979,10 +2977,10 @@ modeldefs = (
                 ('denied', ('bool', {}), {
                     'doc': 'Set to (true) to denote that the rule is an explicit deny.'}),
 
-                ('object', ('ndef', {'interface': 'inet:service:object'}), {
+                ('object', ('inet:service:object', {}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
+                ('grantee', (('inet:service:account', 'inet:service:role'), {}), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3023,8 +3021,8 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the message may be viewed.'}),
 
-                ('group', ('inet:service:group', {}), {
-                    'doc': 'The group that the message was sent to.'}),
+                ('role', ('inet:service:role', {}), {
+                    'doc': 'The role that the message was sent to.'}),
 
                 ('channel', ('inet:service:channel', {}), {
                     'doc': 'The channel that the message was sent to.'}),
@@ -3050,10 +3048,10 @@ modeldefs = (
                 ('repost', ('inet:service:message', {}), {
                     'doc': 'The original message reposted by this message.'}),
 
-                ('links', ('array', {'type': 'inet:service:message:link'}), {
+                ('links', ('array', {'type': 'inet:hyperlink'}), {
                     'doc': 'An array of links contained within the message.'}),
 
-                ('attachments', ('array', {'type': 'inet:service:message:attachment'}), {
+                ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files attached to the message.'}),
 
                 ('hashtags', ('array', {'type': 'lang:hashtag', 'split': ','}), {
@@ -3077,30 +3075,8 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')}}), {
+                ('mentions', ('array', {'type': ('inet:service:account', 'inet:service:role')}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
-            )),
-
-            ('inet:service:message:link', {}, (
-
-                ('title', ('str', {}), {
-                    'doc': 'The displayed hyperlink text if it was not the URL.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL contained within the message.'}),
-            )),
-
-            ('inet:service:message:attachment', {}, (
-
-                ('name', ('file:path', {}), {
-                    'doc': 'The name of the attached file.'}),
-
-                ('text', ('str', {}), {
-                    'doc': 'Any text associated with the file such as alt-text for images.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file which was attached to the message.'}),
             )),
 
             ('inet:service:emote', {}, (
@@ -3214,18 +3190,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-        'hooks': {
-            'post': {
-                'forms': (
-                    ('inet:fqdn', _onAddFqdn),
-                ),
-                'props': (
-                    ('inet:fqdn:zone', _onSetFqdnZone),
-                    ('inet:fqdn:iszone', _onSetFqdnIsZone),
-                    ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                    ('inet:whois:record:text', _onSetWhoisText),
-                )
-            }
-        },
     }),
 )

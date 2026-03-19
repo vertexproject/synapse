@@ -305,7 +305,7 @@ Deprecated Properties
             self.skip('3xx - changelog model diff tool needs to be rewritten.')
             argv = ['format', '--cdir', cdir, '--version', 'v0.1.2', '--date', '2025-10-03',
                     '--model-doc-dir', modl_dirn, '--model-ref', old_fp,
-                    '--model-doc-no-git', '--verbose',
+                    '--model-doc-no-git', '--verbose', '--no-prs-from-git',
                     ]
             self.eq(0, await s_t_changelog.main(argv, outp))
             # We have many assertions we may run over outp where using outp.expect()
@@ -397,7 +397,7 @@ Deprecated Properties
                 fd.write(multiline_feature.encode())
 
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             self.eq(str(outp).strip(), changelog_format_output.strip())
@@ -430,7 +430,7 @@ desc: |
 type: feat
 '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 0 must start with "- "')
 
@@ -443,7 +443,7 @@ desc: |
 type: feat
             '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 1 must start with "  "')
 
@@ -455,6 +455,6 @@ desc: |
 type: feat
             '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 0 is too long, 79 > 79')

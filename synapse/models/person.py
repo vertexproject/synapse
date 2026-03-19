@@ -41,6 +41,7 @@ modeldefs = (
                 'interfaces': (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A person or persona.'}),
 
@@ -60,12 +61,9 @@ modeldefs = (
             ('ps:vitals', ('guid', {}), {
                 'template': {'title': 'person'},
                 'interfaces': (
-                    ('phys:object', {}),
+                    ('phys:tangible', {}),
                 ),
                 'doc': 'Statistics and demographic data about a person.'}),
-
-            ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
-                'doc': 'An interface inherited by nodes which represent something which can be learned.'}),
 
             ('ps:skill', ('guid', {}), {
                 'interfaces': (
@@ -116,7 +114,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that this work history orgname refers to.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The reported name of the org the contact worked for.'}),
 

@@ -1,8 +1,6 @@
 import synapse.exc as s_exc
 import synapse.tests.utils as s_utils
 
-import synapse.common as s_common
-
 class EconTest(s_utils.SynTest):
 
     async def test_model_econ(self):
@@ -11,11 +9,11 @@ class EconTest(s_utils.SynTest):
 
             # test card number 4024007150779444
             card = (await core.nodes('[ econ:pay:card="*" :expr=201802 :name="Bob Smith" :cvv=123 :pin=1234 :pan=4024007150779444 ]'))[0]
-            self.eq('bob smith', card.get('name'))
-            self.eq(1517443200000000, card.get('expr'))
-            self.eq('4024007150779444', card.get('pan'))
-            self.eq(4, card.get('pan:mii'))
-            self.eq(402400, card.get('pan:iin'))
+            self.propeq(card, 'name', 'bob smith')
+            self.propeq(card, 'expr', 1517443200000000)
+            self.propeq(card, 'pan', '4024007150779444')
+            self.propeq(card, 'pan:mii', 4)
+            self.propeq(card, 'pan:iin', 402400)
 
             text = '''[
                 econ:purchase="*"
@@ -36,8 +34,8 @@ class EconTest(s_utils.SynTest):
 
             perc = (await core.nodes(text))[0]
 
-            self.eq('13.37', perc.get('price'))
-            self.eq('usd', perc.get('currency'))
+            self.propeq(perc, 'price', '13.37')
+            self.propeq(perc, 'currency', 'usd')
 
             self.len(1, await core.nodes('econ:purchase :buyer -> entity:contact'))
             self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
@@ -85,10 +83,10 @@ class EconTest(s_utils.SynTest):
             self.len(0, await core.nodes('econ:purchase:price +:price>=20.00'))
             self.len(0, await core.nodes('econ:purchase:price +:price<=10.00'))
 
-            self.eq(True, perc.get('paid'))
-            self.eq(1517529600000000, perc.get('paid:time'))
+            self.propeq(perc, 'paid', True)
+            self.propeq(perc, 'paid:time', 1517529600000000)
 
-            self.eq(perc.get('place:loc'), 'us.ny.brooklyn')
+            self.propeq(perc, 'place:loc', 'us.ny.brooklyn')
 
             self.len(1, await core.nodes('econ:purchase -> geo:place'))
             self.len(2, await core.nodes('econ:purchase -> entity:contact | uniq'))
@@ -113,11 +111,11 @@ class EconTest(s_utils.SynTest):
             ]'''
             nodes = await core.nodes(text)
 
-            self.eq(nodes[0].get('status'), 'settled')
-            self.eq('myhouse', nodes[0].get('place:name'))
+            self.propeq(nodes[0], 'status', 'settled')
+            self.propeq(nodes[0], 'place:name', 'myhouse')
             self.eq((90, 80), nodes[0].get('place:latlong'))
-            self.eq('us.ny.brooklyn', nodes[0].get('place:loc'))
-            self.eq('123 main street, brooklyn, ny, 11223', nodes[0].get('place:address'))
+            self.propeq(nodes[0], 'place:loc', 'us.ny.brooklyn')
+            self.propeq(nodes[0], 'place:address', '123 main street, brooklyn, ny, 11223')
 
             self.len(1, await core.nodes('econ:payment -> geo:place'))
             self.len(2, await core.nodes('econ:payment -> entity:contact | uniq'))
@@ -128,8 +126,8 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
             self.nn(nodes[0].get('org'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('nasdaq', nodes[0].get('name'))
+            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'name', 'nasdaq')
 
             nodes = await core.nodes('''
                 [
@@ -144,10 +142,10 @@ class EconTest(s_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].ndef[1])
-            self.eq('stock.', nodes[0].get('type'))
-            self.eq('nasdaq/tsla', nodes[0].get('ticker'))
-            self.eq('9999', nodes[0].get('price'))
-            self.eq(1580515200000000, nodes[0].get('time'))
+            self.propeq(nodes[0], 'type', 'stock.')
+            self.propeq(nodes[0], 'ticker', 'nasdaq/tsla')
+            self.propeq(nodes[0], 'price', '9999')
+            self.propeq(nodes[0], 'time', 1580515200000000)
 
             self.len(1, await core.nodes('econ:fin:security -> econ:fin:exchange +:name=nasdaq'))
 
@@ -160,9 +158,9 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1580601600000000, nodes[0].get('time'))
-            self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
-            self.eq('9999', nodes[0].get('price'))
+            self.propeq(nodes[0], 'time', 1580601600000000)
+            self.propeq(nodes[0], 'security', '947183947f2e2c7bdc55264c20670f19')
+            self.propeq(nodes[0], 'price', '9999')
 
             nodes = await core.nodes('''
                 [
@@ -177,11 +175,11 @@ class EconTest(s_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq((1580601600000000, 1580688000000000, 86400000000), nodes[0].get('period'))
-            self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
-            self.eq('9999', nodes[0].get('price:open'))
-            self.eq('9999.01', nodes[0].get('price:close'))
-            self.eq('999999999999', nodes[0].get('price:high'))
-            self.eq('0.00001', nodes[0].get('price:low'))
+            self.propeq(nodes[0], 'security', '947183947f2e2c7bdc55264c20670f19')
+            self.propeq(nodes[0], 'price:open', '9999')
+            self.propeq(nodes[0], 'price:close', '9999.01')
+            self.propeq(nodes[0], 'price:high', '999999999999')
+            self.propeq(nodes[0], 'price:low', '0.00001')
 
             nodes = await core.nodes('''
                 [ econ:balance=*
@@ -192,9 +190,9 @@ class EconTest(s_utils.SynTest):
                 ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
-            self.eq(nodes[0].get('time'), 1635638400000000)
-            self.eq(nodes[0].get('amount'), '123.45')
-            self.eq(nodes[0].get('currency'), 'usd')
+            self.propeq(nodes[0], 'time', 1635638400000000)
+            self.propeq(nodes[0], 'amount', '123.45')
+            self.propeq(nodes[0], 'currency', 'usd')
 
             self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
 
@@ -208,8 +206,8 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('count'), 10)
-            self.eq(nodes[0].get('price'), '100')
+            self.propeq(nodes[0], 'count', 10)
+            self.propeq(nodes[0], 'price', '100')
             self.len(1, await core.nodes('econ:lineitem -> biz:product +:name=bananna'))
 
             nodes = await core.nodes('''
@@ -223,11 +221,11 @@ class EconTest(s_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('issuer'))
-            self.eq('1234', nodes[0].get('number'))
-            self.eq('checking.', nodes[0].get('type'))
-            self.eq('bank of visi', nodes[0].get('issuer:name'))
+            self.propeq(nodes[0], 'number', '1234')
+            self.propeq(nodes[0], 'type', 'checking.')
+            self.propeq(nodes[0], 'issuer:name', 'bank of visi')
             self.len(1, await core.nodes('econ:bank:aba:account -> ou:org'))
-            self.len(1, await core.nodes('econ:bank:aba:account -> meta:name'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> entity:name'))
             self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:rtn'))
             self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:account:type:taxonomy'))
 
@@ -250,9 +248,9 @@ class EconTest(s_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('99', nodes[0].get('starting:balance'))
-            self.eq('999', nodes[0].get('ending:balance'))
+            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'starting:balance', '99')
+            self.propeq(nodes[0], 'ending:balance', '999')
             self.eq((1709251200000000, 1709251200000001, 1), nodes[0].get('period'))
 
             self.len(2, nodes[0].protocols())
@@ -268,7 +266,7 @@ class EconTest(s_utils.SynTest):
                     :bank:name="deutsche bank"
             ]''')
             self.len(1, nodes)
-            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> meta:name'))
+            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> entity:name'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
 
             nodes = await core.nodes('''[
@@ -281,9 +279,9 @@ class EconTest(s_utils.SynTest):
                     :recipient={[ entity:contact=({"name": "visi"}) ]}
             ]''')
             self.len(1, nodes)
-            self.eq('99', nodes[0].get('amount'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq(1710806400000000, nodes[0].get('issued'))
+            self.propeq(nodes[0], 'amount', '99')
+            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'issued', 1710806400000000)
             self.len(1, await core.nodes('econ:receipt -> econ:purchase'))
             self.len(1, await core.nodes('econ:receipt :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:receipt :recipient -> entity:contact'))
@@ -300,11 +298,75 @@ class EconTest(s_utils.SynTest):
                     :recipient={ entity:contact:name=visi }
             ]''')
             self.len(1, nodes)
-            self.eq('99', nodes[0].get('amount'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq(0, nodes[0].get('paid'))
-            self.eq(1710806400000000, nodes[0].get('due'))
-            self.eq(1710806400000000, nodes[0].get('issued'))
+            self.propeq(nodes[0], 'amount', '99')
+            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'paid', 0)
+            self.propeq(nodes[0], 'due', 1710806400000000)
+            self.propeq(nodes[0], 'issued', 1710806400000000)
             self.len(1, await core.nodes('econ:invoice -> econ:purchase'))
             self.len(1, await core.nodes('econ:invoice :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:invoice :recipient -> entity:contact'))
+
+    async def test_model_econ_price_virts(self):
+
+        async with self.getTestCore() as core:
+
+            # set currency virt on a price
+            nodes = await core.nodes('[ econ:purchase=* :price=13.37 :price.currency=usd ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price', '13.37')
+            self.propeq(nodes[0], 'price.currency', 'usd')
+
+            # set asof virt, verify currency is preserved
+            nodes = await core.nodes('econ:purchase:price=13.37 [ :price.asof=2024 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price.currency', 'usd')
+            self.propeq(nodes[0], 'price.asof', 1704067200000000)
+
+            # update currency, verify asof is preserved
+            nodes = await core.nodes('econ:purchase:price=13.37 [ :price.currency=eur ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price.currency', 'eur')
+            self.propeq(nodes[0], 'price.asof', 1704067200000000)
+
+            # lift by currency virt
+            self.len(1, await core.nodes('econ:purchase:price.currency=eur'))
+            self.len(0, await core.nodes('econ:purchase:price.currency=usd'))
+
+            # lift by asof virt
+            self.len(1, await core.nodes('econ:purchase:price.asof=2024'))
+
+            # filter by virt
+            self.len(1, await core.nodes('econ:purchase +:price.currency=eur'))
+            self.len(0, await core.nodes('econ:purchase +:price.currency=usd'))
+
+            # backward compat: price without virts still works
+            nodes = await core.nodes('[ econ:purchase=* :price=99.99 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'price', '99.99')
+            self.none(nodes[0].get('price.currency'))
+            self.none(nodes[0].get('price.asof'))
+
+            # price comparisons still work with virts set
+            self.len(1, await core.nodes('econ:purchase:price=13.37 +:price>10'))
+            self.len(1, await core.nodes('econ:purchase:price=13.37 +:price<20'))
+
+            # error: setting virt on unset price
+            nodes = await core.nodes('[ econ:purchase=* ]')
+            guid = nodes[0].ndef[1]
+            opts = {'vars': {'guid': guid}}
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase=$guid [ :price.currency=usd ]', opts=opts)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase=$guid [ :price.asof=2024 ]', opts=opts)
+
+            # currency not set but asof is (covers _getCurrency None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=50.00 :price.asof=2024 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.currency'))
+
+            # asof not set but currency is (covers _getAsof None return for missing key)
+            nodes = await core.nodes('[ econ:purchase=* :price=75.00 :price.currency=gbp ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('price.asof'))

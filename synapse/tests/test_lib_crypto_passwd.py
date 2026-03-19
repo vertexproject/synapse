@@ -81,6 +81,26 @@ class PasswdTest(s_t_utils.SynTest):
             with self.raises(AttributeError):
                 await s_passwd.getShadowV2(vec)
 
+    async def test_checkShadowV2_cache(self):
+        passwd = 'password'
+        wrong = 'newp'
+        shadow = await s_passwd.getShadowV2(passwd)
+
+        s_passwd._shadowCache.clear()
+
+        # First call populates cache; subsequent calls return cached result.
+        self.true(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
+        self.len(1, s_passwd._shadowCache)
+        self.true(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
+        self.true(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
+        self.len(1, s_passwd._shadowCache)
+
+        # Wrong password gets its own cache entry.
+        self.false(await s_passwd.checkShadowV2(passwd=wrong, shadow=shadow))
+        self.len(2, s_passwd._shadowCache)
+        self.false(await s_passwd.checkShadowV2(passwd=wrong, shadow=shadow))
+        self.len(2, s_passwd._shadowCache)
+
     async def test_apikey_generation(self):
         iden, key, shadow = await s_passwd.generateApiKey()
         self.true(s_common.isguid(iden))
@@ -133,3 +153,15 @@ class PasswdTest(s_t_utils.SynTest):
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
         self.eq(valu, 'Incorrect length, got 8')
+
+        # An otherwise valid key, but with standard base64 chars instead
+        # of the altchars we specified. This covers CVE-2025-12781 behavior.
+        badkeys_invalid_alts = (
+            'bcr_T1bNJURuN4+7CY5CqSuuK_Uvqg5Uv47W5YQ58RA=',
+            'bcr/T1bNJURuN4-7CY5CqSuuK/Uvqg5Uv47W5YQ58RA=',
+            'bcr/T1bNJURuN4+7CY5CqSuuK/Uvqg5Uv47W5YQ58RA=',
+        )
+        for badkey in badkeys_invalid_alts:
+            isok, valu = s_passwd.parseApiKey(badkey)
+            self.false(isok)
+            self.isin('Invalid character in API key.', valu)

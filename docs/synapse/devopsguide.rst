@@ -485,6 +485,10 @@ back to ``false``. It is not necessary to optimize the databases on every boot o
 service, but regularly scheduling an optimization pass based on the write activity of
 the service will help ensure optimal performance.
 
+When an optimization is performed, the service records the time and directory size before
+and after the optimization. This information is available in the ``optimized`` key of the
+dictionary returned by ``getCellInfo()`` and persists across restarts.
+
 .. note::
 
     During the optimization process, the service will make an optimized copy of each
@@ -1719,7 +1723,7 @@ This allows creating endpoints that run in one of three modes:
 These three modes can be demonstrated by configuring endpoints that will echo back the current user::
 
     // Create a query object that we will use for each handler
-    $echo=${ $request.reply(200, body=$lib.user.name()) }
+    $echo=${ $request.reply(200, body=$lib.auth.users.get().name) }
 
     // Create the first endpoint with a default configuration.
     $api0 = $lib.cortex.httpapi.add('demo/owner')

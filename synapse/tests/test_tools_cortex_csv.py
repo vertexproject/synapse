@@ -139,7 +139,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('hello hello')
-            outp.expect("'fqdn': 'google.com'")
+            outp.expect("'fqdn': ('inet:fqdn', 'google.com')")
             outp.expect('3 nodes')
 
     async def test_csvtool_local(self):
@@ -228,7 +228,7 @@ class CsvToolTest(s_t_utils.SynTest):
             with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
                 outp = self.getTestOutp()
                 await s_csvtool.main(argv, outp=outp)
-                outp.expect(f'Cortex version 0.0.0 is outside of the synapse.tools.cortex.csv supported range')
+                outp.expect('Cortex version 0.0.0 is outside of the synapse.tools.cortex.csv supported range')
 
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
             await core.nodes('[test:int=50]', opts={'view': view})

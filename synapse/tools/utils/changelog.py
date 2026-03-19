@@ -920,7 +920,7 @@ async def format(opts: s_cmd.argparse.Namespace,
                 outp.printf(f'Wrote model changes to {fp}')
                 if opts.model_doc_git:  # pragma: no cover
                     if opts.verbose:
-                        outp.printf(f'Adding file to git.')
+                        outp.printf('Adding file to git.')
                     argv = ['git', 'add', fp]
                     ret = subprocess.run(argv, capture_output=True)
                     if opts.verbose:
@@ -930,7 +930,7 @@ async def format(opts: s_cmd.argparse.Namespace,
                 else:
                     outp.printf('Not adding model changes to git.')
         else:
-            outp.printf(f'No model changes detected.')
+            outp.printf('No model changes detected.')
 
     for key, header in s_schemas._changelogTypes.items():
         dataz = entries.get(key)
@@ -1079,8 +1079,8 @@ def getArgParser(outp: s_output.OutPut):
                          help='Hide PR entries.')
     mux_prs.add_argument('--enforce-prs', default=False, action='store_true',
                          help='Enforce PRs list to be populated with at least one number.', )
-    format_pars.add_argument('--prs-from-git', default=False, action='store_true',
-                             help='Attempt to populate any PR numbers from a given files commit history.')
+    format_pars.add_argument('--no-prs-from-git', default=True, action='store_false', dest='prs_from_git',
+                             help='Do not attempt to populate any PR numbers from a given files commit history.')
     format_pars.add_argument('-w', '--width', help='Maximum column width to wrap descriptions at.',
                              default=79, type=int)
     format_pars.add_argument('--version', required=True, action='store', type=str,
@@ -1093,8 +1093,8 @@ def getArgParser(outp: s_output.OutPut):
                              help='Baseline model to use when generating model deltas. This is normally the previous releases model file.')
     format_pars.add_argument('--model-current', default=None, action='store',
                              help='Optional model file to use as a reference as the current model.')
-    format_pars.add_argument('--model-doc-dir', default=None, action='store',
-                             help='Directory to write the model changes too.')
+    format_pars.add_argument('--model-doc-dir', default='./docs/synapse/userguides/model_updates/',
+                             action='store', help='Directory to write the model changes too.')
     format_pars.add_argument('--model-doc-no-git', default=True, dest='model_doc_git',
                              action='store_false', help='Do not add the model doc output to git.')
 

@@ -257,7 +257,7 @@ class LibPkg(s_stormtypes.Lib):
                   'returns': {'type': 'pkg:queues', 'desc': 'An object for accessing the package Queues.', }}},
     )
     _storm_lib_perms = (
-        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
+        {'perm': ('power-ups', '<power-up>', 'admin'), 'gate': 'cortex',
          'desc': 'Controls the ability to interact with the vars or Queues for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)

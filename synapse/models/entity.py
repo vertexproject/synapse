@@ -14,10 +14,26 @@ modeldefs = (
                     ('actor', ('entity:actor', {}), {
                         'doc': 'The actor who carried out the {title}.'}),
 
-                    ('actor:name', ('meta:name', {}), {
+                    ('actor:name', ('entity:name', {}), {
                         'doc': 'The name of the actor who carried out the {title}.'}),
                 ),
             }),
+
+            ('entity:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('base:event', {}),
+                    ('entity:action', {}),
+                ),
+                'doc': 'Properties common to events carried out by an actor.'}),
+
+            ('entity:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                    ('entity:action', {}),
+                ),
+                'doc': 'Properties common to activity carried out by an actor.'}),
 
             ('entity:attendable', {
                 'template': {'title': 'event'},
@@ -41,6 +57,9 @@ modeldefs = (
             ('entity:contactable', {
 
                 'template': {'title': 'entity'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
                 'props': (
 
                     ('id', ('meta:id', {}), {
@@ -52,15 +71,15 @@ modeldefs = (
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The profile picture or avatar for this {title}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('banner', ('file:bytes', {}), {
+                        'doc': 'A banner or hero image used on the profile page.'}),
+
+                    ('name', ('entity:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
-
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The primary url for the {title}.'}),
 
                     ('lifespan', ('ival', {}), {
                         'virts': (
@@ -77,7 +96,15 @@ modeldefs = (
                         'doc': 'The lifespan of the {title}.'}),
 
                     # FIXME place of birth / death?
-                    # FIXME lang
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('lang', ('lang:language', {}), {
+                        'doc': 'The primary language of the {title}.'}),
+
+                    ('langs', ('array', {'type': 'lang:language'}), {
+                        'doc': 'An array of alternate languages for the {title}.'}),
 
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
@@ -86,6 +113,7 @@ modeldefs = (
                         'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
+                        'alts': ('phones',),
                         'doc': 'The primary phone number for the {title}.'}),
 
                     ('phones', ('array', {'type': 'tel:phone'}), {
@@ -116,10 +144,6 @@ modeldefs = (
                 'doc': 'An interface for forms which contain contact info.'}),
 
             ('entity:actor', {
-                'interfaces': (
-                    ('geo:locatable', {}),
-                    ('entity:contactable', {}),
-                ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:singular', {
@@ -131,7 +155,7 @@ modeldefs = (
                     ('org', ('ou:org', {}), {
                         'doc': 'An associated organization listed as part of the contact information.'}),
 
-                    ('org:name', ('meta:name', {}), {
+                    ('org:name', ('entity:name', {}), {
                         'doc': 'The name of an associated organization listed as part of the contact information.'}),
 
                     ('title', ('entity:title', {}), {
@@ -143,14 +167,12 @@ modeldefs = (
                 'doc': 'Properties which apply to entities which may represent a person.'}),
 
             ('entity:multiple', {
-                'props': (
-                ),
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
             ('entity:abstract', {
                 'template': {'title': 'entity'},
                 'props': (
-                    ('resolved', ('entity:resolved', {}), {
+                    ('resolved', (('ou:org', 'ps:person'), {}), {
                         'doc': 'The resolved entity to which this {title} belongs.'}),
                 ),
                 'doc': 'An abstract entity which can be resolved to an organization or person.'}),
@@ -158,26 +180,18 @@ modeldefs = (
 
         'types': (
 
-            ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
-                'doc': 'An event where individuals may attend or participate.'}),
-
-            ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
-                'doc': 'A node which implements the entity:contactable interface.'}),
-
-            ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
-                'doc': 'A fully resolved entity such as a person or organization.'}),
-
-            ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+            ('entity:individual', ('poly', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                 'doc': 'A singular entity such as a person.'}),
 
-            ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
-                'doc': 'A node which inherits the entity:identifier interface.'}),
+            ('entity:name', ('base:name', {}), {
+                'doc': 'A name used to refer to an entity.'}),
 
             # FIXME syn:user is an actor...
-            ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
-                'doc': 'An entity which has initiative to act.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'prevnames': ('ou:jobtitle', 'ou:role'),
                 'doc': 'A title or position name used by an entity.'}),
 
@@ -194,6 +208,7 @@ modeldefs = (
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
 
@@ -214,11 +229,20 @@ modeldefs = (
                 ),
                 'doc': 'Historical contact information about another contact.'}),
 
+            ('entity:contactlist', ('guid', {}), {
+                'doc': 'A list of contacts.'}),
+
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of entity relationship types.'}),
+
+            ('entity:relationship:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of entity relationship statuses.'}),
 
             ('entity:relationship', ('guid', {}), {
                 'template': {'title': 'relationship'},
@@ -251,6 +275,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
 
+            ('entity:goal:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal statuses.'}),
+
             ('entity:goal', ('guid', {}), {
                 'template': {'title': 'goal'},
                 'interfaces': (
@@ -269,11 +299,18 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
 
+            ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of campaign statuses.'}),
+
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                     ('meta:reported', {}),
+                    ('meta:observable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -296,6 +333,9 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
+            ('entity:discovery', ('guid', {}), {
+                'doc': 'A discovery made by an actor.'}),
+
         ),
 
         'edges': (
@@ -307,6 +347,9 @@ modeldefs = (
 
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
+
+            (('entity:contactlist', 'has', 'entity:contact'), {
+                'doc': 'The contact list contains the contact.'}),
 
             (('entity:action', 'used', 'meta:usable'), {
                 'doc': 'The action was taken using the target node.'}),
@@ -328,6 +371,8 @@ modeldefs = (
 
             ('entity:title', {}, ()),
 
+            ('entity:name', {}, ()),
+
             ('entity:contact:type:taxonomy', {}, ()),
             ('entity:contact', {}, (
 
@@ -340,6 +385,15 @@ modeldefs = (
 
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
+            )),
+
+            ('entity:contactlist', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the contact list.'}),
+
+                ('source', (('it:host', 'inet:service:account', 'file:bytes'), {}), {
+                    'doc': 'The source that the contact list was extracted from.'}),
             )),
 
             ('entity:had:type:taxonomy', {}, ()),
@@ -424,25 +478,16 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
-                    'doc': 'Actors who participated in the campaign.'}),
-
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                # TODO: should we create risk:campaign and define this there
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
-
-                # FIXME meta:timeline interface...
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the entity was running the campaign.'}),
 
                 ('cost', ('econ:price', {}), {
                     'protocols': {
@@ -458,9 +503,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record econ:price properties.'}),
-
-                ('team', ('ou:team', {}), {
-                    'doc': 'The org team responsible for carrying out the campaign.'}),
 
                 # FIXME overfit?
                 ('conflict', ('entity:conflict', {}), {
@@ -480,15 +522,13 @@ modeldefs = (
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),
-
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('entity:contribution', {}, (
 
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
+                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 
@@ -497,6 +537,18 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
+            )),
+
+            ('entity:discovery', {}, (
+
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The actor who made the discovery.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time when the discovery was made.'}),
+
+                ('item', ('meta:discoverable', {}), {
+                    'doc': 'The item which was discovered.'}),
             )),
 
         ),

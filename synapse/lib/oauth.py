@@ -322,7 +322,7 @@ class OAuthMixin(s_nexus.Pusher):
                         retn = False, {'error': f'Token API returned HTTP code {resp.status}'}
 
                 except asyncio.TimeoutError:
-                    retn = False, {'error': f'Token API request timed out'}
+                    retn = False, {'error': 'Token API request timed out'}
 
                 except Exception as e:
                     logger.exception(f'Error fetching token data from {url}')

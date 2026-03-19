@@ -18,15 +18,39 @@ class GeoPolModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq('visiland', nodes[0].get('name'))
-            self.eq(('visitopia',), nodes[0].get('names'))
-            self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('period'))
-            self.eq('vi', nodes[0].get('code'))
-            self.eq('vis', nodes[0].get('iso:3166:alpha3'))
-            self.eq(137, nodes[0].get('iso:3166:numeric3'))
-            self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
-            self.len(2, await core.nodes('pol:country -> meta:name'))
+            self.propeq(nodes[0], 'name', 'visiland')
+            self.propeq(nodes[0], 'names', ('visitopia',))
+            self.propeq(nodes[0], 'period', (1640995200000000, 1672531200000000, 31536000000000))
+            self.propeq(nodes[0], 'code', 'vi', form='iso:3166:alpha2')
+            self.propeq(nodes[0], 'iso:3166:alpha3', 'vis')
+            self.propeq(nodes[0], 'iso:3166:numeric3', '137')
+            self.propeq(nodes[0], 'currencies', ('pesos', 'usd', 'vcoins'))
+            self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
+
+            # test poly code with alpha3
+            nodes = await core.nodes('pol:country [ :code=vis ]')
+            self.propeq(nodes[0], 'code', 'vis', form='iso:3166:alpha3')
+
+            # test poly code with numeric3
+            nodes = await core.nodes('pol:country [ :code=137 ]')
+            self.propeq(nodes[0], 'code', '137', form='iso:3166:numeric3')
+
+            # test poly code with meta:id
+            nodes = await core.nodes('pol:country [ :code=" MYID001" ]')
+            self.propeq(nodes[0], 'code', 'MYID001', form='meta:id')
+
+            # test codes array with mixed types
+            nodes = await core.nodes('pol:country [ :codes=(vi, vis, 137, " MYID001") ]')
+            self.eq(nodes[0].get('codes'), (
+                ('iso:3166:alpha2', 'vi'),
+                ('iso:3166:alpha3', 'vis'),
+                ('iso:3166:numeric3', '137'),
+                ('meta:id', 'MYID001'),
+            ))
+            self.len(1, await core.nodes('pol:country:codes*[=vi]'))
+            self.len(1, await core.nodes('pol:country:codes*[=vis]'))
+            self.len(1, await core.nodes('pol:country:codes*[=137]'))
 
             self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
@@ -45,12 +69,12 @@ class GeoPolModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('country'))
-            self.eq(1, nodes[0].get('population'))
-            self.eq(1000000, nodes[0].get('area'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('100', nodes[0].get('econ:gdp'))
-            self.eq('usd', nodes[0].get('econ:currency'))
-            self.eq(1735689600000000, nodes[0].get('time'))
+            self.propeq(nodes[0], 'population', 1)
+            self.propeq(nodes[0], 'area', 1000000)
+            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'econ:gdp', '100')
+            self.propeq(nodes[0], 'econ:currency', 'usd')
+            self.propeq(nodes[0], 'time', 1735689600000000)
             self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
     async def test_types_iso_3166(self):
@@ -70,19 +94,19 @@ class GeoPolModelTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm('asdF'))
 
             t = core.model.type('iso:3166:numeric3')
-            self.eq(t.repr(10), '010')
-            self.eq(await t.norm(10), (10, {}))
-            self.eq(await t.norm('010'), (10, {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(9999))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(9999))
+            self.eq(await t.norm('010'), ('010', {}))
+            self.eq(await t.norm('840'), ('840', {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('12'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('1234'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('abc'))
 
     async def test_model_geopol_election(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ pol:election=* :name="2024 US Presidential Election" :time=2024-11-03 ]
             ''')
-            self.eq(1730592000000000, nodes[0].get('time'))
-            self.eq('2024 us presidential election', nodes[0].get('name'))
+            self.propeq(nodes[0], 'time', 1730592000000000)
+            self.propeq(nodes[0], 'name', '2024 us presidential election')
 
             nodes = await core.nodes('''
                 [ pol:office=*
@@ -92,8 +116,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :termlimit=2
                 ]
             ''')
-            self.eq('potus', nodes[0].get('title'))
-            self.eq(2, nodes[0].get('termlimit'))
+            self.propeq(nodes[0], 'title', 'potus')
+            self.propeq(nodes[0], 'termlimit', 2)
             self.len(1, await core.nodes('pol:office:title=potus -> ou:org'))
             self.len(1, await core.nodes('pol:office:title=potus -> ou:position'))
             self.len(1, await core.nodes('pol:office:title=potus -> entity:title'))
@@ -106,8 +130,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :turnout=499
                 ]
             ''')
-            self.eq(500, nodes[0].get('voters'))
-            self.eq(499, nodes[0].get('turnout'))
+            self.propeq(nodes[0], 'voters', 500)
+            self.propeq(nodes[0], 'turnout', 499)
             self.len(1, await core.nodes('pol:race -> pol:office +:title=potus'))
             self.len(1, await core.nodes('pol:race -> pol:election +:time=20241103'))
 
@@ -121,8 +145,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :party={[ou:org=* :name=vertex]}
                 ]
             ''')
-            self.eq(1, nodes[0].get('winner'))
-            self.eq('P00009423', nodes[0].get('id'))
+            self.propeq(nodes[0], 'winner', 1)
+            self.propeq(nodes[0], 'id', 'P00009423')
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:candidate -> entity:contact +:name=whippit'))
@@ -154,13 +178,13 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :closed=202411032000-05:00
                 ]
             ''')
-            self.eq(1730638800000000, nodes[0].get('opens'))
-            self.eq(1730682000000000, nodes[0].get('closes'))
-            self.eq(1730638800000000, nodes[0].get('opened'))
-            self.eq(1730682000000000, nodes[0].get('closed'))
+            self.propeq(nodes[0], 'opens', 1730638800000000)
+            self.propeq(nodes[0], 'closes', 1730682000000000)
+            self.propeq(nodes[0], 'opened', 1730638800000000)
+            self.propeq(nodes[0], 'closed', 1730682000000000)
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
-            self.len(1, await core.nodes('pol:pollingplace -> meta:name +meta:name=pollingplace00'))
+            self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))
 
     async def test_model_geopol_immigration(self):
 
@@ -178,6 +202,6 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('country'))
             self.nn(nodes[0].get('contact'))
-            self.eq('requested', nodes[0].get('state'))
-            self.eq('citizen.naturalized.', nodes[0].get('type'))
+            self.propeq(nodes[0], 'state', 'requested')
+            self.propeq(nodes[0], 'type', 'citizen.naturalized.')
             self.eq((1679961600000000, 1704067200000000, 24105600000000), nodes[0].get('period'))

@@ -407,7 +407,7 @@ modeldefs = (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location where the {title} {happened}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('geo:name', {}), {
                         'doc': 'The name where the {title} {happened}.'}),
 
                     ('address', ('geo:address', {}), {
@@ -447,13 +447,16 @@ modeldefs = (
 
             ('geo:telem', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {'template': {'title': 'object'}}),
+                    ('phys:tangible', {'template': {'title': 'object'}}),
                     ('geo:locatable', {'template': {'title': 'object'}}),
                 ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
+
+            ('geo:name', ('base:name', {}), {
+                'doc': 'An unstructured place name or address.'}),
 
             ('geo:place', ('guid', {}), {
                 'template': {'title': 'place'},
@@ -500,6 +503,8 @@ modeldefs = (
 
         'forms': (
 
+            ('geo:name', {}, ()),
+
             ('geo:telem', {}, (
 
                 ('time', ('time', {}), {
@@ -508,7 +513,7 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'doc': 'A description of the telemetry sample.'}),
 
-                ('node', ('ndef', {}), {
+                ('node', ('meta:observable', {}), {
                     'doc': 'The node that was observed at the associated time and place.'}),
             )),
 
@@ -523,11 +528,11 @@ modeldefs = (
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'geo:name'}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('text', {}), {

@@ -73,8 +73,11 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'template': {'title': 'organization'},
                 'interfaces': (
+                    ('meta:havable', {}),
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
+                    ('risk:targetable', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
                 'display': {
@@ -135,6 +138,12 @@ modeldefs = (
                     ),
                 },
                 'doc': 'An industry classification type.'}),
+
+            ('ou:industry:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of industry statuses.'}),
 
             ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -327,6 +336,10 @@ modeldefs = (
         ),
         'edges': (
 
+            # TODO - we will need more of these based on interfaces
+            (('meta:rule', 'shows', 'ou:enacted'), {
+                'doc': 'The source rule shows the status of the enacted document.'}),
+
         ),
         'forms': (
 
@@ -341,7 +354,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The name of the organization as listed in the opening.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -455,7 +468,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The resolved org.'}),
 
-                ('org:name', ('meta:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The org name as reported by the source of the vitals.'}),
 
@@ -544,7 +557,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The organization which issued the ID.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the issuer.'}),
 
                 ('recipient', ('entity:actor', {}), {
@@ -586,8 +599,8 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry'}), {
                     'doc': 'The industries associated with the org.'}),
 
-                ('subs', ('array', {'type': 'ou:org'}), {
-                    'doc': 'An set of sub-organizations.'}),
+                ('parent', ('ou:org', {}), {
+                    'doc': 'The parent organization.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
@@ -627,19 +640,20 @@ modeldefs = (
                 ('type', ('ou:asset:type:taxonomy', {}), {
                     'doc': 'The asset type.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The overall priority of protecting the asset.'}),
 
-                ('priority:confidentiality', ('meta:priority', {}), {
+                ('priority:confidentiality', ('meta:score', {}), {
                     'doc': 'The priority of protecting the confidentiality of the asset.'}),
 
-                ('priority:integrity', ('meta:priority', {}), {
+                ('priority:integrity', ('meta:score', {}), {
                     'doc': 'The priority of protecting the integrity of the asset.'}),
 
-                ('priority:availability', ('meta:priority', {}), {
+                ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
-                ('node', ('ndef', {}), {
+                # TODO: what are the correct options for node here?
+                ('node', ('meta:havable', {}), {
                     'doc': 'The node which represents the asset.'}),
 
                 ('place', ('geo:place', {}), {
@@ -701,19 +715,19 @@ modeldefs = (
                 ('presenters', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
-                ('deck:url', ('inet:url', ()), {
+                ('deck:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
 
-                ('deck:file', ('file:bytes', ()), {
+                ('deck:file', ('file:bytes', {}), {
                     'doc': 'A file containing the presentation materials.'}),
 
-                ('attendee:url', ('inet:url', ()), {
+                ('attendee:url', ('inet:url', {}), {
                     'doc': 'The URL visited by live attendees of the presentation.'}),
 
-                ('recording:url', ('inet:url', ()), {
+                ('recording:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a recording of the presentation.'}),
 
-                ('recording:file', ('file:bytes', ()), {
+                ('recording:file', ('file:bytes', {}), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
             ('ou:meeting', {}, (
@@ -749,6 +763,9 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the participant competed in the contest.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': "A URL which documents the participant's results."}),
             )),
             ('ou:enacted:status:taxonomy', {}, ()),
             ('ou:enacted', {}, (
@@ -756,10 +773,11 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
+                ('doc', (('doc:policy', 'doc:standard', 'doc:requirement'), {}), {
                     'doc': 'The document enacted by the organization.'}),
 
-                ('scope', ('ndef', {}), {
+                # TODO: what valid scopes are there?
+                ('scope', (('ou:team', 'ou:org'), {}), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),

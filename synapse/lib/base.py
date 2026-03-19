@@ -22,6 +22,7 @@ import synapse.lib.scope as s_scope
 logger = logging.getLogger(__name__)
 
 OMIT_FINI_WARNS = os.environ.get('SYNDEV_OMIT_FINI_WARNS', False)
+BASE_MAIN_BG_TASK_TIMEOUT = int(os.environ.get('SYNDEV_BASE_MAIN_BG_TASK_TIMEOUT', 3))
 
 def _fini_atexit():  # pragma: no cover
 
@@ -395,6 +396,8 @@ class Base:
 
         for base in list(self.tofini):
             await base.fini()
+        # Do not continue to hold a reference to the last item we iterated on.
+        base = None  # NOQA
 
         await self._kill_active_tasks()
 
@@ -467,6 +470,10 @@ class Base:
         finally:
             for evnt in evnts:
                 self.off(evnt, func)
+
+    def _wouldfini(self):
+        '''Check if a Base would be fini() if fini() was called on it.'''
+        return self._syn_refs == 1
 
     async def waitfini(self, timeout=None):
         '''
@@ -598,7 +605,7 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-    async def main(self): # pragma: no cover
+    async def main(self, timeout=BASE_MAIN_BG_TASK_TIMEOUT): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
@@ -607,7 +614,8 @@ class Base:
             This API may only be used when the ioloop is *also* the main thread.
         '''
         await self.addSignalHandlers()
-        return await self.waitfini()
+        await self.waitfini()
+        await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):
         '''

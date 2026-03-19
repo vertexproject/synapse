@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import threading
 import collections
 
 import logging
@@ -20,7 +19,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -1524,6 +1522,423 @@ class Slab(s_base.Base):
                     return
 
                 yield lkey, lval
+
+    async def multiScanByDups(self, pref, multilen, lkey, db=None):
+
+        with Scan(self, db) as scan:
+
+            skey = b'\x00' * multilen
+            maxv = int.from_bytes(b'\xff' * multilen, 'big')
+            preflen = len(pref)
+            fullpref = preflen + multilen
+
+            while True:
+                if not scan.set_range(pref + skey + lkey):
+                    return
+
+                fkey = scan.atitem[0]
+                if not fkey.startswith(pref):
+                    return
+
+                skey = fkey[preflen:fullpref]
+                if fkey[fullpref:] < lkey:
+                    continue
+
+                fullkey = pref + skey + lkey
+
+                for item in scan.iternext():
+                    if not item[0] == fullkey:
+                        break
+                    yield item
+
+                if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                    return
+                skey = pval.to_bytes(multilen, 'big')
+
+    async def multiScanByDupsBack(self, pref, multilen, lkey, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            skey = b'\xff' * multilen
+            preflen = len(pref)
+            fullpref = preflen + multilen
+
+            while True:
+                if not scan.set_range(pref + skey + lkey):
+                    return
+
+                fkey = scan.atitem[0]
+                if not fkey.startswith(pref):
+                    return
+
+                skey = fkey[preflen:fullpref]
+                if fkey[fullpref:] > lkey:
+                    continue
+
+                fullkey = pref + skey + lkey
+
+                for item in scan.iternext():
+                    if not item[0] == fullkey:
+                        break
+                    yield item
+
+                if (pval := int.from_bytes(skey, 'big') - 1) < 0:
+                    return
+                skey = pval.to_bytes(multilen, 'big')
+
+    async def multiScanKeysByDups(self, pref, multilen, lkey, db=None, nodup=False):
+
+        with ScanKeys(self, db, nodup=nodup) as scan:
+
+            skey = b'\x00' * multilen
+            maxv = int.from_bytes(b'\xff' * multilen, 'big')
+            preflen = len(pref)
+            fullpref = preflen + multilen
+
+            while True:
+                if not scan.set_range(pref + skey + lkey):
+                    return
+
+                fkey = scan.atitem
+                if scan.dupsort and not nodup:
+                    fkey = fkey[0]
+
+                if not fkey.startswith(pref):
+                    return
+
+                skey = fkey[preflen:fullpref]
+                if fkey[fullpref:] < lkey:
+                    continue
+
+                fullkey = pref + skey + lkey
+
+                for item in scan.iternext():
+                    if not item == fullkey:
+                        break
+                    yield item
+
+                if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                    return
+                skey = pval.to_bytes(multilen, 'big')
+
+    async def _multiScanCommon(self, scangenr, cmprkey, multilen, reverse=False):
+
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        pval = 0
+        if reverse:
+            pval = maxv
+
+        genrs = []
+
+        while True:
+            try:
+                sgen = scangenr(pval)
+                skey = await anext(sgen)
+            except StopAsyncIteration:
+                break
+
+            genrs.append(sgen)
+            await asyncio.sleep(0)
+
+            if reverse:
+                if (pval := int.from_bytes(skey, 'big') - 1) < 0:
+                    break
+            else:
+                if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                    break
+
+        if not genrs:
+            return
+
+        if len(genrs) == 1:
+            async for item in genrs[0]:
+                yield item
+            return
+
+        async for item in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
+            yield item
+
+    async def multiScanByPref(self, pref, multilen, byts, db=None):
+
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with Scan(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + byts):
+                        return
+
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if fkey[preflen:size] == byts:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (item[0][preflen:size] != byts) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+                    elif fkey[preflen:size] > byts:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+            yield item
+
+    async def multiScanByPrefBack(self, pref, multilen, byts, db=None):
+
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        intpref = int.from_bytes(pref, 'big')
+        maxpref = int.from_bytes(b'\xff' * len(pref), 'big')
+
+        intbyts = int.from_bytes(byts, 'big')
+        maxbyts = int.from_bytes(b'\xff' * len(byts), 'big')
+
+        async def scangenr(pval):
+            with ScanBack(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if (intbyts + 1) <= maxbyts:
+                        nextbyts = (intbyts + 1).to_bytes(len(byts), "big")
+                        nextpref = pref + skey + nextbyts
+
+                    elif (pval := int.from_bytes(skey, 'big') + 1) <= maxv:
+                        # Scan prefix can't be incremented, try to increment multi key instead
+                        skey = pval.to_bytes(multilen, 'big')
+                        nextpref = pref + skey
+
+                    elif (intpref + 1) <= maxpref:
+                        # Multi key can't be incremented, try to increment initial prefix
+                        nextpref = (intpref + 1).to_bytes(len(pref), "big")
+
+                    else:
+                        # No room to increment any keys, just go to the last item in the db
+                        nextpref = None
+
+                    if nextpref is not None and scan.set_range(nextpref):
+                        if scan.atitem[0] == nextpref and not scan.next_key():
+                            return
+                    elif not scan.first():
+                        return
+
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if fkey[preflen:size] == byts:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (item[0][preflen:size] != byts) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+                    elif fkey[preflen:size] < byts:
+                        if (pval := int.from_bytes(skey, 'big') - 1) < 0:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True):
+            yield item
+
+    async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None):
+
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmax)) if lmax is not None else None
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with Scan(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + lmin):
+                        return
+
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if lmax is not None and fkey[preflen:size] > lmax:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+                        continue
+
+                    if fkey[preflen:size] >= lmin:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (lmax is not None and item[0][preflen:size] > lmax) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+            yield item
+
+    async def multiScanByRangeBack(self, pref, multilen, lmax, lmin=None, db=None):
+
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmin)) if lmin is not None else None
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with ScanBack(self, db) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + lmax):
+                        return
+
+                    fkey = scan.atitem[0]
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if lmin is not None and fkey[preflen:] < lmin:
+                        if (pval := int.from_bytes(skey, 'big') - 1) < 0:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+                        continue
+
+                    if fkey[preflen:size] <= lmax:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (lmin is not None and item[0][preflen:] < lmin) or not item[0].startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+        def cmprkey(valu):
+            return valu[0][preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True):
+            yield item
+
+    async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False):
+
+        preflen = len(pref) + multilen
+        size = preflen + len(byts)
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with ScanKeys(self, db, nodup=nodup) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + byts):
+                        return
+
+                    fkey = scan.atitem
+                    if scan.dupsort and not nodup:
+                        fkey = fkey[0]
+
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if fkey[preflen:size] == byts:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (item[preflen:size] != byts) or not item.startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+                    elif fkey[preflen:size] > byts:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+
+        def cmprkey(valu):
+            return valu[preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+            yield item
+
+    async def multiScanKeysByRange(self, pref, multilen, lmin, lmax=None, db=None, nodup=False):
+
+        preflen = len(pref) + multilen
+        size = (preflen + len(lmax)) if lmax is not None else None
+        maxv = int.from_bytes(b'\xff' * multilen, 'big')
+
+        async def scangenr(pval):
+            with ScanKeys(self, db, nodup=nodup) as scan:
+                skey = pval.to_bytes(multilen, 'big')
+
+                while True:
+                    if not scan.set_range(pref + skey + lmin):
+                        return
+
+                    fkey = scan.atitem
+                    if scan.dupsort and not nodup:
+                        fkey = fkey[0]
+
+                    if not fkey.startswith(pref):
+                        return
+
+                    skey = fkey[len(pref):preflen]
+
+                    if lmax is not None and fkey[preflen:size] > lmax:
+                        if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                            return
+                        skey = pval.to_bytes(multilen, 'big')
+                        continue
+
+                    if fkey[preflen:size] >= lmin:
+                        yield skey
+
+                        fullpref = fkey[:preflen]
+                        for item in scan.iternext():
+                            if (lmax is not None and item[preflen:size] > lmax) or not item.startswith(fullpref):
+                                break
+                            yield item
+                        return
+
+        def cmprkey(valu):
+            return valu[preflen:]
+
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+            yield item
 
     def scanByFull(self, db=None):
 

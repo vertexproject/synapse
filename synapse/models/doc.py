@@ -1,5 +1,3 @@
-import synapse.exc as s_exc
-
 modeldefs = (
     ('doc', {
         'interfaces': (
@@ -33,7 +31,7 @@ modeldefs = (
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
 
-                    ('supersedes', ('array', {'type': '$self'}), {
+                    ('supersedes', ('array', {'type': '{$self}'}), {
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
@@ -153,10 +151,16 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
+            ('doc:reference', ('guid', {}), {
+                'doc': 'A reference included in a source.'}),
+
         ),
         'edges': (
             (('doc:contract', 'has', 'doc:requirement'), {
                 'doc': 'The contract contains the requirement.'}),
+
+            (('meta:technique', 'meets', 'doc:requirement'), {
+                'doc': 'Use of the source technique meets the target requirement.'}),
         ),
         'forms': (
 
@@ -177,7 +181,7 @@ modeldefs = (
                 ('optional', ('bool', {}), {
                     'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of the requirement as defined by the standard.'}),
 
                 ('standard', ('doc:standard', {}), {
@@ -218,7 +222,7 @@ modeldefs = (
                 ('publisher', ('entity:actor', {}), {
                     'doc': 'The entity which published the report.'}),
 
-                ('publisher:name', ('meta:name', {}), {
+                ('publisher:name', ('entity:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
 
                 ('topics', ('array', {'type': 'meta:topic'}), {
@@ -250,7 +254,29 @@ modeldefs = (
                 ('terminated', ('time', {}), {
                     'doc': 'The date that the contract was terminated.'}),
             )),
+
+            ('doc:reference', {}, (
+
+                ('source', ((
+                        'doc:report',
+                        'risk:vuln',
+                        'risk:tool:software',
+                        'risk:threat',
+                        'entity:campaign',
+                        'meta:technique',
+                        'plan:phase'
+                    ), {}), {
+                    'doc': 'The source which contains the reference.'}),
+
+                ('text', ('str', {}), {
+                    'doc': 'A reference string included in the source.'}),
+
+                ('doc', ('doc:document', {}), {
+                    'doc': 'The document which the reference refers to.'}),
+
+                ('doc:url', ('inet:url', {}), {
+                    'doc': 'A URL for the reference.'}),
+            )),
         ),
-        'edges': (),
     }),
 )

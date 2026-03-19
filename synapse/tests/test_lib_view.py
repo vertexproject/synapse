@@ -324,44 +324,44 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=maxval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=maxval [ :seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
 
             await core.nodes('[ test:str=midval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=midval [ :seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
 
             await core.nodes('[ test:str=minval :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=minval [ :seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
 
             await core.nodes('[ test:str=exival :seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=exival [ :seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_maxval)
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_midval)
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_minval)
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].get('seen'))
+            self.propeq(nodes[0], 'seen', seen_exival)
 
             # bad type
 
@@ -884,7 +884,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, result)
 
             node = result[0]
-            self.eq(node.get('tick'), 3)
+            self.propeq(node, 'tick', 3)
             self.ge(node.get('.created', 0), 5)
             self.eq(node.get('#cool'), (1, 2, 1))
 
@@ -1134,7 +1134,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1142,7 +1142,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1150,7 +1150,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.gt(asn, last)
                 last = asn
 
@@ -1158,7 +1158,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 5
             for node in nodes:
-                asn = node.get('asn')
+                asn = node.get('asn')[1]
                 self.lt(asn, last)
                 last = asn
 
@@ -1391,7 +1391,7 @@ class ViewTest(s_t_utils.SynTest):
             q = f'[ inet:fqdn="{fqdn}"]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('zone'), 'foo.com')
+            self.propeq(nodes[0], 'zone', 'foo.com')
 
     async def test_view_insert_parent_fork(self):
 
@@ -1571,6 +1571,28 @@ class ViewTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('meta:name', node.form.name)
 
+            # Rip prop values out of sodes to make them undecodable for coverage
+            layr = core.getLayer()
+            nodes = await core.nodes(f'ou:conference:names*[={long1}]')
+            nid = nodes[0].nid
+
+            sode = layr.getStorNode(nid)
+            sode['props'].pop('names')
+            layr.dirty[nid] = sode
+
+            nodes = await core.nodes(f'transport:sea:vessel:name={long2}')
+            nid = nodes[0].nid
+
+            sode = layr.getStorNode(nid)
+            sode['props'].pop('name')
+            layr.dirty[nid] = sode
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
             with self.raises(s_exc.BadTypeValu):
                 async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
                     pass
@@ -1604,6 +1626,30 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([3, 4, 5], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('test:int', node.form.name)
+
+            nodes = await core.nodes('''[
+                (test:str=foo :poly={[ test:str=p1 ]})
+                (test:str=bar :poly={[ test:int=3 ]})
+                (test:str=baz :poly={[ test:hasiface=p2 ]})
+                (test:str=faz :poly={[ test:lowstr=p1 ]})
+                (test:str=nop :poly={[ test:int=1 ]})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=p1)', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(('test:str', 'p1'), nodes[0].ndef)
+            self.eq(('test:lowstr', 'p1'), nodes[1].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=p, cmpr="^=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq(('test:str', 'p1'), nodes[0].ndef)
+            self.eq(('test:lowstr', 'p1'), nodes[1].ndef)
+            self.eq(('test:hasiface', 'p2'), nodes[2].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:str:poly, valu=(0, 5), cmpr="range=")', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(('test:int', 1), nodes[0].ndef)
+            self.eq(('test:int', 3), nodes[1].ndef)
 
     async def test_view_edge_counts(self):
 

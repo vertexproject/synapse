@@ -23,8 +23,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
-            self.eq('inet:ip', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
-            self.eq(s_layer.STOR_TYPE_IPADDR, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
+            self.eq('poly', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
+            self.eq(s_layer.STOR_TYPE_POLY, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
             self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ip).repr(([4, $(0x01020304)])))'))
@@ -67,7 +67,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
-            self.stormIsInPrint("'type': ('meta:name'", mesgs)
+            self.stormIsInPrint("'type': ('poly', {'forms': ('entity:name',), 'interfaces': ()})", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
@@ -91,6 +91,30 @@ class StormlibModelTest(s_test.SynTest):
             self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
             self.true(await core.callStorm('return($lib.model.type(data).mutable)'))
             self.true(await core.callStorm('return($lib.model.type(array).mutable)'))
+
+            props = await core.callStorm('return($lib.model.form(test:str).props)')
+            self.isin('poly', props)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.form(test:str).props.poly)')
+            self.stormIsInPrint("model:property: {'name': 'poly'", mesgs)
+
+            mesgs = await core.stormlist('for ($k, $v) in $lib.model.form(test:str).props { $lib.print(`{$k} {$v}`) }')
+            self.stormIsInPrint("poly model:property: {'name': 'poly'", mesgs)
+
+            self.true(await core.callStorm('return(("poly" in $lib.model.form(test:str).props))'))
+            self.false(await core.callStorm('return(("newp" in $lib.model.form(test:str).props))'))
+
+            forms = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedforms)')
+            forms = [fdef['name'] for fdef in forms]
+            self.isin('test:int', forms)
+            self.isin('test:hasiface', forms)
+
+            forms = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedforms)')
+            forms = [fdef['name'] for fdef in forms]
+            self.isin('test:int', forms)
+            self.isin('test:hasiface', forms)
+
+            self.len(0, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedforms)'))
 
     async def test_stormlib_model_depr(self):
 
@@ -297,4 +321,4 @@ class StormlibModelTest(s_test.SynTest):
 
             nodes = await core.nodes('test:str=$dstiden', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('_foo'), 'foobarbaz')
+            self.propeq(nodes[0], '_foo', 'foobarbaz')

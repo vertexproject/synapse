@@ -15,10 +15,10 @@ class TransportTest(s_test.SynTest):
                     :serial=1234
                     :operator={[ entity:contact=* ]}
             ]'''))[0]
-            self.eq('helicopter.', craft.get('type'))
-            self.eq(1580515200000000, craft.get('built'))
-            self.eq('747', craft.get('model'))
-            self.eq('1234', craft.get('serial'))
+            self.propeq(craft, 'type', 'helicopter.')
+            self.propeq(craft, 'built', 1580515200000000)
+            self.propeq(craft, 'model', '747')
+            self.propeq(craft, 'serial', '1234')
             self.nn(craft.get('operator'))
 
             tailnum = (await core.nodes('transport:air:tailnum=FF023 [ :type=fighter ]'))[0]
@@ -33,11 +33,11 @@ class TransportTest(s_test.SynTest):
                     :arrived=202002020302
                 ]'''))[0]
 
-            self.eq('ua2437', flight.get('num'))
-            self.eq(1580601600000000, flight.get('scheduled:departure'))
-            self.eq(1580688000000000, flight.get('scheduled:arrival'))
-            self.eq(1580608800000000, flight.get('departed'))
-            self.eq(1580612520000000, flight.get('arrived'))
+            self.propeq(flight, 'num', 'ua2437')
+            self.propeq(flight, 'scheduled:departure', 1580601600000000)
+            self.propeq(flight, 'scheduled:arrival', 1580688000000000)
+            self.propeq(flight, 'departed', 1580608800000000)
+            self.propeq(flight, 'arrived', 1580612520000000)
 
             telem = (await core.nodes('''
                 [ transport:air:telem=*
@@ -58,16 +58,16 @@ class TransportTest(s_test.SynTest):
             self.nn(telem.get('flight'))
             self.nn(telem.get('place'))
             self.eq((20.22, 80.1111), telem.get('place:latlong'))
-            self.eq('us', telem.get('place:loc'))
-            self.eq(10000, telem.get('place:latlong:accuracy'))
-            self.eq(103888, telem.get('speed'))
-            self.eq(7315, telem.get('airspeed'))
-            self.eq(-6096, telem.get('verticalspeed'))
-            self.eq(6380152800, telem.get('place:altitude'))
-            self.eq(10000, telem.get('place:altitude:accuracy'))
-            self.eq(1580601600000000, telem.get('time'))
-            self.eq('79.1', telem.get('course'))
-            self.eq('99.02', telem.get('heading'))
+            self.propeq(telem, 'place:loc', 'us')
+            self.propeq(telem, 'place:latlong:accuracy', 10000)
+            self.propeq(telem, 'speed', 103888)
+            self.propeq(telem, 'airspeed', 7315)
+            self.propeq(telem, 'verticalspeed', -6096)
+            self.propeq(telem, 'place:altitude', 6380152800)
+            self.propeq(telem, 'place:altitude:accuracy', 10000)
+            self.propeq(telem, 'time', 1580601600000000)
+            self.propeq(telem, 'course', '79.1')
+            self.propeq(telem, 'heading', '99.02')
 
             vessel = (await core.nodes('''[
                 transport:sea:vessel=*
@@ -81,14 +81,14 @@ class TransportTest(s_test.SynTest):
                     :model="Speed Boat 9000"
                     :operator={[ entity:contact=* ]}
                 ]'''))[0]
-            self.eq('123456789', vessel.get('mmsi'))
-            self.eq('slice of life', vessel.get('name'))
-            self.eq('V123', vessel.get('callsign'))
-            self.eq('cargo.tanker.oil.', vessel.get('type'))
-            self.eq('speed boat 9000', vessel.get('model'))
-            self.eq('us', vessel.get('flag'))
-            self.eq('imo1234567', vessel.get('imo'))
-            self.eq(1577836800000000, vessel.get('built'))
+            self.propeq(vessel, 'mmsi', '123456789')
+            self.propeq(vessel, 'name', 'slice of life')
+            self.propeq(vessel, 'callsign', 'V123')
+            self.propeq(vessel, 'type', 'cargo.tanker.oil.')
+            self.propeq(vessel, 'model', 'speed boat 9000')
+            self.propeq(vessel, 'flag', 'us')
+            self.propeq(vessel, 'imo', 'imo1234567')
+            self.propeq(vessel, 'built', 1577836800000000)
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
@@ -115,22 +115,22 @@ class TransportTest(s_test.SynTest):
 
             self.nn(seatelem.get('place'))
             self.eq((20.22, 80.1111), seatelem.get('place:latlong'))
-            self.eq('us', seatelem.get('place:loc'))
-            self.eq(10000, seatelem.get('place:latlong:accuracy'))
-            self.eq(1580601600000000, seatelem.get('time'))
-            self.eq(20000, seatelem.get('draft'))
-            self.eq(30000, seatelem.get('airdraft'))
-            self.eq(299792458000, seatelem.get('speed'))
-            self.eq('79.1', seatelem.get('course'))
-            self.eq('99.02', seatelem.get('heading'))
+            self.propeq(seatelem, 'place:loc', 'us')
+            self.propeq(seatelem, 'place:latlong:accuracy', 10000)
+            self.propeq(seatelem, 'time', 1580601600000000)
+            self.propeq(seatelem, 'draft', 20000)
+            self.propeq(seatelem, 'airdraft', 30000)
+            self.propeq(seatelem, 'speed', 299792458000)
+            self.propeq(seatelem, 'course', '79.1')
+            self.propeq(seatelem, 'heading', '99.02')
 
             self.nn(seatelem.get('destination'))
-            self.eq('woot', seatelem.get('destination:name'))
-            self.eq(1580688000000000, seatelem.get('destination:eta'))
+            self.propeq(seatelem, 'destination:name', 'woot')
+            self.propeq(seatelem, 'destination:eta', 1580688000000000)
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
-            self.eq('visi airport', airport.get('name'))
+            self.propeq(airport, 'name', 'visi airport')
             self.nn(airport.get('place'))
 
             nodes = await core.nodes('''
@@ -173,10 +173,10 @@ class TransportTest(s_test.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('id'), 'zeroday')
-            self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
-            self.eq(nodes[0].get('issued'), 1422835200000000)
-            self.eq(nodes[0].get('expires'), 1675296000000000)
+            self.propeq(nodes[0], 'id', 'zeroday')
+            self.propeq(nodes[0], 'issuer:name', 'virginia dmv')
+            self.propeq(nodes[0], 'issued', 1422835200000000)
+            self.propeq(nodes[0], 'expires', 1675296000000000)
 
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('contact'))
@@ -185,20 +185,20 @@ class TransportTest(s_test.SynTest):
 
             nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
             self.len(1, nodes)
-            self.eq(nodes[0].get('type'), 'car.')
-            self.eq(nodes[0].get('model'), 'elise')
-            self.eq(nodes[0].get('serial'), 'V-31337')
-            self.eq(nodes[0].get('built'), 1104537600000000)
+            self.propeq(nodes[0], 'type', 'car.')
+            self.propeq(nodes[0], 'model', 'elise')
+            self.propeq(nodes[0], 'serial', 'V-31337')
+            self.propeq(nodes[0], 'built', 1104537600000000)
             self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('registration'))
             self.len(1, await core.nodes('transport:land:vehicle -> transport:land:vehicle:type:taxonomy'))
 
             nodes = await core.nodes('transport:land:registration:id=zeroday -> transport:land:license')
             self.len(1, nodes)
-            self.eq(nodes[0].get('id'), 'V-31337')
-            self.eq(nodes[0].get('issued'), 1671235200000000)
-            self.eq(nodes[0].get('expires'), 1765929600000000)
-            self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
+            self.propeq(nodes[0], 'id', 'V-31337')
+            self.propeq(nodes[0], 'issued', 1671235200000000)
+            self.propeq(nodes[0], 'expires', 1765929600000000)
+            self.propeq(nodes[0], 'issuer:name', 'virginia dmv')
 
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('contact'))
@@ -260,38 +260,38 @@ class TransportTest(s_test.SynTest):
                     :operator={[ entity:contact=* :name="visi" ]}
             ]''')
 
-            self.eq(10800000000, nodes[0].get('duration'))
-            self.eq(10800000000, nodes[0].get('scheduled:duration'))
+            self.propeq(nodes[0], 'duration', 10800000000)
+            self.propeq(nodes[0], 'scheduled:duration', 10800000000)
 
-            self.eq(1737109800000000, nodes[0].get('departed'))
-            self.eq('2c', nodes[0].get('departed:point'))
+            self.propeq(nodes[0], 'departed', 1737109800000000)
+            self.propeq(nodes[0], 'departed:point', '2c')
             self.nn(nodes[0].get('departed:place'))
 
-            self.eq(1737109800000000, nodes[0].get('scheduled:departure'))
-            self.eq('2c', nodes[0].get('scheduled:departure:point'))
+            self.propeq(nodes[0], 'scheduled:departure', 1737109800000000)
+            self.propeq(nodes[0], 'scheduled:departure:point', '2c')
             self.nn(nodes[0].get('scheduled:departure:place'))
 
-            self.eq(1737120600000000, nodes[0].get('arrived'))
+            self.propeq(nodes[0], 'arrived', 1737120600000000)
             self.nn(nodes[0].get('arrived:place'))
-            self.eq('2c', nodes[0].get('arrived:point'))
+            self.propeq(nodes[0], 'arrived:point', '2c')
 
-            self.eq(1737120600000000, nodes[0].get('scheduled:arrival'))
+            self.propeq(nodes[0], 'scheduled:arrival', 1737120600000000)
             self.nn(nodes[0].get('scheduled:arrival:place'))
-            self.eq('2c', nodes[0].get('scheduled:arrival:point'))
+            self.propeq(nodes[0], 'scheduled:arrival:point', '2c')
 
             nodes = await core.nodes('transport:rail:consist')
-            self.eq(2, nodes[0].get('max:occupants'))
+            self.propeq(nodes[0], 'max:occupants', 2)
             self.len(1, nodes[0].get('cars'))
 
             nodes = await core.nodes('transport:rail:car')
-            self.eq('001', nodes[0].get('serial'))
-            self.eq('engine.diesel.', nodes[0].get('type'))
-            self.eq(1670803200000000, nodes[0].get('built'))
-            self.eq('acme', nodes[0].get('manufacturer:name'))
-            self.eq('engine that could', nodes[0].get('model'))
-            self.eq(2, nodes[0].get('max:occupants'))
-            self.eq('1000000', nodes[0].get('max:cargo:mass'))
-            self.eq(1000000, nodes[0].get('max:cargo:volume'))
+            self.propeq(nodes[0], 'serial', '001')
+            self.propeq(nodes[0], 'type', 'engine.diesel.')
+            self.propeq(nodes[0], 'built', 1670803200000000)
+            self.propeq(nodes[0], 'manufacturer:name', 'acme')
+            self.propeq(nodes[0], 'model', 'engine that could')
+            self.propeq(nodes[0], 'max:occupants', 2)
+            self.propeq(nodes[0], 'max:cargo:mass', '1000000')
+            self.propeq(nodes[0], 'max:cargo:volume', 1000000)
             self.len(1, await core.nodes('transport:rail:car -> transport:rail:car:type:taxonomy'))
 
             self.nn(nodes[0].get('owner'))
@@ -318,18 +318,18 @@ class TransportTest(s_test.SynTest):
                     :disembarked:place={ geo:place:name="union station" }
             ]''')
             self.nn(nodes[0].get('contact'))
-            self.eq('2c', nodes[0].get('seat'))
-            self.eq('passenger.', nodes[0].get('role'))
+            self.propeq(nodes[0], 'seat', '2c')
+            self.propeq(nodes[0], 'role', 'passenger.')
             self.eq('transport:rail:train', nodes[0].get('trip')[0])
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
 
-            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000, 11700000000))
+            self.propeq(nodes[0], 'period', (1737109200000000, 1737120900000000, 11700000000))
 
             self.nn(nodes[0].get('boarded:place'))
-            self.eq('2c', nodes[0].get('boarded:point'))
+            self.propeq(nodes[0], 'boarded:point', '2c')
 
             self.nn(nodes[0].get('disembarked:place'))
-            self.eq('2c', nodes[0].get('disembarked:point'))
+            self.propeq(nodes[0], 'disembarked:point', '2c')
             self.len(1, await core.nodes('transport:occupant -> transport:occupant:role:taxonomy'))
 
             nodes = await core.nodes('''[
@@ -356,9 +356,9 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:shipping:container', nodes[0].get('object')[0])
 
             self.nn(nodes[0].get('loaded:place'))
-            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000, 11700000000))
+            self.propeq(nodes[0], 'period', (1737109200000000, 1737120900000000, 11700000000))
 
-            self.eq('2c', nodes[0].get('loaded:point'))
+            self.propeq(nodes[0], 'loaded:point', '2c')
 
             self.nn(nodes[0].get('unloaded:place'))
-            self.eq('2c', nodes[0].get('unloaded:point'))
+            self.propeq(nodes[0], 'unloaded:point', '2c')

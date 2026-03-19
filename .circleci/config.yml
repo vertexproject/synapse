@@ -125,12 +125,9 @@ commands:
           # a single runner using xdist.
           name: syntax
           command: |
-            pip install "pycodestyle>=2.10.0,<3.0.0" ruff
+            pip install ruff
             if [ -n "${RUN_SYNTAX}" ]; then
                 ruff check
-                pycodestyle synapse
-                pycodestyle scripts
-                pycodestyle examples
             fi
 
       - run:
@@ -377,12 +374,11 @@ commands:
       - run:
           name: install packages
           command: |
-            apk add python3 py3-pip git "cosign~2." bash
+            apk add python3 py3-pip git "cosign~2" bash
       - run:
           name: install awscli
           command: |
-            python3 -m pip install "pyyaml<5.4"
-            python3 -m pip install awscli
+            python3 -m pip install --break-system-packages awscli
       - run:
           name: setcommit
           command: |
@@ -616,7 +612,7 @@ jobs:
 
   build_docker_branch:
     docker:
-      - image: docker:24.0.2
+      - image: docker:29.2.1
     steps:
       - build_docker:
           image-tag: ${CIRCLE_BRANCH//\//_}
@@ -627,7 +623,7 @@ jobs:
 
   build_docker_tag:
     docker:
-      - image: docker:24.0.2
+      - image: docker:29.2.1
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:

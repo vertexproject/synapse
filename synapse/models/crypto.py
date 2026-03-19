@@ -103,15 +103,6 @@ modeldefs = (
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
-            ('crypto:hash', ('ndef', {'interface': 'crypto:hash'}), {
-                'doc': 'A cryptographic hash.'}),
-
-            ('crypto:hashable', ('ndef', {'interface': 'crypto:hashable'}), {
-                'doc': 'A node which can be cryptographically hashed.'}),
-
-            ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
-                'doc': 'A node which is a public key.'}),
-
             ('crypto:hash:md5', ('hex', {'size': 32}), {
                 'ex': ex_md5,
                 'interfaces': (
@@ -158,9 +149,6 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'salted hash'}}),
                 ),
                 'doc': 'A salted hash computed for a value.'}),
-
-            ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {
-                'doc': 'A cryptographic key and algorithm.'}),
 
             ('crypto:key:base', ('guid', {}), {
                 'interfaces': (
@@ -523,6 +511,12 @@ modeldefs = (
 
                 ('private:coefficient', ('hex', {}), {
                     'doc': 'The private coefficient of the RSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:dsa', {}, (
@@ -541,6 +535,12 @@ modeldefs = (
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the DSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:ecdsa', {}, (
@@ -579,6 +579,12 @@ modeldefs = (
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the ECDSA key.'}),
+
+                ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the public key.'}),
+
+                ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    'doc': 'An array of hashes for the private key.'}),
             )),
 
             ('crypto:key:secret', {}, (
@@ -650,7 +656,7 @@ modeldefs = (
 
             ('crypto:x509:cert', {}, (
 
-                ('key', ('crypto:pki:key', {}), {
+                ('key', (('crypto:key:rsa', 'crypto:key:dsa'), {}), {
                     'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {

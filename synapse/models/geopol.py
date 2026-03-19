@@ -50,9 +50,20 @@ modeldefs = (
                 ('flag', ('file:bytes', {}), {
                     'doc': 'A thumbnail image of the flag of the country.'}),
 
-                ('code', ('iso:3166:alpha2', {}), {
+                ('code', (('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'), {
+                    'default_forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
+                    }), {
+                    'alts': ('codes',),
                     'prevnames': ('iso2',),
-                    'doc': 'The ISO 3166 Alpha-2 country code.'}),
+                    'doc': 'The country code.'}),
+
+                ('codes', ('array', {
+                    'type': ('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'),
+                    'typeopts': {
+                        'default_forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
+                    },
+                    }), {
+                    'doc': 'An array of country codes.'}),
 
                 ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
                     'prevnames': ('iso3',),
@@ -65,11 +76,11 @@ modeldefs = (
                 ('tld', ('inet:fqdn', {}), {
                     'doc': 'The top-level domain for the country.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'geo:name'}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
@@ -215,7 +226,7 @@ modeldefs = (
                 ('election', ('pol:election', {}), {
                     'doc': 'The election that the polling place is designated for.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'doc': 'The name of the polling place at the time of the election. This may differ from the official place name.'}),
 
                 ('place', ('geo:place', {}), {

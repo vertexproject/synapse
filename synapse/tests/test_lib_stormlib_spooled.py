@@ -28,13 +28,13 @@ class StormlibSpooledTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.spooled.set()
-                inet:ip $set.add(:asn)
-                $set.rems((:asn,:asn))
+                inet:ip $set.add(:asn.value)
+                $set.rems((:asn.value, :asn.value))
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('data'), ())
+            self.propeq(nodes[0], 'data', ())
 
             q = '''
                 $set = $lib.spooled.set()

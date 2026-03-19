@@ -1,10 +1,20 @@
 modeldefs = (
     ('econ', {
 
-        'types': (
+        'ctors': (
+            ('econ:price', 'synapse.lib.types.Price', {}, {
+                'doc': 'The amount of money expected, required, or given in payment for something.',
+                'ex': '2.20',
+                'virts': (
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency denomination of the price.'}),
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the price was sampled or recorded.'}),
+                ),
+            }),
+        ),
 
-            ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
-                'doc': 'A product or service which may be sold.'}),
+        'types': (
 
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),
@@ -72,10 +82,6 @@ modeldefs = (
 
             ('econ:invoice', ('guid', {}), {
                 'doc': 'An invoice issued requesting payment.'}),
-
-            ('econ:price', ('hugenum', {}), {
-                'doc': 'The amount of money expected, required, or given in payment for something.',
-                'ex': '2.20'}),
 
             ('econ:currency', ('str', {'lower': True}), {
                 'doc': 'The name of a system of money in general use.',
@@ -145,9 +151,6 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
-
-            ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
-                'doc': 'A node which may act as a payment instrument.'}),
         ),
 
         'interfaces': (
@@ -192,14 +195,14 @@ modeldefs = (
                     'prevnames': ('org',),
                     'doc': 'The issuer organization.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'prevnames': ('name',),
                     'doc': 'The registered name of the issuer.'}),
             )),
 
             ('econ:pay:card', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name as it appears on the card.'}),
 
                 ('pan', ('econ:pay:pan', {}), {
@@ -223,7 +226,7 @@ modeldefs = (
 
             ('econ:bank:check', {}, (
 
-                ('payto', ('meta:name', {}), {
+                ('payto', ('entity:name', {}), {
                     'doc': 'The name of the intended recipient.'}),
 
                 ('amount', ('econ:price', {}), {
@@ -276,7 +279,7 @@ modeldefs = (
                     'doc': 'The total cost of this receipt line item.'}),
 
                 # FIXME rename biz:sellable? donation / volunteers
-                ('item', ('biz:sellable', {}), {
+                ('item', (('biz:product', 'biz:service'), {}), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
             )),
@@ -534,7 +537,7 @@ modeldefs = (
                 ('bank', ('ou:org', {}), {
                     'doc': 'The bank which was issued the ABA RTN.'}),
 
-                ('bank:name', ('meta:name', {}), {
+                ('bank:name', ('entity:name', {}), {
                     'doc': 'The name which is registered for this ABA RTN.'}),
 
             )),
@@ -581,7 +584,7 @@ modeldefs = (
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The bank which issued the account number.'}),
 
-                ('issuer:name', ('meta:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the bank which issued the account number.'}),
 
                 ('account', ('econ:fin:account', {}), {

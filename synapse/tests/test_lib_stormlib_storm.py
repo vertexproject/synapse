@@ -20,7 +20,7 @@ class LibStormTest(s_test.SynTest):
             self.eq(10, await core.callStorm('return($lib.storm.eval($text, cast=int))', opts=opts))
 
             opts = {'vars': {'text': 'WOOT.COM'}}
-            self.eq('woot.com', await core.callStorm('return($lib.storm.eval($text, cast=inet:dns:a:fqdn))', opts=opts))
+            self.eq(('inet:fqdn', 'woot.com'), await core.callStorm('return($lib.storm.eval($text, cast=inet:dns:a:fqdn))', opts=opts))
 
             opts = {'vars': {'text': '(10 + 20)', 'cast': 'inet:port'}}
             self.eq(30, await core.callStorm('return($lib.storm.eval($text, cast=$cast))', opts=opts))
@@ -131,7 +131,7 @@ class LibStormTest(s_test.SynTest):
                     if ($mesg.0 = "print") { $lib.print($mesg) }
                 }
             ''', opts={'user': visi.iden})
-            self.stormIsInErr('must have permission impersonate', msgs)
+            self.stormIsInErr('requires global admin permissions', msgs)
             self.stormNotInPrint('lolz', msgs)
 
             # no opts provided

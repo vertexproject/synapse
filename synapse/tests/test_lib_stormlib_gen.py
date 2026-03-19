@@ -1,5 +1,4 @@
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
@@ -24,22 +23,22 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.entity.campaign "operation overlord" vertex | [ :names+=overlord ]'))
             self.len(1, nodes01 := await core.nodes('gen.entity.campaign overlord vertex'))
-            self.eq('operation overlord', nodes00[0].get('name'))
-            self.eq(['overlord'], nodes00[0].get('names'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.propeq(nodes00[0], 'name', 'operation overlord')
+            self.propeq(nodes00[0], 'names', ['overlord'])
+            self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
             self.len(1, nodes := await core.nodes('entity:campaign:name="operation overlord" :reporter -> ou:org'))
             self.eq(vtxguid, nodes[0].ndef[1])
-            self.eq(['vertex'], nodes[0].get('names'))
+            self.propeq(nodes[0], 'names', ['vertex'])
 
             self.len(1, nodes := await core.nodes('gen.entity.campaign overlord otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.eq('overlord', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'overlord')
             self.none(nodes[0].get('names'))
-            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, nodes := await core.nodes('gen.entity.campaign "operation overlord" vertex', opts=onview2))
@@ -52,8 +51,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.geo.place zimbabwe | [ :names+=rhodesia ]'))
             self.len(1, nodes01 := await core.nodes('gen.geo.place rhodesia'))
-            self.eq('zimbabwe', nodes00[0].get('name'))
-            self.eq(['rhodesia'], nodes00[0].get('names'))
+            self.propeq(nodes00[0], 'name', 'zimbabwe')
+            self.propeq(nodes00[0], 'names', ['rhodesia'])
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
@@ -67,8 +66,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.it.software rar | [ :names+=rarrr ]'))
             self.len(1, nodes01 := await core.nodes('gen.it.software rarrr'))
-            self.eq('rar', nodes00[0].get('name'))
-            self.eq(['rarrr'], nodes00[0].get('names'))
+            self.propeq(nodes00[0], 'name', 'rar')
+            self.propeq(nodes00[0], 'names', ['rarrr'])
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
@@ -82,8 +81,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.lang.language german | [ :names+=deutsch ]'))
             self.len(1, nodes01 := await core.nodes('gen.lang.language deutsch'))
-            self.eq('german', nodes00[0].get('name'))
-            self.eq(['deutsch'], nodes00[0].get('names'))
+            self.propeq(nodes00[0], 'name', 'german')
+            self.propeq(nodes00[0], 'names', ['deutsch'])
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
@@ -99,9 +98,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.ou.industry ngo vertex | [ :names+=ngos ]'))
             self.len(1, nodes01 := await core.nodes('gen.ou.industry ngos vertex'))
-            self.eq('ngo', nodes00[0].get('name'))
-            self.eq(['ngos'], nodes00[0].get('names'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.propeq(nodes00[0], 'name', 'ngo')
+            self.propeq(nodes00[0], 'names', ['ngos'])
+            self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
@@ -111,9 +110,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes := await core.nodes('gen.ou.industry ngo otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.eq('ngo', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'ngo')
             self.none(nodes[0].get('names'))
-            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, nodes := await core.nodes('gen.ou.industry ngo vertex', opts=onview2))
@@ -126,8 +125,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.ou.org intel | [ :names+=intelsoft ]'))
             self.len(1, nodes01 := await core.nodes('gen.ou.org intelsoft'))
-            self.eq('intel', nodes00[0].get('name'))
-            self.eq(['intelsoft'], nodes00[0].get('names'))
+            self.propeq(nodes00[0], 'name', 'intel')
+            self.propeq(nodes00[0], 'names', ['intelsoft'])
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
@@ -136,12 +135,12 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country
 
-            self.len(0, await core.nodes('gen.pol.country newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country newp'))
+            self.len(0, await core.nodes('gen.pol.country (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country us'))
-            self.eq('us', nodes00[0].get('code'))
+            self.propeq(nodes00[0], 'code', 'us')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
@@ -150,18 +149,18 @@ class StormLibGenTest(s_test.SynTest):
 
             # gen.pol.country.government
 
-            self.len(0, await core.nodes('gen.pol.country.government newp --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government newp'))
+            self.len(0, await core.nodes('gen.pol.country.government (null) --try'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.pol.country.government (null)'))
 
             self.len(1, nodes00 := await core.nodes('gen.pol.country.government us'))
             self.len(1, nodes01 := await core.nodes('gen.pol.country.government us'))
             self.eq('ou:org', nodes00[0].ndef[0])
-            self.eq('us government', nodes00[0].get('name'))
+            self.propeq(nodes00[0], 'name', 'us government')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
             self.len(1, pols00 := await core.nodes('ou:org:name="us government" -> pol:country'))
-            self.eq('us', pols00[0].get('code'))
+            self.propeq(pols00[0], 'code', 'us')
 
             self.len(1, nodes := await core.nodes('gen.pol.country.government us', opts=onview2))
             self.eq(nodes00[0].ndef, nodes[0].ndef)
@@ -177,9 +176,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.risk.threat apt1 vertex | [ :names+=apt-1 ]'))
             self.len(1, nodes01 := await core.nodes('gen.risk.threat apt-1 vertex'))
-            self.eq('apt1', nodes00[0].get('name'))
-            self.eq(['apt-1'], nodes00[0].get('names'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.propeq(nodes00[0], 'name', 'apt1')
+            self.propeq(nodes00[0], 'names', ['apt-1'])
+            self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
@@ -189,9 +188,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes := await core.nodes('gen.risk.threat apt1 otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.eq('apt1', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'apt1')
             self.none(nodes[0].get('names'))
-            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, nodes := await core.nodes('gen.risk.threat apt1 vertex', opts=onview2))
@@ -206,9 +205,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.risk.tool.software blackcat vertex | [ :names+=alphv ]'))
             self.len(1, nodes01 := await core.nodes('gen.risk.tool.software alphv vertex'))
-            self.eq('blackcat', nodes00[0].get('name'))
-            self.eq(['alphv'], nodes00[0].get('names'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.propeq(nodes00[0], 'name', 'blackcat')
+            self.propeq(nodes00[0], 'names', ['alphv'])
+            self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
@@ -218,9 +217,9 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes := await core.nodes('gen.risk.tool.software blackcat otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.eq('blackcat', nodes[0].get('name'))
+            self.propeq(nodes[0], 'name', 'blackcat')
             self.none(nodes[0].get('names'))
-            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, nodes := await core.nodes('gen.risk.tool.software blackcat vertex', opts=onview2))
@@ -235,8 +234,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes00 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
             self.len(1, nodes01 := await core.nodes('gen.risk.vuln cve-2024-0123 vertex'))
-            self.eq('CVE-2024-0123', nodes00[0].get('id'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
+            self.propeq(nodes00[0], 'id', 'CVE-2024-0123', form='it:sec:cve')
+            self.propeq(nodes00[0], 'reporter:name', 'vertex')
             self.nn(nodes00[0].get('reporter'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
@@ -246,8 +245,8 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, nodes := await core.nodes('gen.risk.vuln cve-2024-0123 otherorg'))
             self.ne(nodes00[0].ndef[1], nodes[0].ndef[1])
-            self.eq('CVE-2024-0123', nodes[0].get('id'))
-            self.eq('otherorg', nodes[0].get('reporter:name'))
+            self.propeq(nodes[0], 'id', 'CVE-2024-0123', form='it:sec:cve')
+            self.propeq(nodes[0], 'reporter:name', 'otherorg')
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, nodes := await core.nodes('gen.risk.vuln cve-2024-0123 vertex', opts=onview2))

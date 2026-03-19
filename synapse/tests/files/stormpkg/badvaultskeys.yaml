@@ -1,0 +1,16 @@
+name: badvaultskeys
+version: 0.0.1
+
+vaults:
+  badvaultskeys:
+    schemas:
+      newpconfigs:
+        type: object
+        properties:
+          foo:
+            type: string
+      newpsecrets:
+        type: object
+        properties:
+          quux:
+            type: string

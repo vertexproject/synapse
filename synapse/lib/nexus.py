@@ -22,6 +22,11 @@ leaderversion = 'Leader is a higher version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
+# As a mirror, amount of time to wait for a connection to the leader before entering
+# read-only mode and cancelling tasks waiting on responses.
+FOLLOWER_CONNECT_WAIT_S = 60.0
+
+mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
 
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
@@ -85,7 +90,6 @@ class NexsRoot(s_base.Base):
         await s_base.Base.__anit__(self)
 
         # avoid import cycle
-        import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
 
         self.cell = cell
@@ -198,7 +202,7 @@ class NexsRoot(s_base.Base):
             shutil.rmtree(fn)
 
         os.makedirs(fn, exist_ok=True)
-        logger.warning(f'Moving existing nexslog')
+        logger.warning('Moving existing nexslog')
         try:
             os.replace(nexspath, fn)
         except OSError as e:  # pragma: no cover
@@ -223,6 +227,19 @@ class NexsRoot(s_base.Base):
         self.nexshot.set('version', 2)
 
         logger.warning('...Nexus log migration complete')
+
+    async def getNexsInfo(self):
+        ret = {
+            'indx': await self.index(),
+            'ready': self.ready.is_set(),
+            'uplink:ready': self.miruplink.is_set(),
+            'readonly': self.readonly,
+            # This is a list of dictionaries so that we can populate metadata
+            # in the future if we want to do so.
+            'holds': sorted([{'reason': hold} for hold in self.writeholds],
+                                key=lambda x: x.get('reason'))
+        }
+        return ret
 
     @contextlib.contextmanager
     def _getResponseFuture(self, iden=None):
@@ -359,7 +376,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
-            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await futu
 
     async def eat(self, nexsiden, event, args, kwargs, meta, etime, wait=True, lock=True):
         '''
@@ -370,6 +387,10 @@ class NexsRoot(s_base.Base):
 
         if lock:
             await self.cell.nexslock.acquire()
+
+        if self.isfini:
+            self.cell.nexslock.release()
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
 
         try:
             if (nexus := self._nexskids.get(nexsiden)) is None:
@@ -398,6 +419,9 @@ class NexsRoot(s_base.Base):
     async def _eat(self, item, indx=None):
 
         try:
+            if self.isfini:
+                raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
@@ -465,7 +489,7 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Nexus has been shutdown, cannot iterate changes.')
 
         maxoffs = offs
 
@@ -535,6 +559,7 @@ class NexsRoot(s_base.Base):
 
         if self.client is not None:
             await self.client.fini()
+            await self.delWriteHold(mirrordisconnect)
 
         self._mirready.clear()
 
@@ -547,6 +572,7 @@ class NexsRoot(s_base.Base):
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
+            self.client.schedCoro(self.connectTimeout())
 
         self.started = True
 
@@ -573,9 +599,28 @@ class NexsRoot(s_base.Base):
 
         await self.startup()
 
+    async def connectTimeout(self):
+        try:
+            await asyncio.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
+
+        except asyncio.TimeoutError:
+            await self.addWriteHold(mirrordisconnect)
+
+            for futu in list(self._futures.values()):
+                futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
+
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
-        proxy.onfini(self.miruplink.clear)
+        await self.delWriteHold(mirrordisconnect)
+
+        def onfini():
+            self.miruplink.clear()
+            self.issuewait = False
+
+            if self.client is not None and not self.client.isfini:
+                self.client.schedCoro(self.connectTimeout())
+
+        proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
@@ -669,7 +714,7 @@ class NexsRoot(s_base.Base):
                             respfutu.set_result(retn)
 
             except s_exc.LinkShutDown:
-                logger.warning(f'mirror loop: leader closed the connection.')
+                logger.warning('mirror loop: leader closed the connection.')
 
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')

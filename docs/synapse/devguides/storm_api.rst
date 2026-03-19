@@ -687,8 +687,7 @@ Example:
 user
 ----
 
-The User iden to run the Storm query as. This allows a user with the permission ``impersonate`` to run a Storm
-query as another user.
+The User iden to run the Storm query as. This allows a global admin to run a Storm query as another user.
 
 Example:
 

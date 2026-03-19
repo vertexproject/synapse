@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import collections
 
@@ -9,7 +8,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.layer as s_layer
-import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -126,11 +124,15 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_META_SET, (name, valu, self.model.metatypes[name].stortype)))
 
         for name, valu in self.props.items():
-            prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], prop.type.stortype, valu[1])))
+            ptyp = self.form.props.get(name).type
+
+            if (stortype := ptyp.getStorType(valu[0])) == s_layer.STOR_TYPE_POLYARRAY:
+                ptyp = ptyp.arraytype
+                valu[1]['_stortypes'] = tuple(ptyp.getStorType(vval) for vval in valu[0])
+
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], stortype, valu[1])))
 
         for name in self.propdels:
-            prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_DEL, (name,)))
 
         for name in self.proptombs:
@@ -162,7 +164,6 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], prop.type.stortype, valu[1])))
 
         for (tag, name) in self.tagpropdels:
-            prop = self.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
         for (tag, name) in self.tagproptombs:
@@ -481,7 +482,7 @@ class ProtoNode(s_node.NodeBase):
 
         tagup = tagnode.get('up')
         if tagup:
-            await self.addTag(tagup)
+            await self.addTag(tagup[1])
 
         curv = self.getTag(tagnode.valu)
         if curv == valu:
@@ -798,9 +799,6 @@ class ProtoNode(s_node.NodeBase):
 
         if cval is not None and norminfo.get('merge', True):
             valu = prop.type.merge(cval, valu)
-
-        if self.node is not None:
-            await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
         self.props[prop.name] = (valu, virts)
         self.propdels.discard(prop.name)

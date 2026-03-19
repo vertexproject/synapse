@@ -2,7 +2,6 @@ import io
 import os
 import ssl
 import sys
-import enum
 import http
 import stat
 import time
@@ -23,7 +22,6 @@ import tarfile
 import binascii
 import builtins
 import tempfile
-import warnings
 import functools
 import itertools
 import threading
@@ -43,7 +41,7 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
-import synapse.vendor.cpython.lib.ipaddress as ipaddress
+import synapse.vendor.cpython.lib.ipaddress as ipaddress  # noqa: F401
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
 
 

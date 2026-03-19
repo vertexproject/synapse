@@ -53,7 +53,10 @@ inits:
     - name: first
       version: 0
       inaugural: true
-      query: "$lib.globals.set(testpkg-first, (true))"
+      query: "$lib.globals.set(testpkg-first, $myvar)"
+      queryopts:
+        vars:
+          myvar: true
     - name: second
       desc: Another init
       version: 2
@@ -110,6 +113,35 @@ configvars:
       default: rep.testpkg
       workflowconfig: true
       type: [inet:fqdn, [str, inet:url]]
+
+vaults:
+  testpkg:
+    schemas:
+      configs:
+        type: object
+        properties:
+          foo:
+            type: string
+            default: hehe haha
+          bar:
+            oneOf:
+              - { type: boolean }
+              - { type: string }
+          baz:
+            type: boolean
+        additionalProperties: false
+        required:
+          - bar
+          - baz
+      secrets:
+        type: object
+        properties:
+          quux:
+            type: string
+            minLength: 2
+        additionalProperties: false
+        required:
+          - quux
 
 commands:
     - name: testpkgcmd

@@ -91,7 +91,7 @@ accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 
 Set the ``:names`` property of an organization (``ou:org``) node to a single value:
 
-.. storm-pre:: [ ou:org=('the vertex project',) :name=vertex :url=https://vertex.link/ ]
+.. storm-pre:: [ ou:org=('the vertex project',) :name=vertex :websites+=https://vertex.link/ ]
 .. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project',) ]
 
 **Example:**
@@ -559,9 +559,9 @@ an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does 
 itself, such as its name, location, or URL. This means that even though Synapse deconflicts guid values, it is still
 possible for users or processes to inadvertently create multiple guid nodes that represent the same thing:
 
-.. storm-pre:: meta:name=vertex -> ou:org | delnode
+.. storm-pre:: entity:name=vertex -> ou:org | delnode
 
-.. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :url=https://vertex.link/ ]
+.. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :websites+=https://vertex.link/ ]
 
 .. storm-cli:: ou:org:name = 'the vertex project'
 
@@ -610,11 +610,11 @@ specified in the dictionary.
 
 **Example:**
 
-You want to create an organization node for The Vertex Project, deconflicting on the company name and URL.
+You want to create an organization node for The Vertex Project, deconflicting on the company name and email.
 
 .. storm-pre:: ou:org:name='the vertex project' | delnode
 
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link" } ) ]
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
 
 In the query above:
 
@@ -655,9 +655,9 @@ information to set the listed properties, including normalizing the values if ne
 - You can use literals or variables within the JSON dictionary:
 
 .. storm-pre:: ou:org:name='the vertex project' | delnode
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link/" } ) ]
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
 
-.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( { "name": $name, "url": $url } ) ]
+.. storm-cli:: $name='the vertex project' $email=info@vertex.link [ ou:org = ( { "name": $name, "email": $email } ) ]
 
 - When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder")
   to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list
@@ -668,13 +668,13 @@ information to set the listed properties, including normalizing the values if ne
   
   ::
     
-    [ ou:org = ( { "name": "The Vertex Project", "url": "https://vertex.link/" } ) ]
-  
+    [ ou:org = ( { "name": "The Vertex Project", "email": "info@vertex.link" } ) ]
+
   ...the dictionary is converted to the following list of tuples for purposes of creating a predictable guid:
-  
+
   ::
-    
-    [ ou:org = ( (name, 'the vertex project'), (url, https://vertex.link/) ) ]
+
+    [ ou:org = ( (email, info@vertex.link), (name, 'the vertex project') ) ]
   
   The tuples within the outermost parentheses are fed to the algorithm to create the guid. The dictionary values are
   **normalized** based on their type ("The Vertex Project" is normalized to lowercase in the tuple) and the tuples are
@@ -719,7 +719,7 @@ Note that this is a "blank" node with no secondary properties set. Unlike dictio
 lists properties and values as ``key:value`` pairs, the syntax for predictable guids simply provides a list of strings
 to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
 
-.. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') :name='the vertex project' :url=https://vertex.link/ ]
+.. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') :name='the vertex project' :websites+=https://vertex.link/ ]
 
 Secondary property deconfliction (provided by dictionary syntax) is almost always desirable to avoid duplicate nodes. However,
 predictable guids may be useful when:

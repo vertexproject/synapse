@@ -534,7 +534,7 @@ class StormHandler(Handler):
         Creates or validates an opts dict with the current session useriden.
 
         If the session useriden differs from the user key, validate the user
-        has the impersonate permission ( that may require a round trip to authcell ).
+        is an admin.
 
         Notes:
             This API sets up HTTP response values if it returns None.
@@ -553,7 +553,9 @@ class StormHandler(Handler):
 
         opts.setdefault('user', useriden)
         if opts.get('user') != useriden:
-            if not await self.allowed(('impersonate',)):
+            if not await self.isUserAdmin():
+                mesg = f'User ({self.web_username}) requires admin privileges to impersonate another user.'
+                self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
                 return None
 
         return opts
@@ -843,13 +845,15 @@ class AuthUserV1(Handler):
         if locked is not None:
             await authcell.setUserLocked(iden, bool(locked))
 
+        gateiden = body.get('gate')
+
         rules = body.get('rules')
         if rules is not None:
-            await authcell.setUserRules(iden, rules, gateiden=None)
+            await authcell.setUserRules(iden, rules, gateiden=gateiden)
 
         admin = body.get('admin')
         if admin is not None:
-            await authcell.setUserAdmin(iden, bool(admin), gateiden=None)
+            await authcell.setUserAdmin(iden, bool(admin), gateiden=gateiden)
 
         archived = body.get('archived')
         if archived is not None:
@@ -912,9 +916,11 @@ class AuthRoleV1(Handler):
         if body is None:
             return
 
+        gateiden = body.get('gate')
+
         rules = body.get('rules')
         if rules is not None:
-            await authcell.setRoleRules(iden, rules, gateiden=None)
+            await authcell.setRoleRules(iden, rules, gateiden=gateiden)
 
         self.sendRestRetn(await authcell.getRoleDef(iden))
 

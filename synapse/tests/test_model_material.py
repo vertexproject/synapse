@@ -29,12 +29,12 @@ class MatTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node1 = nodes[0]
 
-            self.eq(node0.get('name'), 'f16 fighter jet')
+            self.propeq(node0, 'name', 'f16 fighter jet')
             self.none(node0.get('place:latlong'))
-            self.eq(node1.get('name'), "visi's f16 fighter jet")
-            self.eq(node1.get('place'), place)
-            self.eq(node1.get('place:loc'), 'us.hehe.haha')
-            self.eq(node1.get('place:latlong'), (0.0, 0.0))
+            self.propeq(node1, 'name', "visi's f16 fighter jet")
+            self.propeq(node1, 'place', place)
+            self.propeq(node1, 'place:loc', 'us.hehe.haha')
+            self.propeq(node1, 'place:latlong', (0.0, 0.0))
 
             self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))
 
@@ -52,6 +52,6 @@ class MatTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('object'))
             self.nn(nodes[0].get('container'))
-            self.eq('component.', nodes[0].get('type'))
+            self.propeq(nodes[0], 'type', 'component.')
             self.eq((1704067200000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
             self.len(1, await core.nodes('phys:contained -> phys:contained:type:taxonomy'))

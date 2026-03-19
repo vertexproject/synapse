@@ -164,7 +164,7 @@ class AhaTest(s_test.SynTest):
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cell.synapse] offline.') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.aha', 'Set [0.cell.synapse] offline.') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
 
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
@@ -524,10 +524,7 @@ class AhaTest(s_test.SynTest):
 
             conf = {'dns:name': 'aha.loop.vertex.link'}
             async with self.getTestAha(dirn=dirn, conf=conf) as aha:
-
-                ahaport = aha.sockaddr[1]
-
-                url = aha.getLocalUrl()
+                await aha.enter_context(self.withSetLoggingMock())
 
                 outp = self.getTestOutp()
                 await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
@@ -606,7 +603,7 @@ class AhaTest(s_test.SynTest):
                     self.none(yamlconf.get('aha:admin'))
 
                     self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
+                    self.eq('ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
 
@@ -1472,7 +1469,7 @@ class AhaTest(s_test.SynTest):
             self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
 
             async with aha0.getLocalProxy() as proxy0:
-                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link')
+                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link', port=0)
 
             conf1 = {'clone': purl}
             async with self.getTestAha(conf=conf1) as aha1:

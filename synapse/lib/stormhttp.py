@@ -14,7 +14,6 @@ import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerType
@@ -564,7 +563,10 @@ class HttpResp(s_stormtypes.Prim):
 
         except s_exc.BadJsonText as e:
             mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
-            raise s_exc.BadJsonText(mesg=mesg)
+            info = {'mesg': mesg}
+            if (text := e.get('text')) is not None:
+                info['text'] = text
+            raise s_exc.BadJsonText(**info)
 
     async def _httpRespMsgpack(self, strict=False):
         strict = await s_stormtypes.tobool(strict)

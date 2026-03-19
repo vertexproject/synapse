@@ -3,7 +3,6 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
 
 RISK_HASVULN_VULNPROPS = (
@@ -327,8 +326,8 @@ class ModelForm(s_stormtypes.Prim):
     Implements the Storm API for a Form.
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the Form', 'type': 'str', },
-        {'name': 'prop', 'desc': 'Get a Property on the Form',
+        {'name': 'name', 'desc': 'The name of the Form.', 'type': 'str', },
+        {'name': 'prop', 'desc': 'Get a Property on the Form.',
          'type': {'type': 'function', '_funcname': '_getFormProp',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
@@ -336,6 +335,9 @@ class ModelForm(s_stormtypes.Prim):
                   'returns': {'type': ['model:property', 'null'],
                               'desc': 'The ``model:property`` instance if the property if present on the form or null.'
                               }}},
+        {'name': 'props', 'desc': 'Get a dictionary of Properties on the Form.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorFormProps',
+                  'returns': {'type': 'model:form:props'}}},
         {'name': 'type', 'desc': 'Get the Type for the form.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorFormType',
                   'returns': {'type': 'model:type'}}},
@@ -350,6 +352,7 @@ class ModelForm(s_stormtypes.Prim):
 
         self.ctors.update({
             'type': self._ctorFormType,
+            'props': self._ctorFormProps,
         })
 
     def getObjLocals(self):
@@ -359,6 +362,9 @@ class ModelForm(s_stormtypes.Prim):
 
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
+
+    def _ctorFormProps(self, path=None):
+        return ModelFormProps(self.valu.props, path=path)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getFormProp(self, name):
@@ -384,6 +390,9 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'type', 'desc': 'Get the Type for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
                   'returns': {'type': 'model:type'}}},
+        {'name': 'allowedforms', 'desc': 'Get Forms which may be used as values for the Property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedForms',
+                  'returns': {'type': 'list', 'desc': 'A list of ``model:form`` objects for the forms allowed in the property.'}}},
     )
     _storm_typename = 'model:property'
     def __init__(self, prop, path=None):
@@ -393,6 +402,7 @@ class ModelProp(s_stormtypes.Prim):
         self.ctors.update({
             'form': self._ctorPropForm,
             'type': self._ctorPropType,
+            'allowedforms': self._ctorPropAllowedForms,
         })
 
         self.locls['name'] = self.valu.name
@@ -407,8 +417,47 @@ class ModelProp(s_stormtypes.Prim):
 
         return ModelForm(self.valu.form, path=path)
 
+    def _ctorPropAllowedForms(self, path=None):
+        ptyp = self.valu.type
+        if ptyp.isarray:
+            ptyp = ptyp.arraytype
+
+        if not ptyp.ispoly:
+            return ()
+
+        return tuple(ModelForm(form) for form in ptyp.getFormSet())
+
     def value(self):
         return self.valu.pack()
+
+@s_stormtypes.registry.registerType
+class ModelFormProps(s_stormtypes.Prim):
+    '''
+    A Storm Primitive representing the properties on a Form.
+    '''
+    _storm_typename = 'model:form:props'
+
+    def __init__(self, props, path=None):
+        s_stormtypes.Prim.__init__(self, props, path=path)
+        self.locls.update(self.getObjLocals())
+
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        return item in self.valu
+
+    async def _derefGet(self, name):
+        name = await s_stormtypes.tostr(name)
+        prop = self.valu.get(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+    async def iter(self):
+        for name, prop in self.valu.items():
+            yield name, ModelProp(prop)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    def value(self):
+        return {name: ModelProp(prop) for name, prop in self.valu.items()}
 
 @s_stormtypes.registry.registerType
 class ModelTagProp(s_stormtypes.Prim):
@@ -445,7 +494,7 @@ class ModelType(s_stormtypes.Prim):
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
-        {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'stortype', 'desc': 'The stortype of the Type.', 'type': 'int', },
         {'name': 'opts', 'desc': 'The options for the Type.', 'type': 'dict', },
         {'name': 'mutable', 'desc': 'True if the type is mutable.', 'type': 'boolean', },
         {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',

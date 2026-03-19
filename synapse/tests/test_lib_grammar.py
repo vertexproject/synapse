@@ -505,7 +505,7 @@ Queries = [
         :bytes="*"
     ]
 
-    {[ inet:email:message:link=($node, https://www.vertex.link) ]}
+    {[ inet:hyperlink=($node, https://www.vertex.link) ]}
 
     {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
 
@@ -1254,7 +1254,7 @@ _ParseResults = [
     "Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [VarListSetOper: [VarList: ['fqdn', 'ip'], FuncCall: [VarDeref: [VarValue: [Const: foo], Const: split], CallArgs: [Const: |], CallKwargs: []]], EditNodeAdd: [FormName: [Const: inet:dns:a], Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ip]]]]]]]",
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [PivotTarget: [Const: test:int]], isjoin=False, EditTagAdd: [TagName: [VarValue: [Const: tag]]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [PivotTarget: [Const: test:int]], isjoin=False, EditTagDel: [TagName: [VarValue: [Const: tag]]]]]]]',
-    'Query: [EditNodeAdd: [FormName: [Const: inet:email:message], Const: =, Const: *], EditPropSet: [RelProp: [Const: to], Const: =, Const: woot@woot.com], EditPropSet: [RelProp: [Const: from], Const: =, Const: visi@vertex.link], EditPropSet: [RelProp: [Const: replyto], Const: =, Const: root@root.com], EditPropSet: [RelProp: [Const: subject], Const: =, Const: hi there], EditPropSet: [RelProp: [Const: date], Const: =, Const: 2015], EditPropSet: [RelProp: [Const: body], Const: =, Const: there are mad sploitz here!], EditPropSet: [RelProp: [Const: bytes], Const: =, Const: *], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:email:message:link], Const: =, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:email:message:attachment], Const: =, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [Const: inet:email:message]], EditPropSet: [RelProp: [Const: name], Const: =, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: meta:source], Const: =, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: inet:email:message], Const: =, Const: *], EditPropSet: [RelProp: [Const: to], Const: =, Const: woot@woot.com], EditPropSet: [RelProp: [Const: from], Const: =, Const: visi@vertex.link], EditPropSet: [RelProp: [Const: replyto], Const: =, Const: root@root.com], EditPropSet: [RelProp: [Const: subject], Const: =, Const: hi there], EditPropSet: [RelProp: [Const: date], Const: =, Const: 2015], EditPropSet: [RelProp: [Const: body], Const: =, Const: there are mad sploitz here!], EditPropSet: [RelProp: [Const: bytes], Const: =, Const: *], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:hyperlink], Const: =, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:email:message:attachment], Const: =, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [Const: inet:email:message]], EditPropSet: [RelProp: [Const: name], Const: =, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: meta:source], Const: =, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: /, Const: 3]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: *, Const: 3]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
@@ -1818,12 +1818,54 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.true(errinfo.get('mesg').startswith("Unexpected token '(' at line 1, column 17"))
 
-        query = 'switch $x { *: {} *:{} }'
-        parser = s_parser.Parser(query)
-        with self.raises(s_exc.BadSyntax) as cm:
-            _ = parser.query()
-        errinfo = cm.exception.errinfo
-        self.true(errinfo.get('mesg').startswith("Switch statements cannot have more than one default case."))
+        # duplicated switch cases are an error
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                "foo": { $lib.print("got foo") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
+
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                ("foo", "bar"): { $lib.print(`got {$val}`) }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: foo')
+
+        q = '''
+            $val = foo
+            switch $val {
+                "foo": { $lib.print("got foo") }
+                ("bar", "bar"): { $lib.print("got bar") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have duplicate switch cases: bar')
+
+        q = '''
+            $val = foo
+            switch $val {
+                *: { $lib.print("got foo") }
+                *: { $lib.print("got bar") }
+            }
+        '''
+        parser = s_parser.Parser(q)
+        with self.raises(s_exc.BadSyntax) as exc:
+            parser.query()
+        self.eq(exc.exception.get('mesg'), 'Switch statements cannot have more than one default case. Found 2.')
 
     async def test_quotes(self):
 

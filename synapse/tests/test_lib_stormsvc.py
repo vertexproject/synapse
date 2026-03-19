@@ -7,7 +7,6 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
-import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -141,6 +140,13 @@ class RealService(s_stormsvc.StormSvc):
                  ''',
                  'modconf': {'key': 'valu'},
                  },
+                {'name': 'foo.baz',
+                 'storm': '''
+                  function getMetaVars(){
+                     return ($modconf.pkgmeta)
+                  }
+                 '''
+                },
             ),
             'commands': (
                 {
@@ -419,13 +425,13 @@ class StormSvcTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             msgs = await core.stormlist('service.add --help')
-            self.stormIsInPrint(f'Add a storm service to the cortex.', msgs)
+            self.stormIsInPrint('Add a storm service to the cortex.', msgs)
 
             msgs = await core.stormlist('service.del --help')
-            self.stormIsInPrint(f'Remove a storm service from the cortex.', msgs)
+            self.stormIsInPrint('Remove a storm service from the cortex.', msgs)
 
             msgs = await core.stormlist('service.list --help')
-            self.stormIsInPrint(f'List the storm services configured in the cortex.', msgs)
+            self.stormIsInPrint('List the storm services configured in the cortex.', msgs)
 
             msgs = await core.stormlist('service.add fake tcp://localhost:3333/foo')
             ssvc = core.getStormSvcs()[0]
@@ -534,7 +540,7 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('inet:ip=1.2.3.3 | baz | yoyo')
                     self.len(5, {n.ndef for n in nodes})
 
-    async def test_storm_svcs(self):
+    async def test_storm_svcs_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -620,10 +626,10 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('[ inet:ip=5.5.5.5 ] | ohhai')
 
                     self.len(2, nodes)
-                    self.eq(nodes[0].get('asn'), 20)
+                    self.propeq(nodes[0], 'asn', 20)
                     self.eq(nodes[0].ndef, ('inet:ip', (4, 0x05050505)))
 
-                    self.eq(nodes[1].get('asn'), 20)
+                    self.propeq(nodes[1], 'asn', 20)
                     self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ip=$ipv4] }')
@@ -651,16 +657,22 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
+                    self.stormIsInPrint(f"pkgmeta={{'modname': 'foo.bar', 'pkgname': 'foo', 'svciden': '{iden}'}}", msgs)
+
+                    # metavars are available
+                    q = '$mod = $lib.import(foo.baz) return ( $mod.getMetaVars() )'
+                    ret = await core.callStorm(q)
+                    self.eq(ret, {'modname': 'foo.baz', 'pkgname': 'foo', 'svciden': iden})
 
                     # Check some service related permissions
                     user = await core.auth.addUser('user')
 
                     # No permissions is a failure too!
                     msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
-                    self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
+                    self.stormIsInErr('must have permission service.get', msgs)
 
                     # storm service permissions should use svcidens
-                    await user.addRule((True, ('service', 'get', iden)))
+                    await user.addRule((True, ('service', 'get')))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
@@ -669,7 +681,7 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
-                    msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
+                    msgs = await core.stormlist('$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
@@ -694,22 +706,16 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, [m for m in msgs if m[0] == 'err'])
                     self.stormIsInPrint('yup', msgs)
 
-                    await user.delRule((True, ('service', 'get', iden)))
-                    await user.addRule((True, ('service', 'get')))
-                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
-                    self.len(0, [m for m in msgs if m[0] == 'err'])
-                    self.stormIsInPrint('yup', msgs)
-
                 async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
                     nodes = await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
 
                     self.len(2, nodes)
-                    self.eq(nodes[0].get('asn'), 20)
+                    self.propeq(nodes[0], 'asn', 20)
                     self.eq(nodes[0].ndef, ('inet:ip', (4, 0x06060606)))
 
-                    self.eq(nodes[1].get('asn'), 20)
+                    self.propeq(nodes[1], 'asn', 20)
                     self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
                     # reach in and close the proxies
@@ -957,25 +963,25 @@ class StormSvcTest(s_test.SynTest):
 
             await core.nodes('[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 ]')
 
-            scmd = f'inet:ip=1.2.3.4 $foo=$node.repr() | magic $foo'
+            scmd = 'inet:ip=1.2.3.4 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
-            scmd = f'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo'
+            scmd = 'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic $foo'
+            scmd = '$foo=8.8.8.8 | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic $foo --debug'
+            scmd = '$foo=8.8.8.8 | magic $foo --debug'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic --debug $foo'
+            scmd = '$foo=8.8.8.8 | magic --debug $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)

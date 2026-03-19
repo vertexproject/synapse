@@ -145,6 +145,9 @@ modeldefs = (
 
         'ctors': (
             ('syn:user', 'synapse.models.syn.SynUser', {}, {
+                'interfaces': (
+                    ('entity:actor', {}),
+                ),
                 'doc': 'A Synapse user.'}),
 
             ('syn:role', 'synapse.models.syn.SynRole', {}, {
@@ -166,7 +169,7 @@ modeldefs = (
             ('syn:cmd', ('str', {}), {
                 'doc': 'A Synapse storm command.'
             }),
-            ('syn:deleted', ('ndef', {}), {
+            ('syn:deleted', ('data', {}), {
                 'doc': 'A node present below the write layer which has been deleted.'
             }),
         ),
@@ -195,6 +198,7 @@ modeldefs = (
                 ('base', ('str', {}), {'computed': True,
                     'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
             )),
+            ('syn:user', {}, ()),
             ('syn:type', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynType'}, (
                 ('doc', ('str', {}), {
                     'doc': 'The docstring for the type.', 'computed': True}),
@@ -263,6 +267,10 @@ modeldefs = (
             ('syn:deleted', {'runt': True}, (
                 ('nid', ('int', {}), {
                     'doc': 'The nid for the node that was deleted.', 'computed': True}),
+                ('form', ('str', {}), {
+                    'doc': 'The form for the node that was deleted.', 'computed': True}),
+                ('value', ('data', {}), {
+                    'doc': 'The primary property value for the node that was deleted.', 'computed': True}),
                 ('sodes', ('data', {}), {
                     'doc': 'The layer storage nodes for the node that was deleted.', 'computed': True}),
             )),

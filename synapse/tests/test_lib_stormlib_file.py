@@ -1,4 +1,3 @@
-import os
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -13,7 +12,7 @@ class FileTest(s_test.SynTest):
         # chosen by fair dice role. guaranteed to be random.
         data = s_common.uhex('b73c99dc92ee8dfc8823368b2b125f52822d053fd65267077570a48fd98cd9d8')
         # stable gtor value
-        evalu = '9c8697787f6a3b0a418f90209bc955ff'
+        evalu = 'aca9397e6122d35afa2120a62d8c0d5e'
         hashset = s_hashset.HashSet()
         hashset.update(data)
 
@@ -36,7 +35,7 @@ class FileTest(s_test.SynTest):
             for hashname in ('md5', 'sha1', 'sha256', 'sha512'):
                 hashvalu = nodes[0].get(hashname)
                 self.nn(hashvalu)
-                self.eq(nodes[0].get(hashname), s_common.ehex(hashes.get(hashname)))
+                self.propeq(nodes[0], hashname, s_common.ehex(hashes.get(hashname)))
 
             self.true(await core.axon.has(sha256b))
 
@@ -53,7 +52,7 @@ class FileTest(s_test.SynTest):
             nodes = await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('file:bytes', evalu))
-            self.eq(nodes[0].get('sha256'), sha256)
+            self.propeq(nodes[0], 'sha256', sha256)
             self.none(nodes[0].get('md5'))
             nid = nodes[0].nid
 
@@ -62,8 +61,8 @@ class FileTest(s_test.SynTest):
             self.len(1, nodes)
             # stable gutor hash valu
             self.eq(nodes[0].ndef, ('file:bytes', evalu))
-            self.eq(nodes[0].get('sha256'), sha256)
-            self.eq(nodes[0].get('md5'), s_common.ehex(hashes.get('md5')))
+            self.propeq(nodes[0], 'sha256', sha256)
+            self.propeq(nodes[0], 'md5', s_common.ehex(hashes.get('md5')))
             self.eq(nodes[0].nid, nid)
 
         async with self.getTestCore() as core:

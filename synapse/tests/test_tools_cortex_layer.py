@@ -128,7 +128,7 @@ class LayerTest(s_test.SynTest):
                 argv = ('--url', url, s_common.guid(), dirn)
                 outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                outp.expect(f'ERROR: Layer dump tool only works on cortexes, not cell.')
+                outp.expect('ERROR: Layer dump tool only works on cortexes, not cell.')
 
         async with self.getTestCore() as core:
 
@@ -160,7 +160,7 @@ class LayerTest(s_test.SynTest):
 
                 outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                outp.expect(f'ERROR: No edits to export starting from offset (9000).')
+                outp.expect('ERROR: No edits to export starting from offset (9000).')
 
                 # Handle outdir being an existing file
                 filename = s_common.genpath(dirn, 'newp')
@@ -285,7 +285,7 @@ class LayerTest(s_test.SynTest):
                 argv = ('--url', url, iden, filename)
                 outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                outp.expect(f'ERROR: Layer load tool only works on cortexes, not cell.')
+                outp.expect('ERROR: Layer load tool only works on cortexes, not cell.')
 
         # Non-existent file
         argv = (iden, 'newp')

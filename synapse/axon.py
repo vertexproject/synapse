@@ -14,7 +14,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
@@ -26,6 +25,7 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.process as s_process
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -1460,7 +1460,7 @@ class Axon(s_cell.Cell):
             todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_process.spawn(todo, log_conf=await self._getSpawnLogConf()))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
@@ -1494,7 +1494,7 @@ class Axon(s_cell.Cell):
             todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_process.spawn(todo, log_conf=await self._getSpawnLogConf()))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:

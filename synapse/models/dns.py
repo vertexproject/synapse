@@ -158,19 +158,6 @@ modeldefs = (
                 'ex': '(hehe.vertex.link,"fancy TXT record")',
                 'doc': 'The result of a DNS TXT record lookup.'}),
 
-            ('inet:dns:record', ('ndef', {
-                'forms': (
-                    'inet:dns:a',
-                    'inet:dns:aaaa',
-                    'inet:dns:cname',
-                    'inet:dns:mx',
-                    'inet:dns:ns',
-                    'inet:dns:rev',
-                    'inet:dns:soa',
-                    'inet:dns:txt',
-                )}), {
-                'doc': 'An ndef type including all forms which represent DNS records.'}),
-
             ('inet:dns:type', ('int', {}), {
                 'doc': 'A DNS query/answer type integer.'}),
 
@@ -324,7 +311,16 @@ modeldefs = (
                 ('request', ('inet:dns:request', {}), {
                     'doc': 'The DNS request that was answered.'}),
 
-                ('record', ('inet:dns:record', {}), {
+                ('record', ((
+                        'inet:dns:a',
+                        'inet:dns:aaaa',
+                        'inet:dns:cname',
+                        'inet:dns:mx',
+                        'inet:dns:ns',
+                        'inet:dns:rev',
+                        'inet:dns:soa',
+                        'inet:dns:txt',
+                    ), {}), {
                     'doc': 'The DNS record returned by the lookup.',
                     'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 
@@ -359,7 +355,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
                 ('provider:fqdn', ('inet:fqdn', {}), {

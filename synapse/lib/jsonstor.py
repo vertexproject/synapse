@@ -439,7 +439,7 @@ class JsonStorCell(s_cell.Cell):
 
     @classmethod
     def getEnvPrefix(cls):
-        return (f'SYN_JSONSTOR', f'SYN_{cls.__name__.upper()}', )
+        return ('SYN_JSONSTOR', f'SYN_{cls.__name__.upper()}', )
 
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):

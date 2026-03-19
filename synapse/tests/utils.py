@@ -67,7 +67,6 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
@@ -292,10 +291,9 @@ testmodel = (
                 'doc': 'A fake type.'}),
 
             ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lowstr', ('str', {'lower': True}), {}),
 
             ('test:time', ('time', {}), {}),
-
-            ('test:ival', ('ival', {}), {}),
 
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
@@ -361,15 +359,20 @@ testmodel = (
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
             ('test:protocol', ('int', {}), {}),
+            ('test:onstorm', ('guid', {}), {}),
         ),
         'forms': (
 
+            ('test:lowstr', {}, ()),
             ('test:arrayprop', {}, (
                 ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
                 ('children', ('array', {'type': 'test:arrayprop'}), {}),
+                ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
+                ('multivirt', ('array', {'type': ('file:path', 'inet:server'), 'uniq': False}), {}),
+                ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
             )),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
@@ -460,6 +463,17 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
+                    'default_forms': ('test:int', 'test:str')}), {}),
+                ('polyarry', ('array', {
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polynonuniq', ('array', {
+                    'uniq': False,
+                    'sorted': False,
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('polyint', ('test:interface', {}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -491,11 +505,6 @@ testmodel = (
             ('test:hexa', {}, ()),
             ('test:hex4', {}, ()),
             ('test:zeropad', {}, ()),
-            ('test:ival', {}, (
-                ('interval', ('ival', {}), {}),
-                ('daymax', ('ival', {'precision': 'day'}), {}),
-            )),
-
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -548,6 +557,17 @@ testmodel = (
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
                     'doc': 'Another value adjustable in a different way.'}),
+            )),
+
+            ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
+                ('tick', ('time', {}), {}),
+                ('name', ('str', {}), {
+                    'on': {'set': {'q': '[ :hehe=$node.props.name ]'}},
+                }),
+                ('hehe', ('str', {}), {}),
+                ('ondelprop', ('str', {}), {
+                    'on': {'del': {'q': '[ :hehe="deleted" ]'}},
+                }),
             )),
         ),
         'edges': (
@@ -1051,7 +1071,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
-        [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
+        [self.propeq(node, k, v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
         diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
@@ -2047,6 +2067,42 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             certdir = s_certdir.CertDir()
             with mock.patch('synapse.lib.certdir.certdir', certdir):
                 yield certdir
+
+    def propeq(self, n, prop, valu, form=None, repr=False, msg=None):
+        '''
+        Assert a node property is equal to valu.
+        '''
+        pval = n.repr(prop) if repr else n.get(prop)
+        parts = prop.split('.')
+
+        if parts[0]:
+            ptyp = n.form.reqProp(parts[0]).type
+        else:
+            ptyp = n.form.type
+
+        if len(parts) > 1:
+            if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
+                ptyp = mtyp
+            else:
+                ptyp = ptyp.getVirtType(parts[1:])
+
+        if valu is not None and pval is not None:
+            if ptyp.ispoly:
+                if form is not None:
+                    self.eq(pval, (form, valu), msg=msg)
+                    return
+
+                self.eq(pval[1], valu, msg=msg)
+                return
+
+            if ptyp.isarray and ptyp.arraytype.ispoly:
+                if form is None:
+                    pval = [aval[1] for aval in pval]
+                    self.sorteq(pval, valu, msg=msg)
+                    return
+
+        ft = self.sorteq if ptyp.isarray else self.eq
+        ft(valu, pval, msg=msg)
 
     def eq(self, x, y, msg=None):
         '''

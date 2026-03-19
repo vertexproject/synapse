@@ -35,11 +35,7 @@ modeldefs = (
                 'doc': 'A password string.'}),
         ),
 
-        'types': (
-
-            ('auth:credential', ('ndef', {'interface': 'auth:credential'}), {
-                'doc': 'A node which inherits the auth:credential interface.'}),
-        ),
+        'types': (),
 
         'interfaces': (
             ('auth:credential', {

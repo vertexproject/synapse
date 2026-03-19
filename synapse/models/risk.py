@@ -50,6 +50,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('risk:targetable', {}),
                     ('risk:mitigatable', {}),
+                    ('meta:discoverable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -68,6 +69,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of vulnerability types.'}),
 
+            ('risk:vuln:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of vulnerability statuses.'}),
+
             ('risk:vulnerable', ('guid', {}), {
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
@@ -75,8 +82,10 @@ modeldefs = (
                 'template': {'title': 'threat'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:discoverable', {}),
                     ('entity:actor', {}),
                     ('entity:abstract', {}),
+                    ('entity:contactable', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {
@@ -88,13 +97,26 @@ modeldefs = (
                     ),
                 },
             }),
+
+            ('risk:threat:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of threat statuses.'}),
+
             ('risk:attack', ('guid', {}), {
                 'template': {'title': 'attack'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:event', {}),
                     ('meta:reported', {}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
+
+            ('risk:attack:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -105,11 +127,17 @@ modeldefs = (
             ('risk:alert', ('guid', {}), {
                 'doc': 'An alert which indicates the presence of a risk.'}),
 
+            ('risk:compromise:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of compromise statuses.'}),
+
             ('risk:compromise', ('guid', {}), {
                 'template': {'title': 'compromise'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                 ),
                 'display': {
                     'columns': (
@@ -128,11 +156,14 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of mitigation types.'}),
 
-            ('risk:mitigation', ('guid', {}), {
-                'template': {'title': 'mitigation'},
+            ('risk:mitigation:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
-                    ('meta:reported', {}),
+                    ('meta:taxonomy', {}),
                 ),
+                'doc': 'A taxonomy of mitigation statuses.'}),
+
+            ('risk:mitigation', ('meta:technique', {}), {
+                'template': {'title': 'mitigation'},
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -168,6 +199,12 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of availability status values.'}),
 
+            ('risk:tool:software:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of tool statuses.'}),
+
             ('risk:tool:software', ('guid', {}), {
                 'template': {'title': 'tool'},
                 'interfaces': (
@@ -199,18 +236,24 @@ modeldefs = (
             ('risk:leak', ('guid', {}), {
                 'template': {'title': 'leak'},
                 'interfaces': (
+                    ('entity:event', {}),
                     ('meta:reported', {}),
-                    ('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'disclosed'}},
+                        {'type': 'prop', 'opts': {'name': 'time'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'owner::name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
                 'doc': 'An event where information was disclosed without permission.'}),
+
+            ('risk:leak:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of leak event statuses.'}),
 
             ('risk:leak:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -222,7 +265,7 @@ modeldefs = (
                 'template': {'title': 'extortion'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                 ),
                 'display': {
                     'columns': (
@@ -233,7 +276,13 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'deadline'}},
                     ),
                 },
-                'doc': 'An event where an attacker attempted to extort a victim.'}),
+                'doc': 'Activity where an attacker attempted to extort a victim.'}),
+
+            ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of extortion statuses.'}),
 
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -246,6 +295,12 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'An outage type taxonomy.'}),
+
+            ('risk:outage:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'An outage status taxonomy.'}),
 
             ('risk:outage', ('guid', {}), {
                 'template': {'title': 'outage'},
@@ -269,9 +324,6 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of extortion event types.'}),
-
-            ('risk:mitigatable', ('ndef', {'interface': 'risk:mitigatable'}), {
-                'doc': 'A node whose effect may be reduced by a mitigation.'}),
         ),
         'interfaces': (
 
@@ -297,22 +349,6 @@ modeldefs = (
 
             (('risk:compromise', 'stole', 'phys:object'), {
                 'doc': 'The target node was stolen as a result of the compromise.'}),
-
-            # TODO - risk:mitigation addresses meta:usable?
-            (('risk:mitigation', 'addresses', 'meta:technique'), {
-                'doc': 'The mitigation addresses the technique.'}),
-
-            (('risk:mitigation', 'addresses', 'risk:vuln'), {
-                'doc': 'The mitigation addresses the vulnerability.'}),
-
-            (('risk:mitigation', 'uses', 'meta:rule'), {
-                'doc': 'The mitigation uses the rule.'}),
-
-            (('risk:mitigation', 'uses', 'it:software'), {
-                'doc': 'The mitigation uses the software version.'}),
-
-            (('risk:mitigation', 'uses', 'it:hardware'), {
-                'doc': 'The mitigation uses the hardware.'}),
 
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
@@ -342,14 +378,21 @@ modeldefs = (
                 'doc': 'The source node resembles the target node.'}),
 
             # TODO we will need more of these...
-            (('inet:proto:link', 'showed', 'risk:vulnerable'), {
-                'doc': 'The network activity showed that the vulnerability was present.'}),
+            (('inet:proto:link', 'shows', 'risk:vulnerable'), {
+                'doc': 'The network activity shows that the vulnerability was present.'}),
         ),
         'forms': (
 
             ('risk:threat:type:taxonomy', {}, ()),
 
             ('risk:threat', {}, (
+
+                ('name', ('entity:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the threat according to the source.'}),
+
+                ('names', ('array', {'type': 'entity:name'}), {
+                    'doc': 'A list of alternate names for the threat according to the source.'}),
 
                 ('type', ('risk:threat:type:taxonomy', {}), {
                     'doc': 'A type for the threat, as a taxonomy entry.'}),
@@ -360,24 +403,26 @@ modeldefs = (
                 ('active', ('ival', {}), {
                     'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
-                ('activity', ('meta:activity', {}), {
+                ('activity', ('meta:score', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
-
-                ('merged:time', ('time', {}), {
-                    'doc': 'The time that the source merged this threat cluster into another.'}),
-
-                ('merged:isnow', ('risk:threat', {}), {
-                    'doc': 'The threat cluster that the source merged this cluster into.'}),
 
             )),
             ('risk:availability', {}, {}),
             ('risk:tool:software:type:taxonomy', {
                 'prevnames': ('risk:tool:software:taxonomy',)}, ()),
 
+            # FIXME extend it:software form?
             ('risk:tool:software', {}, (
+
+                ('name', ('it:softwarename', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the tool according to the source.'}),
+
+                ('names', ('array', {'type': 'it:softwarename'}), {
+                    'doc': 'A list of alternate names for the tool according to the source.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'ex': 'rep.mandiant.tabcteng',
@@ -392,37 +437,40 @@ modeldefs = (
                 ('availability', ('risk:availability', {}), {
                     'doc': "The source's assessed availability of the tool."}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': "The source's assessed sophistication of the tool."}),
 
                 ('software', ('it:software', {}), {
                     'prevnames': ('soft',),
                     'doc': 'The authoritative software family for the tool.'}),
             )),
-            ('risk:mitigation:type:taxonomy', {}, ()),
-            ('risk:mitigation', {}, (
-
-                ('type', ('risk:mitigation:type:taxonomy', {}), {
-                    'doc': 'A taxonomy type entry for the mitigation.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
-            )),
+            ('risk:mitigation', {}, ()),
 
             ('risk:vuln:type:taxonomy', {}, ()),
 
             ('risk:vuln', {}, (
 
-                ('cve', ('it:sec:cve', {}), {
-                    'doc': 'The CVE ID assigned to the vulnerability.'}),
+                ('id', (('it:sec:cve', 'meta:id'), {
+                    'default_forms': ('it:sec:cve', 'meta:id'),
+                    }), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the vulnerability.'}),
+
+                ('ids', ('array', {
+                    'type': ('it:sec:cve', 'meta:id'),
+                    'typeopts': {
+                        'default_forms': ('it:sec:cve', 'meta:id'),
+                    },
+                    }), {
+                    'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the vulnerability.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'The severity of the vulnerability.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'The priority of the vulnerability.'}),
 
                 ('mitigated', ('bool', {}), {
@@ -431,10 +479,6 @@ modeldefs = (
                 ('exploited', ('bool', {}), {
                     'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
 
-                ('discovered', ('time', {}), {
-                    'prevnames': ('timeline:discovered',),
-                    'doc': 'The earliest known discovery time for the vulnerability.'}),
-
                 ('published', ('time', {}), {
                     'prevnames': ('timeline:published',),
                     'doc': 'The earliest known time the vulnerability was published.'}),
@@ -442,7 +486,7 @@ modeldefs = (
                 ('vendor', ('entity:actor', {}), {
                     'doc': 'The vendor whose product contains the vulnerability.'}),
 
-                ('vendor:name', ('meta:name', {}), {
+                ('vendor:name', ('entity:name', {}), {
                     'doc': 'The name of the vendor whose product contains the vulnerability.'}),
 
                 ('vendor:fixed', ('time', {}), {
@@ -520,13 +564,13 @@ modeldefs = (
                     'doc': 'The time window where the node was vulnerable.'}),
 
                 # TODO - interface for things which can be vulnerable?
-                ('node', ('ndef', {}), {
+                ('node', (('risk:targetable', 'meta:havable', 'meta:observable'), {}), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('mitigated', ('bool', {}), {
                     'doc': 'Set to true if the vulnerable node has been mitigated.'}),
 
-                ('mitigations', ('array', {'type': 'risk:mitigation'}), {
+                ('mitigations', ('array', {'type': 'meta:technique'}), {
                     'doc': 'The mitigations which were used to address the vulnerable node.'}),
             )),
 
@@ -553,21 +597,18 @@ modeldefs = (
                 ('benign', ('bool', {}), {
                     'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                ('priority', ('meta:priority', {}), {
+                ('priority', ('meta:score', {}), {
                     'doc': 'A priority rank for the alert.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the alert.'}),
 
                 ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                     'ex': 'benign.false_positive',
                     'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
-                ('assignee', ('syn:user', {}), {
-                    'doc': 'The Synapse user who is assigned to investigate the alert.'}),
-
-                ('ext:assignee', ('entity:contact', {}), {
-                    'doc': 'The alert assignee contact information from an external system.'}),
+                ('assignee', ('entity:actor', {}), {
+                    'doc': 'The actor who is assigned to investigate the alert.'}),
 
                 ('engine', ('it:software', {}), {
                     'doc': 'The software that generated the alert.'}),
@@ -601,9 +642,6 @@ modeldefs = (
                 'prevnames': ('risk:compromisetype',)}, ()),
 
             ('risk:compromise', {}, (
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the compromise.'}),
 
                 ('type', ('risk:compromise:type:taxonomy', {}), {
                     'ex': 'cno.breach',
@@ -652,8 +690,11 @@ modeldefs = (
                 ('econ:currency', ('econ:currency', {}), {
                     'doc': 'The currency type for the econ:price fields.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the compromise.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'A tag used to associate nodes with the compromise.'}),
             )),
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
@@ -680,23 +721,21 @@ modeldefs = (
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'A compromise that this attack contributed to.'}),
 
-                ('severity', ('meta:severity', {}), {
+                ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the attack.'}),
 
-                ('sophistication', ('meta:sophistication', {}), {
+                ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the attack.'}),
 
                 ('prev', ('risk:attack', {}), {
                     'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the attack.'}),
             )),
 
             ('risk:leak:type:taxonomy', {}, ()),
             ('risk:leak', {}, (
 
-                ('disclosed', ('time', {}), {
+                ('time', ('time', {}), {
                     'doc': 'The time the leaked information was disclosed.'}),
 
                 ('owner', ('entity:actor', {}), {
@@ -753,7 +792,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which experienced the outage event.'}),
 
-                ('provider:name', ('meta:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which experienced the outage event.'}),
             )),
 

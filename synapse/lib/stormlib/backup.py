@@ -27,6 +27,8 @@ class BackupLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('backup',)
     _storm_lib_perms = (
+        {'perm': ('backup',), 'gate': 'cortex',
+         'desc': 'Controls all backup permissions.'},
         {'perm': ('backup', 'del'), 'gate': 'cortex',
          'desc': 'Permits a user to delete an existing backup.'},
         {'perm': ('backup', 'list'), 'gate': 'cortex',

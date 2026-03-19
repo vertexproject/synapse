@@ -1,7 +1,7 @@
 import textwrap
 
 import synapse.exc as s_exc
-import synapse.common as s_common
+
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -491,7 +491,7 @@ The ready value indicates that a service has entered into the realtime change wi
             try {
                 $_prox = $lib.telepath.open($_url)
                 $_info = $_prox.getCellInfo()
-                return ( $_info.cell.nexsindx )
+                return ( $_info.cell.nexus.indx )
             } catch * as _err {
                 $_emsg = $_err.mesg
                 if ($_emsg = null ) {

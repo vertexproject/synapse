@@ -100,6 +100,7 @@ _CronJobSchema = {
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
+        'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
         'ver': {'type': 'integer'},
         'indx': {'type': 'integer'},
@@ -680,6 +681,7 @@ datamodel_basetypes = [
     'array',
     'data',
     'nodeprop',
+    'poly',
     'hugenum',
     'taxon',
     'taxonomy',
@@ -803,6 +805,26 @@ _reqValidPkgdefSchema = {
                 'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
+        'vaults': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'properties': {
+                        'schemas': {
+                            'type': 'object',
+                            'properties': {
+                                'configs': {'$ref': 'https://json-schema.org/draft-07/schema'},
+                                'secrets': {'$ref': 'https://json-schema.org/draft-07/schema'}
+                            },
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+            },
+            'additionalProperties': False,
+        }
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -845,6 +867,7 @@ _reqValidPkgdefSchema = {
                 'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
                 'version': {'type': 'integer', 'minimum': 0},
             },
             'additionalProperties': False,
@@ -1075,7 +1098,7 @@ _reqValidPkgdefSchema = {
             },
             'additionalItems': True,
             'required': ('name',),
-        },
+        }
     }
 }
 reqValidPkgdef = s_config.getJsValidator(_reqValidPkgdefSchema)
@@ -1085,7 +1108,6 @@ _reqValidDdefSchema = {
     'properties': {
         'name': {'type': 'string'},
         'storm': {'type': 'string'},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'enabled': {'type': 'boolean', 'default': True},
@@ -1096,7 +1118,7 @@ _reqValidDdefSchema = {
             ]
         }
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'user', 'storm'],
     'definitions': {
         'stormopts': {

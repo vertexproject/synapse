@@ -31,38 +31,38 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:tac', 1))
-            self.eq(node.get('manu'), 'acme corp')
-            self.eq(node.get('model'), 'eyephone 9000')
-            self.eq(node.get('internal'), 'spyphone 9000')
-            self.eq(node.get('org'), oguid)
+            self.propeq(node, 'manu', 'acme corp')
+            self.propeq(node, 'model', 'eyephone 9000')
+            self.propeq(node, 'internal', 'spyphone 9000')
+            self.propeq(node, 'org', oguid)
 
             nodes = await core.nodes('[tel:mob:imid=(490154203237518, 310150123456789)]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:imid', (490154203237518, 310150123456789)))
-            self.eq(node.get('imei'), 490154203237518)
-            self.eq(node.get('imsi'), 310150123456789)
+            self.propeq(node, 'imei', 490154203237518)
+            self.propeq(node, 'imsi', 310150123456789)
 
             nodes = await core.nodes('[tel:mob:imsiphone=(310150123456789, "+7(495) 124-59-83")]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:imsiphone', (310150123456789, '74951245983')))
-            self.eq(node.get('imsi'), 310150123456789)
-            self.eq(node.get('phone'), '74951245983')
+            self.propeq(node, 'imsi', 310150123456789)
+            self.propeq(node, 'phone', '74951245983')
 
             nodes = await core.nodes('[tel:mob:mcc=611 :place:country:code=gn]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:mcc', '611'))
-            self.eq(node.get('place:country:code'), 'gn')
+            self.propeq(node, 'place:country:code', 'gn')
 
             nodes = await core.nodes("[ tel:mob:carrier=({'mcc': '001', 'mnc': '02'}) ]")
             self.len(1, nodes)
             node = nodes[0]
             cguid = node.ndef[1]
             self.eq(node.ndef[0], 'tel:mob:carrier')
-            self.eq(node.get('mcc'), '001')
-            self.eq(node.get('mnc'), '02')
+            self.propeq(node, 'mcc', '001')
+            self.propeq(node, 'mnc', '02')
 
             nodes = await core.nodes('''
                 [ tel:mob:cell=*
@@ -76,12 +76,12 @@ class TelcoModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('carrier'), cguid)
-            self.eq(nodes[0].get('lac'), 3)
-            self.eq(nodes[0].get('cid'), 4)
-            self.eq(nodes[0].get('radio'), 'pirate.')
-            self.eq(nodes[0].get('place:loc'), 'us.ca.la')
-            self.eq(nodes[0].get('place:latlong'), (0.0, 0.0))
+            self.propeq(nodes[0], 'carrier', cguid)
+            self.propeq(nodes[0], 'lac', 3)
+            self.propeq(nodes[0], 'cid', 4)
+            self.propeq(nodes[0], 'radio', 'pirate.')
+            self.propeq(nodes[0], 'place:loc', 'us.ca.la')
+            self.propeq(nodes[0], 'place:latlong', (0.0, 0.0))
             self.len(1, await core.nodes('tel:mob:cell :place -> geo:place'))
             self.len(1, await core.nodes('tel:mob:cell -> tel:mob:carrier -> tel:mob:mcc'))
 
@@ -116,22 +116,22 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:telem', guid))
-            self.eq(node.get('time'), 978307200000000)
-            self.eq(node.get('place:latlong'), (-1.0, 1.0))
-            self.eq(node.get('place'), place)
-            self.eq(node.get('host'), host)
-            self.eq(node.get('place:loc'), 'us')
-            self.eq(node.get('place:latlong:accuracy'), 100)
-            self.eq(node.get('imsi'), 310150123456789)
-            self.eq(node.get('imei'), 490154203237518)
-            self.eq(node.get('phone'), '1234567890')
-            self.eq(node.get('mac'), '00:00:00:00:00:00')
-            self.eq(node.get('ip'), (4, 0x01020304))
-            self.eq(node.get('adid'), 'someadid')
-            self.eq(node.get('name'), 'robert grey')
-            self.eq(node.get('email'), 'clown@vertex.link')
-            self.eq(node.get('app'), softguid)
-            self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
+            self.propeq(node, 'time', 978307200000000)
+            self.propeq(node, 'place:latlong', (-1.0, 1.0))
+            self.propeq(node, 'place', place)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'place:loc', 'us')
+            self.propeq(node, 'place:latlong:accuracy', 100)
+            self.propeq(node, 'imsi', 310150123456789)
+            self.propeq(node, 'imei', 490154203237518)
+            self.propeq(node, 'phone', '1234567890')
+            self.propeq(node, 'mac', '00:00:00:00:00:00')
+            self.propeq(node, 'ip', (4, 0x01020304))
+            self.propeq(node, 'adid', 'someadid')
+            self.propeq(node, 'name', 'robert grey')
+            self.propeq(node, 'email', 'clown@vertex.link')
+            self.propeq(node, 'app', softguid)
+            self.propeq(node, 'data', {'some key': 'some valu', 'BEEP': 1})
             self.len(1, await core.nodes('tel:mob:telem :cell -> tel:mob:cell'))
             self.len(1, await core.nodes('tel:mob:telem :wifi:ap -> inet:wifi:ap'))
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))
@@ -143,8 +143,8 @@ class TelcoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             # proper value
             self.eq(node.ndef, ('tel:mob:imei', 490154203237518))
-            self.eq(node.get('serial'), 323751)
-            self.eq(node.get('tac'), 49015420)
+            self.propeq(node, 'serial', 323751)
+            self.propeq(node, 'tac', 49015420)
             # One without the check bit (it gets added)
             nodes = await core.nodes('[tel:mob:imei=39015420323751]')
             self.len(1, nodes)
@@ -164,7 +164,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:imsi', 310150123456789))
-            self.eq(node.get('mcc'), '310')
+            self.propeq(node, 'mcc', '310')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[tel:mob:imsi=hehe]')
             with self.raises(s_exc.BadTypeValu):
@@ -198,8 +198,8 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:phone', '17035551212'))
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('type'), 'fax.')
+            self.propeq(node, 'loc', 'us')
+            self.propeq(node, 'type', 'fax.')
             self.len(1, await core.nodes('tel:phone:type=fax -> tel:phone:type:taxonomy'))
             # Phone # folding..
             self.len(1, await core.nodes('[tel:phone="+1 (703) 555-2424"]'))
@@ -220,7 +220,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('caller:phone'), '17035551212')
-            self.eq(nodes[0].get('recipient:phone'), '1234567890')
-            self.eq(nodes[0].get('period'), (978307200000000, 978307200000001, 1))
-            self.eq(nodes[0].get('connected'), True)
+            self.propeq(nodes[0], 'caller:phone', '17035551212')
+            self.propeq(nodes[0], 'recipient:phone', '1234567890')
+            self.propeq(nodes[0], 'period', (978307200000000, 978307200000001, 1))
+            self.propeq(nodes[0], 'connected', True)

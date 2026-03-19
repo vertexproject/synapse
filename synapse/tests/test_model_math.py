@@ -1,4 +1,3 @@
-import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 class MathTest(s_t_utils.SynTest):
@@ -15,8 +14,8 @@ class MathTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq('imphash', nodes[0].get('name'))
-            self.eq('hash.imports.', nodes[0].get('type'))
-            self.eq(1328140800000000, nodes[0].get('created'))
-            self.eq("Import Hashes!", nodes[0].get('desc'))
+            self.propeq(nodes[0], 'name', 'imphash')
+            self.propeq(nodes[0], 'type', 'hash.imports.')
+            self.propeq(nodes[0], 'created', 1328140800000000)
+            self.propeq(nodes[0], 'desc', "Import Hashes!")
             self.len(1, await core.nodes('math:algorithm -> math:algorithm:type:taxonomy'))

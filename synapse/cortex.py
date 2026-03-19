@@ -24,7 +24,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.time as s_time
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
-import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -51,55 +50,57 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
-import synapse.lib.stormhttp as s_stormhttp  # NOQA
+import synapse.lib.stormhttp as s_stormhttp  # noqa: F401
 
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
-import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
-import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
-import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
-import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
-import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
-import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
-import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
-import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
-import synapse.lib.stormlib.file as s_stormlib_file  # NOQA
-import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
-import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
-import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
-import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
-import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
-import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
-import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
-import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
-import synapse.lib.stormlib.task as s_stormlib_task  # NOQA
-import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
-import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
-import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
-import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
-import synapse.lib.stormlib.index as s_stormlib_index  # NOQA
-import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
+import synapse.lib.stormlib.aha as s_stormlib_aha  # noqa: F401
+import synapse.lib.stormlib.gen as s_stormlib_gen  # noqa: F401
+import synapse.lib.stormlib.gis as s_stormlib_gis  # noqa: F401
+import synapse.lib.stormlib.hex as s_stormlib_hex  # noqa: F401
+import synapse.lib.stormlib.log as s_stormlib_log  # noqa: F401
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # noqa: F401
+import synapse.lib.stormlib.xml as s_stormlib_xml  # noqa: F401
+import synapse.lib.stormlib.auth as s_stormlib_auth  # noqa: F401
+import synapse.lib.stormlib.cell as s_stormlib_cell  # noqa: F401
+import synapse.lib.stormlib.file as s_stormlib_file  # noqa: F401
+import synapse.lib.stormlib.imap as s_stormlib_imap  # noqa: F401
+import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # noqa: F401
+import synapse.lib.stormlib.json as s_stormlib_json  # noqa: F401
+import synapse.lib.stormlib.math as s_stormlib_math  # noqa: F401
+import synapse.lib.stormlib.mime as s_stormlib_mime  # noqa: F401
+import synapse.lib.stormlib.pack as s_stormlib_pack  # noqa: F401
+import synapse.lib.stormlib.smtp as s_stormlib_smtp  # noqa: F401
+import synapse.lib.stormlib.stix as s_stormlib_stix  # noqa: F401
+import synapse.lib.stormlib.task as s_stormlib_task  # noqa: F401
+import synapse.lib.stormlib.yaml as s_stormlib_yaml  # noqa: F401
+import synapse.lib.stormlib.basex as s_stormlib_basex  # noqa: F401
+import synapse.lib.stormlib.bytes as s_stormlib_bytes  # noqa: F401
+import synapse.lib.stormlib.cache as s_stormlib_cache  # noqa: F401
+import synapse.lib.stormlib.graph as s_stormlib_graph  # noqa: F401
+import synapse.lib.stormlib.index as s_stormlib_index  # noqa: F401
+import synapse.lib.stormlib.iters as s_stormlib_iters  # noqa: F401
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
-import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
-import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
-import synapse.lib.stormlib.utils as s_stormlib_utils  # NOQA
-import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
-import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
-import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
-import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
-import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
-import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
-import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
-import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
-import synapse.lib.stormlib.tabular as s_stormlib_tabular  # NOQA
-import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
-import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
-import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
-import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
-import synapse.lib.stormlib.compression as s_stormlib_compression  # NOQA
+import synapse.lib.stormlib.oauth as s_stormlib_oauth  # noqa: F401
+import synapse.lib.stormlib.stats as s_stormlib_stats  # noqa: F401
+import synapse.lib.stormlib.storm as s_stormlib_storm  # noqa: F401
+import synapse.lib.stormlib.utils as s_stormlib_utils  # noqa: F401
+import synapse.lib.stormlib.vault as s_stormlib_vault  # noqa: F401
+import synapse.lib.stormlib.backup as s_stormlib_backup  # noqa: F401
+import synapse.lib.stormlib.cortex as s_stormlib_cortex  # noqa: F401
+import synapse.lib.stormlib.hashes as s_stormlib_hashes  # noqa: F401
+import synapse.lib.stormlib.quorum as s_stormlib_quorum  # noqa: F401
+import synapse.lib.stormlib.random as s_stormlib_random  # noqa: F401
+import synapse.lib.stormlib.scrape as s_stormlib_scrape   # noqa: F401
+import synapse.lib.stormlib.infosec as s_stormlib_infosec  # noqa: F401
+import synapse.lib.stormlib.spooled as s_stormlib_spooled  # noqa: F401
+import synapse.lib.stormlib.tabular as s_stormlib_tabular  # noqa: F401
+import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
+import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
+import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
@@ -239,7 +240,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('impersonate',))
+            self.user.reqAdmin()
 
         return opts
 
@@ -375,7 +376,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended types must begin with _
         '''
-        self.user.confirm(('model', 'type', 'add', typename))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addType(typename, basetype, typeopts, typeinfo)
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
@@ -384,14 +385,14 @@ class CoreApi(s_cell.CellApi):
 
         Extended forms *must* begin with _
         '''
-        self.user.confirm(('model', 'form', 'add', formname))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addForm(formname, basetype, typeopts, typeinfo)
 
     async def delForm(self, formname):
         '''
         Remove an extended form from the data model.
         '''
-        self.user.confirm(('model', 'form', 'del', formname))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delForm(formname)
 
     async def addFormProp(self, form, prop, tdef, info):
@@ -400,7 +401,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        self.user.confirm(('model', 'prop', 'add', form))
+        self.user.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(prop):
             mesg = f'Invalid prop name {prop}'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
@@ -410,14 +411,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove an extended property from the given form.
         '''
-        self.user.confirm(('model', 'prop', 'del', form))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delFormProp(form, name)
 
     async def addTagProp(self, name, tdef, info):
         '''
         Add a tag property to record data about tags on nodes.
         '''
-        self.user.confirm(('model', 'tagprop', 'add'))
+        self.user.confirm(('model', 'admin'))
         if not s_grammar.isBasePropNoPivprop(name):
             mesg = f'Invalid prop name {name}'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
@@ -427,7 +428,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove a previously added tag property.
         '''
-        self.user.confirm(('model', 'tagprop', 'del'))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.delTagProp(name)
 
     async def addEdge(self, edge, edgeinfo):
@@ -436,7 +437,7 @@ class CoreApi(s_cell.CellApi):
 
         Extended edge definitions must use a verb which begins with _
         '''
-        self.user.confirm(('model', 'edge', 'add'))
+        self.user.confirm(('model', 'admin'))
         return await self.cell.addEdge(edge, edgeinfo)
 
     async def addStormPkg(self, pkgdef, *, verify=False):
@@ -617,6 +618,12 @@ class CoreApi(s_cell.CellApi):
     async def getHttpExtApiByPath(self, path):
         return await self.cell.getHttpExtApiByPath(path)
 
+    async def getViewDef(self, iden):
+        '''
+        Get a view definition by iden.
+        '''
+        return await self.cell.getViewDef(iden, user=self.user)
+
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the Synapse hypergraph.
@@ -642,6 +649,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         'jsonstor': {
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
+        },
+        'layers:cache:size': {
+            'default': None,
+            'description': 'Default nid cache size for new layers.',
+            'type': ['integer', 'null'],
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -730,7 +742,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
-        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -751,6 +762,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
+        self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
         self.axoninfo = {}
 
@@ -832,7 +844,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormMacro(self, name, user=None):
 
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -934,7 +946,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         byts = self.slab.pop(name.encode(), db=self.macrodb)
 
@@ -1040,6 +1052,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCorePerms(self):
         self._cortex_permdefs.extend((
+            {'perm': ('axon',), 'gate': 'cortex',
+             'desc': 'Controls all Axon permissions.'},
             {'perm': ('axon', 'upload'), 'gate': 'cortex',
              'desc': 'Controls the ability to upload a file to the Axon.'},
             {'perm': ('axon', 'get'), 'gate': 'cortex',
@@ -1049,63 +1063,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
 
+            {'perm': ('layer',), 'gate': 'cortex',
+             'desc': 'Controls all layer permissions.'},
             {'perm': ('layer', 'add'), 'gate': 'cortex',
              'desc': 'Controls the ability to add Layers to the cortex.'},
             {'perm': ('layer', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove Layers from the cortex.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
-            {'perm': ('layer', 'read', '<iden>'), 'gate': 'cortex',
+            {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to read/lift from a specific Layer.'},
-            {'perm': ('layer', 'set', '<name>'), 'gate': 'layer',
-             'desc': 'Controls the ability to configure properties of a Layer.'},
+
+            {'perm': ('layer', 'set'), 'gate': 'layer',
+             'desc': 'Controls setting any layer property.'},
+            {'perm': ('layer', 'set', 'name'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer name.'},
+            {'perm': ('layer', 'set', 'desc'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer description.'},
+            {'perm': ('layer', 'set', 'readonly'), 'gate': 'layer',
+             'desc': 'Controls the ability set a layer readonly.'},
+
             {'perm': ('layer', 'write'), 'gate': 'layer',
              'desc': 'Controls the ability to write to a Layer.'},
-            {'perm': ('layer', 'write', '<iden>'), 'gate': 'cortex',
+            {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
              'desc': 'Controls the ability to write to a specific Layer.'},
 
-            {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model forms.'},
-            {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model forms.',
-             'ex': 'model.form.add._foo:bar'},
-            {'perm': ('model', 'form', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model forms.'},
-            {'perm': ('model', 'form', 'del', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model forms.',
-             'ex': 'model.form.del._foo:bar'},
-
-            {'perm': ('model', 'type', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model types.'},
-            {'perm': ('model', 'type', 'add', '<type>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model types.',
-             'ex': 'model.type.add._foo:bar'},
-            {'perm': ('model', 'type', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model types.'},
-            {'perm': ('model', 'type', 'del', '<type>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model types.',
-             'ex': 'model.type.del._foo:bar'},
-
-            {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model properties.'},
-            {'perm': ('model', 'prop', 'add', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to adding specific extended model properties.',
-             'ex': 'model.prop.add._foo:bar'},
-            {'perm': ('model', 'prop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model properties and values.'},
-            {'perm': ('model', 'prop', 'del', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model properties and values.',
-             'ex': 'model.prop.del._foo:bar'},
-
-            {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model tag properties and values.'},
-            {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model tag properties and values.'},
-
-            {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model edges.'},
-            {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model edges.'},
+            {'perm': ('model', 'admin'), 'gate': 'cortex',
+             'desc': 'Controls the ability to modify the extended data model.'},
 
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
@@ -1120,6 +1104,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
 
+            {'perm': ('node', 'edge'), 'gate': 'layer',
+             'desc': 'Controls all node edge permissions in a layer.'},
             {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
              'desc': 'Controls adding light edges to a node.'},
             {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
@@ -1137,10 +1123,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
              'desc': 'Controls removing any tag on any node in a layer.'},
 
-            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+            {'perm': ('node', 'tag', 'add', '<tag>'), 'gate': 'layer',
              'ex': 'node.tag.add.cno.mal.redtree',
              'desc': 'Controls adding a specific tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+            {'perm': ('node', 'tag', 'del', '<tag>'), 'gate': 'layer',
              'ex': 'node.tag.del.cno.mal.redtree',
              'desc': 'Controls removing a specific tag on any node in a layer.'},
 
@@ -1165,40 +1151,46 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.prop.del.inet:ipv4.asn',
              'desc': 'Controls removing a specific property from a form of node in a layer.'},
 
+            {'perm': ('node', 'data'), 'gate': 'layer',
+             'desc': 'Controls all node data permissions in a layer.'},
             {'perm': ('node', 'data', 'set'), 'gate': 'layer',
              'desc': 'Permits a user to set node data in a given layer.'},
-            {'perm': ('node', 'data', 'set', '<key>'), 'gate': 'layer',
+            {'perm': ('node', 'data', 'set', '<varname>'), 'gate': 'layer',
               'ex': 'node.data.set.hehe',
              'desc': 'Permits a user to set node data in a given layer for a specific key.'},
             {'perm': ('node', 'data', 'del'), 'gate': 'layer',
              'desc': 'Permits a user to remove node data in a given layer.'},
-            {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
+            {'perm': ('node', 'data', 'del', '<varname>'), 'gate': 'layer',
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
+            {'perm': ('pkg',), 'gate': 'cortex',
+             'desc': 'Controls all package permissions.'},
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
 
+            {'perm': ('storm',), 'gate': 'cortex',
+             'desc': 'Controls all Storm permissions.'},
+
             {'perm': ('storm', 'sudo'), 'gate': 'cortex',
             'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
 
-            {'perm': ('graph', 'add'), 'gate': 'cortex',
+            {'perm': ('storm', 'graph'), 'gate': 'cortex',
+             'desc': 'Controls all Storm graph permissions.'},
+            {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
-            {'perm': ('macro', 'add'), 'gate': 'cortex',
+            {'perm': ('storm', 'macro'), 'gate': 'cortex',
+             'desc': 'Controls all Storm macro permissions.'},
+            {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm macro.',
              'default': True},
             {'perm': ('macro', 'admin'), 'gate': 'cortex',
              'desc': 'Controls access to edit/set/delete a storm macro.'},
             {'perm': ('macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
-
-            {'perm': ('task', 'get'), 'gate': 'cortex',
-             'desc': 'Controls access to view other users tasks.'},
-            {'perm': ('task', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to terminate other users tasks.'},
 
             {'perm': ('view',), 'gate': 'cortex',
              'desc': 'Controls all view permissions.'},
@@ -1210,9 +1202,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to fork a view.'},
             {'perm': ('view', 'read'), 'gate': 'view',
              'desc': 'Controls read access to view.'},
-            {'perm': ('view', 'set', '<setting>'), 'gate': 'view',
-             'desc': 'Controls access to change view settings.',
-             'ex': 'view.set.name'},
+
+            {'perm': ('view', 'set'), 'gate': 'view',
+             'desc': 'Controls setting any view property.'},
+            {'perm': ('view', 'set', 'name'), 'gate': 'view',
+             'desc': 'Controls access to set a view name.'},
+            {'perm': ('view', 'set', 'desc'), 'gate': 'view',
+             'desc': 'Controls access to set a view description.'},
+            {'perm': ('view', 'set', 'quorum'), 'gate': 'view',
+             'desc': 'Controls access to set a view quorum status.'},
+            {'perm': ('view', 'set', 'parent'), 'gate': 'view',
+             'desc': 'Controls access to set a view parent view.'},
+            {'perm': ('view', 'set', 'protected'), 'gate': 'view',
+             'desc': 'Controls access to set a view protected status.'},
         ))
         for pdef in self._cortex_permdefs:
             s_schemas.reqValidPermDef(pdef)
@@ -1231,15 +1233,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         permdefs.sort(key=lambda x: x['perm'])
 
         return tuple(permdefs)
-
-    def _setPropSetHook(self, name, hook):
-        self._propSetHooks[name] = hook
-
-    async def _callPropSetHook(self, node, prop, norm):
-        hook = self._propSetHooks.get(prop.full)
-        if hook is None:
-            return
-        await hook(node, prop, norm)
 
     async def initServiceRuntime(self):
 
@@ -1276,9 +1269,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
-        self.runActiveTask(_runMigrations())
-
         await self.initStormPool()
+
+        self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
 
@@ -2390,9 +2383,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
-            mdef.setdefault('modconf', {})
+            modconf = mdef.setdefault('modconf', {})
+            pkgmeta = {'modname': mdef.get('name'), 'pkgname': pkgname}
+            actual_pkgmeta = modconf.setdefault('pkgmeta', pkgmeta)
             if svciden:
-                mdef['modconf']['svciden'] = svciden
+                modconf['svciden'] = svciden
+                if pkgmeta is actual_pkgmeta:
+                    pkgmeta['svciden'] = svciden
 
             if validstorm:
                 modtext = mdef.get('storm')
@@ -2511,7 +2508,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
+                            if (opts := initdef.get('queryopts')) is None:
+                                opts = {}
+                            opts.setdefault('mirror', False)
+
+                            async for mesg in self.storm(initdef['query'], opts=opts):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
@@ -3285,6 +3286,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
+        # TODO: do we actually want to auto-convert to poly props?
+        typename, typeinfo = tdef
+        if not typeinfo:
+            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
+                typename = (typename,)
+
+        if isinstance(typename, tuple):
+            typeinfo = dict(typeinfo)
+            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.model.forminfos)
+            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.model.ifaces)
+            typename = 'poly'
+            tdef = (typename, typeinfo)
+
         self.model.getTypeClone(tdef)
 
         await self._push('model:prop:add', form, prop, tdef, info)
@@ -3527,8 +3541,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Generic fini handler for cortex components which may change or vary at runtime.
         '''
-        if self.axon:
+        if self.axon is not None:
             await self.axon.fini()
+
+        if self.jsonstor is not None:
+            await self.jsonstor.fini()
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
@@ -3602,8 +3619,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
-
-        self.onfini(self.jsonstor)
 
     async def getJsonObj(self, path):
         if self.jsonurl is not None:
@@ -3744,6 +3759,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.ColorizeCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.ParallelCmd)
         self.addStormCmd(s_storm.TagPruneCmd)
@@ -3771,6 +3787,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             s_stormlib_pkg,
             s_stormlib_task,
             s_stormlib_vault,
+            s_stormlib_quorum,
         ]
 
         for cmod in cmdmods:
@@ -4449,8 +4466,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def listViews(self):
         return list(self.views.values())
 
-    async def getViewDef(self, iden):
-        view = self.getView(iden=iden)
+    async def getViewDef(self, iden, user=None):
+        view = self.getView(iden=iden, user=user)
         if view is not None:
             return await view.pack()
 
@@ -5002,6 +5019,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Duplicate iden specified for dmon: {ddef["iden"]}'
             raise s_exc.DupIden(mesg=mesg)
 
+        s_schemas.reqValidDdef(ddef)
+
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
@@ -5081,6 +5100,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon = await self.runStormDmon(iden, ddef)
 
         self.stormdmondefs.set(iden, ddef)
+        await self.fire('storm:dmon:add', iden=iden)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
@@ -5100,6 +5120,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
+        await self.fire('storm:dmon:del', iden=iden)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
@@ -5498,7 +5519,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_schemas.reqValidExportStormMeta(meta)
         except s_exc.SchemaViolation as e:
-            raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+            raise s_exc.BadDataValu(mesg='Invalid syn.nodes data.')
 
         if meta['vers'] != 1:
             mesg = f"Unsupported export version: {meta['vers']}, expected 1"
@@ -5940,7 +5961,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             elif name == 'storm':
                 await self.getStormQuery(valu)
 
-            elif name not in ('name', 'enabled', 'pool', 'doc', 'loglevel'):
+            elif name == 'pool':
+                if valu and edits.get('affinity'):
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
+            elif name == 'affinity':
+                if valu and edits.get('pool'):
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
+            elif name == 'reqs':
+                if isinstance(valu, Mapping):
+                    reqs = self._convert_reqdict(valu)
+                    if 'incunit' in edits and s_agenda.TimeUnit.NOW in reqs:
+                        mesg = "Recurring jobs may not be scheduled to run 'now'"
+                        raise s_exc.BadConfValu(mesg)
+                else:
+                    nreqs = []
+                    for req in valu:
+                        nr = self._convert_reqdict(req)
+                        if 'incunit' in edits and s_agenda.TimeUnit.NOW in nr:
+                            mesg = "Recurring jobs may not be scheduled to run 'now'"
+                            raise s_exc.BadConfValu(mesg)
+                        nreqs.append(nr)
+                    reqs = nreqs
+
+            elif name not in ('name', 'enabled', 'pool', 'affinity', 'doc', 'loglevel', 'incvals', 'incunit'):
                 raise s_exc.BadOptValu(mesg='Cron Job does not support setting specified property.', prop=name)
 
             if cdef.get(name) == valu:
@@ -5964,51 +6009,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (str):  The iden of the cron job to edit.
         '''
-        appt = await self.agenda.get(iden)
+        cdef = await self.agenda.mod(iden, edits)
 
-        for name, valu in edits.items():
-            if name == 'user':
-                await self.auth.reqUser(valu)
-                appt.user = valu
-
-            elif name == 'view':
-                self.reqView(valu)
-                appt.view = valu
-
-            elif name == 'storm':
-                await self.getStormQuery(valu)
-                appt.storm = valu
-
-            elif name == 'name':
-                appt.name = valu
-
-            elif name == 'doc':
-                appt.doc = valu
-
-            elif name == 'pool':
-                appt.pool = bool(valu)
-
-            elif name == 'loglevel':
-                appt.loglevel = valu
-
-            elif name == 'enabled':
-                if appt.enabled == valu:
-                    continue
-
-                appt.enabled = valu
-                if valu is True:
-                    logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
-                else:
-                    await self._killCronTask(iden)
-                    logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
-
-            else:
-                mesg = f'editCronJob name {name} is not supported for editing.'
-                raise s_exc.BadArg(mesg=mesg)
-
-        await appt.save()
-
-        cdef = appt.pack()
         await self.feedBeholder('cron:edit', cdef, gates=[iden])
 
         return cdef
@@ -6405,7 +6407,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # Make sure the requested name is unique
         if self.getVaultByName(name) is not None:
-            raise s_exc.DupName(mesg=f'Vault {name} already exists.')
+            if scope is None:
+                mesg = f'A config already exists with the name {name}.'
+            else:
+                mesg = f'A {scope} config already exists with the name {name}.'
+            raise s_exc.DupName(mesg=mesg, name=name)
 
         secrets = vault.get('secrets')
         configs = vault.get('configs')
@@ -6413,12 +6419,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_msgpack.en(secrets)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault secrets must be msgpack safe.') from None
 
         try:
             s_msgpack.en(configs)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg='Vault configs must be msgpack safe.') from None
 
         if scope == 'global':
             # everyone gets read access
@@ -6505,7 +6511,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault secrets must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
@@ -6543,7 +6549,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault configs must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 

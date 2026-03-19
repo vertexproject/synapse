@@ -1,5 +1,4 @@
 import ast
-import hashlib
 import collections
 
 import lark  # type: ignore
@@ -10,8 +9,8 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
-import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
+import synapse.lib.processpool as s_processpool
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
@@ -216,7 +215,7 @@ class AstConverter(lark.Transformer):
 
     def _parseJsonToken(self, tokn):
 
-        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and tokn.value[0] not in ('"', "'"):
 
             valu = tokn.value
             astinfo = self.metaToAstInfo(tokn)
@@ -272,8 +271,6 @@ class AstConverter(lark.Transformer):
         argkids = []
         kwargkids = []
         kwnames = set()
-        indx = 1
-        kcnt = len(kids)
 
         todo = collections.deque(kids)
 
@@ -464,13 +461,21 @@ class AstConverter(lark.Transformer):
 
         astinfo = self.metaToAstInfo(meta)
 
-        # Check that we only have one default case
-        defcase = [k for k in kids[1:] if k.defcase]
+        defcases = 0
 
-        deflen = len(defcase)
-        if deflen > 1:
-            mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
-            self.raiseBadSyntax(mesg, astinfo)
+        casevals = set()
+        for kid in kids[1:]:
+            if kid.defcase:
+                defcases += 1
+                if defcases > 1:
+                    mesg = f'Switch statements cannot have more than one default case. Found {defcases}.'
+                    self.raiseBadSyntax(mesg, astinfo)
+
+            for val in kid.kids[:-1]:
+                if (valu := val.value()) in casevals:
+                    mesg = f'Switch statements cannot have duplicate switch cases: {s_common.trimText(valu)}'
+                    self.raiseBadSyntax(mesg, astinfo)
+                casevals.add(valu)
 
         return s_ast.SwitchCase(astinfo, kids)
 
@@ -687,10 +692,10 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
+    return await s_processpool._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
-    return await s_coro._parserforked(parseEval, text)
+    return await s_processpool._parserforked(parseEval, text)
 
 evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)

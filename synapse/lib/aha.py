@@ -102,7 +102,7 @@ class AhaServicesV1(s_httpapi.Handler):
                 ret.append(info)
 
         except Exception as e:  # pragma: no cover
-            logger.exception(f'Error getting AHA services.')
+            logger.exception('Error getting Aha services.')
             return self.sendRestErr(e.__class__.__name__, str(e))
 
         return self.sendRestRetn(ret)
@@ -503,7 +503,7 @@ class AhaCell(s_cell.Cell):
     # Rename the class and remove these two overrides in 3.0.0
     @classmethod
     def getEnvPrefix(cls):
-        return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
+        return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     async def _initCellBoot(self):
 
@@ -896,10 +896,10 @@ class AhaCell(s_cell.Cell):
                 if retn and retn['svcinfo'].get('online') is not None:
                     return retn
 
-                waiter = self.waiter(1, f'aha:svc:add')
+                waiter = self.waiter(1, 'aha:svc:add')
 
             if await waiter.wait(timeout=timeout) is None:
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for aha:svc:add')
+                raise s_exc.TimeOut(mesg='Timeout waiting for aha:svc:add')
 
     async def _waitAhaSvcDown(self, name, timeout=None):
 

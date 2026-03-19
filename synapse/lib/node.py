@@ -9,7 +9,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -44,8 +43,7 @@ class NodeBase:
             if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
                 return mtyp.repr(self.getMeta(virts[0]))
 
-            virtgetr = typeitem.getVirtGetr(virts)
-            virttype = typeitem.getVirtType(virts)
+            virttype, virtgetr = typeitem.getVirtInfo(virts)
             return virttype.repr(self.valu(virts=virtgetr))
 
         prop = self.form.props.get(name)
@@ -60,8 +58,13 @@ class NodeBase:
                 return defv
             return typeitem.repr(valu)
 
-        virtgetr = typeitem.getVirtGetr(virts)
-        virttype = typeitem.getVirtType(virts)
+        if typeitem.ispoly:
+            if typeitem.virts.get(virts[0]) is None:
+                if (valu := self.get(name)) is None:
+                    return defv
+                typeitem = self.view.core.model.form(valu[0]).type
+
+        virttype, virtgetr = typeitem.getVirtInfo(virts)
 
         if (valu := self.get(name, virts=virtgetr)) is None:
             return defv
@@ -130,7 +133,11 @@ class NodeBase:
                 mesg = 'Protocol variable type "prop" requires a "name" key.'
                 raise s_exc.BadFormDef(mesg=mesg)
 
-            proto['vars'][varn] = self.get(varprop)
+            pval = self.get(varprop)
+            if (prop := self.form.prop(varprop)) is not None and prop.type.ispoly:
+                pval = pval[1]
+
+            proto['vars'][varn] = pval
 
         return proto
 
@@ -475,13 +482,10 @@ class Node(NodeBase):
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is not None:
-                buid = s_common.buid((prop.type.name, valu))
-            elif 'ndef' in prop.type.types:
-                buid = s_common.buid(valu)
-            else:
+            if not (prop.type.ispoly or 'ndef' in prop.type.types):
                 return None
 
+            buid = s_common.buid(valu)
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
                 step = cache[buid] = await node.view.getNodeByBuid(buid)
@@ -509,6 +513,16 @@ class Node(NodeBase):
                 }
 
             for relp in relprops:
+
+                if not relp:
+                    continue
+
+                if relp[0] == '.':
+                    metaname = relp[1:]
+                    if metaname in node.view.core.model.metatypes:
+                        embdnode[relp] = node.getMeta(metaname)
+                    continue
+
                 valu, virts = node.getWithVirts(relp)
                 embdnode[relp] = valu
 
@@ -766,6 +780,32 @@ class Node(NodeBase):
 
         return defv, None
 
+    def getRawWithLayer(self, name, defv=None):
+        '''
+        Return a secondary property with virtual property information from the Node and the index of the sode.
+
+        Args:
+            name (str): The name of a secondary property.
+
+        Returns:
+            (tuple): The secondary property and virtual property information or (defv, None).
+            (int): Index of the sode or None.
+        '''
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return (defv, None), None
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return (defv, None), None
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt, indx
+
+        return (defv, None), None
+
     def getFromLayers(self, name, strt=0, stop=None, defv=None):
         for sode in self.sodes[strt:stop]:
             if sode.get('antivalu') is not None:
@@ -946,20 +986,32 @@ class Node(NodeBase):
             for name, valt in list(retn.items()):
                 retn[name] = valu = valt[0]
 
-                if (vprops := valt[2]) is not None:
-                    for vname, vval in vprops.items():
-                        retn[f'{name}.{vname}'] = vval[0]
-
                 stortype = valt[1]
+                vprops = valt[2]
+
                 if stortype & s_layer.STOR_FLAG_ARRAY:
+                    for vname, vvals in vprops.items():
+                        if vname[0] == '_':
+                            continue
+                        retn[f'{name}.{vname}'] = {vval[0]: vcnt for vval, vcnt in vvals.items()}
+
                     retn[f'{name}.size'] = len(valu)
                     if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
                         for vname, getr in svirts.items():
                             retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+
                 else:
-                    if (svirts := storvirts.get(stortype)) is not None:
-                        for vname, getr in svirts.items():
-                            retn[f'{name}.{vname}'] = getr(valu)
+                    if vprops is not None:
+                        for vname, vval in vprops.items():
+                            retn[f'{name}.{vname}'] = vval[0]
+
+                    if stortype & s_layer.STOR_FLAG_POLY:
+                        retn[f'{name}.form'] = valu[0]
+
+                    else:
+                        if (svirts := storvirts.get(stortype)) is not None:
+                            for vname, getr in svirts.items():
+                                retn[f'{name}.{vname}'] = getr(valu)
 
         return retn
 
@@ -1256,14 +1308,13 @@ class Node(NodeBase):
                     mesg = 'Nodes still have this tag.'
                     raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            for formtype in self.form.formtypes:
-                async for refr in self.view.nodesByPropTypeValu(formtype, formvalu):
+            async for refr in self.view.nodesByPropTypeValu(self.form.formtypes[0], formvalu):
 
-                    if refr.nid == self.nid:
-                        continue
+                if refr.nid == self.nid:
+                    continue
 
-                    mesg = 'Other nodes still refer to this node.'
-                    raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
+                mesg = 'Other nodes still refer to this node.'
+                raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 
@@ -1404,6 +1455,7 @@ class Path:
             'node': self.node,
         }
 
+        self.display = None
         self.metadata = {}
         self.nodedata = collections.defaultdict(dict)
 
