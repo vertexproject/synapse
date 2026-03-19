@@ -76,8 +76,8 @@ class DocModelTest(s_tests.SynTest):
                     :desc="Thought leader seeks..."
                     :skills={[ ps:skill=* ]}
                     :workhist={[ ps:workhist=* ]}
-                    :education={[ ps:education=* ]}
-                    :achievements={[ ps:achievement=* ]}
+                    :education={[ entity:studied=* ]}
+                    :achievements={[ entity:achieved=* ]}
                 ]
             ''')
             self.propeq(nodes[0], 'id', 'V-99')
@@ -91,8 +91,8 @@ class DocModelTest(s_tests.SynTest):
             self.len(1, await core.nodes('doc:resume :skills -> ps:skill'))
             self.len(1, await core.nodes('doc:resume :contact -> entity:contact'))
             self.len(1, await core.nodes('doc:resume :workhist -> ps:workhist'))
-            self.len(1, await core.nodes('doc:resume :education -> ps:education'))
-            self.len(1, await core.nodes('doc:resume :achievements -> ps:achievement'))
+            self.len(1, await core.nodes('doc:resume :education -> entity:studied'))
+            self.len(1, await core.nodes('doc:resume :achievements -> entity:achieved'))
 
             nodes = await core.nodes('''
             [ doc:contract=*

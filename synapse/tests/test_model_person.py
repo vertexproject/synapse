@@ -30,38 +30,16 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('ps:person -> entity:name'))
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
 
-            nodes = await core.nodes('''[
-                ps:achievement=*
-                    :award=*
-                    :awardee={[ entity:contact=* ]}
-                    :awarded=20200202
-                    :expires=20210202
-                    :revoked=20201130
-            ]''')
-            self.len(1, nodes)
-            achv = nodes[0].ndef[1]
-
             nodes = await core.nodes('''
-                ou:award [ :name="Bachelors of Science" :type=degree :org=* ]
+                [ ou:award=* :name="Bachelors of Science" :type=degree :org=* ]
             ''')
             self.nn(nodes[0].get('org'))
             self.propeq(nodes[0], 'name', 'bachelors of science')
             self.propeq(nodes[0], 'type', 'degree.')
 
-            opts = {'vars': {'achv': achv}}
-            nodes = await core.nodes('''[
-                ps:education=*
-                    :student={[ entity:contact=* ]}
-                    :institution={[ entity:contact=* ]}
-                    :period=(20200202, 20210202)
-                    :achievement = $achv
-
-                    +(included)> {[ edu:class=* ]}
-            ]''', opts=opts)
-
             nodes = await core.nodes('''
-                edu:class
                 [
+                    edu:class=*
                     :course=*
                     :instructor={[ entity:contact=* ]}
                     :assistants={[ entity:contact=* ]}
