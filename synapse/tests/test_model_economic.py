@@ -189,7 +189,7 @@ class EconTest(s_utils.SynTest):
             self.propeq(nodes[0], 'time', 1635638400000000)
             self.propeq(nodes[0], 'amount', '123.45')
 
-            #self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
+            # self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
 
             self.len(1, await core.nodes('econ:balance :account -> econ:fin:account'))
 
@@ -249,8 +249,8 @@ class EconTest(s_utils.SynTest):
             self.len(0, nodes[0].protocols(name='newp:newp'))
             self.len(1, nodes[0].protocols(name='econ:adjustable'))
 
-            #proto = nodes[0].protocol('econ:adjustable', propname='starting:balance')
-            #self.eq(proto['vars']['currency'], 'usd')
+            # proto = nodes[0].protocol('econ:adjustable', propname='starting:balance')
+            # self.eq(proto['vars']['currency'], 'usd')
 
             nodes = await core.nodes('''[
                 econ:bank:aba:rtn=123456789
