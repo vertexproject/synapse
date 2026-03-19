@@ -2158,7 +2158,7 @@ class StormTest(s_t_utils.SynTest):
                     test:guid=*
                       :server=1.2.3.4:80
                       :seen=(2020, 2021)
-                      :name={[ test:str=arrayvirt :ndefs=((test:str, foo), (test:int, 5)) ]}
+                      :name={[ test:str=arrayvirt :ndefs={[test:str=foo test:int=5]} ]}
                   ]}
             ]''')
             opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('ndefs',)}}}}
@@ -3515,7 +3515,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[test:str=foo :bar=(inet:ip, 1.2.3.4)]'))
+            self.len(1, await core.nodes('[test:str=foo :bar={[inet:ip=1.2.3.4]}]'))
             self.len(1, await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :asn=0 ]'))
 

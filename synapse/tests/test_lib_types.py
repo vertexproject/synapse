@@ -1517,47 +1517,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, await core.count('test:int:loc^=""'))
             self.eq(0, await core.count('test:int:loc^=23'))
 
-    async def test_ndef(self):
-        async with self.getTestCore() as core:
-            t = core.model.type('test:ndef')
-
-            norm, info = await t.norm(('test:str', 'Foobar!'))
-            self.eq(norm, ('test:str', 'Foobar!'))
-            self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
-                           'subs': {'form': (t.formtype.typehash, 'test:str', {})}})
-
-            rval = t.repr(('test:str', 'Foobar!'))
-            self.eq(rval, ('test:str', 'Foobar!'))
-            rval = t.repr(('test:int', 1234))
-            self.eq(rval, ('test:int', '1234'))
-
-            await self.asyncraises(s_exc.NoSuchForm, t.norm(('test:newp', 'newp')))
-            self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(('newp',)))
-
-            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
-
-            self.len(1, await core.nodes('test:str.created +:ndefs*[.form=it:dev:int]'))
-            self.len(0, await core.nodes('test:str.created +:ndefs*[.form=it:dev:str]'))
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str.created +:ndefs*[.form>it:dev:str]')
-
-            ndef = core.model.type('test:ndef:formfilter1')
-            await ndef.norm(('inet:ip', '1.2.3.4'))
-            await ndef.norm(('inet:ip', '::1'))
-
-            with self.raises(s_exc.BadTypeValu):
-                await ndef.norm(('inet:fqdn', 'newp.com'))
-
-            ndef = core.model.type('test:ndef:formfilter2')
-
-            with self.raises(s_exc.BadTypeValu):
-                await ndef.norm(('inet:fqdn', 'newp.com'))
-
-            with self.raises(s_exc.BadTypeDef):
-                await core.model.type('ndef').clone({'forms': ('inet:fqdn',), 'interface': 'foo:bar'})
-
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')
@@ -1612,15 +1571,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[test:str=a :bar=(test:str, b) :tick=19990101]'))
+            self.len(1, await core.nodes('[test:str=a :tick=19990101]'))
             self.len(1, await core.nodes('[test:str=b :seen=(20100101, 20110101) :tick=20151207]'))
-            self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+            self.len(1, await core.nodes('[test:str=m :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[test:str=n1 :bar=(test:comp, (2048, horton))]'))
-            self.len(1, await core.nodes('[test:str=n2 :bar=(test:comp, (9001, "A mean one"))]'))
-            self.len(1, await core.nodes('[test:str=n3 :bar=(test:int, 16)]'))
+            self.len(1, await core.nodes('[test:comp=(2048, horton)]'))
             self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
+            self.len(1, await core.nodes('[test:comp=(9001, "A mean one")]'))
             self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
             self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
 
@@ -1629,8 +1587,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await core.nodes('test:comp +:haha*range=(grinch, meanone)')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
-            self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await core.nodes('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
             guid0 = 'B' * 32
@@ -1639,8 +1595,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('test:str +:bar*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
-            self.eq({node.ndef[1] for node in nodes}, {'n1'})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -1659,8 +1613,6 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)')
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:comp +:haha*range=(somestring,)')
-            with self.raises(s_exc.BadCmprValu):
-                await core.nodes('test:str +:bar*range=Foobar')
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:int +test:int*range=3456')
 

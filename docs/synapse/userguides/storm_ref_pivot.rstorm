@@ -419,8 +419,7 @@ you must use explicit syntax.
 The above query uses implicit pivot syntax.
 
 A ``entity:relationship`` node represents a specific relationship between entities. The ``:source`` and ``:target``
-properties are a type of ``ndef`` which consists of a ``( <form>, <valu> )`` pair which is limited to nodes which
-implement the ``entity:actor`` interface, such as ``risk:threat``.
+properties are limited to nodes which implement the ``entity:actor`` interface, such as ``risk:threat``.
 
 Because the query above uses implicit syntax, it will return any ``risk:threat`` nodes which are either the ``:source``
 or ``:target`` property on the ``entity:relationship``. If you wanted to return only relationship nodes which

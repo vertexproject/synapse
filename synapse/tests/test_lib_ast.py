@@ -496,13 +496,13 @@ class AstTest(s_test.SynTest):
             self.propeq(nodes[0], 'ints', (1, 3, 4))
 
             nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
+            self.propeq(nodes[0], 'ndefs', ('bar',))
 
             nodes = await core.nodes('test:str=foo  [ :ndefs++={[ test:str=baz test:str=faz ]} ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
+            self.propeq(nodes[0], 'ndefs', ('bar', 'baz', 'faz'))
 
             nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
+            self.propeq(nodes[0], 'ndefs', ('bar',))
 
             await core.nodes('[ test:int=5 :types=(a, b) ]')
             nodes = await core.nodes('test:int=5 [ :types++=(d, c, d) ]')
@@ -855,11 +855,11 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:str=foo :bar=(test:int, 5) ]')
+            nodes = await core.nodes('[ test:str=foo :bar={[test:int=5]} ]')
             nodes = await core.nodes('test:str -> test:int')
             self.eq(nodes[0].ndef, ('test:int', 5))
 
-            nodes = await core.nodes('[ test:str=bar :bar=(inet:fqdn, woot.com) ]')
+            nodes = await core.nodes('[ test:str=bar :bar={[inet:fqdn=woot.com]} ]')
             self.len(1, nodes)
 
             # test a reverse ndef pivot
@@ -867,8 +867,8 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('test:str', nodes[0].ndef[0])
 
-            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
-            await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
+            await core.nodes('[ test:str=ndefs :ndefs={[it:dev:int=1 it:dev:int=2]} ]')
+            await core.nodes('test:str=ndefs [ :ndefs += {[inet:fqdn=woot.com]} ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('it:dev:int=1 -> test:str:ndefs')
@@ -3029,8 +3029,8 @@ class AstTest(s_test.SynTest):
                     self.len(1, await core.nodes('[test:int=6]'))
                     self.len(1, await core.nodes('[test:int=7 :loc=us]'))
                     self.len(1, await core.nodes('[test:int=8 :loc=uk]'))
-                    self.len(1, await core.nodes('[test:str=a :bar=(test:str, a) :tick=19990101]'))
-                    self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+                    self.len(1, await core.nodes('[test:str=a :bar={test:str=a} :tick=19990101]'))
+                    self.len(1, await core.nodes('[test:str=m :bar={test:str=m} :tick=20200101]'))
 
                     await core.nodes('.created [:seen=20200101]')
                     calls = []
@@ -3104,20 +3104,6 @@ class AstTest(s_test.SynTest):
                         ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
                         ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
                     ])
-                    calls = []
-
-                    # Lift by value will fail since stortype is MSGP
-                    # can still optimize a bit though
-                    nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
-                    self.len(1, nodes)
-
-                    exp = [
-                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        ('prop', 'test:str:bar'),
-                    ]
-
-                    self.eq(calls, exp)
                     calls = []
 
                     # Shouldn't optimize this, make sure the edit happens
@@ -4325,10 +4311,10 @@ class AstTest(s_test.SynTest):
             burr = (await core.nodes('[test:comp=(1234, burrito)]'))[0]
             guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
             comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
-            tstr = (await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))[0]
+            tstr = (await core.nodes('[test:str=foobar :bar={[test:ro=ackbar]} :ndefs={[test:guid=$guid test:auto=auto]}]', opts=opts))[0]
             arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
-            ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
-            pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
+            ostr = (await core.nodes('test:str=foo [ :bar={test:ro=ackbar} :ndefs={[test:int=176]}]'))[0]
+            pstr = (await core.nodes('test:str=bar [ :ndefs={[test:guid=$guid test:auto=auto test:ro=ackbar]}]', opts=opts))[0]
             rstr = (await core.nodes('test:ro=ackbar', opts=opts))[0]
 
             await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
@@ -4353,7 +4339,7 @@ class AstTest(s_test.SynTest):
             opts = {'node:opts': {'links': True}, 'vars': {'form': 'inet:ip'}}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts=opts)
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.form *$newform', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot

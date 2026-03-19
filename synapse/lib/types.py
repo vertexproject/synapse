@@ -2106,131 +2106,6 @@ class Loc(Type):
     def repr(self, norm):
         return norm
 
-class Ndef(Type):
-
-    stortype = s_layer.STOR_TYPE_NDEF
-
-    _opt_defs = (
-        ('forms', None),      # type: ignore
-        ('interface', None),  # type: ignore
-    )
-
-    def postTypeInit(self):
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-        self.storlifts |= {
-            'form=': self._storLiftForm
-        }
-
-        self.formtype = self.modl.type('syn:form')
-        self.virts |= {
-            'form': (self.formtype, self._getForm),
-        }
-
-        self.virtindx |= {
-            'form': None,
-        }
-
-        self.formfilter = None
-
-        self.forms = self.opts.get('forms')
-        self.iface = self.opts.get('interface')
-
-        if self.forms and self.iface:
-            mesg = 'Ndef type may not specify both forms and interface.'
-            raise s_exc.BadTypeDef(mesg=mesg, opts=self.opts)
-
-        if self.forms or self.iface:
-
-            if self.forms is not None:
-                forms = set(self.forms)
-
-            def filtfunc(form):
-
-                if self.forms is not None and any(f in forms for f in form.formtypes):
-                    return
-
-                if self.iface is not None and form.implements(self.iface):
-                    return
-
-                mesg = f'Ndef of form {form.name} is not allowed as a value for {self.name} with form filter'
-                if self.forms is not None:
-                    mesg += f' forms={self.forms}'
-
-                if self.iface is not None:
-                    mesg += f' interface={self.iface}'
-
-                raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
-
-            self.formfilter = filtfunc
-
-    async def getStorCmprs(self, cmpr, valu, virts=None):
-        if virts:
-            cmpr = f'{virts[0]}{cmpr}'
-
-        if (func := self.storlifts.get(cmpr)) is None:
-            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
-
-        return await func(cmpr, valu)
-
-    async def _storLiftForm(self, cmpr, valu):
-        valu = valu.lower().strip()
-        if self.modl.form(valu) is None:
-            raise s_exc.NoSuchForm.init(valu)
-
-        return (
-            (cmpr, valu, self.stortype),
-        )
-
-    def _getForm(self, valu):
-        valu = valu[0]
-        if isinstance(valu[0], str):
-            return valu[0]
-
-    async def _normStormNode(self, valu, view=None):
-        if self.formfilter is not None:
-            self.formfilter(valu.form)
-
-        if valu.form.locked:
-            formname = valu.form.name
-            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
-
-        return valu.ndef, {'skipadd': True, 'subs': {'form': (self.formtype.typehash, valu.ndef[0], {})}}
-
-    async def _normPyTuple(self, valu, view=None, skipadd=False):
-        try:
-            formname, formvalu = valu
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
-
-        if (form := self.modl.form(formname)) is None:
-            raise s_exc.NoSuchForm.init(formname)
-
-        if form.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
-
-        if self.formfilter is not None:
-            self.formfilter(form)
-
-        formnorm, forminfo = await form.type.norm(formvalu)
-        norm = (form.name, formnorm)
-
-        adds = ((form.name, formnorm, forminfo),)
-        subs = {'form': (self.formtype.typehash, form.name, {})}
-
-        return norm, {'adds': adds, 'subs': subs}
-
-    def repr(self, norm):
-        formname, formvalu = norm
-        form = self.modl.form(formname)
-        if form is None:
-            raise s_exc.NoSuchForm.init(formname)
-
-        repv = form.type.repr(formvalu)
-        return (formname, repv)
-
 class Poly(Type):
 
     stortype = s_layer.STOR_TYPE_POLY
@@ -2324,7 +2199,11 @@ class Poly(Type):
             cmprs = {}
 
             realv = val1
-            if (ndefcmpr := bool(isinstance(val1, s_stormtypes.NodeRef))):
+            if isinstance(val1, s_node.Node):
+                ndefcmpr = True
+                realv = val1.ndef[1]
+            elif isinstance(val1, s_stormtypes.NodeRef):
+                ndefcmpr = True
                 realv = val1.valu[1]
 
             for thash, ctor in ctors.items():
@@ -2334,8 +2213,10 @@ class Poly(Type):
                     pass
 
             async def cmprfunc(val2):
-                if ndefcmpr and val1.valu == val2:
-                    return True
+                if ndefcmpr:
+                    nval = val1.ndef if isinstance(val1, s_node.Node) else val1.valu
+                    if nval == val2:
+                        return True
 
                 val2 = val2[1]
                 for cmpr in cmprs.values():

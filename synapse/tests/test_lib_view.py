@@ -485,7 +485,9 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[test:str=virts :seen=2020 :ndefs={[test:str=foo1 test:str=foo3]}]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
             self.eq(cmsgs[1][0][2][0][1][3], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
-            self.eq(cmsgs[2][0][2][0][1][3], {'size': 2, 'form': ['test:str', 'test:str']})
+            virts = cmsgs[2][0][2][0][1][3]
+            self.eq(virts['size'], 2)
+            self.eq(virts['form'], ['test:str', 'test:str'])
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
@@ -652,7 +654,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
             await core.nodes('''
                 [ test:str=bar
-                    :bar=(test:str, foo)
+                    :bar={test:str=foo}
                     :baz="test:str:hehe=hifoo"
                     :tick=2020
                     :hehe=hibar

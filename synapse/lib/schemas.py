@@ -677,7 +677,6 @@ datamodel_basetypes = [
     'syn:tag',
     'comp',
     'loc',
-    'ndef',
     'array',
     'data',
     'nodeprop',

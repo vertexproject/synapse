@@ -1433,22 +1433,16 @@ class CortexTest(s_t_utils.SynTest):
                 await core.addForm('_low:str', 'str', {'lower': True}, {})
                 await core.addTagProp('lowstr', ('_low:str', {}), {})
                 await core.addTagProp('normstr', ('_low:str', {'lower': False}), {})
-                await core.addTagProp('refsnode', ('ndef', {}), {})
                 await core.addTagProp('refsprop', ('nodeprop', {}), {})
 
                 await core.nodes('''[
                     test:str=foo
                     +#foo:lowstr=fooBAR
-                    +#foo:refsnode=(test:str, refd)
                     +#foo:refsprop=(test:str:hehe, nprop)
                     (test:str=bar :hehe=nprop)
                 ]''')
 
                 nodes = await core.nodes('_low:str=foobar <- *')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
-                nodes = await core.nodes('test:str=refd <- *')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
@@ -1459,24 +1453,18 @@ class CortexTest(s_t_utils.SynTest):
                 vdef2 = await core.view.fork()
                 forkopts = {'view': vdef2.get('iden')}
                 self.len(1, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(1, await core.nodes('test:str=refd <- *', opts=forkopts))
                 self.len(1, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 await core.nodes('[ test:str=foo +#foo:lowstr=otherval ]', opts=forkopts)
                 self.len(1, await core.nodes('_low:str=foobar <- *'))
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
 
-                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]', opts=forkopts)
-                self.len(1, await core.nodes('test:str=refd <- *'))
-                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
-
                 await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]', opts=forkopts)
                 self.len(1, await core.nodes('test:str=bar <- *'))
                 self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
 
-                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsnode -#foo:refsprop]', opts=forkopts)
+                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsprop]', opts=forkopts)
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
                 self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 # Duplicate values in multiple layers of a view only return once
@@ -1487,9 +1475,6 @@ class CortexTest(s_t_utils.SynTest):
                 # Renorming coverage for props with different typeopts
                 await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
                 self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
-
-                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]')
-                self.len(0, await core.nodes('test:str=refd <- *'))
 
                 await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]')
                 self.len(0, await core.nodes('test:str=bar <- *'))
@@ -1608,26 +1593,11 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
             self.eq(refs.get('ip'), ('inet:ip', (4, 0x01020304)))
 
-            self.len(1, await core.nodes('[test:str=testndef :somestr=$somestr :bar=$valu]',
-                                         opts={'vars': {'somestr': sorc, 'valu': node.ndef}}))
-
             # test un-populated properties
             nodes = await core.nodes('[entity:contact="*"]')
             self.len(1, nodes)
             node = nodes[0]
             self.len(0, node.getNodeRefs())
-            # test ndef field
-            nodes = await core.nodes('[test:str=foo :bar=(inet:fqdn, woot.com)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            refs = dict(node.getNodeRefs())
-            refs.get('ndef', ('inet:fqdn', 'woot.com'))
-            # Test empty ndef
-            nodes = await core.nodes('[test:str=woot]')
-            self.len(1, nodes)
-            node = nodes[0]
-            refs = dict(node.getNodeRefs())
-            self.none(refs.get('bar'))
             # test un-populated array prop
             nodes = await core.nodes('[test:arrayprop="*"]')
             self.len(1, nodes)
@@ -1639,18 +1609,6 @@ class CortexTest(s_t_utils.SynTest):
             refs = node.getNodeRefs()
             ints = sorted([r[1] for r in refs if r[0] == 'ints'])
             self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
-
-            opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('test:str:somestr=$sorc -> *', opts=opts)
-
-            self.len(2, nodes)
-            self.isin('inet:dns:a', {n.ndef[0] for n in nodes})
-
-            opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('test:str:somestr=$sorc :bar -> *', opts=opts)
-
-            self.len(1, nodes)
-            self.eq('inet:dns:a', nodes[0].ndef[0])
 
     async def test_cortex_lift_regex(self):
 
@@ -2099,11 +2057,11 @@ class CortexTest(s_t_utils.SynTest):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
 
             self.len(0, await wcore.nodes('test:auto=autothis'))
-            q = '[test:str=woot :bar=(test:auto, autothis) :baz=(test:type10:strprop, WOOT) :tick=20160505]'
+            q = '[test:str=woot :bar={[test:auto=autothis]} :baz=(test:type10:strprop, WOOT) :tick=20160505]'
             nodes = await wcore.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'bar', ('test:auto', 'autothis'))
+            self.propeq(node, 'bar', 'autothis')
             self.propeq(node, 'baz', ('test:type10:strprop', 'woot'))
             self.propeq(node, 'tick', 1462406400000000)
             self.len(1, await wcore.nodes('test:auto=autothis'))
@@ -2368,7 +2326,7 @@ class CortexTest(s_t_utils.SynTest):
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
-            await wcore.nodes('[ test:str=foo :bar=(meta:source, "*") ]')
+            await wcore.nodes('[ test:str=foo :bar={[meta:source=*]} ]')
 
             self.len(1, await core.nodes('meta:source -> test:str:bar'))
 
@@ -2622,12 +2580,12 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int :loc -> test:newp')
             self.stormIsInErr('No property named test:newp', msgs)
 
-            # ndef pivots
+            # poly pivots
             await core.nodes('''
                 [
                     ( test:str=ndefpivdst )
-                    ( test:str=ndefpivsrc :bar=(test:str, ndefpivdst) )
-                    ( test:str=ndefpivprp :bar=(test:str, ndefpivdst) )
+                    ( test:str=ndefpivsrc :bar={test:str=ndefpivdst} )
+                    ( test:str=ndefpivprp :bar={test:str=ndefpivdst} )
                 ]
             ''')
 
@@ -2651,11 +2609,6 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:int')
             self.len(0, nodes)
-
-            await core.nodes('test:str=ndefpivdst delnode')
-            msgs = await core.stormlist('test:str=ndefpivsrc :bar -> test:str')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn("Missing node corresponding to ndef ('test:str', 'ndefpivdst')", msgs)
 
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
@@ -3163,6 +3116,7 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
+            await core.nodes('test:str:bar::seen.min>2021 [ -:bar ]')
             await core.nodes('test:guid:seen.min>2021 | delnode')
             self.len(1, await core.nodes('test:str:bar::seen.min>2020'))
 
@@ -4402,10 +4356,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" test:ndefcomp=(5, $node) ]')
-            self.len(2, nodes)
-            self.eq('test:ndefcomp', nodes[0].ndef[0])
-
             nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '1234'))
@@ -4826,19 +4776,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.nodes('model.deprecated.lock test:deprprop')
 
             data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
-                                                            'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=dform', opts={'view': view2_iden})
             self.len(1, nodes)
             self.nn(nodes[0].get('okayprop'))
             self.none(nodes[0].get('deprprop'))
-            self.none(nodes[0].get('ndefprop'))
             self.len(0, await core1.nodes('test:deprprop', opts={'view': view2_iden}))
-
-            with self.raises(s_exc.IsDeprLocked):
-                q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
-                await core1.nodes(q, opts={'view': view2_iden})
 
             # TODO: we skip locked forms when attempting to norm
             # should we raise IsDeprLocked if there are locked forms and no unlocked forms norm successfully??
@@ -5316,7 +5260,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await core.nodes('[ test:int=10 ] -> test:taxonomy')
 
-            nodes = await core.nodes('[ test:str=woot :bar=(inet:fqdn, woot.com) ] -> inet:fqdn')
+            nodes = await core.nodes('[ test:str=woot :bar={[inet:fqdn=woot.com]} ] -> inet:fqdn')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
     async def test_storm_expressions(self):
@@ -5491,11 +5435,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[ps:person=*] $person = $node { [(test:str=foo :bar=$person)] } -ps:person test:str +:bar=$person'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-
-            # Lift by var as node
-            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
 
     async def test_storm_ifstmt(self):
 

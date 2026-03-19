@@ -330,11 +330,6 @@ testmodel = (
                 ('foo', 'test:int'),
                 ('bar', ('str', {'lower': True}),),
             )}), {'doc': 'A complex comp type.'}),
-            ('test:ndefcomp', ('comp', {'fields': (
-                ('hehe', 'test:int'),
-                ('ndef', 'test:ndef'))
-            }), {'doc': 'A comp type with an ndef.'}),
-
             ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
             ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
             ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -346,10 +341,6 @@ testmodel = (
 
             ('test:cycle0', ('str', {}), {}),
             ('test:cycle1', ('str', {}), {}),
-
-            ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
-            ('test:ndef:formfilter2', ('ndef', {'interface': 'meta:taxonomy'}), {}),
 
             ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
             ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
@@ -410,11 +401,6 @@ testmodel = (
                 ('bar', ('str', {'lower': 1}), {'computed': True})
             )),
 
-            ('test:ndefcomp', {}, (
-                ('hehe', ('test:int', {}), {'computed': True}),
-                ('ndef', ('test:ndef', {}), {'computed': True}),
-            )),
-
             ('test:int', {}, (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
@@ -450,11 +436,14 @@ testmodel = (
             )),
 
             ('test:str', {}, (
-                ('bar', ('ndef', {}), {}),
+                ('bar', (('test:str', 'test:int', 'test:comp', 'test:auto', 'test:guid',
+                           'test:virtiface', 'test:ro', 'inet:ip', 'inet:fqdn', 'meta:source', 'ps:person'), {}), {}),
                 ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
+                ('ndefs', ('array', {'type': ('test:str', 'test:int', 'test:guid', 'test:auto',
+                                              'test:ro', 'it:dev:int', 'it:dev:str', 'inet:fqdn'),
+                                     'uniq': False, 'sorted': False}), {}),
                 ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
@@ -493,7 +482,6 @@ testmodel = (
             ('test:strregex', {}, ()),
 
             ('test:migr', {}, (
-                ('bar', ('ndef', {}), {}),
                 ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
             )),
@@ -521,10 +509,6 @@ testmodel = (
 
             ('test:haspivcomp', {}, (
                 ('have', ('test:pivcomp', {}), {}),
-            )),
-
-            ('test:ndef', {}, (
-                ('form', ('str', {}), {'computed': True}),
             )),
 
             ('test:ro', {}, (
@@ -598,7 +582,6 @@ deprmodel = (
             ('test:deprprop', ('test:str', {}), {'deprecated': True}),
             ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
             ('test:deprform', ('test:str', {}), {}),
-            ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
             ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
@@ -611,7 +594,6 @@ deprmodel = (
         'forms': (
             ('test:deprprop', {}, ()),
             ('test:deprform', {}, (
-                ('ndefprop', ('test:deprndef', {}), {}),
                 ('deprprop', ('test:deprarray', {}), {}),
                 ('okayprop', ('str', {}), {}),
                 ('deprprop2', ('test:str', {}), {'deprecated': True}),

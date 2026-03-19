@@ -402,7 +402,7 @@ class Form:
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
-                    if prop.type.arraytype.ispoly or isinstance(prop.type.arraytype, s_types.Ndef):
+                    if prop.type.arraytype.ispoly:
                         self.refsout['ndefarray'].append(name)
                         continue
 
@@ -414,7 +414,7 @@ class Form:
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
-                elif prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
+                elif prop.type.ispoly:
                     self.refsout['ndef'].append(name)
 
                 elif isinstance(prop.type, s_types.NodeProp):
@@ -685,17 +685,6 @@ class Model:
 
         info = {'doc': 'The base geo political location type.'}
         item = s_types.Loc(self, 'loc', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-                ('form', ('syn:form', {}), {
-                    'computed': True,
-                    'doc': 'The form of node which is referenced.'}),
-            ),
-            'doc': 'The node definition type for a (form,valu) compound field.',
-        }
-        item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
         info = {
@@ -1489,7 +1478,7 @@ class Model:
                         raise s_exc.BadFormDef(mesg=mesg)
 
                     # TODO: check whether poly props could be valid for one of the forms
-                    if prop.type.ispoly or isinstance(prop.type, s_types.Ndef):
+                    if prop.type.ispoly:
                         break
 
                     curf = self.form(prop.type.name)

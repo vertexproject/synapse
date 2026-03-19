@@ -329,14 +329,14 @@ class TestUtils(s_t_utils.SynTest):
                     :hehe=haha
                     :tick=2020
                     :seen=2020
-                    :ndefs=((inet:fqdn, vertex.link), (inet:fqdn, foo.com))
+                    :ndefs={[inet:fqdn=vertex.link inet:fqdn=foo.com]}
                 ]
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'hehe', 'haha')
             self.propeq(nodes[0], 'tick', t0 := 1577836800000000)
             self.propeq(nodes[0], 'tick', '2020-01-01T00:00:00Z', repr=True)
-            self.propeq(nodes[0], 'ndefs', (('inet:fqdn', 'foo.com'), ('inet:fqdn', 'vertex.link')))
+            self.propeq(nodes[0], 'ndefs', ('foo.com', 'vertex.link'))
             self.propeq(nodes[0], 'seen.min', t0)
             self.propeq(nodes[0], '.created', nodes[0].get('.created'))
 
