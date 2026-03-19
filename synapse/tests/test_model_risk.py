@@ -338,7 +338,7 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[ risk:leak=*
                 :name="WikiLeaks ACME      Leak"
                 :desc="WikiLeaks leaked ACME stuff."
-                :disclosed=20231102
+                :time=20231102
                 :owner={ gen.ou.org acme }
                 :actor={ gen.ou.org wikileaks }
                 :recipient={ gen.ou.org everyone }
@@ -357,7 +357,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'wikileaks acme leak')
             self.propeq(nodes[0], 'desc', 'WikiLeaks leaked ACME stuff.')
-            self.propeq(nodes[0], 'disclosed', 1698883200000000)
+            self.propeq(nodes[0], 'time', 1698883200000000)
             self.propeq(nodes[0], 'type', 'public.')
             self.propeq(nodes[0], 'public', 1)
             self.propeq(nodes[0], 'size:bytes', 99)
