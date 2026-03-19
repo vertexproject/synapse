@@ -4969,12 +4969,12 @@ class PropName(Value):
             if (valu := node.get(name)) is None:
                 return None, None, None
 
-            if (typename := prop.type.name) == 'poly':
+            if prop.type.ispoly:
                 ndef = valu
-            elif (form := runt.model.forms.get(typename)) is not None:
+            elif (form := runt.model.forms.get(prop.type.name)) is not None:
                 ndef = (form.name, valu)
             else:
-                raise self.addExcInfo(s_exc.NoSuchForm.init(typename))
+                raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
             if (node := await runt.view.getNodeByNdef(ndef)) is None:
                 return None, None, None
