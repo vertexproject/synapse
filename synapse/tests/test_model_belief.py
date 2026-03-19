@@ -25,4 +25,3 @@ class BeliefModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'began', 1675900800000000)
 
             self.len(2, await core.nodes('belief:system -(has)> belief:tenet +:desc=Lol'))
-
