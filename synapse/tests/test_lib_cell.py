@@ -521,7 +521,7 @@ class CellTest(s_t_utils.SynTest):
         # but exercises the long-path failure inside of the cell's daemon
         # instead.
         with self.getTestDir() as dirn:
-            extrapath = s_const.UNIX_PATH_MAX * 'A'
+            extrapath = s_const.UNIX_SOCKET_PATH_MAX * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
             with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
                 async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:

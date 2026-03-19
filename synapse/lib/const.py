@@ -53,4 +53,4 @@ MAX_LINE_SIZE = kibibyte * 64
 MAX_FIELD_SIZE = kibibyte * 64
 
 # Socket constants
-UNIX_PATH_MAX = 103
+UNIX_SOCKET_PATH_MAX = 103

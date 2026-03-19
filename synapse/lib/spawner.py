@@ -1,4 +1,3 @@
-import os
 import asyncio
 import logging
 import tempfile
@@ -38,13 +37,8 @@ def _ioWorkProc(todo, sockpath):
                 # bind last so we're ready to go...
                 try:
                     await dmon.listen(f'unix://{sockpath}')
-                except OSError as e:
-                    errpath = sockpath + '.err'
-                    try:
-                        with open(errpath, 'w') as f:
-                            f.write(str(e))
-                    except OSError:
-                        pass
+                except OSError:
+                    logger.exception(f'IO worker failed to open listening socket at [{sockpath}]')
                     raise
                 await item.waitfini()
 
@@ -52,21 +46,9 @@ def _ioWorkProc(todo, sockpath):
 
 async def _spawnerWait(sockpath, timeout=30):
 
-    errpath = sockpath + '.err'
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     while True:
-        if os.path.exists(errpath):
-            try:
-                with open(errpath) as f:
-                    err = f.read()
-            except OSError:
-                err = 'unknown'
-            try:
-                os.unlink(errpath)
-            except OSError:
-                pass
-            raise s_exc.FatalErr(mesg=f'IO worker failed to open listening socket at [{sockpath}]: {err}')
         try:
             await asyncio.wait_for(s_link.unixwait(sockpath), timeout=1)
             return
@@ -91,7 +73,7 @@ class SpawnerMixin:
 
         iden = s_common.guid()
 
-        if sockpath is not None and len(sockpath) > s_const.UNIX_PATH_MAX:
+        if sockpath is not None and len(sockpath) > s_const.UNIX_SOCKET_PATH_MAX:
             sockpath = None
         if sockpath is None:
             tmpdir = tempfile.gettempdir()
