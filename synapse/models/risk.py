@@ -687,9 +687,6 @@ modeldefs = (
                 ('theft:price', ('econ:price', {}), {
                     'doc': 'The total value of the theft of assets.'}),
 
-                ('econ:currency', ('econ:currency', {}), {
-                    'doc': 'The currency type for the econ:price fields.'}),
-
                 ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the compromise.'}),
 
@@ -828,9 +825,6 @@ modeldefs = (
 
                 ('demanded:payment:price', ('econ:price', {}), {
                     'doc': 'The payment price which was demanded.'}),
-
-                ('demanded:payment:currency', ('econ:currency', {}), {
-                    'doc': 'The currency in which payment was demanded.'}),
 
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),

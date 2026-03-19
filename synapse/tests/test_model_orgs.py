@@ -519,7 +519,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :remote = (1)
                     :pay:min=20
                     :pay:max=22
-                    :pay:currency=BTC
                     :pay:pertime=1:00:00
                 ]
             ''')
@@ -534,7 +533,6 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'pay:min', '20')
             self.propeq(nodes[0], 'pay:max', '22')
-            self.propeq(nodes[0], 'pay:currency', 'btc')
             self.propeq(nodes[0], 'pay:pertime', 3600000000)
 
             self.nn(nodes[0].get('org'))
@@ -557,7 +555,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :org = *
                     :org:name = WootCorp
                     :org:fqdn = wootwoot.com
-                    :currency = USD
                     :costs = 200
                     :budget = 300
                     :revenue = 500
@@ -576,7 +573,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'time', 1627689600000000)
             self.propeq(nodes[0], 'org:name', 'wootcorp')
             self.propeq(nodes[0], 'org:fqdn', 'wootwoot.com')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'costs', '200')
             self.propeq(nodes[0], 'budget', '300')
             self.propeq(nodes[0], 'revenue', '500')

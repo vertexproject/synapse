@@ -81,7 +81,6 @@ class PsModelTest(s_t_utils.SynTest):
                     :title = "Python Developer"
                     :period=(20210731, 20220731)
                     :pay = 200000
-                    :pay:currency = usd
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'org:name', 'wootcorp')
@@ -92,7 +91,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'title', 'python developer')
             self.propeq(nodes[0], 'period', (1627689600000000, 1659225600000000, 31536000000000))
             self.propeq(nodes[0], 'pay', '200000')
-            self.propeq(nodes[0], 'pay:currency', 'usd')
 
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('contact'))
@@ -120,7 +118,6 @@ class PsModelTest(s_t_utils.SynTest):
                 [ ps:vitals=*
                     :time=20220815
                     :individual={[ ps:person=* ]}
-                    :econ:currency=usd
                     :econ:net:worth=100
                     :econ:annual:income=1000
                     :phys:mass=100lbs
@@ -134,7 +131,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'phys:height', 1828)
             self.propeq(nodes[0], 'phys:mass', '45359.2')
 
-            self.propeq(nodes[0], 'econ:currency', 'usd')
             self.propeq(nodes[0], 'econ:net:worth', '100')
             self.propeq(nodes[0], 'econ:annual:income', '1000')
 

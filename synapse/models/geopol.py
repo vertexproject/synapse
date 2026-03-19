@@ -135,11 +135,9 @@ modeldefs = (
                 ('population', ('int', {}), {
                     'doc': 'The total number of people living in the country.'}),
 
+                # TODO: should this be an array to match pol:country:currencies?
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The national currency.'}),
-
-                ('econ:currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to record price properties.'}),
 
                 ('econ:gdp', ('econ:price', {}), {
                     'doc': 'The gross domestic product of the country.'}),

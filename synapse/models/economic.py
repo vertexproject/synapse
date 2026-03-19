@@ -6,8 +6,10 @@ modeldefs = (
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20',
                 'virts': (
+
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency denomination of the price.'}),
+
                     ('asof', ('time', {}), {
                         'doc': 'The time the price was sampled or recorded.'}),
                 ),
@@ -265,9 +267,6 @@ modeldefs = (
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
                     'doc': 'The econ:price of the purchase.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The econ:price of the purchase.'}),
             )),
 
             ('econ:lineitem', {}, (
@@ -295,9 +294,6 @@ modeldefs = (
                 ('amount', ('econ:price', {}), {
                     'doc': 'The amount of cash deposited.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the deposited cash.'}),
-
                 ('account', ('econ:fin:account', {}), {
                     'doc': 'The account the cash was deposited to.'}),
             )),
@@ -312,9 +308,6 @@ modeldefs = (
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The amount of cash withdrawn.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the withdrawn cash.'}),
 
                 ('account', ('econ:fin:account', {}), {
                     'doc': 'The account the cash was withdrawn from.'}),
@@ -358,9 +351,6 @@ modeldefs = (
                     },
                     'doc': 'The amount of money transferred in the payment.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the payment.'}),
-
                 ('crypto:transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
             )),
@@ -380,9 +370,6 @@ modeldefs = (
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
                     'doc': 'The available funds at the time.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the available funds.'}),
             )),
 
             ('econ:statement', {}, (
@@ -395,21 +382,13 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period that the statement includes.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to store the balances.'}),
+                ('prev', ('econ:statement', {}), {
+                    'doc': 'The statement for the previous period.'}),
 
-                ('starting:balance', ('econ:price', {}), {
+                ('balance', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
                             'time': {'type': 'prop', 'name': 'period.min'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
-                    'doc': 'The balance at the beginning of the statement period.'}),
-
-                ('ending:balance', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'period.max'},
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
                     'doc': 'The balance at the end of the statement period.'}),
@@ -505,9 +484,6 @@ modeldefs = (
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The balance due.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency that the invoice specifies for payment.'}),
             )),
 
             ('econ:receipt', {}, (
@@ -524,9 +500,6 @@ modeldefs = (
 
                 ('recipient', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity which received the receipt.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency that the receipt uses to specify the price.'}),
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The price that the receipt confirms was paid.'}),
@@ -564,13 +537,6 @@ modeldefs = (
 
                 ('balance', ('econ:price', {}), {
                     'doc': 'The most recently known balance of the account.'}),
-
-                ('balance:time', ('time', {}), {
-                    'prevnames': ('balance:asof',),
-                    'doc': 'The time the balance was most recently updated.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the account balance.'}),
             )),
 
 

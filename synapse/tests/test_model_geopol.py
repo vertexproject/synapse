@@ -62,7 +62,6 @@ class GeoPolModelTest(s_t_utils.SynTest):
                         :area=1sq.km
                         :population=1
                         :currency=usd
-                        :econ:currency=usd
                         :econ:gdp = 100
                     ]
                     { -> pol:country [ :vitals={pol:vitals} ] }
@@ -73,7 +72,6 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'area', 1000000)
             self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'econ:gdp', '100')
-            self.propeq(nodes[0], 'econ:currency', 'usd')
             self.propeq(nodes[0], 'time', 1735689600000000)
             self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 

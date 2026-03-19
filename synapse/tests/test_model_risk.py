@@ -246,7 +246,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :ransom:paid = 1
                     :ransom:price = 99
                     :response:cost = 1010
-                    :econ:currency = usd
             ]''')
 
             self.propeq(nodes[0], 'tag', 'foo.bar')
@@ -270,7 +269,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'ransom:paid', '1')
             self.propeq(nodes[0], 'ransom:price', '99')
             self.propeq(nodes[0], 'response:cost', '1010')
-            self.propeq(nodes[0], 'econ:currency', 'usd')
             self.propeq(nodes[0], 'severity', 10)
             self.len(1, await core.nodes('risk:compromise -> syn:tag'))
             self.len(1, await core.nodes('risk:compromise -> entity:campaign'))
@@ -389,7 +387,6 @@ class RiskModelTest(s_t_utils.SynTest):
                 :public:url=https://apt99.com/acme
                 :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
                 :demanded:payment:price=99.99
-                :demanded:payment:currency=VTC
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
                 :paid:price=12345
@@ -407,7 +404,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'enacted', 1)
             self.propeq(nodes[0], 'public:url', 'https://apt99.com/acme')
             self.propeq(nodes[0], 'demanded:payment:price', '99.99')
-            self.propeq(nodes[0], 'demanded:payment:currency', 'vtc')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'paid:price', '12345')
 

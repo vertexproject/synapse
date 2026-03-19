@@ -547,9 +547,6 @@ modeldefs = (
                     },
                     'doc': 'The budget allocated to execute the campaign.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to record econ:price properties.'}),
-
                 # FIXME overfit?
                 ('conflict', ('entity:conflict', {}), {
                     'doc': 'The conflict in which this campaign is a primary participant.'}),
@@ -577,9 +574,6 @@ modeldefs = (
                 # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used for the assessed value.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
