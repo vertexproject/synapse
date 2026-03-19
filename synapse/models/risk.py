@@ -276,7 +276,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'deadline'}},
                     ),
                 },
-                'doc': 'An event where an attacker attempted to extort a victim.'}),
+                'doc': 'Activity where an attacker attempted to extort a victim.'}),
 
             ('risk:extortion:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
