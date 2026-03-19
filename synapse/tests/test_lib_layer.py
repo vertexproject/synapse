@@ -3137,8 +3137,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
-            self.len(1, await core.nodes('[test:str=virts :ndefs={[test:str=foo1 test:int=3 test:str=foo1]}]'))
-            self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
+            self.len(1, await core.nodes('[test:str=virts :polyarry={[test:str=foo1 test:int=3]}]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.form=test:str]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts2 = {'view': viewiden2, 'vars': {'long': 'a' * 500}}
@@ -3156,9 +3156,9 @@ class LayerTest(s_t_utils.SynTest):
             # Bad data test coverage
             nodes = await core.nodes('test:str=virts')
             sode = nodes[0].sodes[0]
-            sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
-            self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
-            self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
+            sode['props']['polyarry'] = ((('test:int', 3),), *sode['props']['polyarry'][1:])
+            self.len(0, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.form=test:int]'))
 
             forkview = core.getView(viewiden2)
             await core.nodes('[ test:arrayprop=(0,) :strs=($long, $long) ]', opts=viewopts2)

@@ -14,8 +14,8 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 storvirts = {
-    s_layer.STOR_TYPE_NDEF: {
-        'form': lambda x: x[0]
+    s_layer.STOR_TYPE_POLY: {
+        'form': lambda x: x[0],
     },
     s_layer.STOR_TYPE_IVAL: {
         'min': lambda x: x[0],

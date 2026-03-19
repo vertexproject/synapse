@@ -1457,50 +1457,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def getNdefRefs(self, ndef):
-
-        async def wrapgenr(lidx, genr):
-            async for item in genr:
-                yield item, lidx
-
-        last = None
-        buid = s_common.buid(ndef)
-        genrs = []
-
-        for lidx, layr in enumerate(self.layers):
-            genr = layr.getNdefRefs(buid)
-            genrs.append(wrapgenr(lidx, genr))
-
-        async for item, lidx in s_common.merggenr2(genrs):
-            if item == last:
-                continue
-
-            (refsnid, refsabrv) = last = item
-
-            node = await self.getNodeByNid(refsnid)
-            refsinfo = self.core.getAbrvIndx(refsabrv)
-
-            if len(refsinfo) == 2:
-                propname = refsinfo[1]
-                (valu, valulayr) = node.getWithLayer(propname)
-
-                if lidx == valulayr:
-                    info = {'type': 'prop', 'prop': propname, 'reverse': True}
-                    if isinstance(valu[0], str):
-                        yield node, info
-                        continue
-
-                    for _ in range(valu.count(ndef)):
-                        yield node, info
-                        await asyncio.sleep(0)
-
-            else:
-                _, tagname, propname = refsinfo
-                (valu, valulayr) = node.getTagPropWithLayer(tagname, propname)
-
-                if lidx == valulayr:
-                    yield node, {'type': 'tagprop', 'prop': propname, 'reverse': True}
-
     async def getNodePropRefs(self, pdef):
 
         async def wrapgenr(lidx, genr):

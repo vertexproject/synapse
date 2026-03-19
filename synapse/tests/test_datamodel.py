@@ -216,17 +216,17 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['ndef'])
+            ndeflen = len(refs['ndef'])
 
             await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(2, refs['ndef'])
+            self.eq(ndeflen + 1, len(refs['ndef']))
 
             await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['ndef'])
+            self.eq(ndeflen, len(refs['ndef']))
 
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:fetch:time'])
 
