@@ -272,11 +272,6 @@ modeldefs = (
                     'doc': 'An analyst specified description of the transaction.'}),
                 ('block', ('crypto:currency:block', {}), {
                     'doc': 'The block which records the transaction.'}),
-                ('block:coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain of the block which records this transaction.'}),
-                ('block:offset', ('int', {}), {
-                    'doc': 'The offset of the block which records this transaction.'}),
-
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
                 ('status:code', ('int', {}), {
@@ -310,14 +305,21 @@ modeldefs = (
             )),
 
             ('crypto:currency:block', {}, (
+
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain this block resides on.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The coin/blockchain this block resides on.'}),
+
                 ('offset', ('int', {}), {
-                    'doc': 'The index of this block.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The index of this block.'}),
+
                 ('hash', ('hex', {}), {
                     'doc': 'The unique hash for the block.'}),
+
                 ('minedby', ('crypto:currency:address', {}), {
                     'doc': 'The address which mined the block.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'Time timestamp embedded in the block by the miner.'}),
             )),
@@ -460,13 +462,15 @@ modeldefs = (
             ('crypto:currency:address', {}, (
 
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The crypto coin to which the address belongs.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The crypto coin to which the address belongs.'}),
 
                 ('seed', ('crypto:key', {}), {
                     'doc': 'The cryptographic key and or password used to generate the address.'}),
 
                 ('iden', ('str', {}), {
-                    'doc': 'The coin specific address identifier.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The coin specific address identifier.'}),
 
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the address.'}),

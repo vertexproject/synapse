@@ -129,9 +129,6 @@ modeldefs = (
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the seller.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of econ:price values associated with the deal.'}),
-
                 ('buyer:budget', ('econ:price', {}), {
                     'doc': 'The buyers budget for the eventual purchase.'}),
 
@@ -162,9 +159,6 @@ modeldefs = (
 
                 ('price', ('econ:price', {}), {
                     'doc': 'The asking price of the product or service.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the asking price.'}),
 
                 ('count:total', ('int', {'min': 0}), {
                     'doc': 'The number of instances for sale.'}),
@@ -218,9 +212,6 @@ modeldefs = (
 
                 ('price:bottom', ('econ:price', {}), {
                     'doc': 'The minimum offered or observed price of the product.'}),
-
-                ('price:currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the retail and bottom price properties.'}),
             )),
         ),
     }),

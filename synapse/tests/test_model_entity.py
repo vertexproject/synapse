@@ -231,13 +231,11 @@ class EntityModelTest(s_t_utils.SynTest):
                     :actor={[ ou:org=* :name=vertex ]}
                     :time=20220718
                     :value=10
-                    :currency=usd
                     :campaign={[ entity:campaign=({"name": "good guys"}) ]}
                 ]
             ''')
             self.propeq(nodes[0], 'time', 1658102400000000)
             self.propeq(nodes[0], 'value', '10')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
             self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
 

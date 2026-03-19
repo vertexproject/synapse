@@ -111,9 +111,6 @@ modeldefs = (
                 ('pay', ('econ:price', {}), {
                     'doc': 'The average yearly income paid to the contact.'}),
 
-                ('pay:currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the pay.'}),
-
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
                     'doc': 'The period of time that the contact worked for the organization.'}),
@@ -181,9 +178,6 @@ modeldefs = (
                 ('individual', ('entity:individual', {}), {
                     'prevnames': ('contact', 'person'),
                     'doc': 'The individual that the vitals are about.'}),
-
-                ('econ:currency', ('econ:currency', {}), {
-                    'doc': 'The currency that the price values are recorded using.'}),
 
                 ('econ:net:worth', ('econ:price', {}), {
                     'doc': 'The net worth of the contact.'}),

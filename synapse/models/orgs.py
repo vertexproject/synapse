@@ -398,10 +398,6 @@ modeldefs = (
                 ('pay:max', ('econ:price', {}), {
                     'doc': 'The maximum pay for the job.'}),
 
-                ('pay:currency', ('econ:currency', {}), {
-                    'prevnames': ('paycurrency',),
-                    'doc': 'The currency used for payment.'}),
-
                 ('pay:pertime', ('duration', {}), {
                     'ex': '1:00:00',
                     'doc': 'The duration over which the position pays.'}),
@@ -478,9 +474,6 @@ modeldefs = (
                 ('org:fqdn', ('inet:fqdn', {}), {
                     'prevnames': ('orgfqdn',),
                     'doc': 'The org FQDN as reported by the source of the vitals.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the econ:price values.'}),
 
                 ('costs', ('econ:price', {}), {
                     'doc': 'The costs/expenditures over the period.'}),
