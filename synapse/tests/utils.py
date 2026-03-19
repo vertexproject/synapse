@@ -441,9 +441,6 @@ testmodel = (
                 ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('ndefs', ('array', {'type': ('test:str', 'test:int', 'test:guid', 'test:auto',
-                                              'test:ro', 'it:dev:int', 'it:dev:str', 'inet:fqdn'),
-                                     'uniq': False, 'sorted': False}), {}),
                 ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
@@ -455,7 +452,8 @@ testmodel = (
                 ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
                     'default_forms': ('test:int', 'test:str')}), {}),
                 ('polyarry', ('array', {
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
+                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn',
+                             'test:guid', 'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str'),
                     'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
                 ('polynonuniq', ('array', {
                     'uniq': False,
