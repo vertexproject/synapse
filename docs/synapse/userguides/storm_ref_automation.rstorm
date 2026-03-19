@@ -730,7 +730,7 @@ The Storm for this trigger is broken down below (with comments) for clarity:
   -> ou:technique:tag
 
   // Create a 'uses' edge between the technique(s) and the risk:attack node
-  [ <(uses)+ { yield $attack } ]
+  [ <(uses)+ $attack ]
 
 
 **tag:add example**
