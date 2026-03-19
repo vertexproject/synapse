@@ -4971,8 +4971,6 @@ class PropName(Value):
 
             if prop.type.ispoly:
                 ndef = valu
-            elif (form := runt.model.forms.get(prop.type.name)) is not None:
-                ndef = (form.name, valu)
             else:
                 raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 

@@ -3154,6 +3154,11 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[test:str=newp :bar={[test:str=newp :hehe=newp]}]')
             self.len(0, await core.nodes('test:str:bar::hehe::foo=baz'))
 
+            # test pivprop through a non-form type raises NoSuchForm
+            await core.nodes('[test:str=hehe :hehe=notaform]')
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('test:str=hehe +:hehe::tick=2020')
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
