@@ -55,26 +55,22 @@ class SpawnerTest(s_t_utils.SynTest):
             # Clean up the executor future
             try:
                 await fut
-            except OSError:
+            except RuntimeError:
                 pass
 
-    async def test_spawner_ioworkproc_listen_oserror(self):
+    async def test_spawner_ioworkproc_signal_runtimeerror(self):
 
-        # _ioWorkProc logs and re-raises when dmon.listen() raises OSError
+        # _ioWorkProc re-raises when signal handlers cannot be installed
         loop = asyncio.get_running_loop()
 
         with self.getTestDir() as dirn:
 
             sockpath = os.path.join(dirn, 'test.sock')
 
-            # A regular file at sockpath causes asyncio Unix socket bind to fail
-            with open(sockpath, 'w') as fd:
-                fd.write('')
-
             todo = (SpawnTarget.anit, (), {})
 
             try:
                 await loop.run_in_executor(None, s_spawner._ioWorkProc, todo, sockpath)
-                self.fail('Expected OSError from listen failure')  # pragma: no cover
-            except OSError:
+                self.fail('Expected RuntimeError from addSignalHandlers failure')  # pragma: no cover
+            except RuntimeError:
                 pass

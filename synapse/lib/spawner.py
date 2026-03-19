@@ -26,10 +26,7 @@ def _ioWorkProc(todo, sockpath):
 
                 assert isinstance(item, s_base.Base), f'Item is not a Base object: {item}'
 
-                try:
-                    await item.addSignalHandlers()
-                except RuntimeError:
-                    pass
+                await item.addSignalHandlers()
 
                 dmon.share('dmon', dmon)
                 dmon.share('item', item)
