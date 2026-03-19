@@ -81,7 +81,38 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
-                'doc': 'An analytically relevant event in a curated timeline.'}),
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('base:event', {}),
+                ),
+                'props': (
+                    ('title', ('str', {}), {
+                        'doc': 'A title for the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of event.'}),
+                ),
+                'doc': 'An analytically relevant event.'}),
+
+            ('meta:activity', ('guid', {}), {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
+                    ('type', ('meta:event:type:taxonomy', {}), {
+                        'doc': 'The type of activity.'}),
+                ),
+                'doc': 'Analytically relevant activity.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -282,6 +313,37 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:causal', {
+                'doc': 'Implemented by events and activities which can lead to effects.'}),
+
+            ('base:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to an event.'}),
+
+            ('base:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('meta:causal', {}),
+                ),
+                'props': (
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the {title} occurred.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'A parent activity which includes this {title}.'}),
+                ),
+                'doc': 'Properties common to activity which occurs over a period.'}),
+
             ('meta:usable', {
                 'template': {'title': 'item'},
                 'props': (
@@ -361,6 +423,9 @@ modeldefs = (
 
             (('meta:technique', 'addresses', 'risk:vuln'), {
                 'doc': 'The technique addresses the vulnerability.'}),
+
+            (('meta:causal', 'ledto', 'meta:causal'), {
+                'doc': 'The source event led to the target event.'}),
         ),
         'forms': (
 
@@ -467,21 +532,6 @@ modeldefs = (
 
             ('meta:timeline:type:taxonomy', {
                 'prevnames': ('meta:timeline:taxonomy',)}, ()),
-
-            ('meta:event', {}, (
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period over which the event occurred.'}),
-
-                ('title', ('str', {}), {
-                    'doc': 'A title for the event.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the event.'}),
-
-                ('type', ('meta:event:type:taxonomy', {}), {
-                    'doc': 'Type of event.'}),
-            )),
 
             ('meta:event:type:taxonomy', {
                 'prevnames': ('meta:event:taxonomy',)}, ()),

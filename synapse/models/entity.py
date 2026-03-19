@@ -19,6 +19,22 @@ modeldefs = (
                 ),
             }),
 
+            ('entity:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('base:event', {}),
+                    ('entity:action', {}),
+                ),
+                'doc': 'Properties common to events carried out by an actor.'}),
+
+            ('entity:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                    ('entity:action', {}),
+                ),
+                'doc': 'Properties common to activity carried out by an actor.'}),
+
             ('entity:attendable', {
                 'template': {'title': 'event'},
                 'interfaces': (
@@ -292,7 +308,7 @@ modeldefs = (
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                     ('meta:reported', {}),
                     ('meta:observable', {}),
                 ),
@@ -462,9 +478,6 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
-                    'doc': 'Actors who participated in the campaign.'}),
-
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
@@ -475,9 +488,6 @@ modeldefs = (
                 ('type', ('entity:campaign:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the entity was running the campaign.'}),
 
                 ('cost', ('econ:price', {}), {
                     'protocols': {
@@ -493,9 +503,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record econ:price properties.'}),
-
-                ('team', ('ou:team', {}), {
-                    'doc': 'The org team responsible for carrying out the campaign.'}),
 
                 # FIXME overfit?
                 ('conflict', ('entity:conflict', {}), {
