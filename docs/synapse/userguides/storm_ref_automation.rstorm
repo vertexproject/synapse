@@ -718,10 +718,10 @@ The Storm for this trigger is broken down below (with comments) for clarity:
 ::
   
   // Set the variable $attack to the risk:attack node for later use
-  $attack=$node | spin | iden $auto.opts.n2iden
+  $attack=$node | spin |
 
-  // Yield the n2 node that was just linked
-  yield $auto.opts.n2iden
+  // Lift the n2node that was just linked
+  iden $auto.opts.n2iden
 
   // Pivot to the syn:tag nodes associated with any tags on n2
   -> #
