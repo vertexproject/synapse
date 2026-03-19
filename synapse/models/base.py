@@ -372,8 +372,8 @@ modeldefs = (
                 ),
             }),
 
-            ('meta:achievement', {
-                'doc': 'An interface implemented by forms which represent an achievement.'}),
+            ('meta:achievable', {
+                'doc': 'An interface implemented by forms which are achievable.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

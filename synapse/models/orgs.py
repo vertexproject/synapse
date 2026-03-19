@@ -262,7 +262,7 @@ modeldefs = (
 
             ('ou:award', ('guid', {}), {
                 'interfaces': (
-                    ('meta:achievement', {}),
+                    ('meta:achievable', {}),
                 ),
                 'doc': 'An award issued by an organization.'}),
 

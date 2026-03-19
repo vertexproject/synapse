@@ -285,7 +285,7 @@ modeldefs = (
                 'template': {'title': 'goal'},
                 'interfaces': (
                     ('meta:reported', {}),
-                    ('meta:achievement', {}),
+                    ('meta:achievable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -371,7 +371,7 @@ modeldefs = (
                     ('entity:event', {}),
                 ),
                 'props': (
-                    ('achievement', ('meta:achievement', {}), {
+                    ('achievement', ('meta:achievable', {}), {
                         'doc': 'The achievement that the actor reached.'}),
                 ),
                 'doc': 'An event where an actor achieved a goal or was given an award.'}),
