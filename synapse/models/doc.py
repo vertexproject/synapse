@@ -203,10 +203,10 @@ modeldefs = (
                 ('workhist', ('array', {'type': 'ps:workhist'}), {
                     'doc': 'Work history described in the resume.'}),
 
-                ('education', ('array', {'type': 'ps:education'}), {
+                ('education', ('array', {'type': 'entity:studied'}), {
                     'doc': 'Education experience described in the resume.'}),
 
-                ('achievements', ('array', {'type': 'ps:achievement'}), {
+                ('achievements', ('array', {'type': 'entity:achieved'}), {
                     'doc': 'Achievements described in the resume.'}),
 
             )),

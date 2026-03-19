@@ -285,6 +285,7 @@ modeldefs = (
                 'template': {'title': 'goal'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:achievement', {}),
                 ),
                 'display': {
                     'columns': (
@@ -336,6 +337,45 @@ modeldefs = (
             ('entity:discovery', ('guid', {}), {
                 'doc': 'A discovery made by an actor.'}),
 
+            ('entity:studied', ('guid', {}), {
+                'template': {'title': 'studied'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
+                'props': (
+                    ('institution', ('ou:org', {}), {
+                        'doc': 'The organization providing educational services.'}),
+                ),
+                'doc': 'A period when an actor studied or was educated.'}),
+
+            ('entity:achieved', ('guid', {}), {
+                'template': {'title': 'achieved'},
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'achievement::name'}},
+                        {'type': 'prop', 'opts': {'name': 'achievement::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                    ),
+                },
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('achievement', ('meta:achievement', {}), {
+                        'doc': 'The achievement that the actor reached.'}),
+                ),
+                'doc': 'An event where an actor achieved a goal or was given an award.'}),
+
         ),
 
         'edges': (
@@ -365,6 +405,12 @@ modeldefs = (
 
             (('entity:contribution', 'had', 'econ:payment'), {
                 'doc': 'The contribution includes the payment.'}),
+
+            (('entity:studied', 'included', 'edu:class'), {
+                'doc': 'The class was taken by the student as part of their studies.'}),
+
+            (('entity:studied', 'included', 'edu:learnable'), {
+                'doc': 'The target node included by the actor as part of their studies.'}),
         ),
 
         'forms': (

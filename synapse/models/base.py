@@ -371,6 +371,9 @@ modeldefs = (
                         'doc': 'The time that the rule was evaluated to generate the match.'}),
                 ),
             }),
+
+            ('meta:achievement', {
+                'doc': 'An interface implemented by forms which represent an achievement.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

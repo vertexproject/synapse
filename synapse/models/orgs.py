@@ -261,6 +261,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of award types.'}),
 
             ('ou:award', ('guid', {}), {
+                'interfaces': (
+                    ('meta:achievement', {}),
+                ),
                 'doc': 'An award issued by an organization.'}),
 
             ('ou:vitals', ('guid', {}), {
