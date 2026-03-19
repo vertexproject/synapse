@@ -23,23 +23,30 @@ def _ioWorkProc(todo, sockpath):
 
             func, args, kwargs = todo
 
-            item = await func(*args, **kwargs)
+            async with await func(*args, **kwargs) as item:
 
-            dmon.share('dmon', dmon)
-            dmon.share('item', item)
+                assert isinstance(item, s_base.Base), f'Item is not a Base object: {item}'
 
-            # bind last so we're ready to go...
-            try:
-                await dmon.listen(f'unix://{sockpath}')
-            except OSError as e:
-                errpath = sockpath + '.err'
                 try:
-                    with open(errpath, 'w') as f:
-                        f.write(str(e))
-                except OSError:
+                    await item.addSignalHandlers()
+                except RuntimeError:
                     pass
-                raise
-            await item.waitfini()
+
+                dmon.share('dmon', dmon)
+                dmon.share('item', item)
+
+                # bind last so we're ready to go...
+                try:
+                    await dmon.listen(f'unix://{sockpath}')
+                except OSError as e:
+                    errpath = sockpath + '.err'
+                    try:
+                        with open(errpath, 'w') as f:
+                            f.write(str(e))
+                    except OSError:
+                        pass
+                    raise
+                await item.waitfini()
 
     asyncio.run(workloop())
 

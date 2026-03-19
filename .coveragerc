@@ -3,6 +3,12 @@ omit =
     */synapse/tests/test_*
     /tmp/*
 
+; Coverage config note (Python 3.11 vs 3.14):
+; CI currently splits coverage configuration between:
+;   - main process: `--cov-config=.coveragerc.main`
+;   - multiprocessing children: `COVERAGE_PROCESS_START=.coveragerc`
+; When we move the baseline to Python 3.14, we should verify this
+; workaround is required and remove the `.coveragerc.main` file.
 [run]
 concurrency = multiprocessing
 parallel = True
