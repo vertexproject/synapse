@@ -410,7 +410,7 @@ modeldefs = (
                 'doc': 'The class was taken by the student as part of their studies.'}),
 
             (('entity:studied', 'included', 'edu:learnable'), {
-                'doc': 'The target node included by the actor as part of their studies.'}),
+                'doc': 'The target node was included by the actor as part of their studies.'}),
         ),
 
         'forms': (
