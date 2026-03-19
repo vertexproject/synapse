@@ -4,11 +4,13 @@ modeldefs = (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
-                    ('meta:believable', {}),
                 ),
                 'doc': 'A taxonomy of hypothesis types.'}),
 
             ('sci:hypothesis', ('guid', {}), {
+                'interfaces': (
+                    ('meta:believable', {}),
+                ),
                 'doc': 'A hypothesis or theory.'}),
 
             # TODO link experiment to eventual procedure node
