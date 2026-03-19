@@ -6099,7 +6099,7 @@ class NodeRef(Prim):
                               'type': 'boolean'}}},
 
     )
-    _storm_typename = 'ndef'
+    _storm_typename = 'noderef'
     _ismutable = False
 
     def __init__(self, valu, path=None):

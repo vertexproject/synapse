@@ -1234,7 +1234,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''[
                 (it:exec:query=* :time=2025-04?)
                 (test:str=foo :seen=2020 :bar={[test:str=bar]})
-                (test:str=baz :seen=(2020, ?) :ndefs={[test:str=1 test:str=2]})
+                (test:str=baz :seen=(2020, ?) :polyarry={[test:str=1 test:str=2]})
                 (test:str=faz :seen=(2020, *))
                 (test:str=multi :poly={[test:int=5]})
                 (test:str=multi2 :polyarry={[inet:server=1.2.3.4:80 inet:server=1.2.3.5:80 inet:server=1.2.3.4:90]})
@@ -1254,9 +1254,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
             self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
-            self.eq(nodes[2][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[2][1]['props']['ndefs.size'], 2)
-            self.eq(nodes[2][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+            self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[2][1]['props']['polyarry.size'], 2)
+            self.eq(nodes[2][1]['props']['polyarry.form'], ('test:str', 'test:str'))
 
             self.eq(nodes[3][1]['props']['seen'], (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe))
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
@@ -1277,9 +1277,9 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0][1]['props'].get('seen.min'))
             self.none(nodes[0][1]['props'].get('seen.max'))
             self.none(nodes[0][1]['props'].get('seen.duration'))
-            self.eq(nodes[0][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[0][1]['props']['ndefs.size'], 2)
-            self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+            self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[0][1]['props']['polyarry.size'], 2)
+            self.eq(nodes[0][1]['props']['polyarry.form'], ('test:str', 'test:str'))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -2158,10 +2158,10 @@ class StormTest(s_t_utils.SynTest):
                     test:guid=*
                       :server=1.2.3.4:80
                       :seen=(2020, 2021)
-                      :name={[ test:str=arrayvirt :ndefs=((test:str, foo), (test:int, 5)) ]}
+                      :name={[ test:str=arrayvirt :polyarry={[test:str=foo test:int=5]} ]}
                   ]}
             ]''')
-            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('ndefs',)}}}}
+            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('polyarry',)}}}}
             msgs = await core.stormlist('test:str=embed', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             self.eq('test:str', node[0][0])
@@ -2176,9 +2176,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(1609459200000000, embeds['gprop']['seen.max'])
             self.eq(31622400000000, embeds['gprop']['seen.duration'])
 
-            self.eq((('test:str', 'foo'), ('test:int', 5)), embeds['gprop::name']['ndefs'])
-            self.eq(2, embeds['gprop::name']['ndefs.size'])
-            self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
+            self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
+            self.eq(2, embeds['gprop::name']['polyarry.size'])
+            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.form'])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
@@ -3515,7 +3515,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[test:str=foo :bar=(inet:ip, 1.2.3.4)]'))
+            self.len(1, await core.nodes('[test:str=foo :bar={[inet:ip=1.2.3.4]}]'))
             self.len(1, await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :asn=0 ]'))
 

@@ -495,14 +495,14 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6, 7]) ]')
             self.propeq(nodes[0], 'ints', (1, 3, 4))
 
-            nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
+            nodes = await core.nodes('[ test:str=foo :polyarry++={[ test:str=bar ]} ]')
+            self.propeq(nodes[0], 'polyarry', ('bar',))
 
-            nodes = await core.nodes('test:str=foo  [ :ndefs++={[ test:str=baz test:str=faz ]} ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
+            nodes = await core.nodes('test:str=foo  [ :polyarry++={[ test:str=baz test:str=faz ]} ]')
+            self.propeq(nodes[0], 'polyarry', ('bar', 'baz', 'faz'))
 
-            nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
-            self.propeq(nodes[0], 'ndefs', (('test:str', 'bar'),))
+            nodes = await core.nodes('test:str=foo  [ :polyarry--={ test:str=baz test:str=faz } ]')
+            self.propeq(nodes[0], 'polyarry', ('bar',))
 
             await core.nodes('[ test:int=5 :types=(a, b) ]')
             nodes = await core.nodes('test:int=5 [ :types++=(d, c, d) ]')
@@ -855,29 +855,29 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:str=foo :bar=(test:int, 5) ]')
+            nodes = await core.nodes('[ test:str=foo :bar={[test:int=5]} ]')
             nodes = await core.nodes('test:str -> test:int')
             self.eq(nodes[0].ndef, ('test:int', 5))
 
-            nodes = await core.nodes('[ test:str=bar :bar=(inet:fqdn, woot.com) ]')
+            nodes = await core.nodes('[ test:str=bar :bar={[inet:fqdn=woot.com]} ]')
             self.len(1, nodes)
 
-            # test a reverse ndef pivot
+            # test a reverse poly pivot
             nodes = await core.nodes('inet:fqdn=woot.com -> test:str')
             self.len(1, nodes)
             self.eq('test:str', nodes[0].ndef[0])
 
-            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
-            await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
+            await core.nodes('[ test:str=ndefs :polyarry={[it:dev:int=1 it:dev:int=2]} ]')
+            await core.nodes('test:str=ndefs [ :polyarry += {[inet:fqdn=woot.com]} ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes('it:dev:int=1 -> test:str:ndefs')
+            nodes = await core.nodes('it:dev:int=1 -> test:str:polyarry')
             self.len(1, nodes)
             self.eq('ndefs', nodes[0].ndef[1])
-            self.eq(nodes[0].getNodeRefs(), [
-                ('ndefs', ('it:dev:int', 1)),
-                ('ndefs', ('it:dev:int', 2)),
-                ('ndefs', ('inet:fqdn', 'woot.com'))
+            self.sorteq(nodes[0].getNodeRefs(), [
+                ('polyarry', ('it:dev:int', 1)),
+                ('polyarry', ('it:dev:int', 2)),
+                ('polyarry', ('inet:fqdn', 'woot.com'))
             ])
 
             nodes = await core.nodes('[ test:str = norefs ]')
@@ -886,8 +886,8 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('it:dev:int=1 -> test:str'))
             self.len(3, await core.nodes('test:str=ndefs -> *'))
             self.len(2, await core.nodes('test:str=ndefs -> it:dev:int'))
-            self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
-            self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
+            self.len(3, await core.nodes('test:str=ndefs :polyarry -> *'))
+            self.len(2, await core.nodes('test:str=ndefs :polyarry -> it:dev:int'))
 
             await core.nodes('[ entity:contribution=* :actor={[ ps:person=* ]} ]')
             nodes = await core.nodes('ps:person <- *')
@@ -3029,8 +3029,8 @@ class AstTest(s_test.SynTest):
                     self.len(1, await core.nodes('[test:int=6]'))
                     self.len(1, await core.nodes('[test:int=7 :loc=us]'))
                     self.len(1, await core.nodes('[test:int=8 :loc=uk]'))
-                    self.len(1, await core.nodes('[test:str=a :bar=(test:str, a) :tick=19990101]'))
-                    self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+                    self.len(1, await core.nodes('[test:str=a :bar={test:str=a} :tick=19990101]'))
+                    self.len(1, await core.nodes('[test:str=m :bar={test:str=m} :tick=20200101]'))
 
                     await core.nodes('.created [:seen=20200101]')
                     calls = []
@@ -3104,20 +3104,6 @@ class AstTest(s_test.SynTest):
                         ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
                         ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
                     ])
-                    calls = []
-
-                    # Lift by value will fail since stortype is MSGP
-                    # can still optimize a bit though
-                    nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
-                    self.len(1, nodes)
-
-                    exp = [
-                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        ('prop', 'test:str:bar'),
-                    ]
-
-                    self.eq(calls, exp)
                     calls = []
 
                     # Shouldn't optimize this, make sure the edit happens
@@ -3499,7 +3485,7 @@ class AstTest(s_test.SynTest):
             await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
             await highlighteq('newp', '[ test:str=foo :seen=now :seen.precision=newp ]')
 
-            await highlighteq('([1, 2])', '[ test:str=foo :ndefs++=([1, 2]) ]')
+            await highlighteq('({"key": "val"})', '[ test:str=foo :polyarry+=({"key": "val"}) ]')
 
             await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
 
@@ -4325,10 +4311,10 @@ class AstTest(s_test.SynTest):
             burr = (await core.nodes('[test:comp=(1234, burrito)]'))[0]
             guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
             comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
-            tstr = (await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))[0]
+            tstr = (await core.nodes('[test:str=foobar :bar={[test:ro=ackbar]} :polyarry={[test:guid=$guid test:auto=auto]}]', opts=opts))[0]
             arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
-            ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
-            pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
+            ostr = (await core.nodes('test:str=foo [ :bar={test:ro=ackbar} :polyarry={[test:int=176]}]'))[0]
+            pstr = (await core.nodes('test:str=bar [ :polyarry={[test:guid=$guid test:auto=auto test:ro=ackbar]}]', opts=opts))[0]
             rstr = (await core.nodes('test:ro=ackbar', opts=opts))[0]
 
             await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
@@ -4353,7 +4339,7 @@ class AstTest(s_test.SynTest):
             opts = {'node:opts': {'links': True}, 'vars': {'form': 'inet:ip'}}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts=opts)
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.form *$newform', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot
@@ -4377,16 +4363,16 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
 
-            # refs out - ndef
+            # refs out - poly
             msgs = await core.stormlist('test:str -> test:ro', opts=opts)
-            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'polyarry'})
             _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=2)
 
-            # refs out - ndefarray
+            # refs out - polyarray
             msgs = await core.stormlist('test:str -> test:auto', opts=opts)
-            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'polyarry'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'}, nidx=1)
 
             # reverse prop refs
             msgs = await core.stormlist('test:int -> test:complexcomp', opts=opts)
@@ -4399,13 +4385,13 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, sixer, {'type': 'prop', 'prop': 'ints', 'reverse': True})
             _assert_edge(msgs, thou, {'type': 'prop', 'prop': 'ints', 'reverse': True}, nidx=1)
 
-            # reverse ndef refs
+            # reverse poly refs
             msgs = await core.stormlist('test:ro -> test:str', opts=opts)
             _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
 
-            # reverse ndefarray refs
+            # reverse poly array refs
             msgs = await core.stormlist('test:auto -> test:str', opts=opts)
-            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'polyarry', 'reverse': True})
 
             # PivotOut syn:tag
             msgs = await core.stormlist('syn:tag -> *', opts=opts)
@@ -4424,11 +4410,11 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=3)
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=4)
 
-            # PivotOut prop ndef and ndef array
+            # PivotOut prop poly and poly array
             msgs = await core.stormlist('test:str=foobar -> *', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=2)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'}, nidx=1)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'}, nidx=2)
 
             # PivotToTags
             msgs = await core.stormlist('test:complexcomp -> #', opts=opts)
@@ -4442,19 +4428,19 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:str=foobar <- *', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'strs', 'reverse': True})
 
-            # PivotIn ndef
+            # PivotIn poly
             msgs = await core.stormlist('test:ro <- *', opts=opts)
             _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
 
-            # PivotIn array ndef
+            # PivotIn array poly
             msgs = await core.stormlist('test:auto <- *', opts=opts)
-            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'polyarry', 'reverse': True})
 
             # PropPivotOut prop
             msgs = await core.stormlist('test:guid :size -> *', opts=opts)
             _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
 
-            # PropPivotOut ndef
+            # PropPivotOut poly
             msgs = await core.stormlist('test:str=foobar :bar -> *', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
 
@@ -4463,16 +4449,16 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
 
-            # PropPivotOut array ndef
-            msgs = await core.stormlist('test:str=foobar :ndefs -> *', opts=opts)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+            # PropPivotOut array poly
+            msgs = await core.stormlist('test:str=foobar :polyarry -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'}, nidx=1)
 
             # PropPivot prop to form
             msgs = await core.stormlist('test:guid :size -> test:int', opts=opts)
             _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
 
-            # PropPivot ndef prop
+            # PropPivot poly prop
             msgs = await core.stormlist('test:str :bar -> test:ro', opts=opts)
             _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'})
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
@@ -4482,9 +4468,9 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
 
-            # PropPivot src ndef array
-            msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
+            # PropPivot src poly array
+            msgs = await core.stormlist('test:str=foobar :polyarry -> test:guid', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'polyarry'})
 
             # prop to prop
             msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
@@ -4506,7 +4492,7 @@ class AstTest(s_test.SynTest):
             # N2WalNkPivo
             msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
-            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'polyarry', 'reverse': True}, nidx=1)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': 'refs', 'reverse': True}, nidx=2)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': '_someedge', 'reverse': True}, nidx=3)
 
