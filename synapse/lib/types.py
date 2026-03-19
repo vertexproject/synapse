@@ -2202,8 +2202,7 @@ class Poly(Type):
             if isinstance(val1, s_node.Node):
                 ndefcmpr = True
                 realv = val1.ndef[1]
-            elif isinstance(val1, s_stormtypes.NodeRef):
-                ndefcmpr = True
+            elif (ndefcmpr := isinstance(val1, s_stormtypes.NodeRef)):
                 realv = val1.valu[1]
 
             for thash, ctor in ctors.items():
