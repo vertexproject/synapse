@@ -165,7 +165,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :actor={[ entity:contact=* ]}
-                    :actors={[ entity:contact=* ]}
                     :seen=2022
                     +(had)> {[ entity:goal=* ]}
                 ]
