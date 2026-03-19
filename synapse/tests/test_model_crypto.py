@@ -245,8 +245,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(node, 'hash', '01020304')
             self.propeq(node, 'desc', 'Woot Woot')
             self.propeq(node, 'block', ('btc', 998877))
-            self.propeq(node, 'block:coin', 'btc')
-            self.propeq(node, 'block:offset', 998877)
             self.propeq(node, 'success', True)
             self.propeq(node, 'status:code', 10)
             self.propeq(node, 'status:message', 'success')

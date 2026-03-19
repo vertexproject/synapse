@@ -371,6 +371,9 @@ modeldefs = (
                         'doc': 'The time that the rule was evaluated to generate the match.'}),
                 ),
             }),
+
+            ('meta:achievable', {
+                'doc': 'An interface implemented by forms which are achievable.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

@@ -54,7 +54,6 @@ class BizModelTest(s_t_utils.SynTest):
                     :rfp = { biz:rfp }
                     :buyer = {[ entity:contact=* :name=buyer ]}
                     :seller = {[ entity:contact=* :name=seller ]}
-                    :currency = USD
                     :buyer:budget = 300000
                     :buyer:deadline = 20210901
                     :offer:price = 299999
@@ -69,7 +68,6 @@ class BizModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'status', 'foo.bar.')
             self.propeq(nodes[0], 'updated', 1627689600000000)
             self.propeq(nodes[0], 'contacted', 1627430400000000)
-            self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'buyer:budget', '300000')
             self.propeq(nodes[0], 'buyer:deadline', 1630454400000000)
             self.propeq(nodes[0], 'offer:price', '299999')
@@ -116,7 +114,6 @@ class BizModelTest(s_t_utils.SynTest):
                     :current=(true)
                     :period=(20221221, 2023)
                     :price=1000000
-                    :currency=usd
                 ]
             ''')
             self.len(1, nodes)
@@ -124,7 +121,6 @@ class BizModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'current', True)
             self.propeq(nodes[0], 'period', (1671580800000000, 1672531200000000, 950400000000))
             self.propeq(nodes[0], 'price', '1000000')
-            self.propeq(nodes[0], 'currency', 'usd')
 
             self.len(1, await core.nodes('biz:listing -> entity:contact +:name=visi'))
 

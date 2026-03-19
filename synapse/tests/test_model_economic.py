@@ -19,7 +19,6 @@ class EconTest(s_utils.SynTest):
                 econ:purchase="*"
 
                     :price=13.37
-                    :currency=USD
                     :buyer={[ entity:contact=* ]}
                     :seller={[ entity:contact=* ]}
 
@@ -35,7 +34,6 @@ class EconTest(s_utils.SynTest):
             perc = (await core.nodes(text))[0]
 
             self.propeq(perc, 'price', '13.37')
-            self.propeq(perc, 'currency', 'usd')
 
             self.len(1, await core.nodes('econ:purchase :buyer -> entity:contact'))
             self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
@@ -99,7 +97,6 @@ class EconTest(s_utils.SynTest):
 
                     :status=settled
                     :amount = 20.30
-                    :currency = usd
 
                     :time=20180202
 
@@ -186,15 +183,13 @@ class EconTest(s_utils.SynTest):
                     :time = 20211031
                     :account={[ econ:fin:account=* ]}
                     :amount = 123.45
-                    :currency = usd
                 ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
             self.propeq(nodes[0], 'time', 1635638400000000)
             self.propeq(nodes[0], 'amount', '123.45')
-            self.propeq(nodes[0], 'currency', 'usd')
 
-            self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
+            # self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
 
             self.len(1, await core.nodes('econ:balance :account -> econ:fin:account'))
 
@@ -242,23 +237,20 @@ class EconTest(s_utils.SynTest):
                 econ:statement=*
                     :period=202403*
                     :account={econ:fin:account | limit 1}
-                    :currency=usd
-                    :starting:balance=99
-                    :ending:balance=999
+                    :balance=999
+                    :prev={[ econ:statement=* ]}
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
-            self.propeq(nodes[0], 'currency', 'usd')
-            self.propeq(nodes[0], 'starting:balance', '99')
-            self.propeq(nodes[0], 'ending:balance', '999')
+            self.propeq(nodes[0], 'balance', '999')
             self.eq((1709251200000000, 1709251200000001, 1), nodes[0].get('period'))
 
-            self.len(2, nodes[0].protocols())
+            self.len(1, nodes[0].protocols())
             self.len(0, nodes[0].protocols(name='newp:newp'))
-            self.len(2, nodes[0].protocols(name='econ:adjustable'))
+            self.len(1, nodes[0].protocols(name='econ:adjustable'))
 
-            proto = nodes[0].protocol('econ:adjustable', propname='starting:balance')
-            self.eq(proto['vars']['currency'], 'usd')
+            # proto = nodes[0].protocol('econ:adjustable', propname='starting:balance')
+            # self.eq(proto['vars']['currency'], 'usd')
 
             nodes = await core.nodes('''[
                 econ:bank:aba:rtn=123456789
@@ -272,7 +264,6 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''[
                 econ:receipt=*
                     :amount=99
-                    :currency=usd
                     :purchase=*
                     :issued=2024-03-19
                     :issuer={[ entity:contact=({"name": "visi"}) ]}
@@ -280,7 +271,6 @@ class EconTest(s_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'amount', '99')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'issued', 1710806400000000)
             self.len(1, await core.nodes('econ:receipt -> econ:purchase'))
             self.len(1, await core.nodes('econ:receipt :issuer -> entity:contact'))
@@ -290,7 +280,6 @@ class EconTest(s_utils.SynTest):
                 econ:invoice=*
                     :paid=(false)
                     :amount=99
-                    :currency=usd
                     :purchase=*
                     :due=2024-03-19
                     :issued=2024-03-19
@@ -299,7 +288,6 @@ class EconTest(s_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'amount', '99')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'paid', 0)
             self.propeq(nodes[0], 'due', 1710806400000000)
             self.propeq(nodes[0], 'issued', 1710806400000000)
