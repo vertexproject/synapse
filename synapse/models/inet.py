@@ -1597,6 +1597,7 @@ modeldefs = (
 
             ('inet:service:agent', ('guid', {}), {
                 'interfaces': (
+                    ('entity:actor', {}),
                     ('inet:service:object', {}),
                 ),
                 'template': {'service:base': 'agent'},
@@ -1609,6 +1610,7 @@ modeldefs = (
             ('inet:service:account', ('guid', {}), {
                 'template': {'title': 'service account'},
                 'interfaces': (
+                    ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
                     ('econ:pay:instrument', {}),
