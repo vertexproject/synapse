@@ -1792,16 +1792,20 @@ class ModelRevTest(s_tests.SynTest):
         t2020 = s_time.parse('2020')
         t2021 = s_time.parse('2021')
         t2022 = s_time.parse('2022')
+        t2026 = s_time.parse('2026')
 
         async with self.getRegrCore('model-0.2.35', maxvers=(0, 2, 34)) as core:
             nodes = await core.nodes('.created')
             self.len(0, nodes)
 
             views = {view.info.get('name'): view for view in core.listViews()}
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views.get('fork00').iden
             infork00 = {'view': fork00}
+
+            fork01 = views.get('fork01').iden
+            infork01 = {'view': fork01}
 
             q = '''
                 .created
@@ -1853,10 +1857,13 @@ class ModelRevTest(s_tests.SynTest):
             self.len(0, nodes)
 
             views = {view.info.get('name'): view for view in core.listViews()}
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views.get('fork00').iden
             infork00 = {'view': fork00}
+
+            fork01 = views.get('fork01').iden
+            infork01 = {'view': fork01}
 
             def select(nodes, formname):
                 return sorted([k for k in nodes if k.form.name == formname], key=lambda x: x.ndef)
@@ -1868,8 +1875,17 @@ class ModelRevTest(s_tests.SynTest):
                 # _valid didn't get overwritten
                 self.eq(node.get('_valid'), 1)
 
+                # tag values were merged
+                self.eq(node.get('#test.foo00'), (t2019, t2022))
+                self.eq(node.get('#test.foo01'), (t2019, t2022))
+                self.eq(node.get('#test.foo02'), (t2020, t2026))
+                self.eq(node.get('#test.foo03'), (t2020, t2026))
+
                 # tagprop didn't get overwritten
-                self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
+                self.eq(node.tagprops, {
+                    'test.tagprop': {'score': 1},
+                    'test.same': {'score': 10},
+                })
 
                 # tags merged
                 self.isin('test.valid', node.tags)
@@ -1878,6 +1894,8 @@ class ModelRevTest(s_tests.SynTest):
                 # nodedata has stored conflicts
                 self.eq(node.nodedata, {
                     'addr': 'valid',
+                    'same': 'same',
+                    'only': 'value',
                     'model_0_2_35': nodedata,
                 })
 
@@ -1887,7 +1905,11 @@ class ModelRevTest(s_tests.SynTest):
                 self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
                 self.isin('test.valid', node.tags)
                 self.notin('test.invalid', node.tags)
-                self.eq(node.nodedata, {'addr': 'valid'})
+                self.eq(node.get('#test.foo00'), (t2020, t2021))
+                self.eq(node.get('#test.foo01'), (t2019, t2022))
+                self.eq(node.get('#test.foo02'), (t2020, t2026))
+                self.eq(node.get('#test.foo03'), (None, None))
+                self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
 
             q = '''
                 .created
@@ -2038,3 +2060,39 @@ class ModelRevTest(s_tests.SynTest):
                     urlfile00, urlfile01,
                 ]
             )
+
+            q = '''
+                inet:client inet:server
+                for ($k, $v) in $node.data.list() {
+                    $node.data.load($k)
+                }
+                | uniq
+            '''
+            nodes = await core.nodes(q, opts=infork01)
+            self.len(4, nodes)
+
+            nodedata = {
+                badclient: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            clients = select(nodes, 'inet:client')
+            self.eq([k.ndef for k in clients], [client00, client01])
+            fixed(clients[0], nodedata)
+            self.eq(clients[0].get('port'), 80)
+            control(clients[1])
+
+            nodedata = {
+                badserver: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            servers = select(nodes, 'inet:server')
+            self.eq([k.ndef for k in servers], [server00, server01])
+            fixed(servers[0], nodedata)
+            self.eq(servers[0].get('port'), 80)
+            control(servers[1])

@@ -1616,7 +1616,7 @@ class ModelMigrationBase:
         await self.core.coreQueuePuts(self.queuename, (item,))
 
     def _prepareStoreItem(self, item):
-        pass
+        pass  # pragma: no cover
 
     async def getSodeByPropValuNoNorm(self, layer, formname, propname, valu, cmpr='='):
         prop = self.core.model.reqProp(f'{formname}:{propname}')
@@ -1786,7 +1786,6 @@ class ModelMigrationBase:
                 conflicts['props'] = propconflicts
 
             # Tags
-            tagconflicts = {}
             for layriden, sode in node['sodes'].items():
                 tags = sode.get('tags', {})
                 existsode = destnode['sodes'].get(layriden, {})
@@ -1794,15 +1793,24 @@ class ModelMigrationBase:
 
                 for tagname, tagvalu in tags.items():
                     if tagname in existtags:
-                        existv = existtags[tagname]
-                        if existv == tagvalu:
+                        # If no tagvalu then nothing to update
+                        if tagvalu == (None, None):
                             continue
-                        tagconflicts[tagname] = tagvalu
+
+                        existv = existtags[tagname]
+                        if existv == (None, None):
+                            # No existing valu, set incoming tagvalu and go around
+                            await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, existv)
+                            continue
+
+                        # Existing valu and incoming tagvalu so merge them
+                        merged = (min(tagvalu[0], existv[0]), max(tagvalu[1], existv[1]))
+                        if merged == existv:
+                            continue
+
+                        await self.editTagSet(layriden, newbuid, formname, tagname, merged, existv)
                     else:
                         await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
-
-            if tagconflicts:
-                conflicts['tags'] = tagconflicts
 
             # Tagprops
             tagpropconflicts = {}
@@ -1889,12 +1897,9 @@ class ModelMigrationBase:
                         if newrefvalu != refformvalu:
                             refsubs = refnorminfo.get('subs')
                             await self.moveNode(refbuid, newrefvalu, newsubs=refsubs)
-                        else:
-                            # Value didn't change, nothing to do
-                            pass
 
                     else:
-                        await self.removeNode(refbuid)
+                        await self.removeNode(refbuid)  # pragma: no cover
 
                     continue
 
@@ -2347,7 +2352,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             formname = node.get('formname')
             formvalu = node.get('formvalu')
 
-            if formname is None or formvalu is None:
+            if formname is None or formvalu is None:  # pragma: no cover
                 continue
 
             # Only process primary target forms; comp form refs are handled recursively
@@ -2355,25 +2360,25 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 continue
 
             form = self.core.model.form(formname)
-            if form is None: # pragma: no cover
+            if form is None:  # pragma: no cover
                 continue
 
             try:
                 newvalu, _ = form.type.norm(formvalu)
-            except Exception: # pragma: no cover
+            except Exception:  # pragma: no cover
                 logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
                 await self.removeNode(buid)
                 removed += 1
                 continue
 
-            if newvalu == formvalu:
+            if newvalu == formvalu:  # pragma: no cover
                 continue
 
             await self.moveNode(buid, newvalu)
             migrated += 1
 
             count = migrated + removed
-            if count % 1000 == 0: # pragma: no cover
+            if count % 1000 == 0:  # pragma: no cover
                 logger.info(f'Processed {count} bare IPv6 address nodes')
 
         await self._flushEdits()
