@@ -446,7 +446,7 @@ modeldefs = (
                 ),
                 'props': (),
                 'doc': 'An event where an actor made an offer as part of a negotiation.'}),
-            
+
         ),
 
         'edges': (

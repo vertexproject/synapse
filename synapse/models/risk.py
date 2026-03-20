@@ -678,17 +678,9 @@ modeldefs = (
                 ('vector', ('risk:attack', {}), {
                     'doc': 'The attack assessed to be the initial compromise vector.'}),
 
-                #('target', ('entity:actor', {}), {
-                    #'doc': 'Contact information representing the target.'}),
-
-                #('period', ('ival', {}), {
-                    #'doc': 'The period over which the target was compromised.'}),
-
+                # TODO: we've got to figure out an extensible elegant way to capture this...
                 ('loss:pii', ('int', {}), {
                     'doc': 'The number of records compromised which contain PII.'}),
-
-                ('loss:econ', ('econ:price', {}), {
-                    'doc': 'The total economic cost of the compromise.'}),
 
                 ('loss:life', ('int', {}), {
                     'doc': 'The total loss of life due to the compromise.'}),
@@ -696,17 +688,8 @@ modeldefs = (
                 ('loss:bytes', ('int', {}), {
                     'doc': 'An estimate of the volume of data compromised.'}),
 
-                #('ransom:paid', ('econ:price', {}), {
-                    #'doc': 'The value of the ransom paid by the target.'}),
-
-                #('ransom:price', ('econ:price', {}), {
-                    #'doc': 'The value of the ransom demanded by the attacker.'}),
-
                 ('cost', ('econ:price', {}), {
-                    'doc': 'The total cost of the response and mitigation efforts.'}),
-
-                #('theft:price', ('econ:price', {}), {
-                    #'doc': 'The total value of the theft of assets.'}),
+                    'doc': 'The total cost of the compromise, response, and mitigation efforts.'}),
 
                 ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the compromise.'}),
