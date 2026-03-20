@@ -2,6 +2,9 @@ modeldefs = (
     ('transport', {
         'types': (
 
+            ('transport:trip:status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
+                'doc': 'A transport trip status.'}),
+
             # TODO is transport:journey a thing?
 
             ('transport:cargo', ('guid', {}), {
@@ -194,7 +197,7 @@ modeldefs = (
                     ('serial', ('base:id', {}), {
                         'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
-                    ('max:occupants', ('int', {'min': 0}), {
+                    ('max:occupants', ('int:min0', {}), {
                         'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('mass', {}), {
@@ -282,10 +285,10 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
+                    ('status', ('transport:trip:status', {}), {
                         'doc': 'The status of the {trip}.'}),
 
-                    ('occupants', ('int', {'min': 0}), {
+                    ('occupants', ('int:min0', {}), {
                         'doc': 'The number of occupants of the {vehicle} on this {trip}.'}),
 
                     ('cargo:mass', ('mass', {}), {

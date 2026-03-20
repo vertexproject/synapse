@@ -118,6 +118,9 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
+            ('risk:alert:status', ('int', {'enums': alertstatus}), {
+                'doc': 'A risk alert status.'}),
+
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -591,7 +594,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A free-form description / overview of the alert.'}),
 
-                ('status', ('int', {'enums': alertstatus}), {
+                ('status', ('risk:alert:status', {}), {
                     'doc': 'The status of the alert.'}),
 
                 ('benign', ('bool', {}), {

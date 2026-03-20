@@ -624,7 +624,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('str:loweronespace', {}), {
                     'doc': 'The name of the assset.'}),
 
                 ('period', ('ival', {}), {

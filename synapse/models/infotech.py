@@ -654,6 +654,9 @@ modeldefs = (
                 ),
                 'doc': 'A GUID representing an individual log event.'}),
 
+            ('it:log:severity', ('int', {'enums': loglevels}), {
+                'doc': 'A log severity level.'}),
+
             ('it:network', ('guid', {}), {
                 'doc': 'A GUID that represents a logical network.'}),
 
@@ -757,7 +760,7 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the function.'}),
 
-                    ('impcalls', ('array', {'type': 'it:dev:str', 'typeopts': {'lower': True}}), {
+                    ('impcalls', ('array', {'type': 'str:lower'}), {
                         'doc': 'Calls to imported library functions within the scope of the function.'}),
 
                     ('strings', ('array', {'type': 'it:dev:str'}), {
@@ -969,6 +972,12 @@ modeldefs = (
 
             ('it:av:scan:result', ('guid', {}), {
                 'doc': 'The result of running an antivirus scanner.'}),
+
+            ('it:av:verdict', ('int', {'enums': suslevels}), {
+                'doc': 'An antivirus scan verdict.'}),
+
+            ('it:av:pattern:type', ('str', {'lower': True, 'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
+                'doc': 'An antivirus signature pattern type.'}),
 
             ('it:exec:proc', ('guid', {}), {
                 'interfaces': (
@@ -1311,7 +1320,7 @@ modeldefs = (
                 ('id', ('str', {}), {
                     'doc': 'An external identifier for the host.'}),
 
-                ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                ('keyboard:layout', ('str:loweronespace', {}), {
                     'doc': 'The primary keyboard layout configured on the host.'}),
 
                 ('keyboard:language', ('lang:language', {}), {
@@ -1388,7 +1397,7 @@ modeldefs = (
                     'ex': 'windows.eventlog.securitylog',
                     'doc': 'The type of log event.'}),
 
-                ('severity', ('int', {'enums': loglevels}), {
+                ('severity', ('it:log:severity', {}), {
                     'doc': 'A log level integer that increases with severity.'}),
 
                 ('data', ('data', {}), {
@@ -1541,7 +1550,7 @@ modeldefs = (
             )),
             ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node ]'}}}, (
 
-                ('norm', ('str', {'lower': True}), {
+                ('norm', ('str:lower', {}), {
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
 
             )),
@@ -1551,7 +1560,7 @@ modeldefs = (
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
                     'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
 
-                ('part', ('str', {'lower': True}), {
+                ('part', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
 
@@ -1559,39 +1568,39 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
 
-                ('product', ('str', {'lower': True}), {
+                ('product', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "product" field from the CPE 2.3 string.'}),
 
-                ('version', ('str', {'lower': True}), {
+                ('version', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "version" field from the CPE 2.3 string.'}),
 
-                ('update', ('str', {'lower': True}), {
+                ('update', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "update" field from the CPE 2.3 string.'}),
 
-                ('edition', ('str', {'lower': True}), {
+                ('edition', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "edition" field from the CPE 2.3 string.'}),
 
-                ('language', ('str', {'lower': True}), {
+                ('language', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "language" field from the CPE 2.3 string.'}),
 
-                ('sw_edition', ('str', {'lower': True}), {
+                ('sw_edition', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
 
-                ('target_sw', ('str', {'lower': True}), {
+                ('target_sw', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
 
-                ('target_hw', ('str', {'lower': True}), {
+                ('target_hw', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
 
-                ('other', ('str', {'lower': True}), {
+                ('other', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
@@ -1747,7 +1756,7 @@ modeldefs = (
             ('it:dev:repo:type:taxonomy', {}, ()),
             ('it:dev:repo', {}, (
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('str:lower', {}), {
                     'doc': 'The name of the repository.'}),
 
                 ('desc', ('text', {}), {
@@ -1851,7 +1860,7 @@ modeldefs = (
                 ('repo', ('it:dev:repo', {}), {
                     'doc': 'The repo where the issue was logged.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('str:lower', {}), {
                     'doc': 'The title of the issue.'}),
 
                 ('desc', ('text', {}), {
@@ -1872,7 +1881,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID of the label.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('str:lower', {}), {
                     'doc': 'The human friendly name of the label.'}),
 
                 ('desc', ('text', {}), {
@@ -2075,7 +2084,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the scan was run.'}),
 
-                ('verdict', ('int', {'enums': suslevels}), {
+                ('verdict', ('it:av:verdict', {}), {
                     'doc': 'The scanner provided verdict for the scan.'}),
 
                 ('scanner', ('it:software', {}), {
@@ -2087,8 +2096,7 @@ modeldefs = (
                 ('signame', ('it:av:signame', {}), {
                     'doc': 'The name of the signature returned by the scanner.'}),
 
-                ('categories', ('array', {'type': 'str',
-                                          'typeopts': {'lower': True, 'onespace': True}}), {
+                ('categories', ('array', {'type': 'str:loweronespace'}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
                 ('target', (('file:bytes', 'it:exec:proc', 'it:host', 'inet:fqdn', 'inet:url', 'inet:ip'), {}), {
@@ -2202,7 +2210,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host that the service was configured on.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('str:loweronespace', {}), {
                     'doc': 'The name of the service from the registry key within Services.'}),
 
                 # TODO flags...
@@ -2215,7 +2223,7 @@ modeldefs = (
                 ('errorcontrol', ('int', {'min': 0}), {
                     'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
 
-                ('displayname', ('str', {'lower': True, 'onespace': True}), {
+                ('displayname', ('str:loweronespace', {}), {
                     'doc': 'The friendly name of the service from the DisplayName registry key.'}),
 
                 ('description', ('text', {}), {
@@ -2237,7 +2245,7 @@ modeldefs = (
                 ('api:url', ('inet:url', {}), {
                     'doc': 'The URL of the API endpoint the query was sent to.'}),
 
-                ('language', ('str', {'lower': True, 'onespace': True}), {
+                ('language', ('str:loweronespace', {}), {
                     'doc': 'The name of the language that the query is expressed in.'}),
 
                 ('offset', ('int', {}), {
@@ -2624,7 +2632,7 @@ modeldefs = (
                 ('pattern', ('str', {}), {
                     'doc': 'The STIX indicator pattern text.'}),
 
-                ('pattern_type', ('str', {'lower': True, 'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
+                ('pattern_type', ('it:av:pattern:type', {}), {
                     'doc': 'The STIX indicator pattern type.'}),
 
                 ('created', ('time', {}), {

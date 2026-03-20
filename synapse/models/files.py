@@ -226,7 +226,7 @@ modeldefs = (
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'MIME specific altitude information extracted from metadata.'}),
 
-                    ('text', ('str', {'lower': True, 'onespace': True}), {
+                    ('text', ('str:loweronespace', {}), {
                         'doc': 'The text contained within the image.'}),
                 ),
                 'doc': 'Properties common to image file formats.',
@@ -418,6 +418,18 @@ modeldefs = (
             ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                 'doc': 'A key value pair found in a PE VS_VERSIONINFO structure.'}),
 
+            ('file:pe:rsrc:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
+                'doc': 'A PE resource type.'}),
+
+            ('file:pe:langid', ('int', {'min': 0, 'max': 0xffff, 'enums': s_l_pe.getLangCodes(), 'enums:strict': False}), {
+                'doc': 'A PE resource language ID.'}),
+
+            ('file:macho:loadcmd:type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                'doc': 'A Mach-O load command type.'}),
+
+            ('file:macho:section:type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                'doc': 'A Mach-O section type.'}),
+
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                 'doc': 'The typecode for the resource.'}),
 
@@ -587,10 +599,10 @@ modeldefs = (
 
             ('file:mime:pe:resource', {}, (
 
-                ('type', ('pe:resource:type', {}), {
+                ('type', ('file:pe:rsrc:type', {}), {
                     'doc': 'The typecode for the resource.'}),
 
-                ('langid', ('pe:langid', {}), {
+                ('langid', ('file:pe:langid', {}), {
                     'doc': 'The language code for the resource.'}),
 
                 ('sha256', ('crypto:hash:sha256', {}), {
@@ -702,7 +714,7 @@ modeldefs = (
             ('file:path', {}, ()),
 
             ('file:mime:macho:loadcmd', {}, (
-                ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                ('type', ('file:macho:loadcmd:type', {}), {
                     'doc': 'The type of the load command.'}),
             )),
 
@@ -736,7 +748,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'Name of the section.'}),
 
-                ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                ('type', ('file:macho:section:type', {}), {
                     'doc': 'The type of the section.'}),
 
                 ('sha256', ('crypto:hash:sha256', {}), {

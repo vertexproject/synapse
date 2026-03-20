@@ -1409,6 +1409,9 @@ class Model:
                 if len(propdef) != 3:
                     mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
                     raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
+
+            propdefs = self.processPropdefs(propdefs)
+            for propdef in propdefs:
                 ptypes[propdef[0]] = propdef[1]
 
             for prop in pform.props.values():

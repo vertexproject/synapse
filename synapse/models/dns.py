@@ -196,6 +196,9 @@ modeldefs = (
                 ),
                 'doc': 'A dynamic DNS registration.'}),
 
+            ('dns:reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                'doc': 'A DNS reply code.'}),
+
         ),
 
         'forms': (
@@ -299,7 +302,7 @@ modeldefs = (
                 ('query:type', ('int', {}), {
                     'doc': 'The type of record requested in the query.'}),
 
-                ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                ('reply:code', ('dns:reply:code', {}), {
                     'doc': 'The DNS server response code.'}),
             )),
 

@@ -167,6 +167,21 @@ modeldefs = (
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
 
+            ('str:lower', ('str', {'lower': True}), {
+                'doc': 'A case insensitive string.'}),
+
+            ('str:loweronespace', ('str', {'lower': True, 'onespace': True}), {
+                'doc': 'A case insensitive, single spaced string.'}),
+
+            ('text:lower', ('text', {'lower': True}), {
+                'doc': 'A case insensitive, multi-line text string.'}),
+
+            ('int:min0', ('int', {'min': 0}), {
+                'doc': 'A non-negative integer.'}),
+
+            ('int:min1', ('int', {'min': 1}), {
+                'doc': 'A positive integer.'}),
+
             ('meta:technique', ('guid', {}), {
                 'template': {'title': 'technique'},
                 'doc': 'A specific technique used to achieve a goal.',

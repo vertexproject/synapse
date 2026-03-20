@@ -12,6 +12,9 @@ modeldefs = (
             ('pol:immigration:status', ('guid', {}), {
                 'doc': 'A node which tracks the immigration status of a contact.'}),
 
+            ('pol:immigration:state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                'doc': 'An immigration state.'}),
+
             ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -112,7 +115,7 @@ modeldefs = (
                     'ex': 'citizen.naturalized',
                     'doc': 'A taxonomy entry for the immigration status type.'}),
 
-                ('state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                ('state', ('pol:immigration:state', {}), {
                     'doc': 'The state of the immigration status.'}),
 
                 ('period', ('ival', {}), {
