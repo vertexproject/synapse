@@ -84,7 +84,7 @@ modeldefs = (
                     ('meta:reported', {}),
                     ('meta:discoverable', {}),
                     ('entity:actor', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',

@@ -169,7 +169,7 @@ modeldefs = (
             ('entity:multiple', {
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
-            ('entity:abstract', {
+            ('entity:resolvable', {
                 'template': {'title': 'entity'},
                 'props': (
                     ('resolved', (('ou:org', 'ps:person'), {}), {
@@ -207,7 +207,7 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
@@ -376,6 +376,17 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor achieved a goal or was given an award.'}),
 
+                ('entity:believed', ('guid', {}), {
+                    'template': {'title': 'believed'},
+                    'interfaces': (
+                        ('entity:activity', {}),
+                    ),
+                    'props': (
+                        ('belief', ('meta:believable', {}), {
+                            'doc': 'The belief held by the actor.'}),
+                    ),
+                    'doc': 'A period where an actor held a belief.'}),
+
         ),
 
         'edges': (
@@ -411,6 +422,9 @@ modeldefs = (
 
             (('entity:studied', 'included', 'edu:learnable'), {
                 'doc': 'The target node was included by the actor as part of their studies.'}),
+
+            (('entity:believed', 'followed', 'belief:tenet'), {
+                'doc': 'The actor followed the tenet during the period.'}),
         ),
 
         'forms': (
