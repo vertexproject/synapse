@@ -191,7 +191,7 @@ modeldefs = (
                         'doc': 'The time that the {title} expires.'}),
 
                     ('activity', ('meta:negotiable', {}), {
-                        'doc': 'The negotiation'}),
+                        'doc': 'The negotiation activity this {title} was part of.'}),
                 ),
                 'doc': 'An interface for asks/offers in a negotiation.'}),
         ),
