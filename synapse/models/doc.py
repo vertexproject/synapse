@@ -69,6 +69,10 @@ modeldefs = (
             }),
 
             ('doc:signable', {
+                'props': (
+                    ('signed', ('time', {}), {
+                        'doc': 'The date that the {title} signing was complete.'}),
+                ),
                 'doc': 'An interface implemented by documents which can be signed by actors.'}),
         ),
         'types': (
@@ -245,15 +249,6 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the contract is in effect.'}),
-
-                ('signed', ('time', {}), {
-                    'doc': 'The date that the contract signing was complete.'}),
-
-                ('completed', ('time', {}), {
-                    'doc': 'The date that the contract was completed.'}),
-
-                ('terminated', ('time', {}), {
-                    'doc': 'The date that the contract was terminated.'}),
             )),
 
             ('doc:reference', {}, (
