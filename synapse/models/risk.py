@@ -804,12 +804,6 @@ modeldefs = (
             ('risk:extortion:type:taxonomy', {}, ()),
             ('risk:extortion', {}, (
 
-                #('demanded', ('time', {}), {
-                    #'doc': 'The time that the attacker made their demands.'}),
-
-                #('deadline', ('time', {}), {
-                    #'doc': 'The time that the demand must be met.'}),
-
                 ('type', ('risk:extortion:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the extortion event.'}),
 
@@ -830,9 +824,6 @@ modeldefs = (
 
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'The compromise which allowed the attacker to extort the target.'}),
-
-                ('demanded:payment:price', ('econ:price', {}), {
-                    'doc': 'The payment price which was demanded.'}),
 
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
