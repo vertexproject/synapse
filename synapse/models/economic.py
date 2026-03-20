@@ -52,15 +52,14 @@ modeldefs = (
                 ),
                 'doc': 'A check written out to a recipient.'}),
 
-            # TODO...
-            # ('econ:bank:wire', ('guid', {}), {}),
-
+            # TODO: entity:purchased?
             ('econ:purchase', ('guid', {}), {
-                'template': {'title': 'purchase event'},
+                'template': {'title': 'purchase'},
                 'interfaces': (
+                    ('entity:event', {}),
                     ('geo:locatable', {}),
                 ),
-                'doc': 'A purchase event.'}),
+                'doc': 'An event where an actor made a purchase.'}),
 
             ('econ:lineitem', ('guid', {}), {
                 'prevnames': ('econ:receipt:item',),
@@ -69,6 +68,7 @@ modeldefs = (
             ('econ:payment', ('guid', {}), {
                 'template': {'title': 'payment event'},
                 'interfaces': (
+                    ('entity:event', {}),
                     ('geo:locatable', {}),
                 ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
@@ -243,30 +243,15 @@ modeldefs = (
 
             ('econ:purchase', {}, (
 
-                ('buyer', ('entity:actor', {}), {
-                    'prevnames': ('by:contact',),
-                    'doc': 'The buyer which purchased the items.'}),
-
                 ('seller', ('entity:actor', {}), {
                     'prevnames': ('from:contact',),
                     'doc': 'The seller which sold the items.'}),
 
-                ('time', ('time', {}), {
-                    'doc': 'The time of the purchase.'}),
-
-                ('paid', ('bool', {}), {
-                    'doc': 'Set to True if the purchase has been paid in full.'}),
-
-                ('paid:time', ('time', {}), {
-                    'doc': 'The point in time where the purchase was paid in full.'}),
+                ('paid', ('time', {}), {
+                    'doc': 'The time when the purchase was paid in full.'}),
 
                 ('price', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
-                    'doc': 'The econ:price of the purchase.'}),
+                    'doc': 'The price of the purchase.'}),
             )),
 
             ('econ:lineitem', {}, (
@@ -337,18 +322,10 @@ modeldefs = (
                 ('payee:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payee to receive payment.'}),
 
-                ('payer', ('entity:actor', {}), {
-                    'doc': 'The entity which made the payment.'}),
-
-                ('payer:instrument', ('econ:pay:instrument', {}), {
-                    'doc': 'The payment instrument used by the payer to make the payment.'}),
+                ('instrument', ('econ:pay:instrument', {}), {
+                    'doc': 'The payment instrument used by the actor to make the payment.'}),
 
                 ('amount', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The amount of money transferred in the payment.'}),
 
                 ('crypto:transaction', ('crypto:currency:transaction', {}), {
@@ -364,11 +341,6 @@ modeldefs = (
                     'doc': 'The financial account holding the balance.'}),
 
                 ('amount', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The available funds at the time.'}),
             )),
 
@@ -386,11 +358,6 @@ modeldefs = (
                     'doc': 'The statement for the previous period.'}),
 
                 ('balance', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'period.min'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The balance at the end of the statement period.'}),
             )),
 
