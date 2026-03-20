@@ -577,20 +577,18 @@ class Array(Type):
             mesg = 'Array type requires type= option.'
             raise s_exc.BadTypeDef(mesg=mesg)
 
-        polyinfo = None
-
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
         if isinstance(typename, tuple):
             # TODO: lists should already be in the correct format
             typedef = tuple((tn, {}) for tn in typename)
+            polyinfo = self.modl.convertPolyinfo(typedef)
         elif typename == 'poly':
             polyinfo = typeopts
         else:
             typedef = ((typename, typeopts),)
-
-        polyinfo = self.modl.convertPolyinfo(typedef)
+            polyinfo = self.modl.convertPolyinfo(typedef)
 
         self.arraytype = self.modl.type('poly').clone(polyinfo)
         self.arraytypehash = self.arraytype.typehash
@@ -2166,7 +2164,7 @@ class Poly(Type):
             self.formfilter = formfilt
 
         self.typefilter = None
-        if self.types:
+        if self.typeset:
             def typefilt(tobj):
                 return any(t in self.typeset for t in tobj.types)
 
@@ -2180,14 +2178,14 @@ class Poly(Type):
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
 
     def getTypeSet(self):
-        return self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
+        return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
 
     def getFormSet(self):
-        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
+        return self.modl.getFormSet(types=self.typeset, interfaces=self.ifaces)
 
     def getCmprCtor(self, name):
         ctors = {}
-        types = self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
+        types = self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
 
         for ntyp in types:
             if (ctor := ntyp.getCmprCtor(name)) is not None:
@@ -2235,7 +2233,7 @@ class Poly(Type):
                 raise s_exc.NoSuchVirt.init(name, self)
             return virt[0].getVirtIndx(virts[1:])
 
-        for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
             if (indx := ntyp.virtindx.get(name, s_common.novalu)) is not s_common.novalu:
                 return indx
         else:
@@ -2251,20 +2249,18 @@ class Poly(Type):
         if self.ifaces is not None:
             mesg += f' interfaces={self.ifaces}'
 
-        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=self.types, interfaces=self.ifaces)
+        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=self.typeset, interfaces=self.ifaces)
 
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
-        if self.formfilter and (form := self.modl.form(valu)):
-            if self.formfilter(form):
-                return (('type=', valu, self.stortype),)
+        tobj = self.modl.type(valu)
 
-        if self.typefilter and (tobj := self.modl.type(valu)):
-            if self.typefilter(tobj):
-                return (('type=', valu, self.stortype),)
+        if self.typefilter is None or not self.typefilter(tobj):
+            if (form := self.modl.form(valu)) is None or self.formfilter is None or not self.formfilter(form):
+                self._raiseBadTypeValu(valu)
 
-        self._raiseBadTypeValu(valu)
+        return (('type=', valu, self.stortype),)
 
     def _getType(self, valu):
         return valu[0][0]
@@ -2284,14 +2280,25 @@ class Poly(Type):
                     return await func(cmpr, valu)
 
         if isinstance(valu, s_node.Node):
-            if self.formfilter(valu.form) and cmpr == '=':
-                return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
+            if cmpr == '=':
+                if self.typefilter is not None and self.typefilter(valu.form.type):
+                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
+
+                elif self.formfilter is not None and self.formfilter(valu.form):
+                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
+
             valu = valu.ndef[1]
 
         elif isinstance(valu, s_stormtypes.NodeRef):
-            form = self.modl.form(valu.valu[0])
-            if self.formfilter(form) and cmpr == '=':
-                return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
+            if cmpr == '=':
+                typename = valu.valu[0]
+
+                if self.typefilter is not None and self.typefilter(self.modl.type(typename)):
+                    return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
+
+                elif self.formfilter is not None and (form := self.modl.form(typename)) is not None and self.formfilter(form):
+                    return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
+
             valu = valu.valu[1]
 
         cmprs = {}
@@ -2382,10 +2389,11 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if not self.formfilter(valu.form):
-            self._raiseBadTypeValu(valu.form.name)
+        if self.typefilter is None or not self.typefilter(valu.form.type):
+            if self.formfilter is None or not self.formfilter(valu.form):
+                self._raiseBadTypeValu(valu.form.name)
 
-        if valu.form.locked:
+        if valu.form.locked or valu.form.type.locked:
             formname = valu.form.name
             raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
 
@@ -2405,15 +2413,11 @@ class Poly(Type):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
 
         if form is not None:
-            norminfo = {'virts': valu.virts}
-
             if valu.exists:
-                norminfo['skipadd'] = True
+                return valu.valu, {'skipadd': True, 'virts': valu.virts}
             elif await view.getNodeByNdef(valu.valu) is not None:
                 valu.exists = True
-                norminfo['skipadd'] = True
-
-            return valu.valu, norminfo
+                return valu.valu, {'skipadd': True, 'virts': valu.virts}
 
         norm, typeinfo = await tobj.norm(valu.valu[1], view=view)
 
