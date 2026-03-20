@@ -1244,6 +1244,7 @@ class ModelMigrationBase:
 
         self.core = core
         self.layers = layers
+        self.migrname = self.queuename.split(':')[0]
 
         self.meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
@@ -1699,35 +1700,153 @@ class ModelMigrationBase:
 
         form = self.core.model.reqForm(formname)
 
+        # Load the destination node from all layers to check for an existing node
+        destnode = self.getNode(newbuid)
+        for layer in self.layers:
+            await self._loadNode(layer, newbuid, node=destnode)
+        await self.nodes.set(newbuid, destnode)
+
+        existing = destnode.get('formvalu') is not None
+
         # Node
         for layriden in node['layers']:
             # Create the new node in the same layers as the old node
             await self.editNodeAdd(layriden, newbuid, formname, newvalu, form.type.stortype)
 
-        # Edits
-        for layriden, sode in node['sodes'].items():
-            props = sode.get('props', {})
-            for propname, propvalu in props.items():
-                propvalu, stortype = propvalu
-                await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+        if not existing:
 
-            tags = sode.get('tags', {})
-            for tagname, tagvalu in tags.items():
-                await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+            # No existing destination node - proceed with original logic
+            # Edits
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                for propname, propvalu in props.items():
+                    propvalu, stortype = propvalu
+                    await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
-            tagprops = sode.get('tagprops', {})
-            for tagname, propvalus in tagprops.items():
-                for propname, propvalu in propvalus.items():
+                tags = sode.get('tags', {})
+                for tagname, tagvalu in tags.items():
+                    await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+
+                tagprops = sode.get('tagprops', {})
+                for tagname, propvalus in tagprops.items():
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
+
+                        await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            # Nodedata
+            for layriden, data in node['nodedata'].items():
+                for name, valu in data:
+                    await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+        else:
+
+            # Existing destination node found - merge with conflicts
+            conflicts = {}
+
+            # Props
+            propconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existprops = existsode.get('props', {})
+
+                for propname, propvalu in props.items():
                     propvalu, stortype = propvalu
 
-                    await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+                    if propname == '.created':
+                        continue
 
-        # Nodedata
-        for layriden, data in node['nodedata'].items():
-            for name, valu in data:
-                await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+                    if propname == '.seen':
+                        if propname in existprops:
+                            existv, _existst = existprops[propname]
+                            merged = (min(propvalu[0], existv[0]), max(propvalu[1], existv[1]))
+                            if merged != existv:
+                                await self.editPropSet(layriden, newbuid, formname, propname, merged, existv, stortype)
+                        else:
+                            await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
-        # Edges
+                        continue
+
+                    if propname in existprops:
+                        existv, _existst = existprops[propname]
+                        if existv == propvalu:
+                            # Same value, skip
+                            continue
+                        # Conflict - keep existing, record source value
+                        propconflicts[propname] = propvalu
+                    else:
+                        # Not present in existing - merge
+                        await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+
+            if propconflicts:
+                conflicts['props'] = propconflicts
+
+            # Tags
+            tagconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                tags = sode.get('tags', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtags = existsode.get('tags', {})
+
+                for tagname, tagvalu in tags.items():
+                    if tagname in existtags:
+                        existv = existtags[tagname]
+                        if existv == tagvalu:
+                            continue
+                        tagconflicts[tagname] = tagvalu
+                    else:
+                        await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+
+            if tagconflicts:
+                conflicts['tags'] = tagconflicts
+
+            # Tagprops
+            tagpropconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                tagprops = sode.get('tagprops', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtagprops = existsode.get('tagprops', {})
+
+                for tagname, propvalus in tagprops.items():
+                    existpropvalus = existtagprops.get(tagname, {})
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
+                        if propname in existpropvalus:
+                            existv, _existst = existpropvalus[propname]
+                            if existv == propvalu:
+                                continue
+                            tagpropconflicts.setdefault(tagname, {})
+                            tagpropconflicts[tagname][propname] = propvalu
+                        else:
+                            await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            if tagpropconflicts:
+                conflicts['tagprops'] = tagpropconflicts
+
+            # Nodedata
+            ndconflicts = {}
+            for layriden, data in node['nodedata'].items():
+                existnd = dict(destnode['nodedata'].get(layriden, []))
+                for name, valu in data:
+                    if name in existnd:
+                        existv = existnd[name]
+                        if existv == valu:
+                            continue
+                        ndconflicts[name] = valu
+                    else:
+                        await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+            if ndconflicts:
+                conflicts['nodedata'] = ndconflicts
+
+            # Write conflicts as nodedata on the destination node
+            if conflicts:
+                for layriden in destnode['layers']:
+                    await self.editNodedataSet(layriden, newbuid, formname, self.migrname, {formvalu: conflicts}, None)
+                    break
+
+        # Edges (always additive - no conflict possible)
         for layriden, edges in node['n1edges'].items():
             for verb, iden in edges:
                 await self.editEdgeAdd(layriden, newbuid, formname, verb, iden)
@@ -2058,38 +2177,156 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
         form = self.core.model.reqForm(formname)
 
+        # Load the destination node from all layers to check for an existing node
+        destnode = self.getNode(newbuid)
+        for layer in self.layers:
+            await self._loadNode(layer, newbuid, node=destnode)
+        await self.nodes.set(newbuid, destnode)
+
+        existing = destnode.get('formvalu') is not None
+
         # Node
         for layriden in node['layers']:
             # Create the new node in the same layers as the old node
             await self.editNodeAdd(layriden, newbuid, formname, newvalu, form.type.stortype)
 
-        # Edits
-        for layriden, sode in node['sodes'].items():
-            props = sode.get('props', {})
-            for propname, propvalu in props.items():
-                propvalu, stortype = propvalu
-                # Use newsubs to override prop values when re-normalizing comp forms
-                if newsubs is not None and propname in newsubs:
-                    propvalu = newsubs[propname]
-                await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+        if not existing:
 
-            tags = sode.get('tags', {})
-            for tagname, tagvalu in tags.items():
-                await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
-
-            tagprops = sode.get('tagprops', {})
-            for tagname, propvalus in tagprops.items():
-                for propname, propvalu in propvalus.items():
+            # No existing destination node - proceed with original logic
+            # Edits
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                for propname, propvalu in props.items():
                     propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
+                    await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
-                    await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+                tags = sode.get('tags', {})
+                for tagname, tagvalu in tags.items():
+                    await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
 
-        # Nodedata
-        for layriden, data in node['nodedata'].items():
-            for name, valu in data:
-                await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+                tagprops = sode.get('tagprops', {})
+                for tagname, propvalus in tagprops.items():
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
 
-        # Edges
+                        await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            # Nodedata
+            for layriden, data in node['nodedata'].items():
+                for name, valu in data:
+                    await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+        else:
+
+            # Existing destination node found - merge with conflicts
+            conflicts = {}
+
+            # Props
+            propconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existprops = existsode.get('props', {})
+
+                for propname, propvalu in props.items():
+                    propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
+
+                    if propname == '.created':
+                        continue
+
+                    if propname == '.seen':
+                        if propname in existprops:
+                            existv, _existst = existprops[propname]
+                            merged = (min(propvalu[0], existv[0]), max(propvalu[1], existv[1]))
+                            if merged != existv:
+                                await self.editPropSet(layriden, newbuid, formname, propname, merged, existv, stortype)
+                        else:
+                            await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+
+                        continue
+
+                    if propname in existprops:
+                        existv, _existst = existprops[propname]
+                        if existv == propvalu:
+                            continue
+                        propconflicts[propname] = propvalu
+                    else:
+                        await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+
+            if propconflicts:
+                conflicts['props'] = propconflicts
+
+            # Tags
+            tagconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                tags = sode.get('tags', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtags = existsode.get('tags', {})
+
+                for tagname, tagvalu in tags.items():
+                    if tagname in existtags:
+                        existv = existtags[tagname]
+                        if existv == tagvalu:
+                            continue
+                        tagconflicts[tagname] = tagvalu
+                    else:
+                        await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+
+            if tagconflicts:
+                conflicts['tags'] = tagconflicts
+
+            # Tagprops
+            tagpropconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                tagprops = sode.get('tagprops', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtagprops = existsode.get('tagprops', {})
+
+                for tagname, propvalus in tagprops.items():
+                    existpropvalus = existtagprops.get(tagname, {})
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
+                        if propname in existpropvalus:
+                            existv, _existst = existpropvalus[propname]
+                            if existv == propvalu:
+                                continue
+                            tagpropconflicts.setdefault(tagname, {})
+                            tagpropconflicts[tagname][propname] = propvalu
+                        else:
+                            await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            if tagpropconflicts:
+                conflicts['tagprops'] = tagpropconflicts
+
+            # Nodedata
+            ndconflicts = {}
+            for layriden, data in node['nodedata'].items():
+                existnd = dict(destnode['nodedata'].get(layriden, []))
+                for name, valu in data:
+                    if name in existnd:
+                        existv = existnd[name]
+                        if existv == valu:
+                            continue
+                        ndconflicts[name] = valu
+                    else:
+                        await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+            if ndconflicts:
+                conflicts['nodedata'] = ndconflicts
+
+            # Write conflicts as nodedata on the destination node
+            if conflicts:
+                for layriden in destnode['layers']:
+                    await self.editNodedataSet(layriden, newbuid, formname, self.migrname, {formvalu: conflicts}, None)
+                    break
+
+        # Edges (always additive - no conflict possible)
         for layriden, edges in node['n1edges'].items():
             for verb, iden in edges:
                 await self.editEdgeAdd(layriden, newbuid, formname, verb, iden)
