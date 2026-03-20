@@ -9,7 +9,7 @@ desc: 'Migrated invalid inet:client, inet:server, and inet:url nodes. For all th
       node does not have the item set, the canonical node value stays the same.
     - If the item being merged is different in both nodes, the canonical value
       takes precedence and the non-canonical value will be saved in the
-      canonical node nodedata under the ``model-0.2.35`` key.
+      canonical node nodedata under the ``model_0_2_35`` key.
     - If the canonical node does not have the item and the non-canonical node
       does, the non-canonical value is used.
     - ``.seen`` props and tag values will be expanded using normal ival
