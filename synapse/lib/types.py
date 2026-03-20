@@ -2181,7 +2181,7 @@ class Poly(Type):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
 
     def getFormSet(self):
-        return self.modl.getFormSet(types=self.typeset, interfaces=self.ifaces)
+        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
 
     def getCmprCtor(self, name):
         ctors = {}
@@ -2254,9 +2254,7 @@ class Poly(Type):
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
-        tobj = self.modl.type(valu)
-
-        if self.typefilter is None or not self.typefilter(tobj):
+        if (tobj := self.modl.type(valu)) is None or self.typefilter is None or not self.typefilter(tobj):
             if (form := self.modl.form(valu)) is None or self.formfilter is None or not self.formfilter(form):
                 self._raiseBadTypeValu(valu)
 

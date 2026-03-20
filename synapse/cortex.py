@@ -3288,11 +3288,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         typename, typeinfo = tdef
         if isinstance(typename, tuple):
-            tdef = typename
+            tdef = ('poly', self.model.convertPolyinfo(typename))
+        elif typename == 'poly':
+            pass
         else:
-            tdef = (tdef,)
+            tdef = ('poly', self.model.convertPolyinfo((tdef,)))
 
-        tdef = ('poly', self.model.convertPolyinfo(tdef))
         self.model.getTypeClone(tdef)
 
         await self._push('model:prop:add', form, prop, tdef, info)

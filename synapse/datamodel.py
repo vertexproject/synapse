@@ -112,7 +112,7 @@ class Prop:
         if self.type.ispoly:
             if (pforms := self.type.forms) is not None:
                 for pform in pforms:
-                    self.modl.propsbytype[pform[0]][self.full] = self
+                    self.modl.propsbytype[pform][self.full] = self
 
             if (ifaces := self.type.ifaces) is not None:
                 for iface in ifaces:
@@ -126,7 +126,7 @@ class Prop:
             if self.type.arraytype.ispoly:
                 if (pforms := self.type.arraytype.forms) is not None:
                     for pform in pforms:
-                        self.modl.arraysbytype[pform[0]][self.full] = self
+                        self.modl.arraysbytype[pform][self.full] = self
 
                 if (ifaces := self.type.arraytype.ifaces) is not None:
                     for iface in ifaces:
