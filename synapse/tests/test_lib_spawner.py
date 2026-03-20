@@ -4,6 +4,7 @@ import asyncio
 import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
+import synapse.lib.process as s_process
 import synapse.lib.spawner as s_spawner
 
 import synapse.tests.utils as s_t_utils
@@ -57,6 +58,24 @@ class SpawnerTest(s_t_utils.SynTest):
                 await fut
             except RuntimeError:
                 pass
+
+    async def test_spawner_workloop_oserror(self):
+
+        with self.getTestDir() as dirn:
+
+            sockpath = os.path.join(dirn, 'test.sock')
+
+            # A regular file at sockpath causes Unix socket bind to raise OSError
+            with open(sockpath, 'w') as fd:
+                fd.write('')
+
+            todo = (SpawnTarget.anit, (), {})
+
+            async with await s_base.Base.anit() as base:
+                base.schedCoro(s_process.spawn((s_spawner._ioWorkProc, (todo, sockpath), {})))
+                with self.raises(s_exc.FatalErr) as cm:
+                    await s_spawner._spawnerWait(sockpath, timeout=5)
+                self.isin('within', cm.exception.errinfo.get('mesg', ''))
 
     async def test_spawner_ioworkproc_signal_runtimeerror(self):
 
