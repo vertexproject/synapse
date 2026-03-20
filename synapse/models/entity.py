@@ -550,15 +550,9 @@ modeldefs = (
                     'prevnames': ('camptype',)}),
 
                 ('cost', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The actual cost of the campaign.'}),
 
                 ('budget', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The budget allocated to execute the campaign.'}),
 
                 # FIXME overfit?
