@@ -1,6 +1,8 @@
 import os
 import asyncio
 
+from unittest import mock
+
 import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
@@ -61,6 +63,8 @@ class SpawnerTest(s_t_utils.SynTest):
 
     async def test_spawner_workloop_oserror(self):
 
+        loop = asyncio.get_running_loop()
+
         with self.getTestDir() as dirn:
 
             sockpath = os.path.join(dirn, 'test.sock')
@@ -71,11 +75,40 @@ class SpawnerTest(s_t_utils.SynTest):
 
             todo = (SpawnTarget.anit, (), {})
 
-            async with await s_base.Base.anit() as base:
-                base.schedCoro(s_process.spawn((s_spawner._ioWorkProc, (todo, sockpath), {})))
-                with self.raises(s_exc.FatalErr) as cm:
-                    await s_spawner._spawnerWait(sockpath, timeout=5)
-                self.isin('within', cm.exception.errinfo.get('mesg', ''))
+            # Hook the spawner logger to assert the exact message from line 38.
+            # addSignalHandlers raises RuntimeError in a non-main thread, so mock
+            # it to a no-op so _ioWorkProc reaches dmon.listen and hits the OSError path.
+            async def _noopSignalHandlers(self):
+                pass
+
+            with mock.patch.object(s_base.Base, 'addSignalHandlers', _noopSignalHandlers):
+                with self.getAsyncLoggerStream('synapse.lib.spawner',
+                                               'IO worker failed to open listening socket') as stream:
+                    fut = loop.run_in_executor(None, s_spawner._ioWorkProc, todo, sockpath)
+                    await stream.wait(timeout=5)
+
+                stream.seek(0)
+                self.isin('IO worker failed to open listening socket', stream.read())
+
+                try:
+                    await fut
+                except OSError:
+                    pass
+
+            # Also exercise via real subprocess spawn so lines 37-39 are covered
+            # in CI (subprocess coverage via COVERAGE_PROCESS_START=.coveragerc).
+            # The re-raised OSError propagates back through _exectodo as SynErr.
+            spawn_task = asyncio.ensure_future(
+                s_process.spawn((s_spawner._ioWorkProc, (todo, sockpath), {}))
+            )
+
+            with self.raises(s_exc.FatalErr) as cm:
+                await s_spawner._spawnerWait(sockpath, timeout=5)
+            self.isin('within', cm.exception.errinfo.get('mesg', ''))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await spawn_task
+            self.eq('OSError', cm.exception.errinfo.get('name', ''))
 
     async def test_spawner_ioworkproc_signal_runtimeerror(self):
 
