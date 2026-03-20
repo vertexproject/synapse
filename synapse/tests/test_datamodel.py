@@ -558,6 +558,13 @@ class DataModelTest(s_t_utils.SynTest):
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
             self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
 
+            # poly value virt type has `hidden` set in `display`
+            self.eq(core.model.type('poly').info['virts'][1][0], 'value')
+            self.eq(core.model.type('poly').info['virts'][1][2]['display'], {'hidden': True})
+
+            self.eq(core.model.prop('entity:relationship:id').info['virts'][1][0], 'value')
+            self.true(core.model.prop('entity:relationship:id').info['virts'][1][2]['display']['hidden'])
+
             with self.raises(s_exc.NoSuchType):
                 vdef = ('newp', ('newp', {}), {})
                 core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})
