@@ -1686,7 +1686,7 @@ class ModelMigrationBase:
         # Node
         await self.editNodeDel(layriden, buid, formname, formvalu)
 
-    async def moveNode(self, buid, newvalu):
+    async def moveNode(self, buid, newvalu, newsubs=None):
         assert self.nodes.has(buid)
         node = self.getNode(buid)
 
@@ -1721,6 +1721,9 @@ class ModelMigrationBase:
                 props = sode.get('props', {})
                 for propname, propvalu in props.items():
                     propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
                     await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
                 tags = sode.get('tags', {})
@@ -1753,6 +1756,9 @@ class ModelMigrationBase:
 
                 for propname, propvalu in props.items():
                     propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
 
                     if propname == '.created':
                         continue
@@ -1771,12 +1777,9 @@ class ModelMigrationBase:
                     if propname in existprops:
                         existv, _existst = existprops[propname]
                         if existv == propvalu:
-                            # Same value, skip
                             continue
-                        # Conflict - keep existing, record source value
                         propconflicts[propname] = propvalu
                     else:
-                        # Not present in existing - merge
                         await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
             if propconflicts:
@@ -1869,7 +1872,30 @@ class ModelMigrationBase:
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
                 if isro:
-                    await self.removeNode(refbuid)
+                    # For read-only comp form refs, compute the new comp value and recursively move
+                    refnode = self.getNode(refbuid)
+                    refformname = refnode.get('formname')
+                    refformvalu = refnode.get('formvalu')
+
+                    refformobj = self.core.model.form(refformname)
+                    if refformobj is not None and isinstance(refformobj.type, s_types.Comp):
+                        try:
+                            newrefvalu, refnorminfo = refformobj.type.norm(refformvalu)
+                        except Exception:
+                            logger.debug('Failed to re-normalize comp form %s for migration, removing node', refformname)
+                            await self.removeNode(refbuid)
+                            continue
+
+                        if newrefvalu != refformvalu:
+                            refsubs = refnorminfo.get('subs')
+                            await self.moveNode(refbuid, newrefvalu, newsubs=refsubs)
+                        else:
+                            # Value didn't change, nothing to do
+                            pass
+
+                    else:
+                        await self.removeNode(refbuid)
+
                     continue
 
                 if reftype == 'ndef':
@@ -1902,6 +1928,7 @@ class ModelMigrationBase:
                     await self.editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
 
         await self.delNode(buid)
+
 
 class ModelMigration_0_2_31(ModelMigrationBase):
 
@@ -2162,249 +2189,6 @@ class ModelMigration_0_2_31(ModelMigrationBase):
 class ModelMigration_0_2_35(ModelMigrationBase):
 
     queuename = 'model_0_2_35:nodes'
-
-    async def moveNode(self, buid, newvalu, newsubs=None):
-        assert self.nodes.has(buid)
-        node = self.getNode(buid)
-
-        formname = node.get('formname')
-        formvalu = node.get('formvalu')
-        refs = node.get('refs')
-
-        oldndef = (formname, formvalu)
-        newndef = (formname, newvalu)
-        newbuid = s_common.buid((formname, newvalu))
-
-        form = self.core.model.reqForm(formname)
-
-        # Load the destination node from all layers to check for an existing node
-        destnode = self.getNode(newbuid)
-        for layer in self.layers:
-            await self._loadNode(layer, newbuid, node=destnode)
-        await self.nodes.set(newbuid, destnode)
-
-        existing = destnode.get('formvalu') is not None
-
-        # Node
-        for layriden in node['layers']:
-            # Create the new node in the same layers as the old node
-            await self.editNodeAdd(layriden, newbuid, formname, newvalu, form.type.stortype)
-
-        if not existing:
-
-            # No existing destination node - proceed with original logic
-            # Edits
-            for layriden, sode in node['sodes'].items():
-                props = sode.get('props', {})
-                for propname, propvalu in props.items():
-                    propvalu, stortype = propvalu
-                    # Use newsubs to override prop values when re-normalizing comp forms
-                    if newsubs is not None and propname in newsubs:
-                        propvalu = newsubs[propname]
-                    await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
-
-                tags = sode.get('tags', {})
-                for tagname, tagvalu in tags.items():
-                    await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
-
-                tagprops = sode.get('tagprops', {})
-                for tagname, propvalus in tagprops.items():
-                    for propname, propvalu in propvalus.items():
-                        propvalu, stortype = propvalu
-
-                        await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
-
-            # Nodedata
-            for layriden, data in node['nodedata'].items():
-                for name, valu in data:
-                    await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
-
-        else:
-
-            # Existing destination node found - merge with conflicts
-            conflicts = {}
-
-            # Props
-            propconflicts = {}
-            for layriden, sode in node['sodes'].items():
-                props = sode.get('props', {})
-                existsode = destnode['sodes'].get(layriden, {})
-                existprops = existsode.get('props', {})
-
-                for propname, propvalu in props.items():
-                    propvalu, stortype = propvalu
-                    # Use newsubs to override prop values when re-normalizing comp forms
-                    if newsubs is not None and propname in newsubs:
-                        propvalu = newsubs[propname]
-
-                    if propname == '.created':
-                        continue
-
-                    if propname == '.seen':
-                        if propname in existprops:
-                            existv, _existst = existprops[propname]
-                            merged = (min(propvalu[0], existv[0]), max(propvalu[1], existv[1]))
-                            if merged != existv:
-                                await self.editPropSet(layriden, newbuid, formname, propname, merged, existv, stortype)
-                        else:
-                            await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
-
-                        continue
-
-                    if propname in existprops:
-                        existv, _existst = existprops[propname]
-                        if existv == propvalu:
-                            continue
-                        propconflicts[propname] = propvalu
-                    else:
-                        await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
-
-            if propconflicts:
-                conflicts['props'] = propconflicts
-
-            # Tags
-            tagconflicts = {}
-            for layriden, sode in node['sodes'].items():
-                tags = sode.get('tags', {})
-                existsode = destnode['sodes'].get(layriden, {})
-                existtags = existsode.get('tags', {})
-
-                for tagname, tagvalu in tags.items():
-                    if tagname in existtags:
-                        existv = existtags[tagname]
-                        if existv == tagvalu:
-                            continue
-                        tagconflicts[tagname] = tagvalu
-                    else:
-                        await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
-
-            if tagconflicts:
-                conflicts['tags'] = tagconflicts
-
-            # Tagprops
-            tagpropconflicts = {}
-            for layriden, sode in node['sodes'].items():
-                tagprops = sode.get('tagprops', {})
-                existsode = destnode['sodes'].get(layriden, {})
-                existtagprops = existsode.get('tagprops', {})
-
-                for tagname, propvalus in tagprops.items():
-                    existpropvalus = existtagprops.get(tagname, {})
-                    for propname, propvalu in propvalus.items():
-                        propvalu, stortype = propvalu
-                        if propname in existpropvalus:
-                            existv, _existst = existpropvalus[propname]
-                            if existv == propvalu:
-                                continue
-                            tagpropconflicts.setdefault(tagname, {})
-                            tagpropconflicts[tagname][propname] = propvalu
-                        else:
-                            await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
-
-            if tagpropconflicts:
-                conflicts['tagprops'] = tagpropconflicts
-
-            # Nodedata
-            ndconflicts = {}
-            for layriden, data in node['nodedata'].items():
-                existnd = dict(destnode['nodedata'].get(layriden, []))
-                for name, valu in data:
-                    if name in existnd:
-                        existv = existnd[name]
-                        if existv == valu:
-                            continue
-                        ndconflicts[name] = valu
-                    else:
-                        await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
-
-            if ndconflicts:
-                conflicts['nodedata'] = ndconflicts
-
-            # Write conflicts as nodedata on the destination node
-            if conflicts:
-                for layriden in destnode['layers']:
-                    await self.editNodedataSet(layriden, newbuid, formname, self.migrname, {formvalu: conflicts}, None)
-                    break
-
-        # Edges (always additive - no conflict possible)
-        for layriden, edges in node['n1edges'].items():
-            for verb, iden in edges:
-                await self.editEdgeAdd(layriden, newbuid, formname, verb, iden)
-
-        for layriden, edges in node['n2edges'].items():
-            for verb, iden in edges:
-                n2buid = s_common.uhex(iden)
-
-                n2node = self.nodes.get(n2buid)
-                if n2node is None: # pragma: no cover
-                    continue
-
-                n2form = n2node.get('formname')
-                await self.editEdgeAdd(layriden, n2buid, n2form, verb, s_common.ehex(newbuid))
-
-        # Move references
-        for reflayr, reflist in refs.items():
-            for refiden, refinfo in reflist:
-                refbuid = s_common.uhex(refiden)
-                (refform, refprop, reftype, isarray, isro) = refinfo
-
-                if isro:
-                    # For read-only comp form refs, compute the new comp value and recursively move
-                    refnode = self.getNode(refbuid)
-                    refformname = refnode.get('formname')
-                    refformvalu = refnode.get('formvalu')
-
-                    refformobj = self.core.model.form(refformname)
-                    if refformobj is not None and isinstance(refformobj.type, s_types.Comp):
-                        try:
-                            newrefvalu, refnorminfo = refformobj.type.norm(refformvalu)
-                        except Exception:
-                            logger.debug('Failed to re-normalize comp form %s for migration, removing node', refformname)
-                            await self.removeNode(refbuid)
-                            continue
-
-                        if newrefvalu != refformvalu:
-                            refsubs = refnorminfo.get('subs')
-                            await self.moveNode(refbuid, newrefvalu, newsubs=refsubs)
-                        else:
-                            # Value didn't change, nothing to do
-                            pass
-
-                    else:
-                        await self.removeNode(refbuid)
-
-                    continue
-
-                if reftype == 'ndef':
-                    oldpropv = oldndef
-                    newpropv = newndef
-                else:
-                    oldpropv = formvalu
-                    newpropv = newvalu
-
-                refnode = self.getNode(refbuid)
-                refsode = refnode['sodes'].get(reflayr)
-
-                curv, stortype = refsode.get('props', {}).get(refprop, (None, None))
-                assert stortype is not None
-
-                if isarray:
-
-                    _curv = curv
-
-                    newv = list(_curv).copy()
-
-                    while oldpropv in newv:
-                        newv.remove(oldpropv)
-
-                    newv.append(newpropv)
-
-                    await self.editPropSet(reflayr, refbuid, refform, refprop, newv, curv, stortype)
-
-                else:
-                    await self.editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
-
-        await self.delNode(buid)
 
     async def revModel_0_2_35(self):
 
