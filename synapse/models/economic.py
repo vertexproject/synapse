@@ -261,11 +261,6 @@ modeldefs = (
                     'doc': 'The point in time where the purchase was paid in full.'}),
 
                 ('price', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The econ:price of the purchase.'}),
             )),
 
@@ -344,11 +339,6 @@ modeldefs = (
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
 
                 ('amount', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The amount of money transferred in the payment.'}),
 
                 ('crypto:transaction', ('crypto:currency:transaction', {}), {
@@ -364,11 +354,6 @@ modeldefs = (
                     'doc': 'The financial account holding the balance.'}),
 
                 ('amount', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The available funds at the time.'}),
             )),
 
@@ -386,11 +371,6 @@ modeldefs = (
                     'doc': 'The statement for the previous period.'}),
 
                 ('balance', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'period.min'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
                     'doc': 'The balance at the end of the statement period.'}),
             )),
 
