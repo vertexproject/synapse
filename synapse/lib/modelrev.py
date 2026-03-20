@@ -2216,7 +2216,8 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
                     try:
                         newvalu, _ = form.type.norm(formvalu)
-                    except Exception: # pragma: no cover
+                    except s_exc.BadTypeValu:  # pragma: no cover
+                        logger.error('Encountered un-normable node valu: %s=%s', formname, formvalu)
                         continue
 
                     if newvalu == formvalu:
