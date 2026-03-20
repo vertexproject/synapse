@@ -112,7 +112,7 @@ class Prop:
         if self.type.ispoly:
             if (pforms := self.type.forms) is not None:
                 for pform in pforms:
-                    self.modl.propsbytype[pform][self.full] = self
+                    self.modl.propsbytype[pform[0]][self.full] = self
 
             if (ifaces := self.type.ifaces) is not None:
                 for iface in ifaces:
@@ -126,7 +126,7 @@ class Prop:
             if self.type.arraytype.ispoly:
                 if (pforms := self.type.arraytype.forms) is not None:
                     for pform in pforms:
-                        self.modl.arraysbytype[pform][self.full] = self
+                        self.modl.arraysbytype[pform[0]][self.full] = self
 
                 if (ifaces := self.type.arraytype.ifaces) is not None:
                     for iface in ifaces:
@@ -402,7 +402,7 @@ class Form:
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
-                    if prop.type.arraytype.ispoly:
+                    if prop.type.arraytype.ispoly and prop.type.arraytype.hasforms:
                         self.refsout['ndefarray'].append(name)
                         continue
 
@@ -414,7 +414,7 @@ class Form:
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
-                elif prop.type.ispoly:
+                elif prop.type.ispoly and prop.type.hasforms:
                     self.refsout['ndef'].append(name)
 
                 elif isinstance(prop.type, s_types.NodeProp):
@@ -689,15 +689,15 @@ class Model:
 
         info = {
             'virts': (
-                ('form', ('syn:form', {}), {
+                ('type', ('syn:type', {}), {
                     'computed': True,
-                    'doc': 'The form of node which is referenced.'}),
+                    'doc': 'The type of value which is referenced.'}),
 
                 ('value', ('data', {}), {
                     'computed': True,
-                    'doc': 'The primary property value of the node which is referenced.'}),
+                    'doc': 'The value which is referenced.'}),
             ),
-            'doc': 'A prop which can be of one or more forms.',
+            'doc': 'A prop which can be of one or more types.',
         }
         item = s_types.Poly(self, 'poly', info, {})
         self.addBaseType(item)
@@ -871,26 +871,29 @@ class Model:
 
         raise exc
 
-    def getTypeSet(self, forms=None, interfaces=None):
-        key = (forms, interfaces)
-        if (types := self.typesetcache.get(key)) is not None:
-            return types
+    def getTypeSet(self, types=None, interfaces=None):
+        key = (types, interfaces)
+        if (typeset := self.typesetcache.get(key)) is not None:
+            return typeset
 
-        types = set()
+        typeset = set()
 
-        if forms:
-            for form in forms:
-                for cform in self.getChildForms(form):
-                    types.add(self.form(cform).type)
+        if types:
+            for typename in types:
+                if self.form(typename) is not None:
+                    for cform in self.getChildForms(typename):
+                        typeset.add(self.form(cform).type)
+                else:
+                    typeset.add(self.type(typename))
 
         if interfaces:
             for iface in interfaces:
                 for form in self.formsbyiface.get(iface):
-                    types.add(self.form(form).type)
+                    typeset.add(self.form(form).type)
 
-        types = tuple(types)
-        self.typesetcache[key] = types
-        return types
+        typeset = tuple(typeset)
+        self.typesetcache[key] = typeset
+        return typeset
 
     def getFormSet(self, forms=None, interfaces=None):
         key = (forms, interfaces)
@@ -1046,24 +1049,63 @@ class Model:
 
         return retn
 
+    def convertPolyinfo(self, propdef):
+
+        forms = []
+        types = []
+        ifaces = []
+        defaults = []
+
+        for typename, typeinfo in propdef:
+
+            if typename in self.forminfos:
+                forms.append(typename)
+
+                if typeinfo.get('defnorm', True):
+                    defaults.append(typename)
+
+            elif typename in self.ifaces:
+                ifaces.append(typename)
+
+            else:
+                types.append(typename)
+
+                if typeinfo.get('defnorm', True):
+                    defaults.append(typename)
+
+        polyinfo = {}
+        if forms:
+            polyinfo['forms'] = tuple(forms)
+
+        if ifaces:
+            polyinfo['interfaces'] = tuple(ifaces)
+
+        if types:
+            polyinfo['types'] = tuple(types)
+
+        if defaults:
+            polyinfo['default_types'] = tuple(defaults)
+
+        return polyinfo
+
     def processPropdefs(self, propdefs):
 
         realdefs = []
 
         for pname, propdef, propinfo in propdefs:
-            typename, typeinfo = propdef
 
-            if not typeinfo:
-                if typename in self.ifaces or ((forminfo := self.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                    typename = (typename,)
+            if isinstance(propdef[0], tuple):
+                # TODO: lists should already be in the correct format
+                propdef = tuple((tn, {}) for tn in propdef[0])
+            elif propdef[0] in ('array', 'poly'):
+                realdefs.append((pname, propdef, propinfo))
+                continue
+            else:
+                propdef = (propdef,)
 
-            if isinstance(typename, tuple):
-                typeinfo = dict(typeinfo)
-                typeinfo['forms'] = tuple(tname for tname in typename if tname in self.forminfos)
-                typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.ifaces)
-                typename = 'poly'
+            polyinfo = self.convertPolyinfo(propdef)
 
-            realdefs.append((pname, (typename, typeinfo), propinfo))
+            realdefs.append((pname, ('poly', polyinfo), propinfo))
 
         return tuple(realdefs)
 
@@ -1584,15 +1626,18 @@ class Model:
 
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
-
-        _type = self.types.get(tdef[0])
-        if _type is None:
-            mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
-            raise s_exc.NoSuchType(mesg=mesg, name=name)
+        typeinfo = tdef[1]
+        typelist = typeinfo.get('forms', ()) + typeinfo.get('types', ())
 
         virts = []
-        if (typevirts := _type.info.get('virts')) is not None:
-            virts = self.mergeVirts(virts, typevirts)
+        for typename in typelist:
+            _type = self.types.get(typename)
+            if _type is None:
+                mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
+                raise s_exc.NoSuchType(mesg=mesg, name=name)
+
+            if (typevirts := _type.info.get('virts')) is not None:
+                virts = self.mergeVirts(virts, typevirts)
 
         if (propvirts := info.get('virts')) is not None:
             virts = self.mergeVirts(virts, propvirts)
@@ -1819,6 +1864,12 @@ class Model:
         Return a synapse.lib.types.Type by name.
         '''
         return self.types.get(name)
+
+    def reqType(self, name):
+        if (tobj := self.types.get(name)) is not None:
+            return tobj
+
+        raise s_exc.NoSuchType(mesg=f'No type named {name}.', name=name)
 
     def prop(self, name):
         return self.props.get(name)

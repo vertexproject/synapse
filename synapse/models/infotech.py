@@ -1091,9 +1091,9 @@ modeldefs = (
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
-            ('it:app:yara:target', ('poly', {'forms': ('file:bytes', 'it:exec:proc',
-                                                          'inet:ip', 'inet:fqdn', 'inet:url')}), {
-                'doc': 'An ndef type which is limited to forms which YARA rules can match.'}),
+            ('it:app:yara:target', ('poly', {'forms': ('file:bytes', 'it:exec:proc', 'inet:ip',
+                                                       'inet:fqdn', 'inet:url')}), {
+                'doc': 'An type which is limited to forms which YARA rules can match.'}),
 
             ('it:app:yara:match', ('guid', {}), {
                 'interfaces': (

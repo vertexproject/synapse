@@ -6081,21 +6081,21 @@ class NodeData(Prim):
 @registry.registerType
 class NodeRef(Prim):
     '''
-    A form and value tuple representing a node.
+    A type and value tuple representing a node.
     '''
     _storm_locals = (
-        {'name': 'form', 'desc': 'Get the form of the tuple.',
+        {'name': 'type', 'desc': 'Get the type of the tuple.',
          'type': 'str'},
-        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+        {'name': 'ndef', 'desc': 'Get the type and valu of the tuple.',
          'type': 'list'},
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
          'type': 'any'},
-        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
-         'type': {'type': 'function', '_funcname': '_methIsForm',
+        {'name': 'istype', 'desc': 'Check if the type in the tuple is a given type.',
+         'type': {'type': 'function', '_funcname': '_methIsType',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The type or types to compare the type in the tuple against.'},
                   ),
-                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                  'returns': {'desc': 'True if the type is at least one of the types specified, false otherwise.',
                               'type': 'boolean'}}},
 
     )
@@ -6132,16 +6132,16 @@ class NodeRef(Prim):
 
     def getObjLocals(self):
         return {
-            'form': self.valu[0],
+            'type': self.valu[0],
             'ndef': self.valu,
             'value': self.valu[1],
-            'isform': self._methIsForm,
+            'istype': self._methIsType,
         }
 
     async def stormrepr(self):
         runt = s_scope.get('runt')
-        form = runt.view.core.model.reqForm(self.valu[0])
-        return form.type.repr(self.valu[1])
+        tobj = runt.view.core.model.reqType(self.valu[0])
+        return tobj.repr(self.valu[1])
 
     def value(self):
         return self.valu[1]
@@ -6157,17 +6157,23 @@ class NodeRef(Prim):
         return await fromprim(self.valu[1]).deref(name)
 
     @stormfunc(readonly=True)
-    async def _methIsForm(self, name):
+    async def _methIsType(self, name):
         names = await toprim(name)
 
         if not isinstance(names, (list, tuple)):
             names = (name,)
 
         runt = s_scope.get('runt')
-        form = runt.view.core.model.reqForm(self.valu[0])
-        for name in names:
-            if name in form.formtypes:
-                return True
+
+        if (tobj := runt.view.core.model.reqType(self.valu[0])) is not None:
+            for name in names:
+                if name in tobj.types:
+                    return True
+
+        if (form := runt.view.core.model.form(self.valu[0])) is not None:
+            for name in names:
+                if name in form.formtypes:
+                    return True
 
         return False
 

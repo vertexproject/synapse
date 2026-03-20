@@ -449,17 +449,14 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
-                    'default_forms': ('test:int', 'test:str')}), {}),
+                ('poly', (('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {}), {}),
                 ('polyarry', ('array', {
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn',
-                             'test:guid', 'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str'),
-                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                    'type': ('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn',
+                             'test:guid', 'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str')}), {}),
                 ('polynonuniq', ('array', {
                     'uniq': False,
                     'sorted': False,
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
-                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                    'type': ('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn')}), {}),
                 ('polyint', ('test:interface', {}), {}),
             )),
 

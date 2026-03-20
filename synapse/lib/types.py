@@ -577,28 +577,26 @@ class Array(Type):
             mesg = 'Array type requires type= option.'
             raise s_exc.BadTypeDef(mesg=mesg)
 
+        polyinfo = None
+
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
-        if not typeopts:
-            if typename in self.modl.ifaces or ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
-
         if isinstance(typename, tuple):
-            typeopts['forms'] = tuple(tname for tname in typename if tname in self.modl.forminfos)
-            typeopts['interfaces'] = tuple(tname for tname in typename if tname in self.modl.ifaces)
-            typename = 'poly'
+            # TODO: lists should already be in the correct format
+            typedef = tuple((tn, {}) for tn in typename)
+        elif typename == 'poly':
+            polyinfo = typeopts
+        else:
+            typedef = ((typename, typeopts),)
 
-        basetype = self.modl.type(typename)
-        if basetype is None:
-            mesg = f'Array type ({self.name}) based on unknown type: {typename}.'
-            raise s_exc.BadTypeDef(mesg=mesg)
+        polyinfo = self.modl.convertPolyinfo(typedef)
 
-        self.arraytype = basetype.clone(typeopts)
+        self.arraytype = self.modl.type('poly').clone(polyinfo)
         self.arraytypehash = self.arraytype.typehash
 
         if isinstance(self.arraytype, Array):
-            mesg = 'Array type of array values is not (yet) supported.'
+            mesg = 'Array type of array values is not supported.'
             raise s_exc.BadTypeDef(mesg)
 
         if self.arraytype.deprecated:
@@ -2113,70 +2111,73 @@ class Poly(Type):
     ispoly = True
 
     _opt_defs = (
-        ('default_forms', None),    # type: ignore
+        ('default_types', None),    # type: ignore
         ('forms', None),            # type: ignore
+        ('types', None),            # type: ignore
         ('interfaces', None),       # type: ignore
     )
 
     def postTypeInit(self):
 
-        self.formtype = self.modl.type('syn:form')
+        self.typetype = self.modl.type('syn:type')
         self.valuetype = self.modl.type('data')
         self.virts |= {
-            'form': (self.formtype, self._getForm),
+            'type': (self.typetype, self._getType),
             'value': (self.valuetype, self._getValue),
         }
 
         self.virtindx |= {
-            'form': None,
+            'type': None,
         }
 
         self.virtlifts |= {
-            'form': {'=': self._storLiftForm},
+            'type': {'=': self._storLiftType},
         }
 
         self.forms = self.opts.get('forms')
         self.ifaces = self.opts.get('interfaces')
+        self.typeset = set()
 
         if self.forms is not None:
             forms = set(self.forms)
+            self.typeset |= forms
+
+        if (types := self.opts.get('types')) is not None:
+            self.typeset |= set(types)
+
+        self.typeset = tuple(self.typeset)
 
         if self.ifaces is not None:
             ifaces = set(self.ifaces)
 
-        def filtfunc(form):
-            if self.forms is not None and any(f in forms for f in form.formtypes):
-                return True
+        self.hasforms = self.forms or self.ifaces
+        self.formfilter = None
 
-            if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
-                return True
+        if self.hasforms:
+            def formfilt(form):
+                if self.forms is not None and any(f in forms for f in form.formtypes):
+                    return True
 
-            return False
+                if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
+                    return True
 
-        self.formfilter = filtfunc
+                return False
 
-        self.defaultforms = self.opts.get('default_forms')
-        if self.defaultforms is None:
-            if (self.forms and len(self.forms) == 1 and not self.ifaces):
-                self.defaultforms = self.forms
-        else:
-            for form in self.defaultforms:
-                if form not in self.forms:
-                    mesg = f'Default forms must be all be allowed on {self.name}.'
+            self.formfilter = formfilt
+
+        self.typefilter = None
+        if self.types:
+            def typefilt(tobj):
+                return any(t in self.typeset for t in tobj.types)
+
+            self.typefilter = typefilt
+
+        self.defaulttypes = self.opts.get('default_types')
+        if self.defaulttypes is not None:
+            for tname in self.defaulttypes:
+                if not self.typeset or tname not in self.typeset:
+                    mesg = f'Default types must be all be allowed on {self.name}.'
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
-
-    def reqFormAllowed(self, form):
-        if self.formfilter(form):
-            return
-
-        mesg = f'Value of form {form.name} is not allowed for {self.name}'
-        if self.forms is not None:
-            mesg += f' forms={self.forms}'
-
-        if self.ifaces is not None:
-            mesg += f' interfaces={self.ifaces}'
-
-        raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
 
     def getTypeSet(self):
         return self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces)
@@ -2241,23 +2242,39 @@ class Poly(Type):
             mesg = f'Virtual prop {name} is not valid for any types supported by {self.name}.'
             raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
-    async def _storLiftForm(self, cmpr, valu):
+    def _raiseBadTypeValu(self, valu):
+        mesg = f'Value of type {valu} is not allowed for {self.name}'
+
+        if self.typeset is not None:
+            mesg += f' types={self.typeset}'
+
+        if self.ifaces is not None:
+            mesg += f' interfaces={self.ifaces}'
+
+        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=self.types, interfaces=self.ifaces)
+
+    async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
-        form = self.modl.reqForm(valu)
-        self.reqFormAllowed(form)
+        if self.formfilter and (form := self.modl.form(valu)):
+            if self.formfilter(form):
+                return (('type=', valu, self.stortype),)
 
-        return (('form=', valu, self.stortype),)
+        if self.typefilter and (tobj := self.modl.type(valu)):
+            if self.typefilter(tobj):
+                return (('type=', valu, self.stortype),)
 
-    def _getForm(self, valu):
+        self._raiseBadTypeValu(valu)
+
+    def _getType(self, valu):
         return valu[0][0]
 
     def _getValue(self, valu):
         return valu[0][1]
 
     def getStorType(self, valu):
-        form = self.modl.reqForm(valu[0])
-        return s_layer.STOR_FLAG_POLY | form.type.stortype
+        tobj = self.modl.reqType(valu[0])
+        return s_layer.STOR_FLAG_POLY | tobj.stortype
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
@@ -2282,7 +2299,7 @@ class Poly(Type):
         novirts = False
         badtype = False
 
-        for ntyp in self.modl.getTypeSet(forms=self.forms, interfaces=self.ifaces):
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
             try:
                 for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
                     cmprs[ncmpr] = True
@@ -2316,14 +2333,20 @@ class Poly(Type):
         if vtyp == s_stormtypes.NodeRef:
             return await self._normStormNodeRef(valu, view=view)
 
-        elif self.defaultforms is not None:
-            for formname in self.defaultforms:
-                form = self.modl.form(formname)
-                if form.locked:
+        elif self.defaulttypes is not None:
+            for typename in self.defaulttypes:
+                if (form := self.modl.form(typename)) is not None:
+                    if form.locked:
+                        continue
+                    tobj = form.type
+                else:
+                    tobj = self.modl.type(typename)
+
+                if tobj.locked:
                     continue
 
                 try:
-                    norm, forminfo = await form.type.norm(valu, view=view)
+                    norm, typeinfo = await tobj.norm(valu, view=view)
 
                     if view is None:
                         view = False
@@ -2331,27 +2354,27 @@ class Poly(Type):
                             view = runt.view
 
                     exists = False
-                    if view:
-                        for cform in self.modl.getChildForms(formname):
+                    if view and form is not None:
+                        for cform in self.modl.getChildForms(typename):
                             if await view.getNodeByNdef((cform, norm)) is not None:
-                                formname = cform
+                                typename = cform
                                 exists = True
                                 break
                     info = {}
 
-                    if not exists:
-                        info['adds'] = ((formname, norm, forminfo),)
+                    if not exists and form is not None:
+                        info['adds'] = ((typename, norm, typeinfo),)
 
-                    if (subs := forminfo.get('subs')) is not None:
+                    if (subs := typeinfo.get('subs')) is not None:
                         info['subs'] = subs
 
-                    if (virts := forminfo.get('virts')) is not None:
+                    if (virts := typeinfo.get('virts')) is not None:
                         info['virts'] = dict(virts)
 
-                    return (formname, norm), info
+                    return (typename, norm), info
 
                 except s_exc.BadTypeValu:
-                    if len(self.defaultforms) > 1:
+                    if len(self.defaulttypes) > 1:
                         continue
                     raise
 
@@ -2359,45 +2382,57 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if self.formfilter(valu.form):
-            if valu.form.locked:
-                formname = valu.form.name
-                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+        if not self.formfilter(valu.form):
+            self._raiseBadTypeValu(valu.form.name)
 
-            return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
+        if valu.form.locked:
+            formname = valu.form.name
+            raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
 
-        return await self.norm(valu.ndef[1], view=view)
+        return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
 
     async def _normStormNodeRef(self, valu, view=None):
 
-        formname = valu.valu[0]
-        form = self.modl.form(formname)
+        typename = valu.valu[0]
+        tobj = self.modl.type(typename)
+        form = self.modl.form(typename)
 
-        if self.formfilter(form):
-            if form.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+        if self.typefilter is None or not self.typefilter(tobj):
+            if form is None or self.formfilter is None or not self.formfilter(form):
+                self._raiseBadTypeValu(typename)
 
-            if not valu.exists and await view.getNodeByNdef(valu.valu) is not None:
+        if tobj.locked or (form is not None and form.locked):
+            raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
+
+        if form is not None:
+            norminfo = {'virts': valu.virts}
+
+            if valu.exists:
+                norminfo['skipadd'] = True
+            elif await view.getNodeByNdef(valu.valu) is not None:
                 valu.exists = True
-                return valu.valu, {'skipadd': True, 'virts': valu.virts}
-            else:
-                norm, forminfo = await form.type.norm(valu.valu[1], view=view)
-                info = {'adds': ((formname, norm, forminfo),)}
+                norminfo['skipadd'] = True
 
-                if (virts := forminfo.get('virts')) is not None:
-                    info['virts'] = dict(virts)
+            return valu.valu, norminfo
 
-                return (formname, norm), info
+        norm, typeinfo = await tobj.norm(valu.valu[1], view=view)
 
-        return await self.norm(valu.valu[1], view=view)
+        info = {}
+        if form is not None:
+            info['adds'] = ((typename, norm, typeinfo),)
+
+        if (virts := typeinfo.get('virts')) is not None:
+            info['virts'] = dict(virts)
+
+        return (typename, norm), info
 
     def repr(self, norm):
-        formname, formvalu = norm
+        typename, valu = norm
 
-        if (form := self.modl.form(formname)) is None:
-            raise s_exc.NoSuchForm.init(formname)
+        if (tobj := self.modl.type(typename)) is None:
+            raise s_exc.NoSuchType.init(typename)
 
-        return form.type.repr(formvalu)
+        return tobj.repr(valu)
 
     async def tostorm(self, valu):
         return s_stormtypes.NodeRef(valu)

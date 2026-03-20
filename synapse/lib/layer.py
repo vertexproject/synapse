@@ -2087,12 +2087,12 @@ class StorTypePoly(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_POLY)
         self.lifters |= {
-            'form=': self._liftFormEq,
+            'type=': self._liftTypeEq,
             'ndef=': self._liftNdefEq,
         }
 
     def indx(self, valu):
-        realtype = self.layr.core.model.form(valu[0]).type.stortype
+        realtype = self.layr.core.model.type(valu[0]).stortype
         formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
 
         byts = self.layr.stortypes[realtype].indx(valu[1])[0]
@@ -2149,28 +2149,28 @@ class StorTypePoly(StorType):
             return
 
     async def _liftNdefEq(self, liftby, valu, reverse=False):
-        formname, valu = valu
+        typename, valu = valu
         try:
-            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, formname, None)
+            typeabrv = self.layr.core.getIndxAbrv(INDX_PROP, typename, None)
         except s_exc.NoSuchAbrv:
             return
 
-        form = self.layr.core.model.form(formname)
-        stortype = form.type.stortype
+        tobj = self.layr.core.model.type(typename)
+        stortype = tobj.stortype
         byts = self.layr.stortypes[stortype].indx(valu)[0]
 
-        async for item in liftby.keyNidsByDups(stortype.to_bytes(2, 'big') + formabrv + byts, reverse=reverse):
+        async for item in liftby.keyNidsByDups(stortype.to_bytes(2, 'big') + typeabrv + byts, reverse=reverse):
             yield item
 
-    async def _liftFormEq(self, liftby, valu, reverse=False):
+    async def _liftTypeEq(self, liftby, valu, reverse=False):
         try:
-            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
+            typeabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
         except s_exc.NoSuchAbrv:
             return
 
-        form = self.layr.core.model.form(valu)
+        tobj = self.layr.core.model.type(valu)
 
-        async for item in liftby.keyNidsByPref(form.type.stortype.to_bytes(2, 'big') + formabrv, reverse=reverse):
+        async for item in liftby.keyNidsByPref(tobj.stortype.to_bytes(2, 'big') + typeabrv, reverse=reverse):
             yield item
 
     def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):

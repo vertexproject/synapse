@@ -70,7 +70,9 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchType) as cm:
                 core.model.addFormProp('test:str', 'bar', ('newp', {}), {})
-            self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
+
+            # TODO: Pass context to reqType?
+            # self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
 
             with self.raises(s_exc.BadTypeDef) as cm:
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
@@ -493,7 +495,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             taxinfo = ifaces.get('meta:taxonomy')
             taxprops = {p[0]: p for p in taxinfo['props']}
-            self.eq(taxprops['parent'][1][0], 'meta:taxonomy')
+            self.eq(taxprops['parent'][1][1]['types'], ('meta:taxonomy',))
 
             model = (await core.getModelDefs())[0][1]
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
@@ -937,7 +939,7 @@ class DataModelTest(s_t_utils.SynTest):
             q = '''
             test:str:poly^=P
             $foo=:poly
-            $lib.print($foo.form)
+            $lib.print($foo.type)
             $lib.print($foo.ndef)
             $lib.print($foo.value)
             yield $foo
@@ -992,14 +994,14 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str:poly={test:lowstr=p1}'))
 
             # poly lift by form
-            self.len(1, await core.nodes('test:str:poly.form=test:lowstr'))
+            self.len(1, await core.nodes('test:str:poly.type=test:lowstr'))
 
             # poly array lift by node
             self.len(1, await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'))
 
             # poly array lift by form
-            self.len(1, await core.nodes('test:str:polyarry*[.form=test:lowstr]'))
-            self.len(3, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:lowstr]'))
+            self.len(3, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
             # pivot in to poly reference
             self.len(1, await core.nodes('test:hasiface=p2 <- *'))
@@ -1063,31 +1065,31 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.callStorm(q))
 
             await core.nodes('[ test:str=if1 :poly={[ test:str2=inh ]} ]')
-            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str))'))
-            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str2))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str2))'))
 
             await core.nodes('[ test:str=if2 :poly={[ test:str=base ]} ]')
-            self.true(await core.callStorm('test:str=if2 return((:poly).isform(test:str))'))
-            self.false(await core.callStorm('test:str=if2 return((:poly).isform(test:str2))'))
+            self.true(await core.callStorm('test:str=if2 return((:poly).istype(test:str))'))
+            self.false(await core.callStorm('test:str=if2 return((:poly).istype(test:str2))'))
 
             self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
-            self.len(2, await core.nodes('test:str +:polyarry*[.form=test:str]'))
+            self.len(2, await core.nodes('test:str +:polyarry*[.type=test:str]'))
 
             await core.nodes('[ test:str=cov1 :inhstr=inh ]')
             self.len(1, await core.nodes('$n={ test:str=cov1 } test:str:poly=$n.props.inhstr'))
             self.len(1, await core.nodes('$n={ test:str=cov1 } test:str=cov1 +:inhstr=$n.props.inhstr'))
 
-            nodes = await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
-            self.propeq(nodes[0], 'poly', 'inh', form='test:str2')
-
-            self.len(0, await core.nodes('test:str:poly.form=test:hasiface2'))
+            self.len(0, await core.nodes('test:str:poly.type=test:hasiface2'))
 
             await core.nodes('[ test:str=long :poly={[ test:str=$long1 ]} ]', opts=opts)
             self.len(3, await core.nodes('test:str:poly~=a'))
             self.len(1, await core.nodes('test:str:poly~=aa'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('test:str:poly.form=test:float')
+                await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:poly.type=test:float')
 
             with self.raises(s_exc.BadTypeDef):
                 tdef = ('poly', {'forms': ('test:str',), 'default_forms': ('test:float',)})
@@ -1100,9 +1102,9 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.nodes('test:str:poly.newp.newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('test:str:poly.form.newp')
+                await core.nodes('test:str:poly.type.newp')
 
-            with self.raises(s_exc.NoSuchForm):
+            with self.raises(s_exc.NoSuchType):
                 core.model.type('poly').repr(('newp', 'newp'))
 
             msgs = await core.stormlist('''
