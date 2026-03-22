@@ -1,0 +1,8 @@
+---
+desc: Migrated the ``port`` property of both ``inet:client`` and ``inet:server`` to
+  be read-only. This migration includes correcting the ``port`` property value to
+  match the node value.
+desc:literal: false
+prs: []
+type: migration
+...

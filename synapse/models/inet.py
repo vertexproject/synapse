@@ -2103,6 +2103,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The it:host node for the client.'
                         }),
                         ('port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The client tcp/udp port.'
                         }),
                     )),
@@ -2578,6 +2579,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The it:host node for the server.'
                         }),
                         ('port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The server tcp/udp port.'
                         }),
                     )),

@@ -2220,9 +2220,6 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                         logger.error('Encountered un-normable node valu: %s=%s', formname, formvalu)
                         continue
 
-                    if newvalu == formvalu:
-                        continue
-
                     node = self.getNode(buid)
                     node['formvalu'] = formvalu
                     node['formname'] = formname
@@ -2346,10 +2343,6 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         removed = 0
         for buid, node in self.nodes.items():
 
-            # Skip nodes that were already handled by a recursive moveNode call
-            if not self.nodes.has(buid):
-                continue
-
             formname = node.get('formname')
             formvalu = node.get('formvalu')
 
@@ -2365,12 +2358,30 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 continue
 
             try:
-                newvalu, _ = form.type.norm(formvalu)
+                newvalu, newinfo = form.type.norm(formvalu)
             except Exception:  # pragma: no cover
                 logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
                 await self.removeNode(buid)
                 removed += 1
                 continue
+
+            # SYN-5627: strip port properties that don't match the primary value
+            if formname in ('inet:client', 'inet:server'):
+                newport = newinfo.get('subs', {}).get('port')
+                stortype = form.props.get('port').type.stortype
+
+                for layriden, sode in node.get('sodes', {}).items():
+                    oldport = sode.get('props', {}).get('port')
+                    if oldport is not None:
+                        oldport = oldport[0]
+
+                    if newport == oldport:
+                        continue
+
+                    if newport is None:
+                        await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
+                    else:
+                        await self.editPropSet(layriden, buid, formname, 'port', newport, oldport, stortype)
 
             if newvalu == formvalu:  # pragma: no cover
                 continue

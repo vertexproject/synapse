@@ -1794,6 +1794,9 @@ class ModelRevTest(s_tests.SynTest):
         t2022 = s_time.parse('2022')
         t2026 = s_time.parse('2026')
 
+        def select(nodes, formname):
+            return sorted([k for k in nodes if k.form.name == formname], key=lambda x: x.ndef)
+
         async with self.getRegrCore('model-0.2.35', maxvers=(0, 2, 34)) as core:
             nodes = await core.nodes('.created')
             self.len(0, nodes)
@@ -1852,6 +1855,16 @@ class ModelRevTest(s_tests.SynTest):
                 ]
             )
 
+            clients = select(nodes, 'inet:client')
+            self.len(3, clients)
+            self.eq(clients[2].ndef, client01)
+            self.none(clients[2].get('port'))
+
+            servers = select(nodes, 'inet:server')
+            self.len(3, servers)
+            self.eq(servers[2].ndef, server01)
+            self.none(servers[2].get('port'))
+
         async with self.getRegrCore('model-0.2.35') as core:
             nodes = await core.nodes('.created')
             self.len(0, nodes)
@@ -1864,9 +1877,6 @@ class ModelRevTest(s_tests.SynTest):
 
             fork01 = views.get('fork01').iden
             infork01 = {'view': fork01}
-
-            def select(nodes, formname):
-                return sorted([k for k in nodes if k.form.name == formname], key=lambda x: x.ndef)
 
             def fixed(node, nodedata):
                 # .seen times were extended out both directions
@@ -1932,6 +1942,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([k.ndef for k in clients], [client00, client01])
             fixed(clients[0], nodedata)
             control(clients[1])
+            self.eq(clients[1].get('port'), 80)
 
             nodedata = {
                 badserver: {
@@ -1944,6 +1955,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([k.ndef for k in servers], [server00, server01])
             fixed(servers[0], nodedata)
             control(servers[1])
+            self.eq(servers[1].get('port'), 80)
 
             nodedata = {
                 badurl: {
@@ -2081,7 +2093,7 @@ class ModelRevTest(s_tests.SynTest):
             clients = select(nodes, 'inet:client')
             self.eq([k.ndef for k in clients], [client00, client01])
             fixed(clients[0], nodedata)
-            self.eq(clients[0].get('port'), 80)
+            self.none(clients[0].get('port'))
             control(clients[1])
 
             nodedata = {
@@ -2094,5 +2106,5 @@ class ModelRevTest(s_tests.SynTest):
             servers = select(nodes, 'inet:server')
             self.eq([k.ndef for k in servers], [server00, server01])
             fixed(servers[0], nodedata)
-            self.eq(servers[0].get('port'), 80)
+            self.none(servers[0].get('port'))
             control(servers[1])
