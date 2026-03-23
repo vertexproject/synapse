@@ -3289,7 +3289,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         typename, typeinfo = tdef
         if isinstance(typename, tuple):
             tdef = ('poly', self.model.convertPolyinfo(typename))
-        elif typename == 'poly':
+        elif typename in ('array', 'poly'):
             pass
         else:
             tdef = ('poly', self.model.convertPolyinfo((tdef,)))

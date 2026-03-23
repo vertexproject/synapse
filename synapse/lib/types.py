@@ -1817,6 +1817,10 @@ class Ival(Type):
 
         if isinstance(valu := valu[0], int):
             return valu
+
+        if isinstance(valu[0], int):
+            return valu[0]
+
         return valu[1][0]
 
     def _getMax(self, valu):
@@ -1825,6 +1829,10 @@ class Ival(Type):
 
         if isinstance(ival := valu[0], int):
             return valu[1]
+
+        if isinstance(valu[0], int):
+            return valu[0]
+
         return ival[1][1]
 
     def _getDuration(self, valu):
@@ -1833,7 +1841,7 @@ class Ival(Type):
 
         if isinstance(ival := valu[0], int):
             ival = valu
-        else:
+        elif not isinstance(ival[0], int):
             ival = ival[1]
 
         if (dura := ival[2]) != self.duratype.futdura:
@@ -2226,6 +2234,22 @@ class Poly(Type):
             return cmprfunc
 
         return ctor
+
+    async def normVirt(self, name, valu, newvirt, oldvirts=None):
+
+        if valu is not None:
+            typename = valu[0]
+            ntyp = self.modl.type(typename)
+            newv, norminfo = await ntyp.normVirt(name, valu[1], newvirt, oldvirts=oldvirts)
+            return (typename, newv), norminfo
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if name in ntyp.virtstor:
+                newv, norminfo = await ntyp.normVirt(name, None, newvirt, oldvirts=oldvirts)
+                return (ntyp.name, newv), norminfo
+
+        mesg = f'No editable virtual prop named {name} on type {self.name}.'
+        raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
     def getVirtIndx(self, virts):
         name = virts[0]

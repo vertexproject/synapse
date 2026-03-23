@@ -2118,7 +2118,15 @@ class StorTypePoly(StorType):
             else:
                 realtype = stortype & STOR_MASK_POLY
                 if virts:
-                    indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
+                    if realtype == STOR_TYPE_IVAL:
+                        if virts[0] == 'min':
+                            indxby = IndxByPoly(self.layr, form, prop, realtype)
+                        else:
+                            async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                                yield item
+                            return
+                    else:
+                        indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
                 else:
                     indxby = IndxByPoly(self.layr, form, prop, realtype)
 

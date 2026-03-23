@@ -452,7 +452,8 @@ testmodel = (
                 ('poly', (('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {}), {}),
                 ('polyarry', ('array', {
                     'type': ('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn',
-                             'test:guid', 'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str')}), {}),
+                             'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str')}), {}),
+                ('polyarry2', ('array', {'type': ('test:int', 'test:guid', 'test:auto', 'test:ro')}), {}),
                 ('polynonuniq', ('array', {
                     'uniq': False,
                     'sorted': False,
