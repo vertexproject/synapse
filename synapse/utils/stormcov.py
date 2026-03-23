@@ -193,7 +193,7 @@ class StormcovPlugin:
     def pytest_runtestloop(self, session): # pragma: no cover
         # NB: no coverage since this is a pytest hook
 
-        self.cov = coverage.Coverage(data_file='.stormcov')
+        self.cov = coverage.Coverage()
 
         if not self.append:
             self.cov.erase()
