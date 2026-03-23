@@ -299,8 +299,6 @@ async def genFormMarkdown(core, formname):
                             nestedtypes.add(atype)
                     elif tname != 'poly':
                         nestedtypes.add(tname)
-                elif isinstance(typedef, str):
-                    nestedtypes.add(typedef)
 
     # Referenced Types
     if nestedtypes:
@@ -426,8 +424,6 @@ async def genIfaceMarkdown(core, ifacename):
                             nestedtypes.add(atype)
                     elif tname != 'poly':
                         nestedtypes.add(tname)
-                elif isinstance(typedef, str):
-                    nestedtypes.add(typedef)
 
         lines.append('')
 
@@ -435,9 +431,6 @@ async def genIfaceMarkdown(core, ifacename):
     implforms = []
     for fname in sorted(forms.keys()):
         ftype = types.get(fname)
-        if ftype is None:
-            continue
-
         for iname, _iinfo in ftype.get('info', {}).get('interfaces', ()):
             if iname == ifacename:
                 implforms.append(fname)
@@ -580,8 +573,6 @@ async def genModelMarkdown(core):
     ifaceforms = {ifname: [] for ifname in interfaces}
     for formname in sorted(forms.keys()):
         formtype = types.get(formname)
-        if formtype is None:
-            continue
         for ifname, _ifinfo in formtype.get('info', {}).get('interfaces', ()):
             if ifname in ifaceforms:
                 ifaceforms[ifname].append(formname)

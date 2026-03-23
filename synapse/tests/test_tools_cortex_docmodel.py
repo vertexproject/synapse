@@ -1,4 +1,5 @@
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 
@@ -269,3 +270,224 @@ class DocModelTest(s_t_utils.SynTest):
 
         text = str(outp)
         self.isin('not found in model', text)
+
+    def test_tools_docmodel_doc_helper_fallbacks(self):
+
+        # _getFormDoc: forminfo has a direct 'doc' key → return it (line 16)
+        self.eq(s_docmodel._getFormDoc('foo', {'doc': 'direct doc'}, {}), 'direct doc')
+
+        # _getFormDoc: no doc on forminfo and name not in types → return '' (line 22)
+        self.eq(s_docmodel._getFormDoc('foo', {}, {}), '')
+
+        # _escpipe: None input → return '' (line 42)
+        self.eq(s_docmodel._escpipe(None), '')
+
+    def test_tools_docmodel_getbasetypename_unit(self):
+
+        getBase = s_docmodel._getBaseTypeName
+
+        # typename not found in types dict → None
+        self.none(getBase('nonexistent', {}))
+
+        # typename found but info has no bases → None
+        self.none(getBase('foo', {'foo': {'info': {}}}))
+
+        # typename found with bases → last base name
+        types = {'foo': {'info': {'bases': ('base1', 'base2')}}}
+        self.eq(getBase('foo', types), 'base2')
+
+    def test_tools_docmodel_gentypedetail_unit(self):
+
+        genDetail = s_docmodel._genTypeDetail
+
+        interfaces = {
+            'test:iface': {
+                'doc': 'A test interface.',
+                'interfaces': (),
+                'props': (),
+            },
+        }
+
+        types = {
+            'test:withiface': {
+                'info': {
+                    'doc': 'Type with interface.',
+                    'bases': ('str',),
+                    'interfaces': (('test:iface', {}),),
+                },
+                'opts': {'items': ['alpha', 'beta']},
+            },
+        }
+
+        # seen=None → initialises internally (line 137), processes normally
+        result = '\n'.join(genDetail('test:withiface', types, interfaces))
+        self.isin('### `test:withiface`', result)
+        self.isin('This type implements the following interfaces:', result)
+        self.isin('`test:iface`', result)
+        # non-empty list opt value → line 191
+        self.isin("['alpha', 'beta']", result)
+
+        # typename already in seen → early return [] (line 140)
+        self.eq(genDetail('test:withiface', types, interfaces, seen={'test:withiface'}), [])
+
+    def test_tools_docmodel_lookupedges_unit(self):
+
+        lookup = s_docmodel._lookupEdgesForForm
+
+        generic = ((None, 'refs', None), {'doc': 'generic'})
+        src_null_other_dst = ((None, 'refs', 'other:form'), {'doc': ''})
+        src_null_self_dst = ((None, 'refs', 'test:form'), {'doc': ''})
+        other_src_null_dst = (('other:form', 'refs', None), {'doc': ''})
+        self_src_null_dst = (('test:form', 'refs', None), {'doc': ''})
+        other_src_self_dst = (('other:form', 'refs', 'test:form'), {'doc': ''})
+        self_src_other_dst = (('test:form', 'refs', 'other:form'), {'doc': ''})
+        self_src_self_dst = (('test:form', 'refs', 'test:form'), {'doc': ''})
+
+        edges = [
+            generic,
+            src_null_other_dst,
+            src_null_self_dst,
+            other_src_null_dst,
+            self_src_null_dst,
+            other_src_self_dst,
+            self_src_other_dst,
+            self_src_self_dst,
+        ]
+
+        result = lookup('test:form', edges)
+
+        # src=None, dst=None → generic
+        self.isin(generic, result.get('generic', []))
+
+        # src=None, dst!=formname → source (line 211)
+        self.isin(src_null_other_dst, result.get('source', []))
+
+        # src=None, dst==formname → target (line 213)
+        self.isin(src_null_self_dst, result.get('target', []))
+
+        # src!=formname, dst=None → target (line 215)
+        self.isin(other_src_null_dst, result.get('target', []))
+
+        # src==formname, dst=None → source (line 217)
+        self.isin(self_src_null_dst, result.get('source', []))
+
+        # src!=formname, dst==formname → target (line 219)
+        self.isin(other_src_self_dst, result.get('target', []))
+
+        # src==formname, dst!=formname → source (line 221)
+        self.isin(self_src_other_dst, result.get('source', []))
+
+        # src==formname, dst==formname → both source and target (lines 223-224)
+        self.isin(self_src_self_dst, result.get('source', []))
+        self.isin(self_src_self_dst, result.get('target', []))
+
+    async def test_tools_docmodel_form_array_props(self):
+        # edu:class has array-type properties (e.g. :assistants, :names),
+        # exercising the array nestedtypes collection path in genFormMarkdown
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--form', 'edu:class'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `edu:class`', text)
+        self.isin('## Referenced Types', text)
+        # The array element types should appear in Referenced Types
+        self.isin('`entity:individual`', text)
+
+    async def test_tools_docmodel_interface_parents(self):
+        # ou:attendable inherits from meta:havable and entity:attendable,
+        # exercising the "## Inherits From" section in genIfaceMarkdown
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--interface', 'ou:attendable'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `ou:attendable`', text)
+        self.isin('## Inherits From', text)
+        self.isin('`meta:havable`', text)
+        self.isin('`entity:attendable`', text)
+
+    async def test_tools_docmodel_interface_array_props(self):
+        # entity:contactable has array-type properties (e.g. :names, :emails),
+        # exercising the array nestedtypes collection path in genIfaceMarkdown
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--interface', 'entity:contactable'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `entity:contactable`', text)
+        self.isin('## Referenced Types', text)
+
+    async def test_tools_docmodel_tagprops(self):
+        # A cortex with tag properties exercises the Tag Properties section
+        # in genModelMarkdown (lines 565-577)
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.addTagProp('test:score', ('int', {}), {'doc': 'A test tag score.'})
+
+            lurl = core.getLocalUrl()
+            outp = self.getTestOutp()
+            self.eq(await s_docmodel.main(['--cortex', lurl], outp=outp), 0)
+
+            text = str(outp)
+            self.isin('## Tag Properties', text)
+            self.isin('`test:score`', text)
+            self.isin('A test tag score.', text)
+
+    async def test_tools_docmodel_form_interface_nodoc(self):
+        # A custom form whose type implements an interface with no doc triggers
+        # the no-doc branch in the genFormMarkdown interfaces table (line 274)
+
+        async with self.getTestCore() as core:
+            core.model.addDataModels([('test', {
+                'interfaces': (
+                    ('test:nodoc:iface', {
+                        'props': (),
+                        # deliberately no 'doc' key
+                    }),
+                ),
+                'types': (
+                    ('test:nodoc:form', ('str', {}), {
+                        'interfaces': (('test:nodoc:iface', {}),),
+                        'doc': 'A form with a no-doc interface.',
+                    }),
+                ),
+                'forms': (
+                    ('test:nodoc:form', {}, ()),
+                ),
+            })])
+
+            text = await s_docmodel.genFormMarkdown(core, 'test:nodoc:form')
+            self.isin('`test:nodoc:iface`', text)
+            # Row has no " - <doc>" annotation because interface has no doc
+            self.notin('test:nodoc:iface` -', text)
+
+    async def test_tools_docmodel_iface_implementing_forms(self):
+        # A custom interface implemented by a form exercises the
+        # "## Implementing Forms" section in genIfaceMarkdown
+
+        async with self.getTestCore() as core:
+            core.model.addDataModels([('test', {
+                'interfaces': (
+                    ('test:impl:iface', {
+                        'doc': 'A test interface with an implementing form.',
+                        'props': (
+                            ('score', ('int', {}), {'doc': 'A score.'}),
+                        ),
+                    }),
+                ),
+                'types': (
+                    ('test:impl:form', ('str', {}), {
+                        'doc': 'A form implementing test:impl:iface.',
+                        'interfaces': (('test:impl:iface', {}),),
+                    }),
+                ),
+                'forms': (
+                    ('test:impl:form', {}, ()),
+                ),
+            })])
+
+            text = await s_docmodel.genIfaceMarkdown(core, 'test:impl:iface')
+            self.isin('# `test:impl:iface`', text)
+            self.isin('## Implementing Forms', text)
+            self.isin('`test:impl:form`', text)
