@@ -377,6 +377,9 @@ modeldefs = (
 
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
+
+            ('meta:negotiable', {
+                'doc': 'An interface implemented by activities which involve negotiation.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

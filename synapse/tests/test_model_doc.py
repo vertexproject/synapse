@@ -100,25 +100,19 @@ class DocModelTest(s_tests.SynTest):
                 :type=foo.bar
                 :issuer={[ ou:org=({"name": "vertex"}) ]}
                 :parties={[ entity:contact=* entity:contact=* ]}
-                :signers={[ entity:contact=* entity:contact=* ]}
                 :file={[ file:bytes=* ]}
                 :signed=202001
                 :period=(202002, 202003)
-                :completed=202004
-                :terminated=202005
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'title', 'Fullbright Scholarship')
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'signed', 1577836800000000)
             self.propeq(nodes[0], 'period', (1580515200000000, 1583020800000000, 2505600000000))
-            self.propeq(nodes[0], 'completed', 1585699200000000)
-            self.propeq(nodes[0], 'terminated', 1588291200000000)
             self.len(2, nodes[0].get('parties'))
 
             self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
             self.len(2, await core.nodes('doc:contract :parties -> *'))
-            self.len(2, await core.nodes('doc:contract :signers -> *'))
 
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)

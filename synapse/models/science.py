@@ -21,9 +21,15 @@ modeldefs = (
                 'doc': 'A taxonomy of experiment types.'}),
 
             ('sci:experiment', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'An instance of running an experiment.'}),
 
             ('sci:observation', ('guid', {}), {
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
                 'doc': 'An observation which may have resulted from an experiment.'}),
 
             ('sci:evidence', ('guid', {}), {
