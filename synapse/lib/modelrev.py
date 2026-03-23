@@ -2220,6 +2220,13 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                         logger.error('Encountered un-normable node valu: %s=%s', formname, formvalu)
                         continue
 
+                    # We need to collect all the inet:client/inet:server nodes
+                    # because there's a :port prop migration below but we don't
+                    # need all the inet:url nodes so skip any that are already
+                    # correct.
+                    if formname == 'inet:url' and formvalu == newvalu:
+                        continue
+
                     node = self.getNode(buid)
                     node['formvalu'] = formvalu
                     node['formname'] = formname

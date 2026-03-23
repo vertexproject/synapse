@@ -1950,29 +1950,26 @@ class InetModelTest(s_t_utils.SynTest):
 
         # Handle IPv6 Port Brackets
         host_port = host
-        repr_host_port = repr_host
-        repr_host_url = repr_host
 
         if htype == 'ipv6':
             host_port = f'[{host}]'
-            repr_host_port = f'[{repr_host}]'
-            repr_host_url = f'[{repr_host}]'
+            repr_host = f'[{repr_host}]'
 
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
-        expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://user:password@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
-            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/',
+            'base': f'https://user:password@{repr_host}:1234/a/b/c/',
             'params': ''
         }})
         self.eq(t.norm(url), expected)
 
         # Userinfo user with @ in it
         url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
-        expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
+        expected = (f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway', {'subs': {
             'proto': 'lando', 'path': '/auth/gateway',
             'user': 'visi@vertex.link',
-            'base': f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway',
+            'base': f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway',
             'port': 40000,
             'params': '',
             htype: norm_host,
@@ -1981,10 +1978,10 @@ class InetModelTest(s_t_utils.SynTest):
 
         # Userinfo password with @
         url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
-        expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
+        expected = (f'balthazar://root:foo@@@bar@{repr_host}:1234/', {'subs': {
             'proto': 'balthazar', 'path': '/',
             'user': 'root', 'passwd': 'foo@@@bar',
-            'base': f'balthazar://root:foo@@@bar@{repr_host_port}:1234/',
+            'base': f'balthazar://root:foo@@@bar@{repr_host}:1234/',
             'port': 1234,
             'params': '',
             htype: norm_host,
@@ -1993,10 +1990,10 @@ class InetModelTest(s_t_utils.SynTest):
 
         # rfc3986 compliant Userinfo with @ properly encoded
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
-        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
+        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343', {'subs': {
             'proto': 'calrissian', 'path': '',
             'user': 'visi@vertex.link', 'passwd': 'surround@',
-            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
+            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343',
             'port': 44343,
             'params': '',
             htype: norm_host,
@@ -2005,10 +2002,10 @@ class InetModelTest(s_t_utils.SynTest):
 
         # unencoded query params are handled nicely
         url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
-        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host_url}/?q=@foobarbaz', {'subs': {
+        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
             'proto': 'https', 'path': '/',
             'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
-            'base': f'https://visi@vertex.link:neato@burrito@{repr_host_url}/',
+            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
             'port': 443,
             'params': '?q=@foobarbaz',
             htype: norm_host,
@@ -2018,9 +2015,9 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no port, but default port valu.
         # Port should be in subs, but not normed URL.
         url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
-        expected = (f'https://user:password@{repr_host_url}/a/b/c/?foo=bar&baz=faz', {'subs': {
+        expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443,
-            'base': f'https://user:password@{repr_host_url}/a/b/c/',
+            'base': f'https://user:password@{repr_host}/a/b/c/',
             'params': '?foo=bar&baz=faz',
         }})
         self.eq(t.norm(url), expected)
@@ -2028,9 +2025,9 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no port and no default port valu.
         # Port should not be in subs or normed URL.
         url = f'arbitrary://user:password@{host}/a/b/c/'
-        expected = (f'arbitrary://user:password@{repr_host_url}/a/b/c/', {'subs': {
+        expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
             'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host,
-            'base': f'arbitrary://user:password@{repr_host_url}/a/b/c/',
+            'base': f'arbitrary://user:password@{repr_host}/a/b/c/',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
@@ -2038,9 +2035,9 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with user but no password.
         # User should still be in URL and subs.
         url = f'https://user@{host_port}:1234/a/b/c/'
-        expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://user@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234,
-            'base': f'https://user@{repr_host_port}:1234/a/b/c/',
+            'base': f'https://user@{repr_host}:1234/a/b/c/',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
@@ -2048,27 +2045,27 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no user/password.
         # User/Password should not be in URL or subs.
         url = f'https://{host_port}:1234/a/b/c/'
-        expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://{repr_host}:1234/a/b/c/', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234/a/b/c/',
+            'base': f'https://{repr_host}:1234/a/b/c/',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
 
         # URL with no path.
         url = f'https://{host_port}:1234'
-        expected = (f'https://{repr_host_port}:1234', {'subs': {
+        expected = (f'https://{repr_host}:1234', {'subs': {
             'proto': 'https', 'path': '', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234',
+            'base': f'https://{repr_host}:1234',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
 
         # URL with no path or port or default port.
         url = f'a://{host}'
-        expected = (f'a://{repr_host_url}', {'subs': {
+        expected = (f'a://{repr_host}', {'subs': {
             'proto': 'a', 'path': '', htype: norm_host,
-            'base': f'a://{repr_host_url}',
+            'base': f'a://{repr_host}',
             'params': '',
         }})
         self.eq(t.norm(url), expected)
