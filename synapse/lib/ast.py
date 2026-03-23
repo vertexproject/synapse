@@ -2303,7 +2303,7 @@ class LiftPropVirt(LiftProp):
                     if (valu := node.get(relname)) is None:
                         return None
 
-                    vtyp = runt.model.form(valu[0]).type
+                    vtyp = runt.model.type(valu[0])
                     (vtyp, vgetr) = vtyp.getVirtInfo(virts)
 
                     return node.get(relname, virts=vgetr)
@@ -2462,7 +2462,7 @@ class LiftPropVirtBy(LiftOper):
                         if (valu := node.get(relname)) is None:
                             return None
 
-                        vtyp = runt.model.form(valu[0]).type
+                        vtyp = runt.model.type(valu[0])
                         (vtyp, vgetr) = vtyp.getVirtInfo(vnames)
 
                         return node.get(relname, virts=vgetr)
@@ -3592,7 +3592,7 @@ class HasRelPropCond(Cond):
             if ptyp.virts.get(virts[0]) is not None:
                 return True
 
-            ptyp = runt.model.form(valu[0]).type
+            ptyp = runt.model.type(valu[0])
 
         try:
             vgetr = ptyp.getVirtGetr(virts)
@@ -3725,7 +3725,7 @@ class HasAbsPropCond(Cond):
                     if (valu := node.get(relname)) is None:
                         return False
 
-                    vgetr = runt.model.form(valu[0]).type.getVirtGetr(virts)
+                    vgetr = runt.model.type(valu[0]).getVirtGetr(virts)
                     return node.has(relname, virts=vgetr)
 
             return cond
@@ -3842,11 +3842,11 @@ class ArrayCond(Cond):
                     if (vval := vvals.get(vnames[0])) is None:
                         return False
 
-                    fnames = set(v[0] for v in valu)
+                    tnames = set(v[0] for v in valu)
 
                     cmprs = {}
-                    for fname in fnames:
-                        ftyp = runt.model.form(fname).type
+                    for tname in tnames:
+                        ftyp = runt.model.type(tname)
                         vtyp = ftyp.getVirtType(vnames)
 
                         if vtyp.stortype not in cmprs:
@@ -3985,7 +3985,7 @@ class AbsVirtPropCond(Cond):
             if (valu := node.get(prop.name)) is None:
                 return False
 
-            ptyp = runt.model.form(valu[0]).type
+            ptyp = runt.model.type(valu[0])
             (ptyp, getr) = ptyp.getVirtInfo(virts)
 
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
@@ -4289,43 +4289,32 @@ class PropValue(Value):
         getr = None
         ptyp = prop.type
 
-        if ptyp.ispoly:
-            if self.virts is not None:
-                if (virts := self.constvirts) is None:
-                    virts = await self.virts.compute(runt, path)
+        if self.virts is not None:
+            if (virts := self.constvirts) is None:
+                virts = await self.virts.compute(runt, path)
 
-                if ptyp.virts.get(virts[0]) is None:
-                    if (valu := node.get(realprop)) is None:
-                        return None, None, None
-                    ptyp = runt.model.form(valu[0]).type
-
-                (ptyp, getr) = ptyp.getVirtInfo(virts)
-                fullname += f".{'.'.join(virts)}"
-
-                if (valu := node.get(realprop, virts=getr)) is None:
+            if ptyp.ispoly and ptyp.virts.get(virts[0]) is None:
+                if (valu := node.get(realprop)) is None:
                     return None, None, None
+                ptyp = runt.model.type(valu[0])
 
-            else:
-                if not resolvepoly:
-                    if (valu := node.getWithVirts(realprop))[0] is None:
-                        return None, None, None
-                else:
-                    if (valu := node.get(realprop, virts=getr)) is None:
-                        return None, None, None
-
-                    ptyp = runt.model.form(valu[0]).type
-                    valu = valu[1]
-
-        else:
-            if self.virts is not None:
-                if (virts := self.constvirts) is None:
-                    virts = await self.virts.compute(runt, path)
-
-                (ptyp, getr) = ptyp.getVirtInfo(virts)
-                fullname += f".{'.'.join(virts)}"
+            (ptyp, getr) = ptyp.getVirtInfo(virts)
+            fullname += f".{'.'.join(virts)}"
 
             if (valu := node.get(realprop, virts=getr)) is None:
                 return None, None, None
+
+        else:
+            if ptyp.ispoly and not resolvepoly:
+                if (valu := node.getWithVirts(realprop))[0] is None:
+                    return None, None, None
+            else:
+                if (valu := node.get(realprop)) is None:
+                    return None, None, None
+
+                if ptyp.ispoly:
+                    ptyp = runt.model.type(valu[0])
+                    valu = valu[1]
 
         return ptyp, valu, fullname
 
@@ -5636,7 +5625,7 @@ class N1Walk(Oper):
                 for name, prop in props.items():
                     if (propvalu := node.get(name)) is not None:
                         if prop.type.ispoly:
-                            if await runt.model.form(propvalu[0]).type.cmpr(propvalu[1], cmpr, cmprvalu):
+                            if await runt.model.type(propvalu[0]).cmpr(propvalu[1], cmpr, cmprvalu):
                                 return True
 
                         elif await prop.type.cmpr(propvalu, cmpr, cmprvalu):

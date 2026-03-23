@@ -3991,6 +3991,8 @@ class AstTest(s_test.SynTest):
                             valu = node.ndef[1]
                         elif tag is None:
                             valu = node.get(prop)
+                            if not prop.startswith('#'):
+                                valu = valu[1]
                         else:
                             valu = node.getTagProp(tag, prop)
 

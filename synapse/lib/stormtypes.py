@@ -6165,7 +6165,7 @@ class NodeRef(Prim):
 
         runt = s_scope.get('runt')
 
-        if (tobj := runt.view.core.model.reqType(self.valu[0])) is not None:
+        if (tobj := runt.view.core.model.type(self.valu[0])) is not None:
             for name in names:
                 if name in tobj.types:
                     return True
