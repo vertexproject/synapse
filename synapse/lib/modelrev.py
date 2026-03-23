@@ -1768,7 +1768,7 @@ class ModelMigrationBase:
                             existv, _existst = existprops[propname]
                             merged = (min(propvalu[0], existv[0]), max(propvalu[1], existv[1]))
                             if merged != existv:
-                                await self.editPropSet(layriden, newbuid, formname, propname, merged, existv, stortype)
+                                await self.editPropSet(layriden, newbuid, formname, propname, merged, None, stortype)
                         else:
                             await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
@@ -1800,7 +1800,7 @@ class ModelMigrationBase:
                         existv = existtags[tagname]
                         if existv == (None, None):
                             # No existing valu, set incoming tagvalu and go around
-                            await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, existv)
+                            await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
                             continue
 
                         # Existing valu and incoming tagvalu so merge them
@@ -1808,7 +1808,7 @@ class ModelMigrationBase:
                         if merged == existv:
                             continue
 
-                        await self.editTagSet(layriden, newbuid, formname, tagname, merged, existv)
+                        await self.editTagSet(layriden, newbuid, formname, tagname, merged, None)
                     else:
                         await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
 
