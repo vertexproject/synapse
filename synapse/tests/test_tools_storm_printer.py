@@ -46,6 +46,41 @@ class TestStormPrinter(s_t_utils.SynTest):
         self.isin('#bar:risk = 50', s)
         self.isin('#foo', s)
 
+        # hideprops suppresses props but not tags
+        outp = self.getTestOutp()
+        printer = s_printer.StormPrinter(outp)
+        printer.hideprops = True
+        printer.printNode(node)
+        s = str(outp)
+        self.isin('test:str=hello', s)
+        self.notin(':tick', s)
+        self.notin('.created', s)
+        self.isin('#foo', s)
+
+        # hidetags suppresses tags but not props
+        outp = self.getTestOutp()
+        printer = s_printer.StormPrinter(outp)
+        printer.hidetags = True
+        printer.printNode(node)
+        s = str(outp)
+        self.isin(':tick', s)
+        self.notin('#foo', s)
+
+        # _printNodeProp override is called by printNode
+        called = []
+
+        class CustomPrinter(s_printer.StormPrinter):
+            def _printNodeProp(self, name, valu):
+                called.append((name, valu))
+                self.printf(f'CUSTOM: {name} = {valu}')
+
+        outp = self.getTestOutp()
+        printer = CustomPrinter(outp)
+        printer.printNode(node)
+        s = str(outp)
+        self.isin('CUSTOM: :tick =', s)
+        self.gt(len(called), 0)
+
     async def test_tools_storm_printer_err(self):
 
         # BadSyntax with caret
@@ -176,90 +211,3 @@ class TestStormPrinter(s_t_utils.SynTest):
         printer = s_printer.StormPrinter(outp)
         self.true(printer.printMesg(('init', {})))
         self.eq('', str(outp))
-
-    async def test_tools_storm_printer_node_hide(self):
-
-        node = (
-            ('test:str', 'hello'),
-            {
-                'repr': 'hello',
-                'props': {
-                    '.created': 1234567890000,
-                    'tick': 1234567890000,
-                },
-                'reprs': {
-                    '.created': '2009/02/13 23:31:30.000',
-                    'tick': '2009/02/13 23:31:30.000',
-                },
-                'tags': {
-                    'foo': (None, None, None),
-                },
-                'tagprops': {},
-                'tagpropreprs': {},
-            },
-        )
-
-        # hideprops suppresses props
-        outp = self.getTestOutp()
-        printer = s_printer.StormPrinter(outp)
-        printer.hideprops = True
-        printer.printNode(node)
-        s = str(outp)
-        self.isin('test:str=hello', s)
-        self.notin(':tick', s)
-        self.notin('.created', s)
-        self.isin('#foo', s)
-
-        # hidetags suppresses tags
-        outp = self.getTestOutp()
-        printer = s_printer.StormPrinter(outp)
-        printer.hidetags = True
-        printer.printNode(node)
-        s = str(outp)
-        self.isin('test:str=hello', s)
-        self.isin(':tick', s)
-        self.notin('#foo', s)
-
-        # both hide props and tags
-        outp = self.getTestOutp()
-        printer = s_printer.StormPrinter(outp)
-        printer.hideprops = True
-        printer.hidetags = True
-        printer.printNode(node)
-        s = str(outp)
-        self.isin('test:str=hello', s)
-        self.notin(':tick', s)
-        self.notin('#foo', s)
-
-    async def test_tools_storm_printer_node_propf_override(self):
-
-        called = []
-
-        class CustomPrinter(s_printer.StormPrinter):
-            def _printNodeProp(self, name, valu):
-                called.append((name, valu))
-                self.printf(f'CUSTOM: {name} = {valu}')
-
-        node = (
-            ('test:str', 'hello'),
-            {
-                'repr': 'hello',
-                'props': {
-                    'tick': 1234567890000,
-                },
-                'reprs': {
-                    'tick': '2009/02/13 23:31:30.000',
-                },
-                'tags': {},
-                'tagprops': {},
-                'tagpropreprs': {},
-            },
-        )
-
-        outp = self.getTestOutp()
-        printer = CustomPrinter(outp)
-        printer.printNode(node)
-        s = str(outp)
-        self.isin('CUSTOM: :tick = 2009/02/13 23:31:30.000', s)
-        self.len(1, called)
-        self.eq(called[0], (':tick', '2009/02/13 23:31:30.000'))
