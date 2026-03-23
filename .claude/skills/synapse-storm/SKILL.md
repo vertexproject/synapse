@@ -71,29 +71,6 @@ The `--view` option runs the query in a specific view by iden instead of the def
 - Use `--forked` to run queries without modifying the underlying data
 - Combine `--dir` + `--forked` for safe, repeatable testing against persistent data
 
-### Using the Parser Directly (Alternative)
-
-```python
-import synapse.lib.parser as s_parser
-
-# Parse and validate a Storm query
-try:
-    ast = s_parser.parseQuery(text, mode='storm')
-except synapse.exc.BadSyntax as e:
-    # e.errinfo contains: mesg, at, line, column, token, highlight
-    print(e.errinfo)
-```
-
-Parse modes: `'storm'` (default), `'lookup'`, `'autoadd'`, `'search'`
-
-### Using a Cortex (Runtime Validation)
-
-```python
-# Validates syntax + resolves forms/properties against the data model
-async with cortex.getStormQuery(text) as query:
-    pass
-```
-
 ## Reading BadSyntax Errors
 
 A `BadSyntax` exception contains:
@@ -195,11 +172,11 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ -(refs)> { inet:ipv4=1.2.3.4 } ]          // remove edge via subquery
 [ <(seen)+ $srcnode ]                         // add N2 edge to variable
 
-// Parenthesized edit context only applies edits to nodes created in the same parens
-[( risk:vuln=($ndef, $vuln)
-    :node=$ndef
-    :vuln=$vuln
-    <(seen)+ $srcnode
+// Parenthesized edit context only edits nodes created in the same parens context
+// All other nodes in the pipeline are not affected
+[( risk:vuln=($vendor, $id)
+    :name=Woot          // Only edits name on the risk:vuln
+    <(seen)+ $srcnode   // Only adds the edge to the risk:vuln
 )]
 ```
 
@@ -321,14 +298,14 @@ for $n in $getNodes() {
 ### Subqueries
 
 ```storm
-// Pass-through (nodes in the pipeline unchanged despite pivots in the sub-query)
-inet:fqdn { -> inet:dns:a [ +#reviewed ] } // still has inet:fqdn nodes in the pipeline
-
 // As node reference in edits
 [ :account = { [ syn:user=$lib.auth.users.get().iden ] } ]
 
 // Embedded query expression
 $file = { [ file:bytes=$sha256 ] }
+
+// Perform operations after pivots or filters without effecting the outer pipeline
+inet:fqdn { -> inet:dns:a [ +#reviewed ] } // still has inet:fqdn nodes in the pipeline
 ```
 
 ### Lifecycle Blocks
