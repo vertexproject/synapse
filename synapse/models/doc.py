@@ -35,6 +35,7 @@ modeldefs = (
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
+
             ('doc:document', {
 
                 'doc': 'A common interface for documents.',
@@ -66,6 +67,13 @@ modeldefs = (
                         'doc': 'The name of the file containing the {title} contents.'}),
                 ),
             }),
+
+            ('doc:signable', {
+                'props': (
+                    ('signed', ('time', {}), {
+                        'doc': 'The date that the {title} signing was complete.'}),
+                ),
+                'doc': 'An interface implemented by documents which can be signed by actors.'}),
         ),
         'types': (
 
@@ -137,10 +145,10 @@ modeldefs = (
 
             ('doc:contract', ('guid', {}), {
                 'prevnames': ('ou:contract',),
+                'template': {'title': 'contract'},
                 'interfaces': (
-                    ('doc:document', {'template': {
-                        'title': 'contract',
-                        'type': 'doc:contract:type:taxonomy'}}),
+                    ('doc:document', {}),
+                    ('doc:signable', {}),
                 ),
                 'doc': 'A contract between multiple entities.'}),
 
@@ -239,20 +247,8 @@ modeldefs = (
                 ('parties', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The entities bound by the contract.'}),
 
-                ('signers', ('array', {'type': 'entity:individual'}), {
-                    'doc': 'The individuals who signed the contract.'}),
-
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the contract is in effect.'}),
-
-                ('signed', ('time', {}), {
-                    'doc': 'The date that the contract signing was complete.'}),
-
-                ('completed', ('time', {}), {
-                    'doc': 'The date that the contract was completed.'}),
-
-                ('terminated', ('time', {}), {
-                    'doc': 'The date that the contract was terminated.'}),
             )),
 
             ('doc:reference', {}, (
