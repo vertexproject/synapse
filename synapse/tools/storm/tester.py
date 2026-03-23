@@ -6,132 +6,11 @@ import tempfile
 import synapse.cortex as s_cortex
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.node as s_node
 import synapse.lib.output as s_output
 
+import synapse.tools.storm._printer as s_printer
+
 desc = 'Run Storm queries against a local Cortex.'
-
-def handleErr(outp, mesg):
-    err = mesg[1]
-    if err[0] == 'BadSyntax':
-        pos = err[1].get('at', None)
-        text = err[1].get('text', None)
-        tlen = len(text)
-        emsg = err[1].get('mesg', None)
-        if pos is not None and text is not None and emsg is not None:
-            text = text.replace('\n', ' ')
-            if tlen > 60:
-                text = text[max(0, pos - 30):pos + 30]
-                if pos < tlen - 30:
-                    text += '...'
-                if pos > 30:
-                    text = '...' + text
-                    pos = 33
-
-            outp.printf(text)
-            outp.printf(f'{" " * pos}^')
-            outp.printf(f'Syntax Error: {emsg}')
-            return
-
-    text = err[1].get('mesg', err[0])
-    outp.printf(f'ERROR: {text}')
-
-def printNodeProp(outp, name, valu):
-    outp.printf(f'        {name} = {valu}')
-
-def printStormMesg(outp, mesg):
-    mtyp = mesg[0]
-
-    if mtyp == 'node':
-        node = mesg[1]
-        formname, formvalu = s_node.reprNdef(node)
-        outp.printf(f'{formname}={formvalu}')
-
-        props = []
-        extns = []
-        univs = []
-
-        for name in s_node.props(node).keys():
-
-            if name.startswith('.'):
-                univs.append(name)
-                continue
-
-            if name.startswith('_'):
-                extns.append(name)
-                continue
-
-            props.append(name)
-
-        props.sort()
-        extns.sort()
-        univs.sort()
-
-        for name in props:
-            valu = s_node.reprProp(node, name)
-            name = ':' + name
-            printNodeProp(outp, name, valu)
-
-        for name in extns:
-            valu = s_node.reprProp(node, name)
-            name = ':' + name
-            printNodeProp(outp, name, valu)
-
-        for name in univs:
-            valu = s_node.reprProp(node, name)
-            printNodeProp(outp, name, valu)
-
-        for tag in sorted(s_node.tagsnice(node)):
-
-            valu = s_node.reprTag(node, tag)
-            tprops = s_node.reprTagProps(node, tag)
-            printed = False
-            if valu:
-                outp.printf(f'        #{tag} = {valu}')
-                printed = True
-
-            if tprops:
-                for prop, pval in tprops:
-                    outp.printf(f'        #{tag}:{prop} = {pval}')
-                printed = True
-
-            if not printed:
-                outp.printf(f'        #{tag}')
-
-        return True
-
-    if mtyp == 'node:edits':
-        edit = mesg[1]
-        count = sum(len(e[2]) for e in edit.get('edits', ()))
-        outp.printf('.' * count, addnl=False)
-        return True
-
-    if mtyp == 'fini':
-        took = mesg[1].get('took') / 1000
-        took = max(took, 1)
-        count = mesg[1].get('count')
-        pers = float(count) / float(took / 1000)
-        outp.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
-        return True
-
-    if mtyp == 'print':
-        outp.printf(mesg[1].get('mesg'))
-        return True
-
-    if mtyp == 'warn':
-        info = mesg[1].copy()
-        warn = info.pop('mesg', '')
-        xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
-        if xtra:
-            warn = ' '.join([warn, xtra])
-        outp.printf(f'WARNING: {warn}')
-        return True
-
-    if mtyp == 'err':
-        handleErr(outp, mesg)
-        return False
-
-    return True
 
 async def main(argv, outp=s_output.stdout):
 
@@ -165,6 +44,8 @@ async def main(argv, outp=s_output.stdout):
 
         ret = 0
 
+        printer = s_printer.StormPrinter(outp)
+
         async with await s_cortex.Cortex.anit(dirn) as core:
 
             stormopts = {'node:opts': {'repr': True}}
@@ -192,7 +73,7 @@ async def main(argv, outp=s_output.stdout):
                         outp.printf(json.dumps(mesg, sort_keys=True))
                         continue
 
-                    if not printStormMesg(outp, mesg):
+                    if not printer.printMesg(mesg):
                         ret = 1
 
             finally:

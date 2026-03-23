@@ -484,27 +484,18 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
             if mtyp in self._print_skips:
                 continue
 
-            if mtyp == 'node':
-                self.printNode(mesg[1])
-
-            elif mtyp == 'node:edits':
+            if mtyp == 'node:edits':
                 edit = mesg[1]
                 count = sum(len(e[2]) for e in edit.get('edits', ()))
                 s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
                 self.indented = True
 
-            elif mtyp == 'fini':
-                self.printFini(mesg)
-
-            elif mtyp == 'print':
-                self.printf(mesg[1].get('mesg'))
-
-            elif mtyp == 'warn':
-                self.printWarn(mesg)
-
             elif mtyp == 'err':
                 await self.handleErr(mesg)
                 ret = False
+
+            else:
+                self.printMesg(mesg)
 
         return ret
 
