@@ -17,10 +17,22 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
         self.eq(exc.exception.get('mesg'), "invalid literal, expected a valid literal such as 'null'")
+        self.eq(exc.exception.get('text'), 'newp')
+
+        with self.raises(s_exc.BadJsonText) as exc:
+            s_json.loads(b'not json bytes')
+        self.eq(exc.exception.get('text'), 'not json bytes')
+
+        # text longer than 256 chars is trimmed with a trailing ellipsis
+        longtext = 'x' * 300
+        with self.raises(s_exc.BadJsonText) as exc:
+            s_json.loads(longtext)
+        self.eq(exc.exception.get('text'), 'x' * 253 + '...')
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('')
         self.eq(exc.exception.get('mesg'), 'Cannot deserialize empty value.')
+        self.assertIsNone(exc.exception.get('text'))
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads(b'')
