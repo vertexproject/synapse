@@ -193,10 +193,7 @@ class StormcovPlugin:
     def pytest_runtestloop(self, session): # pragma: no cover
         # NB: no coverage since this is a pytest hook
 
-        self.cov = coverage.Coverage.current()
-
-        if self.cov is None:
-            self.cov = coverage.Coverage()
+        self.cov = coverage.Coverage()
 
         if not self.append:
             self.cov.erase()
@@ -263,7 +260,10 @@ class StormcovPlugin:
         if not self.iscontroller and not self.lines_hit:
             return
 
-        self.cov.report(skip_covered=False, skip_empty=False)
+        try:
+            self.cov.report(skip_covered=False, skip_empty=False)
+        except coverage.exceptions.NoDataError:
+            logger.warning('No storm coverage data was found.')
 
     def sysmon_py_start(self, code, instruction_offset): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
