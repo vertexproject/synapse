@@ -1,6 +1,0 @@
----
-desc: Fixed the return type declaration for ``$lib.dmon.add()`` to correctly indicate it returns a ``dict`` instead of a ``str``.
-desc:literal: false
-prs: []
-type: bug
-...

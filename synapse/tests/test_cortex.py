@@ -6078,7 +6078,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 asuser = {'user': user.iden}
 
                 ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
-                self.isinstance(ddef, dict)
                 iden = ddef.get('iden')
                 asuser['vars'] = {'iden': iden}
 

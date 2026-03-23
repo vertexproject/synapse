@@ -710,7 +710,7 @@ class LibDmon(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname'},
                       {'name': 'ddef', 'type': 'dict', 'desc': 'Additional daemon definition fields. ', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.'}}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.'}}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
