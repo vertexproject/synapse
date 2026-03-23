@@ -1,5 +1,4 @@
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 
