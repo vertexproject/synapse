@@ -118,6 +118,10 @@ class Prop:
                 for iface in ifaces:
                     self.modl.polypropsbyiface[iface][self.full] = self
 
+            if self.type.typeset:
+                for tname in self.type.typeset:
+                    self.modl.propsbytype[tname][self.full] = self
+
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
 

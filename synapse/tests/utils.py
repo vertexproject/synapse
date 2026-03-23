@@ -370,7 +370,7 @@ testmodel = (
 
                 ('intprop', ('int', {'min': 20, 'max': 30}), {}),
                 ('int2', ('int', {}), {}),
-                ('strprop', ('str', {'lower': 1}), {}),
+                ('strprop', ('test:lower', {}), {}),
                 ('guidprop', ('guid', {}), {}),
                 ('locprop', ('loc', {}), {}),
             )),

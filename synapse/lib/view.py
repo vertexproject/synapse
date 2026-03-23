@@ -2993,7 +2993,12 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getRuntPodes(self, prop, cmprvalu=None):
         liftfunc = self.core.getRuntLift(prop.form.name)
         if liftfunc is not None:
+            proptypes = {name: proptype.type.opts['default_types'][0] for name, proptype in prop.form.props.items()}
+
             async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
+                if (props := pode[1].get('props')):
+                    for name, valu in props.items():
+                        props[name] = (proptypes[name], valu)
                 yield pode
 
     async def getDeletedRuntNode(self, nid):
