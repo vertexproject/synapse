@@ -16,6 +16,7 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('## Interfaces', text)
         self.isin('## Forms', text)
         self.isin('## Edges', text)
+        self.isin('## Tag Properties', text)
 
         # Verify interfaces are present
         self.isin('### `meta:observable`', text)
@@ -81,6 +82,9 @@ class DocModelTest(s_t_utils.SynTest):
         # Verify edges are present
         self.isin('| Source | Verb | Target | Doc |', text)
         self.isin('`refs`', text)
+
+        # Verify wildcard edges use plain * not escaped \*
+        self.notin('`\\*`', text)
 
     async def test_tools_docmodel_cortex(self):
 
@@ -194,8 +198,74 @@ class DocModelTest(s_t_utils.SynTest):
             if not line.startswith('|'):
                 break
             parts = [p.strip().strip('`') for p in line.split('|')[1:4]]
-            # Normalize \* back to * for sorting comparison
-            parts = [p.replace('\\*', '*') for p in parts]
             edgekeys.append(tuple(parts))
         self.gt(len(edgekeys), 0)
         self.eq(edgekeys, sorted(edgekeys))
+
+    async def test_tools_docmodel_form(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--form', 'inet:fqdn'], outp=outp), 0)
+
+        text = str(outp)
+
+        # Top-level heading for the form
+        self.isin('# `inet:fqdn`', text)
+
+        # Properties section with table
+        self.isin('## Properties', text)
+        self.isin('| Property | Type | Doc |', text)
+
+        # Referenced Types section
+        self.isin('## Referenced Types', text)
+
+        # Wildcard edges use plain * not escaped \*
+        self.notin('`\\*`', text)
+
+    async def test_tools_docmodel_form_edges(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--form', 'inet:fqdn'], outp=outp), 0)
+
+        text = str(outp)
+
+        # Edge verbs use Storm -(verb)> notation
+        if '## Source Edges' in text or '## Target Edges' in text:
+            self.isin('`-(', text)
+
+    async def test_tools_docmodel_interface(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--interface', 'meta:observable'], outp=outp), 0)
+
+        text = str(outp)
+
+        # Top-level heading for the interface
+        self.isin('# `meta:observable`', text)
+
+        # Properties section
+        self.isin('## Properties', text)
+        self.isin('| Property | Type | Doc |', text)
+
+        # Implementing Forms section
+        self.isin('## Implementing Forms', text)
+        self.isin('| Form |', text)
+
+        # Template variables resolved
+        self.notin('{title}', text)
+
+    async def test_tools_docmodel_form_notfound(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--form', 'notreal:form'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('not found in model', text)
+
+    async def test_tools_docmodel_interface_notfound(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--interface', 'notreal:iface'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('not found in model', text)

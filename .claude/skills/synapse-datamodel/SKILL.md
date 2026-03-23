@@ -4,7 +4,11 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 
 ## Instructions
 
-1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), and all light edges.
+1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), light edges, tag properties, and interfaces.
+
+   For focused lookups, use the targeted flags instead of loading the entire model:
+   - `--form <form>` — detailed docs for a single form: base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation).
+   - `--interface <iface>` — detailed docs for a single interface: properties, implementing forms, and Referenced Types.
 
 2. Read the generated output thoroughly to understand the available forms, properties, types, and edges before answering the user's question.
 
@@ -23,7 +27,7 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 ## Example Invocation
 
 ```bash
-# Generate model docs from a temporary Cortex (default/base model)
+# Generate full model docs from a temporary Cortex (default/base model)
 python -m synapse.tools.cortex.docmodel
 
 # Generate model docs from a live Cortex (includes extended model from packages)
@@ -31,4 +35,13 @@ python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492
 
 # Save to a file for reference
 python -m synapse.tools.cortex.docmodel --save /tmp/datamodel.md
+
+# Detailed docs for a specific form (properties, Referenced Types, edges)
+python -m synapse.tools.cortex.docmodel --form inet:fqdn
+
+# Detailed docs for a specific interface (properties, implementing forms)
+python -m synapse.tools.cortex.docmodel --interface meta:observable
+
+# Single form from a live Cortex
+python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492 --form risk:attack
 ```

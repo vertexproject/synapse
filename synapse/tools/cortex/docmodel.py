@@ -103,6 +103,370 @@ def _resolveIfaces(ifacenames, interfaces):
 
     return sorted(resolved)
 
+def _getBaseTypeName(typename, types):
+    '''Get the immediate parent base type name.'''
+    tinfo = types.get(typename)
+    if tinfo is None:
+        return None
+
+    bases = tinfo.get('info', {}).get('bases', ())
+    if bases:
+        return bases[-1]
+
+    return None
+
+def _genPropTable(props, types, prefix=':'):
+    '''Generate markdown property table rows for a set of properties.'''
+    lines = []
+    lines.append('| Property | Type | Doc |')
+    lines.append('|----------|------|-----|')
+
+    for propname in sorted(props.keys()):
+        propinfo = props[propname]
+        typedef = propinfo.get('type', ())
+        typenames = _resolveTypeNames(typedef)
+        typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+        propdoc = _getPropDoc(propinfo, types)
+        lines.append(f'| `{prefix}{propname}` | {typecell} | {_escpipe(propdoc)} |')
+
+    return lines
+
+def _genTypeDetail(typename, types, interfaces, seen=None):
+    '''Generate a detailed markdown section for a type.'''
+    if seen is None:
+        seen = set()
+
+    if typename in seen:
+        return []
+
+    seen.add(typename)
+
+    tinfo = types.get(typename)
+    if tinfo is None:
+        return []
+
+    lines = []
+    tdoc = tinfo.get('info', {}).get('doc', '')
+    bases = tinfo.get('info', {}).get('bases', ())
+    opts = tinfo.get('opts', {})
+    ifaces = tinfo.get('info', {}).get('interfaces', ())
+
+    lines.append(f'### `{typename}`')
+    lines.append('')
+
+    if tdoc:
+        lines.append(tdoc)
+        lines.append('')
+
+    if bases:
+        basetype = bases[-1]
+        lines.append(f'The `{typename}` type is derived from the base type: `{basetype}`.')
+        lines.append('')
+
+    if ifaces:
+        ifacenames = [name for name, _info in ifaces]
+        allifaces = _resolveIfaces(ifacenames, interfaces)
+        lines.append('This type implements the following interfaces:')
+        lines.append('')
+        for ifname in allifaces:
+            lines.append(f'- `{ifname}`')
+
+        lines.append('')
+
+    if opts:
+        basetype = bases[-1] if bases else typename
+        lines.append(f'The base type `{basetype}` has the following default options set:')
+        lines.append('')
+        lines.append('| Option | Value |')
+        lines.append('|--------|-------|')
+
+        for key in sorted(opts.keys()):
+            val = opts[key]
+            if val is None:
+                lines.append(f'| `{key}` | None |')
+            elif isinstance(val, (list, tuple)):
+                if not val:
+                    lines.append(f'| `{key}` | () |')
+                else:
+                    lines.append(f'| `{key}` | `{_escpipe(str(val))}` |')
+            elif isinstance(val, bool):
+                lines.append(f'| `{key}` | {str(val)} |')
+            else:
+                lines.append(f'| `{key}` | `{_escpipe(str(val))}` |')
+
+        lines.append('')
+
+    return lines
+
+def _lookupEdgesForForm(formname, edges):
+    '''Classify edges as source, target, or generic relative to a form.'''
+    retn = {}
+
+    for edge in edges:
+        src, verb, dst = edge[0]
+
+        if src is None and dst is None:
+            retn.setdefault('generic', []).append(edge)
+        elif src is None and dst != formname:
+            retn.setdefault('source', []).append(edge)
+        elif src is None and dst == formname:
+            retn.setdefault('target', []).append(edge)
+        elif src != formname and dst is None:
+            retn.setdefault('target', []).append(edge)
+        elif src == formname and dst is None:
+            retn.setdefault('source', []).append(edge)
+        elif src != formname and dst == formname:
+            retn.setdefault('target', []).append(edge)
+        elif src == formname and dst != formname:
+            retn.setdefault('source', []).append(edge)
+        elif src == formname and dst == formname:
+            retn.setdefault('source', []).append(edge)
+            retn.setdefault('target', []).append(edge)
+
+    return retn
+
+async def genFormMarkdown(core, formname):
+    '''Generate detailed markdown for a single form.'''
+
+    modeldict = await core.getModelDict()
+
+    types = modeldict.get('types', {})
+    forms = modeldict.get('forms', {})
+    edges = modeldict.get('edges', [])
+    interfaces = modeldict.get('interfaces', {})
+
+    forminfo = forms.get(formname)
+    if forminfo is None:
+        return f'Form `{formname}` not found in model.'
+
+    formprops = forminfo.get('props', {})
+    formdoc = _getFormDoc(formname, forminfo, types)
+
+    lines = []
+    lines.append(f'# `{formname}`')
+    lines.append('')
+
+    if formdoc:
+        lines.append(formdoc)
+        lines.append('')
+
+    basetype = _getBaseTypeName(formname, types)
+    if basetype is not None:
+        lines.append(f'The `{formname}` type is derived from the base type: `{basetype}`.')
+        lines.append('')
+
+    # Interfaces
+    formtype = types.get(formname)
+    if formtype is not None:
+        directifaces = [name for name, _info in formtype.get('info', {}).get('interfaces', ())]
+        allifaces = _resolveIfaces(directifaces, interfaces)
+        if allifaces:
+            lines.append('## Interfaces')
+            lines.append('')
+            lines.append('| Interface |')
+            lines.append('|-----------|')
+
+            for ifname in allifaces:
+                ifdoc = interfaces.get(ifname, {}).get('doc', '')
+                if ifdoc:
+                    lines.append(f'| `{ifname}` - {_escpipe(ifdoc)} |')
+                else:
+                    lines.append(f'| `{ifname}` |')
+
+            lines.append('')
+
+    # Properties
+    nestedtypes = set()
+
+    if basetype is not None:
+        nestedtypes.add(basetype)
+
+    if formprops:
+        lines.append('## Properties')
+        lines.append('')
+        lines.extend(_genPropTable(formprops, types))
+        lines.append('')
+
+        for propinfo in formprops.values():
+            typedef = propinfo.get('type', ())
+            if typedef:
+                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+                    tname = typedef[0]
+                    if tname == 'array' and len(typedef) >= 2:
+                        opts = typedef[1] if isinstance(typedef[1], dict) else {}
+                        atype = opts.get('type')
+                        if isinstance(atype, str):
+                            nestedtypes.add(atype)
+                    elif tname != 'poly':
+                        nestedtypes.add(tname)
+                elif isinstance(typedef, str):
+                    nestedtypes.add(typedef)
+
+    # Referenced Types
+    if nestedtypes:
+        lines.append('## Referenced Types')
+        lines.append('')
+
+        seen = set()
+        seen.add(formname)
+        for tname in sorted(nestedtypes):
+            detail = _genTypeDetail(tname, types, interfaces, seen)
+            if detail:
+                lines.extend(detail)
+
+    # Edges
+    formedges = _lookupEdgesForForm(formname, edges)
+
+    srcedges = formedges.get('source', [])
+    dstedges = formedges.get('target', [])
+    genedges = formedges.get('generic', [])
+
+    if srcedges or genedges:
+        alledges = srcedges + genedges
+        alledges.sort(key=lambda e: (e[0][0] or '*', e[0][1], e[0][2] or '*'))
+
+        lines.append('## Source Edges')
+        lines.append('')
+        lines.append('| Source | Verb | Target | Doc |')
+        lines.append('|--------|------|--------|-----|')
+
+        for edef, einfo in alledges:
+            src, verb, dst = edef
+            doc = einfo.get('doc', '')
+            src = src or '*'
+            dst = dst or '*'
+            lines.append(f'| `{_escpipe(src)}` | `-({_escpipe(verb)})>` | `{_escpipe(dst)}` | {_escpipe(doc)} |')
+
+        lines.append('')
+
+    if dstedges or genedges:
+        alledges = dstedges + genedges
+        alledges.sort(key=lambda e: (e[0][0] or '*', e[0][1], e[0][2] or '*'))
+
+        lines.append('## Target Edges')
+        lines.append('')
+        lines.append('| Source | Verb | Target | Doc |')
+        lines.append('|--------|------|--------|-----|')
+
+        for edef, einfo in alledges:
+            src, verb, dst = edef
+            doc = einfo.get('doc', '')
+            src = src or '*'
+            dst = dst or '*'
+            lines.append(f'| `{_escpipe(src)}` | `-({_escpipe(verb)})>` | `{_escpipe(dst)}` | {_escpipe(doc)} |')
+
+        lines.append('')
+
+    return '\n'.join(lines)
+
+async def genIfaceMarkdown(core, ifacename):
+    '''Generate detailed markdown for a single interface.'''
+
+    modeldict = await core.getModelDict()
+
+    types = modeldict.get('types', {})
+    forms = modeldict.get('forms', {})
+    interfaces = modeldict.get('interfaces', {})
+
+    ifinfo = interfaces.get(ifacename)
+    if ifinfo is None:
+        return f'Interface `{ifacename}` not found in model.'
+
+    ifdoc = ifinfo.get('doc', '')
+
+    lines = []
+    lines.append(f'# `{ifacename}`')
+    lines.append('')
+
+    if ifdoc:
+        lines.append(ifdoc)
+        lines.append('')
+
+    # Parent interfaces
+    parents = [name for name, _info in ifinfo.get('interfaces', ())]
+    if parents:
+        allifaces = _resolveIfaces(parents, interfaces)
+        lines.append('## Inherits From')
+        lines.append('')
+        lines.append('| Interface |')
+        lines.append('|-----------|')
+
+        for pname in allifaces:
+            lines.append(f'| `{pname}` |')
+
+        lines.append('')
+
+    # Interface properties
+    ifprops = ifinfo.get('props', ())
+    nestedtypes = set()
+
+    if ifprops:
+        lines.append('## Properties')
+        lines.append('')
+        lines.append('| Property | Type | Doc |')
+        lines.append('|----------|------|-----|')
+
+        for propdef in sorted(ifprops, key=lambda x: x[0]):
+            propname = propdef[0]
+            typedef = propdef[1]
+            propinfo = propdef[2] if len(propdef) > 2 else {}
+
+            typenames = _resolveTypeNames(typedef)
+            typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+            propdoc = _getPropDoc(propinfo, types)
+            lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
+
+            if typedef:
+                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+                    tname = typedef[0]
+                    if tname == 'array' and len(typedef) >= 2:
+                        opts = typedef[1] if isinstance(typedef[1], dict) else {}
+                        atype = opts.get('type')
+                        if isinstance(atype, str):
+                            nestedtypes.add(atype)
+                    elif tname != 'poly':
+                        nestedtypes.add(tname)
+                elif isinstance(typedef, str):
+                    nestedtypes.add(typedef)
+
+        lines.append('')
+
+    # Forms implementing this interface
+    implforms = []
+    for fname in sorted(forms.keys()):
+        ftype = types.get(fname)
+        if ftype is None:
+            continue
+
+        for iname, _iinfo in ftype.get('info', {}).get('interfaces', ()):
+            if iname == ifacename:
+                implforms.append(fname)
+                break
+
+    if implforms:
+        lines.append('## Implementing Forms')
+        lines.append('')
+        lines.append('| Form |')
+        lines.append('|------|')
+
+        for fname in implforms:
+            lines.append(f'| `{fname}` |')
+
+        lines.append('')
+
+    # Referenced Types
+    if nestedtypes:
+        lines.append('## Referenced Types')
+        lines.append('')
+
+        seen = set()
+        for tname in sorted(nestedtypes):
+            detail = _genTypeDetail(tname, types, interfaces, seen)
+            if detail:
+                lines.extend(detail)
+
+    return '\n'.join(lines)
+
 async def genModelMarkdown(core):
     '''Generate a markdown string documenting the data model.'''
 
@@ -112,6 +476,7 @@ async def genModelMarkdown(core):
     forms = modeldict.get('forms', {})
     edges = modeldict.get('edges', [])
     interfaces = modeldict.get('interfaces', {})
+    tagprops = modeldict.get('tagprops', {})
 
     lines = []
     lines.append('# Synapse Data Model')
@@ -120,6 +485,7 @@ async def genModelMarkdown(core):
     lines.append('')
     lines.append('- [Forms](#forms)')
     lines.append('- [Edges](#edges)')
+    lines.append('- [Tag Properties](#tag-properties)')
     lines.append('- [Interfaces](#interfaces)')
     lines.append('')
 
@@ -185,9 +551,28 @@ async def genModelMarkdown(core):
         for edef, einfo in sortededges:
             src, verb, dst = edef
             doc = einfo.get('doc', '')
-            src = src or '\\*'
-            dst = dst or '\\*'
+            src = src or '*'
+            dst = dst or '*'
             lines.append(f'| `{_escpipe(src)}` | `{_escpipe(verb)}` | `{_escpipe(dst)}` | {_escpipe(doc)} |')
+
+        lines.append('')
+
+    # Tag Properties section
+    lines.append('## Tag Properties')
+    lines.append('')
+
+    if tagprops:
+        lines.append('| Property | Type | Doc |')
+        lines.append('|----------|------|-----|')
+
+        for propname in sorted(tagprops.keys()):
+            propinfo = tagprops[propname]
+
+            typedef = propinfo.get('type', ())
+            typenames = _resolveTypeNames(typedef)
+            typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+            propdoc = propinfo.get('doc') or propinfo.get('info', {}).get('doc', '')
+            lines.append(f'| `{propname}` | {typecell} | {_escpipe(propdoc)} |')
 
         lines.append('')
 
@@ -256,16 +641,33 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--save', '-s', default=None,
                       help='Output file path. If not specified, prints to stdout.')
 
+    pars.add_argument('--form', '-f', default=None,
+                      help='Output detailed documentation for a specific form.')
+
+    pars.add_argument('--interface', '-i', default=None,
+                      help='Output detailed documentation for a specific interface.')
+
     opts = pars.parse_args(argv)
+
+    genfunc = genModelMarkdown
+    genfuncargs = ()
+
+    if opts.form is not None:
+        genfunc = genFormMarkdown
+        genfuncargs = (opts.form,)
+
+    elif opts.interface is not None:
+        genfunc = genIfaceMarkdown
+        genfuncargs = (opts.interface,)
 
     if opts.cortex is not None:
         async with s_telepath.withTeleEnv():
             async with await s_telepath.openurl(opts.cortex) as core:
-                text = await genModelMarkdown(core)
+                text = await genfunc(core, *genfuncargs)
 
     else:
         async with s_cortex.getTempCortex() as core:
-            text = await genModelMarkdown(core)
+            text = await genfunc(core, *genfuncargs)
 
     if opts.save is not None:
         with open(s_common.genpath(opts.save), 'w') as fd:
