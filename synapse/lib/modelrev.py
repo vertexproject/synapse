@@ -1934,6 +1934,72 @@ class ModelMigrationBase:
 
         await self.delNode(buid)
 
+    async def _collectReferences(self):
+        # Collect references
+        while len(self.todos):
+            todotmp = await self.todos.copy()
+            await self.todos.clear()
+
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Processing references in layer %s %s', idx, layer.iden)
+
+                async for entry in todotmp:
+                    match entry:
+                        case ('getvalu', (buid, fullnode)):
+                            if fullnode:
+                                node = await self._loadNode(layer, buid)
+                                formvalu = node.get('formvalu')
+                                if formvalu is None:
+                                    continue
+
+                                formname = node.get('formname')
+
+                                await self.todos.add(('getrefs', (buid, formname, formvalu)))
+                            else:
+                                sode = await layer.getStorNode(buid)
+
+                                if (formvalu := sode.get('valu')) is None:
+                                    continue
+
+                                formvalu = formvalu[0]
+                                formname = sode.get('form')
+
+                                node = self.getNode(buid)
+                                node['formvalu'] = formvalu
+                                node['formname'] = formname
+                                layers = list(node['layers'])
+                                layers.append(layer.iden)
+                                node['layers'] = layers
+
+                                await self.nodes.set(buid, node)
+
+                        case ('getrefs', (buid, formname, formvalu)):
+
+                            node = self.getNode(buid)
+                            formndef = (formname, formvalu)
+
+                            node.setdefault('refs', {})
+                            refs = node['refs'].get(layer.iden, [])
+
+                            for refinfo in self.getRefInfo(formname):
+                                (refform, refprop, reftype, isarray, isro) = refinfo
+
+                                if reftype == 'ndef':
+                                    propvalu = formndef
+                                else:
+                                    propvalu = formvalu
+
+                                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                                    refs.append((s_common.ehex(refbuid), refinfo))
+
+                                    await self.todos.add(('getvalu', (refbuid, True)))
+
+                            if refs:
+                                node['refs'][layer.iden] = refs
+
+                            await self.nodes.set(buid, node)
+
+            await todotmp.fini()
 
 class ModelMigration_0_2_31(ModelMigrationBase):
 
@@ -2039,77 +2105,7 @@ class ModelMigration_0_2_31(ModelMigrationBase):
                 await self.nodes.set(buid, node)
 
         logger.info('Processing invalid it:sec:cpe node references (this may happen multiple times)')
-
-        # Collect sources, direct references, second-degree references, etc.
-        while len(self.todos):
-            # Copy the list of todos and then clear the original list. This makes it so we will process all the todos
-            # but we can add new todos (that will iterate over all the layers) below to gather supporting data as
-            # needed.
-            todotmp = await self.todos.copy()
-            await self.todos.clear()
-
-            for idx, layer in enumerate(self.layers):
-                logger.debug('Processing references in layer %s %s', idx, layer.iden)
-
-                async for entry in todotmp:
-                    match entry:
-                        case ('getvalu', (buid, fullnode)):
-                            if fullnode:
-                                node = await self._loadNode(layer, buid)
-                                formvalu = node.get('formvalu')
-                                if formvalu is None:
-                                    continue
-
-                                formname = node.get('formname')
-
-                                await self.todos.add(('getrefs', (buid, formname, formvalu)))
-                            else:
-                                sode = await layer.getStorNode(buid)
-
-                                if (formvalu := sode.get('valu')) is None:
-                                    continue
-
-                                formvalu = formvalu[0]
-                                formname = sode.get('form')
-
-                                node = self.getNode(buid)
-                                node['formvalu'] = formvalu
-                                node['formname'] = formname
-                                layers = list(node['layers'])
-                                layers.append(layer.iden)
-                                node['layers'] = layers
-
-                                await self.nodes.set(buid, node)
-
-                        case ('getrefs', (buid, formname, formvalu)):
-
-                            node = self.getNode(buid)
-                            formndef = (formname, formvalu)
-
-                            node.setdefault('refs', {})
-                            refs = node['refs'].get(layer.iden, [])
-
-                            for refinfo in self.getRefInfo(formname):
-                                (refform, refprop, reftype, isarray, isro) = refinfo
-
-                                if reftype == 'ndef':
-                                    propvalu = formndef
-                                else:
-                                    propvalu = formvalu
-
-                                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                                    # Save the reference info
-                                    refs.append((s_common.ehex(refbuid), refinfo))
-
-                                    # Add a todo to get valu and refs to the new nodes
-                                    await self.todos.add(('getvalu', (refbuid, True)))
-
-                            if refs:
-                                node['refs'][layer.iden] = refs
-
-                            await self.nodes.set(buid, node)
-
-            await todotmp.fini()
+        await self._collectReferences()
 
         logger.info(f'Migrating/removing {invalid} invalid it:sec:cpe nodes')
 
@@ -2244,13 +2240,63 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             await self.nodes.fini()
             return
 
-        # Load full node info and find references
+        # Load full node info
         for idx, layer in enumerate(self.layers):
             logger.debug('Loading node info in layer %s %s', idx, layer.iden)
 
             for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
+                await self.nodes.set(buid, node)
 
+        # SYN-5627: strip port properties that don't match the primary value
+        # Do this before we load references so we don't have to load refs for nodes where the primary value is correct.
+        for buid, node in self.nodes.items():
+
+            formname = node.get('formname')
+            formvalu = node.get('formvalu')
+
+            if formname is None or formvalu is None:  # pragma: no cover
+                continue
+
+            if formname not in ('inet:client', 'inet:server'):
+                continue
+
+            form = self.core.model.form(formname)
+            if form is None:  # pragma: no cover
+                continue
+
+            try:
+                newvalu, newinfo = form.type.norm(formvalu)
+            except Exception:  # pragma: no cover
+                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                await self.removeNode(buid)
+                continue
+
+            newport = newinfo.get('subs', {}).get('port')
+            stortype = form.props.get('port').type.stortype
+
+            for layriden, sode in node.get('sodes', {}).items():
+                oldport = sode.get('props', {}).get('port')
+                if oldport is not None:
+                    oldport = oldport[0]
+
+                if newport == oldport:
+                    continue
+
+                if newport is None:
+                    await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
+                else:
+                    await self.editPropSet(layriden, buid, formname, 'port', newport, oldport, stortype)
+
+            # Primary value is correct, remove this from the node list so we don't do any more processing on it
+            if newvalu == formvalu:
+                self.nodes.pop(buid)
+
+        # Load node refs
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading node info in layer %s %s', idx, layer.iden)
+
+            for buid, node in self.nodes.items():
                 formvalu = node.get('formvalu')
                 formname = node.get('formname')
                 formndef = (formname, formvalu)
@@ -2276,72 +2322,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 await self.nodes.set(buid, node)
 
         logger.info('Processing bare IPv6 address node references (this may happen multiple times)')
-
-        # Collect references
-        while len(self.todos):
-            todotmp = await self.todos.copy()
-            await self.todos.clear()
-
-            for idx, layer in enumerate(self.layers):
-                logger.debug('Processing references in layer %s %s', idx, layer.iden)
-
-                async for entry in todotmp:
-                    match entry:
-                        case ('getvalu', (buid, fullnode)):
-                            if fullnode:
-                                node = await self._loadNode(layer, buid)
-                                formvalu = node.get('formvalu')
-                                if formvalu is None:
-                                    continue
-
-                                formname = node.get('formname')
-
-                                await self.todos.add(('getrefs', (buid, formname, formvalu)))
-                            else:
-                                sode = await layer.getStorNode(buid)
-
-                                if (formvalu := sode.get('valu')) is None:
-                                    continue
-
-                                formvalu = formvalu[0]
-                                formname = sode.get('form')
-
-                                node = self.getNode(buid)
-                                node['formvalu'] = formvalu
-                                node['formname'] = formname
-                                layers = list(node['layers'])
-                                layers.append(layer.iden)
-                                node['layers'] = layers
-
-                                await self.nodes.set(buid, node)
-
-                        case ('getrefs', (buid, formname, formvalu)):
-
-                            node = self.getNode(buid)
-                            formndef = (formname, formvalu)
-
-                            node.setdefault('refs', {})
-                            refs = node['refs'].get(layer.iden, [])
-
-                            for refinfo in self.getRefInfo(formname):
-                                (refform, refprop, reftype, isarray, isro) = refinfo
-
-                                if reftype == 'ndef':
-                                    propvalu = formndef
-                                else:
-                                    propvalu = formvalu
-
-                                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                                    refs.append((s_common.ehex(refbuid), refinfo))
-
-                                    await self.todos.add(('getvalu', (refbuid, True)))
-
-                            if refs:
-                                node['refs'][layer.iden] = refs
-
-                            await self.nodes.set(buid, node)
-
-            await todotmp.fini()
+        await self._collectReferences()
 
         logger.info(f'Migrating {total} bare IPv6 address nodes')
 
@@ -2370,27 +2351,6 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
                 await self.removeNode(buid)
                 removed += 1
-                continue
-
-            # SYN-5627: strip port properties that don't match the primary value
-            if formname in ('inet:client', 'inet:server'):
-                newport = newinfo.get('subs', {}).get('port')
-                stortype = form.props.get('port').type.stortype
-
-                for layriden, sode in node.get('sodes', {}).items():
-                    oldport = sode.get('props', {}).get('port')
-                    if oldport is not None:
-                        oldport = oldport[0]
-
-                    if newport == oldport:
-                        continue
-
-                    if newport is None:
-                        await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
-                    else:
-                        await self.editPropSet(layriden, buid, formname, 'port', newport, oldport, stortype)
-
-            if newvalu == formvalu:  # pragma: no cover
                 continue
 
             await self.moveNode(buid, newvalu)
