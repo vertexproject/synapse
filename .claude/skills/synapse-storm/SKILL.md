@@ -690,4 +690,5 @@ $func("positional", key=1)
 | `synapse/lib/ast.py` | AST node classes |
 | `synapse/lib/storm.py` | Storm runtime execution |
 | `synapse/exc.py` | `BadSyntax` and other exception classes |
-| `synapse/lib/stormtypes.py` | Storm type system and `$lib` implementations |
+| `synapse/lib/stormtypes.py` | Storm type system and some `$lib` implementations |
+| `synapse/lib/stormlib/*.py` | Additional Storm `$lib` implementations |
