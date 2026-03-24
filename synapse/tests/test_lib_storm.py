@@ -1247,22 +1247,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq((0, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(0))'))
 
             task = core.stormdmons.getDmon(ddef0['iden']).task
-            self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
 
-            self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
-            self.false(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
-            self.false(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
-            self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
-            self.true(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
-            self.false(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
-            self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
-            self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
-            self.false(await core.callStorm(f'return($lib.dmon.start(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.bump(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.stop(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.start(newp))'))
 
             self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
 
@@ -2107,7 +2107,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
             self.stormIsInErr('cannot also be the destination layer', msgs)
 
-            msgs = await core.stormlist(f'ou:org | movenodes --precedence foo', opts=view2)
+            msgs = await core.stormlist('ou:org | movenodes --precedence foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
             msgs = await core.stormlist(f'ou:org | movenodes --precedence {layr2}', opts=view2)
@@ -2632,20 +2632,20 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            q = f'''
-            $lib.dmon.add(${{
-                for $x in $lib.range(2) {{
+            q = '''
+            $lib.dmon.add(${
+                for $x in $lib.range(2) {
                     inet:ipv4=1.2.3.4
-                    if $node {{
+                    if $node {
                         $lib.queue.gen(foo).put($node.props.asn)
                         $lib.queue.gen(bar).get(1)
-                    }}
+                    }
                     [ inet:ipv4=1.2.3.4 :asn=5 ]
                     $lib.queue.gen(foo).put($node.props.asn)
                     $lib.queue.gen(bar).get(0)
-                }}
+                }
                 | spin
-            }}, name=foo)'''
+            }, name=foo)'''
             await core.nodes(q)
 
             self.eq((0, 5), await core.callStorm('return($lib.queue.gen(foo).get(0))'))
@@ -3352,16 +3352,16 @@ class StormTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'movetag woah perm')
+                    await asvisi.callStorm('movetag woah perm')
 
                 await visi.addRule((True, ('node', 'tag', 'del', 'woah')))
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'movetag woah perm')
+                    await asvisi.callStorm('movetag woah perm')
 
                 await visi.addRule((True, ('node', 'tag', 'add', 'perm')))
 
-                await asvisi.callStorm(f'movetag woah perm')
+                await asvisi.callStorm('movetag woah perm')
 
             self.len(0, await core.nodes('#woah'))
             self.len(1, await core.nodes('#perm'))
@@ -3927,10 +3927,10 @@ class StormTest(s_t_utils.SynTest):
 
             # Variables are scoped down into the sub runtime
             q = (
-                f'$foo=5 tee '
-                f'{{ [ inet:asn=3 ] }} '
-                f'{{ [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
-                f'{{ [ inet:asn=$foo ] }}'
+                '$foo=5 tee '
+                '{ [ inet:asn=3 ] } '
+                '{ [ inet:asn=4 ] $lib.print("made asn node: {node}", node=$node) } '
+                '{ [ inet:asn=$foo ] }'
             )
             msgs = await core.stormlist(q)
             self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
@@ -5215,17 +5215,17 @@ class StormTest(s_t_utils.SynTest):
                 async with core.getLocalProxy(user='visi') as asvisi:
 
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr0).addPush(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr0).addPush(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr0).delPush(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr0).delPush(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).delPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).delPull(hehe)', opts=opts)
 
                 actv = len(core.activecoros)
                 # view0 -push-> view1 <-pull- view2
@@ -5615,20 +5615,20 @@ class StormTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+                    await asvisi.callStorm('test:str | tag.prune runt.need.perms')
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'test:str | tag.prune $node.value()')
+                    await asvisi.callStorm('test:str | tag.prune $node.value()')
 
             await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
 
             async with core.getLocalProxy(user='visi') as asvisi:
-                await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+                await asvisi.callStorm('test:str | tag.prune runt.need.perms')
 
                 node = (await core.nodes('test:str=foo'))[0]
                 self.eq(list(node.tags.keys()), ['runtsafety'])
 
-                await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
+                await asvisi.callStorm('test:str=runt.safety.two | tag.prune $node.value()')
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
                 self.eq(list(node.tags.keys()), ['runt', 'runt.child'])

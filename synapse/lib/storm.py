@@ -130,6 +130,21 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add --period yearly { $lib.print(yearly) }
+
+    # Run every year on January 1st at 07:00 UTC
+    cron.add --period yearly@07 { $lib.print(yearly) }
+
+    # Run every year on January 1st at 12:21 UTC
+    cron.add --period yearly@12:21 { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add --period yearly/05-14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add --period yearly/11-14@13:43 { $lib.print(yearly) }
+
+    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    cron.add --period yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
@@ -2342,11 +2357,11 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         if (deprecated := argdef.get('deprecated')) is not None:
             mesg = deprmesg(names[0], deprecated)
-            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2937,7 +2952,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)

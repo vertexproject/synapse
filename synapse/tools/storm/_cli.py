@@ -195,7 +195,7 @@ class ExportCmd(StormCliCmd):
 
     async def runCmdOpts(self, opts):
 
-        self.printf(f'exporting nodes')
+        self.printf('exporting nodes')
 
         queryopts = copy.deepcopy(self._cmd_cli.stormopts)
         if opts.include_tags:

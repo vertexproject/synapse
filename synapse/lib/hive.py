@@ -1,10 +1,7 @@
-import asyncio
 import logging
-import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
