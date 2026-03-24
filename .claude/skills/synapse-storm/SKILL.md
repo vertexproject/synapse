@@ -677,7 +677,7 @@ $func("positional", key=1)
                await core.nodes('inet:fqdn=example.com [')
    ```
 
-6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Check the data model for valid form/property names.
+6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the data model skill for valid form/property names.
 
 ## Key Files
 
