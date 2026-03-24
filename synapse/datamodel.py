@@ -674,6 +674,7 @@ class Model:
 
                 ('value', ('data', {}), {
                     'computed': True,
+                    'display': {'hidden': True},
                     'doc': 'The primary property value of the node which is referenced.'}),
             ),
             'doc': 'A prop which can be of one or more forms.',
