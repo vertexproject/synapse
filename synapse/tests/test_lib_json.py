@@ -32,7 +32,7 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('')
         self.eq(exc.exception.get('mesg'), 'Cannot deserialize empty value.')
-        self.assertIsNone(exc.exception.get('text'))
+        self.none(exc.exception.get('text'))
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads(b'')
