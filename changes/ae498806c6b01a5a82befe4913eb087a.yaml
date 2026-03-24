@@ -1,0 +1,8 @@
+---
+desc: Added error handling to the Telepath client so that if the server sends an unexpected
+  message type during a remote call, a ``BadMesgFormat`` exception is raised instead
+  of silently returning ``None`` and leaking the connection.
+desc:literal: false
+prs: []
+type: bug
+...
