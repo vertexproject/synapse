@@ -495,7 +495,7 @@ $list = ([])
 inet:fqdn limit 10 +#tag
 
 // CORRECT - pipe returns to Storm operator syntax
-inet:fqdn | limit 10 | +#tag
+inet:fqdn limit 10 | +#tag
 ```
 
 ### 4. Unbalanced Brackets/Braces
@@ -578,14 +578,14 @@ try { ... } catch * as $err { ... }
 // return() - exits a callable function
 
 function check00(n) {
-    if ($fatal) {return($lib.null) }   // exit function
+    if ($fatal) { return() }   // exit function
     return(woot)                       // exit function returning "woot"
 }
 
 function check01(n) {
     for $x in $n {
         emit $x             // emit $x to the invoker
-        if ($x = woot) {
+        if ($x = 'woot') {
             stop            // exit the emitter function
         }
     }
