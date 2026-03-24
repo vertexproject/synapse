@@ -447,7 +447,8 @@ $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
 $node.props.propname                         // specific property
-$node.isform("inet:fqdn")                    // check form type
+$node.isform(inet:fqdn)                      // check form type
+$node.isform($list)                          // check if form is in a list
 $node.tags()                                 // get tags dict
 $node.difftags($tags)                        // diff tags vs current
 $node.globtags(pattern)                      // match tags by glob
