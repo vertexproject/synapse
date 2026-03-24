@@ -549,7 +549,6 @@ switch $x {
 // CORRECT
 switch $x {
     "val1": { ... }
-    *: { ... }
 }
 ```
 
