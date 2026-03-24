@@ -1980,7 +1980,8 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:str +:tick*range=(2015)')
-            await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
             return
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')
