@@ -24,7 +24,7 @@ async def main(argv, outp=s_output.stdout):
             text = fd.read()
 
     if text is None or text.strip() == '':
-        outp.printf('Error: No Storm query text provided.')
+        outp.printf('No Storm query text provided.')
         return 1
 
     try:
