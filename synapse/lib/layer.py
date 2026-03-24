@@ -2117,6 +2117,7 @@ class StorTypePoly(StorType):
                     yield item
             else:
                 realtype = stortype & STOR_MASK_POLY
+
                 if virts:
                     if realtype == STOR_TYPE_IVAL:
                         if virts[0] == 'min':
@@ -2262,13 +2263,17 @@ class StorTypeLatLon(StorType):
         latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
         latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
+        lonstrt = liftby.abrvlen
+        latstrt = lonstrt + 5
+        latstop = latstrt + 5
+
         # scan by lon range and down-select the results to matches.
         async for lkey, nid in liftby.keyNidsByRange(lonminindx, lonmaxindx, reverse=reverse):
 
             # lkey = <abrv> <lonindx> <latindx>
 
             # limit results to the bounding box before unpacking...
-            latbyts = lkey[13:18]
+            latbyts = lkey[latstrt:latstop]
 
             if latbyts > latmaxindx:
                 continue
@@ -2276,7 +2281,7 @@ class StorTypeLatLon(StorType):
             if latbyts < latminindx:
                 continue
 
-            lonbyts = lkey[8:13]
+            lonbyts = lkey[lonstrt:latstrt]
 
             latvalu = (int.from_bytes(latbyts, 'big') - self.latspace) / self.scale
             lonvalu = (int.from_bytes(lonbyts, 'big') - self.lonspace) / self.scale
@@ -2397,6 +2402,12 @@ class StorTypeNodeProp(StorType):
     def indx(self, valu):
         propabrv = self.layr.core.setIndxAbrv(INDX_NODEPROP, valu[0])
         return (propabrv + s_common.buid(valu),)
+
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
+        return ()
+
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
+        return
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:

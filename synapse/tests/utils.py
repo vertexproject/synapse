@@ -298,6 +298,8 @@ testmodel = (
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
+            ('test:float:closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('test:float:open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
             ('test:str', ('str', {}), {}),
             ('test:str2', ('test:str', {}), {}),
             ('test:inhstr', ('str', {}), {}),
@@ -410,8 +412,8 @@ testmodel = (
             )),
 
             ('test:float', {}, (
-                ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-                ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+                ('closed', ('test:float:closed', {}), {}),
+                ('open', ('test:float:open', {}), {}),
             )),
 
             ('test:guid', {}, (

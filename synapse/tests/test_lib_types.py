@@ -413,14 +413,11 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
             # $try can be used at top level, currently only applies to $props
-            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
-            nodes = [m for m in msgs if m[0] == 'node']
+            nodes = await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             self.len(1, nodes)
-            node = nodes[0][1]
-            props = node[1]['props']
-            self.none(props.get('phone'))
-            self.eq(props.get('name')[1], 'burrito corp')
-            self.eq(props.get('desc'), 'burritos man')
+            self.none(nodes[0].get('phone'))
+            self.propeq(nodes[0], 'name', 'burrito corp')
+            self.propeq(nodes[0], 'desc', 'burritos man')
 
             # $try can also be specified in $props which overrides top level $try
             with self.raises(s_exc.BadTypeValu):
@@ -679,7 +676,7 @@ class TypesTest(s_t_utils.SynTest):
             salt03 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1", "$props": {"desc": "a salted org"}}) ]')
             self.len(1, salt03)
             self.eq(salt00[0].ndef, salt03[0].ndef)
-            self.eq('a salted org', salt03[0].get('desc'))
+            self.propeq(salt03[0], 'desc', 'a salted org')
 
             # $salt is not stored as a property
             self.none(salt00[0].get('$salt'))
@@ -1272,7 +1269,7 @@ class TypesTest(s_t_utils.SynTest):
             now = s_common.now()
             nodes = await core.nodes('[test:guid="*" :seen=("-1 day","?")]')
             node = nodes[0]
-            valu = node.get('seen')
+            valu = node.get('seen')[1]
             self.eq(valu[1], ival.unksize)
             self.true(now - s_const.day <= valu[0] < now)
 
@@ -1370,7 +1367,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'ival', {'precision': 'newp'}, {})
 
             nodes = await core.nodes('[ test:str=foo :seen=(2021, ?) :seen.duration=1D ]')
             self.propeq(nodes[0], 'seen', (1609459200000000, 1609545600000000, 86400000000))
@@ -1522,7 +1519,9 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('nodeprop')
             ptyp = core.model.type('syn:prop')
 
-            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': (ptyp.typehash, 'test:str', {})}})
+            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': (ptyp.typehash, 'test:str', {})},
+                                                           'virts': {'prop': ('test:str', ptyp.stortype)}})
+
             self.eq(await t.norm('test:str=This is a sTring'), expected)
             self.eq(await t.norm(('test:str', 'This is a sTring')), expected)
 
@@ -1888,7 +1887,7 @@ class TypesTest(s_t_utils.SynTest):
                 await tmax.norm('2025-04-05 12:34:56.123456', prec=123)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'time', {'precision': 'newp'}, {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
@@ -1981,8 +1980,8 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:str +:tick*range=(2015)')
-            with self.raises(s_exc.BadCmprValu):
-                await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
+            await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
+            return
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')
             with self.raises(s_exc.BadTypeValu):

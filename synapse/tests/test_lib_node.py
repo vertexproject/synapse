@@ -27,13 +27,13 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info.get('tags'), {'foo': (None, None, None)})
             self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-            self.eq(props, {'tick': 12345})
+            self.eq(props, {'tick': ('test:time', 12345)})
 
             iden, info = node.pack(dorepr=True)
             self.eq(iden, ('test:str', 'cool'))
             self.eq(info.get('tags'), {'foo': (None, None, None)})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-            self.eq(props, {'tick': 12345})
+            self.eq(props, {'tick': ('test:time', 12345)})
             self.eq(info.get('repr'), None)
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
             self.eq(reprs, {'tick': '1970-01-01T00:00:00.012345Z'})
@@ -231,10 +231,10 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00Z, 2019-01-01T00:00:00Z)')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
-            self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
-            self.eq(s_node.prop(strpode, 'tick'), 12345)
-            self.eq(s_node.prop(strpode, ':tick'), 12345)
-            self.eq(s_node.prop(strpode, 'test:str:tick'), 12345)
+            self.eq(s_node.prop(strpode, 'hehe'), ('str', 'hehe'))
+            self.eq(s_node.prop(strpode, 'tick'), ('test:time', 12345))
+            self.eq(s_node.prop(strpode, ':tick'), ('test:time', 12345))
+            self.eq(s_node.prop(strpode, 'test:str:tick'), ('test:time', 12345))
             self.none(s_node.prop(strpode, 'newp'))
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
@@ -318,7 +318,7 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(nodepaths[0][0].ndef, ('test:int', 42))
 
                 nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
-                self.eq(nodepaths[0][0].get('loc'), 'us')
+                self.propeq(nodepaths[0][0], 'loc', 'us')
 
                 link = {'type': 'runtime'}
                 path = nodepaths[0][1].fork(node, link)  # type: s_node.Path
@@ -326,7 +326,7 @@ class NodeTest(s_t_utils.SynTest):
 
                 # Path present, opts not present
                 nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
-                self.eq(nodes[0][0].get('loc'), 'ca')
+                self.propeq(nodes[0][0], 'loc', 'ca')
                 # path is not updated due to frame scope
                 self.none(path.vars.get('bar'), 'us')
                 self.len(2, path.links)
@@ -335,7 +335,7 @@ class NodeTest(s_t_utils.SynTest):
 
                 # Path present, opts present but no opts['vars']
                 nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
-                self.eq(nodes[0][0].get('loc'), 'ca')
+                self.propeq(nodes[0][0], 'loc', 'ca')
                 # path is not updated due to frame scope
                 self.none(path.vars.get('bar'))
                 self.len(2, path.links)
@@ -346,7 +346,7 @@ class NodeTest(s_t_utils.SynTest):
                 nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
                                                opts={'vars': {'baz': 'ru'}},
                                                path=path))
-                self.eq(nodes[0][0].get('loc'), 'ca')
+                self.propeq(nodes[0][0], 'loc', 'ca')
                 # path is not updated due to frame scope
                 self.none(path.vars.get('bar'))
 

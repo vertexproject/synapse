@@ -2214,11 +2214,15 @@ class Poly(Type):
             elif (ndefcmpr := isinstance(val1, s_stormtypes.NodeRef)):
                 realv = val1.valu[1]
 
+            errs = []
             for thash, ctor in ctors.items():
                 try:
                     cmprs[thash] = await ctor(realv)
-                except s_exc.BadTypeValu:
-                    pass
+                except s_exc.BadCmprValu as e:
+                    errs.append(e.get('mesg'))
+
+            if not cmprs:
+                raise s_exc.BadCmprValu(itemtype=type(realv), cmpr=name, mesg=errs)
 
             async def cmprfunc(val2):
                 if ndefcmpr:
@@ -2454,6 +2458,16 @@ class Poly(Type):
 
         return (typename, norm), info
 
+    def merge(self, oldv, newv):
+        if oldv is None:
+            return newv
+
+        if (typename := oldv[0]) != newv[0]:
+            return newv
+
+        tobj = self.modl.type(typename)
+        return (typename, tobj.merge(oldv[1], newv[1]))
+
     def repr(self, norm):
         typename, valu = norm
 
@@ -2535,10 +2549,10 @@ class NodeProp(Type):
 
     def _getProp(self, valu):
         valu = valu[0]
-        if isinstance(valu[0], str):
-            return valu[0]
+        if isinstance(valu[0], tuple):
+            return tuple(v[0] for v in valu)
 
-        return tuple(v[0] for v in valu)
+        return valu[1][0]
 
     async def _normPyStr(self, valu, view=None):
         valu = valu.split('=', 1)
@@ -2557,7 +2571,10 @@ class NodeProp(Type):
             raise s_exc.NoSuchProp(mesg=mesg, name=self.name, prop=propname)
 
         propnorm, info = await prop.type.norm(propvalu)
-        return (prop.full, propnorm), {'subs': {'prop': (self.proptype.typehash, prop.full, {})}}
+        return (prop.full, propnorm), {
+            'subs': {'prop': (self.proptype.typehash, prop.full, {})},
+            'virts': {'prop': (prop.full, self.proptype.stortype)}
+        }
 
 class Range(Type):
 

@@ -3824,7 +3824,7 @@ class ArrayCond(Cond):
 
                 val2 = await valukid.compute(runt, path)
 
-                if not ptyp.ispoly or ptyp.virts.get(vnames[0]) is not None:
+                if ptyp.virts.get(vnames[0]) is not None:
                     vtyp = ptyp.getVirtType(vnames)
 
                     if (ctor := vtyp.getCmprCtor(cmpr)) is None:

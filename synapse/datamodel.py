@@ -1101,7 +1101,7 @@ class Model:
             if isinstance(propdef[0], tuple):
                 # TODO: lists should already be in the correct format
                 propdef = tuple((tn, {}) for tn in propdef[0])
-            elif propdef[0] in ('array', 'poly'):
+            elif propdef[0] in ('array', 'poly') or isinstance(self.type(propdef[0]), s_types.Poly):
                 realdefs.append((pname, propdef, propinfo))
                 continue
             else:
@@ -1218,11 +1218,6 @@ class Model:
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
 
-        # Check for interface props to convert to poly types
-        for name, info in self.ifaces.items():
-            if (pdefs := info.get('props')) is not None:
-                info['props'] = self.processPropdefs(pdefs)
-
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
             if (ftyp := self.types.get(formname)) is not None and ftyp.subof in self.forminfos and self.form(ftyp.subof) is None:
@@ -1234,7 +1229,6 @@ class Model:
                 if formname in childforms and not children:
                     continue
 
-                propdefs = self.processPropdefs(propdefs)
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
                 if (cinfos := formchildren.pop(formname, None)) is not None:
@@ -1403,19 +1397,20 @@ class Model:
             mesg = 'Forms cannot be created from types with editable virtual properties.'
             raise s_exc.BadFormDef(mesg=mesg, name=formname)
 
+        for propdef in propdefs:
+            if len(propdef) != 3:
+                mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
+                raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
+
         if (pform := self.form(_type.subof)) is not None:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo
 
             pprops = []
             ptypes = {}
-            for propdef in propdefs:
-                if len(propdef) != 3:
-                    mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
-                    raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
 
-            propdefs = self.processPropdefs(propdefs)
-            for propdef in propdefs:
+            polydefs = self.processPropdefs(propdefs)
+            for propdef in polydefs:
                 ptypes[propdef[0]] = propdef[1]
 
             for prop in pform.props.values():
@@ -1465,13 +1460,7 @@ class Model:
         template.update(form.type.info.get('template', {}))
         template['$self'] = form.full
 
-        for propdef in propdefs:
-
-            if len(propdef) != 3:
-                mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
-                raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
-
-            propname, typedef, propinfo = propdef
+        for propname, typedef, propinfo in self.processPropdefs(propdefs):
 
             rawinfo = propinfo.get('raw', propinfo)
             propinfo = self._convertTemplate(rawinfo, form.name, template)
@@ -1754,7 +1743,7 @@ class Model:
 
         iface = self._prepFormIface(form, iface, ifinfo)
 
-        for propname, typedef, propinfo in iface.get('props', ()):
+        for propname, typedef, propinfo in self.processPropdefs(iface.get('props', ())):
 
             # allow form props to take precedence
             if (prop := form.prop(propname)) is None:

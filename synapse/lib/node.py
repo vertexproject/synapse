@@ -158,7 +158,7 @@ class NodeBase:
                 continue
 
             rval = prop.type.repr(valu)
-            if rval is None or rval == valu:
+            if rval is None or rval == valu[1]:
                 continue
 
             reps[name] = rval
@@ -1367,6 +1367,9 @@ class RuntNode(NodeBase):
 
     def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
+
+    def getWithVirts(self, name, defv=None, virts=None):
+        return self.pode[1]['props'].get(name, defv), None
 
     def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
