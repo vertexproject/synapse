@@ -9,7 +9,7 @@ class OutPut:
     def __init__(self):
         pass
 
-    def printf(self, mesg, addnl=True):
+    def printf(self, mesg, addnl=True, color=None):
 
         if addnl:
             mesg += '\n'
