@@ -1,6 +1,7 @@
 ---
 desc: Fixed a startup race condition that could cause Storm package ``onload`` queries
-  to run before Storm dmons were loaded.
+  to run before Storm dmons were loaded. Layer migrations will now run as a background
+  task once the Cortex has become active.
 desc:literal: false
 prs: []
 type: bug
