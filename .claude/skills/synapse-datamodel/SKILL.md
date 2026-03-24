@@ -6,9 +6,8 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 
 1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), light edges, tag properties, and interfaces.
 
-   For focused lookups, use the targeted flags instead of loading the entire model:
-   - `--form <form>` — detailed docs for a single form: base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation).
-   - `--interface <iface>` — detailed docs for a single interface: properties, implementing forms, and Referenced Types.
+   For focused lookups, use the targeted flag instead of loading the entire model:
+   - `--find <name>` — auto-detects whether the name is a form, interface, form property, interface property, or tag property, and outputs detailed docs for it. Form output includes base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation). Interface output includes properties, implementing forms, and Referenced Types. Property output includes the type, doc, and parent form/interface/tag context.
 
 2. Read the generated output thoroughly to understand the available forms, properties, types, and edges before answering the user's question.
 
@@ -37,11 +36,17 @@ python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492
 python -m synapse.tools.cortex.docmodel --save /tmp/datamodel.md
 
 # Detailed docs for a specific form (properties, Referenced Types, edges)
-python -m synapse.tools.cortex.docmodel --form inet:fqdn
+python -m synapse.tools.cortex.docmodel --find inet:fqdn
 
 # Detailed docs for a specific interface (properties, implementing forms)
-python -m synapse.tools.cortex.docmodel --interface meta:observable
+python -m synapse.tools.cortex.docmodel --find meta:observable
+
+# Detailed docs for a specific form property
+python -m synapse.tools.cortex.docmodel --find inet:fqdn:domain
+
+# Detailed docs for a specific interface property
+python -m synapse.tools.cortex.docmodel --find meta:observable:seen
 
 # Single form from a live Cortex
-python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492 --form risk:attack
+python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492 --find risk:attack
 ```

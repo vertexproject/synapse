@@ -460,6 +460,194 @@ async def genIfaceMarkdown(core, ifacename):
 
     return '\n'.join(lines)
 
+def _findName(name, modeldict):
+    '''Resolve a name to a form, interface, or property match.
+
+    Returns one of:
+      ('form', name)
+      ('interface', name)
+      ('formprop', formname, propname)
+      ('ifaceprop', ifacename, propname)
+      ('tagprop', name)
+      None
+    '''
+    forms = modeldict.get('forms', {})
+    interfaces = modeldict.get('interfaces', {})
+    tagprops = modeldict.get('tagprops', {})
+
+    if name in forms:
+        return ('form', name)
+
+    if name in interfaces:
+        return ('interface', name)
+
+    for formname in sorted(forms.keys(), key=len, reverse=True):
+        prefix = formname + ':'
+        if name.startswith(prefix):
+            propname = name[len(prefix):]
+            if propname in forms[formname].get('props', {}):
+                return ('formprop', formname, propname)
+
+    for ifacename in sorted(interfaces.keys(), key=len, reverse=True):
+        prefix = ifacename + ':'
+        if name.startswith(prefix):
+            propname = name[len(prefix):]
+            propnames = {p[0] for p in interfaces[ifacename].get('props', ())}
+            if propname in propnames:
+                return ('ifaceprop', ifacename, propname)
+
+    if name in tagprops:
+        return ('tagprop', name)
+
+    return None
+
+async def genPropMarkdown(core, propname):
+    '''Generate detailed markdown for a single property.'''
+
+    modeldict = await core.getModelDict()
+    match = _findName(propname, modeldict)
+
+    if match is None or match[0] not in ('formprop', 'ifaceprop', 'tagprop'):
+        return f'`{propname}` not found in model.'
+
+    types = modeldict.get('types', {})
+    forms = modeldict.get('forms', {})
+    interfaces = modeldict.get('interfaces', {})
+    tagprops = modeldict.get('tagprops', {})
+
+    lines = []
+
+    if match[0] == 'formprop':
+        formname, shortname = match[1], match[2]
+        propinfo = forms[formname]['props'][shortname]
+        propdoc = _getPropDoc(propinfo, types)
+
+        lines.append(f'# `{propname}`')
+        lines.append('')
+
+        if propdoc:
+            lines.append(propdoc)
+            lines.append('')
+
+        lines.append(f'**Form:** `{formname}`')
+        lines.append('')
+
+        typedef = propinfo.get('type', ())
+        typenames = _resolveTypeNames(typedef)
+        typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+        lines.append('| Property | Type | Doc |')
+        lines.append('|----------|------|-----|')
+        lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
+        lines.append('')
+
+        nestedtypes = set()
+        if typedef:
+            if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+                tname = typedef[0]
+                if tname == 'array' and len(typedef) >= 2:
+                    opts = typedef[1] if isinstance(typedef[1], dict) else {}
+                    atype = opts.get('type')
+                    if isinstance(atype, str):
+                        nestedtypes.add(atype)
+                elif tname != 'poly':
+                    nestedtypes.add(tname)
+
+        if nestedtypes:
+            lines.append('## Referenced Types')
+            lines.append('')
+            seen = set()
+            for tname in sorted(nestedtypes):
+                detail = _genTypeDetail(tname, types, interfaces, seen)
+                if detail:
+                    lines.extend(detail)
+
+    elif match[0] == 'ifaceprop':
+        ifacename, shortname = match[1], match[2]
+        ifprops = interfaces[ifacename].get('props', ())
+        propdef = next(p for p in ifprops if p[0] == shortname)
+        typedef = propdef[1]
+        propinfo = propdef[2] if len(propdef) > 2 else {}
+        propdoc = _getPropDoc(propinfo, types)
+
+        lines.append(f'# `{propname}`')
+        lines.append('')
+
+        if propdoc:
+            lines.append(propdoc)
+            lines.append('')
+
+        lines.append(f'**Interface:** `{ifacename}`')
+        lines.append('')
+
+        typenames = _resolveTypeNames(typedef)
+        typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+        lines.append('| Property | Type | Doc |')
+        lines.append('|----------|------|-----|')
+        lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
+        lines.append('')
+
+        nestedtypes = set()
+        if typedef:
+            if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+                tname = typedef[0]
+                if tname == 'array' and len(typedef) >= 2:
+                    opts = typedef[1] if isinstance(typedef[1], dict) else {}
+                    atype = opts.get('type')
+                    if isinstance(atype, str):
+                        nestedtypes.add(atype)
+                elif tname != 'poly':
+                    nestedtypes.add(tname)
+
+        if nestedtypes:
+            lines.append('## Referenced Types')
+            lines.append('')
+            seen = set()
+            for tname in sorted(nestedtypes):
+                detail = _genTypeDetail(tname, types, interfaces, seen)
+                if detail:
+                    lines.extend(detail)
+
+    elif match[0] == 'tagprop':
+        propinfo = tagprops[propname]
+        propdoc = propinfo.get('doc') or propinfo.get('info', {}).get('doc', '')
+
+        lines.append(f'# `{propname}`')
+        lines.append('')
+
+        if propdoc:
+            lines.append(propdoc)
+            lines.append('')
+
+        lines.append('**Tag Property**')
+        lines.append('')
+
+        typedef = propinfo.get('type', ())
+        typenames = _resolveTypeNames(typedef)
+        typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+        lines.append('| Property | Type | Doc |')
+        lines.append('|----------|------|-----|')
+        lines.append(f'| `{propname}` | {typecell} | {_escpipe(propdoc)} |')
+        lines.append('')
+
+    return '\n'.join(lines)
+
+async def genFindMarkdown(core, name):
+    '''Generate detailed markdown for a form, interface, or property by name.'''
+
+    modeldict = await core.getModelDict()
+    match = _findName(name, modeldict)
+
+    if match is None:
+        return f'`{name}` not found in model.'
+
+    if match[0] == 'form':
+        return await genFormMarkdown(core, name)
+
+    if match[0] == 'interface':
+        return await genIfaceMarkdown(core, name)
+
+    return await genPropMarkdown(core, name)
+
 async def genModelMarkdown(core):
     '''Generate a markdown string documenting the data model.'''
 
@@ -632,24 +820,17 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--save', '-s', default=None,
                       help='Output file path. If not specified, prints to stdout.')
 
-    pars.add_argument('--form', '-f', default=None,
-                      help='Output detailed documentation for a specific form.')
-
-    pars.add_argument('--interface', '-i', default=None,
-                      help='Output detailed documentation for a specific interface.')
+    pars.add_argument('--find', '-f', default=None,
+                      help='Output detailed docs for a form, interface, or property by name.')
 
     opts = pars.parse_args(argv)
 
     genfunc = genModelMarkdown
     genfuncargs = ()
 
-    if opts.form is not None:
-        genfunc = genFormMarkdown
-        genfuncargs = (opts.form,)
-
-    elif opts.interface is not None:
-        genfunc = genIfaceMarkdown
-        genfuncargs = (opts.interface,)
+    if opts.find is not None:
+        genfunc = genFindMarkdown
+        genfuncargs = (opts.find,)
 
     if opts.cortex is not None:
         async with s_telepath.withTeleEnv():

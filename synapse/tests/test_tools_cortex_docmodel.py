@@ -205,7 +205,7 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_form(self):
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--form', 'inet:fqdn'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'inet:fqdn'], outp=outp), 0)
 
         text = str(outp)
 
@@ -225,7 +225,7 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_form_edges(self):
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--form', 'inet:fqdn'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'inet:fqdn'], outp=outp), 0)
 
         text = str(outp)
 
@@ -236,7 +236,7 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_interface(self):
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--interface', 'meta:observable'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'meta:observable'], outp=outp), 0)
 
         text = str(outp)
 
@@ -257,7 +257,7 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_form_notfound(self):
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--form', 'notreal:form'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'notreal:form'], outp=outp), 0)
 
         text = str(outp)
         self.isin('not found in model', text)
@@ -265,7 +265,7 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_interface_notfound(self):
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--interface', 'notreal:iface'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'notreal:iface'], outp=outp), 0)
 
         text = str(outp)
         self.isin('not found in model', text)
@@ -385,7 +385,7 @@ class DocModelTest(s_t_utils.SynTest):
         # exercising the array nestedtypes collection path in genFormMarkdown
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--form', 'edu:class'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'edu:class'], outp=outp), 0)
 
         text = str(outp)
         self.isin('# `edu:class`', text)
@@ -398,7 +398,7 @@ class DocModelTest(s_t_utils.SynTest):
         # exercising the "## Inherits From" section in genIfaceMarkdown
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--interface', 'ou:attendable'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'ou:attendable'], outp=outp), 0)
 
         text = str(outp)
         self.isin('# `ou:attendable`', text)
@@ -411,7 +411,7 @@ class DocModelTest(s_t_utils.SynTest):
         # exercising the array nestedtypes collection path in genIfaceMarkdown
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--interface', 'entity:contactable'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'entity:contactable'], outp=outp), 0)
 
         text = str(outp)
         self.isin('# `entity:contactable`', text)
@@ -490,3 +490,147 @@ class DocModelTest(s_t_utils.SynTest):
             self.isin('# `test:impl:iface`', text)
             self.isin('## Implementing Forms', text)
             self.isin('`test:impl:form`', text)
+
+    def test_tools_docmodel_findname_unit(self):
+
+        findName = s_docmodel._findName
+
+        modeldict = {
+            'forms': {
+                'inet:fqdn': {
+                    'props': {
+                        'domain': {'type': ('inet:fqdn', {}), 'doc': 'The domain.'},
+                        'zone': {'type': ('inet:fqdn', {}), 'doc': 'The zone.'},
+                    },
+                },
+                'inet:ipv4': {
+                    'props': {
+                        'asn': {'type': ('inet:asn', {}), 'doc': 'The ASN.'},
+                    },
+                },
+            },
+            'interfaces': {
+                'meta:observable': {
+                    'doc': 'An observable.',
+                    'props': (
+                        ('seen', ('ival', {}), {'doc': 'Observed interval.'}),
+                        ('time', ('time', {}), {'doc': 'Observed time.'}),
+                    ),
+                    'interfaces': (),
+                },
+            },
+            'tagprops': {
+                'test:score': {'type': ('int', {}), 'doc': 'A score.'},
+            },
+        }
+
+        # Exact form match
+        result = findName('inet:fqdn', modeldict)
+        self.eq(result[0], 'form')
+        self.eq(result[1], 'inet:fqdn')
+
+        # Exact interface match
+        result = findName('meta:observable', modeldict)
+        self.eq(result[0], 'interface')
+        self.eq(result[1], 'meta:observable')
+
+        # Form prop match
+        result = findName('inet:fqdn:domain', modeldict)
+        self.eq(result[0], 'formprop')
+        self.eq(result[1], 'inet:fqdn')
+        self.eq(result[2], 'domain')
+
+        # Interface prop match
+        result = findName('meta:observable:seen', modeldict)
+        self.eq(result[0], 'ifaceprop')
+        self.eq(result[1], 'meta:observable')
+        self.eq(result[2], 'seen')
+
+        # Tag prop match
+        result = findName('test:score', modeldict)
+        self.eq(result[0], 'tagprop')
+        self.eq(result[1], 'test:score')
+
+        # Unknown name
+        self.none(findName('really:not:there', modeldict))
+
+    async def test_tools_docmodel_find_formprop(self):
+        # auth:passwd:seen has type ival (non-poly), exercises Referenced Types section
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'auth:passwd:seen'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `auth:passwd:seen`', text)
+        self.isin('**Form:** `auth:passwd`', text)
+        self.isin('| Property | Type | Doc |', text)
+        self.isin('`:seen`', text)
+        self.isin('## Referenced Types', text)
+
+    async def test_tools_docmodel_find_ifaceprop(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'meta:observable:seen'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `meta:observable:seen`', text)
+        self.isin('**Interface:** `meta:observable`', text)
+        self.isin('| Property | Type | Doc |', text)
+        self.isin('`:seen`', text)
+
+    async def test_tools_docmodel_find_tagprop(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.addTagProp('test:score', ('int', {}), {'doc': 'A test tag score.'})
+
+            lurl = core.getLocalUrl()
+            outp = self.getTestOutp()
+            self.eq(await s_docmodel.main(['--cortex', lurl, '--find', 'test:score'], outp=outp), 0)
+
+            text = str(outp)
+            self.isin('# `test:score`', text)
+            self.isin('**Tag Property**', text)
+            self.isin('| Property | Type | Doc |', text)
+            self.isin('`test:score`', text)
+
+    async def test_tools_docmodel_find_notfound(self):
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'really:not:there'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('not found in model', text)
+
+    async def test_tools_docmodel_direct_notfound(self):
+        # Exercises the not-found early-return paths in genFormMarkdown and
+        # genIfaceMarkdown when called directly (lines 240 and 371)
+
+        async with self.getTestCore() as core:
+            text = await s_docmodel.genFormMarkdown(core, 'notreal:form')
+            self.isin('not found in model', text)
+
+            text = await s_docmodel.genIfaceMarkdown(core, 'notreal:iface')
+            self.isin('not found in model', text)
+
+            # genPropMarkdown with a form name (not a prop) → not found path (line 511)
+            text = await s_docmodel.genPropMarkdown(core, 'inet:fqdn')
+            self.isin('not found in model', text)
+
+    async def test_tools_docmodel_find_array_props(self):
+        # biz:rfp:contributors has an array type, exercises the array nestedtypes
+        # path in genPropMarkdown for formprop (lines 548-551)
+        # doc:authorable:contributors has an array type for ifaceprop (lines 594-597)
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'biz:rfp:contributors'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('# `biz:rfp:contributors`', text)
+        self.isin('**Form:** `biz:rfp`', text)
+
+        outp2 = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'doc:authorable:contributors'], outp=outp2), 0)
+
+        text2 = str(outp2)
+        self.isin('# `doc:authorable:contributors`', text2)
+        self.isin('**Interface:** `doc:authorable`', text2)
