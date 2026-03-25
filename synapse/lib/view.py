@@ -970,7 +970,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             except asyncio.CancelledError:
                 extra = self.core.getLogExtra(text=text)
-                logger.warning(f'callStorm cancelled', extra=extra)
+                logger.warning('callStorm cancelled', extra=extra)
                 raise
 
             except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:

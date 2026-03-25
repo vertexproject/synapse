@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmd as s_cmd
 
-from synapse.tools.cortex.feed import logger, main
+from synapse.tools.cortex.feed import main
 
 s_common.deprecated('synapse.tools.feed is deprecated. Please use synapse.tools.cortex.feed instead.',
                     curv='v2.225.0')

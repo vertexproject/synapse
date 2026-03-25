@@ -7,9 +7,7 @@ import http
 import stat
 import time
 import heapq
-import queue
 import types
-import atexit
 import base64
 import shutil
 import struct
@@ -32,13 +30,11 @@ import collections
 
 import http.cookies
 import tornado.escape
-import logging.handlers
 
 import yaml
 import regex
 
 import synapse.exc as s_exc
-import synapse.lib.const as s_const
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 

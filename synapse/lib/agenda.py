@@ -17,7 +17,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.scope as s_scope
 import synapse.lib.logging as s_logging
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
