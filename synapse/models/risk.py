@@ -481,18 +481,11 @@ modeldefs = (
 
             ('risk:vuln', {}, (
 
-                ('id', (('it:sec:cve', 'meta:id'), {
-                    'default_types': ('it:sec:cve', 'meta:id'),
-                    }), {
+                ('id', (('it:sec:cve', 'meta:id'), {}), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the vulnerability.'}),
 
-                ('ids', ('array', {
-                    'type': ('it:sec:cve', 'meta:id'),
-                    'typeopts': {
-                        'default_types': ('it:sec:cve', 'meta:id'),
-                    },
-                    }), {
+                ('ids', ('array', {'type': ('it:sec:cve', 'meta:id')}), {
                     'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {

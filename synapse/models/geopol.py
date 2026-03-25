@@ -66,19 +66,12 @@ modeldefs = (
                 ('flag', ('file:bytes', {}), {
                     'doc': 'A thumbnail image of the flag of the country.'}),
 
-                ('code', (('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'), {
-                    'default_types': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
-                    }), {
+                ('code', (('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'), {}), {
                     'alts': ('codes',),
                     'prevnames': ('iso2',),
                     'doc': 'The country code.'}),
 
-                ('codes', ('array', {
-                    'type': ('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'),
-                    'typeopts': {
-                        'default_types': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
-                    },
-                    }), {
+                ('codes', ('array', {'type': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id')}), {
                     'doc': 'An array of country codes.'}),
 
                 ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {

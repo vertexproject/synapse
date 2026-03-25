@@ -1068,7 +1068,7 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.nodes('test:str:poly.type=test:float')
 
             with self.raises(s_exc.BadTypeDef):
-                tdef = ('poly', {'forms': ('test:str',), 'default_forms': ('test:float',)})
+                tdef = ('poly', {'forms': ('test:str',), 'default_types': ('test:float',)})
                 core.model.addFormProp('test:str', 'polyfail', tdef, {})
 
             with self.raises(s_exc.NoSuchVirt):

@@ -735,14 +735,14 @@ class Fqdn(s_types.Type):
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain[1])
 
-            if parent.get('issuffix'):
+            if (pval := parent.get('issuffix')) is not None and pval[1]:
                 await protonode.set('iszone', True)
                 await protonode.set('zone', node.ndef[1])
                 return
 
             await protonode.set('iszone', False)
 
-            if parent.get('iszone'):
+            if (pval := parent.get('iszone')) is not None and pval[1]:
                 await protonode.set('zone', domain[1])
                 return
 
@@ -753,13 +753,18 @@ class Fqdn(s_types.Type):
     async def _onSetIsSuffix(self, node):
 
         fqdn = node.ndef[1]
-        issuffix = node.get('issuffix')
+
+        if (issuffix := node.get('issuffix')) is not None:
+            issuffix = issuffix[1]
 
         async with node.view.getEditor() as editor:
             async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
-                if child.get('iszone') == issuffix:
+                if (cval := child.get('iszone')) is not None:
+                    cval = cval[1]
+
+                if cval == issuffix:
                     continue
 
                 protonode = editor.loadNode(child)
@@ -767,8 +772,7 @@ class Fqdn(s_types.Type):
 
     async def _onSetIsZone(self, node):
 
-        iszone = node.get('iszone')
-        if iszone:
+        if (iszone := node.get('iszone')) is not None and iszone[1]:
             await node.set('zone', node.ndef[1])
             return
 
@@ -797,7 +801,7 @@ class Fqdn(s_types.Type):
                 async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
                     await asyncio.sleep(0)
 
-                    if child.get('iszone') or child.get('zone') == zone:
+                    if ((cval := child.get('iszone')) is not None and cval[1]) or child.get('zone') == zone:
                         continue
 
                     protonode = editor.loadNode(child)
