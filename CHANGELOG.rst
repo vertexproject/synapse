@@ -22,7 +22,7 @@ Features and Enhancements
   after the optimization are recorded and included in the ``getCellInfo()``
   response under the ``optimized`` key.
   (`#4778 <https://github.com/vertexproject/synapse/pull/4778>`_)
-- Add ``cache:size`` layer configuration option and
+- Added a ``cache:size`` layer configuration option and
   ``SYN_CORTEX_LAYERS_CACHE_SIZE`` environment variable to tune the layer buid
   cache size.
   (`#4801 <https://github.com/vertexproject/synapse/pull/4801>`_)
