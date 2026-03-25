@@ -82,7 +82,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'title', 'lead developer')
             self.propeq(node, 'titles', ('senior dev', 'team lead'))
 
-            # entity:abstract interface props
+            # entity:resolvable interface props
             self.nn(node.get('resolved'))
 
             # geo:locatable interface props
@@ -248,8 +248,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'name', 'world war iii')
             self.propeq(nodes[0], 'period', (2493072000000000, 2493072000000001, 1))
 
-            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={entity:conflict} ]')
-            self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
+            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) ]')
             self.len(1, await core.nodes('entity:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''[
@@ -347,3 +346,81 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.len(1, await core.nodes('entity:relationship :reporter -> ou:org'))
+
+    async def test_entity_causal_events(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                entity:discovered=*
+                    :actor={[ entity:contact=* :name=discoverer ]}
+                    :time=20230101
+                    :item={[ risk:vuln=* :name=zerodayX ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('item'))
+            self.propeq(nodes[0], 'time', 1672531200000000)
+            self.len(1, await core.nodes('entity:discovered :actor -> entity:contact +:name=discoverer'))
+            self.len(1, await core.nodes('entity:discovered :item -> risk:vuln +:name=zerodayx'))
+
+            nodes = await core.nodes('''[
+                entity:signed=*
+                    :actor={[ entity:contact=* :name=signer ]}
+                    :time=20230201
+                    :doc={[ doc:contract=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('doc'))
+            self.len(1, await core.nodes('entity:signed :actor -> entity:contact +:name=signer'))
+            self.len(1, await core.nodes('entity:signed :doc -> doc:contract'))
+
+            nodes = await core.nodes('''[
+                entity:asked=*
+                    :actor={[ entity:contact=* :name=buyer ]}
+                    :time=20230101
+                    :value=50.00
+                    :expires=20230201
+                    :activity={[ risk:extortion=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.propeq(nodes[0], 'value', '50')
+            self.nn(nodes[0].get('expires'))
+            self.nn(nodes[0].get('activity'))
+            self.len(1, await core.nodes('entity:asked :actor -> entity:contact +:name=buyer'))
+            self.len(1, await core.nodes('entity:asked :activity -> risk:extortion'))
+
+            nodes = await core.nodes('''[
+                entity:offered=*
+                    :actor={[ entity:contact=* :name=seller ]}
+                    :time=20230101
+                    :value=75.00
+                    :expires=20230201
+                    :activity={[ risk:extortion=* :name="APT99 Extortion" ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.propeq(nodes[0], 'value', '75')
+            self.len(1, await core.nodes('entity:offered :actor -> entity:contact +:name=seller'))
+            self.len(1, await core.nodes('entity:offered :activity -> risk:extortion'))
+
+    async def test_entity_believed(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                entity:believed=*
+                    :actor={[ entity:contact=* :name=visi ]}
+                    :belief={[ belief:system=* ]}
+                    :period=(20230209, 20230210)
+                    +(followed)> {[ belief:tenet=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('belief'))
+
+            self.propeq(nodes[0], 'period', (1675900800000000, 1675987200000000, 86400000000))
+
+            self.len(1, await core.nodes('entity:believed -(followed)> belief:tenet'))

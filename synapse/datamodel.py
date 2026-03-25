@@ -149,15 +149,6 @@ class Prop:
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
 
-    def reqProtoDef(self, name):
-
-        pdefs = self.info.get('protocols')
-        if pdefs is None or (pdef := pdefs.get(name)) is None:
-            mesg = f'Property {self.full} does not implement protocol {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
-
-        return pdef
-
     def onSet(self, func):
         '''
         Add a callback for setting this property.
@@ -343,18 +334,6 @@ class Form:
     def implements(self, ifname):
         return ifname in self.ifaces
 
-    def reqProtoDef(self, name, propname=None):
-
-        if propname is not None:
-            return self.reqProp(propname).reqProtoDef(name)
-
-        pdefs = self.info.get('protocols')
-        if pdefs is None or (pdef := pdefs.get(name)) is None:
-            mesg = f'Form {self.full} does not implement protocol {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
-
-        return pdef
-
     def getRuntPode(self):
 
         return (('syn:form', self.full), {
@@ -394,8 +373,6 @@ class Form:
                 'ndef': [],
                 'array': [],
                 'ndefarray': [],
-                'nodeprop': [],
-                'nodeproparray': [],
             }
 
             for name, prop in self.props.items():
@@ -405,19 +382,12 @@ class Form:
                         self.refsout['ndefarray'].append(name)
                         continue
 
-                    elif isinstance(prop.type.arraytype, s_types.NodeProp):
-                        self.refsout['nodeproparray'].append(name)
-                        continue
-
                     typename = prop.type.arraytype.name
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
                 elif prop.type.hasforms:
                     self.refsout['ndef'].append(name)
-
-                elif isinstance(prop.type, s_types.NodeProp):
-                    self.refsout['nodeprop'].append(name)
 
                 elif self.modl.forms.get(prop.type.name) is not None:
                     if prop.type.name in self.type.pivs:
@@ -694,6 +664,7 @@ class Model:
 
                 ('value', ('data', {}), {
                     'computed': True,
+                    'display': {'hidden': True},
                     'doc': 'The value which is referenced.'}),
             ),
             'doc': 'A prop which can be of one or more types.',
@@ -714,10 +685,6 @@ class Model:
 
         info = {'doc': 'Arbitrary json compatible data.'}
         item = s_types.Data(self, 'data', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
-        item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '

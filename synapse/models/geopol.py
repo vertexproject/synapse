@@ -24,22 +24,35 @@ modeldefs = (
             ('pol:vitals', ('guid', {}), {
                 'doc': 'A set of vital statistics about a country.'}),
 
-            ('pol:isonum', ('int', {}), {
-                'doc': 'The ISO integer country code.', 'ex': '840'}),
-
             ('pol:election', ('guid', {}), {
+                'template': {'title': 'election'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'An election involving one or more races for office.'}),
 
             ('pol:race', ('guid', {}), {
+                'template': {'title': 'political race'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'An individual race for office.'}),
 
             ('pol:office', ('guid', {}), {
                 'doc': 'An elected or appointed office.'}),
 
             ('pol:term', ('guid', {}), {
+                'template': {'title': 'term'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'A term in office held by a specific individual.'}),
 
             ('pol:candidate', ('guid', {}), {
+                'template': {'title': 'candidacy'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'A candidate for office in a specific race.'}),
 
             ('pol:pollingplace', ('guid', {}), {
@@ -186,15 +199,8 @@ modeldefs = (
                 ('office', ('pol:office', {}), {
                     'doc': 'The office held for the term.'}),
 
-                ('period', ('ival', {}), {
-                    'prevnames': ('start', 'end'),
-                    'doc': 'The time period of the term of office.'}),
-
                 ('race', ('pol:race', {}), {
                     'doc': 'The race that determined who held office during the term.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the person who held office during the term.'}),
 
                 ('party', ('ou:org', {}), {
                     'doc': 'The political party of the person who held office during the term.'}),
@@ -203,9 +209,6 @@ modeldefs = (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the candidate.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),

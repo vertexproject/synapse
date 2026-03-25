@@ -24,6 +24,7 @@ class SciModelTest(s_t_utils.SynTest):
                     :period=(20240319, 20240320)
                     :type=lab.light
                     :desc="Foo bar baz."
+                    :actor={[ entity:contact=* :name=feynman ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -31,11 +32,14 @@ class SciModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'name', 'double-slit')
             self.propeq(nodes[0], 'desc', 'Foo bar baz.')
             self.eq((1710806400000000, 1710892800000000, 86400000000), nodes[0].get('period'))
+            self.nn(nodes[0].get('actor'))
+            self.len(1, await core.nodes('sci:experiment :actor -> entity:contact +:name=feynman'))
 
             nodes = await core.nodes('''
                 [ sci:evidence=*
                     :observation={[ sci:observation=*
                         :time=2024-03-19
+                        :actor={[ entity:contact=* :name=researcher ]}
                         :experiment={sci:experiment:name=double-slit}
                         :desc="Shadows cast on the wall in a diffusion pattern."
                     ]}
@@ -53,5 +57,7 @@ class SciModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)
             self.nn(nodes[0].get('experiment'))
+            self.nn(nodes[0].get('actor'))
             self.propeq(nodes[0], 'time', 1710806400000000)
             self.propeq(nodes[0], 'desc', "Shadows cast on the wall in a diffusion pattern.")
+            self.len(1, await core.nodes('sci:observation :actor -> entity:contact +:name=researcher'))

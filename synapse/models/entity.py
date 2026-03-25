@@ -169,13 +169,31 @@ modeldefs = (
             ('entity:multiple', {
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
-            ('entity:abstract', {
+            ('entity:resolvable', {
                 'template': {'title': 'entity'},
                 'props': (
                     ('resolved', (('ou:org', 'ps:person'), {}), {
                         'doc': 'The resolved entity to which this {title} belongs.'}),
                 ),
                 'doc': 'An abstract entity which can be resolved to an organization or person.'}),
+
+            ('entity:stance', {
+                'template': {'title': 'stance'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the {title}.'}),
+
+                    ('expires', ('time', {}), {
+                        'doc': 'The time that the {title} expires.'}),
+
+                    ('activity', ('meta:negotiable', {}), {
+                        'doc': 'The negotiation activity this {title} was part of.'}),
+                ),
+                'doc': 'An interface for asks/offers in a negotiation.'}),
         ),
 
         'types': (
@@ -207,7 +225,7 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
@@ -325,6 +343,10 @@ modeldefs = (
                 'doc': 'Activity in pursuit of a goal.'}),
 
             ('entity:conflict', ('guid', {}), {
+                'template': {'title': 'conflict'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
 
             ('entity:contribution', ('guid', {}), {
@@ -376,6 +398,55 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor achieved a goal or was given an award.'}),
 
+                ('entity:believed', ('guid', {}), {
+                    'template': {'title': 'believed'},
+                    'interfaces': (
+                        ('entity:activity', {}),
+                    ),
+                    'props': (
+                        ('belief', ('meta:believable', {}), {
+                            'doc': 'The belief held by the actor.'}),
+                    ),
+                    'doc': 'A period where an actor held a belief.'}),
+
+            ('entity:discovered', ('guid', {}), {
+                'template': {'title': 'discovery'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('item', ('meta:discoverable', {}), {
+                        'doc': 'The item discovered by the actor.'}),
+                ),
+                'doc': 'An event where an entity made a discovery.'}),
+
+            ('entity:signed', ('guid', {}), {
+                'template': {'title': 'signed'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('doc', ('doc:signable', {}), {
+                        'doc': 'The document which the actor signed.'}),
+                ),
+                'doc': 'An event where an actor signed a document.'}),
+
+            ('entity:asked', ('guid', {}), {
+                'template': {'title': 'ask'},
+                'interfaces': (
+                    ('entity:stance', {}),
+                ),
+                'props': (),
+                'doc': 'An event where an actor made an ask as part of a negotiation.'}),
+
+            ('entity:offered', ('guid', {}), {
+                'template': {'title': 'offer'},
+                'interfaces': (
+                    ('entity:stance', {}),
+                ),
+                'props': (),
+                'doc': 'An event where an actor made an offer as part of a negotiation.'}),
+
         ),
 
         'edges': (
@@ -411,6 +482,9 @@ modeldefs = (
 
             (('entity:studied', 'included', 'edu:learnable'), {
                 'doc': 'The target node was included by the actor as part of their studies.'}),
+
+            (('entity:believed', 'followed', 'belief:tenet'), {
+                'doc': 'The actor followed the tenet during the period.'}),
         ),
 
         'forms': (
@@ -527,7 +601,6 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                # TODO: should we create risk:campaign and define this there
                 ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
@@ -536,20 +609,10 @@ modeldefs = (
                     'prevnames': ('camptype',)}),
 
                 ('cost', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The actual cost of the campaign.'}),
 
                 ('budget', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The budget allocated to execute the campaign.'}),
-
-                # FIXME overfit?
-                ('conflict', ('entity:conflict', {}), {
-                    'doc': 'The conflict in which this campaign is a primary participant.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
@@ -559,9 +622,6 @@ modeldefs = (
 
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the conflict.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period of time when the conflict was ongoing.'}),
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),

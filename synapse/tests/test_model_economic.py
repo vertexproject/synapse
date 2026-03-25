@@ -19,7 +19,7 @@ class EconTest(s_utils.SynTest):
                 econ:purchase="*"
 
                     :price=13.37
-                    :buyer={[ entity:contact=* ]}
+                    :actor={[ entity:contact=* ]}
                     :seller={[ entity:contact=* ]}
 
                     :time=20180202
@@ -27,15 +27,14 @@ class EconTest(s_utils.SynTest):
                     :place=*
                     :place:loc=us.ny.brooklyn
 
-                    :paid=true
-                    :paid:time=20180202
+                    :paid=20180202
             ]'''
 
             perc = (await core.nodes(text))[0]
 
             self.propeq(perc, 'price', '13.37')
 
-            self.len(1, await core.nodes('econ:purchase :buyer -> entity:contact'))
+            self.len(1, await core.nodes('econ:purchase :actor -> entity:contact'))
             self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
 
             self.len(1, await core.nodes('econ:purchase:price=13.37'))
@@ -81,8 +80,7 @@ class EconTest(s_utils.SynTest):
             self.len(0, await core.nodes('econ:purchase:price +:price>=20.00'))
             self.len(0, await core.nodes('econ:purchase:price +:price<=10.00'))
 
-            self.propeq(perc, 'paid', True)
-            self.propeq(perc, 'paid:time', 1517529600000000)
+            self.propeq(perc, 'paid', 1517529600000000)
 
             self.propeq(perc, 'place:loc', 'us.ny.brooklyn')
 
@@ -93,7 +91,7 @@ class EconTest(s_utils.SynTest):
                 econ:payment=*
 
                     :payee={[ entity:contact=* :name=payee ]}
-                    :payer={[ entity:contact=* :name=payer ]}
+                    :actor={[ entity:contact=* :name=payer ]}
 
                     :status=settled
                     :amount = 20.30
@@ -189,8 +187,6 @@ class EconTest(s_utils.SynTest):
             self.propeq(nodes[0], 'time', 1635638400000000)
             self.propeq(nodes[0], 'amount', '123.45')
 
-            # self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
-
             self.len(1, await core.nodes('econ:balance :account -> econ:fin:account'))
 
             nodes = await core.nodes('''
@@ -244,13 +240,6 @@ class EconTest(s_utils.SynTest):
             self.nn(nodes[0].get('account'))
             self.propeq(nodes[0], 'balance', '999')
             self.eq((1709251200000000, 1709251200000001, 1), nodes[0].get('period'))
-
-            self.len(1, nodes[0].protocols())
-            self.len(0, nodes[0].protocols(name='newp:newp'))
-            self.len(1, nodes[0].protocols(name='econ:adjustable'))
-
-            # proto = nodes[0].protocol('econ:adjustable', propname='starting:balance')
-            # self.eq(proto['vars']['currency'], 'usd')
 
             nodes = await core.nodes('''[
                 econ:bank:aba:rtn=123456789

@@ -2131,14 +2131,14 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:payment=* :payer:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
                         'econ:payment': {
-                            'payer:instrument': ['name'],
+                            'instrument': ['name'],
                         }
                     }
                 }
@@ -2148,8 +2148,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.nn(embeds['payer:instrument']['$nid'])
-            self.eq('infime', embeds['payer:instrument']['name'][1])
+            self.nn(embeds['instrument']['$nid'])
+            self.eq('infime', embeds['instrument']['name'][1])
 
             # embeds include virtual prop values
             await core.nodes('''[

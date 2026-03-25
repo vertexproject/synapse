@@ -351,7 +351,6 @@ testmodel = (
 
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
-            ('test:protocol', ('int', {}), {}),
             ('test:onstorm', ('guid', {}), {}),
         ),
         'forms': (
@@ -440,10 +439,8 @@ testmodel = (
             ('test:str', {}, (
                 ('bar', (('test:str', 'test:int', 'test:comp', 'test:auto', 'test:guid',
                            'test:virtiface', 'test:ro', 'inet:ip', 'inet:fqdn', 'meta:source', 'ps:person'), {}), {}),
-                ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -480,7 +477,6 @@ testmodel = (
             ('test:strregex', {}, ()),
 
             ('test:migr', {}, (
-                ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
             )),
 
@@ -521,25 +517,6 @@ testmodel = (
 
             ('test:enums:int', {}, ()),
             ('test:enums:str', {}, ()),
-
-            ('test:protocol', {
-                'protocols': {
-                    'test:adjustable': {'vars': {
-                        'time': {'type': 'prop', 'name': 'time'},
-                        'currency': {'type': 'prop', 'name': 'currency'}}},
-                },
-                'doc': 'An adjustable form value.',
-              }, (
-                ('time', ('time', {}), {}),
-                ('currency', ('str', {}), {}),
-                ('otherval', ('int', {}), {
-                    'protocols': {
-                        'another:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
-                    'doc': 'Another value adjustable in a different way.'}),
-            )),
 
             ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
                 ('tick', ('time', {}), {}),

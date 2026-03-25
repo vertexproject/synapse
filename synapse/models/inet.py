@@ -1959,7 +1959,7 @@ modeldefs = (
                 'template': {'title': 'subscriber'},
                 'interfaces': (
                     ('entity:actor', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('inet:service:object', {}),
                 ),
                 'props': (

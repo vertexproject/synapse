@@ -302,6 +302,9 @@ modeldefs = (
                 ),
             }),
 
+            ('meta:believable', {
+                'doc': 'An interface implemented by forms which may be believed in by an actor.'}),
+
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (
@@ -389,6 +392,9 @@ modeldefs = (
 
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
+
+            ('meta:negotiable', {
+                'doc': 'An interface implemented by activities which involve negotiation.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

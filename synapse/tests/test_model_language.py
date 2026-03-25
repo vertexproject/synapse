@@ -8,7 +8,7 @@ class LangModuleTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 lang:translation=*
-                    :input=(lang:phrase, Hola)
+                    :input=Hola
                     :input:lang={[ lang:language=({"code": "es"}) ]}
                     :output=Hi
                     :output:lang={[ lang:language=({"code": "en.us"}) :name=english :names=(merican,) ]}
@@ -18,17 +18,14 @@ class LangModuleTest(s_t_utils.SynTest):
             ]''')
             self.len(2, nodes)
 
-            self.propeq(nodes[0], 'input', ('lang:phrase', 'Hola'))
+            self.propeq(nodes[0], 'input', 'Hola')
             self.propeq(nodes[0], 'output', 'Hi')
             self.propeq(nodes[0], 'input:lang', '0eae93b46d1c1951525424769faa5205')
             self.propeq(nodes[0], 'output:lang', 'a8eeae81da6c305c9cf6e4962bd106b2')
             self.propeq(nodes[0], 'desc', 'Greetings')
 
-            self.len(1, await core.nodes('lang:phrase <- *'))
-            self.len(1, await core.nodes('lang:translation -> lang:phrase'))
-            self.len(1, await core.nodes('lang:phrase -> lang:translation'))
+            self.len(1, await core.nodes('lang:phrase -> lang:translation:input'))
 
-            self.len(1, await core.nodes('lang:translation :input -> *'))
             self.len(1, await core.nodes('lang:translation :input -> lang:phrase'))
 
             self.len(1, await core.nodes('lang:translation -> it:software'))

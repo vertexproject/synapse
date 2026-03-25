@@ -710,7 +710,7 @@ class LibDmon(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname'},
                       {'name': 'ddef', 'type': 'dict', 'desc': 'Additional daemon definition fields. ', 'default': None},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.'}}},
+                  'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.'}}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
@@ -6290,24 +6290,6 @@ class Node(Prim):
                   'returns': {'desc': 'True if the node is at least one of the forms specified, false otherwise.',
                               'type': 'boolean'}}},
 
-        {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
-         'type': {'type': 'function', '_funcname': '_methNodeProtocol',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                        'desc': 'The protocol name implemented by the property.', },
-                      {'name': 'propname', 'type': 'str', 'default': None,
-                        'desc': 'The relative name of the property which declares the protocol.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
-
-        {'name': 'protocols', 'desc': 'Return a list of protocol objects for the node.',
-         'type': {'type': 'function', '_funcname': '_methNodeProtocols',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'default': None,
-                        'desc': 'Only return protocols with the given name.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
-
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
@@ -6356,8 +6338,6 @@ class Node(Prim):
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
-            'protocol': self._methNodeProtocol,
-            'protocols': self._methNodeProtocols,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6434,17 +6414,6 @@ class Node(Prim):
                 return True
 
         return False
-
-    @stormfunc(readonly=True)
-    async def _methNodeProtocol(self, name, propname=None):
-        name = await tostr(name)
-        propname = await tostr(propname, noneok=True)
-        return self.valu.protocol(name, propname=propname)
-
-    @stormfunc(readonly=True)
-    async def _methNodeProtocols(self, name=None):
-        name = await tostr(name, noneok=True)
-        return self.valu.protocols(name=name)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):

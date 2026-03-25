@@ -1,6 +1,86 @@
-# Storm Query Language Syntax Skill
+# Storm Query Language Skill
 
-TRIGGER: When writing, editing, reviewing, or discussing Storm (.storm) files, Storm queries, Storm packages, or Synapse query language code.
+TRIGGER: When writing, editing, reviewing, validating, debugging, or running Storm (.storm) files, Storm queries, Storm packages, or Synapse query language code. Also triggered when fixing BadSyntax exceptions, troubleshooting Storm parse errors, or running Storm queries against a local Cortex.
+
+## Validating Storm Syntax
+
+**IMPORTANT: Claude MUST validate ALL Storm query logic it generates using the validation tool below. Every Storm query written to a file, embedded in a test, or included in a Storm package MUST be validated before being considered complete. No exceptions.**
+
+### Using the CLI Validation Tool (Required)
+
+The `synapse.tools.storm.validate` tool validates Storm syntax without requiring a running Cortex. Always use this tool to validate Storm queries.
+
+```bash
+# Validate a .storm file
+python -m synapse.tools.storm.validate path/to/query.storm
+
+# Validate from stdin (use - as the file argument)
+echo 'inet:fqdn=example.com' | python -m synapse.tools.storm.validate -
+
+# Validate with a specific parse mode
+python -m synapse.tools.storm.validate --mode lookup path/to/lookup.storm
+python -m synapse.tools.storm.validate --mode search path/to/search.storm
+```
+
+Exit codes: `0` = valid syntax (prints `ok`), `1` = invalid syntax (prints error with line/column info).
+
+**Workflow for validating generated Storm:**
+1. Write the Storm query to a temporary file.
+2. Run `python -m synapse.tools.storm.validate <file>` to check syntax.
+3. If validation fails, fix the query and re-validate before proceeding.
+
+### Running Storm Queries Locally
+
+The `synapse.tools.storm.tester` tool runs Storm queries against a local Cortex without requiring an external service. It spins up a temporary Cortex, executes the query, and prints formatted results.
+
+```bash
+# Run a query from a .storm file
+python -m synapse.tools.storm.tester path/to/query.storm
+
+# Run from stdin
+echo '[ inet:fqdn=example.com ]' | python -m synapse.tools.storm.tester -
+
+# Raw JSON output (one Storm message per line)
+python -m synapse.tools.storm.tester --raw path/to/query.storm
+
+# Persistent directory (data survives between runs)
+python -m synapse.tools.storm.tester --dir /tmp/mycore path/to/create.storm
+python -m synapse.tools.storm.tester --dir /tmp/mycore path/to/query.storm
+
+# Run in a specific view
+python -m synapse.tools.storm.tester --dir /tmp/mycore --view <iden> path/to/query.storm
+
+# Run in a disposable forked view (data isolation)
+python -m synapse.tools.storm.tester --dir /tmp/mycore --forked path/to/query.storm
+
+# Fork from a specific view (inherits parent layers, writes are discarded)
+python -m synapse.tools.storm.tester --dir /tmp/mycore --view <iden> --forked path/to/query.storm
+```
+
+Without `--dir`, a temporary directory is created and cleaned up after the run. With `--dir`, the directory persists so nodes created in one run can be queried in the next.
+
+The `--view` option runs the query in a specific view by iden instead of the default view. The `--forked` option forks the target view before running, then deletes the fork after execution -- any nodes or changes made during the run are discarded, leaving the underlying data untouched. Combined with `--dir`, this allows safe testing against persistent data.
+
+**Use cases:**
+- Quickly test Storm queries without standing up a full Cortex service
+- Verify that a query produces the expected nodes and output
+- Iteratively build up graph data across multiple runs using `--dir`
+- Get raw JSON message output for scripting or debugging with `--raw`
+- Validate that Storm logic works end-to-end (not just syntax) before deploying to a package
+- Run queries in a specific view with `--view` for multi-view testing
+- Use `--forked` to run queries without modifying the underlying data
+- Combine `--dir` + `--forked` for safe, repeatable testing against persistent data
+
+## Reading BadSyntax Errors
+
+A `BadSyntax` exception contains:
+- **`mesg`**: Human-readable error (e.g., `"Unexpected token 'and' at line 3, column 5, expecting one of: ..."`)
+- **`line`** / **`column`**: Location in the query text
+- **`token`**: The unexpected token value
+- **`at`**: Character offset in query text
+- **`highlight`**: Dict with `hash`, `lines`, `columns`, `offsets` for precise source mapping
+
+The parser converts Lark errors to friendly messages using `terminalEnglishMap` in `synapse/lib/parser.py`.
 
 ## Language Overview
 
@@ -92,11 +172,11 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ -(refs)> { inet:ipv4=1.2.3.4 } ]          // remove edge via subquery
 [ <(seen)+ $srcnode ]                         // add N2 edge to variable
 
-// Parenthesized edit context (inline node creation)
-[( risk:vuln=($ndef, $vuln)
-    :node=$ndef
-    :vuln=$vuln
-    <(seen)+ $srcnode
+// Parenthesized edit context only edits nodes created in the same parens context
+// All other nodes in the pipeline are not affected
+[( risk:vuln=($vendor, $id)
+    :name=Woot          // Only edits name on the risk:vuln
+    <(seen)+ $srcnode   // Only adds the edge to the risk:vuln
 )]
 ```
 
@@ -218,22 +298,22 @@ for $n in $getNodes() {
 ### Subqueries
 
 ```storm
-// Pass-through (nodes unchanged, side effects persist)
-inet:fqdn { [ +#reviewed ] }
-
 // As node reference in edits
 [ :account = { [ syn:user=$lib.auth.users.get().iden ] } ]
 
 // Embedded query expression
-$file = ${ [ file:bytes=$sha256 ] }
+$file = { [ file:bytes=$sha256 ] }
+
+// Perform operations after pivots or filters without effecting the outer pipeline
+inet:fqdn { -> inet:dns:a [ +#reviewed ] } // still has inet:fqdn nodes in the pipeline
 ```
 
 ### Lifecycle Blocks
 
 ```storm
-init { ... }                                  // runs once before any nodes
+init { ... }                                  // runs once before any nodes are allowed through the pipeline
 empty { ... }                                 // runs if pipeline is empty
-fini { ... }                                  // runs once after all nodes
+fini { ... }                                  // runs once after all nodes have passed through the pipeline
 ```
 
 ### Built-in Commands
@@ -367,20 +447,187 @@ $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
 $node.props.propname                         // specific property
-$node.isform("inet:fqdn")                   // check form type
+$node.isform(inet:fqdn)                      // check form type
+$node.isform($list)                          // check if form is in a list
 $node.tags()                                 // get tags dict
 $node.difftags($tags)                        // diff tags vs current
 $node.globtags(pattern)                      // match tags by glob
 $node.edges()                                // iterate light edges
-$node.addEdge($verb, $n2iden)               // add a light edge
-$node.delEdge($verb, $n2iden)               // delete a light edge
+$node.addEdge($verb, $n2iden)                // add a light edge
+$node.delEdge($verb, $n2iden)                // delete a light edge
 $node.protocol()                             // get protocol name
 $node.protocols()                            // get all protocols
 $node.getByLayer()                           // get node per layer
 $node.getStorNodes()                         // get storage nodes
-$node.data.set("key", $value)               // set node data
+$node.data.set("key", $value)                // set node data
 $node.data.get("key")                        // get node data
 $node.data.has("key")                        // check node data exists
+```
+
+## Common Syntax Errors & Fixes
+
+### 1. Using `==` Instead of `=` for Comparison
+```storm
+// WRONG - Storm uses single = for comparison
+if ($x == 5) { ... }
+
+// CORRECT
+if ($x = 5) { ... }
+```
+
+### 2. Missing Parentheses Around JSON expressions
+```storm
+// WRONG
+$x = true
+$y = 999    // WRONG because $y ends up being "999" not 999
+$dict = {}
+$list = []
+
+// CORRECT
+$x = (true)
+$y = (999)
+$dict = ({})
+$list = ([])
+```
+
+### 3. Forgetting `|` After Inline Commands
+```storm
+// WRONG - command output stays in command syntax mode
+inet:fqdn limit 10 +#tag
+
+// CORRECT - pipe returns to Storm operator syntax
+inet:fqdn limit 10 | +#tag
+```
+
+### 4. Unbalanced Brackets/Braces
+```storm
+// WRONG
+[ inet:fqdn=example.com
+  :zone=1
+
+// CORRECT
+[ inet:fqdn=example.com
+  :zone=1
+]
+```
+
+### 5. Wrong String Quoting
+```storm
+// WRONG - single quotes do NOT process escapes
+$x = 'line\nnewline'    // literal \n
+
+// CORRECT - use double quotes for escapes
+$x = "line\nnewline"
+```
+
+### 6. Missing `$` on Variable References
+```storm
+// WRONG
+for item in $list { ... }
+
+// CORRECT
+for $item in $list { ... }
+```
+
+### 7. Using `return` Without Parentheses
+```storm
+// WRONG
+return $value
+
+// CORRECT
+return($value)
+return()          // void return
+```
+
+### 8. Incorrect Switch/Case Syntax
+```storm
+// WRONG - missing colon after case value
+switch $x {
+    "val1" { ... }
+}
+
+// CORRECT
+switch $x {
+    "val1": { ... }
+}
+```
+
+### 9. Wrong Comparison in Filter Context vs Expression Context
+```storm
+// Filter context uses direct comparison operators
++:asn=1234
+
+// Expression context needs parenthesized comparison
+if ($node.value() = "test") { ... }
+```
+
+### 10. Incorrect `try`/`catch` Exception Names
+```storm
+// WRONG - using full exception class path
+try { ... } catch s_exc.BadArg as $err { ... }
+
+// CORRECT - use just the exception name (SynErr subclass name)
+try { ... } catch BadArg as $err { ... }
+try { ... } catch (AuthDeny, NoSuchName) as $err { ... }
+try { ... } catch * as $err { ... }
+```
+
+### 11. Using `stop` vs `return()` Incorrectly
+```storm
+// stop - exits an emitter function
+// return() - exits a callable function
+
+function check00(n) {
+    if ($fatal) { return() }   // exit function
+    return(woot)                       // exit function returning "woot"
+}
+
+function check01(n) {
+    for $x in $n {
+        emit $x             // emit $x to the invoker
+        if ($x = 'woot') {
+            stop            // exit the emitter function
+        }
+    }
+}
+```
+
+### 12. Format String Escaping
+```storm
+// WRONG - unescaped backtick or brace in format string
+$msg = `literal brace: { causes error`
+
+// CORRECT - escape literal backticks with \` and literal braces with \{
+$msg = `literal brace: \{ not interpolated`
+```
+
+### 13. Edit Block Inside Filter
+```storm
+// WRONG - can't nest edit blocks in filters
++[ :prop=value ]
+
+// CORRECT - separate filter and edit
++:prop=value
+// or
+[ :prop=value ]
+```
+
+### 14. Duplicate Keyword Arguments
+```storm
+// WRONG - parser catches duplicate kwargs
+$func(arg1=1, arg1=2)
+
+// CORRECT
+$func(arg1=1, arg2=2)
+```
+
+### 15. Positional After Keyword Arguments
+```storm
+// WRONG
+$func(key=1, "positional")
+
+// CORRECT
+$func("positional", key=1)
 ```
 
 ## Style Rules
@@ -394,6 +641,54 @@ $node.data.has("key")                        // check node data exists
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
 - Use `return()` with empty parens to return `(null)`
 - Comparison uses single `=` (not `==`): `if ($code = 200)`
-- Use `(true)`, `(false)`, `(null)` — not `$lib.true`, `$lib.false`, `$lib.null`
+- Use `(true)`, `(false)`, `(null)` -- not `$lib.true`, `$lib.false`, `$lib.null`
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
 - Use the most specific syntax which makes sense. (`-(refs)> inet:fqdn` is better than `--> *`)
+
+## Debugging Workflow
+
+1. **Isolate the failing query** -- extract the minimal Storm snippet that reproduces the error.
+
+2. **Check the error location** -- `BadSyntax` provides `line` and `column`. Look at that exact position in the query.
+
+3. **Validate incrementally** -- for complex queries, test each pipeline stage separately:
+   ```storm
+   // Test lift alone
+   inet:fqdn=example.com
+
+   // Then add filter
+   inet:fqdn=example.com +:zone=1
+
+   // Then add pivot
+   inet:fqdn=example.com +:zone=1 -> inet:dns:a
+   ```
+
+4. **Check the grammar** -- the Lark grammar is at `synapse/data/lark/storm.lark`. The `terminalEnglishMap` in `synapse/lib/parser.py` maps token names to readable descriptions.
+
+5. **Unit test pattern for syntax validation**:
+   ```python
+   async def test_storm_syntax(self):
+       async with self.getTestCore() as core:
+           # Valid query should not raise
+           await core.nodes('inet:fqdn=example.com')
+
+           # Invalid query should raise BadSyntax
+           with self.raises(s_exc.BadSyntax):
+               await core.nodes('inet:fqdn=example.com [')
+   ```
+
+6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the data model skill for valid form/property names.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `synapse/tools/storm/validate.py` | CLI tool for validating Storm syntax without a Cortex |
+| `synapse/tools/storm/tester.py` | CLI tool for running Storm queries against a local Cortex |
+| `synapse/lib/parser.py` | Storm parser, AST converter, error handling |
+| `synapse/data/lark/storm.lark` | Lark grammar definition |
+| `synapse/lib/ast.py` | AST node classes |
+| `synapse/lib/storm.py` | Storm runtime execution |
+| `synapse/exc.py` | `BadSyntax` and other exception classes |
+| `synapse/lib/stormtypes.py` | Storm type system and some `$lib` implementations |
+| `synapse/lib/stormlib/*.py` | Additional Storm `$lib` implementations |

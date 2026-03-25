@@ -6096,7 +6096,7 @@ A translation of text from one language to another.
 |----------|------|-----|
 | `:desc` | `text` | A description of the meaning of the output. |
 | `:engine` | `it:software` | The translation engine version used. |
-| `:input` | `nodeprop` | The input text. |
+| `:input` | `text` | The input text. |
 | `:input:lang` | `lang:language` | The input language. |
 | `:output` | `text` | The output text. |
 | `:output:lang` | `lang:language` | The output language. |

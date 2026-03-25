@@ -561,41 +561,16 @@ class DataModelTest(s_t_utils.SynTest):
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
             self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
 
+            # poly value virt type has `hidden` set in `display`
+            self.eq(core.model.type('poly').info['virts'][1][0], 'value')
+            self.eq(core.model.type('poly').info['virts'][1][2]['display'], {'hidden': True})
+
+            self.eq(core.model.prop('entity:relationship:id').info['virts'][1][0], 'value')
+            self.true(core.model.prop('entity:relationship:id').info['virts'][1][2]['display']['hidden'])
+
             with self.raises(s_exc.NoSuchType):
                 vdef = ('newp', ('newp', {}), {})
                 core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})
-
-    async def test_datamodel_protocols(self):
-        async with self.getTestCore() as core:
-            await core.nodes('[ test:protocol=5 :time=2020 :currency=usd :otherval=15 ]')
-
-            pinfo = await core.callStorm('test:protocol return($node.protocol(test:adjustable))')
-            self.eq('test:adjustable', pinfo['name'])
-            self.eq('usd', pinfo['vars']['currency'])
-            self.none(pinfo.get('prop'))
-
-            pinfo = await core.callStorm('test:protocol return($node.protocols())')
-            self.len(2, pinfo)
-            self.eq('test:adjustable', pinfo[0]['name'])
-            self.eq('usd', pinfo[0]['vars']['currency'])
-            self.none(pinfo[0].get('prop'))
-
-            self.len(2, pinfo)
-            self.eq('another:adjustable', pinfo[1]['name'])
-            self.eq('usd', pinfo[1]['vars']['currency'])
-            self.eq('otherval', pinfo[1].get('prop'))
-
-            pinfo = await core.callStorm('test:protocol return($node.protocols(another:adjustable))')
-            self.len(1, pinfo)
-            self.eq('another:adjustable', pinfo[0]['name'])
-            self.eq('usd', pinfo[0]['vars']['currency'])
-            self.eq('otherval', pinfo[0].get('prop'))
-
-            with self.raises(s_exc.NoSuchName):
-                await core.callStorm('test:protocol return($node.protocol(newp))')
-
-            with self.raises(s_exc.NoSuchName):
-                await core.callStorm('test:protocol return($node.protocol(newp, propname=otherval))')
 
     async def test_datamodel_form_inheritance(self):
 
