@@ -2,8 +2,6 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
-import synapse.lib.base as s_base
 import synapse.tests.utils as s_test
 
 class TaskLibTest(s_test.SynTest):

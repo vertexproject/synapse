@@ -363,12 +363,8 @@ class SnapTest(s_t_utils.SynTest):
 
     async def test_clearcache(self):
 
-        # Type hinting since we dont do the type hinting
-        # properly in the Cortex anymore... :(
-        import synapse.lib.snap as s_snap
-
         async with self.getTestCore() as core:
-            async with await core.snap() as snap0:  # type: s_snap.Snap
+            async with await core.snap() as snap0:
 
                 original_node0 = await snap0.addNode('test:str', 'node0')
                 self.len(1, snap0.buidcache)
@@ -381,7 +377,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(4, snap0.livenodes)
                 self.len(3, snap0.tagnorms)
 
-                async with await core.snap() as snap1:  # type: s_snap.Snap
+                async with await core.snap() as snap1:
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
                     await snap1_node0.delTag('foo.bar.baz')
                     self.notin('foo.bar.baz', snap1_node0.tags)

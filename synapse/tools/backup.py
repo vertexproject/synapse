@@ -1,8 +1,9 @@
+# pragma: no cover
 import synapse.common as s_common
 
 import synapse.lib.cmd as s_cmd
 
-from synapse.tools.service.backup import logger, main, backup
+from synapse.tools.service.backup import logger, main, backup  # noqa: F401
 
 s_common.deprecated('synapse.tools.backup is deprecated. Please use synapse.tools.service.backup instead.',
                     curv='v2.225.0')
