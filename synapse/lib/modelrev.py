@@ -2194,8 +2194,9 @@ class ModelMigration_0_2_35(ModelMigrationBase):
     async def revModel_0_2_35(self):
 
         formnames = ('inet:server', 'inet:client', 'inet:url')
+        formstr = ','.join(formnames)
 
-        logger.info(f'Collecting bare IPv6 address nodes in {len(self.layers)} layers')
+        logger.info(f'Collecting {formstr} nodes in {len(self.layers)} layers')
 
         for formname in formnames:
             form = self.core.model.form(formname)
@@ -2233,7 +2234,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                     await self.nodes.set(buid, node)
 
         total = len(self.nodes)
-        logger.info(f'Processing {total} bare IPv6 address nodes in {len(self.layers)} layers')
+        logger.info(f'Processing {total} {formstr} nodes in {len(self.layers)} layers')
 
         if total == 0:
             await self.todos.fini()
@@ -2250,6 +2251,8 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
         # SYN-5627: strip port properties that don't match the primary value
         # Do this before we load references so we don't have to load refs for nodes where the primary value is correct.
+        logger.info('Migrating mismatched port properties')
+        count = 0
         for buid, node in self.nodes.items():
 
             formname = node.get('formname')
@@ -2283,6 +2286,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 if newport == oldport:
                     continue
 
+                count += 1
                 if newport is None:
                     await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
                 else:
@@ -2291,6 +2295,11 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             # Primary value is correct, remove this from the node list so we don't do any more processing on it
             if newvalu == formvalu:
                 self.nodes.pop(buid)
+
+        logger.info(f'Finished migrating {count} mismatched port properties')
+
+        # Update total now that we removed all the nodes that don't need primary value migrations
+        total = len(self.nodes)
 
         # Load node refs
         for idx, layer in enumerate(self.layers):
@@ -2321,10 +2330,10 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
                 await self.nodes.set(buid, node)
 
-        logger.info('Processing bare IPv6 address node references (this may happen multiple times)')
+        logger.info(f'Processing {formstr} node references (this may happen multiple times)')
         await self._collectReferences()
 
-        logger.info(f'Migrating {total} bare IPv6 address nodes')
+        logger.info(f'Migrating {total} {formstr} nodes')
 
         count = 0
         migrated = 0
