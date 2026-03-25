@@ -437,10 +437,8 @@ testmodel = (
             ('test:str', {}, (
                 ('bar', (('test:str', 'test:int', 'test:comp', 'test:auto', 'test:guid',
                            'test:virtiface', 'test:ro', 'inet:ip', 'inet:fqdn', 'meta:source', 'ps:person'), {}), {}),
-                ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -479,7 +477,6 @@ testmodel = (
             ('test:strregex', {}, ()),
 
             ('test:migr', {}, (
-                ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
             )),
 

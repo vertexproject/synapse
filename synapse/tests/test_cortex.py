@@ -1433,12 +1433,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.addForm('_low:str', 'str', {'lower': True}, {})
                 await core.addTagProp('lowstr', ('_low:str', {}), {})
                 await core.addTagProp('normstr', ('_low:str', {'lower': False}), {})
-                await core.addTagProp('refsprop', ('nodeprop', {}), {})
 
                 await core.nodes('''[
                     test:str=foo
                     +#foo:lowstr=fooBAR
-                    +#foo:refsprop=(test:str:hehe, nprop)
                     (test:str=bar :hehe=nprop)
                 ]''')
 
@@ -1446,26 +1444,16 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
-                nodes = await core.nodes('test:str=bar <- *')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
                 vdef2 = await core.view.fork()
                 forkopts = {'view': vdef2.get('iden')}
                 self.len(1, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(1, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 await core.nodes('[ test:str=foo +#foo:lowstr=otherval ]', opts=forkopts)
                 self.len(1, await core.nodes('_low:str=foobar <- *'))
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
 
-                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]', opts=forkopts)
-                self.len(1, await core.nodes('test:str=bar <- *'))
-                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
-
-                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsprop]', opts=forkopts)
+                await core.nodes('[ test:str=foo -#foo:lowstr]', opts=forkopts)
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 # Duplicate values in multiple layers of a view only return once
                 await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]', opts=forkopts)
@@ -8755,34 +8743,3 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (1, 'foo'),
                 (1, 'foo'),
             ))
-
-            # Nodeprops could have mutable types in them so make sure modifying
-            # them doesn't cause modifications to the node
-            q = '''
-                $data = { test:guid=(d0,) return(:raw) }
-                [ test:str=foobar :baz=(test:guid:raw, $data) ]
-                ($prop, $valu) = :baz
-                $valu.list.rem(listval0)
-                return((:baz, $valu))
-            '''
-            valu = await core.callStorm(q)
-
-            exp = {
-                'str': 'strval',
-                'int': 1,
-                'dict': {'dictkey': 'dictval'},
-                'list': ('listval1',),
-                'tuple': ('tupleval0', 'tupleval1'),
-            }
-
-            self.eq(valu, (('test:guid:raw', data), exp))
-
-            # Make sure $node.props aren't modifiable either
-            nodes = await core.nodes('test:str=foobar $node.props.baz.1.list.rem(listval0)')
-            self.len(1, nodes)
-            self.propeq(nodes[0], 'baz', ('test:guid:raw', data))
-
-            # Dereferencing mutable types from $node.props should
-            # return mutable instances without mutating the original prop valu
-            valu = await core.callStorm('test:str=foobar ($prop, $valu) = :baz $valu.list.rem(listval0) return((:baz, $valu))')
-            self.eq(valu, (('test:guid:raw', data), exp))
