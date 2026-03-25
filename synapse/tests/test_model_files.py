@@ -523,7 +523,7 @@ class FileTest(s_t_utils.SynTest):
 
                 self.propeq(n, 'file', fileguid)
                 self.propeq(n, 'file:offs', 0)
-                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.propeq(n, 'file:data', ('foo', 'bar'))
 
             nodes = await core.nodes('''[
                 file:mime:msdoc=*
@@ -588,7 +588,7 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'file', fileguid)
             self.propeq(nodes[0], 'file:offs', 0)
-            self.eq(('foo', 'bar'), nodes[0].get('file:data'))
+            self.propeq(nodes[0], 'file:data', ('foo', 'bar'))
             self.propeq(nodes[0], 'guid', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
     async def test_model_file_meta_exif(self):
@@ -606,14 +606,14 @@ class FileTest(s_t_utils.SynTest):
             def testexif(n):
                 self.propeq(n, 'file', fileguid)
                 self.propeq(n, 'file:offs', 0)
-                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.propeq(n, 'file:data', ('foo', 'bar'))
                 self.propeq(n, 'desc', 'aaaa')
                 self.propeq(n, 'comment', 'bbbb')
                 self.propeq(n, 'text', 'foo bar')
                 self.propeq(n, 'created', 1578236238000000)
                 self.propeq(n, 'id', 'a6b4')
                 self.propeq(n, 'author', conguid)
-                self.eq((38.9582839, -77.358946), n.get('latlong'))
+                self.propeq(n, 'latlong', (38.9582839, -77.358946))
                 self.propeq(n, 'altitude', 6371137800)
 
             nodes = await core.nodes('''[
