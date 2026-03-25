@@ -46,6 +46,9 @@ and BOB@WOOT.COM is another
 
     The IP address is:2.3.4.5.
 
+    ip4:198.51.100.1
+    ip4:192.0.2.5
+
     # GOOD IPV6 ADDRESSES
 
     fff0::1
@@ -611,13 +614,16 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(83, nodes)
+        self.len(86, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '2.3.4.5'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
         nodes.remove(('inet:ipv4', '201.202.203.204'))
         nodes.remove(('inet:ipv4', '211.212.213.214'))
+        nodes.remove(('inet:ipv4', '1.2.3.5'))
+        nodes.remove(('inet:ipv4', '198.51.100.1'))
+        nodes.remove(('inet:ipv4', '192.0.2.5'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
