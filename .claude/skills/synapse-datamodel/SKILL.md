@@ -48,5 +48,5 @@ python -m synapse.tools.cortex.docmodel --find inet:fqdn:domain
 python -m synapse.tools.cortex.docmodel --find meta:observable:seen
 
 # Single form from a live Cortex
-python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492 --find risk:attack
+python -m synapse.tools.cortex.docmodel --cortex aha://00.cortex... --find risk:attack
 ```
