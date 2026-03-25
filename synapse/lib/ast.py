@@ -2881,7 +2881,7 @@ class FormPivot(PivotOper):
                 for refsname in refs.get('ndef'):
 
                     if not found:
-                        if not (ptyp := node.form.prop(refsname).type).ispoly or ptyp.formfilter(destform):
+                        if node.form.prop(refsname).type.formfilter(destform):
                             found = True
 
                     refsvalu = node.get(refsname)
@@ -2893,7 +2893,7 @@ class FormPivot(PivotOper):
                 for refsname in refs.get('ndefarray'):
 
                     if not found:
-                        if not (ptyp := node.form.prop(refsname).type.arraytype).ispoly or ptyp.formfilter(destform):
+                        if node.form.prop(refsname).type.arraytype.formfilter(destform):
                             found = True
 
                     if (refsvalu := node.get(refsname)) is not None:
