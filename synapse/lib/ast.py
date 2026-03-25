@@ -2939,34 +2939,24 @@ class FormPivot(PivotOper):
                     refsprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
 
-                    if refsprop.type.ispoly:
-                        if not refsprop.type.formfilter(node.form):
-                            continue
+                    if not refsprop.type.formfilter(node.form):
+                        continue
 
-                        found = True
-                        async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node):
-                            yield pivo, link
-                    else:
-                        found = True
-                        async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef, norm=False):
-                            yield pivo, link
+                    found = True
+                    async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node):
+                        yield pivo, link
 
                 for refsname in refs.get('ndefarray'):
 
                     refsprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
 
-                    if refsprop.type.arraytype.ispoly:
-                        if not refsprop.type.arraytype.formfilter(node.form):
-                            continue
+                    if not refsprop.type.arraytype.formfilter(node.form):
+                        continue
 
-                        found = True
-                        async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node):
-                            yield pivo, link
-                    else:
-                        found = True
-                        async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef, norm=False):
-                            yield pivo, link
+                    found = True
+                    async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node):
+                        yield pivo, link
 
                 if strict and not found:
                     mesg = f'No pivot found for {node.form.name} -> {destform.name}.'
