@@ -1408,7 +1408,7 @@ class StormTypesTest(s_test.SynTest):
             # make sure we gzip correctly
             nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n3}})
             self.len(1, nodes)
-            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data'))))
+            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data')[1])))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
@@ -1725,7 +1725,7 @@ class StormTypesTest(s_test.SynTest):
                     'updated': (nodes[0].get('.updated'), 11),
                 },
                 'props': {
-                    'hehe': ('foobaz', 1, None)
+                    'hehe': (('str', 'foobaz'), 16385, None)
                 },
                 'valu': ('foobar', 1, None),
             }
@@ -1742,7 +1742,7 @@ class StormTypesTest(s_test.SynTest):
                     'updated': (nodes[0].get('.updated'), 11),
                 },
                 'props': {
-                    'hehe': ('boobaz', 1, None)
+                    'hehe': (('str', 'boobaz'), 16385, None)
                 },
                 'valu': ('boobar', 1, None),
             }
@@ -1814,7 +1814,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str')
             self.len(1, nodes)
             self.eq(nodes[0].repr(), 'foo')
-            self.eq(nodes[0].get('hehe'), 'baz')
+            self.propeq(nodes[0], 'hehe', 'baz')
 
             # no test:str:newp prop
             q = '''
@@ -1878,7 +1878,7 @@ class StormTypesTest(s_test.SynTest):
                 'meta': {'created': (created, 21), 'updated': (updated, 11)},
                 'n1verbs': {'refs': {'meta:source': 1}},
                 'n2verbs': {'seen': {'meta:source': 1}},
-                'props': {'hehe': ('bar', 1, None)},
+                'props': {'hehe': (('str', 'bar'), 16385, None)},
                 'tagprops': {
                     'foo.baz': {
                         'score00': (10, 9, None),
@@ -6700,7 +6700,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
-            sha256, size, created = nodes[0].get('sha256')[1], nodes[0].get('size'), nodes[0].get('.created')
+            sha256, size, created = nodes[0].get('sha256')[1], nodes[0].get('size')[1], nodes[0].get('.created')
 
             items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.eq([(0, sha256, size)], items)

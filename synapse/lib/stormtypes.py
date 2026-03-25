@@ -4201,6 +4201,7 @@ class LibBase64(Lib):
 
     @stormfunc(readonly=True)
     async def _decode(self, valu, urlsafe=True):
+        valu = await toprim(valu)
         try:
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
