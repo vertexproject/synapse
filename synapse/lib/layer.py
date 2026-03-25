@@ -218,7 +218,7 @@ STOR_TYPE_IPADDR = 26
 
 STOR_TYPE_ARRAY = 27
 
-STOR_TYPE_NODEPROP = 28
+STOR_TYPE_NODEPROP = 28 # no longer in use
 
 STOR_TYPE_POLY = 29
 
@@ -2379,6 +2379,8 @@ class StorTypeIPAddr(StorType):
 
 class StorTypeNodeProp(StorType):
 
+    # no longer in use, remove after 3.0.0 migration is no longer needed
+
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_NODEPROP)
         self.lifters |= {
@@ -3159,8 +3161,6 @@ class Layer(s_nexus.Pusher):
         self.bynid = self.layrslab.initdb('bynid')
 
         self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
-
-        self.nodepropabrv = self.core.setIndxAbrv(INDX_NODEPROP)
 
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
@@ -4640,10 +4640,6 @@ class Layer(s_nexus.Pusher):
 
                 for oldi in self.getStorIndx(oldt, oldv, virts=oldvirts):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
-
-                    if realtype == STOR_TYPE_NODEPROP:
-                        self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
-
                     await asyncio.sleep(0)
 
                 for indx in self.getStorIndx(STOR_TYPE_ARRAY, oldv):
@@ -4658,10 +4654,7 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
 
-                if oldt == STOR_TYPE_NODEPROP:
-                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
-
-                elif oldt == STOR_TYPE_IVAL:
+                if oldt == STOR_TYPE_IVAL:
                     dura = self.ivaltype.getDurationIndx(oldv)
                     duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
@@ -4700,10 +4693,6 @@ class Layer(s_nexus.Pusher):
             for indx in self.getStorIndx(stortype, valu, virts=virts):
                 kvpairs.append((arryabrv + indx, nid))
                 self.indxcounts.inc(arryabrv)
-
-                if realtype == STOR_TYPE_NODEPROP:
-                    kvpairs.append((self.nodepropabrv + indx[8:] + abrv, nid))
-
                 await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
@@ -4717,10 +4706,7 @@ class Layer(s_nexus.Pusher):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
 
-            if stortype == STOR_TYPE_NODEPROP:
-                kvpairs.append((self.nodepropabrv + indx[8:] + abrv, nid))
-
-            elif stortype == STOR_TYPE_IVAL:
+            if stortype == STOR_TYPE_IVAL:
                 dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
@@ -4760,10 +4746,6 @@ class Layer(s_nexus.Pusher):
 
             for oldi in self.getStorIndx(stortype, valu, virts=virts):
                 self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
-
-                if realtype == STOR_TYPE_NODEPROP:
-                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
-
                 await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
@@ -4778,10 +4760,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
 
-            if stortype == STOR_TYPE_NODEPROP:
-                self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv, nid, db=self.indxdb)
-
-            elif stortype == STOR_TYPE_IVAL:
+            if stortype == STOR_TYPE_IVAL:
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
                 self.layrslab.delete(maxabrv + indx[8:], nid, db=self.indxdb)
 
@@ -5031,10 +5010,7 @@ class Layer(s_nexus.Pusher):
                     self.indxcounts.inc(tp_abrv, -1)
                     self.indxcounts.inc(ftp_abrv, -1)
 
-                if oldt == STOR_TYPE_NODEPROP:
-                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + ftp_abrv, nid, db=self.indxdb)
-
-                elif oldt == STOR_TYPE_IVAL:
+                if oldt == STOR_TYPE_IVAL:
                     dura = self.ivaltype.getDurationIndx(oldv)
                     p_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, None, prop)
                     tp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
@@ -5087,10 +5063,7 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(tp_abrv)
             self.indxcounts.inc(ftp_abrv)
 
-        if stortype == STOR_TYPE_NODEPROP:
-            kvpairs.append((self.nodepropabrv + indx[8:] + ftp_abrv, nid))
-
-        elif stortype == STOR_TYPE_IVAL:
+        if stortype == STOR_TYPE_IVAL:
             dura = self.ivaltype.getDurationIndx(valu)
             p_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, None, prop)
             tp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
@@ -5662,10 +5635,6 @@ class Layer(s_nexus.Pusher):
 
         elif self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb):
             return False
-
-    async def getNodePropRefs(self, buid):
-        for lkey, refsnid in self.layrslab.scanByPref(self.nodepropabrv + buid, db=self.indxdb):
-            yield refsnid, lkey[40:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''

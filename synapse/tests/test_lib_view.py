@@ -655,7 +655,6 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('''
                 [ test:str=bar
                     :bar={test:str=foo}
-                    :baz="test:str:hehe=hifoo"
                     :tick=2020
                     :hehe=hibar
                     :seen=2021
@@ -895,9 +894,9 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(nodes[0], node)
 
             # Make sure that we can still add secondary props even if the node already exists
-            node2 = await view.addNode('test:str', 'hehe', props={'baz': 'test:guid:tick=2020'})
+            node2 = await view.addNode('test:str', 'hehe', props={'hehe': 'neato'})
             self.eq(node2, node)
-            self.nn(node2.get('baz'))
+            self.nn(node2.get('hehe'))
 
     async def test_addNodesAuto(self):
         '''
