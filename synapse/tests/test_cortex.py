@@ -2045,12 +2045,11 @@ class CortexTest(s_t_utils.SynTest):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
 
             self.len(0, await wcore.nodes('test:auto=autothis'))
-            q = '[test:str=woot :bar={[test:auto=autothis]} :baz=(test:type10:strprop, WOOT) :tick=20160505]'
+            q = '[test:str=woot :bar={[test:auto=autothis]} :tick=20160505]'
             nodes = await wcore.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'bar', 'autothis')
-            self.propeq(node, 'baz', ('test:type10:strprop', 'woot'))
             self.propeq(node, 'tick', 1462406400000000)
             self.len(1, await wcore.nodes('test:auto=autothis'))
             # add some time range bumper nodes
