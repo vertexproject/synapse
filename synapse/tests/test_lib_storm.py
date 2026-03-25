@@ -953,7 +953,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq((1577836800000000, 1577836800000001, 1), sodes[0]['tags']['foo'])
             self.eq((('inet:asn', 99), 16393, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
-            self.eq(('unicast', 1, None), sodes[1]['props']['type'])
+            self.eq((('str', 'unicast'), 16385, None), sodes[1]['props']['type'])
             self.eq((('inet:asn', 56), 16393, None), sodes[1]['props']['asn'])
 
             nodes = await core.nodes('[inet:ip=11.22.33.44 +#bar:score=200]')
@@ -1244,26 +1244,26 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['props']['time.precision'], 8)
 
             self.eq(nodes[1][1]['props']['bar'], ('test:str', 'bar'))
-            self.eq(nodes[1][1]['props']['bar.form'], 'test:str')
-            self.eq(nodes[1][1]['props']['seen'], (1577836800000000, 1577836800000001, 1))
+            self.eq(nodes[1][1]['props']['bar.type'], 'test:str')
+            self.eq(nodes[1][1]['props']['seen'], ('ival', (1577836800000000, 1577836800000001, 1)))
             self.eq(nodes[1][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[1][1]['props']['seen.max'], 1577836800000001)
             self.eq(nodes[1][1]['props']['seen.duration'], 1)
 
-            self.eq(nodes[2][1]['props']['seen'], (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff))
+            self.eq(nodes[2][1]['props']['seen'], ('ival', (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff)))
             self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
             self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
             self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[2][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[2][1]['props']['polyarry.form'], ('test:str', 'test:str'))
+            self.eq(nodes[2][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
-            self.eq(nodes[3][1]['props']['seen'], (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe))
+            self.eq(nodes[3][1]['props']['seen'], ('ival', (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe)))
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
             self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
 
-            self.eq(nodes[4][1]['props']['poly.form'], 'test:int')
+            self.eq(nodes[4][1]['props']['poly.type'], 'test:int')
 
             self.eq(nodes[5][1]['props']['polyarry.ip'], {(4, 16909060): 2, (4, 16909061): 1})
             self.eq(nodes[5][1]['props']['polyarry.port'], {80: 2, 90: 1})
@@ -1279,7 +1279,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0][1]['props'].get('seen.duration'))
             self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[0][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[0][1]['props']['polyarry.form'], ('test:str', 'test:str'))
+            self.eq(nodes[0][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -1827,7 +1827,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001, 1))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
@@ -1855,7 +1855,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
@@ -1900,7 +1900,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'prio')
+            self.eq(sode['props'].get('desc')[0][1], 'prio')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001, 63072000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 2)
             self.eq(sode['tagprops'].get('two').get('score')[0], 2)
@@ -2119,7 +2119,7 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(embeds['object']['$nid'])
             self.eq('inet:service:channel', embeds['object']['$form'])
-            self.eq('foochan', embeds['object']['name'])
+            self.eq('foochan', embeds['object']['name'][1])
             self.eq(None, embeds['object']['newp'])
 
             self.eq('inet:service:account', embeds['object::creator']['$form'])
@@ -2171,14 +2171,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq((4, 16909060), embeds['gprop']['server.ip'])
             self.eq(80, embeds['gprop']['server.port'])
 
-            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'])
+            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'][1])
             self.eq(1577836800000000, embeds['gprop']['seen.min'])
             self.eq(1609459200000000, embeds['gprop']['seen.max'])
             self.eq(31622400000000, embeds['gprop']['seen.duration'])
 
             self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
             self.eq(2, embeds['gprop::name']['polyarry.size'])
-            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.form'])
+            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.type'])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
@@ -2985,8 +2985,8 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=woot.haha')
             self.len(1, nodes)
             newt = nodes[0]
-            self.eq(newt.get('doc'), 'haha doc')
-            self.eq(newt.get('title'), 'haha title')
+            self.propeq(newt, 'doc', 'haha doc')
+            self.propeq(newt, 'title', 'haha title')
 
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)

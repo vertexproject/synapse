@@ -587,20 +587,25 @@ class Array(Type):
         elif typename == 'poly':
             polyinfo = typeopts
         else:
+            if (basetype := self.modl.type(typename)) is not None:
+                if isinstance(basetype, Array):
+                    mesg = 'Array type of array values is not supported.'
+                    raise s_exc.BadTypeDef(mesg)
+
+                if basetype.deprecated:
+                    mesg = f'The Array type {self.name} is based on a deprecated type {basetype.name} type which ' \
+                           f'which will be removed in 4.0.0'
+                    logger.warning(mesg)
+
+            elif typename not in self.modl.ifaces:
+                mesg = f'Array type ({self.name}) based on unknown type: {typename}.'
+                raise s_exc.BadTypeDef(mesg=mesg)
+
             typedef = ((typename, typeopts),)
             polyinfo = self.modl.convertPolyinfo(typedef)
 
         self.arraytype = self.modl.type('poly').clone(polyinfo)
         self.arraytypehash = self.arraytype.typehash
-
-        if isinstance(self.arraytype, Array):
-            mesg = 'Array type of array values is not supported.'
-            raise s_exc.BadTypeDef(mesg)
-
-        if self.arraytype.deprecated:
-            mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                   f'which will be removed in 4.0.0'
-            logger.warning(mesg)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
@@ -660,13 +665,9 @@ class Array(Type):
                 if (info := newinfos.get(item)) is not None:
                     norm = item
                 else:
-                    if self.arraytype.ispoly:
-                        formname = item[0]
-                        norm, info = await self.modl.form(formname).type.norm(item[1], view=view)
-                        norm = (formname, norm)
-                    else:
-                        norm, info = await self.arraytype.norm(item, view=view)
-
+                    typename = item[0]
+                    norm, info = await self.modl.type(typename).norm(item[1], view=view)
+                    norm = (typename, norm)
                     info['skipadd'] = True
             else:
                 norm, info = await self.arraytype.norm(item, view=view)
@@ -711,9 +712,7 @@ class Array(Type):
         return rval
 
     async def tostorm(self, valu):
-        if self.arraytype.ispoly:
-            return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
-        return s_stormtypes.List(s_msgpack.deepcopy(valu, use_list=True))
+        return s_stormtypes.List([await self.arraytype.tostorm((v, None)) for v in valu])
 
 class Comp(Type):
 
@@ -2218,11 +2217,15 @@ class Poly(Type):
             for thash, ctor in ctors.items():
                 try:
                     cmprs[thash] = await ctor(realv)
-                except s_exc.BadCmprValu as e:
-                    errs.append(e.get('mesg'))
+                except (s_exc.BadCmprValu, s_exc.BadTypeValu) as e:
+                    errs.append(e)
 
             if not cmprs:
-                raise s_exc.BadCmprValu(itemtype=type(realv), cmpr=name, mesg=errs)
+                if len(errs) == 1:
+                    raise errs[0]
+                else:
+                    # TODO: how do we want to handle multiple errs of potentially mixed types?
+                    raise s_exc.BadCmprValu(itemtype=type(realv), cmpr=name, mesg=errs)
 
             async def cmprfunc(val2):
                 if ndefcmpr:

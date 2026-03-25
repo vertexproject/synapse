@@ -543,6 +543,15 @@ class IndxByPoly(IndxBy):
     def __repr__(self):
         return f'IndxByPoly: {self.form}:{self.prop}'
 
+class IndxByPolyIvalMin(IndxByPoly):
+
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        minindx += self.layr.ivaltimetype.zerobyts
+        maxindx += self.layr.ivaltimetype.fullbyts
+
+        async for item in IndxByPoly.keyNidsByRange(self, minindx, maxindx, reverse=reverse):
+            yield item
+
 class IndxByPolyArray(IndxByPoly):
 
     def __init__(self, layr, form, prop, stortype):
@@ -2121,7 +2130,8 @@ class StorTypePoly(StorType):
                 if virts:
                     if realtype == STOR_TYPE_IVAL:
                         if virts[0] == 'min':
-                            indxby = IndxByPoly(self.layr, form, prop, realtype)
+                            # TODO: move this onto StorTypeIval since props are always poly now
+                            indxby = IndxByPolyIvalMin(self.layr, form, prop, realtype)
                         else:
                             async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
                                 yield item

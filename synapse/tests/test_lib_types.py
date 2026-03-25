@@ -1982,7 +1982,6 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str +:tick*range=(2015)')
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
-            return
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')
             with self.raises(s_exc.BadTypeValu):
@@ -2105,15 +2104,15 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[test:str=a :tick=2014]')
             self.len(1, nodes)
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             nodes = await core.nodes('[test:str=b :tick=2015]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=c :tick=2016]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=d :tick=now]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
@@ -2223,7 +2222,7 @@ class TypesTest(s_t_utils.SynTest):
 
             nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
+            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', (('str', 'newp' * 100),))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
             await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})

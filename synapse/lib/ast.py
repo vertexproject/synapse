@@ -1689,7 +1689,7 @@ class LiftOper(Oper):
                             rawv = pivo.getRawWithLayer(filtprop)
                             if (pvalu := rawv[0]) is not None:
                                 if not array:
-                                    ptyp = runt.model.form(pvalu[0][0]).type
+                                    ptyp = runt.model.type(pvalu[0][0])
                                     (ptyp, getr) = ptyp.getVirtInfo(virts)
                                     pvalu = pivo.get(filtprop, virts=getr)
                                 else:
@@ -1730,7 +1730,7 @@ class LiftOper(Oper):
                                             yield node
                                             break
 
-                    except s_exc.BadTypeValu:
+                    except (s_exc.BadTypeValu, s_exc.BadCmprValu):
                         pass
 
     async def run(self, runt, genr):
@@ -2233,9 +2233,7 @@ class LiftProp(LiftOper):
                             async for node in runt.view.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
                                 yield node
                             return
-                        except asyncio.CancelledError:  # pragma: no cover
-                            raise
-                        except:
+                        except Exception as e:
                             pass
 
                     async for node in runt.view.nodesByProp(fullname, reverse=self.reverse):
@@ -4958,12 +4956,11 @@ class PropName(Value):
             if (valu := node.get(name)) is None:
                 return None, None, None
 
-            if prop.type.ispoly:
-                ndef = valu
-            else:
+            if not prop.type.hasforms:
+                # TODO: is this the right exception?
                 raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
-            if (node := await runt.view.getNodeByNdef(ndef)) is None:
+            if (node := await runt.view.getNodeByNdef(valu)) is None:
                 return None, None, None
 
         return node, realprop, name

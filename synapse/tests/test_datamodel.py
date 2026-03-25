@@ -140,6 +140,7 @@ class DataModelTest(s_t_utils.SynTest):
             ])
 
         with self.raises(s_exc.NoSuchProp):
+            modl.addForm('he:he', {}, [])
             modl.delFormProp('he:he', 'newp')
 
         with self.raises(s_exc.NoSuchForm):
@@ -495,7 +496,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             taxinfo = ifaces.get('meta:taxonomy')
             taxprops = {p[0]: p for p in taxinfo['props']}
-            self.eq(taxprops['parent'][1][1]['types'], ('meta:taxonomy',))
+            self.eq(taxprops['parent'][1][0], 'meta:taxonomy')
 
             model = (await core.getModelDefs())[0][1]
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])

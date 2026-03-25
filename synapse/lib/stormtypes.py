@@ -6146,6 +6146,10 @@ class NodeRef(Prim):
     def value(self):
         return self.valu[1]
 
+    async def iter(self):
+        for item in tuple(self.valu[1]):
+            yield item
+
     @stormfunc(readonly=True)
     async def _derefGet(self, name):
         name = await tostr(name)

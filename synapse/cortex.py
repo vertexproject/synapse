@@ -3286,13 +3286,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        typename, typeinfo = tdef
-        if isinstance(typename, tuple):
-            tdef = ('poly', self.model.convertPolyinfo(typename))
-        elif typename in ('array', 'poly'):
-            pass
-        else:
-            tdef = ('poly', self.model.convertPolyinfo((tdef,)))
+        tdef = self.model.convertPropdef(tdef)
 
         self.model.getTypeClone(tdef)
 

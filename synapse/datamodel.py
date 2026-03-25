@@ -1092,24 +1092,31 @@ class Model:
 
         return polyinfo
 
+    def convertPropdef(self, propdef):
+        typename = propdef[0]
+
+        if isinstance(typename, tuple):
+            # TODO: lists should already be in the correct format
+            propdef = tuple((tn, {}) for tn in typename)
+
+        elif isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
+            return propdef
+
+        else:
+            if tobj is None and typename not in self.ifaces:
+                raise s_exc.NoSuchType(name=typename)
+
+            propdef = (propdef,)
+
+        return ('poly', self.convertPolyinfo(propdef))
+
     def processPropdefs(self, propdefs):
 
         realdefs = []
 
         for pname, propdef, propinfo in propdefs:
 
-            if isinstance(propdef[0], tuple):
-                # TODO: lists should already be in the correct format
-                propdef = tuple((tn, {}) for tn in propdef[0])
-            elif propdef[0] in ('array', 'poly') or isinstance(self.type(propdef[0]), s_types.Poly):
-                realdefs.append((pname, propdef, propinfo))
-                continue
-            else:
-                propdef = (propdef,)
-
-            polyinfo = self.convertPolyinfo(propdef)
-
-            realdefs.append((pname, ('poly', polyinfo), propinfo))
+            realdefs.append((pname, self.convertPropdef(propdef), propinfo))
 
         return tuple(realdefs)
 

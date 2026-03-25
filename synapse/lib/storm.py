@@ -4949,7 +4949,7 @@ class MoveTagCmd(Cmd):
 
             olddoc = node.get('doc')
             if olddoc is not None:
-                await newnode.set('doc', olddoc)
+                await newnode.set('doc', olddoc[1])
 
             olddocurl = node.get('doc:url')
             if olddocurl is not None:
@@ -4957,7 +4957,7 @@ class MoveTagCmd(Cmd):
 
             oldtitle = node.get('title')
             if oldtitle is not None:
-                await newnode.set('title', oldtitle)
+                await newnode.set('title', oldtitle[1])
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.getTags():
