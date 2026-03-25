@@ -36,14 +36,14 @@ class FilePath(s_types.Str):
 
         self.virtindx |= {
             'dir': 'dir',
-            'ext': 'ext',
             'base': 'base',
+            'ext': 'ext',
         }
 
         self.virts |= {
             'dir': (self, self._getDir),
-            'ext': (self.exttype, self._getExt),
             'base': (self.basetype, self._getBase),
+            'ext': (self.exttype, self._getExt),
         }
 
     def _getDir(self, valu):
@@ -147,10 +147,6 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'file path'}}),
                 ),
                 'virts': (
-                    ('ext', ('str', {}), {
-                        'computed': True,
-                        'doc': 'The file extension from the path.'}),
-
                     ('dir', ('file:path', {}), {
                         'computed': True,
                         'doc': 'The directory from the path.'}),
@@ -158,6 +154,10 @@ modeldefs = (
                     ('base', ('file:base', {}), {
                         'computed': True,
                         'doc': 'The file base name from the path.'}),
+
+                    ('ext', ('str', {}), {
+                        'computed': True,
+                        'doc': 'The file extension from the path.'}),
                 ),
                 'doc': 'A normalized file path.',
                 'ex': 'c:/windows/system32/calc.exe'}),

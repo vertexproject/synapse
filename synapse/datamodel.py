@@ -374,8 +374,6 @@ class Form:
                 'ndef': [],
                 'array': [],
                 'ndefarray': [],
-                'nodeprop': [],
-                'nodeproparray': [],
             }
 
             for name, prop in self.props.items():
@@ -385,19 +383,12 @@ class Form:
                         self.refsout['ndefarray'].append(name)
                         continue
 
-                    elif isinstance(prop.type.arraytype, s_types.NodeProp):
-                        self.refsout['nodeproparray'].append(name)
-                        continue
-
                     typename = prop.type.arraytype.name
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
                 elif prop.type.ispoly:
                     self.refsout['ndef'].append(name)
-
-                elif isinstance(prop.type, s_types.NodeProp):
-                    self.refsout['nodeprop'].append(name)
 
                 elif self.modl.forms.get(prop.type.name) is not None:
                     if prop.type.name in self.type.pivs:
@@ -695,10 +686,6 @@ class Model:
 
         info = {'doc': 'Arbitrary json compatible data.'}
         item = s_types.Data(self, 'data', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
-        item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
