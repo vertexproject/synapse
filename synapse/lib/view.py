@@ -3414,12 +3414,14 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for node in self.nodesByPropArray(prop.full, cmpr, nref):
                             yield node
         else:
+            nref = s_stormtypes.NodeRef(((name, norm), info.get('virts')))
+
             for prop in self.core.model.getPropsByType(name):
-                async for node in self.nodesByPropValu(prop.full, cmpr, norm, norm=False):
+                async for node in self.nodesByPropValu(prop.full, cmpr, nref):
                     yield node
 
             for prop in self.core.model.getArrayPropsByType(name):
-                async for node in self.nodesByPropArray(prop.full, cmpr, norm, norm=False):
+                async for node in self.nodesByPropArray(prop.full, cmpr, nref):
                     yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
@@ -3706,6 +3708,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if cmprvalu is not None:
 
             cmpr, valu = cmprvalu
+            if cmpr == 'ndef=':
+                cmpr = '='
+                valu = valu[1]
+                cmprvalu = (cmpr, valu)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:

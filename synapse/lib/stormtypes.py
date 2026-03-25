@@ -3107,6 +3107,7 @@ class LibTime(Lib):
 
     @stormfunc(readonly=True)
     async def _format(self, valu, format):
+        valu = await toprim(valu)
         timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:

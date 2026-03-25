@@ -107,12 +107,8 @@ class Prop:
 
         form.setProp(name, self)
 
-        self.modl.propsbytype[self.type.name][self.full] = self
-
-        if self.type.ispoly:
-            if (pforms := self.type.forms) is not None:
-                for pform in pforms:
-                    self.modl.propsbytype[pform][self.full] = self
+        if not self.type.isarray:
+            self.modl.propsbytype[self.type.name][self.full] = self
 
             if (ifaces := self.type.ifaces) is not None:
                 for iface in ifaces:
@@ -122,19 +118,18 @@ class Prop:
                 for tname in self.type.typeset:
                     self.modl.propsbytype[tname][self.full] = self
 
-        if self.type.isarray:
+        else:
             self.arraytypehash = self.type.arraytype.typehash
 
             self.modl.arraysbytype[self.type.arraytype.name][self.full] = self
 
-            if self.type.arraytype.ispoly:
-                if (pforms := self.type.arraytype.forms) is not None:
-                    for pform in pforms:
-                        self.modl.arraysbytype[pform][self.full] = self
+            if (ifaces := self.type.arraytype.ifaces) is not None:
+                for iface in ifaces:
+                    self.modl.polyarraysbyiface[iface][self.full] = self
 
-                if (ifaces := self.type.arraytype.ifaces) is not None:
-                    for iface in ifaces:
-                        self.modl.polyarraysbyiface[iface][self.full] = self
+            if self.type.arraytype.typeset:
+                for tname in self.type.arraytype.typeset:
+                    self.modl.arraysbytype[tname][self.full] = self
 
         ondef = self.info.get('on', {})
         self.onstormset = ondef.get('set', {}).get('q')
@@ -406,7 +401,7 @@ class Form:
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
-                    if prop.type.arraytype.ispoly and prop.type.arraytype.hasforms:
+                    if prop.type.arraytype.hasforms:
                         self.refsout['ndefarray'].append(name)
                         continue
 
@@ -418,7 +413,7 @@ class Form:
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
-                elif prop.type.ispoly and prop.type.hasforms:
+                elif prop.type.hasforms:
                     self.refsout['ndef'].append(name)
 
                 elif isinstance(prop.type, s_types.NodeProp):
@@ -1597,12 +1592,16 @@ class Model:
             mesg = f'Cannot delete type {typename} as it is still in use by tag properties.'
             raise s_exc.CantDelType(mesg=mesg, name=typename)
 
+        if self.arraysbytype.get(typename):
+            mesg = f'Cannot delete type {typename} as it is still in use by array properties.'
+            raise s_exc.CantDelType(mesg=mesg, name=typename)
+
         for _type in self.types.values():
             if typename in _type.info['bases']:
                 mesg = f'Cannot delete type {typename} as it is still in use by other types.'
                 raise s_exc.CantDelType(mesg=mesg, name=typename)
 
-            if _type.isarray and _type.arraytype.name == typename:
+            if _type.isarray and typename in _type.arraytype.typeset:
                 mesg = f'Cannot delete type {typename} as it is still in use by array types.'
                 raise s_exc.CantDelType(mesg=mesg, name=typename)
 
@@ -1843,10 +1842,27 @@ class Model:
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 
-        self.propsbytype[prop.type.name].pop(prop.full, None)
+        if not prop.type.isarray:
+            self.propsbytype[prop.type.name].pop(prop.full, None)
 
-        if isinstance(prop.type, s_types.Array):
+            if (ifaces := prop.type.ifaces) is not None:
+                for iface in ifaces:
+                    self.polypropsbyiface[iface].pop(prop.full, None)
+
+            if prop.type.typeset:
+                for tname in prop.type.typeset:
+                    self.propsbytype[tname].pop(prop.full, None)
+
+        else:
             self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)
+
+            if (ifaces := prop.type.arraytype.ifaces) is not None:
+                for iface in ifaces:
+                    self.polyarraysbyiface[iface].pop(prop.full, None)
+
+            if prop.type.arraytype.typeset:
+                for tname in prop.type.arraytype.typeset:
+                    self.arraysbytype[tname].pop(prop.full, None)
 
         if (kids := self.childforms.get(formname)) is not None:
             for kid in kids:
