@@ -1,7 +1,7 @@
 ---
 desc: Add ``cache:size`` layer configuration option and ``SYN_CORTEX_LAYERS_CACHE_SIZE`` environment
   variable to tune the layer buid cache size.
-desc:literal: true
+desc:literal: false
 prs: []
 type: feat
 ...
