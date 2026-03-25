@@ -2290,7 +2290,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                 if newport is None:
                     await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
                 else:
-                    await self.editPropSet(layriden, buid, formname, 'port', newport, oldport, stortype)
+                    await self.editPropSet(layriden, buid, formname, 'port', newport, None, stortype)
 
             # Primary value is correct, remove this from the node list so we don't do any more processing on it
             if newvalu == formvalu:
