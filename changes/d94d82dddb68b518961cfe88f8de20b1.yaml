@@ -1,0 +1,7 @@
+---
+desc: Fixed a regression in IPv4 address scraping where some IPv4 addresses were not
+  being recognized when they appeared after a colon character.
+desc:literal: false
+prs: []
+type: bug
+...
