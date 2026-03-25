@@ -2,8 +2,6 @@ import os
 import ssl
 import contextlib
 
-from OpenSSL import crypto
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.certdir as s_certdir
@@ -98,38 +96,30 @@ class CertDirTest(s_t_utils.SynTest):
             cacert_subj = cacert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
             self.eq(cert_issuer, cacert_subj)
 
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            pyopenssl_cert = crypto.X509.from_cryptography(cert)
-            pyopenssl_cacert = crypto.X509.from_cryptography(cacert)
+            # Verify the cert was signed by cacert
+            try:
+                cacert.public_key().verify(
+                    cert.signature,
+                    cert.tbs_certificate_bytes,
+                    c_padding.PKCS1v15(),
+                    cert.signature_hash_algorithm,
+                )
+            except Exception as e:
+                self.fail(f'Certificate signature verification failed: {e}')
 
-            store = crypto.X509Store()
-            ctx = crypto.X509StoreContext(store, pyopenssl_cert)
-
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            store.add_cert(pyopenssl_cert)
-
-            with self.raises(crypto.X509StoreContextError) as cm:
-                ctx.verify_certificate()
-
-            self.isin('unable to get local issuer certificate', str(cm.exception))
-
-            # Generate a separate CA that did not sign the certificate
+            # Verify a different CA cannot verify the cert
             try:
                 (_, otherca_cert) = cdir.genCaCert('otherca')
-            except s_exc.DupFileName as e:
+            except s_exc.DupFileName:
                 otherca_cert = cdir.getCaCert('otherca')
-            pyopenssl_otherca_cert = crypto.X509.from_cryptography(otherca_cert)
 
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            store.add_cert(pyopenssl_otherca_cert)
-            with self.raises(crypto.X509StoreContextError) as cm:
-                # unable to get local issuer certificate
-                ctx.verify_certificate()
-            self.isin('unable to get local issuer certificate', str(cm.exception))
-
-            # OpenSSL should be able to verify the certificate, once its CA is loaded
-            store.add_cert(pyopenssl_cacert)
-            self.none(ctx.verify_certificate())  # valid
+            with self.raises(c_exc.InvalidSignature):
+                otherca_cert.public_key().verify(
+                    cert.signature,
+                    cert.tbs_certificate_bytes,
+                    c_padding.PKCS1v15(),
+                    cert.signature_hash_algorithm,
+                )
 
     def host_assertions(self,
                         cdir: s_certdir.CertDir,
@@ -963,7 +953,7 @@ class CertDirTest(s_t_utils.SynTest):
                 self.true(cdir2.isUserCert(username))
                 self.true(cdir2.isCodeCert(codename))
 
-            # older PyOpenSSL code assumed loading a pkey was always a DSA or RSA key.
+            # certdir only accepts DSA or RSA private keys; EC keys are rejected.
             pkey = c_ec.generate_private_key(c_ec.SECP384R1())
             byts = pkey.private_bytes(encoding=c_serialization.Encoding.PEM,
                                       format=c_serialization.PrivateFormat.TraditionalOpenSSL,

@@ -1,0 +1,7 @@
+---
+desc: Removed the pyOpenSSL dependency. Certificate verification now uses the cryptography
+  library exclusively. The cryptography dependency has been updated to >=46.0.0,<47.0.0.
+desc:literal: false
+prs: []
+type: note
+...
