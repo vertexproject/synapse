@@ -12,16 +12,13 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
-import synapse.lib.node as s_node
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
 
-logger = logging.getLogger(__name__)
+import synapse.tools.storm._printer as s_printer
 
-ERROR_COLOR = '#ff0066'
-WARNING_COLOR = '#f4e842'
-NODEEDIT_COLOR = "lightblue"
+logger = logging.getLogger(__name__)
 
 welcome = '''
 Welcome to the Storm interpreter!
@@ -412,13 +409,16 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         for item in completions:
             yield item
 
-class StormCli(s_cli.Cli):
+class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
     histfile = 'storm_history'
 
     async def __anit__(self, item, outp=s_output.stdout, opts=None):
 
         await s_cli.Cli.__anit__(self, item, outp=outp)
+
+        self.hidetags = False
+        self.hideprops = False
 
         self.indented = False
         self.cmdprompt = 'storm> '
@@ -439,8 +439,6 @@ class StormCli(s_cli.Cli):
             if opts.view:
                 self.stormopts['view'] = opts.view
 
-        self.hidetags = False
-        self.hideprops = False
         self._print_skips = []
 
     def initCmdClasses(self):
@@ -468,33 +466,7 @@ class StormCli(s_cli.Cli):
         return await self.storm(line, opts=opts)
 
     async def handleErr(self, mesg):
-        err = mesg[1]
-        if err[0] == 'BadSyntax':
-            pos = err[1].get('at', None)
-            text = err[1].get('text', None)
-            tlen = len(text)
-            mesg = err[1].get('mesg', None)
-            if pos is not None and text is not None and mesg is not None:
-                text = text.replace('\n', ' ')
-                # Handle too-long text
-                if tlen > 60:
-                    text = text[max(0, pos - 30):pos + 30]
-                    if pos < tlen - 30:
-                        text += '...'
-                    if pos > 30:
-                        text = '...' + text
-                        pos = 33
-
-                self.printf(text)
-                self.printf(f'{" " * pos}^')
-                self.printf(f'Syntax Error: {mesg}', color=ERROR_COLOR)
-                return
-
-        text = err[1].get('mesg', err[0])
-        self.printf(f'ERROR: {text}', color=ERROR_COLOR)
-
-    def _printNodeProp(self, name, valu):
-        self.printf(f'        {name} = {valu}')
+        self.printErr(mesg)
 
     async def storm(self, text, opts=None):
 
@@ -512,95 +484,18 @@ class StormCli(s_cli.Cli):
             if mtyp in self._print_skips:
                 continue
 
-            if mtyp == 'node':
-
-                node = mesg[1]
-                formname, formvalu = s_node.reprNdef(node)
-
-                self.printf(f'{formname}={formvalu}')
-
-                if not self.hideprops:
-
-                    props = []
-                    extns = []
-                    univs = []
-
-                    for name in s_node.props(node).keys():
-
-                        if name.startswith('.'):
-                            univs.append(name)
-                            continue
-
-                        if name.startswith('_'):
-                            extns.append(name)
-                            continue
-
-                        props.append(name)
-
-                    props.sort()
-                    extns.sort()
-                    univs.sort()
-
-                    for name in props:
-                        valu = s_node.reprProp(node, name)
-                        name = ':' + name
-                        self._printNodeProp(name, valu)
-
-                    for name in extns:
-                        valu = s_node.reprProp(node, name)
-                        name = ':' + name
-                        self._printNodeProp(name, valu)
-
-                    for name in univs:
-                        valu = s_node.reprProp(node, name)
-                        self._printNodeProp(name, valu)
-
-                if not self.hidetags:
-
-                    for tag in sorted(s_node.tagsnice(node)):
-
-                        valu = s_node.reprTag(node, tag)
-                        tprops = s_node.reprTagProps(node, tag)
-                        printed = False
-                        if valu:
-                            self.printf(f'        #{tag} = {valu}')
-                            printed = True
-
-                        if tprops:
-                            for prop, pval in tprops:
-                                self.printf(f'        #{tag}:{prop} = {pval}')
-                            printed = True
-
-                        if not printed:
-                            self.printf(f'        #{tag}')
-
-            elif mtyp == 'node:edits':
+            if mtyp == 'node:edits':
                 edit = mesg[1]
                 count = sum(len(e[2]) for e in edit.get('edits', ()))
-                s_cli.Cli.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+                s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
                 self.indented = True
-
-            elif mtyp == 'fini':
-                took = mesg[1].get('took') / 1000
-                took = max(took, 1)
-                count = mesg[1].get('count')
-                pers = float(count) / float(took / 1000)
-                self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
-
-            elif mtyp == 'print':
-                self.printf(mesg[1].get('mesg'))
-
-            elif mtyp == 'warn':
-                info = mesg[1]
-                warn = info.pop('mesg', '')
-                xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
-                if xtra:
-                    warn = ' '.join([warn, xtra])
-                self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
             elif mtyp == 'err':
                 await self.handleErr(mesg)
                 ret = False
+
+            else:
+                self.printMesg(mesg)
 
         return ret
 
