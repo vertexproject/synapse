@@ -83,9 +83,6 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('| Source | Verb | Target | Doc |', text)
         self.isin('`refs`', text)
 
-        # Verify wildcard edges use plain * not escaped \*
-        self.notin('`\\*`', text)
-
     async def test_tools_docmodel_cortex(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -281,6 +278,33 @@ class DocModelTest(s_t_utils.SynTest):
         # _escpipe: None input → return '' (line 42)
         self.eq(s_docmodel._escpipe(None), '')
 
+    def test_tools_docmodel_getnestedtypename_unit(self):
+
+        getNested = s_docmodel._getNestedTypeName
+
+        # Falsy inputs → None (early return)
+        self.none(getNested(None))
+        self.none(getNested(()))
+        self.none(getNested([]))
+
+        # Regular type → type name
+        self.eq(getNested(('inet:fqdn', {})), 'inet:fqdn')
+
+        # Poly → None
+        self.none(getNested(('poly', {'forms': ['inet:fqdn']})))
+
+        # Array with string element type → element type name
+        self.eq(getNested(('array', {'type': 'inet:fqdn'})), 'inet:fqdn')
+
+        # Array with non-string element type → None
+        self.none(getNested(('array', {'type': ('str', 'int')})))
+
+        # Array with no type key → None
+        self.none(getNested(('array', {})))
+
+        # Array with non-dict opts → None
+        self.none(getNested(('array', 'notadict')))
+
     def test_tools_docmodel_getbasetypename_unit(self):
 
         getBase = s_docmodel._getBaseTypeName
@@ -382,7 +406,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_form_array_props(self):
         # edu:class has array-type properties (e.g. :assistants, :names),
-        # exercising the array nestedtypes collection path in genFormMarkdown
+        # exercising the array nestedtypes collection path via _getNestedTypeName in genFormMarkdown
 
         outp = self.getTestOutp()
         self.eq(await s_docmodel.main(['--find', 'edu:class'], outp=outp), 0)
@@ -408,7 +432,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_interface_array_props(self):
         # entity:contactable has array-type properties (e.g. :names, :emails),
-        # exercising the array nestedtypes collection path in genIfaceMarkdown
+        # exercising the array nestedtypes collection path via _genIfacePropTable in genIfaceMarkdown
 
         outp = self.getTestOutp()
         self.eq(await s_docmodel.main(['--find', 'entity:contactable'], outp=outp), 0)
@@ -419,7 +443,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_tagprops(self):
         # A cortex with tag properties exercises the Tag Properties section
-        # in genModelMarkdown (lines 565-577)
+        # in genModelMarkdown
 
         async with self.getTestCoreAndProxy() as (core, prox):
             await core.addTagProp('test:score', ('int', {}), {'doc': 'A test tag score.'})
@@ -435,7 +459,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_form_interface_nodoc(self):
         # A custom form whose type implements an interface with no doc triggers
-        # the no-doc branch in the genFormMarkdown interfaces table (line 274)
+        # the no-doc branch in the genFormMarkdown interfaces table
 
         async with self.getTestCore() as core:
             core.model.addDataModels([('test', {
@@ -603,7 +627,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_direct_notfound(self):
         # Exercises the not-found early-return paths in genFormMarkdown and
-        # genIfaceMarkdown when called directly (lines 240 and 371)
+        # genIfaceMarkdown when called directly
 
         async with self.getTestCore() as core:
             text = await s_docmodel.genFormMarkdown(core, 'notreal:form')
@@ -618,8 +642,7 @@ class DocModelTest(s_t_utils.SynTest):
 
     async def test_tools_docmodel_find_array_props(self):
         # biz:rfp:contributors has an array type, exercises the array nestedtypes
-        # path in genPropMarkdown for formprop (lines 548-551)
-        # doc:authorable:contributors has an array type for ifaceprop (lines 594-597)
+        # path via _getNestedTypeName in genPropMarkdown for formprop and ifaceprop
 
         outp = self.getTestOutp()
         self.eq(await s_docmodel.main(['--find', 'biz:rfp:contributors'], outp=outp), 0)

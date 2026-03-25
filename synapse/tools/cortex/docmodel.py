@@ -115,6 +115,64 @@ def _getBaseTypeName(typename, types):
 
     return None
 
+def _getNestedTypeName(typedef):
+    '''Return the nested type name from a typedef, or None if not applicable.'''
+    if not typedef:
+        return None
+
+    if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
+        tname = typedef[0]
+        if tname == 'array' and len(typedef) >= 2:
+            opts = typedef[1] if isinstance(typedef[1], dict) else {}
+            atype = opts.get('type')
+            if isinstance(atype, str):
+                return atype
+        elif tname != 'poly':
+            return tname
+
+    return None
+
+def _genReferencedTypesSection(nestedtypes, types, interfaces, seen=None):
+    '''Generate the ## Referenced Types section lines.'''
+    if seen is None:
+        seen = set()
+
+    lines = []
+    lines.append('## Referenced Types')
+    lines.append('')
+
+    for tname in sorted(nestedtypes):
+        detail = _genTypeDetail(tname, types, interfaces, seen)
+        if detail:
+            lines.extend(detail)
+
+    return lines
+
+def _genIfacePropTable(ifprops, types):
+    '''Generate markdown property table for interface props (list of tuples).
+    Returns (lines, nestedtypes).'''
+    lines = []
+    nestedtypes = set()
+
+    lines.append('| Property | Type | Doc |')
+    lines.append('|----------|------|-----|')
+
+    for propdef in sorted(ifprops, key=lambda x: x[0]):
+        propname = propdef[0]
+        typedef = propdef[1]
+        propinfo = propdef[2] if len(propdef) > 2 else {}
+
+        typenames = _resolveTypeNames(typedef)
+        typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
+        propdoc = _getPropDoc(propinfo, types)
+        lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
+
+        tname = _getNestedTypeName(typedef)
+        if tname is not None:
+            nestedtypes.add(tname)
+
+    return lines, nestedtypes
+
 def _genPropTable(props, types, prefix=':'):
     '''Generate markdown property table rows for a set of properties.'''
     lines = []
@@ -288,29 +346,13 @@ async def genFormMarkdown(core, formname):
         lines.append('')
 
         for propinfo in formprops.values():
-            typedef = propinfo.get('type', ())
-            if typedef:
-                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                    tname = typedef[0]
-                    if tname == 'array' and len(typedef) >= 2:
-                        opts = typedef[1] if isinstance(typedef[1], dict) else {}
-                        atype = opts.get('type')
-                        if isinstance(atype, str):
-                            nestedtypes.add(atype)
-                    elif tname != 'poly':
-                        nestedtypes.add(tname)
+            tname = _getNestedTypeName(propinfo.get('type', ()))
+            if tname is not None:
+                nestedtypes.add(tname)
 
     # Referenced Types
     if nestedtypes:
-        lines.append('## Referenced Types')
-        lines.append('')
-
-        seen = set()
-        seen.add(formname)
-        for tname in sorted(nestedtypes):
-            detail = _genTypeDetail(tname, types, interfaces, seen)
-            if detail:
-                lines.extend(detail)
+        lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces, seen={formname}))
 
     # Edges
     formedges = _lookupEdgesForForm(formname, edges)
@@ -401,30 +443,8 @@ async def genIfaceMarkdown(core, ifacename):
     if ifprops:
         lines.append('## Properties')
         lines.append('')
-        lines.append('| Property | Type | Doc |')
-        lines.append('|----------|------|-----|')
-
-        for propdef in sorted(ifprops, key=lambda x: x[0]):
-            propname = propdef[0]
-            typedef = propdef[1]
-            propinfo = propdef[2] if len(propdef) > 2 else {}
-
-            typenames = _resolveTypeNames(typedef)
-            typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
-            propdoc = _getPropDoc(propinfo, types)
-            lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
-
-            if typedef:
-                if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                    tname = typedef[0]
-                    if tname == 'array' and len(typedef) >= 2:
-                        opts = typedef[1] if isinstance(typedef[1], dict) else {}
-                        atype = opts.get('type')
-                        if isinstance(atype, str):
-                            nestedtypes.add(atype)
-                    elif tname != 'poly':
-                        nestedtypes.add(tname)
-
+        proplines, nestedtypes = _genIfacePropTable(ifprops, types)
+        lines.extend(proplines)
         lines.append('')
 
     # Forms implementing this interface
@@ -449,14 +469,7 @@ async def genIfaceMarkdown(core, ifacename):
 
     # Referenced Types
     if nestedtypes:
-        lines.append('## Referenced Types')
-        lines.append('')
-
-        seen = set()
-        for tname in sorted(nestedtypes):
-            detail = _genTypeDetail(tname, types, interfaces, seen)
-            if detail:
-                lines.extend(detail)
+        lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
     return '\n'.join(lines)
 
@@ -541,25 +554,12 @@ async def genPropMarkdown(core, propname):
         lines.append('')
 
         nestedtypes = set()
-        if typedef:
-            if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                tname = typedef[0]
-                if tname == 'array' and len(typedef) >= 2:
-                    opts = typedef[1] if isinstance(typedef[1], dict) else {}
-                    atype = opts.get('type')
-                    if isinstance(atype, str):
-                        nestedtypes.add(atype)
-                elif tname != 'poly':
-                    nestedtypes.add(tname)
+        tname = _getNestedTypeName(typedef)
+        if tname is not None:
+            nestedtypes.add(tname)
 
         if nestedtypes:
-            lines.append('## Referenced Types')
-            lines.append('')
-            seen = set()
-            for tname in sorted(nestedtypes):
-                detail = _genTypeDetail(tname, types, interfaces, seen)
-                if detail:
-                    lines.extend(detail)
+            lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
     elif match[0] == 'ifaceprop':
         ifacename, shortname = match[1], match[2]
@@ -587,25 +587,12 @@ async def genPropMarkdown(core, propname):
         lines.append('')
 
         nestedtypes = set()
-        if typedef:
-            if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-                tname = typedef[0]
-                if tname == 'array' and len(typedef) >= 2:
-                    opts = typedef[1] if isinstance(typedef[1], dict) else {}
-                    atype = opts.get('type')
-                    if isinstance(atype, str):
-                        nestedtypes.add(atype)
-                elif tname != 'poly':
-                    nestedtypes.add(tname)
+        tname = _getNestedTypeName(typedef)
+        if tname is not None:
+            nestedtypes.add(tname)
 
         if nestedtypes:
-            lines.append('## Referenced Types')
-            lines.append('')
-            seen = set()
-            for tname in sorted(nestedtypes):
-                detail = _genTypeDetail(tname, types, interfaces, seen)
-                if detail:
-                    lines.extend(detail)
+            lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
     elif match[0] == 'tagprop':
         propinfo = tagprops[propname]
@@ -701,18 +688,7 @@ async def genModelMarkdown(core):
                 lines.append('')
 
         if formprops:
-            lines.append('| Property | Type | Doc |')
-            lines.append('|----------|------|-----|')
-
-            for propname in sorted(formprops.keys()):
-                propinfo = formprops[propname]
-
-                typedef = propinfo.get('type', ())
-                typenames = _resolveTypeNames(typedef)
-                typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
-                propdoc = _getPropDoc(propinfo, types)
-                lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
-
+            lines.extend(_genPropTable(formprops, types))
             lines.append('')
 
     # Edges section
@@ -782,19 +758,8 @@ async def genModelMarkdown(core):
 
         ifprops = ifinfo.get('props', ())
         if ifprops:
-            lines.append('| Property | Type | Doc |')
-            lines.append('|----------|------|-----|')
-
-            for propdef in sorted(ifprops, key=lambda x: x[0]):
-                propname = propdef[0]
-                typedef = propdef[1]
-                propinfo = propdef[2] if len(propdef) > 2 else {}
-
-                typenames = _resolveTypeNames(typedef)
-                typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
-                propdoc = _getPropDoc(propinfo, types)
-                lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
-
+            proplines, _ = _genIfacePropTable(ifprops, types)
+            lines.extend(proplines)
             lines.append('')
 
         implforms = ifaceforms.get(ifname, [])
