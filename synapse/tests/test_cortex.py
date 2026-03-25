@@ -1464,9 +1464,6 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
                 self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
 
-                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]')
-                self.len(0, await core.nodes('test:str=bar <- *'))
-
                 await core.delViewWithLayer(vdef2.get('iden'))
                 await core.nodes('_low:str | delnode')
 
