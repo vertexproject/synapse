@@ -623,7 +623,6 @@ workflows:
             branches:
               only:
                 - master
-                - blackout/SYN-10137/inet-url
 
       - build_docker_tag:
           requires:
