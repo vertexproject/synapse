@@ -2293,6 +2293,56 @@ class Poly(Type):
             mesg = f'Virtual prop {name} is not valid for any types supported by {self.name}.'
             raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
+    def getVirtType(self, vnames):
+        name = vnames[0]
+        if (virt := self.virts.get(name)) is not None:
+            if len(vnames) > 1:
+                return virt[0].getVirtType(vnames[1:])
+            return virt[0]
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if name in ntyp.virts:
+                virt = ntyp.virts[name]
+                if len(vnames) > 1:
+                    return virt[0].getVirtType(vnames[1:])
+                return virt[0]
+
+        raise s_exc.NoSuchVirt.init(name, self)
+
+    def getVirtGetr(self, vnames):
+        name = vnames[0]
+        if (virt := self.virts.get(name)) is not None:
+            if len(vnames) > 1:
+                return (virt[1],) + virt[0].getVirtGetr(vnames[1:])
+            return (virt[1],)
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if name in ntyp.virts:
+                virt = ntyp.virts[name]
+                if len(vnames) > 1:
+                    return (virt[1],) + virt[0].getVirtGetr(vnames[1:])
+                return (virt[1],)
+
+        raise s_exc.NoSuchVirt.init(name, self)
+
+    def getVirtInfo(self, vnames):
+        name = vnames[0]
+        if (virt := self.virts.get(name)) is not None:
+            if len(vnames) > 1:
+                vinfo = virt[0].getVirtInfo(vnames[1:])
+                return vinfo[0], (virt[1],) + vinfo[1]
+            return virt[0], (virt[1],)
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if name in ntyp.virts:
+                virt = ntyp.virts[name]
+                if len(vnames) > 1:
+                    vinfo = virt[0].getVirtInfo(vnames[1:])
+                    return vinfo[0], (virt[1],) + vinfo[1]
+                return virt[0], (virt[1],)
+
+        raise s_exc.NoSuchVirt.init(name, self)
+
     def _raiseBadTypeValu(self, valu):
         mesg = f'Value of type {valu} is not allowed for {self.name}'
 
