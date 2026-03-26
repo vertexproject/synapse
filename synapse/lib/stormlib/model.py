@@ -659,7 +659,7 @@ class MigrationEditorMixin:
 
         form = src.form
 
-        for name, valu in src.getProps().items():
+        for name, valu in src.getNodeRefProps().items():
             prop = form.props.get(name)
             if not prop.isext:
                 continue

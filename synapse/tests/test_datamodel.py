@@ -565,9 +565,6 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(core.model.type('poly').info['virts'][1][0], 'value')
             self.eq(core.model.type('poly').info['virts'][1][2]['display'], {'hidden': True})
 
-            self.eq(core.model.prop('entity:relationship:id').info['virts'][1][0], 'value')
-            self.true(core.model.prop('entity:relationship:id').info['virts'][1][2]['display']['hidden'])
-
             with self.raises(s_exc.NoSuchType):
                 vdef = ('newp', ('newp', {}), {})
                 core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})

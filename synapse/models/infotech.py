@@ -628,6 +628,10 @@ modeldefs = (
         ),
         'types': (
 
+            ('it:dns:resolver', ('inet:server', {'defport': 53, 'defproto': 'udp'}), {
+                'props': (),
+                'doc': 'A server configured to resolve DNS requests.'}),
+
             ('it:hostname', ('str', {'lower': True}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'hostname'}}),
@@ -1440,8 +1444,7 @@ modeldefs = (
                     'doc': 'The optional contiguous IP address range of this network.',
                     'prevnames': ('net4', 'net6')}),
 
-                ('dns:resolvers', ('array', {'type': 'inet:server', 'sorted': False, 'uniq': False,
-                                             'typeopts': {'defport': 53, 'defproto': 'udp'}}), {
+                ('dns:resolvers', ('array', {'type': 'it:dns:resolver', 'sorted': False, 'uniq': False}), {
                     'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
 
             )),

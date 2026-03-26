@@ -446,7 +446,7 @@ modeldefs = (
                 ('airspeed', ('velocity', {}), {
                     'doc': 'The air speed of the aircraft at the time.'}),
 
-                ('verticalspeed', ('velocity', {'relative': True}), {
+                ('verticalspeed', ('velocity:relative', {}), {
                     'doc': 'The relative vertical speed of the aircraft at the time.'}),
 
                 ('time', ('time', {}), {

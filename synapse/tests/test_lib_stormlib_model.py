@@ -67,7 +67,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
-            self.stormIsInPrint("'type': ('poly', {'forms': ('entity:name',), 'interfaces': ()})", mesgs)
+            self.stormIsInPrint("{'default_types': ('entity:name',), 'forms': ('entity:name',)}", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)

@@ -228,22 +228,28 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if fireedits is not None:
                         virts = {}
+                        stype &= s_layer.STOR_MASK_POLY
+
                         if stype & s_layer.STOR_FLAG_ARRAY:
                             if vvals is not None:
                                 virts = dict(vvals)
 
                             virts['size'] = len(valu)
-                            if (svirts := s_node.storvirts.get(stype & 0x7fff)) is not None:
+                            virts['type'] = [v[0] for v in valu]
+
+                            if (svirts := s_node.storvirts.get(stype & s_layer.STOR_MASK_ARRAY)) is not None:
                                 for vname, getr in svirts.items():
                                     virts[vname] = [getr(v) for v in valu]
                         else:
+                            virts['type'] = valu[0]
+
                             if vvals is not None:
                                 for vname, vval in vvals.items():
                                     virts[vname] = vval[0]
 
                             if (svirts := s_node.storvirts.get(stype)) is not None:
                                 for vname, getr in svirts.items():
-                                    virts[vname] = getr(valu)
+                                    virts[vname] = getr(valu[1])
 
                         editset.append((etyp, (name, valu, stype, virts)))
                     continue
@@ -2962,7 +2968,12 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
 
         sodes = await self.getStorNodes(nid)
-        props = {'nid': s_common.int64un(nid), 'form': ndef[0], 'value': ndef[1], 'sodes': sodes}
+        props = {
+            'nid': ('int', s_common.int64un(nid)),
+            'form': ('str', ndef[0]),
+            'value': ('data', ndef[1]),
+            'sodes': ('data', sodes)
+        }
         pode = (('syn:deleted', ndef), {'props': props})
 
         return s_node.RuntNode(self, pode, nid=nid)

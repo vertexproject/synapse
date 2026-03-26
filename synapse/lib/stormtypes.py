@@ -2709,7 +2709,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if not ptyp.ispoly and self.runt.model.form(form) is None:
+        if (ptyp.ispoly and not ptyp.hasforms) or (not ptyp.ispoly and self.runt.model.form(form) is None):
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 

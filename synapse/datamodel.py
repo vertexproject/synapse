@@ -110,13 +110,14 @@ class Prop:
         if not self.type.isarray:
             self.modl.propsbytype[self.type.name][self.full] = self
 
-            if (ifaces := self.type.ifaces) is not None:
-                for iface in ifaces:
-                    self.modl.polypropsbyiface[iface][self.full] = self
+            if self.type.ispoly:
+                if (ifaces := self.type.ifaces) is not None:
+                    for iface in ifaces:
+                        self.modl.polypropsbyiface[iface][self.full] = self
 
-            if self.type.typeset:
-                for tname in self.type.typeset:
-                    self.modl.propsbytype[tname][self.full] = self
+                if self.type.typeset:
+                    for tname in self.type.typeset:
+                        self.modl.propsbytype[tname][self.full] = self
 
         else:
             self.arraytypehash = self.type.arraytype.typehash
@@ -1021,7 +1022,6 @@ class Model:
         types = []
         ifaces = []
         defaults = []
-        cloneopts = {}
 
         for typename, typeinfo in propdef:
 
@@ -1040,10 +1040,6 @@ class Model:
                 if typeinfo.get('defnorm', True):
                     defaults.append(typename)
 
-            topts = {k: v for k, v in typeinfo.items() if k != 'defnorm'}
-            if topts:
-                cloneopts[typename] = topts
-
         polyinfo = {}
         if forms:
             polyinfo['forms'] = tuple(forms)
@@ -1057,9 +1053,6 @@ class Model:
         if defaults:
             polyinfo['default_types'] = tuple(defaults)
 
-        if cloneopts:
-            polyinfo['cloneopts'] = cloneopts
-
         return polyinfo
 
     def convertPropdef(self, propdef):
@@ -1067,25 +1060,18 @@ class Model:
 
         if isinstance(typename, tuple):
             # TODO: lists should already be in the correct format
-            typeopts = propdef[1]
             propdef = tuple((tn, {}) for tn in typename)
 
         elif isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
             return propdef
 
         else:
-            typeopts = {}
             if tobj is None and typename not in self.ifaces:
                 raise s_exc.NoSuchType(name=typename)
 
             propdef = (propdef,)
 
-        polyinfo = self.convertPolyinfo(propdef)
-
-        if (deftypes := typeopts.get('default_types')) is not None:
-            polyinfo['default_types'] = deftypes
-
-        return ('poly', polyinfo)
+        return ('poly', self.convertPolyinfo(propdef))
 
     def processPropdefs(self, propdefs):
 
@@ -1827,13 +1813,14 @@ class Model:
         if not prop.type.isarray:
             self.propsbytype[prop.type.name].pop(prop.full, None)
 
-            if (ifaces := prop.type.ifaces) is not None:
-                for iface in ifaces:
-                    self.polypropsbyiface[iface].pop(prop.full, None)
+            if prop.type.ispoly:
+                if (ifaces := prop.type.ifaces) is not None:
+                    for iface in ifaces:
+                        self.polypropsbyiface[iface].pop(prop.full, None)
 
-            if prop.type.typeset:
-                for tname in prop.type.typeset:
-                    self.propsbytype[tname].pop(prop.full, None)
+                if prop.type.typeset:
+                    for tname in prop.type.typeset:
+                        self.propsbytype[tname].pop(prop.full, None)
 
         else:
             self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)

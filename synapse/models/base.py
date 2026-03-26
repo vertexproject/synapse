@@ -209,6 +209,9 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
+
+            ('velocity:relative', ('velocity', {'relative': True}), {
+                'doc': 'A relative velocity value.'}),
         ),
         'interfaces': (
 

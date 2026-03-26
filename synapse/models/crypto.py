@@ -199,6 +199,9 @@ modeldefs = (
                 ),
                 'doc': 'A unique X.509 certificate.'}),
 
+            ('crypto:x509:serial', ('hex', {'zeropad': 40}), {
+                'doc': 'A certificate serial number as a big endian hex value.'}),
+
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
                 'doc': 'An X.509 Subject Alternative Name (SAN).'}),
 
@@ -682,7 +685,7 @@ modeldefs = (
                     'doc': 'The certificate used by the issuer to sign this certificate.',
                 }),
 
-                ('serial', ('hex', {'zeropad': 40}), {
+                ('serial', ('crypto:x509:serial', {}), {
                     'doc': 'The certificate serial number as a big endian hex value.',
                 }),
 

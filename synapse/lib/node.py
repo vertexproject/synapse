@@ -955,6 +955,31 @@ class Node(NodeBase):
 
         return retn
 
+    def getNodeRefProps(self, virts=False):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (proptomb := sode.get('antiprops')) is not None:
+                for name in proptomb.keys():
+                    retn.pop(name, None)
+
+            if (props := sode.get('props')) is not None:
+                retn |= props
+
+        refs = {}
+        for name, valt in retn.items():
+            valu, styp, virts = valt
+            if styp & s_layer.STOR_FLAG_ARRAY:
+                refs[name] = valu
+            else:
+                refs[name] = s_stormtypes.NodeRef((valu, virts))
+
+        return refs
+
     def _getTagsDict(self):
         retn = {}
 
