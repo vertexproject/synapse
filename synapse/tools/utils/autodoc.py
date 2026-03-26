@@ -353,7 +353,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
             for pname, (ptname, ptopts), popts in props:
 
-                _ = popts.pop('doc', None)
+                popts.pop('doc', None)
                 doc = dochelp.props.get((name, pname))
                 if not doc.endswith('.'):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
@@ -363,12 +363,13 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
                 rst.addLines(f'      * - ``:{pname}``',)
                 if ptopts:
+                    ptopts.pop('default_types', None)
 
                     rst.addLines(f'        - | :ref:`{hptlink}`', )
                     for k, v in ptopts.items():
                         if ptname == 'array' and k == 'type':
                             if isinstance(v, tuple):
-                                v = 'polyprop'
+                                v = 'poly'
                             tlink = f'dm-type-{v.replace(":", "-")}'
                             rst.addLines(f'          | {k}: :ref:`{tlink}`', )
                         else:

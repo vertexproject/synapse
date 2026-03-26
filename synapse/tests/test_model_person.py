@@ -61,7 +61,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :id=chem101
                     :name="Data Structure Analysis"
                     :desc="A brief description here"
-                    :institution={[ entity:contact=* ]}
+                    :institution={[ ou:org=* ]}
                     :prereqs = (*,)
                 ]
             ''', opts=opts)

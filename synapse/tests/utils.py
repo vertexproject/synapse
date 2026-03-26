@@ -2049,10 +2049,13 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                     self.eq(pval, (form, valu), msg=msg)
                     return
 
-                self.eq(pval[1], valu, msg=msg)
+                if not repr:
+                    pval = pval[1]
+
+                self.eq(pval, valu, msg=msg)
                 return
 
-            if ptyp.isarray and ptyp.arraytype.ispoly:
+            if ptyp.isarray:
                 if form is None:
                     pval = [aval[1] for aval in pval]
                     self.sorteq(pval, valu, msg=msg)

@@ -586,8 +586,8 @@ class Array(Type):
             polyinfo = self.modl.convertPolyinfo(typedef)
             if (deftypes := typeopts.get('default_types')) is not None:
                 polyinfo['default_types'] = deftypes
-        elif typename == 'poly':
-            polyinfo = typeopts
+        elif isinstance(tobj := self.modl.type(typename), Poly):
+            polyinfo = tobj.opts
         else:
             if (basetype := self.modl.type(typename)) is not None:
                 if isinstance(basetype, Array):

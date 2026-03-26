@@ -63,6 +63,10 @@ def _resolveTypeNames(typedef):
             if forms:
                 names.update(forms)
 
+            types = opts.get('types')
+            if types:
+                names.update(types)
+
             if names:
                 return sorted(names)
 
@@ -79,7 +83,11 @@ def _resolveTypeNames(typedef):
 
             return ['array']
 
-        return [typedef[0]]
+        typename = typedef[0]
+        if isinstance(typename, (list, tuple)):
+            return sorted(typename)
+
+        return [typename]
 
     return ['']
 
