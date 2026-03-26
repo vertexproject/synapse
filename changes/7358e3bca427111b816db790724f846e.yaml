@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where the ``view:merge:fini`` beholder event included a duplicate
+  'merge' key in its event data.
+desc:literal: false
+prs: []
+type: bug
+...
