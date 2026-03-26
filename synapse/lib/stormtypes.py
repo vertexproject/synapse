@@ -2697,7 +2697,7 @@ class LibLift(Lib):
                 if not item.isform:
                     flatprops.extend(item.getAlts())
                 else:
-                    flatprops.extend(plist)
+                    flatprops.append(item)
 
         def getType(prop):
             if prop.type.isarray:
