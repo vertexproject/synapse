@@ -93,7 +93,13 @@ class NodeBase:
                 continue
 
             rval = prop.type.repr(valu)
-            if rval is None or rval == valu[1]:
+            if rval is None:
+                continue
+
+            if prop.type.isarray:
+                if rval == [v[1] for v in valu]:
+                    continue
+            elif rval == valu[1]:
                 continue
 
             reps[name] = rval
@@ -1699,7 +1705,9 @@ def reprProp(pode, prop):
         return None
     propvalu = pode[1].get('reprs', {}).get(prop)
     if propvalu is None:
-        return str(opropvalu[1])
+        if isinstance(opropvalu[0], 'str'):
+            return str(opropvalu[1])
+        return tuple(str(v[1]) for v in opropvalu)
     return propvalu
 
 def reprTag(pode, tag):

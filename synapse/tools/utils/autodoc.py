@@ -46,6 +46,9 @@ info_ignores = (
     'display',
     'deprecated',
     'props',
+    'virts',
+    'prevnames',
+    'interfaces',
 )
 
 raw_back_slash_colon = r'\:'
