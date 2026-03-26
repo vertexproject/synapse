@@ -269,53 +269,56 @@ class DocModelTest(s_t_utils.SynTest):
 
     def test_tools_docmodel_doc_helper_fallbacks(self):
 
-        # _getFormDoc: forminfo has a direct 'doc' key → return it (line 16)
+        # _getFormDoc: forminfo has a direct 'doc' key -> return it (line 16)
         self.eq(s_docmodel._getFormDoc('foo', {'doc': 'direct doc'}, {}), 'direct doc')
 
-        # _getFormDoc: no doc on forminfo and name not in types → return '' (line 22)
+        # _getFormDoc: no doc on forminfo and name not in types -> return '' (line 22)
         self.eq(s_docmodel._getFormDoc('foo', {}, {}), '')
 
-        # _escpipe: None input → return '' (line 42)
+        # _escpipe: None input -> return '' (line 42)
         self.eq(s_docmodel._escpipe(None), '')
 
-    def test_tools_docmodel_getnestedtypename_unit(self):
+    def test_tools_docmodel_getnestedtypenames_unit(self):
 
-        getNested = s_docmodel._getNestedTypeName
+        getNested = s_docmodel._getNestedTypeNames
 
-        # Falsy inputs → None (early return)
-        self.none(getNested(None))
-        self.none(getNested(()))
-        self.none(getNested([]))
+        # Falsy inputs -> empty tuple
+        self.eq(getNested(None), ())
+        self.eq(getNested(()), ())
+        self.eq(getNested([]), ())
 
-        # Regular type → type name
-        self.eq(getNested(('inet:fqdn', {})), 'inet:fqdn')
+        # Regular type -> type name
+        self.eq(getNested(('inet:fqdn', {})), ('inet:fqdn',))
 
-        # Poly → None
-        self.none(getNested(('poly', {'forms': ['inet:fqdn']})))
+        # Poly -> underlying type names
+        self.eq(getNested(('poly', {'forms': ['inet:fqdn']})), ('inet:fqdn',))
+        self.eq(getNested(('poly', {'types': ['ival']})), ('ival',))
+        self.eq(getNested(('poly', {'forms': ['inet:fqdn'], 'types': ['str']})), ('inet:fqdn', 'str'))
+        self.eq(getNested(('poly', {})), ())
 
-        # Array with string element type → element type name
-        self.eq(getNested(('array', {'type': 'inet:fqdn'})), 'inet:fqdn')
+        # Array with string element type -> element type name
+        self.eq(getNested(('array', {'type': 'inet:fqdn'})), ('inet:fqdn',))
 
-        # Array with non-string element type → None
-        self.none(getNested(('array', {'type': ('str', 'int')})))
+        # Array with tuple element type -> all element type names
+        self.eq(getNested(('array', {'type': ('str', 'int')})), ('str', 'int'))
 
-        # Array with no type key → None
-        self.none(getNested(('array', {})))
+        # Array with no type key -> empty
+        self.eq(getNested(('array', {})), ())
 
-        # Array with non-dict opts → None
-        self.none(getNested(('array', 'notadict')))
+        # Array with non-dict opts -> empty
+        self.eq(getNested(('array', 'notadict')), ())
 
     def test_tools_docmodel_getbasetypename_unit(self):
 
         getBase = s_docmodel._getBaseTypeName
 
-        # typename not found in types dict → None
+        # typename not found in types dict -> None
         self.none(getBase('nonexistent', {}))
 
-        # typename found but info has no bases → None
+        # typename found but info has no bases -> None
         self.none(getBase('foo', {'foo': {'info': {}}}))
 
-        # typename found with bases → last base name
+        # typename found with bases -> last base name
         types = {'foo': {'info': {'bases': ('base1', 'base2')}}}
         self.eq(getBase('foo', types), 'base2')
 
@@ -342,15 +345,15 @@ class DocModelTest(s_t_utils.SynTest):
             },
         }
 
-        # seen=None → initialises internally (line 137), processes normally
+        # seen=None -> initialises internally (line 137), processes normally
         result = '\n'.join(genDetail('test:withiface', types, interfaces))
         self.isin('### `test:withiface`', result)
         self.isin('This type implements the following interfaces:', result)
         self.isin('`test:iface`', result)
-        # non-empty list opt value → line 191
+        # non-empty list opt value -> line 191
         self.isin("['alpha', 'beta']", result)
 
-        # typename already in seen → early return [] (line 140)
+        # typename already in seen -> early return [] (line 140)
         self.eq(genDetail('test:withiface', types, interfaces, seen={'test:withiface'}), [])
 
     def test_tools_docmodel_lookupedges_unit(self):
@@ -379,34 +382,34 @@ class DocModelTest(s_t_utils.SynTest):
 
         result = lookup('test:form', edges)
 
-        # src=None, dst=None → generic
+        # src=None, dst=None -> generic
         self.isin(generic, result.get('generic', []))
 
-        # src=None, dst!=formname → source (line 211)
+        # src=None, dst!=formname -> source (line 211)
         self.isin(src_null_other_dst, result.get('source', []))
 
-        # src=None, dst==formname → target (line 213)
+        # src=None, dst==formname -> target (line 213)
         self.isin(src_null_self_dst, result.get('target', []))
 
-        # src!=formname, dst=None → target (line 215)
+        # src!=formname, dst=None -> target (line 215)
         self.isin(other_src_null_dst, result.get('target', []))
 
-        # src==formname, dst=None → source (line 217)
+        # src==formname, dst=None -> source (line 217)
         self.isin(self_src_null_dst, result.get('source', []))
 
-        # src!=formname, dst==formname → target (line 219)
+        # src!=formname, dst==formname -> target (line 219)
         self.isin(other_src_self_dst, result.get('target', []))
 
-        # src==formname, dst!=formname → source (line 221)
+        # src==formname, dst!=formname -> source (line 221)
         self.isin(self_src_other_dst, result.get('source', []))
 
-        # src==formname, dst==formname → both source and target (lines 223-224)
+        # src==formname, dst==formname -> both source and target (lines 223-224)
         self.isin(self_src_self_dst, result.get('source', []))
         self.isin(self_src_self_dst, result.get('target', []))
 
     async def test_tools_docmodel_form_array_props(self):
         # edu:class has array-type properties (e.g. :assistants, :names),
-        # exercising the array nestedtypes collection path via _getNestedTypeName in genFormMarkdown
+        # exercising the array nestedtypes collection path via _getNestedTypeNames in genFormMarkdown
 
         outp = self.getTestOutp()
         self.eq(await s_docmodel.main(['--find', 'edu:class'], outp=outp), 0)
@@ -636,13 +639,13 @@ class DocModelTest(s_t_utils.SynTest):
             text = await s_docmodel.genIfaceMarkdown(core, 'notreal:iface')
             self.isin('not found in model', text)
 
-            # genPropMarkdown with a form name (not a prop) → not found path (line 511)
+            # genPropMarkdown with a form name (not a prop) -> not found path (line 511)
             text = await s_docmodel.genPropMarkdown(core, 'inet:fqdn')
             self.isin('not found in model', text)
 
     async def test_tools_docmodel_find_array_props(self):
         # biz:rfp:contributors has an array type, exercises the array nestedtypes
-        # path via _getNestedTypeName in genPropMarkdown for formprop and ifaceprop
+        # path via _getNestedTypeNames in genPropMarkdown for formprop and ifaceprop
 
         outp = self.getTestOutp()
         self.eq(await s_docmodel.main(['--find', 'biz:rfp:contributors'], outp=outp), 0)
