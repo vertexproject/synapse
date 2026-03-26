@@ -461,7 +461,7 @@ class GeoTest(s_t_utils.SynTest):
             self.nn('us.ny.woot', nodes[0].get('place:loc'))
             self.nn('woot', nodes[0].get('place:name'))
             self.nn('123 main street', nodes[0].get('place:address'))
-            self.eq((10.1, 3.0), nodes[0].get('place:latlong'))
+            self.propeq(nodes[0], 'place:latlong', (10.1, 3.0))
             self.propeq(nodes[0], 'place:latlong:accuracy', 10000)
 
             self.propeq(nodes[0], 'phys:mass', '10000')
