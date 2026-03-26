@@ -1655,22 +1655,8 @@ class LiftOper(Oper):
                 if (pvalu := pivo.get(piv)) is None:
                     break
 
-                pprop = pivo.form.props.get(piv)
-
-                if pprop.type.ispoly:
-                    if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
-                        break
-                    continue
-
-                if (pform := runt.model.form(pprop.type.name)) is None:
+                if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
                     break
-
-                for formname in runt.model.getChildForms(pprop.type.name):
-                    if (pivo := await runt.view.getNodeByNdef((formname, pvalu))) is not None:
-                        break
-                else:
-                    break
-
             else:
                 if (pprop := pivo.form.props.get(filtprop)) is not None:
                     if array:
@@ -1682,22 +1668,18 @@ class LiftOper(Oper):
                         ptyp = pprop.type
 
                     if virts is not None:
-                        if not ptyp.ispoly:
-                            (ptyp, getr) = ptyp.getVirtInfo(virts)
-                            pvalu = pivo.get(filtprop, virts=getr)
-                        else:
-                            rawv = pivo.getRawWithLayer(filtprop)
-                            if (pvalu := rawv[0]) is not None:
-                                if not array:
-                                    ptyp = runt.model.type(pvalu[0][0])
-                                    (ptyp, getr) = ptyp.getVirtInfo(virts)
-                                    pvalu = pivo.get(filtprop, virts=getr)
-                                else:
-                                    for atyp in ptyp.getTypeSet():
-                                        if (vinfo := atyp.virts.get(virts[0])) is not None:
-                                            ptyp = vinfo[0]
-                                            break
-                                    pvalu = pvalu[2].get(virts[0])
+                        rawv = pivo.getRawWithLayer(filtprop)
+                        if (pvalu := rawv[0]) is not None:
+                            if not array:
+                                ptyp = runt.model.type(pvalu[0][0])
+                                (ptyp, getr) = ptyp.getVirtInfo(virts)
+                                pvalu = pivo.get(filtprop, virts=getr)
+                            else:
+                                for atyp in ptyp.getTypeSet():
+                                    if (vinfo := atyp.virts.get(virts[0])) is not None:
+                                        ptyp = vinfo[0]
+                                        break
+                                pvalu = pvalu[2].get(virts[0])
                     else:
                         pvalu = pivo.get(filtprop)
 
@@ -2702,25 +2684,15 @@ class PivotIn(PivotOper):
             for prop in runt.model.getPropsByType(formtype):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
-                if prop.type.ispoly:
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', node):
-                        yield pivo, path.fork(pivo, link)
-                else:
-                    norm = node.form.typehash is not prop.typehash
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm):
-                        yield pivo, path.fork(pivo, link)
+                async for pivo in runt.view.nodesByPropValu(prop.full, '=', node):
+                    yield pivo, path.fork(pivo, link)
 
         for formtype in node.form.formtypes:
             for prop in runt.model.getArrayPropsByType(formtype):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
-                if prop.type.arraytype.ispoly:
-                    async for pivo in runt.view.nodesByPropArray(prop.full, '=', node):
-                        yield pivo, path.fork(pivo, link)
-                else:
-                    norm = node.form.typehash is not prop.arraytypehash
-                    async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
-                        yield pivo, path.fork(pivo, link)
+                async for pivo in runt.view.nodesByPropArray(prop.full, '=', node):
+                    yield pivo, path.fork(pivo, link)
 
         for formtype in node.form.formtypes:
             for prop in runt.model.getTagPropsByType(formtype):
@@ -2757,17 +2729,10 @@ class FormPivot(PivotOper):
             # plain old pivot...
             async def pgenr(node, strict=True):
                 if prop.type.isarray:
-                    if prop.type.arraytype.ispoly:
-                        if not prop.type.arraytype.formfilter(node.form):
-                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], virts=virts)
-                        else:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
-
+                    if not prop.type.arraytype.formfilter(node.form):
+                        ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], virts=virts)
                     else:
-                        if prop.arraytypehash is not node.form.typehash:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], norm=True, virts=virts)
-                        else:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=False, virts=virts)
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
 
                 else:
                     cmpr = '='
@@ -3033,25 +2998,17 @@ class PropPivotOut(PivotOper):
                         yield pivo, path.fork(pivo, link)
 
             if srctype.isarray:
-                if srctype.arraytype.ispoly:
-                    for item in valu:
-                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo, link)
-                    continue
-
-                fname = srctype.arraytype.name
-                if runt.model.forms.get(fname) is None:
+                if not srctype.arraytype.hasforms:
                     if not warned:
-                        mesg = f'The source property "{srcname}" array type "{fname}" is not a form. Cannot pivot.'
+                        mesg = f'The source property "{srcname}" does not allow any forms. Cannot pivot.'
                         await runt.warn(mesg, log=False)
                         warned = True
                     continue
 
                 for item in valu:
-                    for formname in runt.model.getChildForms(fname):
-                        if (pivo := await runt.view.getNodeByNdef((formname, item))) is not None:
-                            yield pivo, path.fork(pivo, link)
-                            break
+                    if (pivo := await runt.view.getNodeByNdef(item)) is not None:
+                        yield pivo, path.fork(pivo, link)
+
                 continue
 
             # :prop -> *
@@ -3115,7 +3072,7 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
-                if srctype.arraytype.ispoly and prop.isform:
+                if prop.isform:
                     for aval in valu:
                         if aval[0] != prop.form.name:
                             continue
