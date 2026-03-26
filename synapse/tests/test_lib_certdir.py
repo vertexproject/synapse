@@ -1153,3 +1153,84 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
             self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_verifyChain_cert_not_yet_valid(self):
+        '''_verifyChain raises BadCertVerify when the cert is not yet valid (not_valid_before in the future).'''
+        with self.getCertDir() as cdir:
+            caname = 'future-cert-ca'
+            cdir.genCaCert(caname)
+            cakey = cdir.getCaKey(caname)
+            cacert = cdir.getCaCert(caname)
+
+            future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=365)
+            future_end = future + datetime.timedelta(days=365)
+
+            cert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'future-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(future)
+                .not_valid_after(future_end)
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = cert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+    async def test_certdir_verifyChain_cert_expired(self):
+        '''_verifyChain raises BadCertVerify when the cert validity period is entirely in the past.'''
+        with self.getCertDir() as cdir:
+            caname = 'expired-cert-ca'
+            cdir.genCaCert(caname)
+            cakey = cdir.getCaKey(caname)
+            cacert = cdir.getCaCert(caname)
+
+            past_start = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+            past_end = datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+
+            cert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'expired-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(past_start)
+                .not_valid_after(past_end)
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = cert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+    async def test_certdir_crl_verify_signature_error(self):
+        '''Crl._verify wraps non-BadCertVerify exceptions from _verifyCertSignature as BadCertVerify.'''
+        with self.getCertDir() as cdir:
+            caname = 'bad-sig-ca'
+            cdir.genCaCert(caname)
+            cacert = cdir.getCaCert(caname)
+
+            # Build a cert whose issuer name matches the CA but signed with a different key.
+            # _verify passes the issuer check but _verifyCertSignature raises InvalidSignature,
+            # which is caught by the bare except and re-raised as BadCertVerify.
+            wrongkey = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            badcert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'bad-sig-cert')]))
+                .issuer_name(cacert.subject)
+                .public_key(wrongkey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(wrongkey, c_hashes.SHA256()))
+
+            crl = cdir.genCaCrl(caname)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                crl.revoke(badcert)
+            self.isin(caname, cm.exception.get('mesg'))
