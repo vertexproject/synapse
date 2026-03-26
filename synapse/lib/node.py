@@ -1705,7 +1705,7 @@ def reprProp(pode, prop):
         return None
     propvalu = pode[1].get('reprs', {}).get(prop)
     if propvalu is None:
-        if isinstance(opropvalu[0], 'str'):
+        if isinstance(opropvalu[0], str):
             return str(opropvalu[1])
         return tuple(str(v[1]) for v in opropvalu)
     return propvalu
