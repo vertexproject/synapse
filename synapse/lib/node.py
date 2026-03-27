@@ -93,8 +93,6 @@ class NodeBase:
                 continue
 
             rval = prop.type.repr(valu)
-            if rval is None:
-                continue
 
             if prop.type.isarray:
                 if rval == [v[1] for v in valu]:
@@ -480,9 +478,6 @@ class Node(NodeBase):
                     embdnode[f'{relp}.size'] = len(valu)
                     embdnode[f'{relp}.type'] = [v[0] for v in valu]
 
-                    if (svirts := storvirts.get(stortype & s_layer.STOR_MASK_ARRAY)) is not None:
-                        for vname, getr in svirts.items():
-                            embdnode[f'{relp}.{vname}'] = [getr(v[1]) for v in valu]
                 else:
                     embdnode[f'{relp}.type'] = valu[0]
 
@@ -943,10 +938,6 @@ class Node(NodeBase):
 
                     retn[f'{name}.size'] = len(valu)
                     retn[f'{name}.type'] = [v[0] for v in valu]
-
-                    if (svirts := storvirts.get(stortype & s_layer.STOR_MASK_ARRAY)) is not None:
-                        for vname, getr in svirts.items():
-                            retn[f'{name}.{vname}'] = [getr(v[1]) for v in valu]
 
                 else:
                     if vprops is not None:

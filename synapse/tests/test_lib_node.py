@@ -437,6 +437,27 @@ class NodeTest(s_t_utils.SynTest):
 
             self.none(node.repr('dns:rev'))
 
+            nodes = await core.nodes('[test:str=arryrepr :polyarry=(foo, bar)]')
+            self.len(1, nodes)
+            node = nodes[0]
+            reprs = node.reprs()
+            # polyarry of strings has repr == raw value, so it should not be in reprs
+            self.none(reprs.get('polyarry'))
+
+            pode = nodes[0].pack(dorepr=True)
+
+            # polyarry of strings has no repr entry (repr matches raw)
+            self.none(pode[1].get('reprs', {}).get('polyarry'))
+            retn = s_node.reprProp(pode, 'polyarry')
+            self.isinstance(retn, tuple)
+            self.isin('foo', retn)
+            self.isin('bar', retn)
+
+            # test reprProp with an empty array value
+            pode[1]['props']['polyarry'] = ()
+            pode[1].get('reprs', {}).pop('polyarry', None)
+            self.eq(s_node.reprProp(pode, 'polyarry'), '()')
+
     async def test_node_data(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
@@ -676,3 +697,35 @@ class NodeTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(1, nodes[0].getTags())
             self.nn(nodes[0].getTag('ping'))
+
+    async def test_noderefsprops(self):
+
+        async with self.getTestCore() as core:
+
+            base = await core.callStorm('return($lib.view.get().iden)')
+
+            # test antiprops path
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[test:str=refprop :bar=vertex.link]', opts={'view': base})
+            await core.nodes('test:str=refprop | [ -:bar ]', opts={'view': fork})
+
+            nodes = await core.nodes('test:str=refprop', opts={'view': fork})
+            self.len(1, nodes)
+            refs = nodes[0].getNodeRefProps()
+            self.none(refs.get('bar'))
+
+            # test antivalu path (requires 3 layers: grandparent, parent with deletion, child with recreation)
+            fork2 = await core.callStorm('return($lib.view.get($fork).fork().iden)', opts={'vars': {'fork': fork}})
+            await core.nodes('test:str=refprop | delnode', opts={'view': fork})
+            await core.nodes('[test:str=refprop :bar=woot.com]', opts={'view': fork2})
+
+            nodes = await core.nodes('test:str=refprop', opts={'view': fork2})
+            self.len(1, nodes)
+            refs = nodes[0].getNodeRefProps()
+            self.nn(refs.get('bar'))
+
+            nodes = await core.nodes('[test:str=arryprop :polyarry=(foo, bar)]')
+            self.len(1, nodes)
+            refs = nodes[0].getNodeRefProps()
+            self.nn(refs.get('polyarry'))
+            self.isinstance(refs.get('polyarry'), tuple)
