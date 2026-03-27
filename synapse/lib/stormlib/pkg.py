@@ -120,8 +120,9 @@ stormcmds = [
 
                 if $cmdopts.uninstall {
 
-                    $keep = ([])
-                    if ($cmdopts.uninstall_keep != $lib.null) {
+                    $keep = (null)
+                    if ($cmdopts.uninstall_keep != (null)) {
+                        $keep = ([])
                         for $item in $cmdopts.uninstall_keep.split(",") {
                             $keep.append($item.strip())
                         }
@@ -255,7 +256,7 @@ class LibPkg(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_libPkgUninstall',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to uninstall.', },
-                      {'name': 'keep', 'type': 'list', 'default': (),
+                      {'name': 'keep', 'type': 'list', 'default': None,
                        'desc': 'A list of items to keep during uninstall.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -331,10 +332,18 @@ class LibPkg(s_stormtypes.Lib):
         self.runt.confirm(('pkg', 'del'), None)
         await self.runt.view.core.delStormPkg(name)
 
-    async def _libPkgUninstall(self, name, keep=()):
+    async def _libPkgUninstall(self, name, keep=None):
         self.runt.confirm(('pkg', 'del'), None)
         name = await s_stormtypes.tostr(name)
-        keep = await s_stormtypes.toprim(keep)
+        if keep is not None:
+            keep = await s_stormtypes.toprim(keep)
+            if not isinstance(keep, (list, tuple)):
+                mesg = 'The keep argument must be a list of strings.'
+                raise s_exc.BadArg(mesg=mesg)
+            for v in keep:
+                if not isinstance(v, str):
+                    mesg = 'The keep argument must be a list of strings.'
+                    raise s_exc.BadArg(mesg=mesg)
         await self.runt.view.core.uninstallStormPkg(name, keep=keep)
 
     @s_stormtypes.stormfunc(readonly=True)

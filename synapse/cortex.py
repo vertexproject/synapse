@@ -448,7 +448,7 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
-    async def uninstallStormPkg(self, name, keep=()):
+    async def uninstallStormPkg(self, name, keep=None):
         self.user.confirm(('pkg', 'del'))
         return await self.cell.uninstallStormPkg(name, keep=keep)
 
@@ -2218,7 +2218,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
-    async def uninstallStormPkg(self, name, keep=()):
+    async def uninstallStormPkg(self, name, keep=None):
         pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
@@ -2228,7 +2228,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Package is already being uninstalled.'
             raise s_exc.BadArg(mesg=mesg)
 
-        await self._push('pkg:uninstall', name, list(keep))
+        await self._push('pkg:uninstall', name, keep)
 
     @s_nexus.Pusher.onPush('pkg:uninstall')
     async def _uninstallStormPkg(self, name, keep):
@@ -2247,7 +2247,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _startPkgUninstall(self, pkgdef):
         name = pkgdef.get('name')
-        keep = set(pkgdef.get('_uninstalling', {}).get('keep', ()))
+        keep = pkgdef.get('_uninstalling', {}).get('keep')
 
         async def _uninstall():
             await self.boss.promote('pkg:uninstall', self.auth.rootuser, info={'pkg': name})
@@ -2279,7 +2279,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         logextra = await self.getLogExtra(pkg=name, vers=pkgdef.get('version'))
 
         try:
-            opts = {'mirror': False, 'vars': {'keep': list(keep)}}
+            opts = {'mirror': False, 'vars': {'keep': keep}}
             async for mesg in self.storm(ondel, opts=opts):
                 if mesg[0] == 'print':
                     logger.info(f'{name} ondel output: {mesg[1].get("mesg")}', extra=logextra)
@@ -2299,13 +2299,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         name = pkgdef.get('name')
 
-        if 'pkg-vars' not in keep:
+        if keep is None or 'pkg-vars' not in keep:
             pkgvars = self._getStormPkgVarKV(name)
             for key in list(pkgvars.keys()):
                 await self.popStormPkgVar(name, key)
             self.stormpkgvars.pop(name, None)
 
-        if 'queues' not in keep:
+        if keep is None or 'queues' not in keep:
             qinfos = []
             async for qinfo in self.listStormPkgQueues(pkgname=name):
                 qinfos.append(qinfo)
@@ -2313,7 +2313,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for qinfo in qinfos:
                 await self.delStormPkgQueue(name, qinfo.get('name'))
 
-        if 'vaults' not in keep:
+        if keep is None or 'vaults' not in keep:
             vtypes = list(pkgdef.get('vaults', {}).keys())
             for vtype in vtypes:
                 for vault in list(self._getVaults()):
