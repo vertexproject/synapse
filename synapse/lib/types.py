@@ -1829,9 +1829,6 @@ class Ival(Type):
         if isinstance(ival := valu[0], int):
             return valu[1]
 
-        if isinstance(ival[0], int):
-            return ival[1]
-
         return ival[1][1]
 
     def _getDuration(self, valu):
@@ -1840,7 +1837,7 @@ class Ival(Type):
 
         if isinstance(ival := valu[0], int):
             ival = valu
-        elif not isinstance(ival[0], int):
+        else:
             ival = ival[1]
 
         if (dura := ival[2]) != self.duratype.futdura:
@@ -2276,15 +2273,11 @@ class Poly(Type):
     def getVirtType(self, vnames):
         name = vnames[0]
         if (virt := self.virts.get(name)) is not None:
-            if len(vnames) > 1:
-                return virt[0].getVirtType(vnames[1:])
             return virt[0]
 
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
             if name in ntyp.virts:
                 virt = ntyp.virts[name]
-                if len(vnames) > 1:
-                    return virt[0].getVirtType(vnames[1:])
                 return virt[0]
 
         raise s_exc.NoSuchVirt.init(name, self)
@@ -2292,15 +2285,11 @@ class Poly(Type):
     def getVirtGetr(self, vnames):
         name = vnames[0]
         if (virt := self.virts.get(name)) is not None:
-            if len(vnames) > 1:
-                return (virt[1],) + virt[0].getVirtGetr(vnames[1:])
             return (virt[1],)
 
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
             if name in ntyp.virts:
                 virt = ntyp.virts[name]
-                if len(vnames) > 1:
-                    return (virt[1],) + virt[0].getVirtGetr(vnames[1:])
                 return (virt[1],)
 
         raise s_exc.NoSuchVirt.init(name, self)
@@ -2308,17 +2297,11 @@ class Poly(Type):
     def getVirtInfo(self, vnames):
         name = vnames[0]
         if (virt := self.virts.get(name)) is not None:
-            if len(vnames) > 1:
-                vinfo = virt[0].getVirtInfo(vnames[1:])
-                return vinfo[0], (virt[1],) + vinfo[1]
             return virt[0], (virt[1],)
 
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
             if name in ntyp.virts:
                 virt = ntyp.virts[name]
-                if len(vnames) > 1:
-                    vinfo = virt[0].getVirtInfo(vnames[1:])
-                    return vinfo[0], (virt[1],) + vinfo[1]
                 return virt[0], (virt[1],)
 
         raise s_exc.NoSuchVirt.init(name, self)
@@ -2511,7 +2494,7 @@ class Poly(Type):
         return (typename, norm), info
 
     def merge(self, oldv, newv):
-        if oldv is None:
+        if oldv is None:  # pragma: no cover
             return newv
 
         if (typename := oldv[0]) != newv[0]:

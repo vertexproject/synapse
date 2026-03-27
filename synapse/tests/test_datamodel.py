@@ -1113,3 +1113,26 @@ class DataModelTest(s_t_utils.SynTest):
             self.stormIsInPrint('size=1', msgs)
             self.stormIsInPrint('true', msgs)
             self.stormNotInPrint('false', msgs)
+
+            # Poly.getCmprCtor raises BadCmprValu when all types fail
+            await core.addFormProp('test:str', '_polyint', (('test:int', 'test:comp'), {}), {})
+            await core.nodes('[test:str=foo :_polyint=1234]')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:str +test:str:_polyint=haha')
+
+            # Poly.getVirtGetr handles self.virts (e.g., .type)
+            nodes = await core.nodes('[test:str=foo :bar=vertex.link]')
+            node = nodes[0]
+            self.isinstance(node.get('bar.type'), str)
+            self.isinstance(node.get('bar.value'), str)
+
+            # NodeRef.exists optimization works when reusing the same ref
+            await core.nodes('[test:str=src :bar=vertex.link]')
+            q = '''
+                test:str=src $ref = :bar
+                { [test:str=dst1 :bar=$ref] }
+                { [test:str=dst2 :bar=$ref] }
+            '''
+            await core.nodes(q)
+            self.len(1, await core.nodes('test:str=dst1 +:bar'))
+            self.len(1, await core.nodes('test:str=dst2 +:bar'))
