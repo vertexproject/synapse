@@ -23,10 +23,10 @@ modeldefs = (
                         'doc': 'The time that the {title} was last updated.'}),
 
                     ('author', ('entity:actor', {}), {
-                        'doc': 'The contact information of the primary author.'}),
+                        'doc': 'The primary author.'}),
 
-                    ('contributors', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'An array of contacts which contributed to the {title}.'}),
+                    ('author:name', ('entity:name', {}), {
+                        'doc': 'The name of the primary author.'}),
 
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
@@ -149,7 +149,9 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {}),
                     ('doc:signable', {}),
+                    ('entity:activity', {}),
                 ),
+                'props': (),
                 'doc': 'A contract between multiple entities.'}),
 
             ('doc:contract:type:taxonomy', ('taxonomy', {}), {
@@ -157,6 +159,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
             ('doc:reference', ('guid', {}), {
@@ -235,20 +238,9 @@ modeldefs = (
 
                 ('topics', ('array', {'type': 'meta:topic'}), {
                     'doc': 'The topics discussed in the report.'}),
-            )),
 
-            ('doc:contract:type:taxonomy', {}, ()),
-            ('doc:contract', {}, (
-
-                ('issuer', ('entity:actor', {}), {
-                    'prevnames': ('sponsor',),
-                    'doc': 'The contract sponsor.'}),
-
-                ('parties', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The entities bound by the contract.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the contract is in effect.'}),
+                ('file:captured', ('time', {}), {
+                    'doc': 'The time when the file content was captured.'}),
             )),
 
             ('doc:reference', {}, (

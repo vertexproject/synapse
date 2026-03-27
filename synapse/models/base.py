@@ -34,6 +34,9 @@ modeldefs = (
                               'geo:name'),
                 'doc': 'A name used to refer to an entity or event.'}),
 
+            ('event:name', ('base:name', {}), {
+                'doc': 'A name used to refer to a specific event or activity.'}),
+
             ('meta:topic', ('base:name', {}), {
                 'doc': 'A topic string.'}),
 
@@ -194,6 +197,33 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
+
+            ('meta:award:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of award types.'}),
+
+            ('meta:award', ('guid', {}), {
+                'interfaces': (
+                    ('meta:achievable', {}),
+                ),
+                'props': (
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity which issues the award.'}),
+
+                    ('issuer:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which issues the award.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the award.',
+                        'ex': 'Bachelors of Science'}),
+
+                    ('type', ('meta:award:type:taxonomy', {}), {
+                        'doc': 'The type of award.',
+                        'ex': 'certification'}),
+                ),
+                'doc': 'An award.'}),
         ),
         'interfaces': (
 
@@ -287,6 +317,7 @@ modeldefs = (
                 ),
             }),
 
+            # TODO: should all the actor <verb>able interfaces move to entity: ?
             ('meta:believable', {
                 'doc': 'An interface implemented by forms which may be believed in by an actor.'}),
 
