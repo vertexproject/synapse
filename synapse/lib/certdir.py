@@ -576,7 +576,10 @@ class CertDir:
         reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING])
 
         cert = self.loadCertByts(byts)
-        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        try:
+            eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        except c_x509.ExtensionNotFound:
+            raise s_exc.BadCertBytes(mesg='Certificate is not for code signing.') from None
         if reqext != eku.value:
             mesg = 'Certificate is not for code signing.'
             raise s_exc.BadCertBytes(mesg=mesg)
@@ -607,7 +610,15 @@ class CertDir:
 
         return crls
 
-    def _verifyChain(self, cert, cacerts, crls=None):
+    def _verifyChain(self, cert, cacerts, crls=None, _seen=None, _imm_depth=0):
+        if _seen is None:
+            _seen = set()
+
+        certfp = cert.fingerprint(c_hashes.SHA256())
+        if certfp in _seen:
+            raise s_exc.BadCertVerify(mesg='Certificate chain cycle detected')
+        _seen.add(certfp)
+
         issuercert = None
         for cacert in cacerts:
             if cert.issuer != cacert.subject:
@@ -622,6 +633,25 @@ class CertDir:
         if issuercert is None:
             raise s_exc.BadCertVerify(mesg='unable to get local issuer certificate')
 
+        try:
+            issuer_bc = issuercert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+            if not issuer_bc.value.ca:
+                raise s_exc.BadCertVerify(mesg='Issuer certificate is not a CA certificate')
+        except c_x509.ExtensionNotFound:
+            raise s_exc.BadCertVerify(mesg='Issuer certificate is missing BasicConstraints extension') from None
+
+        # Count CA certs between issuercert and the leaf (cert contributes 1 if it is itself a CA).
+        cert_is_ca = False
+        try:
+            cert_bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+            cert_is_ca = cert_bc.value.ca
+        except c_x509.ExtensionNotFound:
+            pass
+
+        ca_depth = _imm_depth + (1 if cert_is_ca else 0)
+        if issuer_bc.value.path_length is not None and ca_depth > issuer_bc.value.path_length:
+            raise s_exc.BadCertVerify(mesg='Certificate chain exceeds issuer path length constraint')
+
         now = datetime.datetime.now(datetime.UTC)
         if now < cert.not_valid_before_utc or now > cert.not_valid_after_utc:
             raise s_exc.BadCertVerify(mesg='certificate has expired')
@@ -634,7 +664,7 @@ class CertDir:
                     raise s_exc.BadCertVerify(mesg='certificate revoked')
 
         if issuercert.issuer != issuercert.subject:
-            self._verifyChain(issuercert, cacerts, crls)
+            self._verifyChain(issuercert, cacerts, crls, _seen, ca_depth)
 
     def genClientCert(self, name: str, outp: OutPutOrNone = None) -> None:
         '''
@@ -693,7 +723,10 @@ class CertDir:
         reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
 
         cert = self.loadCertByts(byts)
-        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        try:
+            eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        except c_x509.ExtensionNotFound:
+            raise s_exc.BadCertBytes(mesg='Certificate is not for client auth.') from None
 
         if reqext != eku.value:
             mesg = 'Certificate is not for client auth.'

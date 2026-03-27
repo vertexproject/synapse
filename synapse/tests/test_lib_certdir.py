@@ -1234,3 +1234,261 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 crl.revoke(badcert)
             self.isin(caname, cm.exception.get('mesg'))
+
+    # -------------------------------------------------------------------
+    # Adversarial scenarios
+    # -------------------------------------------------------------------
+
+    def _makeCaCert(self, cn, issuer_cn, signing_key, subject_key, path_length=None, critical_bc=True):
+        '''Build a raw CA cert (not self-signed if issuer_cn != cn).'''
+        now = datetime.datetime.now(datetime.UTC)
+        subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, cn)])
+        issuer = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, issuer_cn)])
+        return (c_x509.CertificateBuilder()
+            .subject_name(subj)
+            .issuer_name(issuer)
+            .public_key(subject_key.public_key())
+            .serial_number(c_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + datetime.timedelta(days=3650))
+            .add_extension(c_x509.BasicConstraints(ca=True, path_length=path_length), critical=critical_bc)
+            .sign(signing_key, c_hashes.SHA256()))
+
+    async def test_certdir_adversarial_chain_cycle(self):
+        '''A mutually-signed chain (A signed by B, B signed by A) causes RecursionError.
+
+        _verifyChain has no cycle detection; this is a known limitation.
+        '''
+        with self.getCertDir() as cdir:
+            key_a = c_rsa.generate_private_key(65537, 2048)
+            key_b = c_rsa.generate_private_key(65537, 2048)
+
+            # cert_a: subject=cycle-a, issuer=cycle-b, signed by key_b
+            cert_a = self._makeCaCert('adv-cycle-a', 'adv-cycle-b', key_b, key_a)
+            # cert_b: subject=cycle-b, issuer=cycle-a, signed by key_a
+            cert_b = self._makeCaCert('adv-cycle-b', 'adv-cycle-a', key_a, key_b)
+
+            # code cert issued by cycle-a, signed with key_a
+            now = datetime.datetime.now(datetime.UTC)
+            codecert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-cycle-code')]))
+                .issuer_name(cert_a.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(key_a, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(cert_a.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(cert_b.public_bytes(c_serialization.Encoding.PEM))
+
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('cycle detected', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_rogue_ca_injection(self):
+        '''An injected rogue CA cert (same CN, different key) exposes two distinct behaviors.
+
+        1. Signature matching is robust: a cert signed by the LEGITIMATE CA still validates
+           even when a rogue CA with the same CN is present, because _verifyChain matches on
+           signature not just CN.
+        2. The rogue CA is itself trusted: a cert signed with the ROGUE key also validates,
+           because _verifyChain trusts every cert in cas/.  Write access to cas/ is therefore
+           equivalent to root-CA-level trust.
+        '''
+        with self.getCertDir() as cdir:
+            caname = 'adv-rogue-legit'
+            cdir.genCaCert(caname)
+            _, legitcert = cdir.genCodeCert('adv-rogue-code', signas=caname)
+
+            # Inject a rogue CA with same CN but a different key into the cas/ directory
+            roguekey = c_rsa.generate_private_key(65537, 2048)
+            roguecert = self._makeCaCert(caname, caname, roguekey, roguekey)
+            caspath = os.path.join(cdir.certdirs[0], 'cas')
+            with open(os.path.join(caspath, f'{caname}-rogue.crt'), 'wb') as fd:
+                fd.write(roguecert.public_bytes(c_serialization.Encoding.PEM))
+
+            # The legitimate cert is still valid: _verifyChain finds the correct CA by signature
+            legitbyts = legitcert.public_bytes(c_serialization.Encoding.PEM)
+            self.nn(cdir.valCodeCert(legitbyts))
+
+            # A cert forged with the rogue key ALSO validates because the rogue CA is trusted
+            _, forgedcert = self._buildCodeCert('adv-rogue-forged', roguekey, roguecert)
+            forgedbyts = forgedcert.public_bytes(c_serialization.Encoding.PEM)
+            result = cdir.valCodeCert(forgedbyts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_pathlength_bypass(self):
+        '''_verifyChain enforces BasicConstraints path_length constraints.
+
+        path_length=0 on a root CA forbids any intermediate CA.  Using one to sign
+        a code cert is rejected.  Directly signing the code cert with the same root
+        (no intermediate) must still succeed.
+        '''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            immkey = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-pl0-root', 'adv-pl0-root', rootkey, rootkey, path_length=0)
+            immcert = self._makeCaCert('adv-pl0-imm', 'adv-pl0-root', rootkey, immkey)
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(immcert.public_bytes(c_serialization.Encoding.PEM))
+
+            # root → intermediate → code cert: violates path_length=0
+            _, codecert_via_imm = self._buildCodeCert('adv-pl0-code-via-imm', immkey, immcert)
+            byts_via_imm = codecert_via_imm.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts_via_imm)
+            self.isin('path length constraint', cm.exception.get('mesg'))
+
+            # root → code cert directly: valid with path_length=0 (no intermediates)
+            _, codecert_direct = self._buildCodeCert('adv-pl0-code-direct', rootkey, rootcert)
+            byts_direct = codecert_direct.public_bytes(c_serialization.Encoding.PEM)
+            result = cdir.valCodeCert(byts_direct)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_expired_intermediate_detected(self):
+        '''A valid code cert whose intermediate CA has expired is rejected by the recursive chain check.'''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            immkey = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-expimm-root', 'adv-expimm-root', rootkey, rootkey)
+
+            # expired intermediate: validity entirely in the past
+            past_start = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+            past_end = datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.UTC)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-expimm-imm')])
+            rootsubj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-expimm-root')])
+            expiredimm = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(rootsubj)
+                .public_key(immkey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(past_start)
+                .not_valid_after(past_end)
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(rootkey, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(expiredimm.public_bytes(c_serialization.Encoding.PEM))
+
+            # code cert itself is valid
+            _, codecert = self._buildCodeCert('adv-expimm-code', immkey, expiredimm)
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_crl_issuer_mismatch(self):
+        '''A CRL issued by CA_B containing CA_A serial numbers does not revoke CA_A certs.
+
+        _verifyChain skips CRLs whose issuer does not match the cert's issuer.
+        '''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-crl-ca-a')
+            cdir.genCaCert('adv-crl-ca-b')
+            _, codecert = cdir.genCodeCert('adv-crl-code', signas='adv-crl-ca-a')
+
+            # Revoke the code cert's serial via CA_B's CRL (wrong issuer)
+            crl_b = cdir.genCaCrl('adv-crl-ca-b')
+            # craft a fake revocation entry for the code cert's serial
+            now = datetime.datetime.now(datetime.UTC)
+            revoked = (c_x509.RevokedCertificateBuilder()
+                .serial_number(codecert.serial_number)
+                .revocation_date(now)
+                .build())
+            crl_b.crlbuilder = crl_b.crlbuilder.add_revoked_certificate(revoked)
+            crl_b._save(now)
+
+            # cert should still validate: the CRL issuer is ca-b, not the cert's issuer ca-a
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            result = cdir.valCodeCert(byts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_missing_eku(self):
+        '''valCodeCert and valUserCert raise ExtensionNotFound for a cert with no EKU extension.
+
+        Neither method guards against a missing EKU extension before calling
+        get_extension_for_oid(); the exception propagates uncaught.
+        '''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-noeku-ca')
+            cakey = cdir.getCaKey('adv-noeku-ca')
+            cacert = cdir.getCaCert('adv-noeku-ca')
+
+            now = datetime.datetime.now(datetime.UTC)
+            noeku = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-noeku-cert')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = noeku.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('not for code signing', cm.exception.get('mesg'))
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valUserCert(byts)
+            self.isin('not for client auth', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_eku_cross_validation(self):
+        '''Code certs are rejected by valUserCert; user certs are rejected by valCodeCert.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-eku-ca')
+            _, codecert = cdir.genCodeCert('adv-eku-code', signas='adv-eku-ca')
+            _, usercert = cdir.genUserCert('adv-eku-user', signas='adv-eku-ca')
+
+            codebyts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            userbyts = usercert.public_bytes(c_serialization.Encoding.PEM)
+
+            # code cert passed to valUserCert: EKU check rejects it before any chain verification
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valUserCert(codebyts)
+            self.isin('not for client auth', cm.exception.get('mesg'))
+
+            # user cert passed to valCodeCert: EKU check rejects it before any chain verification
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valCodeCert(userbyts)
+            self.isin('not for code signing', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_non_ca_cert_as_anchor(self):
+        '''_verifyChain rejects a self-signed cert with ca=False as a trust anchor.
+
+        The issuer must have BasicConstraints ca=True; a self-signed cert with ca=False
+        is rejected with BadCertVerify even if its signature is cryptographically valid.
+        '''
+        with self.getCertDir() as cdir:
+            key = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-non-ca-anchor')])
+
+            # self-signed cert with ca=False
+            noncacert = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(subj)
+                .public_key(key.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(key, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(noncacert.public_bytes(c_serialization.Encoding.PEM))
+
+            _, codecert = self._buildCodeCert('adv-non-ca-code', key, noncacert)
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('not a CA certificate', cm.exception.get('mesg'))
