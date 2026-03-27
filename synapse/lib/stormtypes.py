@@ -6176,11 +6176,6 @@ class NodeRef(Prim):
                 if name in tobj.types:
                     return True
 
-        if (form := runt.view.core.model.form(self.valu[0])) is not None:
-            for name in names:
-                if name in form.formtypes:
-                    return True
-
         return False
 
 @registry.registerType

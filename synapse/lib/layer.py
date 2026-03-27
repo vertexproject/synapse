@@ -2415,12 +2415,6 @@ class StorTypeNodeProp(StorType):
         propabrv = self.layr.core.setIndxAbrv(INDX_NODEPROP, valu[0])
         return (propabrv + s_common.buid(valu),)
 
-    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
-        return ()
-
-    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False):
-        return
-
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxby = IndxByProp(self.layr, form, prop)

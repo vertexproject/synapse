@@ -128,9 +128,6 @@ def _getNestedTypeNames(typedef):
     if not typedef:
         return ()
 
-    if not isinstance(typedef, (list, tuple)) or len(typedef) < 1:
-        return ()
-
     tname = typedef[0]
 
     if tname == 'array' and len(typedef) >= 2:

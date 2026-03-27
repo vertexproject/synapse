@@ -584,8 +584,6 @@ class Array(Type):
             # TODO: lists should already be in the correct format
             typedef = tuple((tn, {}) for tn in typename)
             polyinfo = self.modl.convertPolyinfo(typedef)
-            if (deftypes := typeopts.get('default_types')) is not None:
-                polyinfo['default_types'] = deftypes
         elif isinstance(tobj := self.modl.type(typename), Poly):
             polyinfo = tobj.opts
         else:
@@ -1831,8 +1829,8 @@ class Ival(Type):
         if isinstance(ival := valu[0], int):
             return valu[1]
 
-        if isinstance(valu[0], int):
-            return valu[0]
+        if isinstance(ival[0], int):
+            return ival[1]
 
         return ival[1][1]
 
@@ -2124,7 +2122,6 @@ class Poly(Type):
         ('forms', None),            # type: ignore
         ('types', None),            # type: ignore
         ('interfaces', None),       # type: ignore
-        ('cloneopts', None),        # type: ignore
     )
 
     def postTypeInit(self):
@@ -2182,29 +2179,12 @@ class Poly(Type):
 
             self.typefilter = typefilt
 
-        self.cloneopts = self.opts.get('cloneopts') or {}
-        self.clonecache = {}
-
         self.defaulttypes = self.opts.get('default_types')
         if self.defaulttypes is not None:
             for tname in self.defaulttypes:
                 if not self.typeset or tname not in self.typeset:
                     mesg = f'Default types must be all be allowed on {self.name}.'
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
-
-    def _getTypeObj(self, typename):
-        if (form := self.modl.form(typename)) is not None:
-            tobj = form.type
-        else:
-            tobj = self.modl.type(typename)
-
-        if (copts := self.cloneopts.get(typename)) is not None:
-            if (cached := self.clonecache.get(typename)) is not None:
-                return cached
-            tobj = tobj.clone(copts)
-            self.clonecache[typename] = tobj
-
-        return tobj
 
     def getTypeSet(self):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
@@ -2443,7 +2423,7 @@ class Poly(Type):
 
         elif self.defaulttypes is not None:
             for typename in self.defaulttypes:
-                tobj = self._getTypeObj(typename)
+                tobj = self.modl.type(typename)
                 form = self.modl.form(typename)
 
                 if form is not None and form.locked:
