@@ -1161,3 +1161,23 @@ class DataModelTest(s_t_utils.SynTest):
             self.nn(core.model.prop('test:str:_ifarry'))
             await core.delFormProp('test:str', '_ifarry')
             self.none(core.model.prop('test:str:_ifarry'))
+
+            ptyp = core.model.prop('test:str:seen').type
+            self.true(ptyp.ispoly)
+
+            # getVirtType via getTypeSet path (ival's min virt)
+            vtyp = ptyp.getVirtType(('min',))
+            self.nn(vtyp)
+
+            # getVirtType raise for unknown virt
+            with self.raises(s_exc.NoSuchVirt):
+                ptyp.getVirtType(('newp',))
+
+            # getVirtInfo via getTypeSet path (ival's min virt)
+            vinfo = ptyp.getVirtInfo(('min',))
+            self.nn(vinfo[0])
+            self.nn(vinfo[1])
+
+            # getVirtInfo raise for unknown virt
+            with self.raises(s_exc.NoSuchVirt):
+                ptyp.getVirtInfo(('newp',))
