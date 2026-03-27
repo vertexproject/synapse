@@ -108,7 +108,7 @@ stormcmds = [
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
             ('--uninstall', {'default': False, 'action': 'store_true',
                 'help': 'Run the uninstall lifecycle (ondel handler + cleanup).'}),
-            ('--uninstall-keep', {'default': None, 'type': 'list',
+            ('--uninstall-keep', {'default': None, 'type': 'str',
                 'help': 'Comma-separated list of things to keep during uninstall.'}),
         ),
         'storm': '''

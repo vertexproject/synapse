@@ -2327,6 +2327,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     if vault.get('type') == vtype:
                         await self.delVault(vault.get('iden'))
 
+        if keep is None or 'dmons' not in keep:
+            for diden in pkgdef.get('dmons', {}):
+                try:
+                    await self.delStormDmon(diden)
+                except s_exc.NoSuchIden:
+                    pass
+
     async def getStormPkg(self, name):
         return copy.deepcopy(self.stormpkgs.get(name))
 
@@ -2491,6 +2498,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ondel = pkgdef.get('ondel')
         if ondel is not None and validstorm:
             await self.getStormQuery(ondel)
+
+        for diden, dmon in pkgdef.get('dmons', {}).items():
+            if validstorm:
+                await self.getStormQuery(dmon.get('storm'))
 
         if inits is not None:
             lastver = None
@@ -2678,6 +2689,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
+                await self._loadStormPkgDmons(pkgdef)
+
                 await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
             task = self.runActiveTask(_onload())
@@ -2696,6 +2709,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
+
+    async def _loadStormPkgDmons(self, pkgdef):
+
+        name = pkgdef.get('name')
+
+        for diden, dinfo in pkgdef.get('dmons', {}).items():
+
+            if await self.getStormDmon(diden) is not None:
+                await self.bumpStormDmon(diden)
+                continue
+
+            ddef = {
+                'iden': diden,
+                'name': dinfo.get('name'),
+                'storm': dinfo.get('storm'),
+                'user': self.auth.rootuser.iden,
+                'enabled': True,
+                'stormopts': {'view': self.view.iden},
+            }
+            await self.addStormDmon(ddef)
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.

@@ -660,6 +660,122 @@ class StormLibPkgTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.pkg.get(test.vaultkeep))'))
             self.nn(core.getVault(viden))
 
+        # Dmon created on package load and cleaned up during uninstall
+        async with self.getTestCore() as core:
+
+            dmoniden = s_common.guid()
+            pkg = {
+                'name': 'test.dmonclean',
+                'version': '1.0.0',
+                'dmons': {
+                    dmoniden: {
+                        'storm': '$lib.time.sleep(1000)',
+                        'name': 'test dmon',
+                    },
+                },
+            }
+
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            # Dmon should have been created automatically
+            self.nn(await core.getStormDmon(dmoniden))
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.dmonclean')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.dmonclean))'))
+            self.none(await core.getStormDmon(dmoniden))
+
+        # Dmon bumped when package is re-added
+        async with self.getTestCore() as core:
+
+            dmoniden = s_common.guid()
+            pkg = {
+                'name': 'test.dmonbump',
+                'version': '1.0.0',
+                'dmons': {
+                    dmoniden: {
+                        'storm': '$lib.time.sleep(1000)',
+                        'name': 'test dmon bump',
+                    },
+                },
+            }
+
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            self.nn(await core.getStormDmon(dmoniden))
+
+            # Re-add the package; dmon should be bumped not duplicated
+            pkg['version'] = '1.0.1'
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            self.nn(await core.getStormDmon(dmoniden))
+
+        # Dmon kept with --uninstall-keep dmons
+        async with self.getTestCore() as core:
+
+            dmoniden = s_common.guid()
+            pkg = {
+                'name': 'test.dmonkeep',
+                'version': '1.0.0',
+                'dmons': {
+                    dmoniden: {
+                        'storm': '$lib.time.sleep(1000)',
+                        'name': 'test dmon keep',
+                    },
+                },
+            }
+
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            self.nn(await core.getStormDmon(dmoniden))
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.dmonkeep', keep=('dmons',))
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.dmonkeep))'))
+            self.nn(await core.getStormDmon(dmoniden))
+
+        # Dmon already deleted before uninstall
+        async with self.getTestCore() as core:
+
+            dmoniden = s_common.guid()
+            pkg = {
+                'name': 'test.dmonmissing',
+                'version': '1.0.0',
+                'dmons': {
+                    dmoniden: {
+                        'storm': '$lib.time.sleep(1000)',
+                        'name': 'test dmon missing',
+                    },
+                },
+            }
+
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            # Manually delete the dmon before uninstall
+            await core.delStormDmon(dmoniden)
+            self.none(await core.getStormDmon(dmoniden))
+
+            # Uninstall should not error on missing dmon
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.dmonmissing')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.dmonmissing))'))
+
         # ondel failure does NOT prevent deletion
         async with self.getTestCore() as core:
 
@@ -711,6 +827,23 @@ class StormLibPkgTest(s_test.SynTest):
                 'name': 'test.badsyntax',
                 'version': '1.0.0',
                 'ondel': '} invalid storm {',
+            }
+
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormPkg(pkg)
+
+        # Bad dmon storm syntax rejected at add time
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.baddmon',
+                'version': '1.0.0',
+                'dmons': {
+                    s_common.guid(): {
+                        'storm': '} invalid storm {',
+                        'name': 'bad dmon',
+                    },
+                },
             }
 
             with self.raises(s_exc.BadSyntax):
