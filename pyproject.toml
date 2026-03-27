@@ -145,6 +145,7 @@ select = [
     "F401", # Unused imports
     "F541", # f-string without any placeholders
     "F601", # Dictionary key literal repeated
+    "F811", # Redefined while unused
     "F821", # Undefined name {name}. {tip}
     "RUF006", # Store a reference to the return value of {expr}.{method}
     "W191", # Indentation contains tabs
