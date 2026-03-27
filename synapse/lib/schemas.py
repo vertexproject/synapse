@@ -838,7 +838,95 @@ _reqValidPkgdefSchema = {
                 },
             },
             'additionalProperties': False,
-        }
+        },
+        'model': {
+            'type': 'object',
+            'properties': {
+                'types': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'object',
+                            'properties': {
+                                'type': {'type': 'string'},
+                                'typeopts': {'type': 'object'},
+                                'typeinfo': {'type': 'object'},
+                            },
+                            'required': ['type'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'forms': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'object',
+                            'properties': {
+                                'type': {'type': 'string'},
+                                'typeopts': {'type': 'object'},
+                                'typeinfo': {'type': 'object'},
+                            },
+                            'required': ['type'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'props': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'object',
+                            'properties': {
+                                'forms': {
+                                    'type': 'array',
+                                    'items': {'type': 'string'},
+                                },
+                                'typedef': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'string'},
+                                        {'type': 'object'},
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                                'propinfo': {'type': 'object'},
+                            },
+                            'required': ['forms', 'typedef'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'tagprops': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'object',
+                            'properties': {
+                                'typedef': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'string'},
+                                        {'type': 'object'},
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                                'propinfo': {'type': 'object'},
+                            },
+                            'required': ['typedef'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+            },
+            'additionalProperties': False,
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],

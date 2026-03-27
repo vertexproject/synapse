@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_test
@@ -1286,3 +1287,185 @@ class StormLibPkgTest(s_test.SynTest):
                 await core.uninstallStormPkg('test.keepvalid5', keep=['newp'])
 
             self.isin('Invalid keep item', cm.exception.get('mesg'))
+
+    async def test_stormlib_pkg_model(self):
+
+        async with self.getTestCore() as core:
+
+            # Valid model with all four sub-keys
+            pkg = {
+                'name': 'test.model',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:mytype': {
+                            'type': 'str',
+                            'typeopts': {'lower': True},
+                            'typeinfo': {'doc': 'A test type.'},
+                        },
+                    },
+                    'forms': {
+                        '_test:myform': {
+                            'type': 'str',
+                            'typeopts': {'lower': True},
+                            'typeinfo': {'doc': 'A test form.'},
+                        },
+                    },
+                    'props': {
+                        '_test:myprop': {
+                            'forms': ['_test:myform'],
+                            'typedef': ['str', {'lower': True}],
+                            'propinfo': {'doc': 'A test prop.'},
+                        },
+                    },
+                    'tagprops': {
+                        '_test:mytagprop': {
+                            'typedef': ['int', {'min': 0}],
+                            'propinfo': {'doc': 'A test tag prop.'},
+                        },
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg)
+
+            pkgdef = await core.callStorm('return($lib.pkg.get(test.model))')
+            self.nn(pkgdef)
+            self.nn(pkgdef.get('model'))
+            self.eq(pkgdef['model']['types']['_test:mytype']['type'], 'str')
+            self.eq(pkgdef['model']['forms']['_test:myform']['type'], 'str')
+            self.eq(pkgdef['model']['props']['_test:myprop']['forms'], ['_test:myform'])
+            self.eq(pkgdef['model']['props']['_test:myprop']['typedef'], ['str', {'lower': True}])
+            self.eq(pkgdef['model']['tagprops']['_test:mytagprop']['typedef'], ['int', {'min': 0}])
+
+            # Valid model with only some sub-keys
+            pkg2 = {
+                'name': 'test.model2',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:mytype2': {
+                            'type': 'int',
+                        },
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg2)
+
+            pkgdef2 = await core.callStorm('return($lib.pkg.get(test.model2))')
+            self.nn(pkgdef2)
+            self.eq(pkgdef2['model']['types']['_test:mytype2']['type'], 'int')
+
+            # Empty model is valid
+            pkg3 = {
+                'name': 'test.model3',
+                'version': '1.0.0',
+                'model': {},
+            }
+
+            await core.addStormPkg(pkg3)
+
+            # Invalid: type entry missing required 'type' field
+            pkg4 = {
+                'name': 'test.model4',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:bad': {
+                            'typeopts': {'lower': True},
+                        },
+                    },
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg4)
+
+            # Invalid: form entry missing required 'type' field
+            pkg5 = {
+                'name': 'test.model5',
+                'version': '1.0.0',
+                'model': {
+                    'forms': {
+                        '_test:bad': {
+                            'typeinfo': {'doc': 'Missing type field.'},
+                        },
+                    },
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg5)
+
+            # Invalid: prop entry missing required 'forms' and 'typedef'
+            pkg6 = {
+                'name': 'test.model6',
+                'version': '1.0.0',
+                'model': {
+                    'props': {
+                        '_test:bad': {
+                            'propinfo': {'doc': 'Missing required fields.'},
+                        },
+                    },
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg6)
+
+            # Invalid: tagprop entry missing required 'typedef'
+            pkg7 = {
+                'name': 'test.model7',
+                'version': '1.0.0',
+                'model': {
+                    'tagprops': {
+                        '_test:bad': {
+                            'propinfo': {'doc': 'Missing typedef.'},
+                        },
+                    },
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg7)
+
+            # Invalid: extra property in type entry
+            pkg8 = {
+                'name': 'test.model8',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:bad': {
+                            'type': 'str',
+                            'newp': 'invalid',
+                        },
+                    },
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg8)
+
+            # Invalid: extra property in model
+            pkg9 = {
+                'name': 'test.model9',
+                'version': '1.0.0',
+                'model': {
+                    'newp': {},
+                },
+            }
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pkg9)
+
+            # Also test direct schema validation
+            s_schemas.reqValidPkgdef({
+                'name': 'test.direct',
+                'version': '0.0.1',
+                'model': {
+                    'types': {
+                        '_test:dtype': {'type': 'str'},
+                    },
+                },
+            })
