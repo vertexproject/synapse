@@ -2225,6 +2225,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
+    validKeepItems = ('pkg-vars', 'vaults', 'dmons', 'queues')
+
     async def uninstallStormPkg(self, name, keep=None):
         pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
@@ -2234,6 +2236,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pkgdef.get('_uninstalling') is not None:
             mesg = 'Package is already being uninstalled.'
             raise s_exc.BadArg(mesg=mesg)
+
+        if keep is not None:
+            for item in keep:
+                if item not in self.validKeepItems:
+                    mesg = f'Invalid keep item: {item}. Valid items: {", ".join(sorted(self.validKeepItems))}.'
+                    raise s_exc.BadArg(mesg=mesg)
 
         await self._push('pkg:uninstall', name, keep)
 

@@ -109,7 +109,7 @@ stormcmds = [
             ('--uninstall', {'default': False, 'action': 'store_true',
                 'help': 'Run the uninstall lifecycle (ondel handler + cleanup).'}),
             ('--uninstall-keep', {'default': None, 'type': 'str',
-                'help': 'Comma-separated list of things to keep during uninstall.'}),
+                'help': 'Comma-separated list of things to keep during uninstall (pkg-vars, vaults, dmons, queues).'}),
         ),
         'storm': '''
 
@@ -355,6 +355,7 @@ class LibPkg(s_stormtypes.Lib):
                 if not isinstance(v, str):
                     mesg = 'The keep argument must be a list of strings.'
                     raise s_exc.BadArg(mesg=mesg)
+            keep = list(keep)
         await self.runt.view.core.uninstallStormPkg(name, keep=keep)
 
     @s_stormtypes.stormfunc(readonly=True)

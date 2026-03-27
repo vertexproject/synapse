@@ -1243,3 +1243,46 @@ class StormLibPkgTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg) as cm:
                 await core.callStorm('$lib.pkg.uninstall(test.keepvalid2, keep=((1),))')
+
+        # $lib.pkg.uninstall with unknown keep value raises BadArg
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepvalid3',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('$lib.pkg.uninstall(test.keepvalid3, keep=(newp,))')
+
+            self.isin('Invalid keep item', cm.exception.get('mesg'))
+
+        # --uninstall-keep with unknown value via Storm command raises BadArg
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepvalid4',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            msgs = await core.stormlist('pkg.del test.keepvalid4 --uninstall --uninstall-keep newp')
+            self.stormIsInErr('Invalid keep item', msgs)
+
+        # core API with unknown keep value raises BadArg
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepvalid5',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.uninstallStormPkg('test.keepvalid5', keep=['newp'])
+
+            self.isin('Invalid keep item', cm.exception.get('mesg'))
