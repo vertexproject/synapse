@@ -18,6 +18,7 @@ stormcmds = [
                     "columns": [
                         {"name": "name", "width": 40},
                         {"name": "vers", "width": 10},
+                        {"name": "status", "width": 50},
                     ],
                     "separators": {
                         "row:outline": false,
@@ -39,8 +40,18 @@ stormcmds = [
                 $lib.print('Loaded storm packages:')
                 $lib.print($printer.header())
                 for $pkg in $pkgs {
+                    if ($pkg._uninstalling != (null)) {
+                        $keep = $pkg._uninstalling.keep
+                        if ($keep != (null) and ($keep.size() > 0)) {
+                            $status = `uninstalling (keeping {(", ").join($keep)})`
+                        } else {
+                            $status = "uninstalling"
+                        }
+                    } else {
+                        $status = ""
+                    }
                     $row = (
-                        $pkg.name, $pkg.version,
+                        $pkg.name, $pkg.version, $status,
                     )
                     if $cmdopts.verbose {
                         try {

@@ -881,3 +881,98 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.coreapi))'))
             self.none(await core.callStorm('return($lib.pkg.vars(test.coreapi).x)'))
+
+    async def test_stormlib_pkg_list_status(self):
+
+        # pkg.list shows uninstalling status
+        async with self.getTestCore() as core:
+
+            pkg_normal = {
+                'name': 'test.normal',
+                'version': '1.0.0',
+            }
+            await core.addStormPkg(pkg_normal)
+
+            pkg_uninst = {
+                'name': 'test.uninst',
+                'version': '2.0.0',
+            }
+            await core.addStormPkg(pkg_uninst)
+
+            # Manually set the _uninstalling state (no keep)
+            pkgdef = core.pkgdefs.get('test.uninst')
+            pkgdef['_uninstalling'] = {'keep': None, 'time': s_common.now()}
+            core.pkgdefs.set('test.uninst', pkgdef)
+            core.stormpkgs['test.uninst'] = pkgdef
+
+            pkg_keep = {
+                'name': 'test.keepitems',
+                'version': '3.0.0',
+            }
+            await core.addStormPkg(pkg_keep)
+
+            # Manually set the _uninstalling state with keep items
+            pkgdef = core.pkgdefs.get('test.keepitems')
+            pkgdef['_uninstalling'] = {'keep': ['pkg-vars', 'queues'], 'time': s_common.now()}
+            core.pkgdefs.set('test.keepitems', pkgdef)
+            core.stormpkgs['test.keepitems'] = pkgdef
+
+            msgs = await core.stormlist('pkg.list')
+
+            # Normal package should not show "uninstalling"
+            for msg in msgs:
+                if msg[0] == 'print' and 'test.normal' in msg[1].get('mesg', ''):
+                    self.notin('uninstalling', msg[1]['mesg'])
+                    break
+
+            # Package with _uninstalling and no keep should show "uninstalling"
+            found_uninst = False
+            for msg in msgs:
+                if msg[0] == 'print' and 'test.uninst' in msg[1].get('mesg', ''):
+                    mesg = msg[1]['mesg']
+                    self.isin('uninstalling', mesg)
+                    self.notin('keeping', mesg)
+                    found_uninst = True
+                    break
+
+            self.true(found_uninst)
+
+            # Package with _uninstalling and keep items should show "uninstalling (keeping ...)"
+            found_keep = False
+            for msg in msgs:
+                if msg[0] == 'print' and 'test.keepitems' in msg[1].get('mesg', ''):
+                    mesg = msg[1]['mesg']
+                    self.isin('uninstalling (keeping pkg-vars, queues)', mesg)
+                    found_keep = True
+                    break
+
+            self.true(found_keep)
+
+    async def test_stormlib_pkg_install_blocked_during_uninstall(self):
+
+        # Block install during uninstall
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.blockinstall',
+                'version': '1.0.0',
+                'ondel': '$lib.time.sleep(5)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            await core.callStorm('$lib.pkg.uninstall(test.blockinstall)')
+
+            # Attempt to install same package while uninstall is in progress
+            with self.raises(s_exc.BadArg) as cm:
+                await core.addStormPkg(pkg)
+
+            self.isin('currently being uninstalled', cm.exception.get('mesg'))
+
+            await donewaiter.wait(timeout=30)
+
+            # After uninstall completes, install should succeed
+            await core.addStormPkg(pkg)
+            self.nn(await core.callStorm('return($lib.pkg.get(test.blockinstall))'))

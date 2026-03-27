@@ -2163,6 +2163,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.BadPkgDef(mesg=mesg)
 
         await self._normStormPkg(pkgdef)
+
+        name = pkgdef.get('name')
+        olddef = self.pkgdefs.get(name)
+        if olddef is not None and olddef.get('_uninstalling') is not None:
+            mesg = f'Package ({name}) is currently being uninstalled.'
+            raise s_exc.BadArg(mesg=mesg)
+
         return await self._push('pkg:add', pkgdef)
 
     @s_nexus.Pusher.onPush('pkg:add')
