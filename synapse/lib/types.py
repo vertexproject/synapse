@@ -1829,6 +1829,9 @@ class Ival(Type):
         if isinstance(ival := valu[0], int):
             return valu[1]
 
+        if isinstance(ival[0], int):
+            return ival[1]
+
         return ival[1][1]
 
     def _getDuration(self, valu):
@@ -1837,7 +1840,7 @@ class Ival(Type):
 
         if isinstance(ival := valu[0], int):
             ival = valu
-        else:
+        elif not isinstance(ival[0], int):
             ival = ival[1]
 
         if (dura := ival[2]) != self.duratype.futdura:

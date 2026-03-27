@@ -4024,6 +4024,21 @@ class AstTest(s_test.SynTest):
             for query in queries:
                 self.eq(1577836800000000, await core.callStorm(query))
 
+            queries = (
+                '#(tag).min=2020 return(#(tag).max)',
+                '#(tag).min=2020 for $i in (#(tag).max,) { return($i) }',
+                'entity:campaign:period.min=2020 return(:period.max)',
+                'entity:campaign:period.min=2020 $virt=max return(:period.$virt)',
+                'entity:campaign#(tag).min=2020 return(#(tag).max)',
+                'entity:campaign#tag:ival.min=2020 return(#tag:ival.max)',
+                'entity:contribution return(:campaign::period.max)'
+            )
+
+            for query in queries:
+                self.gt(await core.callStorm(query), 1577836800000000)
+
+            self.none(await core.callStorm("return(#tag:ival.max)"))
+
             with self.raises(s_exc.StormRuntimeError):
                 query = await core.getStormQuery('$foo=#(tag).min')
                 query.reqRuntSafe(None, None)

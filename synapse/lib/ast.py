@@ -4296,6 +4296,9 @@ class FormTagProp(Value):
 
 class TagPropValue(Value):
     async def compute(self, runt, path):
+        if not path:
+            return
+
         tag, prop = await self.kids[0].compute(runt, path)
 
         tprop = runt.model.reqTagProp(prop, extra=self.kids[0].addExcInfo)

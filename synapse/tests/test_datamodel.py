@@ -78,6 +78,9 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
             self.isin('Type option foo is not valid', cm.exception.get('mesg'))
 
+            with self.raises(s_exc.NoSuchType):
+                core.model.reqType('newp:newp')
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -1136,3 +1139,25 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes(q)
             self.len(1, await core.nodes('test:str=dst1 +:bar'))
             self.len(1, await core.nodes('test:str=dst2 +:bar'))
+
+            form = core.model.form('test:str')
+            with self.raises(s_exc.NoSuchType):
+                core.model._addFormProp(form, '_badpoly', ('poly', {'types': ('newp:newp',)}), {})
+
+            await core.addType('_test:myint', 'int', {}, {})
+            await core.addFormProp('test:str', '_arryprop', ('array', {'type': '_test:myint'}), {})
+
+            with self.raises(s_exc.CantDelType):
+                core.model.reqTypeNotInUse('_test:myint')
+
+            await core.delFormProp('test:str', '_arryprop')
+
+            await core.addFormProp('test:str', '_ifpoly', (('inet:fqdn', 'meta:observable'), {}), {})
+            self.nn(core.model.prop('test:str:_ifpoly'))
+            await core.delFormProp('test:str', '_ifpoly')
+            self.none(core.model.prop('test:str:_ifpoly'))
+
+            await core.addFormProp('test:str', '_ifarry', ('array', {'type': ('inet:fqdn', 'meta:observable')}), {})
+            self.nn(core.model.prop('test:str:_ifarry'))
+            await core.delFormProp('test:str', '_ifarry')
+            self.none(core.model.prop('test:str:_ifarry'))
