@@ -472,7 +472,7 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the actors support of the activity.'}),
 
-                    ('activity', ('meta:supportable', {}), {
+                    ('activity', ('entity:supportable', {}), {
                         'doc': 'The activity which the actor supported.'}),
 
                     ('value', ('econ:price', {}), {
@@ -576,7 +576,7 @@ modeldefs = (
             (('entity:believed', 'followed', 'belief:tenet'), {
                 'doc': 'The actor followed the tenet during the period.'}),
 
-            (('entity:campaign', 'ledto', 'econ:puchase'), {
+            (('entity:campaign', 'ledto', 'econ:purchase'), {
                 'doc': 'The campaign led to the purchase.'}),
         ),
 

@@ -208,7 +208,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        {'type': 'prop', 'opts': {'name': 'activity::name'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
