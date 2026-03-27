@@ -923,33 +923,15 @@ class StormLibPkgTest(s_test.SynTest):
             msgs = await core.stormlist('pkg.list')
 
             # Normal package should not show "uninstalling"
-            for msg in msgs:
-                if msg[0] == 'print' and 'test.normal' in msg[1].get('mesg', ''):
-                    self.notin('uninstalling', msg[1]['mesg'])
-                    break
+            self.stormIsInPrint('test.normal 1.0.0', msgs, whitespace=False)
+            self.stormNotInPrint('test.normal 1.0.0 uninstalling', msgs, whitespace=False)
 
             # Package with _uninstalling and no keep should show "uninstalling"
-            found_uninst = False
-            for msg in msgs:
-                if msg[0] == 'print' and 'test.uninst' in msg[1].get('mesg', ''):
-                    mesg = msg[1]['mesg']
-                    self.isin('uninstalling', mesg)
-                    self.notin('keeping', mesg)
-                    found_uninst = True
-                    break
-
-            self.true(found_uninst)
+            self.stormIsInPrint('test.uninst 2.0.0 uninstalling', msgs, whitespace=False)
+            self.stormNotInPrint('test.uninst 2.0.0 uninstalling (keep', msgs, whitespace=False)
 
             # Package with _uninstalling and keep items should show "uninstalling (keeping ...)"
-            found_keep = False
-            for msg in msgs:
-                if msg[0] == 'print' and 'test.keepitems' in msg[1].get('mesg', ''):
-                    mesg = msg[1]['mesg']
-                    self.isin('uninstalling (keeping pkg-vars, queues)', mesg)
-                    found_keep = True
-                    break
-
-            self.true(found_keep)
+            self.stormIsInPrint('test.keepitems 3.0.0 uninstalling (keeping pkg-vars, queues)', msgs, whitespace=False)
 
     async def test_stormlib_pkg_install_blocked_during_uninstall(self):
 
