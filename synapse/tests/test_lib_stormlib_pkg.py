@@ -930,6 +930,28 @@ class StormLibPkgTest(s_test.SynTest):
             # Pkg vars are NOT cleaned (plain delete does not auto-cleanup)
             self.eq('1', await core.callStorm('return($lib.pkg.vars(test.plaindelete).v)'))
 
+        # Plain pkg.del cancels running onload/init tasks
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.delcancelonload',
+                'version': '1.0.0',
+                'onload': '$lib.time.sleep(60)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            # The onload should be running now (sleeping for 60s)
+            self.isin('test.delcancelonload', core._pkgOnloadTasks)
+
+            await core.delStormPkg('test.delcancelonload')
+
+            # Onload task should be cancelled and gone
+            self.notin('test.delcancelonload', core._pkgOnloadTasks)
+
+            # Package should be deleted
+            self.none(await core.callStorm('return($lib.pkg.get(test.delcancelonload))'))
+
         # Safe mode: onuninstall skipped
         async with self.getTestCore() as core:
 

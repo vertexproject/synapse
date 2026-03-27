@@ -2202,6 +2202,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
 
+        await self._cancelStormPkgOnload(name)
+
+        for ddef in pkgdef.get('dmons', ()):
+            try:
+                await self.delStormDmon(ddef.get('iden'))
+            except s_exc.NoSuchIden:
+                pass
+
         return await self._push('pkg:del', name)
 
     @s_nexus.Pusher.onPush('pkg:del')
@@ -2214,12 +2222,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         self._dropStormPkg(pkgdef)
-
-        for ddef in pkgdef.get('dmons', ()):
-            try:
-                await self.delStormDmon(ddef.get('iden'))
-            except s_exc.NoSuchIden:
-                pass
 
         self._clearPermDefs()
 
