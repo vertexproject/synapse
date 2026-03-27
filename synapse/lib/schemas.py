@@ -750,21 +750,19 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
-        'ondel': {'type': 'string'},
+        'onuninstall': {'type': 'string'},
         'dmons': {
-            'type': 'object',
-            'patternProperties': {
-                s_config.re_iden: {
-                    'type': 'object',
-                    'properties': {
-                        'storm': {'type': 'string'},
-                        'name': {'type': 'string'},
-                    },
-                    'required': ['storm', 'name'],
-                    'additionalProperties': False,
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'iden': {'type': 'string', 'pattern': s_config.re_iden},
+                    'storm': {'type': 'string'},
+                    'name': {'type': 'string'},
                 },
+                'required': ['iden', 'storm', 'name'],
+                'additionalProperties': False,
             },
-            'additionalProperties': False,
         },
         'inits': {
             'type': 'object',

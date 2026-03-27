@@ -461,14 +461,14 @@ class StormLibPkgTest(s_test.SynTest):
 
     async def test_stormlib_pkg_uninstall(self):
 
-        # Basic uninstall with ondel handler, pkg vars cleaned, queues cleaned, beholder events
+        # Basic uninstall with onuninstall handler, pkg vars cleaned, queues cleaned, beholder events
         async with self.getTestCore() as core:
 
-            ondel = '$lib.print(`ondel called keep={$keep}`)'
+            onuninstall = '$lib.print(`onuninstall called keep={$keep}`)'
             pkg = {
                 'name': 'test.uninstall',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
             }
 
             await core.addStormPkg(pkg)
@@ -488,17 +488,17 @@ class StormLibPkgTest(s_test.SynTest):
 
             core.on('cell:beholder', _onBeholder)
 
-            ondelwaiter = core.waiter(1, 'core:pkg:ondel:complete')
+            onuninstallwaiter = core.waiter(1, 'core:pkg:onuninstall:complete')
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'ondel called keep=') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall called keep=') as stream:
                 msgs = await core.stormlist('pkg.del test.uninstall --uninstall')
                 self.stormIsInPrint('Uninstalling package: test.uninstall', msgs)
                 self.true(await stream.wait(timeout=30))
 
-            evnts = await ondelwaiter.wait(timeout=30)
+            evnts = await onuninstallwaiter.wait(timeout=30)
             self.ge(len(evnts), 1)
-            self.eq(evnts[0][0], 'core:pkg:ondel:complete')
+            self.eq(evnts[0][0], 'core:pkg:onuninstall:complete')
 
             evnts = await donewaiter.wait(timeout=30)
             self.ge(len(evnts), 1)
@@ -519,14 +519,14 @@ class StormLibPkgTest(s_test.SynTest):
             self.isin('pkg:uninstall:start', bnames)
             self.isin('pkg:del', bnames)
 
-        # ondel receives keep set via $lib.pkg.uninstall
+        # onuninstall receives keep set via $lib.pkg.uninstall
         async with self.getTestCore() as core:
 
-            ondel = 'if (not $keep) { $lib.print(keep_empty) } else { $lib.print(`keep={$keep}`) }'
+            onuninstall = 'if (not $keep) { $lib.print(keep_empty) } else { $lib.print(`keep={$keep}`) }'
             pkg = {
                 'name': 'test.keepset',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
             }
 
             await core.addStormPkg(pkg)
@@ -668,12 +668,9 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.dmonclean',
                 'version': '1.0.0',
-                'dmons': {
-                    dmoniden: {
-                        'storm': '$lib.time.sleep(1000)',
-                        'name': 'test dmon',
-                    },
-                },
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon'},
+                ],
             }
 
             loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
@@ -697,12 +694,9 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.dmonbump',
                 'version': '1.0.0',
-                'dmons': {
-                    dmoniden: {
-                        'storm': '$lib.time.sleep(1000)',
-                        'name': 'test dmon bump',
-                    },
-                },
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon bump'},
+                ],
             }
 
             loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
@@ -726,12 +720,9 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.dmonkeep',
                 'version': '1.0.0',
-                'dmons': {
-                    dmoniden: {
-                        'storm': '$lib.time.sleep(1000)',
-                        'name': 'test dmon keep',
-                    },
-                },
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon keep'},
+                ],
             }
 
             loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
@@ -754,12 +745,9 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.dmonmissing',
                 'version': '1.0.0',
-                'dmons': {
-                    dmoniden: {
-                        'storm': '$lib.time.sleep(1000)',
-                        'name': 'test dmon missing',
-                    },
-                },
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon missing'},
+                ],
             }
 
             loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
@@ -777,29 +765,29 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.dmonmissing))'))
 
-        # ondel failure does NOT prevent deletion
+        # onuninstall failure does NOT prevent deletion
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.ondelfail',
                 'version': '1.0.0',
-                'ondel': '$lib.raise(FatalError, boom)',
+                'onuninstall': '$lib.raise(FatalError, boom)',
             }
 
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'ondel output') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall output') as stream:
                 await core.callStorm('$lib.pkg.uninstall(test.ondelfail)')
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
 
-            # Package should still be deleted despite ondel failure
+            # Package should still be deleted despite onuninstall failure
             self.none(await core.callStorm('return($lib.pkg.get(test.ondelfail))'))
 
-        # Package without ondel: auto-cleanup still runs
+        # Package without onuninstall: auto-cleanup still runs
         async with self.getTestCore() as core:
 
             pkg = {
@@ -821,13 +809,13 @@ class StormLibPkgTest(s_test.SynTest):
             q = '$qs = () for $q in $lib.pkg.queues(test.noondel).list() { $qs.append($q) } return($qs)'
             self.len(0, await core.callStorm(q))
 
-        # Bad ondel syntax rejected at add time
+        # Bad onuninstall syntax rejected at add time
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.badsyntax',
                 'version': '1.0.0',
-                'ondel': '} invalid storm {',
+                'onuninstall': '} invalid storm {',
             }
 
             with self.raises(s_exc.BadSyntax):
@@ -839,12 +827,9 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.baddmon',
                 'version': '1.0.0',
-                'dmons': {
-                    s_common.guid(): {
-                        'storm': '} invalid storm {',
-                        'name': 'bad dmon',
-                    },
-                },
+                'dmons': [
+                    {'iden': s_common.guid(), 'storm': '} invalid storm {', 'name': 'bad dmon'},
+                ],
             }
 
             with self.raises(s_exc.BadSyntax):
@@ -855,12 +840,12 @@ class StormLibPkgTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                # Create a pkg with a slow ondel to simulate reboot during uninstall
-                ondel = '$lib.print(ondel_resumed)'
+                # Create a pkg with an onuninstall to simulate reboot during uninstall
+                onuninstall = '$lib.print(onuninstall_resumed)'
                 pkg = {
                     'name': 'test.reboot',
                     'version': '1.0.0',
-                    'ondel': ondel,
+                    'onuninstall': onuninstall,
                 }
 
                 await core.addStormPkg(pkg)
@@ -882,14 +867,14 @@ class StormLibPkgTest(s_test.SynTest):
                 self.none(await core.callStorm('return($lib.pkg.get(test.reboot))'))
                 self.none(await core.callStorm('return($lib.pkg.vars(test.reboot).foo)'))
 
-        # Running onload is cancelled before ondel runs
+        # Running onload is cancelled before onuninstall runs
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.cancelonload',
                 'version': '1.0.0',
                 'onload': '$lib.time.sleep(60)',
-                'ondel': '$lib.print(ondel_after_cancel)',
+                'onuninstall': '$lib.print(onuninstall_after_cancel)',
             }
 
             await core.addStormPkg(pkg)
@@ -899,7 +884,7 @@ class StormLibPkgTest(s_test.SynTest):
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'ondel_after_cancel') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall_after_cancel') as stream:
                 await core.uninstallStormPkg('test.cancelonload')
                 self.true(await stream.wait(timeout=30))
 
@@ -911,18 +896,27 @@ class StormLibPkgTest(s_test.SynTest):
             # Package should be deleted
             self.none(await core.callStorm('return($lib.pkg.get(test.cancelonload))'))
 
-        # Plain pkg.del (no --uninstall) works as before, no ondel
+        # Plain pkg.del (no --uninstall) works as before, no onuninstall
         async with self.getTestCore() as core:
 
-            ondel = '$lib.print(should_not_run)'
+            dmoniden = s_common.guid()
+            onuninstall = '$lib.print(should_not_run)'
             pkg = {
                 'name': 'test.plaindelete',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon plaindel'},
+                ],
             }
 
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
             await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
             await core.callStorm('$lib.pkg.vars(test.plaindelete).v = 1')
+
+            self.nn(await core.getStormDmon(dmoniden))
 
             msgs = await core.stormlist('pkg.del test.plaindelete')
             self.stormIsInPrint('Removing package: test.plaindelete', msgs)
@@ -930,23 +924,26 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.plaindelete))'))
 
+            # Dmons are cleaned up on plain delete
+            self.none(await core.getStormDmon(dmoniden))
+
             # Pkg vars are NOT cleaned (plain delete does not auto-cleanup)
             self.eq('1', await core.callStorm('return($lib.pkg.vars(test.plaindelete).v)'))
 
-        # Safe mode: ondel skipped
+        # Safe mode: onuninstall skipped
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.safemode',
                 'version': '1.0.0',
-                'ondel': '$lib.print(should_not_run_in_safemode)',
+                'onuninstall': '$lib.print(should_not_run_in_safemode)',
             }
 
             await core.addStormPkg(pkg)
 
             core.safemode = True
 
-            skipwaiter = core.waiter(1, 'core:pkg:ondel:skipped')
+            skipwaiter = core.waiter(1, 'core:pkg:onuninstall:skipped')
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
             await core.callStorm('$lib.pkg.uninstall(test.safemode)')
             evnts = await skipwaiter.wait(timeout=30)
@@ -964,7 +961,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.doubleuninst',
                 'version': '1.0.0',
-                'ondel': '$lib.time.sleep(3)',
+                'onuninstall': '$lib.time.sleep(3)',
             }
 
             await core.addStormPkg(pkg)
@@ -986,14 +983,14 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.libuninstall',
                 'version': '1.0.0',
-                'ondel': '$lib.print(lib_uninstall_ondel)',
+                'onuninstall': '$lib.print(lib_uninstall_onuninstall)',
             }
 
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'lib_uninstall_ondel') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'lib_uninstall_onuninstall') as stream:
                 await core.callStorm('$lib.pkg.uninstall(test.libuninstall)')
                 self.true(await stream.wait(timeout=30))
 
@@ -1075,7 +1072,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.blockinstall',
                 'version': '1.0.0',
-                'ondel': '$lib.time.sleep(5)',
+                'onuninstall': '$lib.time.sleep(5)',
             }
 
             await core.addStormPkg(pkg)
@@ -1132,23 +1129,23 @@ class StormLibPkgTest(s_test.SynTest):
             # Directly call the nexus handler with a nonexistent package name
             await core._uninstallStormPkg('test.nonexistent', None)
 
-    async def test_stormlib_pkg_ondel_warn(self):
+    async def test_stormlib_pkg_onuninstall_warn(self):
 
-        # ondel handler that emits a warn message
+        # onuninstall handler that emits a warn message
         async with self.getTestCore() as core:
 
-            ondel = '$lib.warn(warnmsg)'
+            onuninstall = '$lib.warn(warnmsg)'
             pkg = {
                 'name': 'test.ondelwarn',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
             }
 
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'ondel output: warnmsg') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall output: warnmsg') as stream:
                 await core.uninstallStormPkg('test.ondelwarn')
                 self.true(await stream.wait(timeout=30))
 
@@ -1156,16 +1153,16 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.ondelwarn))'))
 
-    async def test_stormlib_pkg_ondel_exception(self):
+    async def test_stormlib_pkg_onuninstall_exception(self):
 
-        # ondel where self.storm() raises a Python exception (not a storm error message)
+        # onuninstall where self.storm() raises a Python exception (not a storm error message)
         async with self.getTestCore() as core:
 
-            ondel = '$lib.print(hello)'
+            onuninstall = '$lib.print(hello)'
             pkg = {
                 'name': 'test.ondelexc',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
             }
 
             await core.addStormPkg(pkg)
@@ -1181,7 +1178,7 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with mock.patch.object(core, 'storm', mock_storm):
-                with self.getAsyncLoggerStream('synapse.cortex', 'ondel failed for package') as stream:
+                with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall failed for package') as stream:
                     await core.uninstallStormPkg('test.ondelexc')
                     self.true(await stream.wait(timeout=30))
 
@@ -1189,16 +1186,16 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.ondelexc))'))
 
-    async def test_stormlib_pkg_ondel_cancelled(self):
+    async def test_stormlib_pkg_onuninstall_cancelled(self):
 
-        # ondel where the task is cancelled during execution
+        # onuninstall where the task is cancelled during execution
         async with self.getTestCore() as core:
 
-            ondel = '$lib.time.sleep(60)'
+            onuninstall = '$lib.time.sleep(60)'
             pkg = {
                 'name': 'test.ondelcancel',
                 'version': '1.0.0',
-                'ondel': ondel,
+                'onuninstall': onuninstall,
             }
 
             await core.addStormPkg(pkg)
@@ -1213,7 +1210,7 @@ class StormLibPkgTest(s_test.SynTest):
 
             with mock.patch.object(core, 'storm', mock_storm):
                 with self.raises(asyncio.CancelledError):
-                    await core._runStormPkgOndel(pkg, None)
+                    await core._runStormPkgOnuninstall(pkg, None)
 
     async def test_stormlib_pkg_uninstall_keep_validation(self):
 
