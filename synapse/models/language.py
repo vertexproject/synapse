@@ -62,7 +62,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time when the translation was completed.'}),
 
-                ('input', ('nodeprop', {}), {
+                ('input', ('text', {}), {
                     'ex': 'hola',
                     'doc': 'The input text.'}),
 

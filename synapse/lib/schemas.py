@@ -679,7 +679,6 @@ datamodel_basetypes = [
     'loc',
     'array',
     'data',
-    'nodeprop',
     'poly',
     'hugenum',
     'taxon',
