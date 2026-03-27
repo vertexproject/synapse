@@ -13,7 +13,7 @@ modeldefs = (
 
         'interfaces': (
 
-            ('ou:promoted', {
+            ('ou:promotable', {
                 'template': {'title': 'event'},
                 'props': (
 
@@ -152,7 +152,7 @@ modeldefs = (
             ('ou:preso', ('guid', {}), {
                 'template': {'title': 'presentation'},
                 'interfaces': (
-                    ('ou:promoted', {}),
+                    ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
@@ -168,7 +168,7 @@ modeldefs = (
             ('ou:conference', ('guid', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
-                    ('ou:promoted', {}),
+                    ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
@@ -200,7 +200,7 @@ modeldefs = (
                 'template': {'title': 'event'},
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
-                    ('ou:promoted', {}),
+                    ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
@@ -230,7 +230,7 @@ modeldefs = (
             ('ou:contest', ('guid', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
-                    ('ou:promoted', {}),
+                    ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),

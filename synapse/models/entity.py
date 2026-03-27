@@ -462,8 +462,6 @@ modeldefs = (
                     ('entity:activity', {}),
                 ),
                 'props': (
-                    #('event', ('base:activity', {}), {
-                        #'doc': 'The event or activity attended by the actor.'}),
 
                     ('role', ('entity:title', {}), {
                         'ex': 'sponsor',
@@ -486,8 +484,12 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('activity', ('base:activity', {}), {
+                    ('activity', ('entity:participable', {}), {
                         'doc': 'The activity which the actor registered for.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'attendee',
+                        'doc': 'The role which the actor registered for.'}),
 
                     # TODO: this could eventually include non-inet registration like postal mail...
                     ('request', ('inet:proto:request', {}), {
