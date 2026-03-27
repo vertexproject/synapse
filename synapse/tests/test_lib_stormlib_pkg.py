@@ -454,3 +454,430 @@ class StormLibPkgTest(s_test.SynTest):
 
                 self.eq((4, '11'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop(4))'))
                 self.none(await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
+
+    async def test_stormlib_pkg_uninstall(self):
+
+        # Basic uninstall with ondel handler, pkg vars cleaned, queues cleaned, beholder events
+        async with self.getTestCore() as core:
+
+            ondel = '$lib.print(`ondel called keep={$keep}`)'
+            pkg = {
+                'name': 'test.uninstall',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+
+            # Set up some pkg vars and queues
+            await core.callStorm('$lib.pkg.vars(test.uninstall).myvar = hello')
+            self.eq('hello', await core.callStorm('return($lib.pkg.vars(test.uninstall).myvar)'))
+
+            await core.callStorm('$lib.pkg.queues(test.uninstall).add(myqueue).put(42)')
+            self.eq(1, await core.callStorm('return($lib.pkg.queues(test.uninstall).get(myqueue).size())'))
+
+            # Use beholder to watch for events
+            beholds = []
+
+            async def _onBeholder(evnt):
+                beholds.append(evnt)
+
+            core.on('cell:beholder', _onBeholder)
+
+            ondelwaiter = core.waiter(1, 'core:pkg:ondel:complete')
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'ondel called keep=') as stream:
+                msgs = await core.stormlist('pkg.del test.uninstall --uninstall')
+                self.stormIsInPrint('Uninstalling package: test.uninstall', msgs)
+                self.true(await stream.wait(timeout=30))
+
+            evnts = await ondelwaiter.wait(timeout=30)
+            self.ge(len(evnts), 1)
+            self.eq(evnts[0][0], 'core:pkg:ondel:complete')
+
+            evnts = await donewaiter.wait(timeout=30)
+            self.ge(len(evnts), 1)
+            self.eq(evnts[0][0], 'core:pkg:uninstall:complete')
+
+            # Pkg should be gone
+            self.none(await core.callStorm('return($lib.pkg.get(test.uninstall))'))
+
+            # Pkg vars should be gone
+            self.none(await core.callStorm('return($lib.pkg.vars(test.uninstall).myvar)'))
+
+            # Queues should be gone
+            q = '$qs = () for $q in $lib.pkg.queues(test.uninstall).list() { $qs.append($q) } return($qs)'
+            self.len(0, await core.callStorm(q))
+
+            # Verify beholder events
+            bnames = [e[1].get('event') for e in beholds]
+            self.isin('pkg:uninstall:start', bnames)
+            self.isin('pkg:del', bnames)
+
+        # ondel receives keep set via $lib.pkg.uninstall
+        async with self.getTestCore() as core:
+
+            ondel = 'if (not $keep) { $lib.print(keep_empty) } else { $lib.print(`keep={$keep}`) }'
+            pkg = {
+                'name': 'test.keepset',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.keepset).myvar = hello')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'keep=') as stream:
+                await core.callStorm('$lib.pkg.uninstall(test.keepset, keep=(pkg-vars,))')
+                self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            # Pkg should be gone
+            self.none(await core.callStorm('return($lib.pkg.get(test.keepset))'))
+
+            # Pkg vars should still be present because we kept them
+            self.eq('hello', await core.callStorm('return($lib.pkg.vars(test.keepset).myvar)'))
+
+        # --uninstall-keep queues via Storm command
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepqueues',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.queues(test.keepqueues).add(q1).put(99)')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            msgs = await core.stormlist('pkg.del test.keepqueues --uninstall --uninstall-keep queues')
+            self.stormIsInPrint('Uninstalling package: test.keepqueues', msgs)
+
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.keepqueues))'))
+
+            # Queue should still exist
+            self.eq(1, await core.callStorm('return($lib.pkg.queues(test.keepqueues).get(q1).size())'))
+
+        # --uninstall-keep pkg-vars via core API
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keeppkgvars',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.keeppkgvars).myvar = hello')
+            await core.callStorm('$lib.pkg.queues(test.keeppkgvars).add(q1).put(42)')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.keeppkgvars', keep=('pkg-vars',))
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.keeppkgvars))'))
+
+            # Pkg vars should still be present
+            self.eq('hello', await core.callStorm('return($lib.pkg.vars(test.keeppkgvars).myvar)'))
+
+            # Queues should be cleaned
+            q = '$qs = () for $q in $lib.pkg.queues(test.keeppkgvars).list() { $qs.append($q) } return($qs)'
+            self.len(0, await core.callStorm(q))
+
+        # Vault cleanup during uninstall
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.vaultclean',
+                'version': '1.0.0',
+                'vaults': {
+                    'test:vaultclean': {
+                        'schemas': {},
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg)
+
+            # Create a vault with the package's vault type
+            vdef = {
+                'name': 'my test vault',
+                'type': 'test:vaultclean',
+                'scope': 'global',
+                'owner': None,
+                'secrets': {},
+                'configs': {},
+            }
+            viden = await core.addVault(vdef)
+
+            self.nn(core.getVault(viden))
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.vaultclean')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.vaultclean))'))
+            self.none(core.getVault(viden))
+
+        # Vault kept with --uninstall-keep vaults
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.vaultkeep',
+                'version': '1.0.0',
+                'vaults': {
+                    'test:vaultkeep': {
+                        'schemas': {},
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg)
+
+            vdef = {
+                'name': 'my kept vault',
+                'type': 'test:vaultkeep',
+                'scope': 'global',
+                'owner': None,
+                'secrets': {},
+                'configs': {},
+            }
+            viden = await core.addVault(vdef)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.vaultkeep', keep=('vaults',))
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.vaultkeep))'))
+            self.nn(core.getVault(viden))
+
+        # ondel failure does NOT prevent deletion
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.ondelfail',
+                'version': '1.0.0',
+                'ondel': '$lib.raise(FatalError, boom)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'ondel output') as stream:
+                await core.callStorm('$lib.pkg.uninstall(test.ondelfail)')
+                self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            # Package should still be deleted despite ondel failure
+            self.none(await core.callStorm('return($lib.pkg.get(test.ondelfail))'))
+
+        # Package without ondel: auto-cleanup still runs
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.noondel',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.noondel).foo = bar')
+            await core.callStorm('$lib.pkg.queues(test.noondel).add(q1).put(1)')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.callStorm('$lib.pkg.uninstall(test.noondel)')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.noondel))'))
+            self.none(await core.callStorm('return($lib.pkg.vars(test.noondel).foo)'))
+
+            q = '$qs = () for $q in $lib.pkg.queues(test.noondel).list() { $qs.append($q) } return($qs)'
+            self.len(0, await core.callStorm(q))
+
+        # Bad ondel syntax rejected at add time
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.badsyntax',
+                'version': '1.0.0',
+                'ondel': '} invalid storm {',
+            }
+
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormPkg(pkg)
+
+        # Reboot survival: uninstall resumes after cortex restart
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # Create a pkg with a slow ondel to simulate reboot during uninstall
+                ondel = '$lib.print(ondel_resumed)'
+                pkg = {
+                    'name': 'test.reboot',
+                    'version': '1.0.0',
+                    'ondel': ondel,
+                }
+
+                await core.addStormPkg(pkg)
+                await core.callStorm('$lib.pkg.vars(test.reboot).foo = bar')
+
+                # Manually persist the uninstalling state (simulating mid-uninstall restart)
+                pkgdef = core.pkgdefs.get('test.reboot')
+                pkgdef['_uninstalling'] = {'keep': [], 'time': s_common.now()}
+                core.pkgdefs.set('test.reboot', pkgdef)
+                core.stormpkgs['test.reboot'] = pkgdef
+
+            # Reopen the cortex - it should resume the uninstall
+            async with self.getTestCore(dirn=dirn) as core:
+
+                donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+                await donewaiter.wait(timeout=30)
+
+                # Pkg should have been removed during startup
+                self.none(await core.callStorm('return($lib.pkg.get(test.reboot))'))
+                self.none(await core.callStorm('return($lib.pkg.vars(test.reboot).foo)'))
+
+        # Running onload is cancelled before ondel runs
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.cancelonload',
+                'version': '1.0.0',
+                'onload': '$lib.time.sleep(60)',
+                'ondel': '$lib.print(ondel_after_cancel)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            # The onload should be running now (sleeping for 60s)
+            self.isin('test.cancelonload', core._pkgOnloadTasks)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'ondel_after_cancel') as stream:
+                await core.uninstallStormPkg('test.cancelonload')
+                self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            # Onload task should be gone
+            self.notin('test.cancelonload', core._pkgOnloadTasks)
+
+            # Package should be deleted
+            self.none(await core.callStorm('return($lib.pkg.get(test.cancelonload))'))
+
+        # Plain pkg.del (no --uninstall) works as before, no ondel
+        async with self.getTestCore() as core:
+
+            ondel = '$lib.print(should_not_run)'
+            pkg = {
+                'name': 'test.plaindelete',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.plaindelete).v = 1')
+
+            msgs = await core.stormlist('pkg.del test.plaindelete')
+            self.stormIsInPrint('Removing package: test.plaindelete', msgs)
+            self.stormNotInPrint('should_not_run', msgs)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.plaindelete))'))
+
+            # Pkg vars are NOT cleaned (plain delete does not auto-cleanup)
+            self.eq('1', await core.callStorm('return($lib.pkg.vars(test.plaindelete).v)'))
+
+        # Safe mode: ondel skipped
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.safemode',
+                'version': '1.0.0',
+                'ondel': '$lib.print(should_not_run_in_safemode)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            core.safemode = True
+
+            skipwaiter = core.waiter(1, 'core:pkg:ondel:skipped')
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.callStorm('$lib.pkg.uninstall(test.safemode)')
+            evnts = await skipwaiter.wait(timeout=30)
+            self.ge(len(evnts), 1)
+
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.safemode))'))
+
+            core.safemode = False
+
+        # Double uninstall: error if already uninstalling
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.doubleuninst',
+                'version': '1.0.0',
+                'ondel': '$lib.time.sleep(3)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            await core.callStorm('$lib.pkg.uninstall(test.doubleuninst)')
+
+            # The _uninstalling state is set synchronously via nexus, so it is
+            # immediately visible for the duplicate check.
+            with self.raises(s_exc.BadArg):
+                await core.uninstallStormPkg('test.doubleuninst')
+
+            await donewaiter.wait(timeout=30)
+
+        # $lib.pkg.uninstall() path works
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.libuninstall',
+                'version': '1.0.0',
+                'ondel': '$lib.print(lib_uninstall_ondel)',
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'lib_uninstall_ondel') as stream:
+                await core.callStorm('$lib.pkg.uninstall(test.libuninstall)')
+                self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.libuninstall))'))
+
+        # CoreApi uninstallStormPkg works
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.coreapi',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.coreapi).x = 1')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.coreapi')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.coreapi))'))
+            self.none(await core.callStorm('return($lib.pkg.vars(test.coreapi).x)'))

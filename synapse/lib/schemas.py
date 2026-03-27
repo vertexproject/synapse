@@ -750,6 +750,7 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'ondel': {'type': 'string'},
         'inits': {
             'type': 'object',
             'properties': {

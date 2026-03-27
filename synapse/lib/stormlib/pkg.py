@@ -95,6 +95,10 @@ stormcmds = [
         'descr': 'Remove a storm package from the cortex.',
         'cmdargs': (
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
+            ('--uninstall', {'default': False, 'action': 'store_true',
+                'help': 'Run the uninstall lifecycle (ondel handler + cleanup).'}),
+            ('--uninstall-keep', {'default': None, 'type': 'str',
+                'help': 'Comma-separated list of things to keep during uninstall.'}),
         ),
         'storm': '''
 
@@ -113,8 +117,25 @@ stormcmds = [
             } elif ($pkgs.size() = 1) {
 
                 $name = $pkgs.list().index(0)
-                $lib.print(`Removing package: {$name}`)
-                $lib.pkg.del($name)
+
+                if $cmdopts.uninstall {
+
+                    $keep = ([])
+                    if ($cmdopts.uninstall_keep != $lib.null) {
+                        for $item in $cmdopts.uninstall_keep.split(",") {
+                            $keep.append($item.strip())
+                        }
+                    }
+
+                    $lib.print(`Uninstalling package: {$name}`)
+                    $lib.pkg.uninstall($name, keep=$keep)
+
+                } else {
+
+                    $lib.print(`Removing package: {$name}`)
+                    $lib.pkg.del($name)
+
+                }
 
             } else {
 
@@ -230,6 +251,14 @@ class LibPkg(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'uninstall', 'desc': 'Uninstall a Storm Package with cleanup lifecycle.',
+         'type': {'type': 'function', '_funcname': '_libPkgUninstall',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the package to uninstall.', },
+                      {'name': 'keep', 'type': 'list', 'default': (),
+                       'desc': 'A list of items to keep during uninstall.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
@@ -268,6 +297,7 @@ class LibPkg(s_stormtypes.Lib):
             'get': self._libPkgGet,
             'has': self._libPkgHas,
             'del': self._libPkgDel,
+            'uninstall': self._libPkgUninstall,
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
             'vars': self._libPkgVars,
@@ -300,6 +330,12 @@ class LibPkg(s_stormtypes.Lib):
     async def _libPkgDel(self, name):
         self.runt.confirm(('pkg', 'del'), None)
         await self.runt.view.core.delStormPkg(name)
+
+    async def _libPkgUninstall(self, name, keep=()):
+        self.runt.confirm(('pkg', 'del'), None)
+        name = await s_stormtypes.tostr(name)
+        keep = await s_stormtypes.toprim(keep)
+        await self.runt.view.core.uninstallStormPkg(name, keep=keep)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgList(self):
