@@ -1,3 +1,6 @@
+import asyncio
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -976,3 +979,152 @@ class StormLibPkgTest(s_test.SynTest):
             # After uninstall completes, install should succeed
             await core.addStormPkg(pkg)
             self.nn(await core.callStorm('return($lib.pkg.get(test.blockinstall))'))
+
+    async def test_stormlib_pkg_uninstall_coreapi(self):
+
+        # CoreApi.uninstallStormPkg via telepath proxy
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            pkg = {
+                'name': 'test.proxuninst',
+                'version': '1.0.0',
+            }
+
+            await prox.addStormPkg(pkg)
+            await core.callStorm('$lib.pkg.vars(test.proxuninst).v = 1')
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await prox.uninstallStormPkg('test.proxuninst')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.proxuninst))'))
+            self.none(await core.callStorm('return($lib.pkg.vars(test.proxuninst).v)'))
+
+    async def test_stormlib_pkg_uninstall_nosuchpkg(self):
+
+        # uninstallStormPkg on nonexistent package raises NoSuchPkg
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.NoSuchPkg):
+                await core.uninstallStormPkg('test.doesnotexist')
+
+    async def test_stormlib_pkg_uninstall_nexus_replay(self):
+
+        # _uninstallStormPkg early return when pkgdef is None (nexus replay edge case)
+        async with self.getTestCore() as core:
+
+            # Directly call the nexus handler with a nonexistent package name
+            await core._uninstallStormPkg('test.nonexistent', None)
+
+    async def test_stormlib_pkg_ondel_warn(self):
+
+        # ondel handler that emits a warn message
+        async with self.getTestCore() as core:
+
+            ondel = '$lib.warn(warnmsg)'
+            pkg = {
+                'name': 'test.ondelwarn',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'ondel output: warnmsg') as stream:
+                await core.uninstallStormPkg('test.ondelwarn')
+                self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.ondelwarn))'))
+
+    async def test_stormlib_pkg_ondel_exception(self):
+
+        # ondel where self.storm() raises a Python exception (not a storm error message)
+        async with self.getTestCore() as core:
+
+            ondel = '$lib.print(hello)'
+            pkg = {
+                'name': 'test.ondelexc',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+
+            real_storm = core.storm
+
+            async def mock_storm(text, *args, **kwargs):
+                if 'hello' in text:
+                    raise RuntimeError('mock storm failure')
+                async for mesg in real_storm(text, *args, **kwargs):
+                    yield mesg
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+
+            with mock.patch.object(core, 'storm', mock_storm):
+                with self.getAsyncLoggerStream('synapse.cortex', 'ondel failed for package') as stream:
+                    await core.uninstallStormPkg('test.ondelexc')
+                    self.true(await stream.wait(timeout=30))
+
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.ondelexc))'))
+
+    async def test_stormlib_pkg_ondel_cancelled(self):
+
+        # ondel where the task is cancelled during execution
+        async with self.getTestCore() as core:
+
+            ondel = '$lib.time.sleep(60)'
+            pkg = {
+                'name': 'test.ondelcancel',
+                'version': '1.0.0',
+                'ondel': ondel,
+            }
+
+            await core.addStormPkg(pkg)
+
+            real_storm = core.storm
+
+            async def mock_storm(text, *args, **kwargs):
+                if '$lib.time.sleep' in text:
+                    raise asyncio.CancelledError()
+                async for mesg in real_storm(text, *args, **kwargs):
+                    yield mesg
+
+            with mock.patch.object(core, 'storm', mock_storm):
+                with self.raises(asyncio.CancelledError):
+                    await core._runStormPkgOndel(pkg, None)
+
+    async def test_stormlib_pkg_uninstall_keep_validation(self):
+
+        # $lib.pkg.uninstall with keep as non-list raises BadArg
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepvalid',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('$lib.pkg.uninstall(test.keepvalid, keep=notalist)')
+
+            self.isin('must be a list', cm.exception.get('mesg'))
+
+        # $lib.pkg.uninstall with keep containing non-string raises BadArg
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.keepvalid2',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('$lib.pkg.uninstall(test.keepvalid2, keep=((1),))')
