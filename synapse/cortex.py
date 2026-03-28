@@ -2202,8 +2202,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
 
+        # Cancel any running onload/inits
         await self._cancelStormPkgOnload(name)
 
+        # Stop/delete any dmons
         for ddef in pkgdef.get('dmons', ()):
             try:
                 await self.delStormDmon(ddef.get('iden'))
@@ -2277,6 +2279,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             await self._cancelStormPkgOnload(name)
 
+            # Run the onuninstall callback *before* the rest of the cleanup
             await self._runStormPkgOnuninstall(pkgdef, keep)
 
             await self._cleanupStormPkg(pkgdef, keep)
@@ -2321,6 +2324,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _cleanupStormPkg(self, pkgdef, keep):
 
         name = pkgdef.get('name')
+
+        # The ordering here is specific: dmons, queues, vaults, package vars, extended model
 
         if keep is None or 'dmons' not in keep:
             for ddef in pkgdef.get('dmons', ()):
