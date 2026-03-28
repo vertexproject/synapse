@@ -1488,3 +1488,103 @@ class StormLibPkgTest(s_test.SynTest):
                     },
                 },
             })
+
+    async def test_stormlib_pkg_del_dmon_already_deleted(self):
+
+        # Plain pkg.del when the dmon was already manually deleted
+        async with self.getTestCore() as core:
+
+            dmoniden = s_common.guid()
+            pkg = {
+                'name': 'test.deldmonmissing',
+                'version': '1.0.0',
+                'dmons': [
+                    {'iden': dmoniden, 'storm': '$lib.time.sleep(1000)', 'name': 'test dmon delmissing'},
+                ],
+            }
+
+            loadwaiter = core.waiter(1, 'core:pkg:onload:complete')
+            await core.addStormPkg(pkg)
+            await loadwaiter.wait(timeout=30)
+
+            # Manually delete the dmon before plain pkg.del
+            await core.delStormDmon(dmoniden)
+            self.none(await core.getStormDmon(dmoniden))
+
+            # Plain delete should not error on missing dmon
+            await core.delStormPkg('test.deldmonmissing')
+            self.none(await core.callStorm('return($lib.pkg.get(test.deldmonmissing))'))
+
+    async def test_stormlib_pkg_uninstall_model_cleanup(self):
+
+        # Uninstall a package with model definitions triggers model cleanup
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.modelclean',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:cleantype': {'type': 'str'},
+                    },
+                    'forms': {
+                        '_test:cleanform': {'type': 'str'},
+                    },
+                    'props': {
+                        '_test:cleanprop': {
+                            'forms': ['_test:cleanform'],
+                            'typedef': ['str', {}],
+                        },
+                    },
+                    'tagprops': {
+                        '_test:cleantagprop': {
+                            'typedef': ['int', {}],
+                        },
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.modelclean')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.modelclean))'))
+
+        # Uninstall with keep=model skips model cleanup
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.modelkeep',
+                'version': '1.0.0',
+                'model': {
+                    'types': {
+                        '_test:keeptype': {'type': 'str'},
+                    },
+                },
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.modelkeep', keep=('model',))
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.modelkeep))'))
+
+        # Uninstall a package with no model key at all
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.nomodel',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.uninstallStormPkg('test.nomodel')
+            await donewaiter.wait(timeout=30)
+
+            self.none(await core.callStorm('return($lib.pkg.get(test.nomodel))'))
