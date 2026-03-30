@@ -55,11 +55,10 @@ class NodeBase:
                 return defv
             return typeitem.repr(valu)
 
-        if typeitem.ispoly:
-            if typeitem.virts.get(virts[0]) is None:
-                if (valu := self.get(name)) is None:
-                    return defv
-                typeitem = self.view.core.model.form(valu[0]).type
+        if typeitem.virts.get(virts[0]) is None:
+            if (valu := self.get(name)) is None:
+                return defv
+            typeitem = self.view.core.model.type(valu[0])
 
         virttype, virtgetr = typeitem.getVirtInfo(virts)
 
