@@ -31,9 +31,9 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
 
             nodes = await core.nodes('''
-                [ ou:award=* :name="Bachelors of Science" :type=degree :org=* ]
+                [ meta:award=* :name="Bachelors of Science" :type=degree :issuer={[ ou:org=* ]} ]
             ''')
-            self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('issuer'))
             self.propeq(nodes[0], 'name', 'bachelors of science')
             self.propeq(nodes[0], 'type', 'degree.')
 
@@ -47,7 +47,6 @@ class PsModelTest(s_t_utils.SynTest):
                     :isvirtual=1
                     :virtual:url=https://vertex.edu/chem101
                     :virtual:provider={[ entity:contact=* ]}
-                    :place=*
                 ]
             ''')
             self.len(1, nodes)
@@ -61,7 +60,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :id=chem101
                     :name="Data Structure Analysis"
                     :desc="A brief description here"
-                    :institution={[ entity:contact=* ]}
+                    :institution={[ ou:org=* ]}
                     :prereqs = (*,)
                 ]
             ''', opts=opts)

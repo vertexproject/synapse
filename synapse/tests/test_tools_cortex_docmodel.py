@@ -30,16 +30,16 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('|-----------|', text)
 
         # Verify inherited interfaces are fully resolved
-        # edu:class implements ou:attendable which inherits meta:havable,
-        # entity:attendable (which inherits geo:locatable, lang:transcript)
+        # edu:class implements entity:participable which inherits base:activity,
+        # which inherits meta:causal, and also implements meta:recordable
         classidx = text.index('### `edu:class`')
         # Find the next form heading after edu:class
         nextformidx = text.index('### `', classidx + 1)
         classtext = text[classidx:nextformidx]
-        self.isin('`ou:attendable`', classtext)
-        self.isin('`meta:havable`', classtext)
-        self.isin('`entity:attendable`', classtext)
-        self.isin('`geo:locatable`', classtext)
+        self.isin('`entity:participable`', classtext)
+        self.isin('`base:activity`', classtext)
+        self.isin('`meta:causal`', classtext)
+        self.isin('`meta:recordable`', classtext)
 
         # Verify interface template variables are resolved
         # meta:observable uses {title} with default 'node'
@@ -418,17 +418,16 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('`entity:individual`', text)
 
     async def test_tools_docmodel_interface_parents(self):
-        # ou:attendable inherits from meta:havable and entity:attendable,
+        # entity:participable inherits from base:activity,
         # exercising the "## Inherits From" section in genIfaceMarkdown
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--find', 'ou:attendable'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'entity:participable'], outp=outp), 0)
 
         text = str(outp)
-        self.isin('# `ou:attendable`', text)
+        self.isin('# `entity:participable`', text)
         self.isin('## Inherits From', text)
-        self.isin('`meta:havable`', text)
-        self.isin('`entity:attendable`', text)
+        self.isin('`base:activity`', text)
 
     async def test_tools_docmodel_interface_array_props(self):
         # entity:contactable has array-type properties (e.g. :names, :emails),
@@ -641,19 +640,19 @@ class DocModelTest(s_t_utils.SynTest):
             self.isin('not found in model', text)
 
     async def test_tools_docmodel_find_array_props(self):
-        # biz:rfp:contributors has an array type, exercises the array nestedtypes
+        # biz:rfp:supersedes has an array type, exercises the array nestedtypes
         # path via _getNestedTypeName in genPropMarkdown for formprop and ifaceprop
 
         outp = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--find', 'biz:rfp:contributors'], outp=outp), 0)
+        self.eq(await s_docmodel.main(['--find', 'biz:rfp:supersedes'], outp=outp), 0)
 
         text = str(outp)
-        self.isin('# `biz:rfp:contributors`', text)
+        self.isin('# `biz:rfp:supersedes`', text)
         self.isin('**Form:** `biz:rfp`', text)
 
         outp2 = self.getTestOutp()
-        self.eq(await s_docmodel.main(['--find', 'doc:authorable:contributors'], outp=outp2), 0)
+        self.eq(await s_docmodel.main(['--find', 'doc:authorable:supersedes'], outp=outp2), 0)
 
         text2 = str(outp2)
-        self.isin('# `doc:authorable:contributors`', text2)
+        self.isin('# `doc:authorable:supersedes`', text2)
         self.isin('**Interface:** `doc:authorable`', text2)
