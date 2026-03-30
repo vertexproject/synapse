@@ -504,7 +504,7 @@ modeldefs = (
             ('entity:participated', ('guid', {}), {
                 'template': {'title': 'participation'},
                 'interfaces': (
-                    ('entity:activity', {}), 
+                    ('entity:activity', {}),
                 ),
                 'props': (
                     ('activity', ('entity:participable', {}), {
