@@ -1,0 +1,8 @@
+---
+desc: Fixed ``inet:server``, ``inet:client``, and ``inet:url`` normalization to
+  consistently use the RFC3986 canonical representation for IPv6 addresses in a
+  URI. A data migration is included for existing non-canonical nodes.
+desc:literal: false
+prs: []
+type: bug
+...
