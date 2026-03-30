@@ -281,14 +281,23 @@ class TestUtilsStormcov(s_utils.SynTest):
         stormcov = s_stormcov.StormcovPlugin(opts)
         stormcov.find_storm_files(stormdir)
 
+        def parse_arcs(text):
+            pairs = regex.findall(r'\((-?\d+),(-?\d+)\)', text)
+            return {(int(a), int(b)) for a, b in pairs}
+
         async with self.getTestCore() as core:
 
-            async def check_arcs(filename, expected_arcs):
+            async def check_arcs(filename):
                 storm = s_files.getAssetStr(filename)
                 stormcov._start_sysmon()
                 await core.stormlist(storm)
                 stormcov._stop_sysmon()
                 stormcov.finalize_arcs()
+
+                arcs_line = regex.search(r'\/\/ arcs_hit:.*?$', storm, flags=regex.M)
+                self.nn(arcs_line, msg=f'{filename} requires a "// arcs_hit: (-1,1), (1,2), ..." line')
+
+                expected_arcs = parse_arcs(arcs_line.group())
 
                 fpath = s_files.getAssetPath(filename)
                 actual = stormcov.arcs_hit.get(fpath, set())
@@ -297,35 +306,16 @@ class TestUtilsStormcov(s_utils.SynTest):
 
                 stormcov.reset()
 
-            # if/else with true condition: enters true branch
-            await check_arcs('stormcov/ifelse.storm', {(-1, 1), (1, 2), (2, -1)})
-
-            # switch with $x=foo: enters "foo" case
-            await check_arcs('stormcov/switch.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
-
-            # for loop: iterates twice (2,2 is the back-edge)
-            await check_arcs('stormcov/forloop.storm', {(-1, 1), (1, 2), (2, -1)})
-
-            # while with break: enters once then breaks
-            await check_arcs('stormcov/whileloop.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
-
-            # nested dict: arcs chain through all lines of multi-line terminal nodes
-            await check_arcs('stormcov/exprdict.storm', {(-1, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, -1)})
-
-            # if/elif without else: only true branch taken
-            await check_arcs('stormcov/ifelif.storm', {(-1, 1), (1, 2), (2, -1)})
-
-            # switch without default
-            await check_arcs('stormcov/switchnodefault.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
-
-            # while with continue
-            await check_arcs('stormcov/whilecontinue.storm', {(-1, 1), (1, 2), (2, 3), (3, 4)})
-
-            # empty body in if clause
-            await check_arcs('stormcov/emptybody.storm', {(-1, 1), (1, -1)})
-
-            # while with normal body exit back-edge
-            await check_arcs('stormcov/whilebackedge.storm', {(-1, 1), (1, 2), (2, 3)})
+            await check_arcs('stormcov/ifelse.storm')
+            await check_arcs('stormcov/switch.storm')
+            await check_arcs('stormcov/forloop.storm')
+            await check_arcs('stormcov/whileloop.storm')
+            await check_arcs('stormcov/exprdict.storm')
+            await check_arcs('stormcov/ifelif.storm')
+            await check_arcs('stormcov/switchnodefault.storm')
+            await check_arcs('stormcov/whilecontinue.storm')
+            await check_arcs('stormcov/emptybody.storm')
+            await check_arcs('stormcov/whilebackedge.storm')
 
     async def test_stormcov_exit_counts(self):
         parser = s_stormcov.get_parser()
