@@ -1,0 +1,6 @@
+for $x in (foo, bar) {
+    [ inet:fqdn=$x ]
+}
+// lines: 1, 2
+// coverage: 1, 2
+// arcs: (-1,1), (1,-1), (1,2), (2,-1), (2,2)

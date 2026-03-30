@@ -39,17 +39,25 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/argvquery4.storm'),
             s_files.getAssetPath('stormcov/argvquery5.storm'),
             s_files.getAssetPath('stormcov/dupesubs.storm'),
+            s_files.getAssetPath('stormcov/continueloop.storm'),
             s_files.getAssetPath('stormcov/dupewarn.storm'),
             s_files.getAssetPath('stormcov/embedquery.storm'),
             s_files.getAssetPath('stormcov/embedquery2.storm'),
             s_files.getAssetPath('stormcov/embedquery3.storm'),
             s_files.getAssetPath('stormcov/embedquery4.storm'),
             s_files.getAssetPath('stormcov/embedquery5.storm'),
+            s_files.getAssetPath('stormcov/exprdict.storm'),
+            s_files.getAssetPath('stormcov/forloop.storm'),
+            s_files.getAssetPath('stormcov/ifelse.storm'),
             s_files.getAssetPath('stormcov/lookup.storm'),
             s_files.getAssetPath('stormcov/pivot.storm'),
             s_files.getAssetPath('stormcov/pragma-nocov.storm'),
             s_files.getAssetPath('stormcov/spin.storm'),
             s_files.getAssetPath('stormcov/stormctrl.storm'),
+            s_files.getAssetPath('stormcov/stopreturn.storm'),
+            s_files.getAssetPath('stormcov/switch.storm'),
+            s_files.getAssetPath('stormcov/trycatch.storm'),
+            s_files.getAssetPath('stormcov/whileloop.storm'),
         ]
 
         stormcov = s_stormcov.StormcovPlugin(opts)
@@ -143,10 +151,14 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_cov('stormcov/embedquery3.storm'),
             await check_cov('stormcov/embedquery4.storm'),
             await check_cov('stormcov/embedquery5.storm'),
+            await check_cov('stormcov/exprdict.storm')
+            await check_cov('stormcov/ifelse.storm')
             await check_cov('stormcov/pivot.storm')
             await check_cov('stormcov/pragma-nocov.storm')
             await check_cov('stormcov/spin.storm')
             await check_cov('stormcov/stormctrl.storm')
+            await check_cov('stormcov/switch.storm')
+            await check_cov('stormcov/whileloop.storm')
 
     async def test_stormcov_lookup(self):
         basedir = s_files.ASSETS
@@ -191,11 +203,19 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/embedquery3.storm'),
         await check_lines('stormcov/embedquery4.storm'),
         await check_lines('stormcov/embedquery5.storm'),
+        await check_lines('stormcov/exprdict.storm')
+        await check_lines('stormcov/continueloop.storm')
+        await check_lines('stormcov/forloop.storm')
+        await check_lines('stormcov/ifelse.storm')
         await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/pivot.storm')
         await check_lines('stormcov/pragma-nocov.storm')
         await check_lines('stormcov/spin.storm')
         await check_lines('stormcov/stormctrl.storm')
+        await check_lines('stormcov/stopreturn.storm')
+        await check_lines('stormcov/switch.storm')
+        await check_lines('stormcov/trycatch.storm')
+        await check_lines('stormcov/whileloop.storm')
 
         # Non-existent file
         reporter = s_stormcov.StormReporter('newp', parser)
@@ -207,3 +227,109 @@ class TestUtilsStormcov(s_utils.SynTest):
         plugin = s_stormcov.StormReporterPlugin()
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/pivot.storm'))
         self.eq(reporter.lines(), {1, 2})
+
+    async def test_stormcov_arcs_reporter(self):
+        parser = s_stormcov.get_parser()
+
+        def parse_arcs(text):
+            pairs = regex.findall(r'\((-?\d+),(-?\d+)\)', text)
+            return {(int(a), int(b)) for a, b in pairs}
+
+        async def check_arcs(filename):
+            storm = s_files.getAssetStr(filename)
+            reporter = s_stormcov.StormReporter(s_files.getAssetPath(filename), parser)
+
+            arcs_line = regex.search(r'\/\/ arcs:.*?$', storm, flags=regex.M)
+            self.nn(arcs_line, msg=f'{filename} requires a "// arcs: (-1,1), (1,2), ..." line')
+
+            expected = parse_arcs(arcs_line.group())
+            self.eq(reporter.arcs(), expected, msg=f'arcs mismatch for {filename}')
+
+        await check_arcs('stormcov/ifelse.storm')
+        await check_arcs('stormcov/switch.storm')
+        await check_arcs('stormcov/forloop.storm')
+        await check_arcs('stormcov/whileloop.storm')
+        await check_arcs('stormcov/trycatch.storm')
+        await check_arcs('stormcov/continueloop.storm')
+        await check_arcs('stormcov/stopreturn.storm')
+
+    async def test_stormcov_arcs_runtime(self):
+        basedir = pathlib.Path(s_files.ASSETS)
+        stormdir = str(basedir / 'stormcov')
+        opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
+
+        stormcov = s_stormcov.StormcovPlugin(opts)
+        stormcov.find_storm_files(stormdir)
+
+        async with self.getTestCore() as core:
+
+            async def check_arcs(filename, expected_arcs):
+                storm = s_files.getAssetStr(filename)
+                stormcov._start_sysmon()
+                await core.stormlist(storm)
+                stormcov._stop_sysmon()
+                stormcov.finalize_arcs()
+
+                fpath = s_files.getAssetPath(filename)
+                actual = stormcov.arcs_hit.get(fpath, set())
+                self.true(expected_arcs.issubset(actual),
+                          msg=f'arcs_hit mismatch for {filename}: missing {expected_arcs - actual}')
+
+                stormcov.reset()
+
+            # if/else with true condition: enters true branch
+            await check_arcs('stormcov/ifelse.storm', {(-1, 1), (1, 2), (2, -1)})
+
+            # switch with $x=foo: enters "foo" case
+            await check_arcs('stormcov/switch.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
+
+            # for loop: iterates twice (2,2 is the back-edge)
+            await check_arcs('stormcov/forloop.storm', {(-1, 1), (1, 2), (2, -1)})
+
+            # while with break: enters once then breaks
+            await check_arcs('stormcov/whileloop.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
+
+            # nested dict: arcs chain through all lines of multi-line terminal nodes
+            await check_arcs('stormcov/exprdict.storm', {(-1, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, -1)})
+
+    async def test_stormcov_exit_counts(self):
+        parser = s_stormcov.get_parser()
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/ifelse.storm'), parser)
+        counts = reporter.exit_counts()
+        # Line 1 (if condition) has 2 destinations: line 2 (true) and line 4 (else)
+        self.eq(counts.get(1), 2)
+        # Lines 2 and 4 have 1 destination each (exit)
+        self.eq(counts.get(2), 1)
+        self.eq(counts.get(4), 1)
+
+    async def test_stormcov_missing_arc_description(self):
+        parser = s_stormcov.get_parser()
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/ifelse.storm'), parser)
+        self.eq(reporter.missing_arc_description(1, 4), 'the if/elif condition on line 1 did not jump to line 4')
+        self.eq(reporter.missing_arc_description(2, -1), 'the exit was not reached')
+        self.eq(reporter.missing_arc_description(-1, 1), 'the entry to line 1 was not reached')
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/forloop.storm'), parser)
+        self.eq(reporter.missing_arc_description(1, 2), 'the for loop on line 1 did not jump to line 2')
+        self.eq(reporter.missing_arc_description(2, -1), 'the exit was not reached')
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/whileloop.storm'), parser)
+        self.eq(reporter.missing_arc_description(1, 2), 'the while loop on line 1 did not jump to line 2')
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/switch.storm'), parser)
+        self.eq(reporter.missing_arc_description(2, 4), 'the switch on line 2 did not jump to line 4')
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/trycatch.storm'), parser)
+        # trycatch starts on line 1 even though first executable token is on line 2
+        self.eq(reporter.missing_arc_description(1, 3), 'the try/catch on line 1 did not jump to line 3')
+
+        # Fallback for non-branching line
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/pivot.storm'), parser)
+        self.eq(reporter.missing_arc_description(1, 2), 'line 1 did not jump to line 2')
+
+    async def test_stormcov_no_branch_lines(self):
+        parser = s_stormcov.get_parser()
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/pragma-nocov.storm'), parser)
+        self.eq(reporter.no_branch_lines(), reporter.excluded_lines())

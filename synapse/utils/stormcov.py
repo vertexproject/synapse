@@ -110,6 +110,9 @@ class StormcovPlugin:
         self.guid_map = {}
         self.subq_map = {}
         self.lines_hit = collections.defaultdict(set)
+        self.arcs_hit = collections.defaultdict(set)
+        self.prev_line = {}
+        self.prev_nodeid = {}
 
         self.freg = regex.compile(r'.*synapse/lib/(ast.py|view.py|stormctrl.py)$')
 
@@ -124,6 +127,9 @@ class StormcovPlugin:
 
     def reset(self):
         self.lines_hit = collections.defaultdict(set)
+        self.arcs_hit = collections.defaultdict(set)
+        self.prev_line = {}
+        self.prev_nodeid = {}
 
     def find_storm_files(self, dirn):
         for path in self.find_executable_files(dirn):
@@ -193,6 +199,8 @@ class StormcovPlugin:
     def pytest_runtestloop(self, session): # pragma: no cover
         # NB: no coverage since this is a pytest hook
 
+        # self.cov = coverage.Coverage().current()
+        # if self.cov is None:
         self.cov = coverage.Coverage()
 
         if not self.append:
@@ -201,6 +209,7 @@ class StormcovPlugin:
         self._start_sysmon()
         yield
         self._stop_sysmon()
+        self.finalize_arcs()
 
         self.cov.load()
 
@@ -208,11 +217,15 @@ class StormcovPlugin:
 
         # Bail if there's no coverage. This could be because of a xdist worker
         # that didn't have any work
-        if not self.lines_hit:
+        if not self.lines_hit and not self.arcs_hit:
             return
 
-        # Add our stormcov data
-        data.add_lines(dict(self.lines_hit))
+        # Add our stormcov data based on coverage mode
+        if self.cov.config.branch:
+            data.add_arcs(dict(self.arcs_hit))
+        else:
+            data.add_lines(dict(self.lines_hit))
+
         data.touch_files(self.guid_map.values(), 'synapse.utils.stormcov.StormReporterPlugin')
 
         # Save the coverage data
@@ -305,7 +318,7 @@ class StormcovPlugin:
             return
 
         if info is not s_common.novalu:
-            self.mark_lines(frame, info)
+            self.mark_lines(frame, info, nodeid=nodeid)
             return
 
         if node.__class__.__name__ != 'Query':
@@ -314,7 +327,7 @@ class StormcovPlugin:
 
         info = self.text_map.get(node.text, s_common.novalu)
         if info is not s_common.novalu:
-            self.mark_lines(frame, info)
+            self.mark_lines(frame, info, nodeid=nodeid)
             return
 
         tree = self.parser.parse(node.text)
@@ -333,9 +346,13 @@ class StormcovPlugin:
 
         self.node_map[nodeid] = (filename, offs)
         self.text_map[node.text] = (filename, offs)
-        self.mark_lines(frame, (filename, offs))
+        self.mark_lines(frame, (filename, offs), nodeid=nodeid)
 
-    def mark_lines(self, frame, info): # pragma: no cover
+    def finalize_arcs(self):
+        for fname, prev in self.prev_line.items():
+            self.arcs_hit[fname].add((prev, -1))
+
+    def mark_lines(self, frame, info, nodeid=None): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         astn = frame.f_locals.get('self')
         fname, offs = info
@@ -346,6 +363,27 @@ class StormcovPlugin:
             fini = strt
 
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
+
+        # Arc tracking
+        if nodeid is not None and self.prev_nodeid.get(fname) != nodeid:
+            prev = self.prev_line.get(fname)
+            if prev is not None:
+                self.arcs_hit[fname].add((prev, -1))
+            self.prev_line.pop(fname, None)
+            self.prev_nodeid[fname] = nodeid
+
+        current_line = strt + offs
+        prev = self.prev_line.get(fname)
+        if prev is not None:
+            self.arcs_hit[fname].add((prev, current_line))
+        else:
+            self.arcs_hit[fname].add((-1, current_line))
+
+        last_line = fini + offs
+        for line in range(current_line, last_line):
+            self.arcs_hit[fname].add((line, line + 1))
+
+        self.prev_line[fname] = last_line
 
     PIVOT_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
     def handle_view(self, code): # pragma: no cover
@@ -447,6 +485,375 @@ class StormReporter(coverage.FileReporter):
                 excluded_lines.add(lineno)
 
         return excluded_lines
+
+    def arcs(self):
+        tree = self._parser.parse(self.source())
+        arcs = set()
+        entries, exits, _, _ = self._analyze_query(tree, arcs)
+        for entry in entries:
+            arcs.add((-1, entry))
+        for ex in exits:
+            arcs.add((ex, -1))
+        excluded = self.excluded_lines()
+        return {(s, d) for (s, d) in arcs if s not in excluded and d not in excluded}
+
+    def _analyze_query(self, query_tree, arcs):
+        '''Analyze a query tree. Returns (entries, exits, break_lines, continue_lines).'''
+        ops = self._get_query_ops(query_tree)
+        if not ops:
+            return (set(), set(), set(), set())
+
+        all_breaks = set()
+        all_continues = set()
+        op_infos = []
+        for op in ops:
+            entries, exits, breaks, conts = self._analyze_op(op, arcs)
+            all_breaks |= breaks
+            all_continues |= conts
+            op_infos.append((entries, exits))
+
+            if not exits:
+                break
+
+        for i in range(len(op_infos) - 1):
+            prev_exits = op_infos[i][1]
+            next_entries = op_infos[i + 1][0]
+            for src in prev_exits:
+                for dst in next_entries:
+                    arcs.add((src, dst))
+
+        entries = op_infos[0][0] if op_infos else set()
+        exits = op_infos[-1][1] if op_infos else set()
+        return (entries, exits, all_breaks, all_continues)
+
+    def _get_query_ops(self, query_tree):
+        '''Get meaningful operation nodes from a query tree.'''
+        ops = []
+        for child in query_tree.children:
+            if isinstance(child, lark.Tree):
+                ops.append(child)
+            elif isinstance(child, lark.lexer.Token) and child.type in ('BREAK', 'CONTINUE'):
+                ops.append(child)
+        return ops
+
+    def _analyze_op(self, op, arcs):
+        '''Analyze a single op. Returns (entries, exits, break_lines, continue_lines).'''
+        if isinstance(op, lark.lexer.Token):
+            line = op.line
+            if op.type == 'BREAK':
+                return ({line}, set(), {line}, set())
+            if op.type == 'CONTINUE':
+                return ({line}, set(), set(), {line})
+            return ({line}, {line}, set(), set())
+
+        if op.data == 'ifstmt':
+            return self._analyze_ifstmt(op, arcs)
+        if op.data == 'switchcase':
+            return self._analyze_switchcase(op, arcs)
+        if op.data == 'forloop':
+            return self._analyze_forloop(op, arcs)
+        if op.data == 'whileloop':
+            return self._analyze_whileloop(op, arcs)
+        if op.data == 'trycatch':
+            return self._analyze_trycatch(op, arcs)
+        if op.data in ('stop', 'return', 'emit'):
+            line = self._get_first_line(op)
+            if line is not None:
+                return ({line}, set(), set(), set())
+            return (set(), set(), set(), set())
+        if op.data == 'baresubquery':
+            return self._analyze_baresubquery(op, arcs)
+
+        line = self._get_first_line(op)
+        if line is not None:
+            return ({line}, {line}, set(), set())
+        return (set(), set(), set(), set())
+
+    def _get_first_line(self, node):
+        '''Get the first source line of a Lark tree or token.'''
+        if isinstance(node, lark.lexer.Token):
+            return node.line
+        if hasattr(node, 'meta') and not node.meta.empty:
+            return node.meta.line
+        for child in node.children:
+            line = self._get_first_line(child)
+            if line is not None:
+                return line
+        return None
+
+    def _get_baresubquery_query(self, bsq):
+        '''Get the inner query tree from a baresubquery.'''
+        for child in bsq.children:
+            if isinstance(child, lark.Tree) and child.data == 'query':
+                return child
+        return None
+
+    def _analyze_baresubquery(self, bsq, arcs):
+        '''Analyze a baresubquery and return (entries, exits, break_lines, continue_lines).'''
+        query = self._get_baresubquery_query(bsq)
+        if query is not None:
+            return self._analyze_query(query, arcs)
+        return (set(), set(), set(), set())
+
+    def _analyze_ifstmt(self, tree, arcs):
+        '''Analyze an if/elif/else statement.'''
+        clauses = []
+        else_body = None
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree):
+                if child.data == 'ifclause':
+                    clauses.append(child)
+                elif child.data == 'baresubquery':
+                    else_body = child
+
+        if not clauses:
+            return (set(), set(), set(), set())
+
+        cond_lines = []
+        bodies = []
+        for clause in clauses:
+            cond_lines.append(clause.meta.line)
+            body = None
+            for child in clause.children:
+                if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                    body = child
+                    break
+            bodies.append(body)
+
+        first_cond = cond_lines[0]
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+
+        # Arcs between conditions (false case chains to next condition)
+        for i in range(len(cond_lines) - 1):
+            arcs.add((cond_lines[i], cond_lines[i + 1]))
+
+        # Arcs from each condition to its body (true case)
+        for cond_line, body in zip(cond_lines, bodies):
+            if body is not None:
+                body_entries, body_exits, breaks, conts = self._analyze_baresubquery(body, arcs)
+                for entry in body_entries:
+                    arcs.add((cond_line, entry))
+                all_exits |= body_exits
+                all_breaks |= breaks
+                all_continues |= conts
+            else:
+                all_exits.add(cond_line)
+
+        # Handle else clause
+        last_cond = cond_lines[-1]
+        if else_body is not None:
+            body_entries, body_exits, breaks, conts = self._analyze_baresubquery(else_body, arcs)
+            for entry in body_entries:
+                arcs.add((last_cond, entry))
+            all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
+        else:
+            all_exits.add(last_cond)
+
+        return ({first_cond}, all_exits, all_breaks, all_continues)
+
+    def _analyze_switchcase(self, tree, arcs):
+        '''Analyze a switch/case statement.'''
+        switch_line = tree.meta.line
+        case_bodies = []
+        has_default = False
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'caseentry':
+                body = None
+                is_default = False
+                for sub in child.children:
+                    if isinstance(sub, lark.Tree) and sub.data == 'baresubquery':
+                        body = sub
+                    elif isinstance(sub, lark.lexer.Token) and sub.type == 'DEFAULTCASE':
+                        is_default = True
+                if is_default:
+                    has_default = True
+                if body is not None:
+                    case_bodies.append(body)
+
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+        for body in case_bodies:
+            body_entries, body_exits, breaks, conts = self._analyze_baresubquery(body, arcs)
+            for entry in body_entries:
+                arcs.add((switch_line, entry))
+            all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
+
+        if not has_default:
+            all_exits.add(switch_line)
+
+        return ({switch_line}, all_exits, all_breaks, all_continues)
+
+    def _analyze_forloop(self, tree, arcs):
+        '''Analyze a for loop.'''
+        loop_line = tree.meta.line
+        body = None
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                body = child
+                break
+
+        if body is None:
+            return ({loop_line}, {loop_line}, set(), set())
+
+        body_entries, body_exits, break_lines, continue_lines = self._analyze_baresubquery(body, arcs)
+
+        # Enter body arc
+        for entry in body_entries:
+            arcs.add((loop_line, entry))
+
+        # Back-edge: body exit loops back to body entry
+        for ex in body_exits:
+            for entry in body_entries:
+                arcs.add((ex, entry))
+
+        # Continue loops back to body entry
+        for cl in continue_lines:
+            for entry in body_entries:
+                arcs.add((cl, entry))
+
+        # Loop can be skipped (empty iterable) or exited after last iteration
+        all_exits = set()
+        all_exits.add(loop_line)
+        all_exits |= body_exits
+        all_exits |= break_lines
+
+        return ({loop_line}, all_exits, set(), set())
+
+    def _analyze_whileloop(self, tree, arcs):
+        '''Analyze a while loop.'''
+        loop_line = tree.meta.line
+        body = None
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                body = child
+                break
+
+        if body is None:
+            return ({loop_line}, {loop_line}, set(), set())
+
+        body_entries, body_exits, break_lines, continue_lines = self._analyze_baresubquery(body, arcs)
+
+        # Enter body arc
+        for entry in body_entries:
+            arcs.add((loop_line, entry))
+
+        # Back-edge: body exit goes back to condition check
+        for ex in body_exits:
+            arcs.add((ex, loop_line))
+
+        # Continue goes back to condition check
+        for cl in continue_lines:
+            arcs.add((cl, loop_line))
+
+        # While can exit when condition is false or break
+        all_exits = set()
+        all_exits.add(loop_line)
+        all_exits |= body_exits
+        all_exits |= break_lines
+
+        return ({loop_line}, all_exits, set(), set())
+
+    def _analyze_trycatch(self, tree, arcs):
+        '''Analyze a try/catch statement.'''
+        try_body = None
+        catch_blocks = []
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree):
+                if child.data == 'query' and try_body is None:
+                    try_body = child
+                elif child.data == 'catchblock':
+                    catch_blocks.append(child)
+
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+        try_entries = set()
+
+        if try_body is not None:
+            try_entries, try_exits, breaks, conts = self._analyze_query(try_body, arcs)
+            all_exits |= try_exits
+            all_breaks |= breaks
+            all_continues |= conts
+
+        for catch in catch_blocks:
+            catch_line = catch.meta.line
+            catch_body = None
+            for child in catch.children:
+                if isinstance(child, lark.Tree) and child.data == 'query':
+                    catch_body = child
+                    break
+
+            # Arc from try entry to catch condition (exception path)
+            for te in try_entries:
+                arcs.add((te, catch_line))
+
+            if catch_body is not None:
+                catch_entries, catch_exits, breaks, conts = self._analyze_query(catch_body, arcs)
+                # Arc from catch condition to catch body
+                for ce in catch_entries:
+                    arcs.add((catch_line, ce))
+                all_exits |= catch_exits
+                all_breaks |= breaks
+                all_continues |= conts
+
+        return (try_entries, all_exits, all_breaks, all_continues)
+
+    def exit_counts(self):
+        '''Return dict mapping src line to count of distinct destinations.'''
+        counts = collections.defaultdict(int)
+        for src, _ in self.arcs():
+            if src != -1:
+                counts[src] += 1
+        return dict(counts)
+
+    def no_branch_lines(self):
+        return self.excluded_lines()
+
+    def missing_arc_description(self, start, end, executed_arcs=None):
+        '''Return a human-readable description of a missing arc.'''
+        tree = self._parser.parse(self.source())
+
+        if end == -1:
+            return 'the exit was not reached'
+
+        if start == -1:
+            return f'the entry to line {end} was not reached'
+
+        branching = self._find_branching_construct(tree, start)
+        if branching is not None:
+            ctype = branching
+            if end > start:
+                return f'the {ctype} on line {start} did not jump to line {end}'
+            return f'the {ctype} on line {start} did not loop back to line {end}'
+
+        return f'line {start} did not jump to line {end}'
+
+    def _find_branching_construct(self, tree, line):
+        '''Find what branching construct a line belongs to.'''
+        for child in tree.iter_subtrees():
+            if hasattr(child, 'meta') and not child.meta.empty:
+                if child.meta.line == line:
+                    if child.data in ('ifstmt', 'ifclause'):
+                        return 'if/elif condition'
+                    if child.data == 'switchcase':
+                        return 'switch'
+                    if child.data == 'forloop':
+                        return 'for loop'
+                    if child.data == 'whileloop':
+                        return 'while loop'
+                    if child.data == 'trycatch':
+                        return 'try/catch'
+        return None
 
 # StormReporterPlugin and coverage_init below are both to support the command
 # line coverage tools being able to interpret coverage results generated by
