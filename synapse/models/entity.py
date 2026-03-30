@@ -453,7 +453,7 @@ modeldefs = (
                         'doc': 'The activity attended by the actor.'}),
 
                     ('role', ('base:name', {}), {
-                        'doc': 'The role the actor played in attending the event.'}),
+                        'doc': 'The role the actor played in attending the activity.'}),
                 ),
                 'doc': 'A period where an actor attended an event or activity.'}),
 
