@@ -542,9 +542,8 @@ class StormReporter(coverage.FileReporter):
             line = op.line
             if op.type == 'BREAK':
                 return ({line}, set(), {line}, set())
-            if op.type == 'CONTINUE':
-                return ({line}, set(), set(), {line})
-            return ({line}, {line}, set(), set())
+
+            return ({line}, set(), set(), {line})
 
         if op.data == 'ifstmt':
             return self._analyze_ifstmt(op, arcs)
@@ -557,43 +556,14 @@ class StormReporter(coverage.FileReporter):
         if op.data == 'trycatch':
             return self._analyze_trycatch(op, arcs)
         if op.data in ('stop', 'return', 'emit'):
-            line = self._get_first_line(op)
-            if line is not None:
-                return ({line}, set(), set(), set())
-            return (set(), set(), set(), set())
-        if op.data == 'baresubquery':
-            return self._analyze_baresubquery(op, arcs)
+            return ({op.meta.line}, set(), set(), set())
 
-        line = self._get_first_line(op)
-        if line is not None:
-            return ({line}, {line}, set(), set())
-        return (set(), set(), set(), set())
-
-    def _get_first_line(self, node):
-        '''Get the first source line of a Lark tree or token.'''
-        if isinstance(node, lark.lexer.Token):
-            return node.line
-        if hasattr(node, 'meta') and not node.meta.empty:
-            return node.meta.line
-        for child in node.children:
-            line = self._get_first_line(child)
-            if line is not None:
-                return line
-        return None
-
-    def _get_baresubquery_query(self, bsq):
-        '''Get the inner query tree from a baresubquery.'''
-        for child in bsq.children:
-            if isinstance(child, lark.Tree) and child.data == 'query':
-                return child
-        return None
+        return ({op.meta.line}, {op.meta.line}, set(), set())
 
     def _analyze_baresubquery(self, bsq, arcs):
         '''Analyze a baresubquery and return (entries, exits, break_lines, continue_lines).'''
-        query = self._get_baresubquery_query(bsq)
-        if query is not None:
-            return self._analyze_query(query, arcs)
-        return (set(), set(), set(), set())
+        query = [c for c in bsq.children if isinstance(c, lark.Tree) and c.data == 'query'][0]
+        return self._analyze_query(query, arcs)
 
     def _analyze_ifstmt(self, tree, arcs):
         '''Analyze an if/elif/else statement.'''
@@ -607,19 +577,14 @@ class StormReporter(coverage.FileReporter):
                 elif child.data == 'baresubquery':
                     else_body = child
 
-        if not clauses:
-            return (set(), set(), set(), set())
-
         cond_lines = []
         bodies = []
         for clause in clauses:
             cond_lines.append(clause.meta.line)
-            body = None
             for child in clause.children:
                 if isinstance(child, lark.Tree) and child.data == 'baresubquery':
-                    body = child
+                    bodies.append(child)
                     break
-            bodies.append(body)
 
         first_cond = cond_lines[0]
         all_exits = set()
@@ -632,15 +597,12 @@ class StormReporter(coverage.FileReporter):
 
         # Arcs from each condition to its body (true case)
         for cond_line, body in zip(cond_lines, bodies):
-            if body is not None:
-                body_entries, body_exits, breaks, conts = self._analyze_baresubquery(body, arcs)
-                for entry in body_entries:
-                    arcs.add((cond_line, entry))
-                all_exits |= body_exits
-                all_breaks |= breaks
-                all_continues |= conts
-            else:
-                all_exits.add(cond_line)
+            body_entries, body_exits, breaks, conts = self._analyze_baresubquery(body, arcs)
+            for entry in body_entries:
+                arcs.add((cond_line, entry))
+            all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
 
         # Handle else clause
         last_cond = cond_lines[-1]
@@ -701,9 +663,6 @@ class StormReporter(coverage.FileReporter):
                 body = child
                 break
 
-        if body is None:
-            return ({loop_line}, {loop_line}, set(), set())
-
         body_entries, body_exits, break_lines, continue_lines = self._analyze_baresubquery(body, arcs)
 
         # Enter body arc
@@ -736,9 +695,6 @@ class StormReporter(coverage.FileReporter):
             if isinstance(child, lark.Tree) and child.data == 'baresubquery':
                 body = child
                 break
-
-        if body is None:
-            return ({loop_line}, {loop_line}, set(), set())
 
         body_entries, body_exits, break_lines, continue_lines = self._analyze_baresubquery(body, arcs)
 

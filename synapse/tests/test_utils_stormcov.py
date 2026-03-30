@@ -46,8 +46,10 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/embedquery3.storm'),
             s_files.getAssetPath('stormcov/embedquery4.storm'),
             s_files.getAssetPath('stormcov/embedquery5.storm'),
+            s_files.getAssetPath('stormcov/emptybody.storm'),
             s_files.getAssetPath('stormcov/exprdict.storm'),
             s_files.getAssetPath('stormcov/forloop.storm'),
+            s_files.getAssetPath('stormcov/ifelif.storm'),
             s_files.getAssetPath('stormcov/ifelse.storm'),
             s_files.getAssetPath('stormcov/lookup.storm'),
             s_files.getAssetPath('stormcov/pivot.storm'),
@@ -56,7 +58,10 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/stormctrl.storm'),
             s_files.getAssetPath('stormcov/stopreturn.storm'),
             s_files.getAssetPath('stormcov/switch.storm'),
+            s_files.getAssetPath('stormcov/switchnodefault.storm'),
             s_files.getAssetPath('stormcov/trycatch.storm'),
+            s_files.getAssetPath('stormcov/whilebackedge.storm'),
+            s_files.getAssetPath('stormcov/whilecontinue.storm'),
             s_files.getAssetPath('stormcov/whileloop.storm'),
         ]
 
@@ -151,13 +156,18 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_cov('stormcov/embedquery3.storm'),
             await check_cov('stormcov/embedquery4.storm'),
             await check_cov('stormcov/embedquery5.storm'),
+            await check_cov('stormcov/emptybody.storm')
             await check_cov('stormcov/exprdict.storm')
+            await check_cov('stormcov/ifelif.storm')
             await check_cov('stormcov/ifelse.storm')
             await check_cov('stormcov/pivot.storm')
             await check_cov('stormcov/pragma-nocov.storm')
             await check_cov('stormcov/spin.storm')
             await check_cov('stormcov/stormctrl.storm')
             await check_cov('stormcov/switch.storm')
+            await check_cov('stormcov/switchnodefault.storm')
+            await check_cov('stormcov/whilebackedge.storm')
+            await check_cov('stormcov/whilecontinue.storm')
             await check_cov('stormcov/whileloop.storm')
 
     async def test_stormcov_lookup(self):
@@ -203,9 +213,11 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/embedquery3.storm'),
         await check_lines('stormcov/embedquery4.storm'),
         await check_lines('stormcov/embedquery5.storm'),
+        await check_lines('stormcov/emptybody.storm')
         await check_lines('stormcov/exprdict.storm')
         await check_lines('stormcov/continueloop.storm')
         await check_lines('stormcov/forloop.storm')
+        await check_lines('stormcov/ifelif.storm')
         await check_lines('stormcov/ifelse.storm')
         await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/pivot.storm')
@@ -214,7 +226,10 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/stormctrl.storm')
         await check_lines('stormcov/stopreturn.storm')
         await check_lines('stormcov/switch.storm')
+        await check_lines('stormcov/switchnodefault.storm')
         await check_lines('stormcov/trycatch.storm')
+        await check_lines('stormcov/whilebackedge.storm')
+        await check_lines('stormcov/whilecontinue.storm')
         await check_lines('stormcov/whileloop.storm')
 
         # Non-existent file
@@ -245,13 +260,18 @@ class TestUtilsStormcov(s_utils.SynTest):
             expected = parse_arcs(arcs_line.group())
             self.eq(reporter.arcs(), expected, msg=f'arcs mismatch for {filename}')
 
+        await check_arcs('stormcov/emptybody.storm')
+        await check_arcs('stormcov/ifelif.storm')
         await check_arcs('stormcov/ifelse.storm')
         await check_arcs('stormcov/switch.storm')
+        await check_arcs('stormcov/switchnodefault.storm')
         await check_arcs('stormcov/forloop.storm')
         await check_arcs('stormcov/whileloop.storm')
         await check_arcs('stormcov/trycatch.storm')
         await check_arcs('stormcov/continueloop.storm')
         await check_arcs('stormcov/stopreturn.storm')
+        await check_arcs('stormcov/whilebackedge.storm')
+        await check_arcs('stormcov/whilecontinue.storm')
 
     async def test_stormcov_arcs_runtime(self):
         basedir = pathlib.Path(s_files.ASSETS)
@@ -292,6 +312,21 @@ class TestUtilsStormcov(s_utils.SynTest):
             # nested dict: arcs chain through all lines of multi-line terminal nodes
             await check_arcs('stormcov/exprdict.storm', {(-1, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, -1)})
 
+            # if/elif without else: only true branch taken
+            await check_arcs('stormcov/ifelif.storm', {(-1, 1), (1, 2), (2, -1)})
+
+            # switch without default
+            await check_arcs('stormcov/switchnodefault.storm', {(-1, 1), (1, 2), (2, 3), (3, -1)})
+
+            # while with continue
+            await check_arcs('stormcov/whilecontinue.storm', {(-1, 1), (1, 2), (2, 3), (3, 4)})
+
+            # empty body in if clause
+            await check_arcs('stormcov/emptybody.storm', {(-1, 1), (1, -1)})
+
+            # while with normal body exit back-edge
+            await check_arcs('stormcov/whilebackedge.storm', {(-1, 1), (1, 2), (2, 3)})
+
     async def test_stormcov_exit_counts(self):
         parser = s_stormcov.get_parser()
 
@@ -317,6 +352,9 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/whileloop.storm'), parser)
         self.eq(reporter.missing_arc_description(1, 2), 'the while loop on line 1 did not jump to line 2')
+
+        reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/whilebackedge.storm'), parser)
+        self.eq(reporter.missing_arc_description(2, 1), 'the while loop on line 2 did not loop back to line 1')
 
         reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/switch.storm'), parser)
         self.eq(reporter.missing_arc_description(2, 4), 'the switch on line 2 did not jump to line 4')
