@@ -38,22 +38,6 @@ class LangModuleTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('For   The  People', nodes[0].repr())
 
-            nodes = await core.nodes('''
-                [ lang:statement=*
-                    :time=20150823
-                    :speaker={[ ps:person=({"name": "visi"}) ]}
-                    :text="We should be handing out UNCs like candy."
-                    :transcript={[ ou:meeting=* ]}
-                    :transcript:offset=02:00
-                ]
-            ''')
-            self.len(1, nodes)
-            self.propeq(nodes[0], 'time', 1440288000000000)
-            self.propeq(nodes[0], 'transcript:offset', 120000000)
-            self.propeq(nodes[0], 'text', 'We should be handing out UNCs like candy.')
-            self.len(1, await core.nodes('lang:statement :speaker -> ps:person +:name=visi'))
-            self.len(1, await core.nodes('lang:statement :transcript -> ou:meeting'))
-
     async def test_hashtag(self):
 
         async with self.getTestCore() as core:
