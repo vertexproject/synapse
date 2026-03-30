@@ -216,8 +216,15 @@ modeldefs = (
                         'doc': 'The name of the entity which issues the award.'}),
 
                     ('name', ('base:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The name of the award.',
-                        'ex': 'Bachelors of Science'}),
+                        'ex': 'Nobel Peace Prize'}),
+
+                    ('names', ('array', {'type': 'base:name'}), {
+                        'doc': 'An array of alternate names for the award.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the issuer gave out the award.'}),
 
                     ('type', ('meta:award:type:taxonomy', {}), {
                         'doc': 'The type of award.',
@@ -411,6 +418,16 @@ modeldefs = (
 
             ('meta:negotiable', {
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
+
+            ('meta:recordable', {
+                'props': (
+                    ('recording:url', ('inet:url', {}), {
+                        'doc': 'The URL hosting a recording of the {title}.'}),
+
+                    ('recording:file', ('file:bytes', {}), {
+                        'doc': 'A file containing a recording of the {title}.'}),
+                ),
+                'doc': 'Properties common to activities which may be recorded or transcribed.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

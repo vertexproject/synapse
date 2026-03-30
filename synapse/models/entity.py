@@ -40,13 +40,6 @@ modeldefs = (
                 'interfaces': (
                     ('base:activity', {}),
                 ),
-                'props': (
-                    ('recording:url', ('inet:url', {}), {
-                        'doc': 'The URL hosting a recording of the {title}.'}),
-
-                    ('recording:file', ('file:bytes', {}), {
-                        'doc': 'A file containing a recording of the {title}.'}),
-                ),
                 'doc': 'An interface implemented by activities which an actor may participate in.'}),
 
             ('entity:supportable', {
@@ -532,7 +525,7 @@ modeldefs = (
                     ('text', ('str', {}), {
                         'doc': 'The transcribed text of what the actor said.'}),
 
-                    ('activity', ('entity:participable', {}), {
+                    ('activity', ('meta:recordable', {}), {
                         'doc': 'The activity during which the statement was made.'}),
 
                     ('recording:offset', ('duration', {}), {

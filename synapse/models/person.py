@@ -10,6 +10,7 @@ modeldefs = (
             ('edu:class', ('meta:activity', {}), {
                 'template': {'title': 'class'},
                 'interfaces': (
+                    ('meta:recordable', {}),
                     ('entity:participable', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),

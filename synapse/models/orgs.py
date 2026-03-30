@@ -140,6 +140,7 @@ modeldefs = (
                 'template': {'title': 'meeting'},
                 'interfaces': (
                     ('geo:locatable', {}),
+                    ('meta:recordable', {}),
                     ('entity:participable', {}),
                 ),
                 'props': (
@@ -154,6 +155,7 @@ modeldefs = (
                 'interfaces': (
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
+                    ('meta:recordable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
                 ),
@@ -170,6 +172,7 @@ modeldefs = (
                 'interfaces': (
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
+                    ('meta:recordable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
                 ),
@@ -202,6 +205,7 @@ modeldefs = (
                 'interfaces': (
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
+                    ('meta:recordable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
                 ),
@@ -232,6 +236,7 @@ modeldefs = (
                 'interfaces': (
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
+                    ('meta:recordable', {}),
                     ('entity:supportable', {}),
                     ('entity:participable', {}),
                 ),
