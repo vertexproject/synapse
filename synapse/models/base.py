@@ -223,6 +223,9 @@ modeldefs = (
                     ('names', ('array', {'type': 'base:name'}), {
                         'doc': 'An array of alternate names for the award.'}),
 
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the award.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The period of time when the issuer gave out the award.'}),
 
