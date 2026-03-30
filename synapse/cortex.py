@@ -930,6 +930,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1029,6 +1030,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1706,13 +1708,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreMods()
 
-        if self.isactive:
-            await self._checkLayerModels()
-
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1725,6 +1722,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1741,11 +1740,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 

@@ -50,6 +50,8 @@ class SciModelTest(s_t_utils.SynTest):
             self.eq(False, nodes[0].get('refutes'))
             self.eq("Shadows in wave diffusion pattern support the hypothesis.", nodes[0].get('summary'))
 
+            self.len(1, await core.nodes('sci:evidence -> sci:hypothesis'))
+
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)
             self.nn(nodes[0].get('experiment'))
