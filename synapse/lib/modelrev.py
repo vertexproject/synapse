@@ -2208,7 +2208,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             for idx, layer in enumerate(self.layers):
                 logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
 
-                async for buid, sode in s_coro.pause(layer.getStorNodesByForm(formname)):
+                async for buid, sode in layer.getStorNodesByForm(formname):
 
                     if (formvalu := sode.get('valu')) is None:
                         continue
