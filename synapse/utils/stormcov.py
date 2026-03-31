@@ -724,7 +724,6 @@ class StormReporter(coverage.FileReporter):
         # While can exit when condition is false or break
         all_exits = set()
         all_exits.add(loop_line)
-        all_exits |= body_exits
         all_exits |= break_lines
 
         return ({loop_line}, all_exits, set(), set())
