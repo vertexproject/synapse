@@ -43,6 +43,10 @@ def _escpipe(text):
 
     return text.replace('|', '\\|').replace('\n', ' ')
 
+def _typeNames(types):
+    '''Extract type name strings from a list that may contain (name, opts) tuples.'''
+    return [t[0] if isinstance(t, tuple) and len(t) == 2 and isinstance(t[1], dict) else t for t in types]
+
 def _resolveTypeNames(typedef):
     '''Resolve a typedef to a list of type name strings, expanding poly types.'''
     if not typedef:
@@ -79,13 +83,15 @@ def _resolveTypeNames(typedef):
                 if isinstance(atype, str):
                     return [f'array of {atype}']
                 if isinstance(atype, (list, tuple)):
-                    return [f'array of {", ".join(sorted(atype))}']
+                    return [f'array of {", ".join(sorted(_typeNames(atype)))}']
 
             return ['array']
 
         typename = typedef[0]
+        if isinstance(typename, tuple) and len(typename) == 2 and isinstance(typename[1], dict):
+            return sorted(_typeNames(typedef))
         if isinstance(typename, (list, tuple)):
-            return sorted(typename)
+            return sorted(_typeNames(typename))
 
         return [typename]
 
@@ -136,7 +142,7 @@ def _getNestedTypeNames(typedef):
         if isinstance(atype, str):
             return (atype,)
         if isinstance(atype, (list, tuple)):
-            return tuple(atype)
+            return tuple(_typeNames(atype))
         return ()
 
     if tname == 'poly' and len(typedef) >= 2:
@@ -148,8 +154,10 @@ def _getNestedTypeNames(typedef):
                     names.append(n)
         return tuple(names)
 
+    if isinstance(tname, tuple) and len(tname) == 2 and isinstance(tname[1], dict):
+        return tuple(_typeNames(typedef))
     if isinstance(tname, (list, tuple)):
-        return tuple(tname)
+        return tuple(_typeNames(tname))
 
     return (tname,)
 
