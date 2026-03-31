@@ -55,6 +55,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/lookup.storm'),
             s_files.getAssetPath('stormcov/pivot.storm'),
             s_files.getAssetPath('stormcov/pragma-nocov.storm'),
+            s_files.getAssetPath('stormcov/runtsafety.storm'),
             s_files.getAssetPath('stormcov/spin.storm'),
             s_files.getAssetPath('stormcov/stormctrl.storm'),
             s_files.getAssetPath('stormcov/stopreturn.storm'),
@@ -163,6 +164,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_cov('stormcov/ifelse.storm')
             await check_cov('stormcov/pivot.storm')
             await check_cov('stormcov/pragma-nocov.storm')
+            await check_cov('stormcov/runtsafety.storm')
             await check_cov('stormcov/spin.storm')
             await check_cov('stormcov/stormctrl.storm')
             await check_cov('stormcov/switch.storm')
@@ -223,6 +225,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/lookup.storm')
         await check_lines('stormcov/pivot.storm')
         await check_lines('stormcov/pragma-nocov.storm')
+        await check_lines('stormcov/runtsafety.storm')
         await check_lines('stormcov/spin.storm')
         await check_lines('stormcov/stormctrl.storm')
         await check_lines('stormcov/stopreturn.storm')
@@ -271,6 +274,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_arcs('stormcov/trycatch.storm')
         await check_arcs('stormcov/continueloop.storm')
         await check_arcs('stormcov/stopreturn.storm')
+        await check_arcs('stormcov/runtsafety.storm')
         await check_arcs('stormcov/whilebackedge.storm')
         await check_arcs('stormcov/whilecontinue.storm')
 
@@ -316,6 +320,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_arcs('stormcov/switchnodefault.storm')
             await check_arcs('stormcov/whilecontinue.storm')
             await check_arcs('stormcov/emptybody.storm')
+            await check_arcs('stormcov/runtsafety.storm')
             await check_arcs('stormcov/whilebackedge.storm')
 
     async def test_stormcov_exit_counts(self):
