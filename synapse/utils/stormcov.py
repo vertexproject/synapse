@@ -554,7 +554,9 @@ class StormReporter(coverage.FileReporter):
         if op.data == 'trycatch':
             return self._analyze_trycatch(op, arcs)
         if op.data in ('stop', 'return', 'emit'):
-            return ({op.meta.line}, set(), set(), set())
+            line = op.meta.line
+            arcs.add((line, -1))
+            return ({line}, set(), set(), set())
 
         return ({op.meta.line}, {op.meta.line}, set(), set())
 
@@ -596,9 +598,12 @@ class StormReporter(coverage.FileReporter):
         # Arcs from each condition to its body (true case)
         for cond_line, body in zip(cond_lines, bodies):
             body_entries, body_exits, breaks, conts = self._analyze_baresubquery(body, arcs)
-            for entry in body_entries:
-                arcs.add((cond_line, entry))
-            all_exits |= body_exits
+            if not body_entries:
+                all_exits.add(cond_line)
+            else:
+                for entry in body_entries:
+                    arcs.add((cond_line, entry))
+                all_exits |= body_exits
             all_breaks |= breaks
             all_continues |= conts
 
