@@ -1,0 +1,6 @@
+---
+desc: Updated the ``sci:evidence:hypothesis`` property to use the correct type.
+desc:literal: false
+prs: []
+type: bug
+...
