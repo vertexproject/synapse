@@ -2213,6 +2213,9 @@ class ModelMigration_0_2_35(ModelMigrationBase):
                     if (formvalu := sode.get('valu')) is None:
                         continue
 
+                    if formname == 'inet:url' and 'ipv6' not in sode.get('props', {}):
+                        continue
+
                     formvalu = formvalu[0]
 
                     try:
