@@ -67,7 +67,7 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         stormcov = s_stormcov.StormcovPlugin(opts)
         with self.getLoggerStream('synapse.utils.stormcov') as stream:
-            stormcov.find_storm_files(stormdir)
+            stormcov.findStormFiles(stormdir)
 
         badstorm = s_files.getAssetPath('stormcov/badstorm.storm')
         stream.expect(f'Skipping invalid storm file: {badstorm}')
@@ -75,12 +75,12 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
 
-        stormcov.discover_stormdirs('')
+        stormcov.discoverStormdirs('')
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
 
         stormcov.stormdirs = []
-        stormcov.discover_stormdirs([pathlib.Path(stormdir)])
+        stormcov.discoverStormdirs([pathlib.Path(stormdir)])
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
 
@@ -91,7 +91,7 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         stormcov = s_stormcov.StormcovPlugin(opts)
         with self.getLoggerStream('synapse.utils.stormcov') as stream:
-            stormcov.find_storm_files(stormdir)
+            stormcov.findStormFiles(stormdir)
 
         dupewarn = s_files.getAssetPath('stormcov/dupewarn.storm')
         self.isin(dupewarn, list(stormcov.guid_map.values()))
@@ -126,14 +126,14 @@ class TestUtilsStormcov(s_utils.SynTest):
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormcov = s_stormcov.StormcovPlugin(opts)
-        stormcov.find_storm_files(stormdir)
+        stormcov.findStormFiles(stormdir)
 
         async with self.getTestCore() as core:
             async def check_cov(filename):
                 storm = s_files.getAssetStr(filename)
-                stormcov._start_sysmon()
+                stormcov._startSysmon()
                 await core.stormlist(storm)
-                stormcov._stop_sysmon()
+                stormcov._stopSysmon()
 
                 coverage = regex.search(r'\/\/ coverage:.*?$', storm, flags=regex.M)
                 self.nn(coverage, msg='Stormcov sample files require a "// coverage: #, #, #" line')
@@ -176,19 +176,19 @@ class TestUtilsStormcov(s_utils.SynTest):
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormcov = s_stormcov.StormcovPlugin(opts)
-        stormcov.find_storm_files(stormdir)
+        stormcov.findStormFiles(stormdir)
 
         async with self.getTestCore() as core:
             await core.nodes('[ inet:fqdn=vertex.link ]')
-            stormcov._start_sysmon()
+            stormcov._startSysmon()
             await core.stormlist(s_files.getAssetStr('stormcov/lookup.storm'), opts={'mode': 'lookup'})
-            stormcov._stop_sysmon()
+            stormcov._stopSysmon()
 
             # No coverage for lookup mode
             self.len(0, dict(stormcov.lines_hit))
 
     async def test_stormcov_stormreporter(self):
-        parser = s_stormcov.get_parser()
+        parser = s_stormcov.getParser()
 
         async def check_lines(filename):
             storm = s_files.getAssetStr(filename)
@@ -244,7 +244,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(reporter.lines(), {1, 2})
 
     async def test_stormcov_arcs_reporter(self):
-        parser = s_stormcov.get_parser()
+        parser = s_stormcov.getParser()
 
         def parse_arcs(text):
             pairs = regex.findall(r'\((-?\d+),(-?\d+)\)', text)
@@ -279,7 +279,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormcov = s_stormcov.StormcovPlugin(opts)
-        stormcov.find_storm_files(stormdir)
+        stormcov.findStormFiles(stormdir)
 
         def parse_arcs(text):
             pairs = regex.findall(r'\((-?\d+),(-?\d+)\)', text)
@@ -289,10 +289,10 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             async def check_arcs(filename):
                 storm = s_files.getAssetStr(filename)
-                stormcov._start_sysmon()
+                stormcov._startSysmon()
                 await core.stormlist(storm)
-                stormcov._stop_sysmon()
-                stormcov.finalize_arcs()
+                stormcov._stopSysmon()
+                stormcov.finalizeArcs()
 
                 arcs_line = regex.search(r'\/\/ arcs_hit:.*?$', storm, flags=regex.M)
                 self.nn(arcs_line, msg=f'{filename} requires a "// arcs_hit: (-1,1), (1,2), ..." line')
@@ -318,7 +318,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_arcs('stormcov/whilebackedge.storm')
 
     async def test_stormcov_exit_counts(self):
-        parser = s_stormcov.get_parser()
+        parser = s_stormcov.getParser()
 
         reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/ifelse.storm'), parser)
         counts = reporter.exit_counts()
@@ -329,7 +329,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(counts.get(4), 1)
 
     async def test_stormcov_missing_arc_description(self):
-        parser = s_stormcov.get_parser()
+        parser = s_stormcov.getParser()
 
         reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/ifelse.storm'), parser)
         self.eq(reporter.missing_arc_description(1, 4), 'the if/elif condition on line 1 did not jump to line 4')
@@ -358,6 +358,6 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(reporter.missing_arc_description(1, 2), 'line 1 did not jump to line 2')
 
     async def test_stormcov_no_branch_lines(self):
-        parser = s_stormcov.get_parser()
+        parser = s_stormcov.getParser()
         reporter = s_stormcov.StormReporter(s_files.getAssetPath('stormcov/pragma-nocov.storm'), parser)
         self.eq(reporter.no_branch_lines(), reporter.excluded_lines())
