@@ -63,6 +63,14 @@ def pytest_addoption(parser): # pragma: no cover
         help='The base package directory. Useful for monorepo environments.',
     )
 
+    group.addoption(
+        '--stormcov-branch',
+        default=False,
+        action='store_true',
+        dest='stormcov_branch',
+        help='Enable branch coverage for storm files. Enabled automatically if pytest-cov branch tracking is enabled.',
+    )
+
 DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config): # pragma: no cover
@@ -123,7 +131,10 @@ class StormcovPlugin:
         self.append = config.option.stormcov_append
         self.stormdirs = config.option.stormdirs
         self.basedir = config.option.stormcov_basedir
+        self.stormbranch = config.option.stormcov_branch
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
+
+        self.pycov = hasattr(config.option, 'no_cov') and not config.option.no_cov
 
     def reset(self):
         self.lines_hit = collections.defaultdict(set)
@@ -219,7 +230,7 @@ class StormcovPlugin:
             return
 
         # Add our stormcov data based on coverage mode
-        if self.cov.config.branch:
+        if (self.pycov and self.cov.config.branch) or (not self.pycov and self.stormbranch):
             data.add_arcs(dict(self.arcs_hit))
         else:
             data.add_lines(dict(self.lines_hit))
@@ -268,11 +279,11 @@ class StormcovPlugin:
         if self.isworker:
             return
 
-        if not self.iscontroller and not self.lines_hit:
+        if not self.iscontroller and not self.lines_hit and not self.arcs_hit:
             return
 
         try:
-            self.cov.report(skip_covered=False, skip_empty=False)
+            self.cov.report(skip_covered=False, skip_empty=False, include=[f'*.{ext}' for ext in self.extensions])
         except coverage.exceptions.NoDataError:
             logger.warning('No storm coverage data was found.')
 
