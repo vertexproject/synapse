@@ -70,9 +70,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchType) as cm:
                 core.model.addFormProp('test:str', 'bar', ('newp', {}), {})
-
-            # TODO: Pass context to reqType?
-            # self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
+            self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
 
             with self.raises(s_exc.BadTypeDef) as cm:
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
@@ -1118,7 +1116,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.stormNotInPrint('false', msgs)
 
             # Poly.getCmprCtor raises BadCmprValu when all types fail
-            await core.addFormProp('test:str', '_polyint', (('test:int', 'test:comp'), {}), {})
+            await core.addFormProp('test:str', '_polyint', (('test:int', {}), ('test:comp', {})), {})
             await core.nodes('[test:str=foo :_polyint=1234]')
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:str +test:str:_polyint=haha')
@@ -1152,12 +1150,12 @@ class DataModelTest(s_t_utils.SynTest):
 
             await core.delFormProp('test:str', '_arryprop')
 
-            await core.addFormProp('test:str', '_ifpoly', (('inet:fqdn', 'meta:observable'), {}), {})
+            await core.addFormProp('test:str', '_ifpoly', (('inet:fqdn', {}), ('meta:observable', {})), {})
             self.nn(core.model.prop('test:str:_ifpoly'))
             await core.delFormProp('test:str', '_ifpoly')
             self.none(core.model.prop('test:str:_ifpoly'))
 
-            await core.addFormProp('test:str', '_ifarry', ('array', {'type': ('inet:fqdn', 'meta:observable')}), {})
+            await core.addFormProp('test:str', '_ifarry', ('array', {'type': (('inet:fqdn', {}), ('meta:observable', {}))}), {})
             self.nn(core.model.prop('test:str:_ifarry'))
             await core.delFormProp('test:str', '_ifarry')
             self.none(core.model.prop('test:str:_ifarry'))

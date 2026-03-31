@@ -481,11 +481,17 @@ modeldefs = (
 
             ('risk:vuln', {}, (
 
-                ('id', (('it:sec:cve', 'meta:id'), {}), {
+                ('id', (
+                        ('it:sec:cve', {}),
+                        ('meta:id', {})
+                    ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the vulnerability.'}),
 
-                ('ids', ('array', {'type': ('it:sec:cve', 'meta:id')}), {
+                ('ids', ('array', {'type': (
+                        ('it:sec:cve', {}),
+                        ('meta:id', {})
+                    )}), {
                     'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {
@@ -588,7 +594,11 @@ modeldefs = (
                     'doc': 'The time window where the node was vulnerable.'}),
 
                 # TODO - interface for things which can be vulnerable?
-                ('node', (('risk:targetable', 'meta:havable', 'meta:observable'), {}), {
+                ('node', (
+                        ('risk:targetable', {}),
+                        ('meta:havable', {}),
+                        ('meta:observable', {})
+                    ), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('mitigated', ('bool', {}), {

@@ -581,9 +581,7 @@ class Array(Type):
             typeopts = {}
 
         if isinstance(typename, tuple):
-            # TODO: lists should already be in the correct format
-            typedef = tuple((tn, {}) for tn in typename)
-            polyinfo = self.modl.convertPolyinfo(typedef)
+            polyinfo = self.modl.convertPolyinfo(typename)
         elif isinstance(tobj := self.modl.type(typename), Poly):
             polyinfo = tobj.opts
         else:

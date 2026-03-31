@@ -314,16 +314,16 @@ modeldefs = (
                 ('request', ('inet:dns:request', {}), {
                     'doc': 'The DNS request that was answered.'}),
 
-                ('record', ((
-                        'inet:dns:a',
-                        'inet:dns:aaaa',
-                        'inet:dns:cname',
-                        'inet:dns:mx',
-                        'inet:dns:ns',
-                        'inet:dns:rev',
-                        'inet:dns:soa',
-                        'inet:dns:txt',
-                    ), {}), {
+                ('record', (
+                        ('inet:dns:a', {}),
+                        ('inet:dns:aaaa', {}),
+                        ('inet:dns:cname', {}),
+                        ('inet:dns:mx', {}),
+                        ('inet:dns:ns', {}),
+                        ('inet:dns:rev', {}),
+                        ('inet:dns:soa', {}),
+                        ('inet:dns:txt', {}),
+                    ), {
                     'doc': 'The DNS record returned by the lookup.',
                     'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 

@@ -666,7 +666,10 @@ modeldefs = (
 
             ('crypto:x509:cert', {}, (
 
-                ('key', (('crypto:key:rsa', 'crypto:key:dsa'), {}), {
+                ('key', (
+                        ('crypto:key:rsa', {}),
+                        ('crypto:key:dsa', {})
+                    ), {
                     'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {

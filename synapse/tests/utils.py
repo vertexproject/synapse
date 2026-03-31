@@ -363,7 +363,10 @@ testmodel = (
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
                 ('children', ('array', {'type': 'test:arrayprop'}), {}),
                 ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
-                ('multivirt', ('array', {'type': ('file:path', 'inet:server'), 'uniq': False}), {}),
+                ('multivirt', ('array', {'type': (
+                    ('file:path', {}),
+                    ('inet:server', {})
+                ), 'uniq': False}), {}),
                 ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
             )),
             ('test:taxonomy', {}, ()),
@@ -437,8 +440,19 @@ testmodel = (
             )),
 
             ('test:str', {}, (
-                ('bar', (('test:str', 'test:int', 'test:comp', 'test:auto', 'test:guid',
-                           'test:virtiface', 'test:ro', 'inet:ip', 'inet:fqdn', 'meta:source', 'ps:person'), {}), {}),
+                ('bar', (
+                    ('test:str', {}),
+                    ('test:int', {}),
+                    ('test:comp', {}),
+                    ('test:auto', {}),
+                    ('test:guid', {}),
+                    ('test:virtiface', {}),
+                    ('test:ro', {}),
+                    ('inet:ip', {}),
+                    ('inet:fqdn', {}),
+                    ('meta:source', {}),
+                    ('ps:person', {})
+                ), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
                 ('net', ('inet:net', {}), {}),
@@ -448,15 +462,40 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {}), {}),
-                ('polyarry', ('array', {
-                    'type': ('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn',
-                             'test:auto', 'test:ro', 'it:dev:int', 'it:dev:str')}), {}),
-                ('polyarry2', ('array', {'type': ('test:int', 'test:guid', 'test:auto', 'test:ro')}), {}),
-                ('polynonuniq', ('array', {
-                    'uniq': False,
-                    'sorted': False,
-                    'type': ('test:int', 'test:str', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn')}), {}),
+                ('poly', (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                ), {}),
+                ('polyarry', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {}),
+                    ('it:dev:int', {}),
+                    ('it:dev:str', {})
+                )}), {}),
+                ('polyarry2', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:guid', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {})
+                )}), {}),
+                ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                )}), {}),
                 ('polyint', ('test:interface', {}), {}),
             )),
 

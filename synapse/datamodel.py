@@ -1058,14 +1058,10 @@ class Model:
     def convertPropdef(self, propdef):
         typename = propdef[0]
 
-        if isinstance(typename, tuple):
-            # TODO: lists should already be in the correct format
-            propdef = tuple((tn, {}) for tn in typename)
+        if not isinstance(typename, tuple):
+            if isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
+                return propdef
 
-        elif isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
-            return propdef
-
-        else:
             if tobj is None and typename not in self.ifaces:
                 raise s_exc.NoSuchType(name=typename)
 
@@ -1596,8 +1592,12 @@ class Model:
 
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
-        typeinfo = tdef[1]
+        (basename, typeinfo) = tdef
         typelist = typeinfo.get('forms', ()) + typeinfo.get('types', ())
+
+        if self.types.get(basename) is None:
+            mesg = f'No type named {basename} while declaring prop {form.name}:{name}.'
+            raise s_exc.NoSuchType(mesg=mesg, name=basename)
 
         virts = []
         for typename in typelist:

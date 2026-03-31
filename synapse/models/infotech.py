@@ -1703,7 +1703,11 @@ modeldefs = (
                     'doc': 'The vulnerability detected in the asset.'}),
 
                 # TODO: should this be an interface for things that can be vulnerable?
-                ('asset', (('risk:targetable', 'meta:observable', 'meta:havable'), {}), {
+                ('asset', (
+                        ('risk:targetable', {}),
+                        ('meta:observable', {}),
+                        ('meta:havable', {})
+                    ), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('desc', ('str', {}), {
@@ -1751,7 +1755,11 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', (('file:bytes', 'it:dev:int', 'it:dev:str'), {}), {
+                ('value', (
+                        ('file:bytes', {}),
+                        ('it:dev:int', {}),
+                        ('it:dev:str', {})
+                    ), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),
@@ -2102,7 +2110,14 @@ modeldefs = (
                 ('categories', ('array', {'type': 'str:loweronespace'}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
-                ('target', (('file:bytes', 'it:exec:proc', 'it:host', 'inet:fqdn', 'inet:url', 'inet:ip'), {}), {
+                ('target', (
+                        ('file:bytes', {}),
+                        ('it:exec:proc', {}),
+                        ('it:host', {}),
+                        ('inet:fqdn', {}),
+                        ('inet:url', {}),
+                        ('inet:ip', {})
+                    ), {
                     'doc': 'The target of the scan.'}),
 
                 ('multi:scan', ('it:av:scan:result', {}), {
@@ -2139,7 +2154,10 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
 
-                ('account', (('it:host:account', 'inet:service:account'), {}), {
+                ('account', (
+                        ('it:host:account', {}),
+                        ('inet:service:account', {})
+                    ), {
                     'doc': 'The account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
@@ -2254,7 +2272,11 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the query.'}),
 
-                ('account', (('syn:user', 'it:host:account', 'inet:service:account'), {}), {
+                ('account', (
+                        ('syn:user', {}),
+                        ('it:host:account', {}),
+                        ('inet:service:account', {})
+                    ), {
                     'doc': 'The account which executed the query.'}),
 
                 ('platform', ('inet:service:platform', {}), {

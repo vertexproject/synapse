@@ -3845,7 +3845,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             text = '''
                 [ test:str=foo :seen=(2014,2015) ]
-                ($tick, $tock) = :seen.value
+                ($tick, $tock) = :seen
                 [ test:int=$tick ]
                 +test:int
             '''

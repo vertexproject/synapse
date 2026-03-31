@@ -769,11 +769,18 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', (('doc:policy', 'doc:standard', 'doc:requirement'), {}), {
+                ('doc', (
+                        ('doc:policy', {}),
+                        ('doc:standard', {}),
+                        ('doc:requirement', {})
+                    ), {
                     'doc': 'The document enacted by the organization.'}),
 
                 # TODO: what valid scopes are there?
-                ('scope', (('ou:team', 'ou:org'), {}), {
+                ('scope', (
+                        ('ou:team', {}),
+                        ('ou:org', {})
+                    ), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),

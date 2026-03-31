@@ -3001,7 +3001,10 @@ modeldefs = (
                 ('object', ('inet:service:object', {}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', (('inet:service:account', 'inet:service:role'), {}), {
+                ('grantee', (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    ), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3096,7 +3099,10 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': ('inet:service:account', 'inet:service:role')}), {
+                ('mentions', ('array', {'type': (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    )}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
