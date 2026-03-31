@@ -4947,17 +4947,17 @@ class MoveTagCmd(Cmd):
 
             newnode = await view.addNode('syn:tag', newtag)
 
-            olddoc = node.get('doc')
-            if olddoc is not None:
-                await newnode.set('doc', olddoc[1])
+            olddoc = node.getWithVirts('doc')
+            if olddoc[0] is not None:
+                await newnode.set('doc', s_stormtypes.NodeRef(olddoc))
 
-            olddocurl = node.get('doc:url')
-            if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl[1])
+            olddocurl = node.getWithVirts('doc:url')
+            if olddocurl[0] is not None:
+                await newnode.set('doc:url', s_stormtypes.NodeRef(olddocurl))
 
-            oldtitle = node.get('title')
-            if oldtitle is not None:
-                await newnode.set('title', oldtitle[1])
+            oldtitle = node.getWithVirts('title')
+            if oldtitle[0] is not None:
+                await newnode.set('title', s_stormtypes.NodeRef(oldtitle))
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.getTags():

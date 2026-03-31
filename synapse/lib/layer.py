@@ -543,15 +543,6 @@ class IndxByPoly(IndxBy):
     def __repr__(self):
         return f'IndxByPoly: {self.form}:{self.prop}'
 
-class IndxByPolyIvalMin(IndxByPoly):
-
-    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        minindx += self.layr.ivaltimetype.zerobyts
-        maxindx += self.layr.ivaltimetype.fullbyts
-
-        async for item in IndxByPoly.keyNidsByRange(self, minindx, maxindx, reverse=reverse):
-            yield item
-
 class IndxByPolyArray(IndxByPoly):
 
     def __init__(self, layr, form, prop, stortype):
@@ -818,17 +809,16 @@ class IndxByPropArraySize(IndxByProp):
         for item in genr:
             yield item
 
-class IndxByPropIvalMin(IndxByProp):
+class IndxByPropIvalMin(IndxByPoly):
+
+    def __init__(self, layr, form, prop):
+        IndxByPoly.__init__(self, layr, form, prop, STOR_TYPE_IVAL)
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
-        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        if reverse:
-            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+        minindx += self.layr.ivaltimetype.zerobyts
+        maxindx += self.layr.ivaltimetype.fullbyts
 
-        for item in genr:
+        async for item in IndxByPoly.keyNidsByRange(self, minindx, maxindx, reverse=reverse):
             yield item
 
 class IndxByPropIvalMax(IndxBy):
@@ -2129,13 +2119,9 @@ class StorTypePoly(StorType):
 
                 if virts:
                     if realtype == STOR_TYPE_IVAL:
-                        if virts[0] == 'min':
-                            # TODO: move this onto StorTypeIval since props are always poly now
-                            indxby = IndxByPolyIvalMin(self.layr, form, prop, realtype)
-                        else:
-                            async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
-                                yield item
-                            return
+                        async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                            yield item
+                        return
                     else:
                         indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
                 else:

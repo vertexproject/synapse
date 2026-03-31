@@ -90,8 +90,6 @@ def _resolveTypeNames(typedef):
         typename = typedef[0]
         if isinstance(typename, tuple) and len(typename) == 2 and isinstance(typename[1], dict):
             return sorted(_typeNames(typedef))
-        if isinstance(typename, (list, tuple)):
-            return sorted(_typeNames(typename))
 
         return [typename]
 
