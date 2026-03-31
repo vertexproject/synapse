@@ -3686,9 +3686,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu, cmpr=cmpr)
 
             filt = await ctor(valu)
-            if filt is None:
-                mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
-                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, cmpr=cmpr)
 
         async for pode in self.getRuntPodes(prop, cmprvalu=cmprvalu):
 

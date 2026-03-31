@@ -154,8 +154,6 @@ def _getNestedTypeNames(typedef):
 
     if isinstance(tname, tuple) and len(tname) == 2 and isinstance(tname[1], dict):
         return tuple(_typeNames(typedef))
-    if isinstance(tname, (list, tuple)):
-        return tuple(_typeNames(tname))
 
     return (tname,)
 

@@ -1695,3 +1695,9 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
             self.eq(1, fork2view.getEdgeCount(nid, n2=True))
             self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
+
+    async def test_view_runt_bad_cmpr(self):
+        async with self.getTestCore() as core:
+            prop = core.model.prop('syn:type')
+            with self.raises(s_exc.BadTypeValu):
+                await alist(core.view.getRuntNodes(prop, cmprvalu=('badcmpr', 'test')))
