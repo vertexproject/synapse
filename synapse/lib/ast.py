@@ -4850,7 +4850,6 @@ class PropName(Value):
                 return None, None, None
 
             if not prop.type.hasforms:
-                # TODO: is this the right exception?
                 raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
             if (node := await runt.view.getNodeByNdef(valu)) is None:
