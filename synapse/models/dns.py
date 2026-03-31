@@ -196,6 +196,9 @@ modeldefs = (
                 ),
                 'doc': 'A dynamic DNS registration.'}),
 
+            ('dns:reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                'doc': 'A DNS reply code.'}),
+
         ),
 
         'forms': (
@@ -299,7 +302,7 @@ modeldefs = (
                 ('query:type', ('int', {}), {
                     'doc': 'The type of record requested in the query.'}),
 
-                ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                ('reply:code', ('dns:reply:code', {}), {
                     'doc': 'The DNS server response code.'}),
             )),
 
@@ -311,16 +314,16 @@ modeldefs = (
                 ('request', ('inet:dns:request', {}), {
                     'doc': 'The DNS request that was answered.'}),
 
-                ('record', ((
-                        'inet:dns:a',
-                        'inet:dns:aaaa',
-                        'inet:dns:cname',
-                        'inet:dns:mx',
-                        'inet:dns:ns',
-                        'inet:dns:rev',
-                        'inet:dns:soa',
-                        'inet:dns:txt',
-                    ), {}), {
+                ('record', (
+                        ('inet:dns:a', {}),
+                        ('inet:dns:aaaa', {}),
+                        ('inet:dns:cname', {}),
+                        ('inet:dns:mx', {}),
+                        ('inet:dns:ns', {}),
+                        ('inet:dns:rev', {}),
+                        ('inet:dns:soa', {}),
+                        ('inet:dns:txt', {}),
+                    ), {
                     'doc': 'The DNS record returned by the lookup.',
                     'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 

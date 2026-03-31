@@ -413,14 +413,11 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
             # $try can be used at top level, currently only applies to $props
-            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
-            nodes = [m for m in msgs if m[0] == 'node']
+            nodes = await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             self.len(1, nodes)
-            node = nodes[0][1]
-            props = node[1]['props']
-            self.none(props.get('phone'))
-            self.eq(props.get('name')[1], 'burrito corp')
-            self.eq(props.get('desc'), 'burritos man')
+            self.none(nodes[0].get('phone'))
+            self.propeq(nodes[0], 'name', 'burrito corp')
+            self.propeq(nodes[0], 'desc', 'burritos man')
 
             # $try can also be specified in $props which overrides top level $try
             with self.raises(s_exc.BadTypeValu):
@@ -679,7 +676,7 @@ class TypesTest(s_t_utils.SynTest):
             salt03 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1", "$props": {"desc": "a salted org"}}) ]')
             self.len(1, salt03)
             self.eq(salt00[0].ndef, salt03[0].ndef)
-            self.eq('a salted org', salt03[0].get('desc'))
+            self.propeq(salt03[0], 'desc', 'a salted org')
 
             # $salt is not stored as a property
             self.none(salt00[0].get('$salt'))
@@ -1272,7 +1269,7 @@ class TypesTest(s_t_utils.SynTest):
             now = s_common.now()
             nodes = await core.nodes('[test:guid="*" :seen=("-1 day","?")]')
             node = nodes[0]
-            valu = node.get('seen')
+            valu = node.get('seen')[1]
             self.eq(valu[1], ival.unksize)
             self.true(now - s_const.day <= valu[0] < now)
 
@@ -1370,7 +1367,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'ival', {'precision': 'newp'}, {})
 
             nodes = await core.nodes('[ test:str=foo :seen=(2021, ?) :seen.duration=1D ]')
             self.propeq(nodes[0], 'seen', (1609459200000000, 1609545600000000, 86400000000))
@@ -1584,11 +1581,11 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
             # sad path
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:haha*range=(somestring,)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:int +test:int*range=3456')
 
     async def test_str(self):
@@ -1759,7 +1756,7 @@ class TypesTest(s_t_utils.SynTest):
 
             tock = (await t.norm('2015'))[0]
 
-            await self.asyncraises(s_exc.BadCmprValu, t.cmpr('2015', 'range=', tick))
+            await self.asyncraises(s_exc.BadTypeValu, t.cmpr('2015', 'range=', tick))
 
             prec = core.model.type('timeprecision')
             styp = prec.stortype
@@ -1863,7 +1860,7 @@ class TypesTest(s_t_utils.SynTest):
                 await tmax.norm('2025-04-05 12:34:56.123456', prec=123)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'time', {'precision': 'newp'}, {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
@@ -1954,9 +1951,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
 
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')
@@ -2080,15 +2077,15 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[test:str=a :tick=2014]')
             self.len(1, nodes)
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             nodes = await core.nodes('[test:str=b :tick=2015]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=c :tick=2016]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=d :tick=now]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
@@ -2198,7 +2195,7 @@ class TypesTest(s_t_utils.SynTest):
 
             nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
+            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', (('str', 'newp' * 100),))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
             await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})

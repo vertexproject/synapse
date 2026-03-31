@@ -647,16 +647,20 @@ class InetModelTest(s_t_utils.SynTest):
         formname = 'inet:fqdn'
 
         def iszone(node):
-            self.true(node.get('iszone') == 1 and node.get('issuffix') == 0)
+            self.propeq(node, 'iszone', 1)
+            self.propeq(node, 'issuffix', 0)
 
         def issuffix(node):
-            self.true(node.get('issuffix') == 1 and node.get('iszone') == 0)
+            self.propeq(node, 'issuffix', 1)
+            self.propeq(node, 'iszone', 0)
 
         def isboth(node):
-            self.true(node.get('iszone') == 1 and node.get('issuffix') == 1)
+            self.propeq(node, 'iszone', 1)
+            self.propeq(node, 'issuffix', 1)
 
         def isneither(node):
-            self.true(node.get('iszone') == 0 and node.get('issuffix') == 0)
+            self.propeq(node, 'iszone', 0)
+            self.propeq(node, 'issuffix', 0)
 
         async with self.getTestCore() as core:
             # Create some nodes and demonstrate zone/suffix behavior
@@ -3123,7 +3127,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('repost'))
             self.propeq(nodes[0], 'role', devsgrp.ndef[1])
-            self.false(nodes[0].get('public'))
+            self.propeq(nodes[0], 'public', 0)
             self.propeq(nodes[0], 'type', 'chat.group.')
             self.eq(
                 nodes[0].get('mentions'),
@@ -3131,12 +3135,12 @@ class InetModelTest(s_t_utils.SynTest):
             )
 
             self.propeq(nodes[1], 'to', visiacct.ndef[1])
-            self.false(nodes[1].get('public'))
+            self.propeq(nodes[1], 'public', 0)
             self.propeq(nodes[1], 'type', 'chat.direct.')
             self.none(nodes[1].get('mentions'))
 
             self.propeq(nodes[2], 'channel', gnrlchan.ndef[1])
-            self.true(nodes[2].get('public'))
+            self.propeq(nodes[2], 'public', 1)
             self.propeq(nodes[2], 'type', 'chat.channel.')
 
             svcmsgs = await core.nodes('inet:service:message:type:taxonomy -> inet:service:message')
@@ -3221,7 +3225,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'account', blckacct.ndef[1])
             self.propeq(nodes[0], 'platform', platform.ndef[1])
             self.propeq(nodes[0], 'resource', resource.ndef[1])
-            self.true(nodes[0].get('success'))
+            self.propeq(nodes[0], 'success', 1)
             self.propeq(nodes[0], 'time', 1715856900000000)
 
             q = '''

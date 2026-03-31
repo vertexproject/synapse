@@ -735,14 +735,14 @@ class Fqdn(s_types.Type):
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain[1])
 
-            if parent.get('issuffix'):
+            if (pval := parent.get('issuffix')) is not None and pval[1]:
                 await protonode.set('iszone', True)
                 await protonode.set('zone', node.ndef[1])
                 return
 
             await protonode.set('iszone', False)
 
-            if parent.get('iszone'):
+            if (pval := parent.get('iszone')) is not None and pval[1]:
                 await protonode.set('zone', domain[1])
                 return
 
@@ -753,13 +753,18 @@ class Fqdn(s_types.Type):
     async def _onSetIsSuffix(self, node):
 
         fqdn = node.ndef[1]
-        issuffix = node.get('issuffix')
+
+        if (issuffix := node.get('issuffix')) is not None:
+            issuffix = issuffix[1]
 
         async with node.view.getEditor() as editor:
             async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
-                if child.get('iszone') == issuffix:
+                if (cval := child.get('iszone')) is not None:
+                    cval = cval[1]
+
+                if cval == issuffix:
                     continue
 
                 protonode = editor.loadNode(child)
@@ -767,8 +772,7 @@ class Fqdn(s_types.Type):
 
     async def _onSetIsZone(self, node):
 
-        iszone = node.get('iszone')
-        if iszone:
+        if (iszone := node.get('iszone')) is not None and iszone[1]:
             await node.set('zone', node.ndef[1])
             return
 
@@ -797,7 +801,7 @@ class Fqdn(s_types.Type):
                 async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
                     await asyncio.sleep(0)
 
-                    if child.get('iszone') or child.get('zone') == zone:
+                    if ((cval := child.get('iszone')) is not None and cval[1]) or child.get('zone') == zone:
                         continue
 
                     protonode = editor.loadNode(child)
@@ -1299,7 +1303,7 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The parent domain for the FQDN.'}),
 
-                    ('host', ('str', {'lower': True}), {
+                    ('host', ('str:lower', {}), {
                         'computed': True,
                         'doc': 'The host part of the FQDN.'}),
 
@@ -1841,6 +1845,21 @@ modeldefs = (
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                 'doc': 'An x509 certificate sent by a client for TLS.'}),
 
+            ('inet:ipscope', ('str', {'enums': scopes_enum}), {
+                'doc': 'An IP address scope.'}),
+
+            ('inet:ipversion', ('int', {'enums': ((4, '4'), (6, '6'))}), {
+                'doc': 'An IP protocol version.'}),
+
+            ('inet:jarm:ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
+                'doc': 'A JARM cipher string.'}),
+
+            ('inet:jarm:extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
+                'doc': 'A JARM extensions string.'}),
+
+            ('inet:svcaccess:type', ('int', {'enums': svcaccesstypes}), {
+                'doc': 'A service access type.'}),
+
         ),
 
         'interfaces': (
@@ -2138,7 +2157,7 @@ modeldefs = (
             )),
 
             ('inet:client', {}, (
-                ('proto', ('str', {'lower': True}), {
+                ('proto', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The network protocol of the client.'
                 }),
@@ -2162,7 +2181,7 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The domain of the email address.'}),
 
-                ('plus', ('str', {'lower': True}), {
+                ('plus', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The optional email address "tag".'}),
 
@@ -2284,7 +2303,7 @@ modeldefs = (
 
             ('inet:http:param', {}, (
 
-                ('name', ('str', {'lower': True}), {'computed': True,
+                ('name', ('str:lower', {}), {'computed': True,
                     'doc': 'The name of the HTTP query parameter.'}),
 
                 ('value', ('str', {}), {'computed': True,
@@ -2418,10 +2437,10 @@ modeldefs = (
                 ('dns:rev', ('inet:fqdn', {}), {
                     'doc': 'The most current DNS reverse lookup for the IP.'}),
 
-                ('scope', ('str', {'enums': scopes_enum}), {
+                ('scope', ('inet:ipscope', {}), {
                     'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
 
-                ('version', ('int', {'enums': ((4, '4'), (6, '6'))}), {
+                ('version', ('inet:ipversion', {}), {
                     'doc': 'The IP version of the address.'}),
             )),
 
@@ -2447,7 +2466,7 @@ modeldefs = (
             )),
 
             ('inet:server', {}, (
-                ('proto', ('str', {'lower': True}), {
+                ('proto', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The network protocol of the server.'
                 }),
@@ -2502,7 +2521,7 @@ modeldefs = (
                     'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                            'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
 
-                ('proto', ('str', {'lower': True}), {
+                ('proto', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The protocol in the URL.'}),
 
@@ -2580,7 +2599,7 @@ modeldefs = (
                 ('query', ('inet:search:query', {}), {
                     'doc': 'The search query that produced the result.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('str:lower', {}), {
                     'doc': 'The title of the matching web page.'}),
 
                 ('rank', ('int', {}), {
@@ -2589,7 +2608,7 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL hosting the matching content.'}),
 
-                ('text', ('str', {'lower': True}), {
+                ('text', ('str:lower', {}), {
                     'doc': 'Extracted/matched text from the matched content.'}),
             )),
 
@@ -2598,7 +2617,7 @@ modeldefs = (
                 ('fqdn', ('inet:fqdn', {}), {
                     'doc': 'The domain associated with the whois record.'}),
 
-                ('text', ('text', {'lower': True}), {
+                ('text', ('text:lower', {}), {
                     'doc': 'The full text of the whois record.'}),
 
                 ('created', ('time', {}), {
@@ -2661,7 +2680,7 @@ modeldefs = (
                 ('updated', ('time', {}), {
                     'doc': 'The "last updated" time from the record.'}),
 
-                ('text', ('text', {'lower': True}), {
+                ('text', ('text:lower', {}), {
                     'doc': 'The full text of the record.'}),
 
                 ('asn', ('inet:asn', {}), {
@@ -2679,10 +2698,10 @@ modeldefs = (
                 ('country', ('iso:3166:alpha2', {}), {
                     'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
-                ('status', ('str', {'lower': True}), {
+                ('status', ('str:lower', {}), {
                     'doc': 'The state of the registered network.'}),
 
-                ('type', ('str', {'lower': True}), {
+                ('type', ('str:lower', {}), {
                     'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
                 ('links', ('array', {'type': 'inet:url'}), {
@@ -2703,7 +2722,7 @@ modeldefs = (
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str', {'lower': True}), {
+                ('encryption', ('str:lower', {}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
                 # FIXME ownable interface? currently has :owner via meta:havable
@@ -2714,10 +2733,10 @@ modeldefs = (
             ('inet:wifi:ssid', {}, ()),
 
             ('inet:tls:jarmhash', {}, (
-                ('ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
+                ('ciphers', ('inet:jarm:ciphers', {}), {
                     'computed': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
-                ('extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
+                ('extensions', ('inet:jarm:extensions', {}), {
                     'computed': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
@@ -2760,7 +2779,7 @@ modeldefs = (
                 ('client:hostname', ('it:hostname', {}), {
                     'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
 
-                ('client:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                ('client:keyboard:layout', ('base:name', {}), {
                     'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
             )),
 
@@ -2876,7 +2895,7 @@ modeldefs = (
                 ('type', ('inet:service:platform:type:taxonomy', {}), {
                     'doc': 'The type of service platform.'}),
 
-                ('family', ('str', {'onespace': True, 'lower': True}), {
+                ('family', ('base:name', {}), {
                     'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
 
                 ('parent', ('inet:service:platform', {}), {
@@ -2907,11 +2926,11 @@ modeldefs = (
 
             ('inet:service:agent', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('base:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the service agent instance.'}),
 
-                ('names', ('array', {'type': 'str', 'typeopts': {'onespace': True, 'lower': True}}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'An array of alternate names for the service agent instance.'}),
 
                 ('desc', ('str', {}), {
@@ -2963,7 +2982,7 @@ modeldefs = (
 
             ('inet:service:permission', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the permission.'}),
 
                 ('type', ('inet:service:permission:type:taxonomy', {}), {
@@ -2982,7 +3001,10 @@ modeldefs = (
                 ('object', ('inet:service:object', {}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', (('inet:service:account', 'inet:service:role'), {}), {
+                ('grantee', (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    ), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3035,7 +3057,7 @@ modeldefs = (
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the message is publicly visible.'}),
 
-                ('title', ('str', {'lower': True, 'onespace': True}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The message title.'}),
 
                 ('text', ('text', {}), {
@@ -3077,7 +3099,10 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': ('inet:service:account', 'inet:service:role')}), {
+                ('mentions', ('array', {'type': (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    )}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
@@ -3093,7 +3118,7 @@ modeldefs = (
 
             ('inet:service:channel', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the channel.'}),
 
                 ('period', ('ival', {}), {
@@ -3108,7 +3133,7 @@ modeldefs = (
 
             ('inet:service:thread', {}, (
 
-                ('title', ('str', {'lower': True, 'onespace': True}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The title of the thread.'}),
 
                 ('channel', ('inet:service:channel', {}), {
@@ -3133,7 +3158,7 @@ modeldefs = (
             ('inet:service:resource:type:taxonomy', {}, {}),
             ('inet:service:resource', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
 
                 ('desc', ('text', {}), {
@@ -3148,7 +3173,7 @@ modeldefs = (
 
             ('inet:service:bucket', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
             )),
 
@@ -3172,7 +3197,7 @@ modeldefs = (
                 ('resource', ('inet:service:resource', {}), {
                     'doc': 'The resource which the account attempted to access.'}),
 
-                ('type', ('int', {'enums': svcaccesstypes}), {
+                ('type', ('inet:svcaccess:type', {}), {
                     'doc': 'The type of access requested.'}),
             )),
 

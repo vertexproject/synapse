@@ -438,7 +438,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'provider:name', 'desert power')
             self.propeq(nodes[0], 'type', 'service.power.')
             self.propeq(nodes[0], 'cause', 'nature.earthquake.')
-            self.eq((1672531200000000, 1704067200000000, 31536000000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1672531200000000, 1704067200000000, 31536000000000))
 
             self.len(1, await core.nodes('risk:outage -> risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))

@@ -484,14 +484,14 @@ class ViewTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[test:str=virts :seen=2020 :polyarry={[test:str=foo1 test:str=foo3]}]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
-            self.eq(cmsgs[1][0][2][0][1][3], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
+            self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
-            self.eq(virts['form'], ['test:str', 'test:str'])
+            self.eq(virts['type'], ['test:str', 'test:str'])
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
-            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80})
+            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80, 'type': 'inet:server'})
 
     async def test_lib_view_addNodeEdits(self):
 
@@ -1695,3 +1695,9 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
             self.eq(1, fork2view.getEdgeCount(nid, n2=True))
             self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
+
+    async def test_view_runt_bad_cmpr(self):
+        async with self.getTestCore() as core:
+            prop = core.model.prop('syn:type')
+            with self.raises(s_exc.BadTypeValu):
+                await alist(core.view.getRuntNodes(prop, cmprvalu=('badcmpr', 'test')))

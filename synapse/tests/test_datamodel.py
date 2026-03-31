@@ -76,6 +76,9 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
             self.isin('Type option foo is not valid', cm.exception.get('mesg'))
 
+            with self.raises(s_exc.NoSuchType):
+                core.model.reqType('newp:newp')
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -138,6 +141,7 @@ class DataModelTest(s_t_utils.SynTest):
             ])
 
         with self.raises(s_exc.NoSuchProp):
+            modl.addForm('he:he', {}, [])
             modl.delFormProp('he:he', 'newp')
 
         with self.raises(s_exc.NoSuchForm):
@@ -562,9 +566,6 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(core.model.type('poly').info['virts'][1][0], 'value')
             self.eq(core.model.type('poly').info['virts'][1][2]['display'], {'hidden': True})
 
-            self.eq(core.model.prop('entity:relationship:id').info['virts'][1][0], 'value')
-            self.true(core.model.prop('entity:relationship:id').info['virts'][1][2]['display']['hidden'])
-
             with self.raises(s_exc.NoSuchType):
                 vdef = ('newp', ('newp', {}), {})
                 core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})
@@ -912,7 +913,7 @@ class DataModelTest(s_t_utils.SynTest):
             q = '''
             test:str:poly^=P
             $foo=:poly
-            $lib.print($foo.form)
+            $lib.print($foo.type)
             $lib.print($foo.ndef)
             $lib.print($foo.value)
             yield $foo
@@ -967,14 +968,14 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str:poly={test:lowstr=p1}'))
 
             # poly lift by form
-            self.len(1, await core.nodes('test:str:poly.form=test:lowstr'))
+            self.len(1, await core.nodes('test:str:poly.type=test:lowstr'))
 
             # poly array lift by node
             self.len(1, await core.nodes('test:str:polyarry*[={test:lowstr=p10}]'))
 
             # poly array lift by form
-            self.len(1, await core.nodes('test:str:polyarry*[.form=test:lowstr]'))
-            self.len(3, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:lowstr]'))
+            self.len(3, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
             # pivot in to poly reference
             self.len(1, await core.nodes('test:hasiface=p2 <- *'))
@@ -1038,34 +1039,34 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.callStorm(q))
 
             await core.nodes('[ test:str=if1 :poly={[ test:str2=inh ]} ]')
-            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str))'))
-            self.true(await core.callStorm('test:str=if1 return((:poly).isform(test:str2))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str2))'))
 
             await core.nodes('[ test:str=if2 :poly={[ test:str=base ]} ]')
-            self.true(await core.callStorm('test:str=if2 return((:poly).isform(test:str))'))
-            self.false(await core.callStorm('test:str=if2 return((:poly).isform(test:str2))'))
+            self.true(await core.callStorm('test:str=if2 return((:poly).istype(test:str))'))
+            self.false(await core.callStorm('test:str=if2 return((:poly).istype(test:str2))'))
 
             self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
-            self.len(2, await core.nodes('test:str +:polyarry*[.form=test:str]'))
+            self.len(2, await core.nodes('test:str +:polyarry*[.type=test:str]'))
 
             await core.nodes('[ test:str=cov1 :inhstr=inh ]')
             self.len(1, await core.nodes('$n={ test:str=cov1 } test:str:poly=$n.props.inhstr'))
             self.len(1, await core.nodes('$n={ test:str=cov1 } test:str=cov1 +:inhstr=$n.props.inhstr'))
 
-            nodes = await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
-            self.propeq(nodes[0], 'poly', 'inh', form='test:str2')
-
-            self.len(0, await core.nodes('test:str:poly.form=test:hasiface2'))
+            self.len(0, await core.nodes('test:str:poly.type=test:hasiface2'))
 
             await core.nodes('[ test:str=long :poly={[ test:str=$long1 ]} ]', opts=opts)
             self.len(3, await core.nodes('test:str:poly~=a'))
             self.len(1, await core.nodes('test:str:poly~=aa'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('test:str:poly.form=test:float')
+                await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:poly.type=test:float')
 
             with self.raises(s_exc.BadTypeDef):
-                tdef = ('poly', {'forms': ('test:str',), 'default_forms': ('test:float',)})
+                tdef = ('poly', {'forms': ('test:str',), 'default_types': ('test:float',)})
                 core.model.addFormProp('test:str', 'polyfail', tdef, {})
 
             with self.raises(s_exc.NoSuchVirt):
@@ -1075,9 +1076,9 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.nodes('test:str:poly.newp.newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('test:str:poly.form.newp')
+                await core.nodes('test:str:poly.type.newp')
 
-            with self.raises(s_exc.NoSuchForm):
+            with self.raises(s_exc.NoSuchType):
                 core.model.type('poly').repr(('newp', 'newp'))
 
             msgs = await core.stormlist('''
@@ -1113,3 +1114,68 @@ class DataModelTest(s_t_utils.SynTest):
             self.stormIsInPrint('size=1', msgs)
             self.stormIsInPrint('true', msgs)
             self.stormNotInPrint('false', msgs)
+
+            # Poly.getCmprCtor raises BadTypeValu when all types fail
+            await core.addFormProp('test:str', '_polyint', (('test:int', {}), ('test:comp', {})), {})
+            await core.nodes('[test:str=foo :_polyint=1234]')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +test:str:_polyint=haha')
+
+            # Poly.getVirtGetr handles self.virts (e.g., .type)
+            nodes = await core.nodes('[test:str=foo :bar=vertex.link]')
+            node = nodes[0]
+            self.isinstance(node.get('bar.type'), str)
+            self.isinstance(node.get('bar.value'), str)
+
+            # NodeRef.exists optimization works when reusing the same ref
+            await core.nodes('[test:str=src :bar=vertex.link]')
+            q = '''
+                test:str=src $ref = :bar
+                { [test:str=dst1 :bar=$ref] }
+                { [test:str=dst2 :bar=$ref] }
+            '''
+            await core.nodes(q)
+            self.len(1, await core.nodes('test:str=dst1 +:bar'))
+            self.len(1, await core.nodes('test:str=dst2 +:bar'))
+
+            form = core.model.form('test:str')
+            with self.raises(s_exc.NoSuchType):
+                core.model._addFormProp(form, '_badpoly', ('poly', {'types': ('newp:newp',)}), {})
+
+            await core.addType('_test:myint', 'int', {}, {})
+            await core.addFormProp('test:str', '_arryprop', ('array', {'type': '_test:myint'}), {})
+
+            with self.raises(s_exc.CantDelType):
+                core.model.reqTypeNotInUse('_test:myint')
+
+            await core.delFormProp('test:str', '_arryprop')
+
+            await core.addFormProp('test:str', '_ifpoly', (('inet:fqdn', {}), ('meta:observable', {})), {})
+            self.nn(core.model.prop('test:str:_ifpoly'))
+            await core.delFormProp('test:str', '_ifpoly')
+            self.none(core.model.prop('test:str:_ifpoly'))
+
+            await core.addFormProp('test:str', '_ifarry', ('array', {'type': (('inet:fqdn', {}), ('meta:observable', {}))}), {})
+            self.nn(core.model.prop('test:str:_ifarry'))
+            await core.delFormProp('test:str', '_ifarry')
+            self.none(core.model.prop('test:str:_ifarry'))
+
+            ptyp = core.model.prop('test:str:seen').type
+            self.true(ptyp.ispoly)
+
+            # getVirtType via getTypeSet path (ival's min virt)
+            vtyp = ptyp.getVirtType(('min',))
+            self.nn(vtyp)
+
+            # getVirtType raise for unknown virt
+            with self.raises(s_exc.NoSuchVirt):
+                ptyp.getVirtType(('newp',))
+
+            # getVirtInfo via getTypeSet path (ival's min virt)
+            vinfo = ptyp.getVirtInfo(('min',))
+            self.nn(vinfo[0])
+            self.nn(vinfo[1])
+
+            # getVirtInfo raise for unknown virt
+            with self.raises(s_exc.NoSuchVirt):
+                ptyp.getVirtInfo(('newp',))

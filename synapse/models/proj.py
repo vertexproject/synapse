@@ -33,7 +33,7 @@ modeldefs = (
                     ('project', ('proj:project', {}), {
                         'doc': 'The project containing the {task}.'}),
 
-                    ('status', ('int', {'enums': statusenums}), {
+                    ('status', ('proj:issue:status', {}), {
                         # TODO: make runtime setable int enum typeopts
                         'doc': 'The status of the {task}.'}),
 
@@ -64,6 +64,12 @@ modeldefs = (
             }),
         ),
         'types': (
+
+            ('proj:issue:status', ('int', {'enums': statusenums}), {
+                'doc': 'A project issue status.'}),
+
+            ('proj:sprint:status', ('str', {'enums': 'planned,current,completed'}), {
+                'doc': 'A project sprint status.'}),
 
             ('proj:task:type:taxonomy', ('taxonomy', {}), {
                 'prevnames': ('proj:ticket:type:taxonomy',),
@@ -127,7 +133,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'The name of the sprint.'}),
 
-                ('status', ('str', {'enums': 'planned,current,completed'}), {
+                ('status', ('proj:sprint:status', {}), {
                     'doc': 'The sprint status.'}),
 
                 ('project', ('proj:project', {}), {

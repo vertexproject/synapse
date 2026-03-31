@@ -14,9 +14,6 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 storvirts = {
-    s_layer.STOR_TYPE_POLY: {
-        'form': lambda x: x[0],
-    },
     s_layer.STOR_TYPE_IVAL: {
         'min': lambda x: x[0],
         'max': lambda x: x[1],
@@ -58,11 +55,10 @@ class NodeBase:
                 return defv
             return typeitem.repr(valu)
 
-        if typeitem.ispoly:
-            if typeitem.virts.get(virts[0]) is None:
-                if (valu := self.get(name)) is None:
-                    return defv
-                typeitem = self.view.core.model.form(valu[0]).type
+        if typeitem.virts.get(virts[0]) is None:
+            if (valu := self.get(name)) is None:
+                return defv
+            typeitem = self.view.core.model.type(valu[0])
 
         virttype, virtgetr = typeitem.getVirtInfo(virts)
 
@@ -96,7 +92,11 @@ class NodeBase:
                 continue
 
             rval = prop.type.repr(valu)
-            if rval is None or rval == valu:
+
+            if prop.type.isarray:
+                if rval == [v[1] for v in valu]:
+                    continue
+            elif rval == valu[1]:
                 continue
 
             reps[name] = rval
@@ -420,7 +420,7 @@ class Node(NodeBase):
             if prop is None:
                 return None
 
-            if not (prop.type.ispoly or 'ndef' in prop.type.types):
+            if not prop.type.hasforms:
                 return None
 
             buid = s_common.buid(valu)
@@ -461,7 +461,7 @@ class Node(NodeBase):
                         embdnode[relp] = node.getMeta(metaname)
                     continue
 
-                valu, virts = node.getWithVirts(relp)
+                valu, stortype, virts = node.getRawWithLayer(relp)[0]
                 embdnode[relp] = valu
 
                 if valu is None:
@@ -471,16 +471,18 @@ class Node(NodeBase):
                     for vname, vval in virts.items():
                         embdnode[f'{relp}.{vname}'] = vval[0]
 
-                stortype = node.form.prop(relp).type.stortype
+                stortype &= s_layer.STOR_MASK_POLY
+
                 if stortype & s_layer.STOR_FLAG_ARRAY:
                     embdnode[f'{relp}.size'] = len(valu)
-                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
-                        for vname, getr in svirts.items():
-                            embdnode[f'{relp}.{vname}'] = [getr(v) for v in valu]
+                    embdnode[f'{relp}.type'] = [v[0] for v in valu]
+
                 else:
+                    embdnode[f'{relp}.type'] = valu[0]
+
                     if (svirts := storvirts.get(stortype)) is not None:
                         for vname, getr in svirts.items():
-                            embdnode[f'{relp}.{vname}'] = getr(valu)
+                            embdnode[f'{relp}.{vname}'] = getr(valu[1])
 
         return retn
 
@@ -720,21 +722,21 @@ class Node(NodeBase):
 
     def getRawWithLayer(self, name, defv=None):
         '''
-        Return a secondary property with virtual property information from the Node and the index of the sode.
+        Return full secondary property information from the Node and the index of the sode.
 
         Args:
             name (str): The name of a secondary property.
 
         Returns:
-            (tuple): The secondary property and virtual property information or (defv, None).
+            (tuple): The raw secondary property information or (defv, None, None).
             (int): Index of the sode or None.
         '''
         for indx, sode in enumerate(self.sodes):
             if sode.get('antivalu') is not None:
-                return (defv, None), None
+                return (defv, None, None), None
 
             if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
-                return (defv, None), None
+                return (defv, None, None), None
 
             if (item := sode.get('props')) is None:
                 continue
@@ -742,7 +744,7 @@ class Node(NodeBase):
             if (valt := item.get(name)) is not None:
                 return valt, indx
 
-        return (defv, None), None
+        return (defv, None, None), None
 
     def getFromLayers(self, name, strt=0, stop=None, defv=None):
         for sode in self.sodes[strt:stop]:
@@ -924,7 +926,7 @@ class Node(NodeBase):
             for name, valt in list(retn.items()):
                 retn[name] = valu = valt[0]
 
-                stortype = valt[1]
+                stortype = valt[1] & s_layer.STOR_MASK_POLY
                 vprops = valt[2]
 
                 if stortype & s_layer.STOR_FLAG_ARRAY:
@@ -934,24 +936,45 @@ class Node(NodeBase):
                         retn[f'{name}.{vname}'] = {vval[0]: vcnt for vval, vcnt in vvals.items()}
 
                     retn[f'{name}.size'] = len(valu)
-                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
-                        for vname, getr in svirts.items():
-                            retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+                    retn[f'{name}.type'] = [v[0] for v in valu]
 
                 else:
                     if vprops is not None:
                         for vname, vval in vprops.items():
                             retn[f'{name}.{vname}'] = vval[0]
 
-                    if stortype & s_layer.STOR_FLAG_POLY:
-                        retn[f'{name}.form'] = valu[0]
+                    retn[f'{name}.type'] = valu[0]
 
-                    else:
-                        if (svirts := storvirts.get(stortype)) is not None:
-                            for vname, getr in svirts.items():
-                                retn[f'{name}.{vname}'] = getr(valu)
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            retn[f'{name}.{vname}'] = getr(valu[1])
 
         return retn
+
+    def getNodeRefProps(self, virts=False):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (proptomb := sode.get('antiprops')) is not None:
+                for name in proptomb.keys():
+                    retn.pop(name, None)
+
+            if (props := sode.get('props')) is not None:
+                retn |= props
+
+        refs = {}
+        for name, valt in retn.items():
+            valu, styp, virts = valt
+            if styp & s_layer.STOR_FLAG_ARRAY:
+                refs[name] = valu
+            else:
+                refs[name] = s_stormtypes.NodeRef((valu, virts))
+
+        return refs
 
     def _getTagsDict(self):
         retn = {}
@@ -1305,6 +1328,9 @@ class RuntNode(NodeBase):
 
     def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
+
+    def getWithVirts(self, name, defv=None, virts=None):
+        return self.pode[1]['props'].get(name, defv), None
 
     def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
@@ -1669,7 +1695,11 @@ def reprProp(pode, prop):
         return None
     propvalu = pode[1].get('reprs', {}).get(prop)
     if propvalu is None:
-        return str(opropvalu)
+        if not opropvalu:
+            return str(opropvalu)
+        if isinstance(opropvalu[0], str):
+            return str(opropvalu[1])
+        return tuple(str(v[1]) for v in opropvalu)
     return propvalu
 
 def reprTag(pode, tag):

@@ -275,7 +275,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org guid for the manufacturer.'}),
 
-                ('manu', ('str', {'lower': True}), {
+                ('manu', ('str:lower', {}), {
                     'doc': 'The TAC manufacturer name.'}),
                 # FIXME manufactured
 

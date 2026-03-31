@@ -57,7 +57,7 @@ class TransportTest(s_test.SynTest):
                 ]'''))[0]
             self.nn(telem.get('flight'))
             self.nn(telem.get('place'))
-            self.eq((20.22, 80.1111), telem.get('place:latlong'))
+            self.propeq(telem, 'place:latlong', (20.22, 80.1111))
             self.propeq(telem, 'place:loc', 'us')
             self.propeq(telem, 'place:latlong:accuracy', 10000)
             self.propeq(telem, 'speed', 103888)
@@ -114,7 +114,7 @@ class TransportTest(s_test.SynTest):
             ]'''))[0]
 
             self.nn(seatelem.get('place'))
-            self.eq((20.22, 80.1111), seatelem.get('place:latlong'))
+            self.propeq(seatelem, 'place:latlong', (20.22, 80.1111))
             self.propeq(seatelem, 'place:loc', 'us')
             self.propeq(seatelem, 'place:latlong:accuracy', 10000)
             self.propeq(seatelem, 'time', 1580601600000000)

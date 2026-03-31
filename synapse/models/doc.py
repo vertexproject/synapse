@@ -253,15 +253,15 @@ modeldefs = (
 
             ('doc:reference', {}, (
 
-                ('source', ((
-                        'doc:report',
-                        'risk:vuln',
-                        'risk:tool:software',
-                        'risk:threat',
-                        'entity:campaign',
-                        'meta:technique',
-                        'plan:phase'
-                    ), {}), {
+                ('source', (
+                        ('doc:report', {}),
+                        ('risk:vuln', {}),
+                        ('risk:tool:software', {}),
+                        ('risk:threat', {}),
+                        ('entity:campaign', {}),
+                        ('meta:technique', {}),
+                        ('plan:phase', {}),
+                    ), {
                     'doc': 'The source which contains the reference.'}),
 
                 ('text', ('str', {}), {

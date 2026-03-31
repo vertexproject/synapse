@@ -153,6 +153,12 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
+            ('econ:acct:number', ('str', {'regex': '[0-9]{1, 12}'}), {
+                'doc': 'A bank account number.'}),
+
+            ('econ:invoice:number', ('str', {'regex': '[0-9]+'}), {
+                'doc': 'An invoice or transaction number.'}),
         ),
 
         'interfaces': (
@@ -237,7 +243,7 @@ modeldefs = (
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The ABA routing number on the check.'}),
 
-                ('account:number', ('str', {'regex': '[0-9]{1, 12}'}), {
+                ('account:number', ('econ:acct:number', {}), {
                     'doc': 'The bank account number.'}),
             )),
 
@@ -263,7 +269,10 @@ modeldefs = (
                     'doc': 'The total cost of this receipt line item.'}),
 
                 # FIXME rename biz:sellable? donation / volunteers
-                ('item', (('biz:product', 'biz:service'), {}), {
+                ('item', (
+                        ('biz:product', {}),
+                        ('biz:service', {})
+                    ), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
             )),
@@ -313,7 +322,7 @@ modeldefs = (
                 ('cash', ('bool', {}), {
                     'doc': 'The payment was made with physical currency.'}),
 
-                ('status', ('str', {'lower': True}), {
+                ('status', ('str:lower', {}), {
                     'doc': 'The status of the payment.'}),
 
                 ('payee', ('entity:actor', {}), {
@@ -381,7 +390,7 @@ modeldefs = (
                 ('exchange', ('econ:fin:exchange', {}), {
                     'doc': 'The exchange on which the security is traded.'}),
 
-                ('ticker', ('str', {'lower': True}), {
+                ('ticker', ('str:lower', {}), {
                     'doc': 'The identifier for this security within the exchange.'}),
 
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
@@ -526,7 +535,7 @@ modeldefs = (
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The routing number.'}),
 
-                ('number', ('str', {'regex': '[0-9]+'}), {
+                ('number', ('econ:invoice:number', {}), {
                     'doc': 'The account number.'}),
             )),
         ),
