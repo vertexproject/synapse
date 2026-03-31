@@ -1324,7 +1324,7 @@ modeldefs = (
                 ('id', ('str', {}), {
                     'doc': 'An external identifier for the host.'}),
 
-                ('keyboard:layout', ('str:loweronespace', {}), {
+                ('keyboard:layout', ('base:name', {}), {
                     'doc': 'The primary keyboard layout configured on the host.'}),
 
                 ('keyboard:language', ('lang:language', {}), {
@@ -2107,7 +2107,7 @@ modeldefs = (
                 ('signame', ('it:av:signame', {}), {
                     'doc': 'The name of the signature returned by the scanner.'}),
 
-                ('categories', ('array', {'type': 'str:loweronespace'}), {
+                ('categories', ('array', {'type': 'base:name'}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
                 ('target', (
@@ -2231,7 +2231,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host that the service was configured on.'}),
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service from the registry key within Services.'}),
 
                 # TODO flags...
@@ -2244,7 +2244,7 @@ modeldefs = (
                 ('errorcontrol', ('int', {'min': 0}), {
                     'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
 
-                ('displayname', ('str:loweronespace', {}), {
+                ('displayname', ('base:name', {}), {
                     'doc': 'The friendly name of the service from the DisplayName registry key.'}),
 
                 ('description', ('text', {}), {
@@ -2266,7 +2266,7 @@ modeldefs = (
                 ('api:url', ('inet:url', {}), {
                     'doc': 'The URL of the API endpoint the query was sent to.'}),
 
-                ('language', ('str:loweronespace', {}), {
+                ('language', ('base:name', {}), {
                     'doc': 'The name of the language that the query is expressed in.'}),
 
                 ('offset', ('int', {}), {

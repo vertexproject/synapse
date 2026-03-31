@@ -554,7 +554,7 @@ modeldefs = (
             )),
 
             ('crypto:key:ecdsa', {}, (
-                ('curve', ('str:loweronespace', {}), {
+                ('curve', ('base:name', {}), {
                     'doc': 'The curve standard in use.'}),
 
                 ('public', ('hex', {}), {
@@ -602,7 +602,7 @@ modeldefs = (
                 ('iv', ('hex', {}), {
                     'doc': 'The hex encoded initialization vector.'}),
 
-                ('mode', ('str:loweronespace', {}), {
+                ('mode', ('base:name', {}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
                 ('value', ('hex', {}), {
