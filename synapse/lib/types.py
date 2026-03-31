@@ -369,10 +369,12 @@ class Type:
     async def _ctorCmprRange(self, vals):
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
+            mesg = f'Range comparison requires a 2-tuple: {s_common.trimText(repr(vals))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=vals, mesg=mesg)
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
+            mesg = f'Range comparison requires a 2-tuple: {s_common.trimText(repr(vals))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=vals, mesg=mesg)
 
         minv = (await self.norm(vals[0]))[0]
         maxv = (await self.norm(vals[1]))[0]
@@ -2211,19 +2213,15 @@ class Poly(Type):
             elif (ndefcmpr := isinstance(val1, s_stormtypes.NodeRef)):
                 realv = val1.valu[1]
 
-            errs = []
+            lasterr = None
             for thash, ctor in ctors.items():
                 try:
                     cmprs[thash] = await ctor(realv)
-                except (s_exc.BadCmprValu, s_exc.BadTypeValu) as e:
-                    errs.append(e)
+                except s_exc.BadTypeValu as e:
+                    lasterr = e
 
-            if not cmprs:
-                if len(errs) == 1:
-                    raise errs[0]
-                else:
-                    # TODO: how do we want to handle multiple errs of potentially mixed types?
-                    raise s_exc.BadCmprValu(itemtype=type(realv), cmpr=name, mesg=errs)
+            if not cmprs and lasterr is not None:
+                raise lasterr
 
             async def cmprfunc(val2):
                 if ndefcmpr:
@@ -3326,12 +3324,12 @@ class Time(IntBase):
         '''
 
         if not isinstance(vals, (list, tuple)):
-            mesg = f'Must be a 2-tuple: {s_common.trimText(repr(vals))}'
-            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=', mesg=mesg)
+            mesg = f'Range comparison requires a 2-tuple: {s_common.trimText(repr(vals))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=vals, mesg=mesg)
 
         if len(vals) != 2:
-            mesg = f'Must be a 2-tuple: {s_common.trimText(repr(vals))}'
-            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=', mesg=mesg)
+            mesg = f'Range comparison requires a 2-tuple: {s_common.trimText(repr(vals))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=vals, mesg=mesg)
 
         tick, tock = await self.getTickTock(vals)
 

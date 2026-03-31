@@ -1712,7 +1712,7 @@ class LiftOper(Oper):
                                             yield node
                                             break
 
-                    except (s_exc.BadTypeValu, s_exc.BadCmprValu):
+                    except s_exc.BadTypeValu:
                         pass
 
     async def run(self, runt, genr):

@@ -1581,11 +1581,11 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
             # sad path
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:haha*range=(somestring,)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:int +test:int*range=3456')
 
     async def test_str(self):
@@ -1756,7 +1756,7 @@ class TypesTest(s_t_utils.SynTest):
 
             tock = (await t.norm('2015'))[0]
 
-            await self.asyncraises(s_exc.BadCmprValu, t.cmpr('2015', 'range=', tick))
+            await self.asyncraises(s_exc.BadTypeValu, t.cmpr('2015', 'range=', tick))
 
             prec = core.model.type('timeprecision')
             styp = prec.stortype
@@ -1951,9 +1951,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
 
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')

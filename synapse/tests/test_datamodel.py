@@ -1115,10 +1115,10 @@ class DataModelTest(s_t_utils.SynTest):
             self.stormIsInPrint('true', msgs)
             self.stormNotInPrint('false', msgs)
 
-            # Poly.getCmprCtor raises BadCmprValu when all types fail
+            # Poly.getCmprCtor raises BadTypeValu when all types fail
             await core.addFormProp('test:str', '_polyint', (('test:int', {}), ('test:comp', {})), {})
             await core.nodes('[test:str=foo :_polyint=1234]')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +test:str:_polyint=haha')
 
             # Poly.getVirtGetr handles self.virts (e.g., .type)

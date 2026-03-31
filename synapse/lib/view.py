@@ -3683,12 +3683,12 @@ class View(s_nexus.Pusher):  # type: ignore
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 mesg = f'Bad comparison ({cmpr}) for type {prop.type.name}.'
-                raise s_exc.BadCmprType(mesg=mesg, cmpr=cmpr)
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, cmpr=cmpr)
 
             filt = await ctor(valu)
             if filt is None:
                 mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
-                raise s_exc.BadCmprValu(mesg=mesg, cmpr=cmpr)
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, cmpr=cmpr)
 
         async for pode in self.getRuntPodes(prop, cmprvalu=cmprvalu):
 
