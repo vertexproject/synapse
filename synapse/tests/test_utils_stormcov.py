@@ -65,6 +65,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/whilebackedge.storm'),
             s_files.getAssetPath('stormcov/whilecontinue.storm'),
             s_files.getAssetPath('stormcov/whileloop.storm'),
+            s_files.getAssetPath('stormcov/whilewithnode.storm'),
         ]
 
         stormcov = s_stormcov.StormcovPlugin(opts)
