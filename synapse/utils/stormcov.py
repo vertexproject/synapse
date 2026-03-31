@@ -300,10 +300,12 @@ class StormcovPlugin:
                 frame = inspect.currentframe().f_back.f_back
 
         realnode = frame.f_locals.get('self')
-        if hasattr(realnode, '_coverage_hit'):
+        cached = getattr(realnode, '_coverage_info', s_common.novalu)
+        if cached is not s_common.novalu:
+            if cached is not None:
+                info, nodeid = cached
+                self.mark_lines(frame, info, nodeid=nodeid)
             return
-
-        realnode._coverage_hit = True
 
         node = realnode
         while hasattr(node, 'parent'):
@@ -313,18 +315,22 @@ class StormcovPlugin:
 
         info = self.node_map.get(nodeid, s_common.novalu)
         if info is None:
+            realnode._coverage_info = None
             return
 
         if info is not s_common.novalu:
+            realnode._coverage_info = (info, nodeid)
             self.mark_lines(frame, info, nodeid=nodeid)
             return
 
         if node.__class__.__name__ != 'Query':
             self.node_map[nodeid] = None
+            realnode._coverage_info = None
             return
 
         info = self.text_map.get(node.text, s_common.novalu)
         if info is not s_common.novalu:
+            realnode._coverage_info = (info, nodeid)
             self.mark_lines(frame, info, nodeid=nodeid)
             return
 
@@ -340,10 +346,12 @@ class StormcovPlugin:
 
         if filename is None:
             self.node_map[nodeid] = None
+            realnode._coverage_info = None
             return
 
         self.node_map[nodeid] = (filename, offs)
         self.text_map[node.text] = (filename, offs)
+        realnode._coverage_info = ((filename, offs), nodeid)
         self.mark_lines(frame, (filename, offs), nodeid=nodeid)
 
     def finalize_arcs(self):
