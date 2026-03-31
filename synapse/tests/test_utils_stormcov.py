@@ -23,7 +23,8 @@ class StormcovConfig:
             stormdirs=stormdirs,
             stormexts=stormexts,
             stormcov_append=stormcov_append,
-            stormcov_basedir=pathlib.Path(stormcov_basedir)
+            stormcov_basedir=pathlib.Path(stormcov_basedir),
+            stormcov_branch=False,
         )
 
 class TestUtilsStormcov(s_utils.SynTest):
