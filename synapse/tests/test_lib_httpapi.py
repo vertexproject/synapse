@@ -1749,6 +1749,35 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(data.get('status'), 'err')
                         self.eq(data.get('code'), 'NotAuthenticated')
 
+                # check isvalidstorm with various queries
+                tvs = (
+                    ('test:str=test', {}, True),
+                    ('1.2.3.4 | spin', {'mode': 'lookup'}, True),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, True),
+                    ('1.2.3.4', {}, False),
+                    ('| 1.2.3.4 ', {'mode': 'lookup'}, False),
+                    ('| 1.2.3.4', {'mode': 'autoadd'}, False),
+                )
+                url = f'https://localhost:{port}/api/v1/isvalidstorm'
+                for (query, opts, expected_ok) in tvs:
+                    body = {'query': query, 'opts': opts}
+                    async with sess.post(url, json=body) as resp:
+                        self.eq(resp.status, http.HTTPStatus.OK)
+                        data = await resp.json()
+                        self.eq(data.get('status'), 'ok')
+                        ok, info = data.get('result')
+                        self.eq(ok, expected_ok)
+                        if not expected_ok:
+                            self.eq(info[0], 'BadSyntax')
+
+                # Sad path
+                async with aiohttp.client.ClientSession() as bad_sess:
+                    async with bad_sess.post(url, ssl=False) as resp:
+                        data = await resp.json()
+                        self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
+                        self.eq(data.get('status'), 'err')
+                        self.eq(data.get('code'), 'NotAuthenticated')
+
     async def test_tls_ciphers(self):
 
         async with self.getTestCore() as core:

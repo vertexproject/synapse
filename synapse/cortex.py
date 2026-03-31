@@ -412,6 +412,19 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.reqValidStorm(text, opts)
 
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts)
+
     async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
@@ -4835,6 +4848,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -6550,6 +6564,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mode = opts.get('mode', 'storm')
         await self.getStormQuery(text, mode=mode)
         return True
+
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except s_exc.BadSyntax as e:
+            return s_common.retnexc(e)
 
     def _logStormQuery(self, text, user, info=None):
         '''
