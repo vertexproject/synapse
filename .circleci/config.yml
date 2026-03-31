@@ -623,6 +623,7 @@ workflows:
             branches:
               only:
                 - master
+                - blackout/SYN-10137/crash-fix
 
       - build_docker_tag:
           requires:

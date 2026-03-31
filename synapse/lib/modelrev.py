@@ -1,9 +1,11 @@
 import regex
+import asyncio
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
@@ -1276,7 +1278,7 @@ class ModelMigrationBase:
             await self._flushEdits()
 
     async def _flushEdits(self):
-        for layriden, layredits in self.nodeedits.items():
+        async for layriden, layredits in s_coro.pause(self.nodeedits.items()):
             layer = self.core.getLayer(layriden)
             if layer is None: # pragma: no cover
                 continue
@@ -1999,6 +2001,8 @@ class ModelMigrationBase:
 
                             await self.nodes.set(buid, node)
 
+                    await asyncio.sleep(0)
+
             await todotmp.fini()
 
 class ModelMigration_0_2_31(ModelMigrationBase):
@@ -2204,7 +2208,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             for idx, layer in enumerate(self.layers):
                 logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
 
-                async for buid, sode in layer.getStorNodesByForm(formname):
+                async for buid, sode in s_coro.pause(layer.getStorNodesByForm(formname)):
 
                     if (formvalu := sode.get('valu')) is None:
                         continue
@@ -2245,7 +2249,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         for idx, layer in enumerate(self.layers):
             logger.debug('Loading node info in layer %s %s', idx, layer.iden)
 
-            for buid, node in self.nodes.items():
+            async for buid, node in s_coro.pause(self.nodes.items()):
                 await self._loadNode(layer, buid, node=node)
                 await self.nodes.set(buid, node)
 
@@ -2253,7 +2257,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         # Do this before we load references so we don't have to load refs for nodes where the primary value is correct.
         logger.info('Migrating mismatched port properties')
         count = 0
-        for buid, node in self.nodes.items():
+        async for buid, node in s_coro.pause(self.nodes.items()):
 
             formname = node.get('formname')
             formvalu = node.get('formvalu')
@@ -2305,7 +2309,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         for idx, layer in enumerate(self.layers):
             logger.debug('Loading node info in layer %s %s', idx, layer.iden)
 
-            for buid, node in self.nodes.items():
+            async for buid, node in s_coro.pause(self.nodes.items()):
                 formvalu = node.get('formvalu')
                 formname = node.get('formname')
                 formndef = (formname, formvalu)
@@ -2338,7 +2342,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         count = 0
         migrated = 0
         removed = 0
-        for buid, node in self.nodes.items():
+        async for buid, node in s_coro.pause(self.nodes.items()):
 
             formname = node.get('formname')
             formvalu = node.get('formvalu')
