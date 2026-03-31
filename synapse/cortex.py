@@ -6579,7 +6579,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             await self.reqValidStorm(text, opts)
             return (True, {})
-        except s_exc.BadSyntax as e:
+        except Exception as e:
             return s_common.retnexc(e)
 
     def _logStormQuery(self, text, user, info=None):

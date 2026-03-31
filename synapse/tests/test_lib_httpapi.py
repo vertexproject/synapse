@@ -1754,9 +1754,10 @@ class HttpApiTest(s_tests.SynTest):
                     ('test:str=test', {}, True),
                     ('1.2.3.4 | spin', {'mode': 'lookup'}, True),
                     ('1.2.3.4 | spin', {'mode': 'autoadd'}, True),
-                    ('1.2.3.4', {}, False),
-                    ('| 1.2.3.4 ', {'mode': 'lookup'}, False),
-                    ('| 1.2.3.4', {'mode': 'autoadd'}, False),
+                    ('1.2.3.4', {}, 'BadSyntax'),
+                    ('| 1.2.3.4 ', {'mode': 'lookup'}, 'BadSyntax'),
+                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'BadSyntax'),
+                    (123456788, {}, 'TypeError'),
                 )
                 url = f'https://localhost:{port}/api/v1/isvalidstorm'
                 for (query, opts, expected_ok) in tvs:
@@ -1766,9 +1767,9 @@ class HttpApiTest(s_tests.SynTest):
                         data = await resp.json()
                         self.eq(data.get('status'), 'ok')
                         ok, info = data.get('result')
-                        self.eq(ok, expected_ok)
-                        if not expected_ok:
-                            self.eq(info[0], 'BadSyntax')
+                        self.eq(ok, expected_ok is True)
+                        if expected_ok is not True:
+                            self.eq(info[0], expected_ok)
 
                 # Sad path
                 async with aiohttp.client.ClientSession() as bad_sess:

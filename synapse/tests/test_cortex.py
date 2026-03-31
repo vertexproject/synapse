@@ -3431,6 +3431,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.false(ok)
             self.eq(info[0], 'BadSyntax')
 
+            ok, info = await proxy.isValidStorm(12345678)
+            self.false(ok)
+            self.eq(info[0], 'TypeError')
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
