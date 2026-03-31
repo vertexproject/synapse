@@ -429,6 +429,9 @@ modeldefs = (
 
                     ('recording:file', ('file:bytes', {}), {
                         'doc': 'A file containing a recording of the {title}.'}),
+
+                    ('recording:offset', ('duration', {}), {
+                        'doc': 'The time offset of the activity within the recording.'}),
                 ),
                 'doc': 'Properties common to activities which may be recorded or transcribed.'}),
         ),

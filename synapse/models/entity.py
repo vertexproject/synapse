@@ -520,16 +520,11 @@ modeldefs = (
                 'template': {'title': 'statement'},
                 'interfaces': (
                     ('entity:activity', {}),
+                    ('meta:recordable', {}),
                 ),
                 'props': (
                     ('text', ('str', {}), {
                         'doc': 'The transcribed text of what the actor said.'}),
-
-                    ('activity', ('meta:recordable', {}), {
-                        'doc': 'The activity during which the statement was made.'}),
-
-                    ('recording:offset', ('duration', {}), {
-                        'doc': 'The time offset of the statement within the recording.'}),
                 ),
                 'doc': 'A statement made by an actor.'}),
         ),
