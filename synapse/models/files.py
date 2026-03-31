@@ -226,7 +226,7 @@ modeldefs = (
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'MIME specific altitude information extracted from metadata.'}),
 
-                    ('text', ('str:loweronespace', {}), {
+                    ('text', ('base:name', {}), {
                         'doc': 'The text contained within the image.'}),
                 ),
                 'doc': 'Properties common to image file formats.',

@@ -2779,7 +2779,7 @@ modeldefs = (
                 ('client:hostname', ('it:hostname', {}), {
                     'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
 
-                ('client:keyboard:layout', ('str:loweronespace', {}), {
+                ('client:keyboard:layout', ('base:name', {}), {
                     'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
             )),
 
@@ -2895,7 +2895,7 @@ modeldefs = (
                 ('type', ('inet:service:platform:type:taxonomy', {}), {
                     'doc': 'The type of service platform.'}),
 
-                ('family', ('str:loweronespace', {}), {
+                ('family', ('base:name', {}), {
                     'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
 
                 ('parent', ('inet:service:platform', {}), {
@@ -2926,11 +2926,11 @@ modeldefs = (
 
             ('inet:service:agent', {}, (
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the service agent instance.'}),
 
-                ('names', ('array', {'type': 'str:loweronespace'}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'An array of alternate names for the service agent instance.'}),
 
                 ('desc', ('str', {}), {
@@ -2982,7 +2982,7 @@ modeldefs = (
 
             ('inet:service:permission', {}, (
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the permission.'}),
 
                 ('type', ('inet:service:permission:type:taxonomy', {}), {
@@ -3057,7 +3057,7 @@ modeldefs = (
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the message is publicly visible.'}),
 
-                ('title', ('str:loweronespace', {}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The message title.'}),
 
                 ('text', ('text', {}), {
@@ -3118,7 +3118,7 @@ modeldefs = (
 
             ('inet:service:channel', {}, (
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the channel.'}),
 
                 ('period', ('ival', {}), {
@@ -3133,7 +3133,7 @@ modeldefs = (
 
             ('inet:service:thread', {}, (
 
-                ('title', ('str:loweronespace', {}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The title of the thread.'}),
 
                 ('channel', ('inet:service:channel', {}), {
@@ -3158,7 +3158,7 @@ modeldefs = (
             ('inet:service:resource:type:taxonomy', {}, {}),
             ('inet:service:resource', {}, (
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
 
                 ('desc', ('text', {}), {
@@ -3173,7 +3173,7 @@ modeldefs = (
 
             ('inet:service:bucket', {}, (
 
-                ('name', ('str:loweronespace', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
             )),
 
