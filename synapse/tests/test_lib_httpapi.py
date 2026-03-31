@@ -1757,7 +1757,7 @@ class HttpApiTest(s_tests.SynTest):
                     ('1.2.3.4', {}, 'BadSyntax'),
                     ('| 1.2.3.4 ', {'mode': 'lookup'}, 'BadSyntax'),
                     ('| 1.2.3.4', {'mode': 'autoadd'}, 'BadSyntax'),
-                    (123456788, {}, 'TypeError'),
+                    (12345678, {}, 'TypeError'),
                 )
                 url = f'https://localhost:{port}/api/v1/isvalidstorm'
                 for (query, opts, expected_ok) in tvs:
