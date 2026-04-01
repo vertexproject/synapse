@@ -915,8 +915,10 @@ class Agenda(s_base.Base):
     async def _getAffinityProxy(self, appt, timeout=10):
         '''
         Attempt to get a telepath proxy to the affinity service.
-        Returns None if the service is unavailable.
+        Returns None if the service is unavailable or affinity is set to None.
         '''
+        if appt.affinity is None:
+            return None
         try:
             prox = await s_telepath.openurl(f'aha://{appt.affinity}', timeout=timeout)
             return prox
