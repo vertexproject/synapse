@@ -1,6 +1,6 @@
 ---
-desc: Remove warning messages related to Cronjob affinity when that functionality is not configured
-  for a Cronjob.
+desc: Remove warning messages related to Cron job affinity when affinity is not configured
+  for a Cron job.
 desc:literal: false
 prs: []
 type: bug
