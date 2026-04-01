@@ -63,6 +63,14 @@ def pytest_addoption(parser): # pragma: no cover
         help='The base package directory. Useful for monorepo environments.',
     )
 
+    group.addoption(
+        '--stormcov-branch',
+        default=False,
+        action='store_true',
+        dest='stormcov_branch',
+        help='Enable branch coverage for storm files. Enabled automatically if pytest-cov branch tracking is enabled.',
+    )
+
 DISABLE = sys.monitoring.DISABLE
 
 def pytest_configure(config): # pragma: no cover
@@ -72,7 +80,7 @@ def pytest_configure(config): # pragma: no cover
 
     config.pluginmanager.register(StormcovPlugin(config), 'stormcov')
 
-def get_parser():
+def getParser():
     grammar = s_data.getLark('storm')
     return lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,
                             maybe_placeholders=False, propagate_positions=True)
@@ -100,9 +108,9 @@ class StormcovPlugin:
 
         self.config = config
         self.handlers = {
-            'ast.py': self.handle_ast,
-            'view.py': self.handle_view,
-            'stormctrl.py': self.handle_stormctrl,
+            'ast.py': self.handleAst,
+            'view.py': self.handleView,
+            'stormctrl.py': self.handleStormctrl,
         }
 
         self.node_map = {}
@@ -110,23 +118,32 @@ class StormcovPlugin:
         self.guid_map = {}
         self.subq_map = {}
         self.lines_hit = collections.defaultdict(set)
+        self.arcs_hit = collections.defaultdict(set)
+        self.prev_line = {}
+        self.prev_nodeid = {}
 
         self.freg = regex.compile(r'.*synapse/lib/(ast.py|view.py|stormctrl.py)$')
 
-        self.parser = get_parser()
+        self.parser = getParser()
 
         opts = config.option
 
         self.append = config.option.stormcov_append
         self.stormdirs = config.option.stormdirs
         self.basedir = config.option.stormcov_basedir
+        self.stormbranch = config.option.stormcov_branch
         self.extensions = [e.strip() for e in opts.stormexts.split(',')]
+
+        self.pycov = hasattr(config.option, 'no_cov') and not config.option.no_cov
 
     def reset(self):
         self.lines_hit = collections.defaultdict(set)
+        self.arcs_hit = collections.defaultdict(set)
+        self.prev_line = {}
+        self.prev_nodeid = {}
 
-    def find_storm_files(self, dirn):
-        for path in self.find_executable_files(dirn):
+    def findStormFiles(self, dirn):
+        for path in self.findExecutableFiles(dirn):
             with open(path, 'r') as f:
                 apth = os.path.abspath(path)
 
@@ -136,12 +153,12 @@ class StormcovPlugin:
                     logger.warning('Skipping invalid storm file: %s', apth)
                     continue
 
-                self.find_subqueries(tree, apth)
+                self.findSubqueries(tree, apth)
 
                 guid = s_common.guid(str(tree))
                 self.guid_map[guid] = apth
 
-    def find_executable_files(self, src_dir):
+    def findExecutableFiles(self, src_dir):
         rx = r"^[^#~!$@%^&*()+=,]+\.(" + "|".join(self.extensions) + r")$"
         for (dirpath, dirnames, filenames) in os.walk(src_dir):
             for filename in filenames:
@@ -149,7 +166,7 @@ class StormcovPlugin:
                     path = os.path.join(dirpath, filename)
                     yield path
 
-    def find_subqueries(self, tree, path):
+    def findSubqueries(self, tree, path):
         for rule in ('argvquery', 'embedquery'):
             for node in tree.find_data(rule):
 
@@ -172,15 +189,15 @@ class StormcovPlugin:
 
                 self.subq_map[subg] = (path, line, rline)
 
-    def _start_sysmon(self):
+    def _startSysmon(self):
         if sys.monitoring.get_tool(self.toolid) is None:
             sys.monitoring.use_tool_id(self.toolid, 'pytest-stormcov')
             self._freetool = True
 
         sys.monitoring.set_events(self.toolid, sys.monitoring.events.PY_START)
-        self._prevcb = sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmon_py_start)
+        self._prevcb = sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self.sysmonPyStart)
 
-    def _stop_sysmon(self):
+    def _stopSysmon(self):
         if self._prevcb: # pragma: no cover
             sys.monitoring.register_callback(self.toolid, sys.monitoring.events.PY_START, self._prevcb)
             return
@@ -198,9 +215,10 @@ class StormcovPlugin:
         if not self.append:
             self.cov.erase()
 
-        self._start_sysmon()
+        self._startSysmon()
         yield
-        self._stop_sysmon()
+        self._stopSysmon()
+        self.finalizeArcs()
 
         self.cov.load()
 
@@ -208,21 +226,25 @@ class StormcovPlugin:
 
         # Bail if there's no coverage. This could be because of a xdist worker
         # that didn't have any work
-        if not self.lines_hit:
+        if not self.lines_hit and not self.arcs_hit:
             return
 
-        # Add our stormcov data
-        data.add_lines(dict(self.lines_hit))
+        # Add our stormcov data based on coverage mode
+        if (self.pycov and self.cov.config.branch) or (not self.pycov and self.stormbranch):
+            data.add_arcs(dict(self.arcs_hit))
+        else:
+            data.add_lines(dict(self.lines_hit))
+
         data.touch_files(self.guid_map.values(), 'synapse.utils.stormcov.StormReporterPlugin')
 
         # Save the coverage data
         data.write()
 
-    def discover_stormdirs(self, testpaths: list[pathlib.Path]):
+    def discoverStormdirs(self, testpaths: list[pathlib.Path]):
         # If a specific set of directories were specified, use that
         if self.stormdirs:
             for dirn in self.stormdirs.split(','):
-                self.find_storm_files(dirn)
+                self.findStormFiles(dirn)
             return
 
         stormdirs = set()
@@ -234,14 +256,14 @@ class StormcovPlugin:
                 stormdirs.add(stormdir)
 
         for dirn in stormdirs:
-            self.find_storm_files(dirn)
+            self.findStormFiles(dirn)
 
     @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config, items): # pragma: no cover
         # NB: no coverage since this is a pytest hook
         # Note: If using xdist, this function executes on each worker node
         testpaths = [item.path for item in items]
-        self.discover_stormdirs(testpaths)
+        self.discoverStormdirs(testpaths)
         yield
 
     @pytest.hookimpl(wrapper=True)
@@ -249,7 +271,7 @@ class StormcovPlugin:
         # NB: no coverage since this is a pytest hook
         # Note: This hook allows the xdist controller to get a list of test ids so we can build a list of storm dirs to present stormterm coverage
         testpaths = [pathlib.Path(testid.split('::')[0]).absolute() for testid in ids]
-        self.discover_stormdirs(testpaths)
+        self.discoverStormdirs(testpaths)
         yield
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config): # pragma: no cover
@@ -257,21 +279,21 @@ class StormcovPlugin:
         if self.isworker:
             return
 
-        if not self.iscontroller and not self.lines_hit:
+        if not self.iscontroller and not self.lines_hit and not self.arcs_hit:
             return
 
         try:
-            self.cov.report(skip_covered=False, skip_empty=False)
+            self.cov.report(skip_covered=False, skip_empty=False, include=[f'*.{ext}' for ext in self.extensions])
         except coverage.exceptions.NoDataError:
             logger.warning('No storm coverage data was found.')
 
-    def sysmon_py_start(self, code, instruction_offset): # pragma: no cover
+    def sysmonPyStart(self, code, instruction_offset): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         if (fname := self.freg.match(code.co_filename)):
             return self.handlers[fname.group(1)](code)
         return DISABLE
 
-    def handle_ast(self, code, frame=None): # pragma: no cover
+    def handleAst(self, code, frame=None): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         if frame is None:
             if code.co_name == 'pullgenr':
@@ -289,10 +311,12 @@ class StormcovPlugin:
                 frame = inspect.currentframe().f_back.f_back
 
         realnode = frame.f_locals.get('self')
-        if hasattr(realnode, '_coverage_hit'):
+        cached = getattr(realnode, '_coverage_info', s_common.novalu)
+        if cached is not s_common.novalu:
+            if cached is not None:
+                info, nodeid = cached
+                self.markLines(frame, info, nodeid=nodeid)
             return
-
-        realnode._coverage_hit = True
 
         node = realnode
         while hasattr(node, 'parent'):
@@ -302,19 +326,23 @@ class StormcovPlugin:
 
         info = self.node_map.get(nodeid, s_common.novalu)
         if info is None:
+            realnode._coverage_info = None
             return
 
         if info is not s_common.novalu:
-            self.mark_lines(frame, info)
+            realnode._coverage_info = (info, nodeid)
+            self.markLines(frame, info, nodeid=nodeid)
             return
 
         if node.__class__.__name__ != 'Query':
             self.node_map[nodeid] = None
+            realnode._coverage_info = None
             return
 
         info = self.text_map.get(node.text, s_common.novalu)
         if info is not s_common.novalu:
-            self.mark_lines(frame, info)
+            realnode._coverage_info = (info, nodeid)
+            self.markLines(frame, info, nodeid=nodeid)
             return
 
         tree = self.parser.parse(node.text)
@@ -329,13 +357,19 @@ class StormcovPlugin:
 
         if filename is None:
             self.node_map[nodeid] = None
+            realnode._coverage_info = None
             return
 
         self.node_map[nodeid] = (filename, offs)
         self.text_map[node.text] = (filename, offs)
-        self.mark_lines(frame, (filename, offs))
+        realnode._coverage_info = ((filename, offs), nodeid)
+        self.markLines(frame, (filename, offs), nodeid=nodeid)
 
-    def mark_lines(self, frame, info): # pragma: no cover
+    def finalizeArcs(self):
+        for fname, prev in self.prev_line.items():
+            self.arcs_hit[fname].add((prev, -1))
+
+    def markLines(self, frame, info, nodeid=None): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         astn = frame.f_locals.get('self')
         fname, offs = info
@@ -347,8 +381,29 @@ class StormcovPlugin:
 
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
 
+        # Arc tracking
+        if nodeid is not None and self.prev_nodeid.get(fname) != nodeid:
+            prev = self.prev_line.get(fname)
+            if prev is not None:
+                self.arcs_hit[fname].add((prev, -1))
+            self.prev_line.pop(fname, None)
+            self.prev_nodeid[fname] = nodeid
+
+        current_line = strt + offs
+        prev = self.prev_line.get(fname)
+        if prev is not None:
+            self.arcs_hit[fname].add((prev, current_line))
+        else:
+            self.arcs_hit[fname].add((-1, current_line))
+
+        last_line = fini + offs
+        for line in range(current_line, last_line):
+            self.arcs_hit[fname].add((line, line + 1))
+
+        self.prev_line[fname] = last_line
+
     PIVOT_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
-    def handle_view(self, code): # pragma: no cover
+    def handleView(self, code): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         if code.co_name not in self.PIVOT_METHODS:
             return DISABLE
@@ -356,13 +411,13 @@ class StormcovPlugin:
         frame = inspect.currentframe().f_back.f_back
         if frame.f_code.co_name != 'run':
             return
-        return self.handle_ast(code, frame=frame)
+        return self.handleAst(code, frame=frame)
 
-    def handle_stormctrl(self, code): # pragma: no cover
+    def handleStormctrl(self, code): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
         if code.co_name != '__init__':
             return DISABLE
-        return self.handle_ast(code, frame=inspect.currentframe().f_back.f_back.f_back)
+        return self.handleAst(code, frame=inspect.currentframe().f_back.f_back.f_back)
 
 TOKENS = [
     'ABSPROP',
@@ -448,12 +503,341 @@ class StormReporter(coverage.FileReporter):
 
         return excluded_lines
 
+    def arcs(self):
+        tree = self._parser.parse(self.source())
+        arcs = set()
+        entries, exits, _, _ = self._analyzeQuery(tree, arcs)
+        for entry in entries:
+            arcs.add((-1, entry))
+        for ex in exits:
+            arcs.add((ex, -1))
+        excluded = self.excluded_lines()
+        return {(s, d) for (s, d) in arcs if s not in excluded and d not in excluded}
+
+    def _analyzeQuery(self, query_tree, arcs):
+        '''Analyze a query tree. Returns (entries, exits, break_lines, continue_lines).'''
+        ops = self._getQueryOps(query_tree)
+        if not ops:
+            return (set(), set(), set(), set())
+
+        all_breaks = set()
+        all_continues = set()
+        op_infos = []
+        for op in ops:
+            entries, exits, breaks, conts = self._analyzeOp(op, arcs)
+            all_breaks |= breaks
+            all_continues |= conts
+            op_infos.append((entries, exits))
+
+            if not exits:
+                break
+
+        for i in range(len(op_infos) - 1):
+            prev_exits = op_infos[i][1]
+            next_entries = op_infos[i + 1][0]
+            for src in prev_exits:
+                for dst in next_entries:
+                    arcs.add((src, dst))
+
+        entries = op_infos[0][0] if op_infos else set()
+        exits = op_infos[-1][1] if op_infos else set()
+        return (entries, exits, all_breaks, all_continues)
+
+    def _getQueryOps(self, query_tree):
+        '''Get meaningful operation nodes from a query tree.'''
+        ops = []
+        for child in query_tree.children:
+            if isinstance(child, lark.Tree):
+                ops.append(child)
+            elif isinstance(child, lark.lexer.Token) and child.type in ('BREAK', 'CONTINUE'):
+                ops.append(child)
+        return ops
+
+    def _analyzeOp(self, op, arcs):
+        '''Analyze a single op. Returns (entries, exits, break_lines, continue_lines).'''
+        if isinstance(op, lark.lexer.Token):
+            line = op.line
+            if op.type == 'BREAK':
+                return ({line}, set(), {line}, set())
+
+            return ({line}, set(), set(), {line})
+
+        if op.data == 'ifstmt':
+            return self._analyzeIfstmt(op, arcs)
+        if op.data == 'switchcase':
+            return self._analyzeSwitchcase(op, arcs)
+        if op.data == 'forloop':
+            return self._analyzeForloop(op, arcs)
+        if op.data == 'whileloop':
+            return self._analyzeWhileloop(op, arcs)
+        if op.data == 'trycatch':
+            return self._analyzeTrycatch(op, arcs)
+        if op.data in ('stop', 'return', 'emit'):
+            line = op.meta.line
+            arcs.add((line, -1))
+            return ({line}, set(), set(), set())
+
+        return ({op.meta.line}, {op.meta.line}, set(), set())
+
+    def _analyzeBaresubquery(self, bsq, arcs):
+        '''Analyze a baresubquery and return (entries, exits, break_lines, continue_lines).'''
+        query = [c for c in bsq.children if isinstance(c, lark.Tree) and c.data == 'query'][0]
+        return self._analyzeQuery(query, arcs)
+
+    def _analyzeIfstmt(self, tree, arcs):
+        '''Analyze an if/elif/else statement.'''
+        clauses = []
+        else_body = None
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree):
+                if child.data == 'ifclause':
+                    clauses.append(child)
+                elif child.data == 'baresubquery':
+                    else_body = child
+
+        cond_lines = []
+        bodies = []
+        for clause in clauses:
+            cond_lines.append(clause.meta.line)
+            for child in clause.children:
+                if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                    bodies.append(child)
+                    break
+
+        first_cond = cond_lines[0]
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+
+        # Arcs between conditions (false case chains to next condition)
+        for i in range(len(cond_lines) - 1):
+            arcs.add((cond_lines[i], cond_lines[i + 1]))
+
+        # Arcs from each condition to its body (true case)
+        for cond_line, body in zip(cond_lines, bodies):
+            body_entries, body_exits, breaks, conts = self._analyzeBaresubquery(body, arcs)
+            if not body_entries:
+                all_exits.add(cond_line)
+            else:
+                for entry in body_entries:
+                    arcs.add((cond_line, entry))
+                all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
+
+        # Handle else clause
+        last_cond = cond_lines[-1]
+        if else_body is not None:
+            body_entries, body_exits, breaks, conts = self._analyzeBaresubquery(else_body, arcs)
+            for entry in body_entries:
+                arcs.add((last_cond, entry))
+            all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
+        else:
+            all_exits.add(last_cond)
+
+        return ({first_cond}, all_exits, all_breaks, all_continues)
+
+    def _analyzeSwitchcase(self, tree, arcs):
+        '''Analyze a switch/case statement.'''
+        switch_line = tree.meta.line
+        case_bodies = []
+        has_default = False
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'caseentry':
+                body = None
+                is_default = False
+                for sub in child.children:
+                    if isinstance(sub, lark.Tree) and sub.data == 'baresubquery':
+                        body = sub
+                    elif isinstance(sub, lark.lexer.Token) and sub.type == 'DEFAULTCASE':
+                        is_default = True
+                if is_default:
+                    has_default = True
+                if body is not None:
+                    case_bodies.append(body)
+
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+        for body in case_bodies:
+            body_entries, body_exits, breaks, conts = self._analyzeBaresubquery(body, arcs)
+            for entry in body_entries:
+                arcs.add((switch_line, entry))
+            all_exits |= body_exits
+            all_breaks |= breaks
+            all_continues |= conts
+
+        if not has_default:
+            all_exits.add(switch_line)
+
+        return ({switch_line}, all_exits, all_breaks, all_continues)
+
+    def _analyzeForloop(self, tree, arcs):
+        '''Analyze a for loop.'''
+        loop_line = tree.meta.line
+        body = None
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                body = child
+                break
+
+        body_entries, body_exits, break_lines, continue_lines = self._analyzeBaresubquery(body, arcs)
+
+        # Enter body arc
+        for entry in body_entries:
+            arcs.add((loop_line, entry))
+
+        # Back-edge: body exit loops back to body entry
+        for ex in body_exits:
+            for entry in body_entries:
+                arcs.add((ex, entry))
+
+        # Continue loops back to body entry
+        for cl in continue_lines:
+            for entry in body_entries:
+                arcs.add((cl, entry))
+
+        # Loop can be skipped (empty iterable) or exited after last iteration
+        all_exits = set()
+        all_exits.add(loop_line)
+        all_exits |= body_exits
+        all_exits |= break_lines
+
+        return ({loop_line}, all_exits, set(), set())
+
+    def _analyzeWhileloop(self, tree, arcs):
+        '''Analyze a while loop.'''
+        loop_line = tree.meta.line
+        body = None
+        for child in tree.children:
+            if isinstance(child, lark.Tree) and child.data == 'baresubquery':
+                body = child
+                break
+
+        body_entries, body_exits, break_lines, continue_lines = self._analyzeBaresubquery(body, arcs)
+
+        # Enter body arc
+        for entry in body_entries:
+            arcs.add((loop_line, entry))
+
+        # Back-edge: body exit goes back to condition check
+        for ex in body_exits:
+            arcs.add((ex, loop_line))
+
+        # Continue goes back to condition check
+        for cl in continue_lines:
+            arcs.add((cl, loop_line))
+
+        # While can exit when condition is false or break
+        all_exits = set()
+        all_exits.add(loop_line)
+        all_exits |= break_lines
+
+        return ({loop_line}, all_exits, set(), set())
+
+    def _analyzeTrycatch(self, tree, arcs):
+        '''Analyze a try/catch statement.'''
+        try_body = None
+        catch_blocks = []
+
+        for child in tree.children:
+            if isinstance(child, lark.Tree):
+                if child.data == 'query' and try_body is None:
+                    try_body = child
+                elif child.data == 'catchblock':
+                    catch_blocks.append(child)
+
+        all_exits = set()
+        all_breaks = set()
+        all_continues = set()
+        try_entries = set()
+
+        if try_body is not None:
+            try_entries, try_exits, breaks, conts = self._analyzeQuery(try_body, arcs)
+            all_exits |= try_exits
+            all_breaks |= breaks
+            all_continues |= conts
+
+        for catch in catch_blocks:
+            catch_line = catch.meta.line
+            catch_body = None
+            for child in catch.children:
+                if isinstance(child, lark.Tree) and child.data == 'query':
+                    catch_body = child
+                    break
+
+            # Arc from try entry to catch condition (exception path)
+            for te in try_entries:
+                arcs.add((te, catch_line))
+
+            if catch_body is not None:
+                catch_entries, catch_exits, breaks, conts = self._analyzeQuery(catch_body, arcs)
+                # Arc from catch condition to catch body
+                for ce in catch_entries:
+                    arcs.add((catch_line, ce))
+                all_exits |= catch_exits
+                all_breaks |= breaks
+                all_continues |= conts
+
+        return (try_entries, all_exits, all_breaks, all_continues)
+
+    def exit_counts(self):
+        '''Return dict mapping src line to count of distinct destinations.'''
+        counts = collections.defaultdict(int)
+        for src, _ in self.arcs():
+            if src != -1:
+                counts[src] += 1
+        return dict(counts)
+
+    def no_branch_lines(self):
+        return self.excluded_lines()
+
+    def missing_arc_description(self, start, end, executed_arcs=None):
+        '''Return a human-readable description of a missing arc.'''
+        tree = self._parser.parse(self.source())
+
+        if end == -1:
+            return 'the exit was not reached'
+
+        if start == -1:
+            return f'the entry to line {end} was not reached'
+
+        branching = self._findBranchingConstruct(tree, start)
+        if branching is not None:
+            ctype = branching
+            if end > start:
+                return f'the {ctype} on line {start} did not jump to line {end}'
+            return f'the {ctype} on line {start} did not loop back to line {end}'
+
+        return f'line {start} did not jump to line {end}'
+
+    def _findBranchingConstruct(self, tree, line):
+        '''Find what branching construct a line belongs to.'''
+        for child in tree.iter_subtrees():
+            if hasattr(child, 'meta') and not child.meta.empty:
+                if child.meta.line == line:
+                    if child.data in ('ifstmt', 'ifclause'):
+                        return 'if/elif condition'
+                    if child.data == 'switchcase':
+                        return 'switch'
+                    if child.data == 'forloop':
+                        return 'for loop'
+                    if child.data == 'whileloop':
+                        return 'while loop'
+                    if child.data == 'trycatch':
+                        return 'try/catch'
+        return None
+
 # StormReporterPlugin and coverage_init below are both to support the command
 # line coverage tools being able to interpret coverage results generated by
 # stormcov
 class StormReporterPlugin(coverage.CoveragePlugin):
     def __init__(self):
-        self.parser = get_parser()
+        self.parser = getParser()
 
     def file_reporter(self, filename):
         return StormReporter(filename, self.parser)

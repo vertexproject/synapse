@@ -1,0 +1,5 @@
+for $x in (foo, bar) {
+    continue
+}
+// lines: 1, 2
+// arcs: (-1,1), (1,-1), (1,2), (2,2)
