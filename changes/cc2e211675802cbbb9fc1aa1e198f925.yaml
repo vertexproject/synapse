@@ -1,7 +1,0 @@
----
-desc: Remove warning messages related to Cron job affinity when affinity is not configured
-  for a Cron job.
-desc:literal: false
-prs: []
-type: bug
-...
