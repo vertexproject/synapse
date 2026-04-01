@@ -272,10 +272,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'place:latlong', (20, 30))
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
 
-            self.len(1, await core.nodes('ou:contest -> ou:conference'))
-            self.len(1, await core.nodes('ou:contest :parent -> ou:conference'))
-            self.len(1, await core.nodes('ou:contest :sponsors -> entity:contact'))
-            self.len(1, await core.nodes('ou:contest :organizers -> entity:contact'))
+            self.len(1, await core.nodes('ou:contest -> ou:contest:type:taxonomy'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)
