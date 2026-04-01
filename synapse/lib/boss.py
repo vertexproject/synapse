@@ -61,7 +61,7 @@ class Boss(s_base.Base):
 
     async def _onBossFini(self):
         for task in list(self.tasks.values()):
-            await task.kill()
+            await task.kill(safe=False)
 
     def ps(self):
         # top level tasks only...
