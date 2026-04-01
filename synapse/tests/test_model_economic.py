@@ -108,7 +108,7 @@ class EconTest(s_utils.SynTest):
 
             self.propeq(nodes[0], 'status', 'settled')
             self.propeq(nodes[0], 'place:name', 'myhouse')
-            self.eq((90, 80), nodes[0].get('place:latlong'))
+            self.propeq(nodes[0], 'place:latlong', (90, 80))
             self.propeq(nodes[0], 'place:loc', 'us.ny.brooklyn')
             self.propeq(nodes[0], 'place:address', '123 main street, brooklyn, ny, 11223')
 
@@ -169,7 +169,7 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq((1580601600000000, 1580688000000000, 86400000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1580601600000000, 1580688000000000, 86400000000))
             self.propeq(nodes[0], 'security', '947183947f2e2c7bdc55264c20670f19')
             self.propeq(nodes[0], 'price:open', '9999')
             self.propeq(nodes[0], 'price:close', '9999.01')
@@ -239,7 +239,7 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
             self.propeq(nodes[0], 'balance', '999')
-            self.eq((1709251200000000, 1709251200000001, 1), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1709251200000000, 1709251200000001, 1))
 
             nodes = await core.nodes('''[
                 econ:bank:aba:rtn=123456789

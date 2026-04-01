@@ -96,7 +96,7 @@ modeldefs = (
 
             ('sci:evidence', {}, (
 
-                ('hypothesis', ('sci:experiment', {}), {
+                ('hypothesis', ('sci:hypothesis', {}), {
                     'doc': 'The hypothesis which the evidence supports or refutes.'}),
 
                 ('observation', ('sci:observation', {}), {

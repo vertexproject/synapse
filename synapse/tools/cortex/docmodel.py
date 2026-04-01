@@ -43,6 +43,10 @@ def _escpipe(text):
 
     return text.replace('|', '\\|').replace('\n', ' ')
 
+def _typeNames(types):
+    '''Extract type name strings from a list that may contain (name, opts) tuples.'''
+    return [t[0] if isinstance(t, tuple) and len(t) == 2 and isinstance(t[1], dict) else t for t in types]
+
 def _resolveTypeNames(typedef):
     '''Resolve a typedef to a list of type name strings, expanding poly types.'''
     if not typedef:
@@ -63,6 +67,10 @@ def _resolveTypeNames(typedef):
             if forms:
                 names.update(forms)
 
+            types = opts.get('types')
+            if types:
+                names.update(types)
+
             if names:
                 return sorted(names)
 
@@ -75,11 +83,15 @@ def _resolveTypeNames(typedef):
                 if isinstance(atype, str):
                     return [f'array of {atype}']
                 if isinstance(atype, (list, tuple)):
-                    return [f'array of {", ".join(sorted(atype))}']
+                    return [f'array of {", ".join(sorted(_typeNames(atype)))}']
 
             return ['array']
 
-        return [typedef[0]]
+        typename = typedef[0]
+        if isinstance(typename, tuple) and len(typename) == 2 and isinstance(typename[1], dict):
+            return sorted(_typeNames(typedef))
+
+        return [typename]
 
     return ['']
 
@@ -115,22 +127,36 @@ def _getBaseTypeName(typename, types):
 
     return None
 
-def _getNestedTypeName(typedef):
-    '''Return the nested type name from a typedef, or None if not applicable.'''
+def _getNestedTypeNames(typedef):
+    '''Return a list of nested type names from a typedef.'''
     if not typedef:
-        return None
+        return ()
 
-    if isinstance(typedef, (list, tuple)) and len(typedef) >= 1:
-        tname = typedef[0]
-        if tname == 'array' and len(typedef) >= 2:
-            opts = typedef[1] if isinstance(typedef[1], dict) else {}
-            atype = opts.get('type')
-            if isinstance(atype, str):
-                return atype
-        elif tname != 'poly':
-            return tname
+    tname = typedef[0]
 
-    return None
+    if tname == 'array' and len(typedef) >= 2:
+        opts = typedef[1] if isinstance(typedef[1], dict) else {}
+        atype = opts.get('type')
+        if isinstance(atype, str):
+            return (atype,)
+        if isinstance(atype, (list, tuple)):
+            return tuple(_typeNames(atype))
+        return ()
+
+    if tname == 'poly' and len(typedef) >= 2:
+        opts = typedef[1] if isinstance(typedef[1], dict) else {}
+        names = []
+        for key in ('forms', 'types'):
+            for n in (opts.get(key) or ()):
+                if n not in names:
+                    names.append(n)
+        return tuple(names)
+
+    if isinstance(tname, tuple) and len(tname) == 2 and isinstance(tname[1], dict):
+        return tuple(_typeNames(typedef))
+
+    return (tname,)
+
 
 def _genReferencedTypesSection(nestedtypes, types, interfaces, seen=None):
     '''Generate the ## Referenced Types section lines.'''
@@ -167,9 +193,7 @@ def _genIfacePropTable(ifprops, types):
         propdoc = _getPropDoc(propinfo, types)
         lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
 
-        tname = _getNestedTypeName(typedef)
-        if tname is not None:
-            nestedtypes.add(tname)
+        nestedtypes.update(_getNestedTypeNames(typedef))
 
     return lines, nestedtypes
 
@@ -346,9 +370,7 @@ async def genFormMarkdown(core, formname):
         lines.append('')
 
         for propinfo in formprops.values():
-            tname = _getNestedTypeName(propinfo.get('type', ()))
-            if tname is not None:
-                nestedtypes.add(tname)
+            nestedtypes.update(_getNestedTypeNames(propinfo.get('type', ())))
 
     # Referenced Types
     if nestedtypes:
@@ -553,11 +575,7 @@ async def genPropMarkdown(core, propname):
         lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
         lines.append('')
 
-        nestedtypes = set()
-        tname = _getNestedTypeName(typedef)
-        if tname is not None:
-            nestedtypes.add(tname)
-
+        nestedtypes = set(_getNestedTypeNames(typedef))
         if nestedtypes:
             lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
@@ -586,11 +604,7 @@ async def genPropMarkdown(core, propname):
         lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
         lines.append('')
 
-        nestedtypes = set()
-        tname = _getNestedTypeName(typedef)
-        if tname is not None:
-            nestedtypes.add(tname)
-
+        nestedtypes = set(_getNestedTypeNames(typedef))
         if nestedtypes:
             lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 

@@ -3286,18 +3286,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # TODO: do we actually want to auto-convert to poly props?
-        typename, typeinfo = tdef
-        if not typeinfo:
-            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.model.forminfos)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.model.ifaces)
-            typename = 'poly'
-            tdef = (typename, typeinfo)
+        tdef = self.model.convertPropdef(tdef)
 
         self.model.getTypeClone(tdef)
 

@@ -207,7 +207,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'my neato indicator')
             self.propeq(nodes[0], 'pattern', 'some rule text')
             self.propeq(nodes[0], 'pattern_type', 'yara')
-            self.eq(('haha', 'hehe'), nodes[0].get('labels'))
+            self.propeq(nodes[0], 'labels', ('haha', 'hehe'))
             self.propeq(nodes[0], 'created', 1723680000000000)
             self.propeq(nodes[0], 'updated', 1723680000000000)
             self.propeq(nodes[0], 'valid_from', 1723680000000000)
@@ -541,7 +541,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'severity', 10)
             self.propeq(nodes[0], 'mesg', 'foobar')
-            self.eq(('foo', 'bar', 'baz'), nodes[0].get('data'))
+            self.propeq(nodes[0], 'data', ('foo', 'bar', 'baz'))
             # check that the host activity model was inherited
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
@@ -1264,7 +1264,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('sensor'))
-            self.true(nodes[0].get('dropped'))
+            self.propeq(nodes[0], 'dropped', 1)
             self.propeq(nodes[0], 'rule', rule)
             self.propeq(nodes[0], 'version', '1.2.3')
             self.propeq(nodes[0], 'matched', 1420070400000000)
@@ -1294,7 +1294,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'impcalls', ('bar', 'foo'))
             self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))
             self.len(2, await core.nodes('it:dev:function :strings -> it:dev:str'))
-            self.len(2, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
+            # impcalls uses str:lower type (not it:dev:str form) so form pivot is not supported
+            self.len(0, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
 
             q = '''[
                 it:dev:function:sample=*
@@ -1905,7 +1906,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'org:name', 'vertex')
             self.propeq(nodes[0], 'org:fqdn', 'vertex.link')
-            self.eq((1688169600000000, 1690848000000000, 2678400000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1688169600000000, 1690848000000000, 2678400000000))
 
             self.propeq(nodes[0], 'alerts:count', 100)
             self.propeq(nodes[0], 'alerts:falsepos', 90)

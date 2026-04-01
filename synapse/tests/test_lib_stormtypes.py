@@ -1408,7 +1408,7 @@ class StormTypesTest(s_test.SynTest):
             # make sure we gzip correctly
             nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n3}})
             self.len(1, nodes)
-            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data'))))
+            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data')[1])))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
@@ -1725,7 +1725,7 @@ class StormTypesTest(s_test.SynTest):
                     'updated': (nodes[0].get('.updated'), 11),
                 },
                 'props': {
-                    'hehe': ('foobaz', 1, None)
+                    'hehe': (('str', 'foobaz'), 16385, None)
                 },
                 'valu': ('foobar', 1, None),
             }
@@ -1742,7 +1742,7 @@ class StormTypesTest(s_test.SynTest):
                     'updated': (nodes[0].get('.updated'), 11),
                 },
                 'props': {
-                    'hehe': ('boobaz', 1, None)
+                    'hehe': (('str', 'boobaz'), 16385, None)
                 },
                 'valu': ('boobar', 1, None),
             }
@@ -1814,7 +1814,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str')
             self.len(1, nodes)
             self.eq(nodes[0].repr(), 'foo')
-            self.eq(nodes[0].get('hehe'), 'baz')
+            self.propeq(nodes[0], 'hehe', 'baz')
 
             # no test:str:newp prop
             q = '''
@@ -1878,7 +1878,7 @@ class StormTypesTest(s_test.SynTest):
                 'meta': {'created': (created, 21), 'updated': (updated, 11)},
                 'n1verbs': {'refs': {'meta:source': 1}},
                 'n2verbs': {'seen': {'meta:source': 1}},
-                'props': {'hehe': ('bar', 1, None)},
+                'props': {'hehe': (('str', 'bar'), 16385, None)},
                 'tagprops': {
                     'foo.baz': {
                         'score00': (10, 9, None),
@@ -2244,7 +2244,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(tuple(sorted(nodes[0].get('data'))), (20, 30))
+            self.eq(tuple(sorted(nodes[0].get('data')[1])), (20, 30))
 
             q = '''
                 $set = $lib.set()
@@ -2253,7 +2253,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(tuple(sorted(nodes[0].get('data'))), (20, 30))
+            self.eq(tuple(sorted(nodes[0].get('data')[1])), (20, 30))
 
             q = '''
                 $set = $lib.set()
@@ -2263,7 +2263,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(tuple(sorted(nodes[0].get('data'))), (30,))
+            self.eq(tuple(sorted(nodes[0].get('data')[1])), (30,))
 
             q = '''
                 $set = $lib.set()
@@ -2273,7 +2273,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(tuple(sorted(nodes[0].get('data'))), ())
+            self.eq(tuple(sorted(nodes[0].get('data')[1])), ())
 
             q = '$set = $lib.set(a, b, c, b, a) [test:int=$set.size()]'
             nodes = await core.nodes(q)
@@ -6326,31 +6326,37 @@ class StormTypesTest(s_test.SynTest):
 
             ival = core.model.type('ival')
             uniqvals = [(await ival.norm('2020'))[0], (await ival.norm('2021'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
             opts['view'] = forkview
             uniqvals = [(await ival.norm('2022'))[0], (await ival.norm('2023'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
             uniqvals = [(await ival.norm('2020'))[0], (await ival.norm('2021'))[0],
                         (await ival.norm('2022'))[0], (await ival.norm('2023'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             await core.nodes('test:guid=(l1,) [ -:seen ]', opts=opts)
 
             uniqvals = [(await ival.norm('2021'))[0], (await ival.norm('2022'))[0], (await ival.norm('2023'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             await core.nodes('test:guid=(l1,) [ :seen=2024 ]', opts=opts)
 
             uniqvals = [(await ival.norm('2021'))[0], (await ival.norm('2022'))[0],
                         (await ival.norm('2023'))[0], (await ival.norm('2024'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             await core.nodes('test:guid=(l1,) | delnode', opts=opts)
 
             uniqvals = [(await ival.norm('2021'))[0], (await ival.norm('2022'))[0], (await ival.norm('2023'))[0]]
+            uniqvals = [('ival', v) for v in uniqvals]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
             opts['vars']['prop'] = 'entity:contact:name'
@@ -6368,12 +6374,14 @@ class StormTypesTest(s_test.SynTest):
             ]''', opts={'view': forkview})
 
             opts = {'vars': {'prop': 'test:interface:size'}}
-            self.eq([1, 2], await core.callStorm(layrq, opts=opts))
-            self.eq([1, 2], await core.callStorm(viewq, opts=opts))
+            vals = (('int', 1), ('int', 2))
+            self.eq(vals, await core.callStorm(layrq, opts=opts))
+            self.eq(vals, await core.callStorm(viewq, opts=opts))
 
             opts['view'] = forkview
-            self.eq([3, 4], await core.callStorm(layrq, opts=opts))
-            self.eq([1, 2, 3, 4], await core.callStorm(viewq, opts=opts))
+            vals2 = (('int', 3), ('int', 4))
+            self.eq(vals2, await core.callStorm(layrq, opts=opts))
+            self.eq(vals + vals2, await core.callStorm(viewq, opts=opts))
 
             opts['vars']['prop'] = 'newp:newp'
             with self.raises(s_exc.NoSuchProp):
@@ -6411,10 +6419,10 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ doc:report=(baz,) :title=faz ]', opts=forkopts)
 
             opts = {'vars': {'prop': 'doc:report:title'}}
-            self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
+            self.eq((('str', 'bar'), ('str', 'faz'), ('str', 'foo')), await core.callStorm(viewq, opts=opts))
 
             opts = {'view': forkview, 'vars': {'prop': 'doc:report:title'}}
-            self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
+            self.eq((('str', 'faz'), ('str', 'foo')), await core.callStorm(viewq, opts=opts))
 
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
             forkopts2 = {'view': forkview2}
@@ -6700,7 +6708,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
-            sha256, size, created = nodes[0].get('sha256')[1], nodes[0].get('size'), nodes[0].get('.created')
+            sha256, size, created = nodes[0].get('sha256')[1], nodes[0].get('size')[1], nodes[0].get('.created')
 
             items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.eq([(0, sha256, size)], items)

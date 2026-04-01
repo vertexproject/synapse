@@ -61,7 +61,7 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'id', 'V-99')
             self.propeq(nodes[0], 'desc', 'Some requirement text.')
             self.propeq(nodes[0], 'priority', 20)
-            self.false(nodes[0].get('optional'))
+            self.propeq(nodes[0], 'optional', 0)
             self.nn(nodes[0].get('standard'))
             self.len(1, await core.nodes('doc:requirement <(meets)- meta:technique'))
             self.len(1, await core.nodes('doc:requirement -> doc:standard'))
@@ -130,7 +130,7 @@ class DocModelTest(s_tests.SynTest):
                     +#test00
             ]''')
             self.len(1, nodes)
-            self.eq('(Lee, 2020, para. 15)', nodes[0].get('text'))
+            self.propeq(nodes[0], 'text', '(Lee, 2020, para. 15)')
             self.propeq(nodes[0], 'doc:url', 'https://nasa.gov/2020-mars')
             self.len(1, await core.nodes('doc:reference#test00 :source -> doc:report'))
             self.len(1, await core.nodes('doc:reference#test00 :doc -> doc:report'))

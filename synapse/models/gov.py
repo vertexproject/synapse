@@ -87,16 +87,16 @@ modeldefs = (
                 ('name0', ('entity:name', {}), {
                     'doc': 'The name of the organization.'}),
 
-                ('name1', ('str', {'lower': True}), {
+                ('name1', ('str:lower', {}), {
                     'doc': 'Name Part 1.'}),
 
-                ('street', ('str', {'lower': True}), {
+                ('street', ('str:lower', {}), {
                     'doc': 'The street in the CAGE code record.'}),
 
-                ('city', ('str', {'lower': True}), {
+                ('city', ('str:lower', {}), {
                     'doc': 'The city in the CAGE code record.'}),
 
-                ('state', ('str', {'lower': True}), {
+                ('state', ('str:lower', {}), {
                     'doc': 'The state in the CAGE code record.'}),
 
                 ('zip', ('gov:us:zip', {}), {
@@ -105,7 +105,7 @@ modeldefs = (
                 ('cc', ('iso:3166:alpha2', {}), {
                     'doc': 'The country code in the CAGE code record.'}),
 
-                ('country', ('str', {'lower': True}), {
+                ('country', ('str:lower', {}), {
                     'doc': 'The country in the CAGE code record.'}),
 
                 ('phone0', ('tel:phone', {}), {

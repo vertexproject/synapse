@@ -1254,7 +1254,9 @@ class LibStixExport(s_stormtypes.Lib):
 
         return StixBundle(self, self.runt, config)
 
-    def timestamp(self, tick):
+    @s_stormtypes.stormfunc(readonly=True)
+    async def timestamp(self, tick):
+        tick = await s_stormtypes.toprim(tick)
         dt = datetime.datetime.fromtimestamp(tick / 1000000.0, datetime.UTC)
         millis = int(dt.microsecond / 1000)
         return f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{millis:03d}Z'
@@ -1464,7 +1466,7 @@ class StixBundle(s_stormtypes.Prim):
     async def _addRel(self, srcid, reltype, targid):
 
         stixid = f'relationship--{uuid4((srcid, reltype, targid))}'
-        tstamp = self.libstix.timestamp(s_common.now())
+        tstamp = await self.libstix.timestamp(s_common.now())
 
         obj = {
             'id': stixid,

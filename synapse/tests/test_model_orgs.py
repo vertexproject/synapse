@@ -269,8 +269,32 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'website', 'http://vertex.link/contest')
 
-            self.eq((20, 30), nodes[0].get('place:latlong'))
+            self.propeq(nodes[0], 'place:latlong', (20, 30))
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
+
+            self.len(1, await core.nodes('ou:contest -> ou:conference'))
+            self.len(1, await core.nodes('ou:contest :parent -> ou:conference'))
+            self.len(1, await core.nodes('ou:contest :sponsors -> entity:contact'))
+            self.len(1, await core.nodes('ou:contest :organizers -> entity:contact'))
+
+            nodes = await core.nodes('''[
+                ou:contest:result=(*, *)
+                    :rank=1
+                    :score=20
+                    :url=https://vertex.link/woot
+                    :period=(20250101, 20250102)
+                    :contest={ou:contest}
+                    :participant={[ entity:contact=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('contest'))
+            self.nn(nodes[0].get('participant'))
+            self.propeq(nodes[0], 'url', 'https://vertex.link/woot')
+            self.propeq(nodes[0], 'rank', 1)
+            self.propeq(nodes[0], 'score', 20)
+            self.propeq(nodes[0], 'period', (1735689600000000, 1735776000000000, 86400000000))
+            self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
+            self.len(1, await core.nodes('ou:contest:result -> entity:contact'))
 
             opts = {'vars': {'ind': s_common.guid()}}
             nodes = await core.nodes('[ ou:org=* :industries=($ind, $ind) ]', opts=opts)
@@ -434,9 +458,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'name', 'foo bar')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
-            self.sorteq(('1234', '5678'), nodes[0].get('sic'))
-            self.sorteq(('11111', '22222'), nodes[0].get('naics'))
-            self.sorteq(('C1393', ), nodes[0].get('isic'))
+            self.propeq(nodes[0], 'sic', ('1234', '5678'))
+            self.propeq(nodes[0], 'naics', ('11111', '22222'))
+            self.propeq(nodes[0], 'isic', ('C1393', ))
             self.propeq(nodes[0], 'desc', 'Moldy cheese')
 
             self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))

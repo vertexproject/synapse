@@ -809,17 +809,16 @@ class IndxByPropArraySize(IndxByProp):
         for item in genr:
             yield item
 
-class IndxByPropIvalMin(IndxByProp):
+class IndxByPropIvalMin(IndxByPoly):
+
+    def __init__(self, layr, form, prop):
+        IndxByPoly.__init__(self, layr, form, prop, STOR_TYPE_IVAL)
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
-        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        if reverse:
-            genr = self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            genr = self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+        minindx += self.layr.ivaltimetype.zerobyts
+        maxindx += self.layr.ivaltimetype.fullbyts
 
-        for item in genr:
+        async for item in IndxByPoly.keyNidsByRange(self, minindx, maxindx, reverse=reverse):
             yield item
 
 class IndxByPropIvalMax(IndxBy):
@@ -2087,26 +2086,26 @@ class StorTypePoly(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_POLY)
         self.lifters |= {
-            'form=': self._liftFormEq,
+            'type=': self._liftTypeEq,
             'ndef=': self._liftNdefEq,
         }
 
     def indx(self, valu):
-        realtype = self.layr.core.model.form(valu[0]).type.stortype
-        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+        realtype = self.layr.core.model.type(valu[0]).stortype
+        typeabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
 
         byts = self.layr.stortypes[realtype].indx(valu[1])[0]
 
-        return (realtype.to_bytes(2, 'big') + formabrv + byts,)
+        return (realtype.to_bytes(2, 'big') + typeabrv + byts,)
 
     def decodeIndx(self, bytz):
         realtype = int.from_bytes(bytz[:2], 'big')
-        form = self.layr.core.getAbrvIndx(bytz[2:10])[0]
+        typename = self.layr.core.getAbrvIndx(bytz[2:10])[0]
 
         if (valu := self.layr.stortypes[realtype].decodeIndx(bytz[10:])) is s_common.novalu:
             return s_common.novalu
 
-        return (form, valu)
+        return (typename, valu)
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None, stortype=None):
         try:
@@ -2117,8 +2116,14 @@ class StorTypePoly(StorType):
                     yield item
             else:
                 realtype = stortype & STOR_MASK_POLY
+
                 if virts:
-                    indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
+                    if realtype == STOR_TYPE_IVAL:
+                        async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                            yield item
+                        return
+                    else:
+                        indxby = IndxByPolyVirt(self.layr, form, prop, virts, realtype)
                 else:
                     indxby = IndxByPoly(self.layr, form, prop, realtype)
 
@@ -2149,28 +2154,28 @@ class StorTypePoly(StorType):
             return
 
     async def _liftNdefEq(self, liftby, valu, reverse=False):
-        formname, valu = valu
+        typename, valu = valu
         try:
-            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, formname, None)
+            typeabrv = self.layr.core.getIndxAbrv(INDX_PROP, typename, None)
         except s_exc.NoSuchAbrv:
             return
 
-        form = self.layr.core.model.form(formname)
-        stortype = form.type.stortype
+        tobj = self.layr.core.model.type(typename)
+        stortype = tobj.stortype
         byts = self.layr.stortypes[stortype].indx(valu)[0]
 
-        async for item in liftby.keyNidsByDups(stortype.to_bytes(2, 'big') + formabrv + byts, reverse=reverse):
+        async for item in liftby.keyNidsByDups(stortype.to_bytes(2, 'big') + typeabrv + byts, reverse=reverse):
             yield item
 
-    async def _liftFormEq(self, liftby, valu, reverse=False):
+    async def _liftTypeEq(self, liftby, valu, reverse=False):
         try:
-            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
+            typeabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
         except s_exc.NoSuchAbrv:
             return
 
-        form = self.layr.core.model.form(valu)
+        tobj = self.layr.core.model.type(valu)
 
-        async for item in liftby.keyNidsByPref(form.type.stortype.to_bytes(2, 'big') + formabrv, reverse=reverse):
+        async for item in liftby.keyNidsByPref(tobj.stortype.to_bytes(2, 'big') + typeabrv, reverse=reverse):
             yield item
 
     def getVirtIndxVals(self, nid, form, prop, virts, isarray=False):
@@ -2254,13 +2259,17 @@ class StorTypeLatLon(StorType):
         latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
         latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
+        lonstrt = liftby.abrvlen
+        latstrt = lonstrt + 5
+        latstop = latstrt + 5
+
         # scan by lon range and down-select the results to matches.
         async for lkey, nid in liftby.keyNidsByRange(lonminindx, lonmaxindx, reverse=reverse):
 
             # lkey = <abrv> <lonindx> <latindx>
 
             # limit results to the bounding box before unpacking...
-            latbyts = lkey[13:18]
+            latbyts = lkey[latstrt:latstop]
 
             if latbyts > latmaxindx:
                 continue
@@ -2268,7 +2277,7 @@ class StorTypeLatLon(StorType):
             if latbyts < latminindx:
                 continue
 
-            lonbyts = lkey[8:13]
+            lonbyts = lkey[lonstrt:latstrt]
 
             latvalu = (int.from_bytes(latbyts, 'big') - self.latspace) / self.scale
             lonvalu = (int.from_bytes(lonbyts, 'big') - self.lonspace) / self.scale
@@ -4617,11 +4626,14 @@ class Layer(s_nexus.Pusher):
 
                 kvpairs = []
 
+                isarray = oldt & STOR_FLAG_ARRAY
+
                 if oldvirts is not None:
-                    self.stortypes[stortype].delVirtIndxVals(nid, form, prop, oldvirts)
+                    self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
 
                 if virts is not None:
-                    kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, prop, virts))
+                    if (virtkeys := self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)):
+                        kvpairs.extend(virtkeys)
 
                 return kvpairs
 
@@ -4654,20 +4666,18 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
 
-                if oldt == STOR_TYPE_IVAL:
-                    dura = self.ivaltype.getDurationIndx(oldv)
+                if (oldt & STOR_MASK_POLY) == STOR_TYPE_IVAL:
+                    oldival = oldv[1]
+                    dura = self.ivaltype.getDurationIndx(oldival)
                     duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
 
-                    if not oldv[1] == valu[1]:
+                    if not oldival[1] == valu[1][1]:
                         maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                        self.layrslab.delete(maxabrv + oldi[8:], nid, db=self.indxdb)
+                        self.layrslab.delete(maxabrv + oldi[-8:], nid, db=self.indxdb)
 
             if oldvirts is not None:
-                if realtype & STOR_FLAG_POLY:
-                    self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
-                else:
-                    self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
+                self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
 
         if (antiprops := sode.get('antiprops')) is not None:
             tomb = antiprops.pop(prop, None)
@@ -4706,22 +4716,18 @@ class Layer(s_nexus.Pusher):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
 
-            if stortype == STOR_TYPE_IVAL:
-                dura = self.ivaltype.getDurationIndx(valu)
+            if (stortype & STOR_MASK_POLY) == STOR_TYPE_IVAL:
+                ival = valu[1]
+                dura = self.ivaltype.getDurationIndx(ival)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
 
-                if oldv is None or oldv[1] != valu[1]:
+                if oldv is None or oldv[1][1] != ival[1]:
                     maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                    kvpairs.append((maxabrv + indx[8:], nid))
+                    kvpairs.append((maxabrv + indx[-8:], nid))
 
         if virts is not None:
-            if realtype & STOR_FLAG_POLY:
-                virtkeys = self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
-            else:
-                virtkeys = self.stortypes[realtype].getVirtIndxVals(nid, form, prop, virts, isarray=isarray)
-
-            if virtkeys:
+            if (virtkeys := self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)):
                 kvpairs.extend(virtkeys)
 
         return kvpairs
@@ -4760,19 +4766,16 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
 
-            if stortype == STOR_TYPE_IVAL:
+            if (stortype & STOR_MASK_POLY) == STOR_TYPE_IVAL:
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                self.layrslab.delete(maxabrv + indx[8:], nid, db=self.indxdb)
+                self.layrslab.delete(maxabrv + indx[-8:], nid, db=self.indxdb)
 
-                dura = self.ivaltype.getDurationIndx(valu)
+                dura = self.ivaltype.getDurationIndx(valu[1])
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
 
         if virts is not None:
-            if realtype & STOR_FLAG_POLY:
-                self.polytype.delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
-            else:
-                self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
+            self.polytype.delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -5570,11 +5573,11 @@ class Layer(s_nexus.Pusher):
             realtype = stortype & STOR_MASK_POLY
 
             sbyts = realtype.to_bytes(2, 'big')
-            formabrv = self.core.setIndxAbrv(INDX_PROP, valu[0], None)
+            typeabrv = self.core.setIndxAbrv(INDX_PROP, valu[0], None)
 
             retn = []
             for indx in self.getStorIndx(realtype, valu[1]):
-                retn.append(sbyts + formabrv + indx)
+                retn.append(sbyts + typeabrv + indx)
 
             return retn
 

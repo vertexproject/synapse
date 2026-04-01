@@ -1614,7 +1614,7 @@ class CortexTest(s_t_utils.SynTest):
             async def nodeVals(query, prop=None, tag=None):
                 nodes = await core.nodes(query)
                 if prop:
-                    return [node.get(prop) for node in nodes]
+                    return [node.get(prop)[1] for node in nodes]
                 if tag:
                     return [node.getTag(tag) for node in nodes]
                 return [node.ndef[1] for node in nodes]
@@ -3155,25 +3155,25 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:onstorm=*]')
             self.len(1, nodes)
             self.nn(nodes[0].get('tick'))
-            self.eq(nodes[0].get('tick'), 1735689600000000)
+            self.propeq(nodes[0], 'tick', 1735689600000000)
 
             # Test on:set callback - setting :name should copy it to :hehe
             nodes = await core.nodes('[test:onstorm=* :name=foobar]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'foobar')
+            self.propeq(nodes[0], 'hehe', 'foobar')
 
             # Test on:set fires on update too
             iden = nodes[0].ndef[1]
             nodes = await core.nodes(f'test:onstorm={iden} [:name=bazqux]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'bazqux')
+            self.propeq(nodes[0], 'hehe', 'bazqux')
 
             # Test on:del callback - deleting :ondelprop should set :hehe to "deleted"
             nodes = await core.nodes(f'test:onstorm={iden} [:ondelprop=hi]')
             self.len(1, nodes)
             nodes = await core.nodes(f'test:onstorm={iden} [-:ondelprop]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'deleted')
+            self.propeq(nodes[0], 'hehe', 'deleted')
 
             # Test that callbacks run as the calling user with asroot elevation
             visi = await core.auth.addUser('visi')
@@ -3223,7 +3223,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ it:dev:str=Foobar ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('norm'), 'foobar')
+            self.propeq(nodes[0], 'norm', 'foobar')
 
     async def test_cortex_coreinfo(self):
 
@@ -5908,14 +5908,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # getPropNorm can norm sub props
             norm, info = await core.getPropNorm('test:str:tick', '3001')
-            self.eq(norm, 32535216000000000)
+            self.eq(norm, ('test:time', 32535216000000000))
             self.eq(info, {})
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
             # specify typeopts to getTypeNorm/getPropNorm
-            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), typeopts={'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
-            self.eq(norm, ('pass', 'the', 'time'))
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), typeopts={'uniq': True, 'sorted': True, 'type': 'test:lower'})
+            self.eq(norm, (('test:lower', 'pass'), ('test:lower', 'the'), ('test:lower', 'time')))
 
             norm, info = await prox.getPropNorm('test:comp', "1234:comedy", typeopts={'sepr': ':'})
             self.eq(norm, (1234, "comedy"))
@@ -8430,7 +8430,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add a regular trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE TRIGGER: {$node}`)
-                $tick = :tick
+                $tick = :tick.value
                 $str = { [( test:str=TRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -8441,7 +8441,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add an async trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE ATRIGGER: {$node}`)
-                $tick = :tick
+                $tick = :tick.value
                 $str = { [( test:str=ATRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -8701,7 +8701,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '''
                 test:guid=(d0,)
-                $d=:raw
+                $d=:raw.value
                 $d.list.rem(listval0)
                 $d.str = foo
                 $d.int = ($d.int + 1)
@@ -8721,12 +8721,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             # modifying the property value shouldn't update the node
             q = '''
                 test:guid=(d0,)
-                $d=:raw
+                $d=:raw.value
                 $d.dict = $lib.undef
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('raw')['dict'], {'dictkey': 'dictval'})  # not propeq - indexing into prop value
+            self.eq(nodes[0].get('raw')[1]['dict'], {'dictkey': 'dictval'})  # not propeq - indexing into prop value
 
             q = '''
                 test:guid=(d0,)
@@ -8739,3 +8739,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (1, 'foo'),
                 (1, 'foo'),
             ))
+
+            # Make sure $node.props aren't modifiable either
+            nodes = await core.nodes('test:guid=(d0,) $node.props.raw.list.rem(listval0)')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'raw', data)

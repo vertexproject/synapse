@@ -199,6 +199,9 @@ modeldefs = (
                 ),
                 'doc': 'A unique X.509 certificate.'}),
 
+            ('crypto:x509:serial', ('hex', {'zeropad': 40}), {
+                'doc': 'A certificate serial number as a big endian hex value.'}),
+
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
                 'doc': 'An X.509 Subject Alternative Name (SAN).'}),
 
@@ -210,13 +213,16 @@ modeldefs = (
 
             ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
                 'doc': 'A digital signature relationship between an X.509 certificate and a file.'}),
+
+            ('crypto:x509:version', ('int', {'enums': x509vers}), {
+                'doc': 'An X.509 certificate version.'}),
         ),
 
         'interfaces': (
 
             ('crypto:key', {
                 'props': (
-                    ('bits', ('int', {'min': 1}), {
+                    ('bits', ('int:min1', {}), {
                         'doc': 'The number of bits of key material.'}),
 
                     ('algorithm', ('crypto:algorithm', {}), {
@@ -548,7 +554,7 @@ modeldefs = (
             )),
 
             ('crypto:key:ecdsa', {}, (
-                ('curve', ('str', {'lower': True, 'onespace': True}), {
+                ('curve', ('base:name', {}), {
                     'doc': 'The curve standard in use.'}),
 
                 ('public', ('hex', {}), {
@@ -596,7 +602,7 @@ modeldefs = (
                 ('iv', ('hex', {}), {
                     'doc': 'The hex encoded initialization vector.'}),
 
-                ('mode', ('str', {'lower': True, 'onespace': True}), {
+                ('mode', ('base:name', {}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
                 ('value', ('hex', {}), {
@@ -660,7 +666,10 @@ modeldefs = (
 
             ('crypto:x509:cert', {}, (
 
-                ('key', (('crypto:key:rsa', 'crypto:key:dsa'), {}), {
+                ('key', (
+                        ('crypto:key:rsa', {}),
+                        ('crypto:key:dsa', {})
+                    ), {
                     'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {
@@ -679,11 +688,11 @@ modeldefs = (
                     'doc': 'The certificate used by the issuer to sign this certificate.',
                 }),
 
-                ('serial', ('hex', {'zeropad': 40}), {
+                ('serial', ('crypto:x509:serial', {}), {
                     'doc': 'The certificate serial number as a big endian hex value.',
                 }),
 
-                ('version', ('int', {'enums': x509vers}), {
+                ('version', ('crypto:x509:version', {}), {
                     'doc': 'The version integer in the certificate. (ex. 2 == v3 ).',
                 }),
 

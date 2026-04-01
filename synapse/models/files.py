@@ -226,7 +226,7 @@ modeldefs = (
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'MIME specific altitude information extracted from metadata.'}),
 
-                    ('text', ('str', {'lower': True, 'onespace': True}), {
+                    ('text', ('base:name', {}), {
                         'doc': 'The text contained within the image.'}),
                 ),
                 'doc': 'Properties common to image file formats.',
@@ -417,6 +417,12 @@ modeldefs = (
 
             ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                 'doc': 'A key value pair found in a PE VS_VERSIONINFO structure.'}),
+
+            ('file:macho:loadcmd:type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                'doc': 'A Mach-O load command type.'}),
+
+            ('file:macho:section:type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                'doc': 'A Mach-O section type.'}),
 
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                 'doc': 'The typecode for the resource.'}),
@@ -702,7 +708,7 @@ modeldefs = (
             ('file:path', {}, ()),
 
             ('file:mime:macho:loadcmd', {}, (
-                ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                ('type', ('file:macho:loadcmd:type', {}), {
                     'doc': 'The type of the load command.'}),
             )),
 
@@ -736,7 +742,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'Name of the section.'}),
 
-                ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                ('type', ('file:macho:section:type', {}), {
                     'doc': 'The type of the section.'}),
 
                 ('sha256', ('crypto:hash:sha256', {}), {

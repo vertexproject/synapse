@@ -615,7 +615,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the assset.'}),
 
                 ('period', ('ival', {}), {
@@ -736,11 +736,18 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', (('doc:policy', 'doc:standard', 'doc:requirement'), {}), {
+                ('doc', (
+                        ('doc:policy', {}),
+                        ('doc:standard', {}),
+                        ('doc:requirement', {})
+                    ), {
                     'doc': 'The document enacted by the organization.'}),
 
                 # TODO: what valid scopes are there?
-                ('scope', (('ou:team', 'ou:org'), {}), {
+                ('scope', (
+                        ('ou:team', {}),
+                        ('ou:org', {})
+                    ), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),

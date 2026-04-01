@@ -119,6 +119,9 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of attack statuses.'}),
 
+            ('risk:alert:status', ('int', {'enums': alertstatus}), {
+                'doc': 'A risk alert status.'}),
+
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -478,18 +481,17 @@ modeldefs = (
 
             ('risk:vuln', {}, (
 
-                ('id', (('it:sec:cve', 'meta:id'), {
-                    'default_forms': ('it:sec:cve', 'meta:id'),
-                    }), {
+                ('id', (
+                        ('it:sec:cve', {}),
+                        ('meta:id', {})
+                    ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the vulnerability.'}),
 
-                ('ids', ('array', {
-                    'type': ('it:sec:cve', 'meta:id'),
-                    'typeopts': {
-                        'default_forms': ('it:sec:cve', 'meta:id'),
-                    },
-                    }), {
+                ('ids', ('array', {'type': (
+                        ('it:sec:cve', {}),
+                        ('meta:id', {})
+                    )}), {
                     'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {
@@ -592,7 +594,11 @@ modeldefs = (
                     'doc': 'The time window where the node was vulnerable.'}),
 
                 # TODO - interface for things which can be vulnerable?
-                ('node', (('risk:targetable', 'meta:havable', 'meta:observable'), {}), {
+                ('node', (
+                        ('risk:targetable', {}),
+                        ('meta:havable', {}),
+                        ('meta:observable', {})
+                    ), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('mitigated', ('bool', {}), {
@@ -619,7 +625,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A free-form description / overview of the alert.'}),
 
-                ('status', ('int', {'enums': alertstatus}), {
+                ('status', ('risk:alert:status', {}), {
                     'doc': 'The status of the alert.'}),
 
                 ('benign', ('bool', {}), {

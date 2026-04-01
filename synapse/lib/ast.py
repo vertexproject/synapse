@@ -1655,22 +1655,8 @@ class LiftOper(Oper):
                 if (pvalu := pivo.get(piv)) is None:
                     break
 
-                pprop = pivo.form.props.get(piv)
-
-                if pprop.type.ispoly:
-                    if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
-                        break
-                    continue
-
-                if (pform := runt.model.form(pprop.type.name)) is None:
+                if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
                     break
-
-                for formname in runt.model.getChildForms(pprop.type.name):
-                    if (pivo := await runt.view.getNodeByNdef((formname, pvalu))) is not None:
-                        break
-                else:
-                    break
-
             else:
                 if (pprop := pivo.form.props.get(filtprop)) is not None:
                     if array:
@@ -1682,22 +1668,18 @@ class LiftOper(Oper):
                         ptyp = pprop.type
 
                     if virts is not None:
-                        if not ptyp.ispoly:
-                            (ptyp, getr) = ptyp.getVirtInfo(virts)
-                            pvalu = pivo.get(filtprop, virts=getr)
-                        else:
-                            rawv = pivo.getRawWithLayer(filtprop)
-                            if (pvalu := rawv[0]) is not None:
-                                if not array:
-                                    ptyp = runt.model.form(pvalu[0][0]).type
-                                    (ptyp, getr) = ptyp.getVirtInfo(virts)
-                                    pvalu = pivo.get(filtprop, virts=getr)
-                                else:
-                                    for atyp in ptyp.getTypeSet():
-                                        if (vinfo := atyp.virts.get(virts[0])) is not None:
-                                            ptyp = vinfo[0]
-                                            break
-                                    pvalu = pvalu[2].get(virts[0])
+                        rawv = pivo.getRawWithLayer(filtprop)
+                        if (pvalu := rawv[0]) is not None:
+                            if not array:
+                                ptyp = runt.model.type(pvalu[0][0])
+                                (ptyp, getr) = ptyp.getVirtInfo(virts)
+                                pvalu = pivo.get(filtprop, virts=getr)
+                            else:
+                                for atyp in ptyp.getTypeSet():
+                                    if (vinfo := atyp.virts.get(virts[0])) is not None:
+                                        ptyp = vinfo[0]
+                                        break
+                                pvalu = pvalu[2].get(virts[0])
                     else:
                         pvalu = pivo.get(filtprop)
 
@@ -2233,9 +2215,7 @@ class LiftProp(LiftOper):
                             async for node in runt.view.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
                                 yield node
                             return
-                        except asyncio.CancelledError:  # pragma: no cover
-                            raise
-                        except:
+                        except Exception as e:
                             pass
 
                     async for node in runt.view.nodesByProp(fullname, reverse=self.reverse):
@@ -2303,7 +2283,7 @@ class LiftPropVirt(LiftProp):
                     if (valu := node.get(relname)) is None:
                         return None
 
-                    vtyp = runt.model.form(valu[0]).type
+                    vtyp = runt.model.type(valu[0])
                     (vtyp, vgetr) = vtyp.getVirtInfo(virts)
 
                     return node.get(relname, virts=vgetr)
@@ -2462,7 +2442,7 @@ class LiftPropVirtBy(LiftOper):
                         if (valu := node.get(relname)) is None:
                             return None
 
-                        vtyp = runt.model.form(valu[0]).type
+                        vtyp = runt.model.type(valu[0])
                         (vtyp, vgetr) = vtyp.getVirtInfo(vnames)
 
                         return node.get(relname, virts=vgetr)
@@ -2583,6 +2563,10 @@ class PivotOut(PivotOper):
                 if (pivo := await runt.view.getNodeByNdef(valu)) is not None:
                     yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
 
+                elif (rform := runt.model.form(valu[0])) is not None and rform.isrunt:
+                    async for pivo in runt.view.nodesByPropValu(valu[0], '=', valu[1]):
+                        yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
         for name in refs['ndefarray']:
             if (valu := node.get(name)) is not None:
                 link = {'type': 'prop', 'prop': name}
@@ -2700,25 +2684,15 @@ class PivotIn(PivotOper):
             for prop in runt.model.getPropsByType(formtype):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
-                if prop.type.ispoly:
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', node):
-                        yield pivo, path.fork(pivo, link)
-                else:
-                    norm = node.form.typehash is not prop.typehash
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm):
-                        yield pivo, path.fork(pivo, link)
+                async for pivo in runt.view.nodesByPropValu(prop.full, '=', node):
+                    yield pivo, path.fork(pivo, link)
 
         for formtype in node.form.formtypes:
             for prop in runt.model.getArrayPropsByType(formtype):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
-                if prop.type.arraytype.ispoly:
-                    async for pivo in runt.view.nodesByPropArray(prop.full, '=', node):
-                        yield pivo, path.fork(pivo, link)
-                else:
-                    norm = node.form.typehash is not prop.arraytypehash
-                    async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
-                        yield pivo, path.fork(pivo, link)
+                async for pivo in runt.view.nodesByPropArray(prop.full, '=', node):
+                    yield pivo, path.fork(pivo, link)
 
         for formtype in node.form.formtypes:
             for prop in runt.model.getTagPropsByType(formtype):
@@ -2755,17 +2729,10 @@ class FormPivot(PivotOper):
             # plain old pivot...
             async def pgenr(node, strict=True):
                 if prop.type.isarray:
-                    if prop.type.arraytype.ispoly:
-                        if not prop.type.arraytype.formfilter(node.form):
-                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], virts=virts)
-                        else:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
-
+                    if not prop.type.arraytype.formfilter(node.form):
+                        ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], virts=virts)
                     else:
-                        if prop.arraytypehash is not node.form.typehash:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '?=', node.ndef[1], norm=True, virts=virts)
-                        else:
-                            ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=False, virts=virts)
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node, virts=virts)
 
                 else:
                     cmpr = '='
@@ -2886,8 +2853,12 @@ class FormPivot(PivotOper):
 
                     refsvalu = node.get(refsname)
                     if refsvalu is not None and refsvalu[0] == destform.name:
-                        pivo = await runt.view.getNodeByNdef(refsvalu)
-                        if pivo is not None:
+                        if destform.isrunt:
+                            link = {'type': 'prop', 'prop': refsname}
+                            async for pivo in runt.view.nodesByPropValu(destform.name, '=', refsvalu[1]):
+                                yield pivo, link
+
+                        elif (pivo := await runt.view.getNodeByNdef(refsvalu)) is not None:
                             yield pivo, {'type': 'prop', 'prop': refsname}
 
                 for refsname in refs.get('ndefarray'):
@@ -3027,25 +2998,17 @@ class PropPivotOut(PivotOper):
                         yield pivo, path.fork(pivo, link)
 
             if srctype.isarray:
-                if srctype.arraytype.ispoly:
-                    for item in valu:
-                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo, link)
-                    continue
-
-                fname = srctype.arraytype.name
-                if runt.model.forms.get(fname) is None:
+                if not srctype.arraytype.hasforms:
                     if not warned:
-                        mesg = f'The source property "{srcname}" array type "{fname}" is not a form. Cannot pivot.'
+                        mesg = f'The source property "{srcname}" does not allow any forms. Cannot pivot.'
                         await runt.warn(mesg, log=False)
                         warned = True
                     continue
 
                 for item in valu:
-                    for formname in runt.model.getChildForms(fname):
-                        if (pivo := await runt.view.getNodeByNdef((formname, item))) is not None:
-                            yield pivo, path.fork(pivo, link)
-                            break
+                    if (pivo := await runt.view.getNodeByNdef(item)) is not None:
+                        yield pivo, path.fork(pivo, link)
+
                 continue
 
             # :prop -> *
@@ -3109,7 +3072,7 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
-                if srctype.arraytype.ispoly and prop.isform:
+                if prop.isform:
                     for aval in valu:
                         if aval[0] != prop.form.name:
                             continue
@@ -3517,7 +3480,7 @@ class HasRelPropCond(Cond):
             if ptyp.virts.get(virts[0]) is not None:
                 return True
 
-            ptyp = runt.model.form(valu[0]).type
+            ptyp = runt.model.type(valu[0])
 
         try:
             vgetr = ptyp.getVirtGetr(virts)
@@ -3650,7 +3613,7 @@ class HasAbsPropCond(Cond):
                     if (valu := node.get(relname)) is None:
                         return False
 
-                    vgetr = runt.model.form(valu[0]).type.getVirtGetr(virts)
+                    vgetr = runt.model.type(valu[0]).getVirtGetr(virts)
                     return node.has(relname, virts=vgetr)
 
             return cond
@@ -3749,7 +3712,7 @@ class ArrayCond(Cond):
 
                 val2 = await valukid.compute(runt, path)
 
-                if not ptyp.ispoly or ptyp.virts.get(vnames[0]) is not None:
+                if ptyp.virts.get(vnames[0]) is not None:
                     vtyp = ptyp.getVirtType(vnames)
 
                     if (ctor := vtyp.getCmprCtor(cmpr)) is None:
@@ -3767,11 +3730,11 @@ class ArrayCond(Cond):
                     if (vval := vvals.get(vnames[0])) is None:
                         return False
 
-                    fnames = set(v[0] for v in valu)
+                    tnames = set(v[0] for v in valu)
 
                     cmprs = {}
-                    for fname in fnames:
-                        ftyp = runt.model.form(fname).type
+                    for tname in tnames:
+                        ftyp = runt.model.type(tname)
                         vtyp = ftyp.getVirtType(vnames)
 
                         if vtyp.stortype not in cmprs:
@@ -3910,7 +3873,7 @@ class AbsVirtPropCond(Cond):
             if (valu := node.get(prop.name)) is None:
                 return False
 
-            ptyp = runt.model.form(valu[0]).type
+            ptyp = runt.model.type(valu[0])
             (ptyp, getr) = ptyp.getVirtInfo(virts)
 
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
@@ -4214,43 +4177,32 @@ class PropValue(Value):
         getr = None
         ptyp = prop.type
 
-        if ptyp.ispoly:
-            if self.virts is not None:
-                if (virts := self.constvirts) is None:
-                    virts = await self.virts.compute(runt, path)
+        if self.virts is not None:
+            if (virts := self.constvirts) is None:
+                virts = await self.virts.compute(runt, path)
 
-                if ptyp.virts.get(virts[0]) is None:
-                    if (valu := node.get(realprop)) is None:
-                        return None, None, None
-                    ptyp = runt.model.form(valu[0]).type
-
-                (ptyp, getr) = ptyp.getVirtInfo(virts)
-                fullname += f".{'.'.join(virts)}"
-
-                if (valu := node.get(realprop, virts=getr)) is None:
+            if ptyp.ispoly and ptyp.virts.get(virts[0]) is None:
+                if (valu := node.get(realprop)) is None:
                     return None, None, None
+                ptyp = runt.model.type(valu[0])
 
-            else:
-                if not resolvepoly:
-                    if (valu := node.getWithVirts(realprop))[0] is None:
-                        return None, None, None
-                else:
-                    if (valu := node.get(realprop, virts=getr)) is None:
-                        return None, None, None
-
-                    ptyp = runt.model.form(valu[0]).type
-                    valu = valu[1]
-
-        else:
-            if self.virts is not None:
-                if (virts := self.constvirts) is None:
-                    virts = await self.virts.compute(runt, path)
-
-                (ptyp, getr) = ptyp.getVirtInfo(virts)
-                fullname += f".{'.'.join(virts)}"
+            (ptyp, getr) = ptyp.getVirtInfo(virts)
+            fullname += f".{'.'.join(virts)}"
 
             if (valu := node.get(realprop, virts=getr)) is None:
                 return None, None, None
+
+        else:
+            if ptyp.ispoly and not resolvepoly:
+                if (valu := node.getWithVirts(realprop))[0] is None:
+                    return None, None, None
+            else:
+                if (valu := node.get(realprop)) is None:
+                    return None, None, None
+
+                if ptyp.ispoly:
+                    ptyp = runt.model.type(valu[0])
+                    valu = valu[1]
 
         return ptyp, valu, fullname
 
@@ -4344,6 +4296,9 @@ class FormTagProp(Value):
 
 class TagPropValue(Value):
     async def compute(self, runt, path):
+        if not path:
+            return
+
         tag, prop = await self.kids[0].compute(runt, path)
 
         tprop = runt.model.reqTagProp(prop, extra=self.kids[0].addExcInfo)
@@ -4894,12 +4849,10 @@ class PropName(Value):
             if (valu := node.get(name)) is None:
                 return None, None, None
 
-            if prop.type.ispoly:
-                ndef = valu
-            else:
+            if not prop.type.hasforms:
                 raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
-            if (node := await runt.view.getNodeByNdef(ndef)) is None:
+            if (node := await runt.view.getNodeByNdef(valu)) is None:
                 return None, None, None
 
         return node, realprop, name
@@ -5561,7 +5514,7 @@ class N1Walk(Oper):
                 for name, prop in props.items():
                     if (propvalu := node.get(name)) is not None:
                         if prop.type.ispoly:
-                            if await runt.model.form(propvalu[0]).type.cmpr(propvalu[1], cmpr, cmprvalu):
+                            if await runt.model.type(propvalu[0]).cmpr(propvalu[1], cmpr, cmprvalu):
                                 return True
 
                         elif await prop.type.cmpr(propvalu, cmpr, cmprvalu):

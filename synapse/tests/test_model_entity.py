@@ -141,7 +141,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :role=staff
             ]''')
             self.len(1, nodes)
-            self.eq('staff', nodes[0].get('role'))
+            self.propeq(nodes[0], 'role', 'staff')
             self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
             self.len(1, await core.nodes('entity:attended -> ps:person'))
