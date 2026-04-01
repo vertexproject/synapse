@@ -22,7 +22,7 @@ classifiers = [
     'Operating System :: POSIX :: Linux',
 ]
 dependencies = [
-    'cryptography>=46.0.5,<47.0.0',
+    'cryptography>=46.0.6,<47.0.0',
     'msgpack>=1.0.5,<1.2.0',
     'xxhash>=1.4.4,<3.6.0',
     'lmdb>=1.7.0,<1.8.0',
