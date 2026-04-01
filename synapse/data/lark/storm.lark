@@ -530,7 +530,7 @@ PROPS.3: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+(?![:a-z0-9_\-])/
 WILDPROPS.3: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+:?\*)(?![:a-z0-9_\-\[])/
 
 // A full property with embed properties
-EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:)[a-z0-9_]+)*(?![:a-z0-9_\-])/
+EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:)[a-z0-9_]+(\.[a-z0-9_]+(?=\:\:))?)*(?![:a-z0-9_\-])/
 
 // A full property
 formname: PROPS | derefprops

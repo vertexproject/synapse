@@ -1582,16 +1582,21 @@ class LiftOper(Oper):
                 virts.append(piv)
                 continue
 
+            pivname = piv
+            pivvirt = None
+            if '.' in piv:
+                pivname, pivvirt = piv.split('.', 1)
+
             pivlifts.append((plist, virts))
 
-            if (pivprop := runt.model.prop(f'{ptyp.name}:{piv}')) is None:
+            if (pivprop := runt.model.prop(f'{ptyp.name}:{pivname}')) is None:
                 found = False
                 todo = collections.deque([ptyp.name])
 
                 while todo:
                     nextform = todo.popleft()
                     for cform in runt.model.childforms.get(nextform, ()):
-                        if (pivprop := runt.model.prop(f'{cform}:{piv}')) is not None:
+                        if (pivprop := runt.model.prop(f'{cform}:{pivname}')) is not None:
 
                             # If we have an ndef prop or a prop is defined in multiple branches of the
                             # inheritance tree, fallback to lift + filter due to potential mixed types
@@ -1603,12 +1608,19 @@ class LiftOper(Oper):
                             todo.append(cform)
 
                 if not found:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(f'{ptyp.name}:{piv}'))
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(f'{ptyp.name}:{pivname}'))
 
             plist = [prop.full for prop in runt.model.getChildProps(pivprop)]
             virts = []
 
             ptyp = pivprop.type
+
+            if pivvirt is not None:
+                if (virt := ptyp.virts.get(pivvirt)) is None:
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchVirt.init(pivvirt, ptyp))
+
+                ptyp = virt[0]
+                virts.append(pivvirt)
 
         pivlifts.append((plist, virts))
 
@@ -1652,11 +1664,26 @@ class LiftOper(Oper):
             pivo = node
 
             for piv in pivs[:-1]:
-                if (pvalu := pivo.get(piv)) is None:
+
+                pivvirt = None
+                pivname = piv
+                if '.' in piv:
+                    pivname, pivvirt = piv.split('.', 1)
+
+                if (pvalu := pivo.get(pivname)) is None:
                     break
 
                 if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
                     break
+
+                if pivvirt is not None:
+                    (ptyp, getr) = pivo.form.type.getVirtInfo((pivvirt,))
+                    pvalu = pivo.valu(virts=getr)
+                    if pvalu is None:
+                        break
+
+                    if (pivo := await runt.view.getNodeByNdef((ptyp.name, pvalu))) is None:
+                        break
             else:
                 if (pprop := pivo.form.props.get(filtprop)) is not None:
                     if array:

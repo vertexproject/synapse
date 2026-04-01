@@ -3082,9 +3082,8 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            # TODO: allow embed lift through virt
-            # self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
-            # self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
 
             await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
             await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
