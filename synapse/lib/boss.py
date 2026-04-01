@@ -70,7 +70,7 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    async def promote(self, name, user, info=None, taskiden=None, background=False):
+    async def promote(self, name, user, info=None, taskiden=None, background=False, protected=False):
         '''
         Promote the currently running task.
 
@@ -79,6 +79,7 @@ class Boss(s_base.Base):
             user: The User who owns the task.
             taskiden: An optional GUID for the task.
             info: An optional information dictionary containing information about the task.
+            protected (bool): If true, the task cannot be killed with kill(safe=True).
 
         Returns:
             s_task.Task: The Synapse Task object.
@@ -86,6 +87,7 @@ class Boss(s_base.Base):
         task = asyncio.current_task()
 
         syntask = await self.promotetask(task, name, user, info=info, taskiden=taskiden)
+        syntask.protected = protected
         syntask.background = background
 
         return syntask
