@@ -490,17 +490,6 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor registered for an event or activity.'}),
 
-            ('entity:authored', ('guid', {}), {
-                'interfaces': (
-                    ('entity:activity', {}),
-                ),
-                'props': (
-                    # TODO: name must include docs and it:software. Better names?
-                    ('content', ('doc:authorable', {}), {
-                        'doc': 'The content that the actor authored or developed.'}),
-                ),
-                'doc': "Represents an actor's activity authoring or developing content."}),
-
             ('entity:participated', ('guid', {}), {
                 'template': {'title': 'participation'},
                 'interfaces': (
@@ -527,6 +516,22 @@ modeldefs = (
                         'doc': 'The transcribed text of what the actor said.'}),
                 ),
                 'doc': 'A statement made by an actor.'}),
+
+            ('entity:created', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    # this will eventually grow to include additional interfaces
+                    ('item', ('doc:authorable', {}), {
+                        'doc': 'The item which the actor created or helped to create.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'illustrator',
+                        'doc': 'The role which the actor played in creating the item.'}),
+                ),
+                'doc': 'An activity where an actor created or helped create an item.'}),
         ),
 
         'edges': (
