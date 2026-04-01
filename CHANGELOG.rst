@@ -11,9 +11,9 @@ v2.237.0 - 2026-04-01
 
 Automatic Migrations
 --------------------
-- Migrated invalid inet:client, inet:server, and inet:url nodes. For all three
+- Migrated invalid ``inet:client``, ``inet:server``, and ``inet:url`` nodes. For all three
   forms, the canonical representation of IPv6 addresses requires the address
-  to be enclosed in square brackets (``[`` and ``]``) in URIs.  During
+  to be enclosed in square brackets (``[`` and ``]``) in URIs. During
   migration, if a non-canonical node is migrated to a canonical node, the
   migration will attempt to merge the properties, tags, tagprops, and nodedata
   of the two nodes. The merge strategy is as follows:
@@ -41,8 +41,8 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added ability to set ``loglevel`` when creating a cron and including it in
-  cron responses.
+- Added ability to set ``loglevel`` when creating a Cron job and included it in
+  Cron job responses.
   (`#4789 <https://github.com/vertexproject/synapse/pull/4789>`_)
 - Added an ``isValidStorm()`` API to the Cortex, and a corresponding
   ``api/v1/isvalidstorm`` HTTP endpoint. These return a tuple of ``isok, info``
@@ -61,7 +61,7 @@ Bugfixes
   (`#4785 <https://github.com/vertexproject/synapse/pull/4785>`_)
 - Updated the ``sci:evidence:hypothesis`` property to use the correct type.
   (`#4837 <https://github.com/vertexproject/synapse/pull/4837>`_)
-- Remove warning messages related to Cron job affinity when affinity is not
+- Removed warning messages related to Cron job affinity when affinity is not
   configured for a Cron job.
   (`#4846 <https://github.com/vertexproject/synapse/pull/4846>`_)
 
