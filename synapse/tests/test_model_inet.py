@@ -196,6 +196,9 @@ class InetModelTest(s_t_utils.SynTest):
                     ('tcp://[::ffff:1.2.3.4]:2', {'adds': adds, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
 
+            self.none(t._getProto(('tcp://1.2.3.4', 1, None)))
+            self.none(t._getProto(('tcp://1.2.3.4', 1, {})))
+
     async def test_asn_collection(self):
 
         async with self.getTestCore() as core:
