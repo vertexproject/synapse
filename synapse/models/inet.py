@@ -529,8 +529,8 @@ class SockAddr(s_types.Str):
 
         ip_repr = self.iptype.repr(ipaddr)
         adds = (('inet:ip', ipaddr, norminfo),)
-        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
+        virts = {'ip': (ipaddr, self.iptype.stortype), 'proto': (proto, self.prototype.stortype)}
 
         if self.defport:
             virts['port'] = (self.defport, self.porttype.stortype)
