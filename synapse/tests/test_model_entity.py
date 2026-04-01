@@ -134,21 +134,20 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ndef)
 
             nodes = await core.nodes('''[
-                entity:attendee=*
-                    :person={[ ps:person=* ]}
+                entity:attended=*
+                    :actor={[ ps:person=* ]}
                     :period=(201202,201203)
-                    :event={[ ou:event=* ]}
-                    :roles+=staff
-                    :roles+=STAFF
+                    :activity={[ ou:event=* ]}
+                    :role=staff
             ]''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'roles', ('staff',))
+            self.propeq(nodes[0], 'role', 'staff')
             self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
-            self.len(1, await core.nodes('entity:attendee -> ps:person'))
+            self.len(1, await core.nodes('entity:attended -> ps:person'))
 
-            self.len(1, await core.nodes('entity:attendee -> ou:event'))
-            self.len(1, await core.nodes('entity:attendee :event -> ou:event'))
+            self.len(1, await core.nodes('entity:attended -> ou:event'))
+            self.len(1, await core.nodes('entity:attended :activity -> ou:event'))
 
             nodes = await core.nodes('''
                 [ entity:campaign=*

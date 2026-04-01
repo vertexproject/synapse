@@ -15,7 +15,6 @@ class DocModelTest(s_tests.SynTest):
                     :created=20241018
                     :updated=20241018
                     :author={[ entity:contact=* :name=visi ]}
-                    :contributors={[ entity:contact=* :name=shuka ]}
                     :version=1.2.3
                     :supersedes={[ doc:policy=* doc:policy=* ]}
                 ]
@@ -32,12 +31,10 @@ class DocModelTest(s_tests.SynTest):
             self.nn(nodes[0].get('author'))
 
             self.len(2, nodes[0].get('supersedes'))
-            self.len(1, nodes[0].get('contributors'))
 
             self.len(1, await core.nodes('doc:policy:id=V-41 :file -> file:bytes'))
             self.len(2, await core.nodes('doc:policy:id=V-41 :supersedes -> doc:policy'))
             self.len(1, await core.nodes('doc:policy:id=V-41 :author -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :contributors -> entity:contact +:name=shuka'))
 
             nodes = await core.nodes('''
                 [ doc:standard=*
@@ -98,8 +95,6 @@ class DocModelTest(s_tests.SynTest):
             [ doc:contract=*
                 :title="Fullbright Scholarship"
                 :type=foo.bar
-                :issuer={[ ou:org=({"name": "vertex"}) ]}
-                :parties={[ entity:contact=* entity:contact=* ]}
                 :file={[ file:bytes=* ]}
                 :signed=202001
                 :period=(202002, 202003)
@@ -109,10 +104,6 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'signed', 1577836800000000)
             self.propeq(nodes[0], 'period', (1580515200000000, 1583020800000000, 2505600000000))
-            self.len(2, nodes[0].get('parties'))
-
-            self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
-            self.len(2, await core.nodes('doc:contract :parties -> *'))
 
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)
