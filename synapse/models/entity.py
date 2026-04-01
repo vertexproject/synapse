@@ -458,7 +458,7 @@ modeldefs = (
 
                     ('role', ('entity:title', {}), {
                         'ex': 'sponsor',
-                        'doc': 'The role the actor played in supporting the event.'}),
+                        'doc': 'The role the actor played in supporting the activity.'}),
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the actors support of the activity.'}),
