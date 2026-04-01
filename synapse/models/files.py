@@ -114,22 +114,22 @@ class FilePath(s_types.Str):
         fullpath = lead + '/'.join(path)
 
         base = path[-1]
-        subs = {'base': (self.basetype.typehash, base, {})}
         virts = {'base': (base, self.basetype.stortype)}
 
         if '.' in base:
             ext = base.rsplit('.', 1)[1]
             extsub = (self.exttype.typehash, ext, {})
-            subs['ext'] = extsub
-            subs['base'][2]['subs'] = {'ext': extsub}
+            adds = (('file:base', base, {'subs': {'ext': extsub}}),)
             virts['ext'] = (ext, self.exttype.stortype)
+        else:
+            adds = (('file:base', base, {}),)
 
         if len(path) > 1:
             dirn, info = await self._normPyStr(lead + '/'.join(path[:-1]))
-            subs['dir'] = (self.typehash, dirn, info)
+            adds += (('file:path', dirn, info),)
             virts['dir'] = (dirn, self.stortype)
 
-        return fullpath, {'subs': subs, 'virts': virts}
+        return fullpath, {'adds': adds, 'virts': virts}
 
 modeldefs = (
     ('file', {

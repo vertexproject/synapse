@@ -1669,7 +1669,9 @@ class LiftOper(Oper):
 
                     if virts is not None:
                         rawv = pivo.getRawWithLayer(filtprop)
-                        if (pvalu := rawv[0]) is not None:
+                        if rawv[1] is not None:
+                            pvalu = rawv[0]
+
                             if not array:
                                 ptyp = runt.model.type(pvalu[0][0])
                                 (ptyp, getr) = ptyp.getVirtInfo(virts)
