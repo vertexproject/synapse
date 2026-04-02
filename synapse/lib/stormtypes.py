@@ -10280,7 +10280,7 @@ async def stormcopy(item):
 
     try:
         return await item._storm_copy()
-    except s_exc.NoSuchType:
+    except s_exc.BadArg:
         mesg = 'Nested type does not support being copied!'
         raise s_exc.BadArg(mesg=mesg) from None
 
