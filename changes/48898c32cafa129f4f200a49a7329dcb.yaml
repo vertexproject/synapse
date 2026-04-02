@@ -3,9 +3,9 @@ desc: |
   - Updated the Synapse logging infrastructure and output formatting.
     Log output now uses an async pump task so that logging never blocks the
     asyncio event loop. Structure logging output is now consistently formatted
-    across and user provided information cannot overwrite system provided
-    information. The ``SYN_LOG_LEVEL``, ``SYN_LOG_STRUCT``, and
-   ``SYN_LOG_DATEFORMAT`` environment variables continue to work as before.
+    and user provided information cannot overwrite system provided information.
+    The ``SYN_LOG_LEVEL``, ``SYN_LOG_STRUCT``, and ``SYN_LOG_DATEFORMAT``
+    environment variables continue to work as before.
 
     The structured (JSON) log format has been updated:
 
