@@ -1508,24 +1508,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _copy(self, item):
-        # short circuit a few python types
-        if item is None:
-            return None
-
-        if isinstance(item, (int, str, bool)):
-            return item
-
-        try:
-            valu = fromprim(item)
-        except s_exc.NoSuchType:
-            mesg = 'Type does not have a Storm primitive and cannot be copied.'
-            raise s_exc.BadArg(mesg=mesg) from None
-
-        try:
-            return await valu._storm_copy()
-        except s_exc.NoSuchType:
-            mesg = 'Nested type does not support being copied!'
-            raise s_exc.BadArg(mesg=mesg) from None
+        return await stormcopy(item)
 
     def _reqTypeByName(self, name):
         typeitem = self.runt.view.core.model.type(name)
@@ -4820,10 +4803,6 @@ class Bytes(Prim):
     async def bool(self):
         return bool(self.valu)
 
-    async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
-
     @stormfunc(readonly=True)
     async def _methSlice(self, start, end=None):
         start = await toint(start)
@@ -4918,8 +4897,10 @@ class Dict(Prim):
         return bool(self.valu)
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in self.valu.items()}
 
     async def _storm_contains(self, item):
         item = await toprim(item)
@@ -5260,8 +5241,10 @@ class List(Prim):
         self.valu[indx] = valu
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return [await stormcopy(v) for v in self.valu]
 
     async def _storm_contains(self, item):
         return await self._methListHas(item)
@@ -6145,9 +6128,6 @@ class NodeRef(Prim):
         tobj = runt.view.core.model.reqType(self.valu[0])
         return tobj.repr(self.valu[1])
 
-    async def _storm_copy(self):
-        return self
-
     def value(self):
         return self.valu[1]
 
@@ -6314,9 +6294,6 @@ class Node(Prim):
 
     def __hash__(self):
         return hash((self._storm_typename, self.valu.iden))
-
-    async def _storm_copy(self):
-        return self
 
     def getObjLocals(self):
         if self.valu.nid is not None:
@@ -10279,6 +10256,28 @@ async def totype(valu, basetypes=False) -> str:
         return fp._storm_typename
 
     return valu.__class__.__name__
+
+async def stormcopy(item):
+    if item is None:
+        return None
+
+    if isinstance(item, (int, str, bool, float, bytes, decimal.Decimal,
+                         s_node.NodeBase, s_node.Path, NodeRef, Bytes)):
+        return item
+
+    try:
+        valu = item
+        if not isinstance(valu, StormType):
+            valu = fromprim(item)
+    except s_exc.NoSuchType:
+        mesg = 'Type does not have a Storm primitive and cannot be copied.'
+        raise s_exc.BadArg(mesg=mesg) from None
+
+    try:
+        return await valu._storm_copy()
+    except s_exc.NoSuchType:
+        mesg = 'Nested type does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg) from None
 
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):
