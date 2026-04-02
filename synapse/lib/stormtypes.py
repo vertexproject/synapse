@@ -10268,8 +10268,7 @@ async def stormcopy(item):
     if item is None:
         return None
 
-    if isinstance(item, (int, str, bool, float, bytes, decimal.Decimal,
-                         s_node.NodeBase, s_node.Path, NodeRef, Bytes)):
+    if isinstance(item, (int, str, bool, float, bytes, Bytes, decimal.Decimal, s_node.NodeBase, Node, NodeRef)):
         return item
 
     try:
