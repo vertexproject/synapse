@@ -1,0 +1,31 @@
+---
+desc: |
+  - Updated the Synapse logging infrastructure and output formatting.
+    Log output now uses an async pump task so that logging never blocks the
+    asyncio event loop. Structure logging output is now consistently formatted
+    across and user provided information cannot overwrite system provided
+    information. The ``SYN_LOG_LEVEL``, ``SYN_LOG_STRUCT``, and
+   ``SYN_LOG_DATEFORMAT`` environment variables continue to work as before.
+
+    The structured (JSON) log format has been updated:
+
+    - ``user`` and ``username`` fields now appear at the top level of each log
+      entry when an authenticated user context is active.
+    - ``service`` field now appears at the top level when the service is
+      registered with AHA, giving the fully-qualified AHA service name
+      (e.g. ``00.cortex.synapse``).
+    - Exception information is now recorded under the ``error`` key (previously
+      ``err``). The ``error`` object contains a ``code`` (exception class name),
+      ``traceback`` (list of frames), ``mesg`` (human-readable message), and an
+      ``info`` dictionary for ``SynErr`` subclasses. Chained exceptions are
+      included via ``cause`` and ``context`` sub-keys. Exception groups are
+      included via a ``group`` list.
+    - Log call parameters are now recorded under the ``params`` key.
+
+    Administrators can retrieve the last 100 structured log entries or stream
+    live log events via the new ``logs()`` and ``watch()`` admin APIs on
+    Synapse services.
+desc:literal: true
+prs: []
+type: feat
+...
