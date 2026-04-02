@@ -176,10 +176,10 @@ class InetModelTest(s_t_utils.SynTest):
             ipsub = (t.iptype.typehash, (6, 1), ipinfo)
             portsub = (t.porttype.typehash, 2, {})
 
-            # IPv6
+            # IPv6 - bare IPv6 now gets brackets
             adds = (('inet:ip', (6, 1), ipinfo),)
             virts = {'ip': ((6, 1), 26), 'proto': ('icmp', 1)}
-            self.eq(await t.norm('icmp://::1'), ('icmp://::1', {'adds': adds, 'virts': virts}))
+            self.eq(await t.norm('icmp://::1'), ('icmp://[::1]', {'adds': adds, 'virts': virts}))
 
             virts = {'ip': ((6, 1), 26), 'port': (2, 9), 'proto': ('tcp', 1)}
             self.eq(await t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'adds': adds, 'virts': virts}))
@@ -255,6 +255,10 @@ class InetModelTest(s_t_utils.SynTest):
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 '.ip': (6, 1),
                 '.port': 12345,
+                '.proto': 'tcp',
+            }),
+            ('tcp://::1', 'tcp://[::1]', {
+                '.ip': (6, 1),
                 '.proto': 'tcp',
             }),
         )
@@ -1485,6 +1489,14 @@ class InetModelTest(s_t_utils.SynTest):
                 '.ip': (4, 2130706433),
                 '.proto': 'tcp',
             }),
+            ('tcp://[::1]', 'tcp://[::1]', {
+                '.ip': (6, 1),
+                '.proto': 'tcp',
+            }),
+            ('tcp://::1', 'tcp://[::1]', {
+                '.ip': (6, 1),
+                '.proto': 'tcp',
+            }),
         )
 
         async with self.getTestCore() as core:
@@ -1511,13 +1523,18 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
             self.propeq(nodes[0], 'dns:resolvers', ('udp://[::1]:53',))
 
+            # Bare and bracketed IPv6 should deconflict to same node
+            nodes = await core.nodes('inet:server="tcp://[::1]"')
+            self.len(1, nodes)
+
             nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].ndef[1], 'gre://[::1]')
             self.propeq(nodes[0], '.proto', 'gre')
 
             nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
             self.propeq(nodes[0], '.proto', 'gre')
 
-            self.len(7, await core.nodes('inet:server.proto'))
+            self.len(8, await core.nodes('inet:server.proto'))
             self.len(2, await core.nodes('inet:server.proto=gre'))
             self.len(2, await core.nodes('inet:server.created +.proto=gre'))
 
@@ -1624,7 +1641,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'version': (t.iptype.verstype.typehash, 6, {})}})
 
             unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
-            url = 'smb://::1/share/path/to/filename.txt'
+            url = 'smb://[::1]/share/path/to/filename.txt'
             valu = await t.norm(unc)
             expected = (url, {'subs': {
                 'base': (t.strtype.typehash, url, {}),
@@ -1762,6 +1779,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[6], 'port', 443)
 
             self.len(1, await core.nodes('[ inet:url=https://vertex.link +(uses)> {[ meta:technique=* ]} ]'))
+
+            # Bare IPv6 in URLs should get brackets
+            valu = await t.norm('http://::1/path')
+            self.eq(valu[0], 'http://[::1]/path')
+            self.eq(valu[1]['subs']['ip'], ipsub)
+            self.eq(valu[1]['subs']['base'], (t.strtype.typehash, 'http://[::1]/path', {}))
+            self.eq(valu[1]['subs']['port'], (t.porttype.typehash, 80, {}))
+
+            # Bare and bracketed IPv6 URLs should deconflict
+            nodes = await core.nodes('[inet:url="http://[::1]/foo" inet:url="http://::1/foo"] | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'http://[::1]/foo')
 
     async def test_url_file(self):
 
@@ -2087,18 +2116,17 @@ class InetModelTest(s_t_utils.SynTest):
 
         # Handle IPv6 Port Brackets
         host_port = host
-        repr_host_port = repr_host
 
         if htype == 'ipv6':
             host_port = f'[{host}]'
-            repr_host_port = f'[{repr_host}]'
+            repr_host = f'[{repr_host}]'
 
         if htype in ('ipv4', 'ipv6'):
             htype = 'ip'
 
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
-        expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://user:password@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
             'user': (t.lowstrtype.typehash, 'user', {}),
@@ -2108,18 +2136,18 @@ class InetModelTest(s_t_utils.SynTest):
                 'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
             htype: norm_host,
             'port': (t.porttype.typehash, 1234, {}),
-            'base': (t.strtype.typehash, f'https://user:password@{repr_host_port}:1234/a/b/c/', {}),
+            'base': (t.strtype.typehash, f'https://user:password@{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
         # Userinfo user with @ in it
         url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
-        expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
+        expected = (f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway', {'subs': {
             'proto': (t.lowstrtype.typehash, 'lando', {}),
             'path': (t.strtype.typehash, '/auth/gateway', {}),
             'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
-            'base': (t.strtype.typehash, f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {}),
+            'base': (t.strtype.typehash, f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway', {}),
             'port': (t.porttype.typehash, 40000, {}),
             'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
@@ -2128,7 +2156,7 @@ class InetModelTest(s_t_utils.SynTest):
 
         # Userinfo password with @
         url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
-        expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
+        expected = (f'balthazar://root:foo@@@bar@{repr_host}:1234/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'balthazar', {}),
             'path': (t.strtype.typehash, '/', {}),
             'user': (t.lowstrtype.typehash, 'root', {}),
@@ -2136,7 +2164,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'md5': (t.passtype.md5.typehash, '43947b88f0eb686bfc5c4237ffd36beb', {}),
                 'sha1': (t.passtype.sha1.typehash, 'd29614eb55f9aa29efd8f3105ed60b8881dc81dd', {}),
                 'sha256': (t.passtype.sha256.typehash, 'd5547965c7f16db873d22ddbcc333f002c94913330801d84b2ab899ca76fa101', {})}}),
-            'base': (t.strtype.typehash, f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {}),
+            'base': (t.strtype.typehash, f'balthazar://root:foo@@@bar@{repr_host}:1234/', {}),
             'port': (t.porttype.typehash, 1234, {}),
             'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
@@ -2145,7 +2173,7 @@ class InetModelTest(s_t_utils.SynTest):
 
         # rfc3986 compliant Userinfo with @ properly encoded
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
-        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
+        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343', {'subs': {
             'proto': (t.lowstrtype.typehash, 'calrissian', {}),
             'path': (t.strtype.typehash, '', {}),
             'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
@@ -2153,7 +2181,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'md5': (t.passtype.md5.typehash, '494346410c1c4a4b98feb1b1956a71ae', {}),
                 'sha1': (t.passtype.sha1.typehash, 'ba9b515889b5d7f1bb1d13f13409e1f7518f7c20', {}),
                 'sha256': (t.passtype.sha256.typehash, '5058c40473c5e4e2a174f8837d4295d19ca1542d2fb45017f54d89f80da6897d', {})}}),
-            'base': (t.strtype.typehash, f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {}),
+            'base': (t.strtype.typehash, f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343', {}),
             'port': (t.porttype.typehash, 44343, {}),
             'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
@@ -2215,13 +2243,13 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with user but no password.
         # User should still be in URL and subs.
         url = f'https://user@{host_port}:1234/a/b/c/'
-        expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://user@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
             'user': (t.lowstrtype.typehash, 'user', {}),
             htype: norm_host,
             'port': (t.porttype.typehash, 1234, {}),
-            'base': (t.strtype.typehash, f'https://user@{repr_host_port}:1234/a/b/c/', {}),
+            'base': (t.strtype.typehash, f'https://user@{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
@@ -2229,24 +2257,24 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no user/password.
         # User/Password should not be in URL or subs.
         url = f'https://{host_port}:1234/a/b/c/'
-        expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
+        expected = (f'https://{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
             htype: norm_host,
             'port': (t.porttype.typehash, 1234, {}),
-            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234/a/b/c/', {}),
+            'base': (t.strtype.typehash, f'https://{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
         # URL with no path.
         url = f'https://{host_port}:1234'
-        expected = (f'https://{repr_host_port}:1234', {'subs': {
+        expected = (f'https://{repr_host}:1234', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '', {}),
             htype: norm_host,
             'port': (t.porttype.typehash, 1234, {}),
-            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234', {}),
+            'base': (t.strtype.typehash, f'https://{repr_host}:1234', {}),
             'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
@@ -2529,7 +2557,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'text', 'sup')
-            self.propeq(node, 'server', 'tcp://::ffff:8.7.6.5')
+            self.propeq(node, 'server', 'tcp://[::ffff:8.7.6.5]')
 
             self.len(1, await core.nodes('it:dev:str="sup"'))
             self.len(1, await core.nodes('inet:ip="::ffff:8.7.6.5"'))

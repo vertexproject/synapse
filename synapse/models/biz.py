@@ -65,6 +65,12 @@ modeldefs = (
 
             (('biz:rfp', 'has', 'doc:requirement'), {
                 'doc': 'The RFP lists the requirement.'}),
+
+            (('biz:listing', 'ledto', 'econ:purchase'), {
+                'doc': 'The listing led to the purchase.'}),
+
+            (('biz:deal', 'ledto', 'econ:purchase'), {
+                'doc': 'The deal led to the purchase.'}),
         ),
 
         'forms': (

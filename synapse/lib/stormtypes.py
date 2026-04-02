@@ -9602,6 +9602,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         try:
             reqdict, incunit, incval = self._parsePeriod(period)
         except (s_exc.BadTime, s_exc.BadConfValu) as e:
@@ -9615,7 +9617,8 @@ class LibCron(Lib):
                 'incunit': incunit,
                 'incvals': incval,
                 'user': self.runt.user.iden,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')

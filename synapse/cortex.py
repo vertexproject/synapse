@@ -334,6 +334,19 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.reqValidStorm(text, opts)
 
+    async def isValidStorm(self, text, *, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts=opts)
+
     async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
@@ -732,6 +745,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -817,6 +831,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1237,13 +1252,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        if self.isactive:
-            await self._checkLayerModels()
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1256,6 +1267,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1269,11 +1282,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -3826,6 +3843,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -5592,6 +5610,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mode = opts.get('mode', 'storm')
         await self.getStormQuery(text, mode=mode)
         return True
+
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except Exception as e:
+            return s_common.retnexc(e)
 
     def _logStormQuery(self, text, user, info=None):
         '''

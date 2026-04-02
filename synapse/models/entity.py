@@ -35,24 +35,15 @@ modeldefs = (
                 ),
                 'doc': 'Properties common to activity carried out by an actor.'}),
 
-            ('entity:attendable', {
-                'template': {'title': 'event'},
+            ('entity:participable', {
+                'template': {'title': 'activity'},
                 'interfaces': (
-                    ('geo:locatable', {}),
-                    ('lang:transcript', {}),
+                    ('base:activity', {}),
                 ),
-                'props': (
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
+                'doc': 'An interface implemented by activities which an actor may participate in.'}),
 
-                    ('period', ('ival', {}), {
-                        'doc': 'The period of time over which the {title} occurred.'}),
-
-                    ('parent', ('entity:attendable', {}), {
-                        'doc': 'The parent event which hosts the {title}.'}),
-                ),
-                'doc': 'Properties common to events which individuals may attend.',
-            }),
+            ('entity:supportable', {
+                'doc': 'An interface implemented by activities which may be supported in by an actor.'}),
 
             ('entity:contactable', {
 
@@ -281,9 +272,6 @@ modeldefs = (
             ('entity:had', ('guid', {}), {
                 'doc': 'An item which was possessed by an actor.'}),
 
-            ('entity:attendee', ('guid', {}), {
-                'doc': 'A person attending an event.'}),
-
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
 
@@ -333,6 +321,8 @@ modeldefs = (
                     ('entity:activity', {}),
                     ('meta:reported', {}),
                     ('meta:observable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -401,16 +391,16 @@ modeldefs = (
                 ),
                 'doc': 'An event where an actor achieved a goal or was given an award.'}),
 
-                ('entity:believed', ('guid', {}), {
-                    'template': {'title': 'believed'},
-                    'interfaces': (
-                        ('entity:activity', {}),
-                    ),
-                    'props': (
-                        ('belief', ('meta:believable', {}), {
-                            'doc': 'The belief held by the actor.'}),
-                    ),
-                    'doc': 'A period where an actor held a belief.'}),
+            ('entity:believed', ('guid', {}), {
+                'template': {'title': 'believed'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('belief', ('meta:believable', {}), {
+                        'doc': 'The belief held by the actor.'}),
+                ),
+                'doc': 'A period where an actor held a belief.'}),
 
             ('entity:discovered', ('guid', {}), {
                 'template': {'title': 'discovery'},
@@ -450,6 +440,101 @@ modeldefs = (
                 'props': (),
                 'doc': 'An event where an actor made an offer as part of a negotiation.'}),
 
+            ('entity:attended', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('activity', ('base:activity', {}), {
+                        'doc': 'The activity attended by the actor.'}),
+
+                    ('role', ('base:name', {}), {
+                        'doc': 'The role the actor played in attending the activity.'}),
+                ),
+                'doc': 'A period where an actor attended an event or activity.'}),
+
+            ('entity:supported', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'sponsor',
+                        'doc': 'The role the actor played in supporting the activity.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the actors support of the activity.'}),
+
+                    ('activity', ('entity:supportable', {}), {
+                        'doc': 'The activity which the actor supported.'}),
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The financial value of the support given by the actor.'}),
+                ),
+                'doc': 'A period where an actor supported, sponsored, or materially contributed to an activity or cause.'}),
+
+            ('entity:registered', ('guid', {}), {
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+
+                    ('activity', ('entity:participable', {}), {
+                        'doc': 'The activity which the actor registered for.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'attendee',
+                        'doc': 'The role which the actor registered for.'}),
+
+                    # TODO: this could eventually include non-inet registration like postal mail...
+                    ('request', ('inet:proto:request', {}), {
+                        'doc': 'The request which the actor sent in order to register.'}),
+                ),
+                'doc': 'An event where an actor registered for an event or activity.'}),
+
+            ('entity:participated', ('guid', {}), {
+                'template': {'title': 'participation'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('activity', ('entity:participable', {}), {
+                        'doc': 'The activity which the actor participated in.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'organizer',
+                        'doc': 'The role which the actor played in the activity.'}),
+                ),
+                'doc': 'A period where an actor participated in an activity.'}),
+
+            ('entity:said', ('guid', {}), {
+                'template': {'title': 'statement'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                    ('meta:recordable', {}),
+                ),
+                'props': (
+                    ('text', ('str', {}), {
+                        'doc': 'The transcribed text of what the actor said.'}),
+                ),
+                'doc': 'A statement made by an actor.'}),
+
+            ('entity:created', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    # this will eventually grow to include additional interfaces
+                    ('item', ('doc:authorable', {}), {
+                        'doc': 'The item which the actor created or helped to create.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'illustrator',
+                        'doc': 'The role which the actor played in creating the item.'}),
+                ),
+                'doc': 'An activity where an actor created or helped create an item.'}),
         ),
 
         'edges': (
@@ -488,6 +573,9 @@ modeldefs = (
 
             (('entity:believed', 'followed', 'belief:tenet'), {
                 'doc': 'The actor followed the tenet during the period.'}),
+
+            (('entity:campaign', 'ledto', 'econ:purchase'), {
+                'doc': 'The campaign led to the purchase.'}),
         ),
 
         'forms': (
@@ -559,26 +647,6 @@ modeldefs = (
                 ('target', ('entity:actor', {}), {
                     'doc': 'The target entity in the relationship.'}),
             )),
-
-            ('entity:attendee', {}, (
-
-                ('person', ('entity:individual', {}), {
-                    'doc': 'The person who attended the event.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the person attended the event.'}),
-
-                ('roles', ('array', {'type': 'base:name', 'split': ','}), {
-                    'doc': 'List of the roles the person had at the event.'}),
-
-                ('event', ('entity:attendable', {}), {
-                    'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
-                    'doc': 'The event that the person attended.'}),
-
-                # ('link', ('entity:link', {}), {
-                #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
-            )),
-
 
             ('entity:goal:type:taxonomy', {}, ()),
             ('entity:goal', {}, (
