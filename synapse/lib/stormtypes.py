@@ -10064,6 +10064,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         affinity = kwargs.get('affinity')
         if affinity is not None:
             affinity = await tostr(affinity)
@@ -10115,6 +10117,7 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,

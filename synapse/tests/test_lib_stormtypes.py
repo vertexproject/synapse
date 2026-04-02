@@ -5680,6 +5680,13 @@ class StormTypesTest(s_test.SynTest):
             cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
             self.eq('zoinks', cdef.get('doc'))
 
+            # test loglevel for cron.at
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}", loglevel=CRITICAL).pack())')
+            self.eq('CRITICAL', cdef.get('loglevel'))
+
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}").pack())')
+            self.eq('WARNING', cdef.get('loglevel'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
