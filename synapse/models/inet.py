@@ -523,14 +523,15 @@ class SockAddr(s_types.Str):
         subs = {'proto': (self.prototype.typehash, proto, {})}
         virts = {'ip': (ipaddr, self.iptype.stortype)}
 
+        portstr = ''
         if self.defport:
             virts['port'] = (self.defport, self.porttype.stortype)
-            if ipaddr[0] == 6:
-                return f'{proto}://[{ip_repr}]:{self.defport}', {'adds': adds, 'subs': subs, 'virts': virts}
-            else:
-                return f'{proto}://{ip_repr}:{self.defport}', {'adds': adds, 'subs': subs, 'virts': virts}
+            portstr = f':{self.defport}'
 
-        return f'{proto}://{ip_repr}', {'adds': adds, 'subs': subs, 'virts': virts}
+        if ipaddr[0] == 6:
+            return f'{proto}://[{ip_repr}]{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
+        else:
+            return f'{proto}://{ip_repr}{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
 class Email(s_types.Str):
 
