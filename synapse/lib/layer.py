@@ -3318,12 +3318,6 @@ class Layer(s_nexus.Pusher):
         info = self.layrslab.stat(db=self.bynid)
         return info.get('entries', 0)
 
-    async def getStorNode(self, nid):
-        sode = self._getStorNode(nid)
-        if sode is not None:
-            return deepcopy(sode)
-        return {}
-
     def _getStorNode(self, nid):
         '''
         Return the storage node for the given nid.

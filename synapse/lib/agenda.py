@@ -17,6 +17,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.schemas as s_schemas
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -344,7 +345,8 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs[:5])
+            'lasterrs': list(self.lasterrs[:5]),
+            'loglevel': self.loglevel
         }
 
     @classmethod
@@ -615,6 +617,7 @@ class Agenda(s_base.Base):
         view = cdef.get('view')
         created = cdef.get('created')
         loglevel = cdef.get('loglevel', 'WARNING')
+        s_schemas.reqValidLoglevel(loglevel)
 
         pool = cdef.get('pool', False)
         affinity = cdef.get('affinity')
@@ -933,8 +936,10 @@ class Agenda(s_base.Base):
     async def _getAffinityProxy(self, appt, timeout=10):
         '''
         Attempt to get a telepath proxy to the affinity service.
-        Returns None if the service is unavailable.
+        Returns None if the service is unavailable or affinity is set to None.
         '''
+        if appt.affinity is None:
+            return None
         try:
             prox = await s_telepath.openurl(f'aha://{appt.affinity}', timeout=timeout)
             return prox

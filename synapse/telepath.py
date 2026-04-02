@@ -762,6 +762,9 @@ class Proxy(s_base.Base):
             await self._putPoolLink(link)
             return await Share.anit(self, iden, sharinfo)
 
+        await link.fini()
+        raise s_exc.BadMesgFormat(mesg=f'Telepath protocol violation: unexpected message type: {mesg[0]}')
+
     async def handshake(self, auth=None):
 
         mesg = ('tele:syn', {

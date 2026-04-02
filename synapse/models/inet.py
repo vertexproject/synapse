@@ -499,7 +499,7 @@ class SockAddr(s_types.Str):
                 virts['port'] = (self.defport, self.porttype.stortype)
                 return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
 
-            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
+            return f'{proto}://[{host}]', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
         valu, port, pstr = await self._normPort(valu)
@@ -1174,11 +1174,8 @@ class Url(s_types.Str):
                     valu, port = match.groups()
 
                 ipv6, norminfo = await self.iptype.norm(valu)
-                host = self.iptype.repr(ipv6)
+                host = f'[{self.iptype.repr(ipv6)}]'
                 subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
-
-                if match:
-                    host = f'[{host}]'
 
             except Exception:
                 pass
