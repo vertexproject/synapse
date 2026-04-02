@@ -1368,7 +1368,7 @@ class LibBase(Lib):
             Create and return a deep copy of the given storm object.
 
             Note:
-                This is currently limited to msgpack compatible primitives.
+                This is currently limited to msgpack compatible primitives and Node or NodeRef objects.
 
             Examples:
                 Make a copy of a list or dict::
@@ -1381,7 +1381,7 @@ class LibBase(Lib):
                        'desc': 'The item to make a copy of.', },
                   ),
                   'returns': {'type': 'prim',
-                              'desc': 'A deep copy of the primitive object.', }}},
+                              'desc': 'A deep copy of the object.', }}},
     )
 
     _storm_lib_perms = (
@@ -6145,6 +6145,9 @@ class NodeRef(Prim):
         tobj = runt.view.core.model.reqType(self.valu[0])
         return tobj.repr(self.valu[1])
 
+    async def _storm_copy(self):
+        return self
+
     def value(self):
         return self.valu[1]
 
@@ -6311,6 +6314,9 @@ class Node(Prim):
 
     def __hash__(self):
         return hash((self._storm_typename, self.valu.iden))
+
+    async def _storm_copy(self):
+        return self
 
     def getObjLocals(self):
         if self.valu.nid is not None:
