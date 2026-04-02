@@ -15,9 +15,6 @@ desc: |
       remove any ``await`` at call sites.
     - ``Cell._getSpawnLogConf()`` has been removed; use ``Cell.getLogConf()``
       (synchronous) instead.
-    - ``synapse.lib.processpool.set_pool_logging()`` has been removed; logging
-      configuration is now propagated automatically via
-      ``s_logging.getLogConf()``.
     - The ``log_conf`` keyword argument to ``synapse.lib.process.spawn()`` has
       been renamed to ``logconf``.
 desc:literal: true
