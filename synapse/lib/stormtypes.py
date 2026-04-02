@@ -10273,15 +10273,14 @@ async def stormcopy(item):
         return item
 
     try:
-        valu = item
-        if not isinstance(valu, StormType):
-            valu = fromprim(item)
+        if not isinstance(item, StormType):
+            item = fromprim(item)
     except s_exc.NoSuchType:
         mesg = 'Type does not have a Storm primitive and cannot be copied.'
         raise s_exc.BadArg(mesg=mesg) from None
 
     try:
-        return await valu._storm_copy()
+        return await item._storm_copy()
     except s_exc.NoSuchType:
         mesg = 'Nested type does not support being copied!'
         raise s_exc.BadArg(mesg=mesg) from None
