@@ -1116,6 +1116,12 @@ class SynTest(unittest.TestCase):
         with self.getTestDir(copyfrom=dirn) as regrdir:
             yield regrdir
 
+    async def waitForActiveMigration(self, core):
+        '''
+        Wait for any tasks that may occur after anit() returns the object.
+        '''
+        self.true(await s_coro.event_wait(core._migration_evnt, timeout=30))
+
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
@@ -1130,9 +1136,13 @@ class SynTest(unittest.TestCase):
 
                     with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
                         async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            if not core.conf.get('mirror'):
+                                await self.waitForActiveMigration(core)
                             yield core
                 else:
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        if not core.conf.get('mirror'):
+                            await self.waitForActiveMigration(core)
                         yield core
 
     @contextlib.asynccontextmanager

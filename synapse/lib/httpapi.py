@@ -711,6 +711,23 @@ class ReqValidStormV1(StormHandler):
         else:
             return self.sendRestRetn(ret)
 
+class IsValidStormV1(StormHandler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        _, body = await self.getUseridenBody()
+        if body is s_common.novalu:
+            return
+
+        opts = body.get('opts', {})
+        query = body.get('query')
+
+        ret = await self.cell.isValidStorm(query, opts)
+        return self.sendRestRetn(ret)
+
 class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):

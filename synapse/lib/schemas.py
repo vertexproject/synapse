@@ -87,6 +87,9 @@ _LayerPushPullSchema = {
 reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
 reqValidPull = reqValidPush
 
+loglevelSchema = {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())}
+reqValidLoglevel = s_config.getJsValidator(loglevelSchema)
+
 _CronJobSchema = {
     'type': 'object',
     'properties': {
@@ -98,7 +101,7 @@ _CronJobSchema = {
         'pool': {'type': 'boolean'},
         'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
-        'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
+        'loglevel': s_msgpack.deepcopy(loglevelSchema),
         'incunit': {
             'oneOf': [
                 {'type': 'null'},

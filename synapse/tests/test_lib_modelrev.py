@@ -7,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.time as s_time
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 
@@ -146,8 +147,9 @@ class ModelRevTest(s_tests.SynTest):
                 conf00 = {'nexslog:en': True}
 
                 async with self.getTestCore(dirn=regrdir00, conf=conf00) as core00:
+                    await self.waitForActiveMigration(core00)
 
-                    self.true(await core00.getLayer().getModelVers() >= (0, 2, 7))
+                    self.ge(await core00.getLayer().getModelVers(), (0, 2, 7))
 
                     conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
 
@@ -168,7 +170,7 @@ class ModelRevTest(s_tests.SynTest):
 
                         await core01.sync()
 
-                        self.true(await core01.getLayer().getModelVers() >= (0, 2, 7))
+                        self.ge(await core01.getLayer().getModelVers(), (0, 2, 7))
 
                         nodes = await core01.nodes('inet:fqdn=baz.com')
                         self.len(1, nodes)
@@ -1781,3 +1783,329 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].get('plus'), 'synapse')
             self.eq(nodes[0].get('base'), 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
+    async def test_modelrev_0_2_35(self):
+
+        md5_00 = '86d3f3a95c324c9479bd8986968f4327'
+        sha256 = 'c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4'
+
+        t2019 = s_time.parse('2019')
+        t2020 = s_time.parse('2020')
+        t2021 = s_time.parse('2021')
+        t2022 = s_time.parse('2022')
+        t2026 = s_time.parse('2026')
+
+        def select(nodes, formname):
+            return sorted([k for k in nodes if k.form.name == formname], key=lambda x: x.ndef)
+
+        async with self.getRegrCore('model-0.2.35', maxvers=(0, 2, 34)) as core:
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            self.len(3, views)
+
+            fork00 = views.get('fork00').iden
+            infork00 = {'view': fork00}
+
+            fork01 = views.get('fork01').iden
+            infork01 = {'view': fork01}
+
+            q = '''
+                .created
+                for ($k, $v) in $node.data.list() {
+                    $node.data.load($k)
+                }
+                | uniq
+            '''
+            nodes = await core.nodes(q, opts=infork00)
+            self.len(29, nodes)
+
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    ('_ext:model:form', 'invalid'),
+                    ('_ext:model:form', 'valid'),
+                    ('inet:client', badclient := 'tcp://::1'),
+                    client00 := ('inet:client', 'tcp://[::1]'),
+                    client01 := ('inet:client', 'tcp://[::1]:80'),
+                    flow00 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'client00', 'invalid'))),
+                    flow01 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'server00', 'invalid'))),
+                    flow02 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'client00', 'valid'))),
+                    flow03 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'client01', 'valid'))),
+                    flow04 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'server00', 'valid'))),
+                    flow05 := ('inet:flow', s_common.guid(('regression', '0.2.35', 'server01', 'valid'))),
+                    ('inet:server', badserver := 'tcp://::2'),
+                    server00 := ('inet:server', 'tcp://[::2]'),
+                    server01 := ('inet:server', 'tcp://[::2]:80'),
+                    ('inet:tls:ja3:sample', badja3 := ('tcp://::1', md5_00)),
+                    ja300 := ('inet:tls:ja3:sample', ('tcp://[::1]', md5_00)),
+                    ja301 := ('inet:tls:ja3:sample', ('tcp://[::1]:80', md5_00)),
+                    ('inet:tls:ja3s:sample', badja3s := ('tcp://::2', md5_00)),
+                    ja3s00 := ('inet:tls:ja3s:sample', ('tcp://[::2]', md5_00)),
+                    ja3s01 := ('inet:tls:ja3s:sample', ('tcp://[::2]:80', md5_00)),
+                    ('inet:url', badurl := 'http://::3'),
+                    url00 := ('inet:url', 'http://[::3]'),
+                    url01 := ('inet:url', 'http://[::3]:80'),
+                    ('inet:urlfile', badurlfile := ('http://::3', f'sha256:{sha256}')),
+                    urlfile00 := ('inet:urlfile', ('http://[::3]', f'sha256:{sha256}')),
+                    urlfile01 := ('inet:urlfile', ('http://[::3]:80', f'sha256:{sha256}')),
+                    vuln00 := ('risk:vuln', s_common.guid(('regression', '0.2.35', 'url00', 'invalid'))),
+                    vuln01 := ('risk:vuln', s_common.guid(('regression', '0.2.35', 'url00', 'valid'))),
+                    vuln02 := ('risk:vuln', s_common.guid(('regression', '0.2.35', 'url01', 'valid')))
+                ]
+            )
+
+            clients = select(nodes, 'inet:client')
+            self.len(3, clients)
+            self.eq(clients[2].ndef, client01)
+            self.none(clients[2].get('port'))
+
+            servers = select(nodes, 'inet:server')
+            self.len(3, servers)
+            self.eq(servers[2].ndef, server01)
+            self.none(servers[2].get('port'))
+
+        async with self.getRegrCore('model-0.2.35') as core:
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            self.len(3, views)
+
+            fork00 = views.get('fork00').iden
+            infork00 = {'view': fork00}
+
+            fork01 = views.get('fork01').iden
+            infork01 = {'view': fork01}
+
+            def fixed(node, nodedata):
+                # .seen times were extended out both directions
+                self.eq(node.get('.seen'), (t2019, t2022))
+
+                # _valid didn't get overwritten
+                self.eq(node.get('_valid'), 1)
+
+                # tag values were merged
+                self.eq(node.get('#test.foo00'), (t2019, t2022))
+                self.eq(node.get('#test.foo01'), (t2019, t2022))
+                self.eq(node.get('#test.foo02'), (t2020, t2026))
+                self.eq(node.get('#test.foo03'), (t2020, t2026))
+
+                # tagprop didn't get overwritten
+                self.eq(node.tagprops, {
+                    'test.tagprop': {'score': 1},
+                    'test.same': {'score': 10},
+                })
+
+                # tags merged
+                self.isin('test.valid', node.tags)
+                self.isin('test.invalid', node.tags)
+
+                # nodedata has stored conflicts
+                self.eq(node.nodedata, {
+                    'addr': 'valid',
+                    'same': 'same',
+                    'only': 'value',
+                    'model_0_2_35': nodedata,
+                })
+
+            def control(node):
+                self.eq(node.get('.seen'), (t2020, t2021))
+                self.eq(node.get('_valid'), 1)
+                self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
+                self.isin('test.valid', node.tags)
+                self.notin('test.invalid', node.tags)
+                self.eq(node.get('#test.foo00'), (t2020, t2021))
+                self.eq(node.get('#test.foo01'), (t2019, t2022))
+                self.eq(node.get('#test.foo02'), (t2020, t2026))
+                self.eq(node.get('#test.foo03'), (None, None))
+                self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
+
+            q = '''
+                .created
+                for ($k, $v) in $node.data.list() {
+                    $node.data.load($k)
+                }
+                | uniq
+            '''
+            nodes = await core.nodes(q, opts=infork00)
+            self.len(23, nodes)
+
+            nodedata = {
+                badclient: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            clients = select(nodes, 'inet:client')
+            self.eq([k.ndef for k in clients], [client00, client01])
+            fixed(clients[0], nodedata)
+            control(clients[1])
+            self.eq(clients[1].get('port'), 80)
+
+            nodedata = {
+                badserver: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            servers = select(nodes, 'inet:server')
+            self.eq([k.ndef for k in servers], [server00, server01])
+            fixed(servers[0], nodedata)
+            control(servers[1])
+            self.eq(servers[1].get('port'), 80)
+
+            nodedata = {
+                badurl: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {
+                        '_valid': 0,
+                        'base': badurl,
+                    },
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            urls = select(nodes, 'inet:url')
+            self.eq([k.ndef for k in urls], [url00, url01])
+            fixed(urls[0], nodedata)
+            control(urls[1])
+
+            nodedata = {
+                badja3: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            ja3s = select(nodes, 'inet:tls:ja3:sample')
+            self.eq([k.ndef for k in ja3s], [ja300, ja301])
+            fixed(ja3s[0], nodedata)
+            control(ja3s[1])
+
+            nodedata = {
+                badja3s: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            ja3ss = select(nodes, 'inet:tls:ja3s:sample')
+            self.eq([k.ndef for k in ja3ss], [ja3s00, ja3s01])
+            fixed(ja3ss[0], nodedata)
+            control(ja3ss[1])
+
+            nodedata = {
+                badurlfile: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            urlfiles = select(nodes, 'inet:urlfile')
+            self.eq([k.ndef for k in urlfiles], [urlfile00, urlfile01])
+            fixed(urlfiles[0], nodedata)
+            control(urlfiles[1])
+
+            # check edges were moved correctly
+            nodes = await core.nodes('meta:source=(regression, 0.2.35, invalid) -(seen)> *', opts=infork00)
+            self.len(10, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    ('_ext:model:form', 'invalid'),
+                    client00,
+                    flow00, flow01,
+                    server00,
+                    ja300,
+                    ja3s00,
+                    url00,
+                    urlfile00,
+                    vuln00,
+                ]
+            )
+
+            # check old edges didn't change
+            nodes = await core.nodes('meta:source=(regression, 0.2.35, valid) -(seen)> *', opts=infork00)
+            self.len(19, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    ('_ext:model:form', 'valid'),
+                    client00, client01,
+                    flow02, flow03, flow04, flow05,
+                    server00, server01,
+                    ja300, ja301,
+                    ja3s00, ja3s01,
+                    url00, url01,
+                    urlfile00, urlfile01,
+                    vuln01, vuln02,
+                ]
+            )
+
+            # property migration check
+            nodes = await core.nodes('_ext:model:form=invalid -> * | uniq', opts=infork00)
+            self.len(6, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    client00,
+                    server00,
+                    ja300,
+                    ja3s00,
+                    url00,
+                    urlfile00,
+                ]
+            )
+
+            nodes = await core.nodes('_ext:model:form=valid -> * | uniq', opts=infork00)
+            self.len(12, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    client00, client01,
+                    server00, server01,
+                    ja300, ja301,
+                    ja3s00, ja3s01,
+                    url00, url01,
+                    urlfile00, urlfile01,
+                ]
+            )
+
+            q = '''
+                inet:client inet:server
+                for ($k, $v) in $node.data.list() {
+                    $node.data.load($k)
+                }
+                | uniq
+            '''
+            nodes = await core.nodes(q, opts=infork01)
+            self.len(4, nodes)
+
+            nodedata = {
+                badclient: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            clients = select(nodes, 'inet:client')
+            self.eq([k.ndef for k in clients], [client00, client01])
+            fixed(clients[0], nodedata)
+            self.none(clients[0].get('port'))
+            control(clients[1])
+
+            nodedata = {
+                badserver: {
+                    'nodedata': {'addr': 'invalid'},
+                    'props': {'_valid': 0},
+                    'tagprops': {'test.tagprop': {'score': 0}}
+                }
+            }
+            servers = select(nodes, 'inet:server')
+            self.eq([k.ndef for k in servers], [server00, server01])
+            fixed(servers[0], nodedata)
+            self.none(servers[0].get('port'))
+            control(servers[1])
