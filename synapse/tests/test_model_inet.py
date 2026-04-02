@@ -155,20 +155,22 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Proto defaults to tcp
             adds = (('inet:ip', (4, 16909060), ipinfo),)
-            virts = {'ip': ((4, 16909060), 26), 'proto': ('tcp', 1)}
-            self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'adds': adds, 'virts': virts}))
+            subs = {'proto': tcpsub}
+            virts = {'ip': ((4, 16909060), 26)}
+            self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'adds': adds, 'subs': subs, 'virts': virts}))
 
-            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9), 'proto': ('tcp', 1)}
-            self.eq(await t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'adds': adds, 'virts': virts}))
+            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
+            self.eq(await t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'adds': adds, 'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('https://192.168.1.1:80'))  # bad proto
 
             # IPv4
-            virts = {'ip': ((4, 16909060), 26), 'proto': ('tcp', 1)}
-            self.eq(await t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'adds': adds, 'virts': virts}))
-            self.eq(await t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'adds': adds, 'virts': virts}))
+            virts = {'ip': ((4, 16909060), 26)}
+            self.eq(await t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'adds': adds, 'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'adds': adds, 'subs': subs, 'virts': virts}))
 
-            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9), 'proto': ('udp', 1)}
-            self.eq(await t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'adds': adds, 'virts': virts}))
+            subs = {'proto': udpsub}
+            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
+            self.eq(await t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'adds': adds, 'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:-1'))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:66000'))
 
@@ -178,26 +180,25 @@ class InetModelTest(s_t_utils.SynTest):
 
             # IPv6 - bare IPv6 now gets brackets
             adds = (('inet:ip', (6, 1), ipinfo),)
-            virts = {'ip': ((6, 1), 26), 'proto': ('icmp', 1)}
-            self.eq(await t.norm('icmp://::1'), ('icmp://[::1]', {'adds': adds, 'virts': virts}))
+            subs = {'proto': icmpsub}
+            virts = {'ip': ((6, 1), 26)}
+            self.eq(await t.norm('icmp://::1'), ('icmp://[::1]', {'adds': adds, 'subs': subs, 'virts': virts}))
 
-            virts = {'ip': ((6, 1), 26), 'port': (2, 9), 'proto': ('tcp', 1)}
-            self.eq(await t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'adds': adds, 'virts': virts}))
+            subs = {'proto': tcpsub}
+            virts = {'ip': ((6, 1), 26), 'port': (2, 9)}
+            self.eq(await t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'adds': adds, 'subs': subs, 'virts': virts}))
 
-            virts = {'ip': ((6, 1), 26), 'proto': ('tcp', 1)}
-            self.eq(await t.norm('tcp://[::1]'), ('tcp://[::1]', {'adds': adds, 'virts': virts}))
+            virts = {'ip': ((6, 1), 26)}
+            self.eq(await t.norm('tcp://[::1]'), ('tcp://[::1]', {'adds': adds, 'subs': subs, 'virts': virts}))
 
             ipnorm, ipinfo = await t.iptype.norm('::fFfF:0102:0304')
             ipsub = (t.iptype.typehash, (6, 0xffff01020304), ipinfo)
 
             adds = (('inet:ip', (6, 0xffff01020304), ipinfo),)
-            virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9), 'proto': ('tcp', 1)}
+            virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
             self.eq(await t.norm('tcp://[::fFfF:0102:0304]:2'),
-                    ('tcp://[::ffff:1.2.3.4]:2', {'adds': adds, 'virts': virts}))
+                    ('tcp://[::ffff:1.2.3.4]:2', {'adds': adds, 'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
-
-            self.none(t._getProto(('tcp://1.2.3.4', 1, None)))
-            self.none(t._getProto(('tcp://1.2.3.4', 1, {})))
 
     async def test_asn_collection(self):
 
@@ -246,20 +247,20 @@ class InetModelTest(s_t_utils.SynTest):
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
                 '.ip': (4, 2130706433),
                 '.port': 12345,
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
                 '.ip': (4, 2130706433),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 '.ip': (6, 1),
                 '.port': 12345,
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://::1', 'tcp://[::1]', {
                 '.ip': (6, 1),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
         )
 
@@ -1474,28 +1475,28 @@ class InetModelTest(s_t_utils.SynTest):
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
                 '.ip': (4, 2130706433),
                 '.port': 12345,
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
                 '.ip': (4, 2130706433),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 '.ip': (6, 1),
                 '.port': 12345,
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ((4, 2130706433), 'tcp://127.0.0.1', {
                 '.ip': (4, 2130706433),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://[::1]', 'tcp://[::1]', {
                 '.ip': (6, 1),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
             ('tcp://::1', 'tcp://[::1]', {
                 '.ip': (6, 1),
-                '.proto': 'tcp',
+                'proto': 'tcp',
             }),
         )
 
@@ -1529,14 +1530,10 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:server=gre://::1 ]')
             self.eq(nodes[0].ndef[1], 'gre://[::1]')
-            self.propeq(nodes[0], '.proto', 'gre')
+            self.propeq(nodes[0], 'proto', 'gre')
 
             nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
-            self.propeq(nodes[0], '.proto', 'gre')
-
-            self.len(8, await core.nodes('inet:server.proto'))
-            self.len(2, await core.nodes('inet:server.proto=gre'))
-            self.len(2, await core.nodes('inet:server.created +.proto=gre'))
+            self.propeq(nodes[0], 'proto', 'gre')
 
             with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')

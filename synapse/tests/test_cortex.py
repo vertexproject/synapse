@@ -3041,17 +3041,17 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[test:str=5 :pivvirt={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
             await core.nodes('[test:str=6 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
 
-            nodes = await core.nodes('test:str:pivvirt::server.proto=tcp')
+            nodes = await core.nodes('test:str:pivvirt::server::proto=tcp')
             self.len(1, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            nodes = await core.nodes('test:str::pivvirt::server.proto=tcp')
+            nodes = await core.nodes('test:str::pivvirt::server::proto=tcp')
             self.len(1, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            nodes = await core.nodes('test:str:pivvirt::server.proto*in=(tcp, udp)')
+            nodes = await core.nodes('test:str:pivvirt::server::proto*in=(tcp, udp)')
             self.len(2, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
@@ -3262,7 +3262,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(tnfo.get('virts'))
 
             tnfo = model['types'].get('inet:sockaddr')
-            self.eq(tnfo['virts'], {'ip': 'inet:ip', 'port': 'inet:port', 'proto': 'str:lower'})
+            self.eq(tnfo['virts'], {'ip': 'inet:ip', 'port': 'inet:port'})
             self.eq(tnfo['lift_cmprs'], ('=', '~=', '?=', 'in=', 'range=', '^='))
             self.eq(tnfo['filter_cmprs'], ('=', '!=', '~=', '^=', 'in=', 'range='))
 
