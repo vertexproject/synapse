@@ -2875,7 +2875,7 @@ class StormTest(s_t_utils.SynTest):
 
             with mock.patch('synapse.cortex.Cortex._runStormPkgOnload', new=_runStormPkgOnload):
 
-                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(dirn=dirn) as core:
 
                         self.len(0, core.stormdmons.getDmonDefs())
@@ -2884,14 +2884,14 @@ class StormTest(s_t_utils.SynTest):
 
                         await core.addStormPkg(pkg)
 
-                        self.true(await stream.wait(timeout=10))
+                        await stream.expect('testload finished onload')
 
-                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(dirn=dirn) as core:
 
                         self.len(1, core.stormdmons.getDmonDefs())
 
-                        self.true(await stream.wait(timeout=10))
+                        await stream.expect('testload finished onload')
 
     async def test_storm_pkg_onload_active(self):
         pkg = {
