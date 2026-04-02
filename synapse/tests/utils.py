@@ -65,7 +65,6 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.logging as s_logging
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
