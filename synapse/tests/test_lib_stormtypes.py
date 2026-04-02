@@ -86,6 +86,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(False, await core.callStorm('return($lib.copy($lib.false))'))
             self.eq(b'V', await core.callStorm('return($lib.copy($x))', opts={'vars': {'x': b'V'}}))
 
+            self.eq('node', await core.callStorm('[ inet:ip=1.2.3.4 ] return($lib.utils.type($lib.copy($node)))'))
+            self.eq('noderef', await core.callStorm('inet:ip=1.2.3.4 [ :asn=5 ] return($lib.utils.type($lib.copy(:asn)))'))
+
             # is not a Prim
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy($lib))')
