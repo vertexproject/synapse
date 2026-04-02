@@ -7,6 +7,7 @@ import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -2707,6 +2708,8 @@ class StormTest(s_t_utils.SynTest):
                         self.nn(ddef['iden'])
                         await waiter.wait(timeout=10)
 
+                        # getStormDmons is a from_leader API so make sure it has applied to change
+                        await core02.sync()
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
                         self.eq(dmons[0]['iden'], ddef['iden'])
@@ -2852,6 +2855,43 @@ class StormTest(s_t_utils.SynTest):
             '''))
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
+
+    async def test_storm_pkg_onload_bootup(self):
+        # verify that when the pkg onload handler is called it has access to the expected data
+        orig = s_cortex.Cortex._runStormPkgOnload
+        syntest = self
+
+        pkg = {
+            'name': 'testload',
+            'version': '0.3.0',
+            'onload': '$lib.print(hello)',
+        }
+
+        def _runStormPkgOnload(self, pkgdef):
+            syntest.len(1, self.stormdmons.getDmonDefs())
+            return orig(self, pkgdef)
+
+        with self.getTestDir() as dirn:
+
+            with mock.patch('synapse.cortex.Cortex._runStormPkgOnload', new=_runStormPkgOnload):
+
+                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+
+                        self.len(0, core.stormdmons.getDmonDefs())
+                        await core.nodes('$lib.dmon.add(${})')
+                        self.len(1, core.stormdmons.getDmonDefs())
+
+                        await core.addStormPkg(pkg)
+
+                        self.true(await stream.wait(timeout=10))
+
+                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+
+                        self.len(1, core.stormdmons.getDmonDefs())
+
+                        self.true(await stream.wait(timeout=10))
 
     async def test_storm_pkg_onload_active(self):
         pkg = {
