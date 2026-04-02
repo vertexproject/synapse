@@ -4953,6 +4953,13 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    async def _storm_copy(self):
+        valu = vars(self.valu.opts)
+        try:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in valu.items()}
+
     async def _storm_contains(self, item):
         item = await toprim(item)
         valu = getattr(self.valu.opts, item, s_common.novalu)
