@@ -1228,6 +1228,9 @@ modeldefs = (
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
+            (('it:software', 'uses', 'inet:service:platform'), {
+                'doc': 'The software uses the platform.'}),
+
             (('it:software', 'creates', 'file:exemplar:entry'), {
                 'doc': 'The software creates the file entry.'}),
 

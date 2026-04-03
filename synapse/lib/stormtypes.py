@@ -1368,7 +1368,7 @@ class LibBase(Lib):
             Create and return a deep copy of the given storm object.
 
             Note:
-                This is currently limited to msgpack compatible primitives.
+                This is currently limited to msgpack compatible primitives and Node or NodeRef objects.
 
             Examples:
                 Make a copy of a list or dict::
@@ -1381,7 +1381,7 @@ class LibBase(Lib):
                        'desc': 'The item to make a copy of.', },
                   ),
                   'returns': {'type': 'prim',
-                              'desc': 'A deep copy of the primitive object.', }}},
+                              'desc': 'A deep copy of the object.', }}},
     )
 
     _storm_lib_perms = (
@@ -1508,24 +1508,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _copy(self, item):
-        # short circuit a few python types
-        if item is None:
-            return None
-
-        if isinstance(item, (int, str, bool)):
-            return item
-
-        try:
-            valu = fromprim(item)
-        except s_exc.NoSuchType:
-            mesg = 'Type does not have a Storm primitive and cannot be copied.'
-            raise s_exc.BadArg(mesg=mesg) from None
-
-        try:
-            return await valu._storm_copy()
-        except s_exc.NoSuchType:
-            mesg = 'Nested type does not support being copied!'
-            raise s_exc.BadArg(mesg=mesg) from None
+        return await stormcopy(item)
 
     def _reqTypeByName(self, name):
         typeitem = self.runt.view.core.model.type(name)
@@ -4820,10 +4803,6 @@ class Bytes(Prim):
     async def bool(self):
         return bool(self.valu)
 
-    async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
-
     @stormfunc(readonly=True)
     async def _methSlice(self, start, end=None):
         start = await toint(start)
@@ -4918,8 +4897,10 @@ class Dict(Prim):
         return bool(self.valu)
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in self.valu.items()}
 
     async def _storm_contains(self, item):
         item = await toprim(item)
@@ -4971,6 +4952,13 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_copy(self):
+        valu = vars(self.valu.opts)
+        try:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in valu.items()}
 
     async def _storm_contains(self, item):
         item = await toprim(item)
@@ -5260,8 +5248,10 @@ class List(Prim):
         self.valu[indx] = valu
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return [await stormcopy(v) for v in self.valu]
 
     async def _storm_contains(self, item):
         return await self._methListHas(item)
@@ -9602,6 +9592,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         try:
             reqdict, incunit, incval = self._parsePeriod(period)
         except (s_exc.BadTime, s_exc.BadConfValu) as e:
@@ -9615,7 +9607,8 @@ class LibCron(Lib):
                 'incunit': incunit,
                 'incvals': incval,
                 'user': self.runt.user.iden,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')
@@ -9646,6 +9639,8 @@ class LibCron(Lib):
         now = time.time()
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         affinity = kwargs.get('affinity')
         if affinity is not None:
@@ -9698,6 +9693,7 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
@@ -10267,6 +10263,26 @@ async def totype(valu, basetypes=False) -> str:
         return fp._storm_typename
 
     return valu.__class__.__name__
+
+async def stormcopy(item):
+    if item is None:
+        return None
+
+    if isinstance(item, (int, str, bool, float, bytes, Bytes, decimal.Decimal, s_node.NodeBase, Node, NodeRef)):
+        return item
+
+    try:
+        if not isinstance(item, StormType):
+            item = fromprim(item)
+    except s_exc.NoSuchType:
+        mesg = 'Type does not have a Storm primitive and cannot be copied.'
+        raise s_exc.BadArg(mesg=mesg) from None
+
+    try:
+        return await item._storm_copy()
+    except s_exc.BadArg:
+        mesg = 'Nested type does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg) from None
 
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):

@@ -34,6 +34,9 @@ modeldefs = (
                               'geo:name'),
                 'doc': 'A name used to refer to an entity or event.'}),
 
+            ('event:name', ('base:name', {}), {
+                'doc': 'A name used to refer to a specific event or activity.'}),
+
             ('meta:topic', ('base:name', {}), {
                 'doc': 'A topic string.'}),
 
@@ -207,8 +210,46 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
 
+            ('meta:award:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of award types.'}),
+
+            ('meta:award', ('guid', {}), {
+                'interfaces': (
+                    ('meta:achievable', {}),
+                ),
+                'props': (
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity which issues the award.'}),
+
+                    ('issuer:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which issues the award.'}),
+
+                    ('name', ('base:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The name of the award.',
+                        'ex': 'Nobel Peace Prize'}),
+
+                    ('names', ('array', {'type': 'base:name'}), {
+                        'doc': 'An array of alternate names for the award.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the award.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the issuer gave out the award.'}),
+
+                    ('type', ('meta:award:type:taxonomy', {}), {
+                        'doc': 'The type of award.',
+                        'ex': 'certification'}),
+                ),
+                'doc': 'An award.'}),
+
             ('velocity:relative', ('velocity', {'relative': True}), {
                 'doc': 'A relative velocity value.'}),
+
         ),
         'interfaces': (
 
@@ -302,6 +343,7 @@ modeldefs = (
                 ),
             }),
 
+            # TODO: should all the actor <verb>able interfaces move to entity: ?
             ('meta:believable', {
                 'doc': 'An interface implemented by forms which may be believed in by an actor.'}),
 
@@ -395,6 +437,19 @@ modeldefs = (
 
             ('meta:negotiable', {
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
+
+            ('meta:recordable', {
+                'props': (
+                    ('recording:url', ('inet:url', {}), {
+                        'doc': 'The URL hosting a recording of the {title}.'}),
+
+                    ('recording:file', ('file:bytes', {}), {
+                        'doc': 'A file containing a recording of the {title}.'}),
+
+                    ('recording:offset', ('duration', {}), {
+                        'doc': 'The time offset of the activity within the recording.'}),
+                ),
+                'doc': 'Properties common to activities which may be recorded or transcribed.'}),
         ),
         'edges': (
             ((None, 'linked', None), {

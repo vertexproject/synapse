@@ -25,7 +25,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -2842,6 +2841,10 @@ class CortexTest(s_t_utils.SynTest):
 
             evnt = asyncio.Event()
 
+            synts = core.boss.ps()
+            if len(synts) == 1 and synts[0].name == 'cortex:migration:layers':
+                await synts[0].waitfini(5)
+
             self.len(0, core.boss.ps())
 
             async def todo():
@@ -3038,17 +3041,17 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[test:str=5 :pivvirt={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
             await core.nodes('[test:str=6 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
 
-            nodes = await core.nodes('test:str:pivvirt::server.proto=tcp')
+            nodes = await core.nodes('test:str:pivvirt::server::proto=tcp')
             self.len(1, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            nodes = await core.nodes('test:str::pivvirt::server.proto=tcp')
+            nodes = await core.nodes('test:str::pivvirt::server::proto=tcp')
             self.len(1, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            nodes = await core.nodes('test:str:pivvirt::server.proto*in=(tcp, udp)')
+            nodes = await core.nodes('test:str:pivvirt::server::proto*in=(tcp, udp)')
             self.len(2, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
@@ -3274,7 +3277,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(tnfo.get('virts'))
 
             tnfo = model['types'].get('inet:sockaddr')
-            self.eq(tnfo['virts'], {'ip': 'inet:ip', 'port': 'inet:port', 'proto': 'str:lower'})
+            self.eq(tnfo['virts'], {'ip': 'inet:ip', 'port': 'inet:port'})
             self.eq(tnfo['lift_cmprs'], ('=', '~=', '?=', 'in=', 'range=', '^='))
             self.eq(tnfo['filter_cmprs'], ('=', '!=', '~=', '^=', 'in=', 'range='))
 
@@ -3409,6 +3412,36 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await proxy.reqValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
+
+            # test isValidStorm
+            ok, info = await proxy.isValidStorm('test:str=test')
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 ')
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+            self.isin('mesg', info[1])
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm(12345678)
+            self.false(ok)
+            self.eq(info[0], 'TypeError')
 
     async def test_stormcmd(self):
 
@@ -7384,51 +7417,63 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(1, data.count('deprecated properties unlocked'))
                     self.isin(f'Detected {count - 3} deprecated properties', data)
 
-    async def test_cortex_dmons_after_modelrev(self):
+    async def test_cortex_modelrev_task(self):
+
+        async def dummy(self):
+            await asyncio.Future()
+
         with self.getTestDir() as dirn:
-            async with self.getTestCore(dirn=dirn) as core:
 
-                # Add a dmon so something gets started
-                await core.callStorm('''
-                    $ddef = $lib.dmon.add(${
-                        $lib.print(hi)
-                        $lib.warn(omg)
-                        $s = `Running {$auto.type} {$auto.iden}`
-                        $lib.log.info($s, ({"iden": $auto.iden}))
-                    })
-                ''')
+            async with self.getTestCore(dirn=dirn) as core00:
+                await self.waitForActiveMigration(core00)
 
-                # Create this so we can find the model rev version before the
-                # latest
-                mrev = s_modelrev.ModelRev(core)
+            with mock.patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
+                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
 
-                # Add a layer and regress the version so it gets migrated on the
-                # next start
-                ldef = await core.addLayer()
-                layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers((0, 0, 0))
+                    await core01.promote(graceful=False)
+                    await asyncio.sleep(0)
 
-            async def _pass(todo):
-                pass
+                    task = await core01.callStorm('''
+                        for $task in $lib.task.list() {
+                            if ($task.name = "cortex:migration:layers") {
+                                return($task)
+                            }
+                        }
+                    ''')
+                    self.nn(task)
+                    self.true(task['protected'])
+                    self.true(task['background'])
 
-            def _fake(self, core):
-                self.core = core
-                self.revs = ((s_modelrev.maxvers, _pass),)
+                    self.true(await core01.isCellActive())
 
-            with mock.patch.object(s_modelrev.ModelRev, '__init__', _fake):
-                with self.getLoggerStream('') as stream:
-                    async with self.getTestCore(dirn=dirn) as core:
-                        pass
+                    emesg = 'Task cortex:migration:layers is protected.'
 
-            stream.seek(0)
-            data = stream.read()
+                    # cannot kill through exposed Storm APIs
 
-            # Check that the model migration happens before the dmons start
-            mrevstart = data.find('beginning model migration')
-            dmonstart = data.find('Starting Dmon')
-            self.ne(-1, mrevstart)
-            self.ne(-1, dmonstart)
-            self.lt(mrevstart, dmonstart)
+                    opts = {'vars': {'iden': task['iden']}}
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('task.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    # cannot kill through exposed Telepath APIs
+
+                    async with core01.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.killTask(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.kill(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                    # internal kill still works
+
+                    self.nn(rtask := core01.boss.get(task['iden']))
+                    await rtask.kill(safe=False)
+                    self.none(core01.boss.get(task['iden']))
 
     async def test_cortex_vaults(self):
         '''

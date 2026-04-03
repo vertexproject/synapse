@@ -187,6 +187,9 @@ modeldefs = (
 
             (('econ:statement', 'has', 'econ:payment'), {
                 'doc': 'The financial statement includes the payment.'}),
+
+            (('econ:purchase', 'ledto', 'econ:payment'), {
+                'doc': 'The purchase led to the payment.'}),
         ),
 
         'forms': (

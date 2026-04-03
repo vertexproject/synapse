@@ -850,7 +850,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
                     nextprog += 1000
 
-            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
+            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
             await self.core.delViewWithLayer(self.iden)

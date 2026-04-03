@@ -491,7 +491,7 @@ class ViewTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
-            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80, 'type': 'inet:server', 'proto': 'tcp'})
+            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80, 'type': 'inet:server'})
 
     async def test_lib_view_addNodeEdits(self):
 
@@ -1520,22 +1520,22 @@ class ViewTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             await core.nodes('''[
-                (ou:conference=* :names=(bar, baz))
+                (inet:service:platform=* :names=(bar, baz))
                 (transport:sea:vessel=* :name="bad ship")
                 (transport:sea:vessel=* :name="baz ship")
             ]''')
 
             await core.nodes('''[
-                (ou:conference=* :name=foo)
-                (ou:conference=* :name=bar)
-                (ou:conference=* :names=(foo, baz))
-                (ou:conference=* :names=(bar, bar2))
+                (inet:service:platform=* :name=foo)
+                (inet:service:platform=* :name=bar)
+                (inet:service:platform=* :names=(foo, baz))
+                (inet:service:platform=* :names=(bar, bar2))
                 (transport:sea:vessel=* :name=bar)
                 (transport:sea:vessel=* :name="bad ship")
                 (transport:sea:vessel=* :name="awesome ship")
             ]''', opts=forkopts)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
@@ -1544,23 +1544,23 @@ class ViewTest(s_t_utils.SynTest):
             long1 = 'bar' * 100 + 'a'
             long2 = 'bar' * 100 + 'b'
             await core.nodes(f'''[
-                (ou:conference=* :names=({long1},))
+                (inet:service:platform=* :names=({long1},))
                 (transport:sea:vessel=* :name={long2})
             ]''')
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('meta:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
             self.len(2, nodes)
             self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('meta:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
@@ -1574,7 +1574,7 @@ class ViewTest(s_t_utils.SynTest):
 
             # Rip prop values out of sodes to make them undecodable for coverage
             layr = core.getLayer()
-            nodes = await core.nodes(f'ou:conference:names*[={long1}]')
+            nodes = await core.nodes(f'inet:service:platform:names*[={long1}]')
             nid = nodes[0].nid
 
             sode = layr.getStorNode(nid)
@@ -1588,7 +1588,7 @@ class ViewTest(s_t_utils.SynTest):
             sode['props'].pop('name')
             layr.dirty[nid] = sode
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
