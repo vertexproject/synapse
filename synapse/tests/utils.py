@@ -282,7 +282,7 @@ testmodel = (
                 'doc': 'test interface',
                 'props': (
                     ('server', ('inet:server', {}), {'alts': ('servers',)}),
-                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                    ('servers', ('array', {'type': 'test:virtarray:server'}), {}),
                 )
             }),
         ),
@@ -410,7 +410,7 @@ testmodel = (
                 ('int2', ('int', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('type', ('test:str', {}), {'alts': ('types',)}),
-                ('types', ('array', {'type': 'test:str'}), {}),
+                ('types', ('array', {'type': 'test:int:type'}), {}),
             )),
 
             ('test:float', {}, (

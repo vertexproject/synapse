@@ -532,7 +532,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
-                ('names', ('array', {'type': 'geo:name'}), {
+                ('names', ('array', {'type': 'geo:place:name'}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('text', {}), {

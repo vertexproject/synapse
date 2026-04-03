@@ -1179,3 +1179,88 @@ class DataModelTest(s_t_utils.SynTest):
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
                 ptyp.getVirtInfo(('newp',))
+
+    async def test_datamodel_prop_type_alias(self):
+
+        modl = s_datamodel.Model()
+        mods = (
+            ('test', {
+                'interfaces': (
+                    ('test:myiface', {
+                        'doc': 'test interface with prop alias',
+                        'props': (
+                            ('name', ('str', {'lower': True}), {
+                                'alts': ('names',),
+                                'doc': 'The primary name.'}),
+                            ('names', ('array', {'type': 'test:myiface:name'}), {
+                                'doc': 'Alternate names.'}),
+                            ('alias', ('test:myiface:name', {}), {
+                                'doc': 'A prop using another prop name as type.'}),
+                        ),
+                    }),
+                ),
+                'types': (
+                    ('test:aliasform', ('guid', {}), {
+                        'interfaces': (('test:myiface', {}),),
+                    }),
+                ),
+                'forms': (
+                    ('test:aliasform', {}, ()),
+                ),
+            }),
+        )
+
+        modl.addDataModels(mods)
+
+        # interface prop alias resolves to the referenced prop typedef
+        resolved = modl._resolvePropAlias('test:myiface:name')
+        self.eq(resolved, ('str', {'lower': True}))
+
+        # non-existent alias returns None
+        self.none(modl._resolvePropAlias('test:myiface:newp'))
+        self.none(modl._resolvePropAlias('newp:newp:newp'))
+
+        # scalar prop using interface prop name as type
+        alias_prop = modl.prop('test:aliasform:alias')
+        name_prop = modl.prop('test:aliasform:name')
+        self.eq(alias_prop.type.name, name_prop.type.name)
+
+        # array prop using interface prop name as element type
+        names_prop = modl.prop('test:aliasform:names')
+        self.true(names_prop.type.isarray)
+        self.eq(names_prop.type.arraytype.name, name_prop.type.name)
+
+        # form prop alias resolves to the created prop typedef
+        resolved = modl._resolvePropAlias('test:aliasform:name')
+        self.nn(resolved)
+
+        # form names are not resolved as aliases
+        self.none(modl._resolvePropAlias('test:aliasform'))
+
+        # form prop alias works regardless of definition order
+        modl2 = s_datamodel.Model()
+        mods2 = (
+            ('test', {
+                'types': (
+                    ('test:aform', ('guid', {}), {}),
+                    ('test:bform', ('guid', {}), {}),
+                ),
+                'forms': (
+                    # bform is defined first but references aform:tag
+                    ('test:bform', {}, (
+                        ('tag', ('test:aform:tag', {}), {
+                            'doc': 'A tag aliased from aform.'}),
+                    )),
+                    ('test:aform', {}, (
+                        ('tag', ('str', {'lower': True}), {
+                            'doc': 'A tag value.'}),
+                    )),
+                ),
+            }),
+        )
+
+        modl2.addDataModels(mods2)
+
+        atag = modl2.prop('test:aform:tag')
+        btag = modl2.prop('test:bform:tag')
+        self.eq(atag.type.name, btag.type.name)

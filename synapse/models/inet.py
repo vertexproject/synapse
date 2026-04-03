@@ -2868,14 +2868,14 @@ modeldefs = (
                     'alts': ('urls',),
                     'doc': 'The primary URL of the platform.'}),
 
-                ('urls', ('array', {'type': 'inet:url'}), {
+                ('urls', ('array', {'type': 'inet:service:platform:url'}), {
                     'doc': 'An array of alternate URLs for the platform.'}),
 
                 ('zone', ('inet:fqdn', {}), {
                     'alts': ('zones',),
                     'doc': 'The primary zone for the platform.'}),
 
-                ('zones', ('array', {'type': 'inet:fqdn'}), {
+                ('zones', ('array', {'type': 'inet:service:platform:zone'}), {
                     'doc': 'An array of alternate zones for the platform.'}),
 
                 ('name', ('meta:name', {}), {
@@ -2883,7 +2883,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'inet:service:platform:name'}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2927,7 +2927,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the service agent instance.'}),
 
-                ('names', ('array', {'type': 'base:name'}), {
+                ('names', ('array', {'type': 'inet:service:agent:name'}), {
                     'doc': 'An array of alternate names for the service agent instance.'}),
 
                 ('desc', ('str', {}), {

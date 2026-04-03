@@ -22,7 +22,7 @@ modeldefs = (
                         'ex': 'pivotcon 2026',
                         'doc': 'The name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'event:name'}), {
+                    ('names', ('array', {'type': 'ou:promotable:name'}), {
                         'doc': 'An array of alternate names for the {title}.'}),
 
                     ('website', ('inet:url', {}), {

@@ -422,7 +422,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The primary name of the threat according to the source.'}),
 
-                ('names', ('array', {'type': 'entity:name'}), {
+                ('names', ('array', {'type': 'risk:threat:name'}), {
                     'doc': 'A list of alternate names for the threat according to the source.'}),
 
                 ('type', ('risk:threat:type:taxonomy', {}), {
@@ -452,7 +452,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The primary name of the tool according to the source.'}),
 
-                ('names', ('array', {'type': 'it:softwarename'}), {
+                ('names', ('array', {'type': 'risk:tool:software:name'}), {
                     'doc': 'A list of alternate names for the tool according to the source.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -488,10 +488,7 @@ modeldefs = (
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the vulnerability.'}),
 
-                ('ids', ('array', {'type': (
-                        ('it:sec:cve', {}),
-                        ('meta:id', {})
-                    )}), {
+                ('ids', ('array', {'type': 'risk:vuln:id'}), {
                     'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {

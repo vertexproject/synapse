@@ -96,7 +96,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The primary name of the language.'}),
 
-                ('names', ('array', {'type': 'lang:name'}), {
+                ('names', ('array', {'type': 'lang:language:name'}), {
                     'doc': 'An array of alternative names for the language.'}),
             )),
         ),

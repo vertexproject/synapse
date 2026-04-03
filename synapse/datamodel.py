@@ -539,6 +539,7 @@ class Model:
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
+        self.propdefs = {}
         self.forminfos = {}
         self.formprevnames = {}
         self.propprevnames = {}
@@ -1055,6 +1056,33 @@ class Model:
 
         return polyinfo
 
+    def _resolvePropAlias(self, typename):
+        '''
+        If typename is a secondary property name, return
+        the typedef of the referenced property. Otherwise
+        return None.
+        '''
+        if (typedef := self.propdefs.get(typename)) is not None:
+            return typedef
+
+        # check interface property definitions
+        match = None
+        for ifname, ifinfo in self.ifaces.items():
+            prefix = f'{ifname}:'
+            if not typename.startswith(prefix):
+                continue
+
+            propname = typename[len(prefix):]
+            for pname, pdef, pinfo in ifinfo.get('props', ()):
+                if pname == propname:
+                    if match is None or len(ifname) > len(match[0]):
+                        match = (ifname, pdef)
+
+        if match is not None:
+            return match[1]
+
+        return None
+
     def convertPropdef(self, propdef):
         typename = propdef[0]
 
@@ -1063,6 +1091,9 @@ class Model:
                 return propdef
 
             if tobj is None and typename not in self.ifaces:
+                resolved = self._resolvePropAlias(typename)
+                if resolved is not None:
+                    return self.convertPropdef(resolved)
                 raise s_exc.NoSuchType(name=typename)
 
             propdef = (propdef,)
@@ -1183,6 +1214,11 @@ class Model:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
+
+        # Collect property definitions to enable prop name alias resolution
+        for formname, forminfo, propdefs in allforms:
+            for propname, typedef, propinfo in propdefs:
+                self.propdefs[f'{formname}:{propname}'] = typedef
 
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
@@ -1621,6 +1657,7 @@ class Model:
             prop = Prop(self, form, name, tdef, info)
 
             self.props[prop.full] = prop
+            self.propdefs[prop.full] = tdef
 
             if (prevnames := info.get('prevnames')) is not None:
                 for prevname in prevnames:

@@ -2065,7 +2065,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),
 
-                ('names', ('array', {'type': 'it:softwarename'}), {
+                ('names', ('array', {'type': 'it:software:name'}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('released', ('time', {}), {

@@ -69,7 +69,7 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'entity:name'}), {
+                    ('names', ('array', {'type': 'entity:contactable:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
                     ('lifespan', ('ival', {}), {
@@ -107,14 +107,14 @@ modeldefs = (
                         'alts': ('phones',),
                         'doc': 'The primary phone number for the {title}.'}),
 
-                    ('phones', ('array', {'type': 'tel:phone'}), {
+                    ('phones', ('array', {'type': 'entity:contactable:phone'}), {
                         'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
                     ('user', ('inet:user', {}), {
                         'alts': ('users',),
                         'doc': 'The primary user name for the {title}.'}),
 
-                    ('users', ('array', {'type': 'inet:user'}), {
+                    ('users', ('array', {'type': 'entity:contactable:user'}), {
                         'doc': 'An array of alternate user names for the {title}.'}),
 
                     ('creds', ('array', {'type': 'auth:credential'}), {
@@ -655,7 +655,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'A terse name for the goal.'}),
 
-                ('names', ('array', {'type': 'base:name'}), {
+                ('names', ('array', {'type': 'entity:goal:name'}), {
                     'doc': 'Alternative names for the goal.'}),
 
                 ('type', ('entity:goal:type:taxonomy', {}), {

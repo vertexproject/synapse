@@ -582,7 +582,23 @@ class Array(Type):
         if (typeopts := self.opts.get('typeopts')) is None:
             typeopts = {}
 
-        if isinstance(typename, tuple):
+        # resolve property name aliases used as types
+        resolvedpoly = None
+        if not isinstance(typename, tuple) and self.modl.type(typename) is None and typename not in self.modl.ifaces:
+            resolved = self.modl._resolvePropAlias(typename)
+            if resolved is not None:
+                if resolved[0] == 'poly':
+                    resolvedpoly = resolved[1]
+                elif isinstance(resolved[0], tuple):
+                    typename = resolved
+                else:
+                    typename = resolved[0]
+                    if not typeopts:
+                        typeopts = resolved[1]
+
+        if resolvedpoly is not None:
+            polyinfo = resolvedpoly
+        elif isinstance(typename, tuple):
             polyinfo = self.modl.convertPolyinfo(typename)
         elif isinstance(tobj := self.modl.type(typename), Poly):
             polyinfo = tobj.opts

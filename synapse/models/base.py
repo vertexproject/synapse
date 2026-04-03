@@ -232,7 +232,7 @@ modeldefs = (
                         'doc': 'The name of the award.',
                         'ex': 'Nobel Peace Prize'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('array', {'type': 'meta:award:name'}), {
                         'doc': 'An array of alternate names for the award.'}),
 
                     ('desc', ('text', {}), {
@@ -301,7 +301,7 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'meta:reported:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -311,7 +311,7 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'meta:reported:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {

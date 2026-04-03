@@ -76,12 +76,7 @@ modeldefs = (
                     'prevnames': ('iso2',),
                     'doc': 'The country code.'}),
 
-                ('codes', ('array', {'type': (
-                        ('iso:3166:alpha2', {}),
-                        ('iso:3166:numeric3', {}),
-                        ('iso:3166:alpha3', {}),
-                        ('meta:id', {})
-                    )}), {
+                ('codes', ('array', {'type': 'pol:country:code'}), {
                     'doc': 'An array of country codes.'}),
 
                 ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
@@ -99,7 +94,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'geo:name'}), {
+                ('names', ('array', {'type': 'pol:country:name'}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
