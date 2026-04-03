@@ -2714,7 +2714,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
         prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype.typehash == prophash:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
             else:

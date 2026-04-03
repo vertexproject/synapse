@@ -171,7 +171,7 @@ class NodeBase:
         # valu must be normalized in advance
         prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype.typehash == prophash:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 arryvalu = self.get(prop.name)
                 if arryvalu is not None and valu in arryvalu:
                     return True
