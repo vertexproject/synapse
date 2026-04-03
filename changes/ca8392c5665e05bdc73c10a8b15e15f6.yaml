@@ -1,8 +1,0 @@
----
-desc: Added an ``isValidStorm()`` API to the Cortex, and a corresponding ``api/v1/isvalidstorm``
-  HTTP endpoint. These return a tuple of ``isok, info`` data, indicating if a query
-  is valid Storm syntax.
-desc:literal: false
-prs: []
-type: feat
-...
