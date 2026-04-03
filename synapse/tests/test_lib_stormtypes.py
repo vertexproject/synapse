@@ -89,9 +89,52 @@ class StormTypesTest(s_test.SynTest):
             self.eq('node', await core.callStorm('[ inet:ip=1.2.3.4 ] return($lib.utils.type($lib.copy($node)))'))
             self.eq('noderef', await core.callStorm('inet:ip=1.2.3.4 [ :asn=5 ] return($lib.utils.type($lib.copy(:asn)))'))
 
+            ret = await core.callStorm('''
+                [ inet:ip=1.2.3.4 ]
+                $d = ({
+                    "n": $node,
+                    "p": :asn,
+                })
+                $d = $lib.copy($d)
+                return( ([$lib.utils.type($d.n), $lib.utils.type($d.p)]) )
+            ''')
+            self.eq(('node', 'noderef'), ret)
+
+            ret = await core.callStorm('''
+                [ inet:ip=1.2.3.4 ]
+                $d = ([$node, :asn])
+                $d = $lib.copy($d)
+                return( ([$lib.utils.type($d.0), $lib.utils.type($d.1)]) )
+            ''')
+            self.eq(('node', 'noderef'), ret)
+
+            # copy cmdopts containing a node (CmdOpts._storm_copy NotMsgpackSafe fallback)
+            pdef = {
+                'name': 'testcopy',
+                'desc': 'test',
+                'version': (0, 0, 1),
+                'commands': [{
+                    'name': 'test.copycmdopts',
+                    'cmdargs': (
+                        ('item', {}),
+                    ),
+                    'storm': '''
+                        $copy = $lib.copy($cmdopts)
+                        $lib.print($lib.utils.type($copy.item))
+                    '''
+                }],
+            }
+            await core.addStormPkg(pdef)
+            msgs = await core.stormlist('[ inet:ip=1.2.3.4 ] test.copycmdopts $node')
+            self.stormIsInPrint('node', msgs)
+
             # is not a Prim
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy($lib))')
+
+            # nested value is not a Prim
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy(([$lib])))')
 
             # is not a Prim
             with self.raises(s_exc.BadArg):
@@ -5490,7 +5533,14 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core._killCronTask('newp'))
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
 
-    async def test_storm_lib_cron2(self):
+            # test loglevel for cron.at
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}", loglevel=CRITICAL))')
+            self.eq('CRITICAL', cdef.get('loglevel'))
+
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}"))')
+            self.eq('WARNING', cdef.get('loglevel'))
+
+    async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
