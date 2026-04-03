@@ -89,9 +89,52 @@ class StormTypesTest(s_test.SynTest):
             self.eq('node', await core.callStorm('[ inet:ip=1.2.3.4 ] return($lib.utils.type($lib.copy($node)))'))
             self.eq('noderef', await core.callStorm('inet:ip=1.2.3.4 [ :asn=5 ] return($lib.utils.type($lib.copy(:asn)))'))
 
+            ret = await core.callStorm('''
+                [ inet:ip=1.2.3.4 ]
+                $d = ({
+                    "n": $node,
+                    "p": :asn,
+                })
+                $d = $lib.copy($d)
+                return( ([$lib.utils.type($d.n), $lib.utils.type($d.p)]) )
+            ''')
+            self.eq(('node', 'noderef'), ret)
+
+            ret = await core.callStorm('''
+                [ inet:ip=1.2.3.4 ]
+                $d = ([$node, :asn])
+                $d = $lib.copy($d)
+                return( ([$lib.utils.type($d.0), $lib.utils.type($d.1)]) )
+            ''')
+            self.eq(('node', 'noderef'), ret)
+
+            # copy cmdopts containing a node (CmdOpts._storm_copy NotMsgpackSafe fallback)
+            pdef = {
+                'name': 'testcopy',
+                'desc': 'test',
+                'version': (0, 0, 1),
+                'commands': [{
+                    'name': 'test.copycmdopts',
+                    'cmdargs': (
+                        ('item', {}),
+                    ),
+                    'storm': '''
+                        $copy = $lib.copy($cmdopts)
+                        $lib.print($lib.utils.type($copy.item))
+                    '''
+                }],
+            }
+            await core.addStormPkg(pdef)
+            msgs = await core.stormlist('[ inet:ip=1.2.3.4 ] test.copycmdopts $node')
+            self.stormIsInPrint('node', msgs)
+
             # is not a Prim
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy($lib))')
+
+            # nested value is not a Prim
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy(([$lib])))')
 
             # is not a Prim
             with self.raises(s_exc.BadArg):
