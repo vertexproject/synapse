@@ -389,7 +389,7 @@ class SockAddr(s_types.Str):
 
         self.iptype = self.modl.type('inet:ip')
         self.porttype = self.modl.type('inet:port')
-        self.prototype = self.modl.type('str').clone({'lower': True})
+        self.prototype = self.modl.type('str:lower')
 
         self.defport = self.opts.get('defport')
         self.defproto = self.opts.get('defproto')
@@ -464,18 +464,16 @@ class SockAddr(s_types.Str):
 
                 ipv6, norminfo = await self.iptype.norm(ipv6)
                 host = self.iptype.repr(ipv6)
-                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+                adds = (('inet:ip', ipv6, norminfo),)
                 virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
                     port, norminfo = await self.porttype.norm(port)
-                    subs['port'] = (self.porttype.typehash, port, norminfo)
                     virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
                 elif self.defport:
-                    subs['port'] = (self.porttype.typehash, self.defport, {})
                     virts['port'] = (self.defport, self.porttype.stortype)
                     portstr = f':{self.defport}'
 
@@ -483,7 +481,7 @@ class SockAddr(s_types.Str):
                     mesg = f'Protocol {proto} does not allow specifying ports.'
                     raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
-                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
+                return f'{proto}://[{host}]{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
@@ -491,20 +489,18 @@ class SockAddr(s_types.Str):
         elif valu.count(':') >= 2:
             ipv6, norminfo = await self.iptype.norm(valu)
             host = self.iptype.repr(ipv6)
-            subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+            adds = (('inet:ip', ipv6, norminfo),)
             virts['ip'] = (ipv6, self.iptype.stortype)
 
             if self.defport:
-                subs['port'] = (self.porttype.typehash, self.defport, {})
                 virts['port'] = (self.defport, self.porttype.stortype)
-                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
+                return f'{proto}://[{host}]:{self.defport}', {'adds': adds, 'subs': subs, 'virts': virts}
 
-            return f'{proto}://[{host}]', {'subs': subs, 'virts': virts}
+            return f'{proto}://[{host}]', {'adds': adds, 'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
         valu, port, pstr = await self._normPort(valu)
         if port:
-            subs['port'] = (self.porttype.typehash, port, {})
             virts['port'] = (port, self.porttype.stortype)
 
         if port and proto in self.noports:
@@ -513,28 +509,29 @@ class SockAddr(s_types.Str):
 
         ipv4, norminfo = await self.iptype.norm(valu)
         ipv4_repr = self.iptype.repr(ipv4)
-        subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
+        adds = (('inet:ip', ipv4, norminfo),)
         virts['ip'] = (ipv4, self.iptype.stortype)
 
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
+        return f'{proto}://{ipv4_repr}{pstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
     async def _normPyTuple(self, valu, view=None):
         ipaddr, norminfo = await self.iptype.norm(valu)
 
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
-        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
+        adds = (('inet:ip', ipaddr, norminfo),)
+        subs = {'proto': (self.prototype.typehash, proto, {})}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
 
+        portstr = ''
         if self.defport:
-            subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
-            if ipaddr[0] == 6:
-                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
-            else:
-                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
+            portstr = f':{self.defport}'
 
-        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
+        if ipaddr[0] == 6:
+            return f'{proto}://[{ip_repr}]{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
+        else:
+            return f'{proto}://{ip_repr}{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
 class Email(s_types.Str):
 
@@ -1388,6 +1385,12 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
                 ),
+                'props': (
+                    ('proto', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The network protocol of the client.'
+                    }),
+                ),
                 'doc': 'A network client address.'}),
 
             ('inet:download', ('guid', {}), {
@@ -1473,6 +1476,12 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
+                ),
+                'props': (
+                    ('proto', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The network protocol of the server.'
+                    }),
                 ),
                 'doc': 'A network server address.'}),
 
@@ -2153,21 +2162,6 @@ modeldefs = (
                     'doc': 'The last IP address in the network range.'}),
             )),
 
-            ('inet:client', {}, (
-                ('proto', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The network protocol of the client.'
-                }),
-                ('ip', ('inet:ip', {}), {
-                    'computed': True,
-                    'doc': 'The IP of the client.',
-                    'prevnames': ('ipv4', 'ipv6')}),
-
-                ('port', ('inet:port', {}), {
-                    'doc': 'The client tcp/udp port.'
-                }),
-            )),
-
             ('inet:email', {}, (
 
                 ('user', ('inet:user', {}), {
@@ -2459,21 +2453,6 @@ modeldefs = (
                 ('email', ('inet:email', {}), {
                     'computed': True,
                     'doc': 'The email field parsed from an RFC 2822 address string.'
-                }),
-            )),
-
-            ('inet:server', {}, (
-                ('proto', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The network protocol of the server.'
-                }),
-                ('ip', ('inet:ip', {}), {
-                    'computed': True,
-                    'doc': 'The IP of the server.',
-                    'prevnames': ('ipv4', 'ipv6')}),
-
-                ('port', ('inet:port', {}), {
-                    'doc': 'The server tcp/udp port.'
                 }),
             )),
 

@@ -1697,7 +1697,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([(6, 3), (6, 2), (6, 1)], await nodeVals('reverse(inet:ip*range=(([6, 1]), ([6, 3])))'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
-            await buidRevEq('inet:server:ip="::5"')
+            await buidRevEq('inet:server.ip="::5"')
 
             await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
 
@@ -3080,14 +3080,14 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
 
             self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
-            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
+            # TODO: allow embed lift through virt
+            # self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
+            # self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
 
             await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
             await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
