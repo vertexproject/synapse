@@ -3900,6 +3900,10 @@ class MoveNodesCmd(Cmd):
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                if layr not in layrlist:
+                    mesg = f'Layer {layr} in precedence is not in the set of source/destination layers.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, layr=layr)
+
                 layrlist.remove(layr)
 
             if len(layrlist) > 0:
