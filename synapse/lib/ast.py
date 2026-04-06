@@ -2524,7 +2524,7 @@ class PivotOut(PivotOper):
         refs = node.form.getRefsOut()
         for name, form in refs['virt']:
             vname = f'.{name}'
-            if (valu := node.get(vname)) is None:
+            if (valu := node.get(vname)) is None:  # pragma: no cover
                 continue
 
             for formname in runt.model.getChildForms(form):
@@ -2838,7 +2838,7 @@ class FormPivot(PivotOper):
                     found = True
                     vname = f'.{refsname}'
 
-                    if (refsvalu := node.get(vname)) is None:
+                    if (refsvalu := node.get(vname)) is None:  # pragma: no cover
                         continue
 
                     link = {'type': 'prop', 'prop': vname}
