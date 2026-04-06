@@ -74,7 +74,6 @@ class Type:
             'created': 'created',
             'updated': 'updated'
         }
-        self.virtpivs = {}
         self.virtstor = {}
         self.virtlifts = {}
 

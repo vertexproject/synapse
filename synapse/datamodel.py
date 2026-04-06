@@ -396,8 +396,10 @@ class Form:
                         continue
                     self.refsout['prop'].append((name, prop.type.name))
 
-            for name, destname in self.type.virtpivs.items():
-                self.refsout['virt'].append((name, destname))
+            for name, info in self.type.virts.items():
+                typename = info[0].name
+                if self.modl.forms.get(typename) is not None:
+                    self.refsout['virt'].append((name, typename))
 
         return self.refsout
 

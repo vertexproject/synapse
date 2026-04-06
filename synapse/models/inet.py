@@ -404,10 +404,6 @@ class SockAddr(s_types.Str):
             'port': (self.porttype, self._getPort),
         }
 
-        self.virtpivs |= {
-            'ip': 'inet:ip',
-        }
-
     def _getIP(self, valu):
         if (virts := valu[2]) is None:
             return None
