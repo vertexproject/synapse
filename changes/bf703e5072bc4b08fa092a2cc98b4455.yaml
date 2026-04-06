@@ -1,0 +1,7 @@
+---
+desc: Fixed ``view.swapLayer()`` to clear the old layer's buid cache, preventing stale
+  data from causing errors.
+desc:literal: false
+prs: []
+type: bug
+...

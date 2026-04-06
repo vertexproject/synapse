@@ -1026,3 +1026,43 @@ class ViewTest(s_t_utils.SynTest):
 
             opts['vars']['iden'] = view02.iden
             self.eq([], await core.callStorm(q, opts=opts))
+
+    async def test_lib_view_swapLayer(self):
+
+        async with self.getTestCore() as core:
+
+            # Create a node in the default view
+            nodes = await core.nodes('[ inet:fqdn=vertex.link ]')
+            self.len(1, nodes)
+
+            oldlayr = core.getLayer()
+            oldiden = oldlayr.iden
+
+            # Ensure the node's sode is in the layer buidcache
+            buid = s_common.buid(('inet:fqdn', 'vertex.link'))
+            sode = oldlayr._getStorNode(buid)
+            self.nn(sode)
+            self.isin(buid, oldlayr.buidcache)
+
+            # Swap the layer
+            view = core.getView()
+            await view.swapLayer()
+
+            # Verify the layer was replaced
+            newlayr = core.getLayer()
+            self.ne(oldiden, newlayr.iden)
+
+            # Verify old layer buidcache was cleared
+            self.notin(buid, oldlayr.buidcache)
+
+            # Verify new layer buidcache is empty
+            self.eq(0, len(newlayr.buidcache))
+
+            # Verify the old node is gone from the new layer
+            self.len(0, await core.nodes('inet:fqdn=vertex.link'))
+
+            # Verify creating the same node works without ReadOnlyProp error
+            nodes = await core.nodes('[ inet:fqdn=vertex.link ]')
+            self.len(1, nodes)
+            self.eq('vertex.link', nodes[0].ndef[1])
+            self.eq('link', nodes[0].get('domain'))

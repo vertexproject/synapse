@@ -5414,6 +5414,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await layr.delete()
 
+        layr.buidcache.clear()
+
         layr.deloffs = nexsitem[0]
 
     async def setViewLayers(self, layers, iden=None):
