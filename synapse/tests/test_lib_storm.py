@@ -553,14 +553,14 @@ class StormTest(s_t_utils.SynTest):
                     $lib.print('nested raise')
                     $lib.raise($errname, mesg='inner error!')
                 } catch foo as err {
-                    $lib.print('caught foo e={e}', e=$err)
+                    $lib.print(`caught foo e={$err}`)
                     if $innerRaise {
                         $lib.raise($innererrname, mesg='inner error!')
                     }
                 }
                 $lib.print('no foo err!')
             } catch bar as err {
-                $lib.print('caught bar e={e}', e=$err)
+                $lib.print(`caught bar e={$err}`)
             }
             $lib.print('fin')'''
             msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': '', 'innerRaise': False, }})
@@ -614,7 +614,7 @@ class StormTest(s_t_utils.SynTest):
             try {
                 $lib.raise(foo, test)
             } catch (1, $lib.true, foo) as err {
-                $lib.print('caught err={e}', e=$err)
+                $lib.print(`caught err={$err}`)
             }
             ''')
             self.stormIsInPrint('caught err=', msgs)
@@ -3702,7 +3702,7 @@ class StormTest(s_t_utils.SynTest):
             q = (
                 '$foo=5 tee '
                 '{ [ inet:asn=3 ] } '
-                '{ [ inet:asn=4 ] $lib.print("made asn node: {node}", node=$node) } '
+                '{ [ inet:asn=4 ] $lib.print(`made asn node: {$node}`) } '
                 '{ [ inet:asn=$foo ] }'
             )
             msgs = await core.stormlist(q)

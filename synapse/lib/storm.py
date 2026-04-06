@@ -293,7 +293,7 @@ stormcmds = (
                 if $info.name { $name = $info.name.ljust(20) }
                 else { $name = '                    ' }
 
-                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
+                $lib.print(`    {$info.iden}:  ({$name}): {$info.status}`)
             }
         ''',
     },
@@ -337,7 +337,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.layer.del($cmdopts.iden)
-            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Layer deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -377,7 +377,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPull($cmdopts.src, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer pull added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer pull added: {$pdef.iden}`)
             }
         ''',
     },
@@ -456,7 +456,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPush($cmdopts.dest, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer push added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer push added: {$pdef.iden}`)
             }
         ''',
     },
@@ -562,7 +562,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.view.del($cmdopts.iden)
-            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -590,7 +590,7 @@ stormcmds = (
         'storm': '''
             $forkview = $lib.view.get($cmdopts.iden).fork(name=$cmdopts.name)
             $lib.print($forkview.repr())
-            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+            $lib.print(`View {$cmdopts.iden} forked to new view: {$forkview.iden}`)
         ''',
     },
     {
@@ -637,7 +637,7 @@ stormcmds = (
             } else {
                 $view.swapLayer()
             }
-            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View merged: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -665,7 +665,7 @@ stormcmds = (
             $opts.help = $lib.undef
             $opts.disabled = $lib.undef
             $trig = $lib.trigger.add($opts)
-            $lib.print("Added trigger: {iden}", iden=$trig.iden)
+            $lib.print(`Added trigger: {$trig.iden}`)
         ''',
     },
     {
@@ -676,7 +676,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.del($cmdopts.iden)
-            $lib.print("Deleted trigger: {iden}", iden=$iden)
+            $lib.print(`Deleted trigger: {$iden}`)
         ''',
     },
     {
@@ -812,7 +812,7 @@ stormcmds = (
                                   doc=$cmdopts.doc,
                                   name=$cmdopts.name)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -841,7 +841,7 @@ stormcmds = (
                                  view=$cmdopts.view,
                                  affinity=$cmdopts.affinity)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -852,7 +852,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.cron.del($cmdopts.iden)
-            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Deleted cron job: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -896,7 +896,7 @@ stormcmds = (
                     }
                 }
             }
-            $lib.print("{count} cron/at jobs deleted.", count=$count)
+            $lib.print(`{$count} cron/at jobs deleted.`)
         ''',
     },
 
@@ -960,24 +960,24 @@ stormcmds = (
             if $cron {
                 $job = $cron.pprint()
 
-                $lib.print('iden:            {iden}', iden=$job.iden)
-                $lib.print('creator:         {creator}', creator=$job.creator)
-                $lib.print('user:            {user}', user=$job.user)
-                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`iden:            {$job.iden}`)
+                $lib.print(`creator:         {$job.creator}`)
+                $lib.print(`user:            {$job.user}`)
+                $lib.print(`enabled:         {$job.enabled}`)
                 $lib.print(`pool:            {$job.pool}`)
                 $lib.print(`affinity:        {$job.affinity}`)
-                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
-                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
-                $lib.print('# errors:        {errcount}', errcount=$job.errcount)
-                $lib.print('last start time: {laststart}', laststart=$job.laststart)
-                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
-                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
-                $lib.print('query:           {query}', query=$job.query)
+                $lib.print(`recurring:       {$job.isrecur}`)
+                $lib.print(`# starts:        {$job.startcount}`)
+                $lib.print(`# errors:        {$job.errcount}`)
+                $lib.print(`last start time: {$job.laststart}`)
+                $lib.print(`last end time:   {$job.lastend}`)
+                $lib.print(`last result:     {$job.lastresult}`)
+                $lib.print(`query:           {$job.query}`)
 
                 if $lib.len($job.lasterrs) {
                     $lib.print('most recent errors:')
                     for $err in $job.lasterrs {
-                        $lib.print('                 {err}', err=$err)
+                        $lib.print(`                 {$err}`)
                     }
                 }
 
@@ -988,8 +988,7 @@ stormcmds = (
                         $incunit = (`{$rec.incunit}`).ljust(10)
                         $incval = (`{$rec.incval}`).ljust(6)
 
-                        $lib.print('                 {incunit} {incval} {reqdict}',
-                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                        $lib.print(`                 {$incunit} {$incval} {$rec.reqdict}`)
                     }
                 } else {
                     $lib.print('entries:         <None>')
@@ -1069,7 +1068,7 @@ stormcmds = (
                     }
                     yield $lib.feed.genr($nodes, (true))
                 } else {
-                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
+                    $lib.exit(`nodes.import got HTTP error code: {$resp.code} for {$url}`)
                 }
             }
         }
@@ -1140,7 +1139,7 @@ stormcmds = (
             $resp = $lib.cell.uptime(name=$cmdopts.name)
             $uptime = $lib.model.type(duration).repr($resp.uptime)
             $starttime = $lib.time.format($resp.starttime, "%Y-%m-%d %H:%M:%S")
-            $lib.print("up {uptime} (since {since})", uptime=$uptime, since=$starttime)
+            $lib.print(`up {$uptime} (since {$starttime})`)
         ''',
     },
 )

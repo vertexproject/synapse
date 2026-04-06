@@ -43,9 +43,9 @@ foo_stormpkg = {
             'name': 'test',
             'storm': '''
             function pprint(arg1, arg2, arg3) {
-                $lib.print('arg1: {arg1}', arg1=$arg1)
-                $lib.print('arg2: {arg2}', arg2=$arg2)
-                $lib.print('arg3: {arg3}', arg3=$arg3)
+                $lib.print(`arg1: {$arg1}`)
+                $lib.print(`arg2: {$arg2}`)
+                $lib.print(`arg3: {$arg3}`)
                 return()
             }
             '''
@@ -66,7 +66,7 @@ foo_stormpkg = {
 
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
-                $lib.print('counter is {c}', c=$counter)
+                $lib.print(`counter is {$counter}`)
                 if $( $arg2 ) {
                     $retn = "foo"
                 } else {
@@ -80,7 +80,7 @@ foo_stormpkg = {
                 $reti = $inner($arg1, $add)
                 $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
-                $lib.print("foobar is {foobar}", foobar=$foobar)
+                $lib.print(`foobar is {$foobar}`)
                 return ($mesg)
             }
             ''',
@@ -1691,7 +1691,7 @@ class AstTest(s_test.SynTest):
                 return ("hello")
             }
             $retn=$hello()
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: hello', msgs)
@@ -1703,7 +1703,7 @@ class AstTest(s_test.SynTest):
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: foo', msgs)
@@ -1713,13 +1713,13 @@ class AstTest(s_test.SynTest):
             # inside of the function
             q = '''
             function echo(arg) {
-                $lib.print('arg is {arg}', arg=$arg)
+                $lib.print(`arg is {$arg}`)
                 [(test:str=1234) (test:str=5678)]
                 return ($node.value())
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('arg is foo', msgs)
@@ -1736,7 +1736,7 @@ class AstTest(s_test.SynTest):
             }
             [(test:int=0) (test:int=1)]
             $retn=$cond($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: $lib.null', msgs)
@@ -1789,7 +1789,7 @@ class AstTest(s_test.SynTest):
                 return ($woot($arg2))
             }
             $output = $squee(17)
-            $lib.print('output is {a}', a=$output)
+            $lib.print(`output is {$output}`)
             '''
 
             msgs = await core.stormlist(q)
@@ -1804,7 +1804,7 @@ class AstTest(s_test.SynTest):
                 return ($recurse( $($cond - 1), $($count + 1) ))
             }
             $output = $recurse(21, 0)
-            $lib.print('final recursive output is {out}', out=$output)
+            $lib.print(`final recursive output is {$output}`)
             '''
 
             msgs = await core.stormlist(q)
@@ -1814,7 +1814,7 @@ class AstTest(s_test.SynTest):
             q = '''
             function toreturn() {
                 $lib.time.sleep(1)
-                $lib.print('[{now}, "toreturn called"]', now=$($lib.time.now()))
+                $lib.print(`[{$lib.time.now()}, "toreturn called"]`)
                 $lib.time.sleep(1)
                 return ("foobar")
             }
@@ -1824,9 +1824,9 @@ class AstTest(s_test.SynTest):
             }
 
             $func = $wrapper()
-            $lib.print('[{now}, "this should be first"]', now=$($lib.time.now()))
+            $lib.print(`[{$lib.time.now()}, "this should be first"]`)
             $output = $func()
-            $lib.print('[{now}, "got {out}"]', now=$($lib.time.now()), out=$output)
+            $lib.print(`[{$lib.time.now()}, "got {$output}"]`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1863,7 +1863,7 @@ class AstTest(s_test.SynTest):
             }
             $lib.print($foo())
             $lib.print($boop())
-            $lib.print("biz is now {biz}", biz=$biz)
+            $lib.print(`biz is now {$biz}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1883,11 +1883,11 @@ class AstTest(s_test.SynTest):
             # make sure can set variables to the results of other functions in the same query
             q = '''
             function baz(arg1) {
-                $lib.print('arg1={a}', a=$arg1)
+                $lib.print(`arg1={$arg1}`)
                 return ($arg1)
             }
             function bar(arg2) {
-                $lib.print('arg2={a}', a=$arg2)
+                $lib.print(`arg2={$arg2}`)
                 $retn = $baz($arg2)
                 return ($retn)
             }
@@ -1908,7 +1908,7 @@ class AstTest(s_test.SynTest):
             $lib.print($hehe)
             $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c=$test.counter)
+            $lib.print(`counter is {$test.counter}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1942,7 +1942,7 @@ class AstTest(s_test.SynTest):
 
             yield $foo("bleeeergh")
             yield $foo("bloooop")
-            $lib.print("nodes added: {c}", c=$count)
+            $lib.print(`nodes added: {$count}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('nodes added: 1', msgs)
@@ -1953,7 +1953,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $global = $(346)
             function bar(arg1) {
-                $lib.print("arg1 is {arg}", arg=$arg1)
+                $lib.print(`arg1 is {$arg1}`)
                 return ($arg1)
             }
             function foo(arg2) {
@@ -1961,7 +1961,7 @@ class AstTest(s_test.SynTest):
                 $retn = $bar($wat)
                 return ($retn)
             }
-            $lib.print("retn is {ans}", ans=$( $foo($global)) )
+            $lib.print(`retn is {$($foo($global))}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -2228,7 +2228,7 @@ class AstTest(s_test.SynTest):
 
                 [ +#foo ]
 
-                fini { $lib.print('xfini: {x}', x=$x) }
+                fini { $lib.print(`xfini: {$x}`) }
             '''
 
             msgs = await core.stormlist(q)
