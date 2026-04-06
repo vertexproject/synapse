@@ -372,6 +372,7 @@ class Form:
             self.refsout = {
                 'prop': [],
                 'ndef': [],
+                'virt': [],
                 'array': [],
                 'ndefarray': [],
             }
@@ -394,6 +395,9 @@ class Form:
                     if prop.type.name in self.type.pivs:
                         continue
                     self.refsout['prop'].append((name, prop.type.name))
+
+            for name, destname in self.type.virtpivs.items():
+                self.refsout['virt'].append((name, destname))
 
         return self.refsout
 

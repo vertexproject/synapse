@@ -2522,6 +2522,19 @@ class PivotOut(PivotOper):
                     yield pivo, path.fork(pivo, link)
 
         refs = node.form.getRefsOut()
+        for name, form in refs['virt']:
+            vname = f'.{name}'
+            if (valu := node.get(vname)) is None:
+                continue
+
+            for formname in runt.model.getChildForms(form):
+                if (pivo := await runt.view.getNodeByNdef((formname, valu))) is not None:
+                    break
+            else:
+                continue
+
+            yield pivo, path.fork(pivo, {'type': 'prop', 'prop': vname})
+
         for name, form in refs['prop']:
             if (valu := node.get(name)) is None:
                 continue
@@ -2817,6 +2830,21 @@ class FormPivot(PivotOper):
 
                 refs = node.form.getRefsOut()
 
+                for refsname, refsform in refs.get('virt'):
+
+                    if refsform not in destform.formtypes:
+                        continue
+
+                    found = True
+                    vname = f'.{refsname}'
+
+                    if (refsvalu := node.get(vname)) is None:
+                        continue
+
+                    link = {'type': 'prop', 'prop': vname}
+                    async for pivo in runt.view.nodesByPropValu(destform.name, '=', refsvalu, norm=False):
+                        yield pivo, link
+
                 for refsname, refsform in refs.get('prop'):
 
                     if refsform not in destform.formtypes:
@@ -2879,6 +2907,18 @@ class FormPivot(PivotOper):
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
                 refs = destform.getRefsOut()
+
+                # "reverse" virtual property references...
+                for refsname, refsform in refs.get('virt'):
+
+                    if refsform not in node.form.formtypes:
+                        continue
+
+                    found = True
+
+                    link = {'type': 'prop', 'prop': f'.{refsname}', 'reverse': True}
+                    async for pivo in runt.view.nodesByPropValu(destform.name, '=', node.ndef[1], norm=False, virts=(refsname,)):
+                        yield pivo, link
 
                 # "reverse" property references...
                 for refsname, refsform in refs.get('prop'):

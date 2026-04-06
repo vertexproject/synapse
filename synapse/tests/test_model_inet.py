@@ -1535,6 +1535,10 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
             self.propeq(nodes[0], 'proto', 'gre')
 
+            self.len(1, await core.nodes('inet:server=gre://1.2.3.4 -> *'))
+            self.len(1, await core.nodes('inet:server=gre://1.2.3.4 -> inet:ip'))
+            self.len(8, await core.nodes('inet:ip -> inet:server'))
+
             with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
 
