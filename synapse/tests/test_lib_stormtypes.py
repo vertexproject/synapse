@@ -655,7 +655,7 @@ class StormTypesTest(s_test.SynTest):
                 self.eq('vertex.link', mesgs[0][1]['mesg'])
                 self.eq('woot.com', mesgs[1][1]['mesg'])
 
-                mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
+                mesgs = [m async for m in prox.storm('$s=hello $num=$(42+43) $lib.print(`woot at: {$s} {$num}`)')]
                 self.stormIsInPrint('woot at: hello 85', mesgs)
 
             # lib.sorted()
@@ -1004,7 +1004,7 @@ class StormTypesTest(s_test.SynTest):
             $foo = "that is one neato burrito"
             $baz = ${ $bar=`wompwomp{$lib.guid()}` $lib.print("in exec") }
             $baz.exec()
-            $lib.print("post exec {bar}", bar=$bar)
+            $lib.print(`post exec {$bar}`)
             [ test:str=$foo ]
             '''
             with self.raises(s_exc.NoSuchVar):
@@ -1027,7 +1027,7 @@ class StormTypesTest(s_test.SynTest):
             function foofunc() {
                 $bing = $(99)
                 yield $foo.exec()
-                $lib.print("bing is now {bing}", bing=$bing)
+                $lib.print(`bing is now {$bing}`)
                 return ($(0))
             }
 
@@ -1567,27 +1567,27 @@ class StormTypesTest(s_test.SynTest):
             q = '''
             $list=(1,2,3)
             // __len__
-            $lib.print('List size is {len}', len=$lib.len($list))
+            $lib.print(`List size is {$lib.len($list)}`)
             // aiter/iter method
             $sum = $(0)
             for $valu in $list {
                 $sum = $( $sum + $valu)
             }
-            $lib.print('Sum is {sum}', sum=$sum)
+            $lib.print(`Sum is {$sum}`)
             // Append method
             $list.append(4)
             // size method
-            $lib.print('List size is now {len}', len=$list.size())
+            $lib.print(`List size is now {$list.size()}`)
             // Access the values by index
-            $lib.print('List[0]={zero}, List[-1]={neg1}', zero=$list.index(0), neg1=$list.index(-1))
+            $lib.print(`List[0]={$list.index(0)}, List[-1]={$list.index(-1)}`)
             $sum = $(0)
             for $valu in $list {
                 $sum = $( $sum + $valu)
             }
-            $lib.print('Sum is now {sum}', sum=$sum)
+            $lib.print(`Sum is now {$sum}`)
             // Empty lists may also be made
             $elst=()
-            $lib.print('elst size is {len}', len=$lib.len($elst))
+            $lib.print(`elst size is {$lib.len($elst)}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('List size is 3', msgs)
@@ -2328,7 +2328,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''$set = $lib.set(a, b, c)
             for $v in $set {
-                $lib.print('set valu: {v}', v=$v)
+                $lib.print(`set valu: {$v}`)
             }
             '''
             mesgs = await core.stormlist(q)
@@ -2365,7 +2365,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($true)
                 $set.add($false)
                 $set.add($false)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             trueprim = s_stormtypes.Bool(True)
             falsprim = s_stormtypes.Bool(False)
@@ -2383,7 +2383,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($copy)
                 $set.add($bare)
                 $set.add($bare)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             norun = s_stormtypes.Bytes(b'This program cannot be run')
             section = s_stormtypes.Bytes(b'.text')
@@ -2398,7 +2398,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($opts)
                 $set.add($othr)
                 $set.add($diff)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
 
             class OptWrapper:
@@ -2444,7 +2444,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($jobA)
                 $set.add($jobB)
 
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 2 items in the set', msgs)
@@ -2461,7 +2461,7 @@ class StormTypesTest(s_test.SynTest):
                 $layr = $lib.layer.add().iden
                 $newview = $lib.view.add(($layr,))
                 $set.add($lib.auth.gates.get($newview.iden))
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 2 items in the set', msgs)
@@ -2481,7 +2481,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($fake)
                 $set.add($extra)
                 $set.add($layr)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 3 items in the set', msgs)
@@ -2496,7 +2496,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($node)
                 $set.add($node)
                 fini {
-                    $lib.print('There are {count} items in the set', count=$lib.len($set))
+                    $lib.print(`There are {$lib.len($set)} items in the set`)
                 }
             '''
             msgs = await core.stormlist(q)
@@ -2510,7 +2510,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($lib.queue.byname(testq))
                 $set.add($lib.queue.byname(testq))
                 $set.add($lib.queue.byname(testq))
-                $lib.print('There is {count} item in the set', count=$lib.len($set))
+                $lib.print(`There is {$lib.len($set)} item in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There is 1 item in the set', msgs)
@@ -2522,7 +2522,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($role)
                 $set.add($lib.auth.roles.byname(muffin))
                 $set.add($role)
-                $lib.print('There is {count} item in the set', count=$lib.len($set))
+                $lib.print(`There is {$lib.len($set)} item in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There is 1 item in the set', msgs)
@@ -2544,7 +2544,7 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($copy)
                 $set.add($copy)
                 $set.add(47)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             alpha = s_stormtypes.Str('alpha')
             beta = s_stormtypes.Str('beta')
@@ -2559,7 +2559,7 @@ class StormTypesTest(s_test.SynTest):
                 $trig = $lib.trigger.add($tdef)
                 $set = $lib.set()
                 $set.adds(($trig, $trig, $trig, $trig))
-                $lib.print('There is {count} item in the set', count=$lib.len($set))
+                $lib.print(`There is {$lib.len($set)} item in the set`)
             '''
             iden = s_common.guid()
             tdef = {'iden': iden, 'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
@@ -2574,7 +2574,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set($u)
                 $set.add($lib.auth.users.byname(bar))
                 $set.add($lib.auth.users.byname(bar))
-                $lib.print('There is {count} item in the set', count=$lib.len($set))
+                $lib.print(`There is {$lib.len($set)} item in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There is 1 item in the set', msgs)
@@ -2589,7 +2589,7 @@ class StormTypesTest(s_test.SynTest):
                 $layr = $lib.layer.add().iden
                 $newview = $lib.view.add(($layr,))
                 $set.add($newview)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 2 items in the set', msgs)
@@ -2612,7 +2612,7 @@ class StormTypesTest(s_test.SynTest):
                 })
                 $set = $lib.set()
                 $set.adds($dict)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 2 items in the set', msgs)
@@ -2629,7 +2629,7 @@ class StormTypesTest(s_test.SynTest):
                 $list = (1, 2, 3, 1, 2, 3, 1, 2, 3)
                 $set = $lib.set()
                 $set.adds($list)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 3 items in the set', msgs)
@@ -2638,7 +2638,7 @@ class StormTypesTest(s_test.SynTest):
                 $list = ((4, 5, 6, 7), (1, 2, 3, 4))
                 $set = $lib.set()
                 $set.adds($list)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
+                $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
@@ -2656,7 +2656,7 @@ class StormTypesTest(s_test.SynTest):
                 $setB = $lib.set()
 
                 $setB.adds($setA)
-                $lib.print('There are {count} items in the set', count=$lib.len($setB))
+                $lib.print(`There are {$lib.len($setB)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 3 items in the set', msgs)
@@ -2713,7 +2713,7 @@ class StormTypesTest(s_test.SynTest):
             $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.queue.byname(neatq), $lib.false)
             $set = $lib.set()
             $set.adds($list)
-            $lib.print('There are {count} items in the set', count=$lib.len($set))
+            $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 6 items in the set', msgs)
@@ -2727,7 +2727,7 @@ class StormTypesTest(s_test.SynTest):
             )
             $set = $lib.set()
             $set.adds($list)
-            $lib.print('There are {count} items in the set', count=$lib.len($set))
+            $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 13 items in the set', msgs)
@@ -2767,7 +2767,7 @@ class StormTypesTest(s_test.SynTest):
             text = '''
                 [ test:str='123' ]
                 for ($name, $valu) in $path.vars {
-                    $lib.print('{name}={valu}', name=$name, valu=$valu)
+                    $lib.print(`{$name}={$valu}`)
                 }
             '''
             msgs = await core.stormlist(text, opts=opts)
@@ -2784,7 +2784,7 @@ class StormTypesTest(s_test.SynTest):
                     $path.meta.biz = ('neato', 'burrito')
                     {
                         for ($name, $valu) in $path.meta {
-                            $lib.print('meta: {name}={valu}', name=$name, valu=$valu)
+                            $lib.print(`meta: {$name}={$valu}`)
                         }
                     }
                     if $path.meta.foo { $lib.print(foofoofoo) }
@@ -2891,7 +2891,7 @@ class StormTypesTest(s_test.SynTest):
 
                     popq = '''$valu = $lib.globals.throwaway
                     $lib.globals.throwaway = $lib.undef
-                    $lib.print("pop valu is {valu}", valu=$valu)
+                    $lib.print(`pop valu is {$valu}`)
                     '''
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
@@ -2899,7 +2899,7 @@ class StormTypesTest(s_test.SynTest):
                     q = '''$x=({"foo": "1"})
                     $lib.globals.bar = $x
                     $y=$lib.globals.bar
-                    $lib.print("valu={v}", v=$y.foo)
+                    $lib.print(`valu={$y.foo}`)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('valu=1', mesgs)
@@ -2908,7 +2908,7 @@ class StormTypesTest(s_test.SynTest):
                     q = '''$valu = $lib.globals.throwaway
                     if ($valu = null) { $valu = (0) }
                     $lib.globals.throwaway = $lib.undef
-                    $lib.print("get valu is {valu}", valu=$valu)
+                    $lib.print(`get valu is {$valu}`)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('get valu is 0', mesgs)
@@ -3676,7 +3676,7 @@ class StormTypesTest(s_test.SynTest):
                     $work.data.set(laststatus, "done")
                 }
                 $status = $work.data.get(laststatus)
-                $lib.print("#{valu} status is {status}", valu=$work.value(), status=$status)
+                $lib.print(`#{$work.value()} status is {$status}`)
             }
             '''
             msgs = await core.stormlist(q)
@@ -3691,10 +3691,10 @@ class StormTypesTest(s_test.SynTest):
                 if ($work.value() = 5) {
                     $work.data.pop(laststatus)
                     $status = $work.data.get(laststatus)
-                    $lib.print("#{value} work status is {status}", value=$work.value(), status=$status)
+                    $lib.print(`#{$work.value()} work status is {$status}`)
                 } else {
                     $status = $work.data.get(laststatus)
-                    $lib.print("#{value} is still {status}", value=$work.value(), status=$status)
+                    $lib.print(`#{$work.value()} is still {$status}`)
                 }
             }
             '''
@@ -3755,7 +3755,7 @@ class StormTypesTest(s_test.SynTest):
             for $int in $lib.lift.byNodeData(lol:nope) {
                 $count = ($count + 1)
             }
-            $lib.print("Count: {c}", c=$count)
+            $lib.print(`Count: {$count}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint("Count: 0", msgs)
@@ -6117,11 +6117,11 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('hello', msgs)
 
-            q = '$name="moto" $lib.print("hello {name}", name=$name)'
+            q = '$name="moto" $lib.print(`hello {$name}`)'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('hello moto', msgs)
 
-            q = '$name="moto" $lib.warn("hello {name}", name=$name)'
+            q = '$name="moto" $lib.warn(`hello {$name}`)'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
 
@@ -6647,7 +6647,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInWarn('foo', msgs)
 
                 # A exception is raised with the message
-                q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
+                q = '[test:str=beep.sys] $bar=baz $lib.exit(`foo {$bar}`)'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
                 self.eq(cm.exception.get('mesg'), "StormExit: mesg='foo baz'")

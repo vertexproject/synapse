@@ -27,7 +27,7 @@ stormcmds = [
         'storm': '''
             init {
                 if $cmdopts.unlock {
-                    $lib.print("Unlocking: {name}", name=$cmdopts.name)
+                    $lib.print(`Unlocking: {$cmdopts.name}`)
                     $lib.model.deprecated.lock($cmdopts.name, $lib.false)
                 } else {
                     if ($cmdopts.name = "*") {
@@ -36,7 +36,7 @@ stormcmds = [
                             if (not $locked) { $lib.model.deprecated.lock($name, $lib.true) }
                         }
                     } else {
-                        $lib.print("Locking: {name}", name=$cmdopts.name)
+                        $lib.print(`Locking: {$cmdopts.name}`)
                         $lib.model.deprecated.lock($cmdopts.name, $lib.true)
                     }
                 }
@@ -51,7 +51,7 @@ stormcmds = [
             if $locks {
                 $lib.print("Lock status for deprecated forms/props:")
                 for ($name, $locked) in $lib.sorted($locks) {
-                    $lib.print("{name}: {locked}", name=$name, locked=$locked)
+                    $lib.print(`{$name}: {$locked}`)
                 }
             } else {
                 $lib.print("No deprecated locks found.")
@@ -72,9 +72,9 @@ stormcmds = [
                 $lib.print("Checking deprecated model locks:")
                 for ($name, $locked) in $locks {
                     if $locked {
-                        $lib.print("{name} is locked", name=$name)
+                        $lib.print(`{$name} is locked`)
                     } else {
-                        $lib.warn("{name} is not yet locked", name=$name)
+                        $lib.warn(`{$name} is not yet locked`)
                         $ok = $lib.false
                     }
 
@@ -83,11 +83,11 @@ stormcmds = [
                 $lib.print("Checking for existence of deprecated model elements:")
                 for ($name, $locked) in $locks {
 
-                    $lib.print("{name}...", name=$name)
+                    $lib.print(`{$name}...`)
 
                     for $layr in $lib.layer.list() {
                         if $layr.getPropCount($name) {
-                            $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
+                            $lib.warn(`Layer {$layr.iden} still contains {$name}`)
                             $ok = $lib.false
                         }
                     }

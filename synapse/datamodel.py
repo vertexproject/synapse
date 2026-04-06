@@ -372,6 +372,7 @@ class Form:
             self.refsout = {
                 'prop': [],
                 'ndef': [],
+                'virt': [],
                 'array': [],
                 'ndefarray': [],
             }
@@ -394,6 +395,11 @@ class Form:
                     if prop.type.name in self.type.pivs:
                         continue
                     self.refsout['prop'].append((name, prop.type.name))
+
+            for name, info in self.type.virts.items():
+                typename = info[0].name
+                if self.modl.forms.get(typename) is not None:
+                    self.refsout['virt'].append((name, typename))
 
         return self.refsout
 
