@@ -5,21 +5,21 @@ init {
     // Set global debug (once) if the user specified --debug
     if $cmdopts.debug { $lib.debug = $lib.true }
 
-    if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
+    if ($cmdopts.hehe) { $lib.print(`User Specified hehe: {$cmdopts.hehe}`) }
 
     // Normalize the FQDN in case we want to send it to an external system
     ($ok, $fqdn) = $lib.trycast(inet:fqdn, $cmdopts.fqdn)
     if (not $ok) {
-        $lib.exit("Invalid FQDN Specified: {fqdn}", fqdn=$cmdopts.fqdn)
+        $lib.exit(`Invalid FQDN Specified: {$cmdopts.fqdn}`)
     }
 
     // Maybe call an API here or something...
-    $lib.print("FQDN: {fqdn}", fqdn=$fqdn)
+    $lib.print(`FQDN: {$fqdn}`)
 }
 
 
 // You may also act on nodes in the pipeline
-$lib.print("GOT NODE: {repr}", repr=$node.repr())
+$lib.print(`GOT NODE: {$node.repr()}`)
 
 if $lib.debug { $lib.print("debug mode detected!") }
 

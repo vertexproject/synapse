@@ -80,7 +80,7 @@ class JsonTest(s_test.SynTest):
             self.notin('key:string', valu)
 
             # Print a json schema obj
-            q = "$schemaObj = $lib.json.schema($schema) $lib.print('schema={s}', s=$schemaObj)"
+            q = '$schemaObj = $lib.json.schema($schema) $lib.print(`schema={$schemaObj}`)'
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInPrint('json:schema: {', msgs)
 

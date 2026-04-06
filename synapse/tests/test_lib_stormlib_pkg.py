@@ -205,7 +205,7 @@ class StormLibPkgTest(s_test.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ entity:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
+            'onload': f'[ entity:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 

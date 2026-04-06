@@ -245,10 +245,9 @@ class TestAutoDoc(s_t_utils.SynTest):
                 libbuf = fd.read()
             libtext = libbuf.decode()
 
-            self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg, \\*\\*kwargs)\n============================',
+            self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg)\n================',
                       libtext)
             self.isin('Print a message to the runtime.', libtext)
-            self.isin('\\*\\*kwargs (any): Keyword arguments to substitute into the mesg.', libtext)
             self.isin('.. _stormlibs-lib-time:\n\n*********\n$lib.time\n*********', libtext)
             self.isin('A Storm Library for interacting with timestamps.', libtext)
 

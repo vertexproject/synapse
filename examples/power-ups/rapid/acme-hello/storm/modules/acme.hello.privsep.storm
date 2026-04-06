@@ -12,7 +12,7 @@ function getFooByBar(bar) {
     // Use the API key on the callers behalf
     $resp = $lib.inet.http.get($url, headers=$headers)
     if ($resp.code != 200) {
-        $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
+        $lib.warn(`/api/v1/foo returned HTTP code: {$resp.code}`)
         return($lib.null)
     }
 
