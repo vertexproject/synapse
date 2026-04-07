@@ -4180,7 +4180,7 @@ class Layer(s_nexus.Pusher):
 
         fullpref = abrv + pref.encode()
 
-        for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth=depth, db=self.byprop, nodup=True):
+        async for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth=depth, db=self.byprop, nodup=True):
             yield lkey[8:].decode()
 
     async def _delNodeEdges(self, buid):

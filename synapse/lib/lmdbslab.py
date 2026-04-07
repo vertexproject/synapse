@@ -1430,7 +1430,7 @@ class Slab(s_base.Base):
 
                 yield lkey
 
-    def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
+    async def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
 
         if len(sepr) > 1 or sepr == b'\xff':
             mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
@@ -1451,10 +1451,15 @@ class Slab(s_base.Base):
 
             for lkey in scan.iternext():
 
-                if lkey[:size] != byts:
-                    return
+                while True:
+                    asyncio.sleep(0)
 
-                if len(parts := lkey[size:].split(sepr, splitcnt)) > splitcnt:
+                    if lkey[:size] != byts:
+                        return
+
+                    if len(parts := lkey[size:].split(sepr, splitcnt)) <= splitcnt:
+                        break
+
                     taillen = len(parts[-1]) + 1
                     nextvalu = lkey[:-taillen] + seprnext
 
@@ -1462,8 +1467,6 @@ class Slab(s_base.Base):
                         return
 
                     lkey = scan.atitem
-                    if lkey[:size] != byts:
-                        return
 
                 yield lkey
 
