@@ -6158,7 +6158,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.byname(dmon2)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:str=$item ]
-                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $lib.print(`made {$node.ndef()}`)
                     $q.cull($offs)
                 }
                 '''

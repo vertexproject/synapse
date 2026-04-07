@@ -1118,7 +1118,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_exit',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'Optional string to warn.', 'default': None, },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
@@ -1223,7 +1222,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_warn',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to warn.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'print', 'desc': '''
@@ -1238,14 +1236,14 @@ class LibBase(Lib):
                 Format and print string based on variables::
 
                     storm> $d=({"key1": (1), "key2": "two"})
-                         for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
+                         for ($key, $value) in $d { $lib.print(`{$key} => {$value}`) }
                     key1 => 1
                     key2 => two
 
                 Use values off of a node to format and print string::
 
                     storm> inet:ipv4:asn
-                         $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
+                         $lib.print(`node: {$node.ndef()}, asn: {:asn}`) | spin
                     node: ('inet:ipv4', 16909060), asn: 1138
 
             Notes:
@@ -1255,7 +1253,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_print',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to print.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'range', 'desc': '''
@@ -1572,9 +1569,9 @@ class LibBase(Lib):
             raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
-    async def _exit(self, mesg=None, **kwargs):
+    async def _exit(self, mesg=None):
         if mesg:
-            mesg = await self._get_mesg(mesg, **kwargs)
+            mesg = await self._get_mesg(mesg)
             await self.runt.warn(mesg, log=False)
             raise s_stormctrl.StormExit(mesg=mesg)
         raise s_stormctrl.StormExit()
@@ -1661,16 +1658,14 @@ class LibBase(Lib):
         return max(ints)
 
     @staticmethod
-    async def _get_mesg(mesg, **kwargs):
+    async def _get_mesg(mesg):
         if not isinstance(mesg, str):
             mesg = await torepr(mesg)
-        elif kwargs:
-            mesg = await kwarg_format(mesg, **kwargs)
         return mesg
 
     @stormfunc(readonly=True)
-    async def _print(self, mesg, **kwargs):
-        mesg = await self._get_mesg(mesg, **kwargs)
+    async def _print(self, mesg):
+        mesg = await self._get_mesg(mesg)
         await self.runt.printf(mesg)
 
     @stormfunc(readonly=True)
@@ -1730,8 +1725,8 @@ class LibBase(Lib):
                 await self.runt.printf(fline)
 
     @stormfunc(readonly=True)
-    async def _warn(self, mesg, **kwargs):
-        mesg = await self._get_mesg(mesg, **kwargs)
+    async def _warn(self, mesg):
+        mesg = await self._get_mesg(mesg)
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
@@ -1928,7 +1923,7 @@ class LibAxon(Lib):
                     $headers."User-Agent" = Foo/Bar
 
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
-                    if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
+                    if $resp.ok { $lib.print(`Downloaded: {$resp.size} bytes`) }
             """,
          'type': {'type': 'function', '_funcname': 'wget',
                   'args': (
@@ -2119,7 +2114,7 @@ class LibAxon(Lib):
             Print the total number of files stored in the Axon::
 
                 $data = $lib.axon.metrics()
-                $lib.print("The Axon has {n} files", n=$data."file:count")
+                $lib.print(`The Axon has {$data."file:count"} files`)
         ''',
         'type': {'type': 'function', '_funcname': 'metrics',
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
@@ -2130,7 +2125,7 @@ class LibAxon(Lib):
                 Save a base64 encoded buffer to the Axon::
 
                     storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+                         $lib.print(`size={$size} sha256={$sha256}`)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
          'type': {'type': 'function', '_funcname': 'put',

@@ -81,7 +81,7 @@ class StormScrapeTest(s_test.SynTest):
         Homepage: hzzps[:]\\giggles.com/mallory.html
         '''
         q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
-                        $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
+                        $lib.print(`{$form}={$valu} {$info}`)
                     }'''
 
         async with self.getTestCore() as core:
@@ -148,7 +148,7 @@ class StormScrapeTest(s_test.SynTest):
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
             query = '''for ($form, $ndef) in $lib.scrape.ndefs($text)
-            { $lib.print('{f}={n}', f=$form, n=$ndef) }
+            { $lib.print(`{$form}={$ndef}`) }
             '''
             varz = {'text': text}
             msgs = await core.stormlist(query, opts={'vars': varz})
