@@ -1452,7 +1452,7 @@ class Slab(s_base.Base):
             for lkey in scan.iternext():
 
                 while True:
-                    asyncio.sleep(0)
+                    await asyncio.sleep(0)
 
                     if lkey[:size] != byts:
                         return
