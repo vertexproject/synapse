@@ -357,14 +357,14 @@ message, level, time, and metadata about where the log message came from. The st
   Metadata about the logger which created the log message.
 
 ``time``
-  Timestamp the log message was emitted at.
+  Timestamp when the log message was emitted.
 
 ``user`` and ``username``
   User information appears at the top level of each log entry when an authenticated user context is active.
 
 ``params``
-  Extra log metadata which was recorded with the logging call. This would include additional data about the log event
-  that is being represented in a structured way for inspection.
+  Extra log metadata which recorded with the logging call. This includes additional data about the log event,
+  represented in a structured way for inspection.
 
 ``error``
   Exception information is recorded under the ``error`` key (previously this was ``err``). The ``error`` object
