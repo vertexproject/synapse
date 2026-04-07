@@ -1,8 +1,7 @@
 import os
 import ssl
+import datetime
 import contextlib
-
-from OpenSSL import crypto
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -98,38 +97,30 @@ class CertDirTest(s_t_utils.SynTest):
             cacert_subj = cacert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
             self.eq(cert_issuer, cacert_subj)
 
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            pyopenssl_cert = crypto.X509.from_cryptography(cert)
-            pyopenssl_cacert = crypto.X509.from_cryptography(cacert)
-
-            store = crypto.X509Store()
-            ctx = crypto.X509StoreContext(store, pyopenssl_cert)
-
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            store.add_cert(pyopenssl_cert)
-
-            with self.raises(crypto.X509StoreContextError) as cm:
-                ctx.verify_certificate()
-
-            self.isin('unable to get local issuer certificate', str(cm.exception))
+            # Verify the cert's signature against the CA's public key
+            capubkey = cacert.public_key()
+            self.none(capubkey.verify(
+                cert.signature,
+                cert.tbs_certificate_bytes,
+                c_padding.PKCS1v15(),
+                cert.signature_hash_algorithm,
+            ))
 
             # Generate a separate CA that did not sign the certificate
             try:
                 (_, otherca_cert) = cdir.genCaCert('otherca')
-            except s_exc.DupFileName as e:
+            except s_exc.DupFileName:
                 otherca_cert = cdir.getCaCert('otherca')
-            pyopenssl_otherca_cert = crypto.X509.from_cryptography(otherca_cert)
 
-            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
-            store.add_cert(pyopenssl_otherca_cert)
-            with self.raises(crypto.X509StoreContextError) as cm:
-                # unable to get local issuer certificate
-                ctx.verify_certificate()
-            self.isin('unable to get local issuer certificate', str(cm.exception))
-
-            # OpenSSL should be able to verify the certificate, once its CA is loaded
-            store.add_cert(pyopenssl_cacert)
-            self.none(ctx.verify_certificate())  # valid
+            # A different CA should NOT be able to verify the certificate
+            otherpubkey = otherca_cert.public_key()
+            with self.raises(c_exc.InvalidSignature):
+                otherpubkey.verify(
+                    cert.signature,
+                    cert.tbs_certificate_bytes,
+                    c_padding.PKCS1v15(),
+                    cert.signature_hash_algorithm,
+                )
 
     def host_assertions(self,
                         cdir: s_certdir.CertDir,
@@ -533,7 +524,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.len(1, ext.value)
             self.eq(ext.value.get_values_for_type(c_x509.DNSName), ['visi3.vertex.link'])
 
-            # Backwards compatibility with pyopenssl sans specifiers which we can get from easycert
+            # Backwards compatibility with sans specifiers from easycert
             hostname = 'stuff.vertex.link'
             sans = 'DNS:wow.com,email:clown@vertex.link,URI:https://hehe.haha.vertex.link,email:hehe@vertex.link'
             cdir.genHostCert(hostname, signas=caname, sans=sans)
@@ -669,40 +660,6 @@ class CertDirTest(s_t_utils.SynTest):
 
                         # Make sure it can't be overwritten
                         self.raises(s_exc.FileExists, cdir.importFile, srcpath, ftype)
-
-    def test_certdir_valUserCert(self):
-        with self.getCertDir() as cdir:
-            cdir._getPathJoin()
-            cdir.genCaCert('syntest')
-            cdir.genCaCert('newp')
-            cdir.getCaCerts()
-            syntestca = cdir.getCaCert('syntest')
-            newpca = cdir.getCaCert('newp')
-
-            with self.raises(s_exc.BadCertBytes):
-                cdir.valUserCert(b'')
-
-            cdir.genUserCert('cool')
-            path = cdir.getUserCertPath('cool')
-            byts = cdir._getPathBytes(path)
-
-            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts)
-
-            cdir.genUserCert('cooler', signas='syntest')
-            path = cdir.getUserCertPath('cooler')
-            byts = cdir._getPathBytes(path)
-            self.nn(cdir.valUserCert(byts))
-            self.nn(cdir.valUserCert(byts, cacerts=(syntestca,)))
-            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(newpca,))
-            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
-
-            cdir.genUserCert('coolest', signas='newp')
-            path = cdir.getUserCertPath('coolest')
-            byts = cdir._getPathBytes(path)
-            self.nn(cdir.valUserCert(byts))
-            self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
-            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(syntestca,))
-            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
 
     def test_certdir_sslctx(self):
 
@@ -963,7 +920,7 @@ class CertDirTest(s_t_utils.SynTest):
                 self.true(cdir2.isUserCert(username))
                 self.true(cdir2.isCodeCert(codename))
 
-            # older PyOpenSSL code assumed loading a pkey was always a DSA or RSA key.
+            # Loading a pkey is expected to be a DSA or RSA key.
             pkey = c_ec.generate_private_key(c_ec.SECP384R1())
             byts = pkey.private_bytes(encoding=c_serialization.Encoding.PEM,
                                       format=c_serialization.PrivateFormat.TraditionalOpenSSL,
@@ -974,3 +931,589 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertBytes) as cm:
                 cdir._loadKeyPath(path)
             self.isin('Key is ECPrivateKey, expected a DSA or RSA key', cm.exception.get('mesg'))
+
+    # -------------------------------------------------------------------
+    # Test helpers for adversarial / edge-case tests
+    # -------------------------------------------------------------------
+
+    def _makeCaCert(self, cn, issuer_cn, signing_key, subject_key, path_length=None, critical_bc=True):
+        '''Build a raw CA cert with configurable BasicConstraints.'''
+        now = datetime.datetime.now(datetime.UTC)
+        subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, cn)])
+        issuer = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, issuer_cn)])
+        return (c_x509.CertificateBuilder()
+            .subject_name(subj)
+            .issuer_name(issuer)
+            .public_key(subject_key.public_key())
+            .serial_number(c_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + datetime.timedelta(days=3650))
+            .add_extension(c_x509.BasicConstraints(ca=True, path_length=path_length), critical=critical_bc)
+            .sign(signing_key, c_hashes.SHA256()))
+
+    def _buildCodeCert(self, name, cakey, cacert):
+        '''Build a raw code-signing cert signed by the given CA key.'''
+        key = c_rsa.generate_private_key(65537, 2048)
+        now = datetime.datetime.now(datetime.UTC)
+        cert = (c_x509.CertificateBuilder()
+            .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name)]))
+            .issuer_name(cacert.subject)
+            .public_key(key.public_key())
+            .serial_number(c_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + datetime.timedelta(days=3650))
+            .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+            .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+            .sign(cakey, c_hashes.SHA256()))
+        return key, cert
+
+    # -------------------------------------------------------------------
+    # Adversarial scenarios
+    # -------------------------------------------------------------------
+
+    async def test_certdir_adversarial_chain_cycle(self):
+        '''Two CAs that sign each other are detected as a cycle.'''
+        with self.getCertDir() as cdir:
+            key_a = c_rsa.generate_private_key(65537, 2048)
+            key_b = c_rsa.generate_private_key(65537, 2048)
+
+            cert_a = self._makeCaCert('adv-cycle-a', 'adv-cycle-b', key_b, key_a)
+            cert_b = self._makeCaCert('adv-cycle-b', 'adv-cycle-a', key_a, key_b)
+
+            cdir.saveCaCertByts(cert_a.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(cert_b.public_bytes(c_serialization.Encoding.PEM))
+
+            _, codecert = self._buildCodeCert('adv-cycle-code', key_a, cert_a)
+            cdir.saveCodeCertBytes(codecert.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-cycle-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('cycle detected', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_rogue_ca_injection(self):
+        '''Rogue CA with same CN but different key. Signature-based matching handles both.'''
+        with self.getCertDir() as cdir:
+            caname = 'adv-rogue-legit'
+            cdir.genCaCert(caname)
+            _, legitcert = cdir.genCodeCert('adv-rogue-code', signas=caname)
+
+            roguekey = c_rsa.generate_private_key(65537, 2048)
+            roguecert = self._makeCaCert(caname, caname, roguekey, roguekey)
+            caspath = os.path.join(cdir.certdirs[0], 'cas')
+            with open(os.path.join(caspath, f'{caname}-rogue.crt'), 'wb') as fd:
+                fd.write(roguecert.public_bytes(c_serialization.Encoding.PEM))
+
+            # Legitimate cert still validates via signature match
+            legitbyts = legitcert.public_bytes(c_serialization.Encoding.PEM)
+            self.nn(cdir.valCodeCert(legitbyts))
+
+            # Rogue-signed cert also validates (write access to cas/ = trust)
+            _, forgedcert = self._buildCodeCert('adv-rogue-forged', roguekey, roguecert)
+            cdir.saveCodeCertBytes(forgedcert.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-rogue-forged')
+            with s_common.genfile(fp) as fd:
+                forgedbyts = fd.read()
+            result = cdir.valCodeCert(forgedbyts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_pathlength_bypass(self):
+        '''path_length=0 on root CA forbids intermediates.'''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            immkey = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-pl0-root', 'adv-pl0-root', rootkey, rootkey, path_length=0)
+            immcert = self._makeCaCert('adv-pl0-imm', 'adv-pl0-root', rootkey, immkey)
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(immcert.public_bytes(c_serialization.Encoding.PEM))
+
+            # root -> intermediate -> code cert: violates path_length=0
+            _, codecert_via_imm = self._buildCodeCert('adv-pl0-code-via-imm', immkey, immcert)
+            cdir.saveCodeCertBytes(codecert_via_imm.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-pl0-code-via-imm')
+            with s_common.genfile(fp) as fd:
+                byts_via_imm = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts_via_imm)
+            self.isin('path length constraint', cm.exception.get('mesg'))
+
+            # root -> code cert directly: valid with path_length=0
+            _, codecert_direct = self._buildCodeCert('adv-pl0-code-direct', rootkey, rootcert)
+            cdir.saveCodeCertBytes(codecert_direct.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-pl0-code-direct')
+            with s_common.genfile(fp) as fd:
+                byts_direct = fd.read()
+            result = cdir.valCodeCert(byts_direct)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_pathlength_depth_exceeded(self):
+        '''path_length=1 on root allows 1 intermediate but not 2.'''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            imm1key = c_rsa.generate_private_key(65537, 2048)
+            imm2key = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-pl1-root', 'adv-pl1-root', rootkey, rootkey, path_length=1)
+            imm1cert = self._makeCaCert('adv-pl1-imm1', 'adv-pl1-root', rootkey, imm1key)
+            imm2cert = self._makeCaCert('adv-pl1-imm2', 'adv-pl1-imm1', imm1key, imm2key)
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(imm1cert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(imm2cert.public_bytes(c_serialization.Encoding.PEM))
+
+            # root -> imm1 -> imm2 -> code: violates path_length=1
+            _, codecert_deep = self._buildCodeCert('adv-pl1-code-deep', imm2key, imm2cert)
+            cdir.saveCodeCertBytes(codecert_deep.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-pl1-code-deep')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('path length constraint', cm.exception.get('mesg'))
+
+            # root -> imm1 -> code: valid with path_length=1
+            _, codecert_ok = self._buildCodeCert('adv-pl1-code-ok', imm1key, imm1cert)
+            cdir.saveCodeCertBytes(codecert_ok.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-pl1-code-ok')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+            result = cdir.valCodeCert(byts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_pathlength_intermediate_constraint(self):
+        '''path_length=0 on an intermediate CA forbids sub-intermediates.'''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            immkey = c_rsa.generate_private_key(65537, 2048)
+            subimmkey = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-plimm-root', 'adv-plimm-root', rootkey, rootkey)
+            immcert = self._makeCaCert('adv-plimm-imm', 'adv-plimm-root', rootkey, immkey, path_length=0)
+            subimmcert = self._makeCaCert('adv-plimm-subimm', 'adv-plimm-imm', immkey, subimmkey)
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(immcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(subimmcert.public_bytes(c_serialization.Encoding.PEM))
+
+            # root -> imm(pl=0) -> subimm -> code: violates intermediate constraint
+            _, codecert = self._buildCodeCert('adv-plimm-code', subimmkey, subimmcert)
+            cdir.saveCodeCertBytes(codecert.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-plimm-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('path length constraint', cm.exception.get('mesg'))
+
+            # root -> imm(pl=0) -> code directly: valid
+            _, codecert_ok = self._buildCodeCert('adv-plimm-code-direct', immkey, immcert)
+            cdir.saveCodeCertBytes(codecert_ok.public_bytes(c_serialization.Encoding.PEM))
+            fp = cdir.getCodeCertPath('adv-plimm-code-direct')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+            result = cdir.valCodeCert(byts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_adversarial_expired_intermediate_detected(self):
+        '''Expired intermediate CA is rejected by the recursive chain check.'''
+        with self.getCertDir() as cdir:
+            rootkey = c_rsa.generate_private_key(65537, 2048)
+            immkey = c_rsa.generate_private_key(65537, 2048)
+
+            rootcert = self._makeCaCert('adv-expimm-root', 'adv-expimm-root', rootkey, rootkey)
+
+            past_start = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+            past_end = datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-expimm-imm')])
+            rootsubj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-expimm-root')])
+            expiredimm = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(rootsubj)
+                .public_key(immkey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(past_start)
+                .not_valid_after(past_end)
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(rootkey, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCaCertByts(expiredimm.public_bytes(c_serialization.Encoding.PEM))
+
+            _, codecert = self._buildCodeCert('adv-expimm-code', immkey, expiredimm)
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_missing_eku(self):
+        '''Cert with no EKU extension raises BadCertBytes.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-noeku-ca')
+            cakey = cdir.getCaKey('adv-noeku-ca')
+            cacert = cdir.getCaCert('adv-noeku-ca')
+
+            now = datetime.datetime.now(datetime.UTC)
+            noeku = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-noeku-cert')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = noeku.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('not for code signing', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_eku_cross_validation(self):
+        '''User cert (CLIENT_AUTH) is rejected by valCodeCert EKU check.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-eku-ca')
+            _, usercert = cdir.genUserCert('adv-eku-user', signas='adv-eku-ca')
+
+            userbyts = usercert.public_bytes(c_serialization.Encoding.PEM)
+
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.valCodeCert(userbyts)
+            self.isin('not for code signing', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_non_ca_cert_as_anchor(self):
+        '''Self-signed cert with ca=False used as trust anchor is rejected.'''
+        with self.getCertDir() as cdir:
+            key = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-non-ca-anchor')])
+            noncacert = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(subj)
+                .public_key(key.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(key, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(noncacert.public_bytes(c_serialization.Encoding.PEM))
+            _, codecert = self._buildCodeCert('adv-non-ca-code', key, noncacert)
+            cdir.saveCodeCertBytes(codecert.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-non-ca-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('not a CA certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_forged_issuer_name(self):
+        '''Cert with correct issuer name but signed by a different key is rejected.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-forgery-ca')
+            cacert = cdir.getCaCert('adv-forgery-ca')
+
+            wrongkey = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            forgedcert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-forged-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(wrongkey, c_hashes.SHA256()))
+
+            byts = forgedcert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_self_signed_code_cert(self):
+        '''Self-signed code cert is not in the CA store and fails verification.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-ss-ca')
+            cdir.genCodeCert('adv-ss-code')  # self-signed, no signas
+
+            fp = cdir.getCodeCertPath('adv-ss-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_codesign_ec_ca_rejected(self):
+        '''EC key CA is rejected by _verifyCertSignature (RSA-only policy).'''
+        with self.getCertDir() as cdir:
+            eckey = c_ec.generate_private_key(c_ec.SECP256R1())
+            now = datetime.datetime.now(datetime.UTC)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-ec-ca')])
+            eccacert = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(subj)
+                .public_key(eckey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(eckey, c_hashes.SHA256()))
+
+            _, codecert = self._buildCodeCert('adv-ec-code', eckey, eccacert)
+            cdir.saveCaCertByts(eccacert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCodeCertBytes(codecert.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-ec-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_codesign_deep_chain(self):
+        '''A deep chain (root -> imm1 -> imm2 -> imm3 -> code cert) validates with no path constraints.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-deep-root')
+            cdir.genCaCert('adv-deep-imm1', signas='adv-deep-root')
+            cdir.genCaCert('adv-deep-imm2', signas='adv-deep-imm1')
+            cdir.genCaCert('adv-deep-imm3', signas='adv-deep-imm2')
+            cdir.genCodeCert('adv-deep-code', signas='adv-deep-imm3')
+
+            fp = cdir.getCodeCertPath('adv-deep-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            result = cdir.valCodeCert(byts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_codesign_intermediate_revoked(self):
+        '''Revoking an intermediate CA via root CRL causes valCodeCert to fail.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-revimm-root')
+            _, immcert = cdir.genCaCert('adv-revimm-imm', signas='adv-revimm-root')
+            cdir.genCodeCert('adv-revimm-code', signas='adv-revimm-imm')
+
+            cdir.genCaCrl('adv-revimm-imm')._save()
+
+            fp = cdir.getCodeCertPath('adv-revimm-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            # cert validates before revocation
+            self.nn(cdir.valCodeCert(byts))
+
+            # revoke the intermediate via root CRL
+            rootcrl = cdir.genCaCrl('adv-revimm-root')
+            rootcrl.revoke(immcert)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate revoked', cm.exception.get('mesg'))
+
+    async def test_certdir_crl_verify_signature_error(self):
+        '''Crl._verify rejects a cert with matching issuer name but wrong signature.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-badsig-ca')
+            cacert = cdir.getCaCert('adv-badsig-ca')
+
+            wrongkey = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            badcert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-badsig-cert')]))
+                .issuer_name(cacert.subject)
+                .public_key(wrongkey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(wrongkey, c_hashes.SHA256()))
+
+            crl = cdir.genCaCrl('adv-badsig-ca')
+            with self.raises(s_exc.BadCertVerify) as cm:
+                crl.revoke(badcert)
+            self.isin('adv-badsig-ca', cm.exception.get('mesg'))
+
+    async def test_certdir_verifyChain_cert_validity(self):
+        '''_verifyChain checks both not-yet-valid and expired certs with distinct messages.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-validity-ca')
+            cakey = cdir.getCaKey('adv-validity-ca')
+            cacert = cdir.getCaCert('adv-validity-ca')
+
+            # Not-yet-valid cert
+            future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=365)
+            future_end = future + datetime.timedelta(days=365)
+            futurecert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-future-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(future)
+                .not_valid_after(future_end)
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = futurecert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate is not yet valid', cm.exception.get('mesg'))
+
+            # Expired cert
+            past_start = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+            past_end = datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+            expiredcert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-expired-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(past_start)
+                .not_valid_after(past_end)
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = expiredcert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_crl_issuer_mismatch(self):
+        '''CRL from CA_B does not revoke certs signed by CA_A.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-crl-ca-a')
+            cdir.genCaCert('adv-crl-ca-b')
+            _, codecert = cdir.genCodeCert('adv-crl-code', signas='adv-crl-ca-a')
+
+            cdir.genCaCrl('adv-crl-ca-a')._save()
+            crl_b = cdir.genCaCrl('adv-crl-ca-b')
+
+            now = datetime.datetime.now(datetime.UTC)
+            revoked = (c_x509.RevokedCertificateBuilder()
+                .serial_number(codecert.serial_number)
+                .revocation_date(now)
+                .build())
+            crl_b.crlbuilder = crl_b.crlbuilder.add_revoked_certificate(revoked)
+            crl_b._save(now)
+
+            # cert should still validate: the CRL issuer is ca-b, not ca-a
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            result = cdir.valCodeCert(byts)
+            self.isinstance(result, c_x509.Certificate)
+
+    async def test_certdir_codesign_no_cacerts(self):
+        '''Code cert from external certdir where the CA is not present fails.'''
+        with self.getCertDir() as cdir:
+            with self.getCertDir() as srcdir:
+                srcdir.genCaCert('adv-src-ca')
+                _, codecert = srcdir.genCodeCert('adv-no-ca-code', signas='adv-src-ca')
+
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_external_ca_critical_bc(self):
+        '''External CA certs with critical=True and critical=False BasicConstraints both work.'''
+        with self.getCertDir() as cdir:
+            # critical=True
+            cakey_crit = c_rsa.generate_private_key(65537, 2048)
+            cacert_crit = self._makeCaCert('adv-ext-crit-ca', 'adv-ext-crit-ca', cakey_crit, cakey_crit, critical_bc=True)
+            _, codecert_crit = self._buildCodeCert('adv-ext-crit-code', cakey_crit, cacert_crit)
+
+            cdir.saveCaCertByts(cacert_crit.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCodeCertBytes(codecert_crit.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-ext-crit-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+            self.isinstance(cdir.valCodeCert(byts), c_x509.Certificate)
+
+            # critical=False
+            cakey_nc = c_rsa.generate_private_key(65537, 2048)
+            cacert_nc = self._makeCaCert('adv-ext-nc-ca', 'adv-ext-nc-ca', cakey_nc, cakey_nc, critical_bc=False)
+            _, codecert_nc = self._buildCodeCert('adv-ext-nc-code', cakey_nc, cacert_nc)
+
+            cdir.saveCaCertByts(cacert_nc.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCodeCertBytes(codecert_nc.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-ext-nc-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+            self.isinstance(cdir.valCodeCert(byts), c_x509.Certificate)
+
+    async def test_certdir_external_ca_missing_bc(self):
+        '''External CA cert with NO BasicConstraints extension is rejected.'''
+        with self.getCertDir() as cdir:
+            cakey = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-nobc-ca')])
+            cacert = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(subj)
+                .public_key(cakey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .sign(cakey, c_hashes.SHA256()))
+
+            _, codecert = self._buildCodeCert('adv-nobc-code', cakey, cacert)
+            cdir.saveCaCertByts(cacert.public_bytes(c_serialization.Encoding.PEM))
+            cdir.saveCodeCertBytes(codecert.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-nobc-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('BasicConstraints', cm.exception.get('mesg'))
+
+    async def test_certdir_crl_two_chains_one_with_crls(self):
+        '''Two independent CA chains. Only one has CRLs. Both must validate.'''
+        with self.getCertDir() as cdir:
+            # Chain A with CRLs
+            cdir.genCaCert('ChainA Root CA')
+            cdir.genCaCert('ChainA Intermediate CA', signas='ChainA Root CA')
+            cdir.genCodeCert('ChainA Code Signer', signas='ChainA Intermediate CA')
+            cdir.genCaCrl('ChainA Root CA')._save()
+            cdir.genCaCrl('ChainA Intermediate CA')._save()
+
+            fp = cdir.getCodeCertPath('ChainA Code Signer')
+            with s_common.genfile(fp) as fd:
+                bytsA = fd.read()
+            self.nn(cdir.valCodeCert(bytsA))
+
+            # Chain B without CRLs
+            cdir.genCaCert('ChainB Root CA')
+            cdir.genCaCert('ChainB Intermediate CA', signas='ChainB Root CA')
+            _, codecertB = cdir.genCodeCert('ChainB Code Signer', signas='ChainB Intermediate CA')
+
+            fp = cdir.getCodeCertPath('ChainB Code Signer')
+            with s_common.genfile(fp) as fd:
+                bytsB = fd.read()
+
+            # Chain B must validate despite Chain A's CRLs being present
+            self.nn(cdir.valCodeCert(bytsB))
+
+            # Chain A's revocation still works
+            crl = cdir.genCaCrl('ChainA Intermediate CA')
+            chainA_codecert = cdir.getCodeCert('ChainA Code Signer')
+            crl.revoke(chainA_codecert)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(bytsA)
+            self.isin('certificate revoked', cm.exception.get('mesg'))

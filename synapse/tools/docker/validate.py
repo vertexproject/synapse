@@ -68,7 +68,7 @@ def checkCRL(outp, sigd, certdir):
         cert = c_x509.load_der_x509_certificate(byts)
         pem_byts = cert.public_bytes(c_serialization.Encoding.PEM)
     except Exception as e:  # pragma: no cover
-        # Unwrap pyopenssl's exception_from_error_queue
+        # Failed to decode the DER certificate bytes
         outp.printf(f'Failed to load signature bytes: {e} {byts}')
         return False
 

@@ -9,8 +9,6 @@ import collections
 
 from typing import List, Tuple, Union
 
-from OpenSSL import crypto  # type: ignore
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.const as s_const
@@ -22,6 +20,7 @@ import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
 import cryptography.hazmat.primitives.asymmetric.types as c_types
+import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 import cryptography.hazmat.primitives.serialization as c_serialization
 import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
@@ -91,17 +90,13 @@ def _initTLSServerCiphers():
 
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
-def _unpackContextError(e: crypto.X509StoreContextError) -> str:
-    # account for backward incompatible change in pyopenssl v22.1.0
-    if e.args:
-        if isinstance(e.args[0], str):
-            errstr = e.args[0]
-        else:  # pragma: no cover
-            errstr = e.args[0][2]  # pyopenssl < 22.1.0
-        mesg = f'{errstr}'
-    else:  # pragma: no cover
-        mesg = 'Certficate failed to verify.'
-    return mesg
+def _verifyCertSignature(cert, cacert):
+    pubkey = cacert.public_key()
+    if isinstance(pubkey, c_rsa.RSAPublicKey):
+        pubkey.verify(cert.signature, cert.tbs_certificate_bytes,
+                      c_padding.PKCS1v15(), cert.signature_hash_algorithm)
+    else:
+        raise s_exc.BadCertVerify(mesg=f'Unsupported CA key type: {type(pubkey).__name__}')
 
 class Crl:
 
@@ -149,14 +144,15 @@ class Crl:
     def _verify(self, cert):
         # Verify the cert was signed by the CA in self.name
         cacert = self.certdir.getCaCert(self.name)
-        store = crypto.X509Store()
-        store.add_cert(crypto.X509.from_cryptography(cacert))
-        store.set_flags(crypto.X509StoreFlags.PARTIAL_CHAIN)
-        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert))
+        if cert.issuer != cacert.subject:
+            raise s_exc.BadCertVerify(mesg='Certificate was not issued by this CA')
+
         try:
-            ctx.verify_certificate()
-        except crypto.X509StoreContextError as e:
-            raise s_exc.BadCertVerify(mesg=_unpackContextError(e)) from None
+            _verifyCertSignature(cert, cacert)
+        except s_exc.BadCertVerify:
+            raise
+        except Exception as e:
+            raise s_exc.BadCertVerify(mesg=str(e)) from None
 
     def _save(self, timestamp: [datetime.datetime | None] = None) -> None:
 
@@ -580,27 +576,18 @@ class CertDir:
         reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING])
 
         cert = self.loadCertByts(byts)
-        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        try:
+            eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        except c_x509.ExtensionNotFound:
+            raise s_exc.BadCertBytes(mesg='Certificate is not for code signing.') from None
+
         if reqext != eku.value:
             mesg = 'Certificate is not for code signing.'
             raise s_exc.BadCertBytes(mesg=mesg)
 
         crls = self._getCaCrls()
         cacerts = self.getCaCerts()
-
-        store = crypto.X509Store()
-        [store.add_cert(crypto.X509.from_cryptography(cacert)) for cacert in cacerts]
-
-        if crls:
-            store.set_flags(crypto.X509StoreFlags.CRL_CHECK | crypto.X509StoreFlags.CRL_CHECK_ALL)
-            [store.add_crl(crypto.CRL.from_cryptography(crl)) for crl in crls]
-
-        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert))
-        try:
-            ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
-        except crypto.X509StoreContextError as e:
-            mesg = _unpackContextError(e)
-            raise s_exc.BadCertVerify(mesg=mesg)
+        self._verifyChain(cert, cacerts, crls)
         return cert
 
     def _getCaCrls(self) -> List[c_x509.CertificateRevocationList]:
@@ -623,6 +610,69 @@ class CertDir:
                     crls.append(crl)
 
         return crls
+
+    def _verifyChain(self, cert, cacerts, crls=None, _seen=None, _imm_depth=0):
+
+        if _seen is None:
+            _seen = set()
+
+        certfp = cert.fingerprint(c_hashes.SHA256())
+        if certfp in _seen:
+            raise s_exc.BadCertVerify(mesg='Certificate chain cycle detected')
+
+        _seen.add(certfp)
+
+        issuercert = None
+        for cacert in cacerts:
+            if cert.issuer != cacert.subject:
+                continue
+
+            try:
+                _verifyCertSignature(cert, cacert)
+                issuercert = cacert
+                break
+            except Exception:
+                continue
+
+        if issuercert is None:
+            raise s_exc.BadCertVerify(mesg='unable to get local issuer certificate')
+
+        try:
+            issuer_bc = issuercert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+            if not issuer_bc.value.ca:
+                raise s_exc.BadCertVerify(mesg='Issuer certificate is not a CA certificate')
+
+        except c_x509.ExtensionNotFound:
+            raise s_exc.BadCertVerify(mesg='Issuer certificate is missing BasicConstraints extension') from None
+
+        cert_is_ca = False
+        try:
+            cert_bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+            cert_is_ca = cert_bc.value.ca
+        except c_x509.ExtensionNotFound:
+            pass
+
+        ca_depth = _imm_depth + (1 if cert_is_ca else 0)
+        if issuer_bc.value.path_length is not None and ca_depth > issuer_bc.value.path_length:
+            raise s_exc.BadCertVerify(mesg='Certificate chain exceeds issuer path length constraint')
+
+        now = datetime.datetime.now(datetime.UTC)
+        if now > cert.not_valid_after_utc:
+            raise s_exc.BadCertVerify(mesg='certificate has expired')
+
+        if now < cert.not_valid_before_utc:
+            raise s_exc.BadCertVerify(mesg='certificate is not yet valid')
+
+        if crls:
+            for crl in crls:
+                if crl.issuer != issuercert.subject:
+                    continue
+
+                if crl.get_revoked_certificate_by_serial_number(cert.serial_number) is not None:
+                    raise s_exc.BadCertVerify(mesg='certificate revoked')
+
+        if issuercert.issuer != issuercert.subject:
+            self._verifyChain(issuercert, cacerts, crls, _seen, ca_depth)
 
     def genClientCert(self, name: str, outp: OutPutOrNone = None) -> None:
         '''
@@ -663,43 +713,6 @@ class CertDir:
         crtpath = self._saveP12To(byts, 'users', '%s.p12' % name)
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
-
-    def valUserCert(self, byts: bytes, cacerts: Union[List[c_x509.Certificate] | None] = None) -> c_x509.Certificate:
-        '''
-        Validate the PEM encoded x509 user certificate bytes and return it.
-
-        Args:
-            byts: The bytes for the User Certificate.
-            cacerts: A tuple of CA Certificates to use for validating the user cert.
-
-        Raises:
-            BadCertVerify: If the certificate is not valid.
-
-        Returns:
-            The certificate, if it is valid.
-        '''
-        reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
-
-        cert = self.loadCertByts(byts)
-        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
-
-        if reqext != eku.value:
-            mesg = 'Certificate is not for client auth.'
-            raise s_exc.BadCertBytes(mesg=mesg)
-        cert = self.loadCertByts(byts)
-
-        if cacerts is None:
-            cacerts = self.getCaCerts()
-
-        store = crypto.X509Store()
-        [store.add_cert(crypto.X509.from_cryptography(cacert)) for cacert in cacerts]
-
-        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert))
-        try:
-            ctx.verify_certificate()
-        except crypto.X509StoreContextError as e:
-            raise s_exc.BadCertVerify(mesg=_unpackContextError(e))
-        return cert
 
     def genUserCsr(self, name: str, outp: OutPutOrNone = None) -> bytes:
         '''
@@ -1350,7 +1363,7 @@ class CertDir:
                 cdir.signUserCsr(mycsr, 'myca')
 
         Returns:
-            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the public key and certificate objects.
+            Tuple containing the public key and certificate objects.
         '''
         pkey = xcsr.public_key()
         name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
