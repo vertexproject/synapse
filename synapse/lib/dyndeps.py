@@ -52,7 +52,7 @@ def getDynCoro(name):
 
     Examples:
 
-        Get a awaitable function::
+        Get an awaitable function and call it::
 
             afunc = getDynCoro('foopkg.barmod.someAsyncFunction')
             if afunc is not None:
@@ -62,9 +62,7 @@ def getDynCoro(name):
         The function, or None if the function does not exist.
     '''
     func = getDynLocal(name)
-    if func is None:
-        return None
-    if not inspect.iscoroutinefunction(func):
+    if func is None or not inspect.iscoroutinefunction(func):
         return None
     return func
 
@@ -73,7 +71,14 @@ def reqDynCoro(name):
     Dynamically import a python module and return a named awaitable function from it.
 
     Args:
-        name:
+        name: Python path and function name.
+
+    Examples:
+
+        Get an awaitable function and call it::
+
+            afunc = getDynCoro('foopkg.barmod.someAsyncFunction')
+            await afunc()
 
     Returns:
         The awaitable function.
