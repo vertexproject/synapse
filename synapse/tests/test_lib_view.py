@@ -1031,6 +1031,8 @@ class ViewTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            self.len(0, await core.nodes('for $tag in $lib.view.get().getTagsByPrefix(rep) { syn:tag=$tag }'))
+
             tags = ['bar', 'foo', 'zap', 'repa', 'repb']
 
             for pref in ('rep.', 'rep.test', 'rep.test.'):

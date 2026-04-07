@@ -1436,6 +1436,10 @@ class Slab(s_base.Base):
             mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
             raise s_exc.BadArg(mesg=mesg, sepr=sepr)
 
+        if depth < 0:
+            mesg = f'Invalid depth value {depth} for scanKeysByHierPref, must be > 0.'
+            raise s_exc.BadArg(mesg=mesg, depth=depth)
+
         with ScanKeys(self, db, nodup=nodup) as scan:
 
             if not scan.set_range(byts):
