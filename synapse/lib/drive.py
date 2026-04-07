@@ -1,5 +1,7 @@
-import regex
 import asyncio
+import inspect
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -527,10 +529,15 @@ class Drive(s_base.Base):
 
         reqValidName(typename)
 
-        if isinstance(callback, str):
-            callback = s_dyndeps.getDynLocal(callback)
+        cbfunc = None
+        if callback is not None:
+            cbfunc = s_dyndeps.getDynLocal(callback)
+            if cbfunc is None:
+                raise s_exc.BadArg(mesg=f'Failed to resolve callback {callback}')
+            if not inspect.iscoroutinefunction(cbfunc):
+                raise s_exc.BadArg(mesg=f'Callback is not a coroutine: {cbfunc}.')
 
-        # if we were invoked via telepath, the schmea needs to be mutable...
+        # if we were invoked via telepath, the schema needs to be mutable...
         schema = s_msgpack.deepcopy(schema, use_list=True)
 
         curv = await self.getTypeSchemaVersion(typename)
@@ -557,13 +564,13 @@ class Drive(s_base.Base):
             verskey = LKEY_TYPE_VERS + typename.encode()
             self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
-        if callback is not None:
+        if cbfunc is not None:
             async for info in self.getItemsByType(typename):
                 bidn = s_common.uhex(info.get('iden'))
                 for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
                     versindx = lkey[-9:]
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
-                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv)
+                    data = await cbfunc(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv)
                     vtor(data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
