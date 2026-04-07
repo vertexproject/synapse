@@ -344,10 +344,39 @@ to the ``docker`` container::
     SYN_LOG_STRUCT=true
 
 These structured logs are designed to be easy to ingest into third party log collection platforms. They contain the log
-message, level, time, and metadata about where the log message came from::
+message, level, time, and metadata about where the log message came from. The structure contains the following keys:
+
+``service``
+  The full AHA service name is present when the service is registered with AHA. Logs from early in the boot process of
+  a service may not have this field populated.
+
+``message``
+  The log message text.
+
+``logger``
+  Metadata about the logger which created the log message.
+
+``time``
+  Timestamp the log message was emitted at.
+
+``user`` and ``username``
+  User information appears at the top level of each log entry when an authenticated user context is active.
+
+``params``
+  Extra log metadata which was recorded with the logging call. This would include additional data about the log event
+  that is being represented in a structured way for inspection.
+
+``error``
+  Exception information is recorded under the ``error`` key (previously this was ``err``). The ``error`` object
+  contains a ``code`` (exception class name), ``traceback`` (list of frames), ``mesg`` (human-readable message), and an
+  ``info`` dictionary for ``SynErr`` subclasses. Chained exceptions are included via ``cause`` and ``context``
+  sub-keys, corresponding to the Python ``__cause__`` and ``__context__`` attributes on Exception classes. Exception
+  groups are included via a ``group`` list.
+
+The following is an example of a the log event for a user executing a Storm query::
 
     {
-      "ahaservice": "00.cortex.synapse",
+      "service": "00.cortex.synapse",
       "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
       "logger": {
         "name": "synapse.storm",
@@ -367,19 +396,15 @@ message, level, time, and metadata about where the log message came from::
       }
     }
 
-The ``user`` and ``username`` fields at the top level of a log correspond to the currently active / authorized API user
-which has caused a log event to occur.  The ``service`` key, if present, indicates the AHA service that is associated
-with the log message.
+While a human friendly ``message`` key is present, the ``params`` captures additional structured data, such as the raw
+query text and the view that the query was executed in.
 
-When exceptions are logged with structured logging, we capture additional information about the exception, including the
-traceback as structured data. In the event that the error is a Synapse Err class, we also capture additional metadata
-which was attached to the error. In the following example, we also have the query text, username and user iden available
-in the pretty-printed log message. The ``key=valu`` data that was raised by the user is also included in the
-``error.info.`` dictionary. Cause and Context information may be present, corresponding to the Python ``__cause__`` and
-``__context__`` attributes on Exception classes.::
+The following error example shows an example of a exception raised during the execution of a Storm query. The execption
+``info`` is present, showing the ``key=valu`` data that was captured; and the query text is also captured in ``params``
+by the this particular error handler. ::
 
     {
-      "ahaservice": "00.cortex.synapse",
+      "service": "00.cortex.synapse",
       "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
