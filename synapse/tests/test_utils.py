@@ -99,7 +99,7 @@ class TestUtils(s_t_utils.SynTest):
             self.skipIfNoPath('newpDoesNotExist', mesg='hehe')
         self.isin('newpDoesNotExist mesg=hehe', str(cm.exception))
 
-    async def test_syntest_logstream(self):
+    async def test_syntest_logstream_base(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
             await stream.expect('ruh roh i am a error message', timeout=1)
