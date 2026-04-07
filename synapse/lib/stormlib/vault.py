@@ -772,6 +772,9 @@ class Vault(s_stormtypes.Prim):
     async def stormrepr(self):
         return f'vault: {self.valu}'
 
+    async def _storm_copy(self):
+        return self
+
     def value(self):
         vault = self.runt.view.core.reqVault(self.valu)
 
