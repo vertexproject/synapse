@@ -14,6 +14,9 @@ async def migrate_v1(info, versinfo, data, curv):
     data['woot'] = 'woot'
     return data
 
+def migrate_not_coro(*args):
+    pass
+
 testDataSchema_v0 = {
     'type': 'object',
     'properties': {
@@ -163,6 +166,15 @@ class DriveTest(s_t_utils.SynTest):
                 await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
                 data = await cell.getDriveData(iden)
                 self.eq(data[1]['stuff'], 1234)
+
+                # Drive schema callbacks must be valid reqDynCoro items
+                with self.raises(s_exc.NoSuchDyn):
+                    await cell.drive.setTypeSchema('woot', testDataSchema_v1,
+                                                   callback='synapse.tests.test_lib_drive.newp')
+
+                with self.raises(s_exc.NoSuchDyn):
+                    await cell.drive.setTypeSchema('woot', testDataSchema_v1,
+                                                   callback='synapse.tests.test_lib_drive.migrate_not_coro')
 
                 # This will be done by the cell in a cell storage version migration...
                 callback = 'synapse.tests.test_lib_drive.migrate_v1'
