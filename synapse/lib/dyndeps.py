@@ -123,7 +123,7 @@ def reqDynLocal(name):
         raise s_exc.NoSuchDyn(mesg='Name cannot be resolved to a local, missing ".".', name=name)
 
     modname, objname = name.rsplit('.', 1)
-    mod = tryDynMod(modname)
+    mod = reqDynMod(modname)
     item = getattr(mod, objname, s_common.novalu)
     if item is s_common.novalu:
         raise s_exc.NoSuchDyn(mesg=f'Cannot find {objname} on {item}', name=name)
@@ -137,7 +137,7 @@ def reqDynFunc(name, *args, **kwargs):
     '''
     Dynamically import a module and call a function or raise an exception.
     '''
-    return tryDynLocal(name)(*args, **kwargs)
+    return reqDynLocal(name)(*args, **kwargs)
 
 def runDynTask(task):
     '''
