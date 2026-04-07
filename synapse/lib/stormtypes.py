@@ -1365,7 +1365,7 @@ class LibBase(Lib):
             Create and return a deep copy of the given storm object.
 
             Note:
-                This is currently limited to msgpack compatible primitives and Node or NodeRef objects.
+                This is currently limited to msgpack compatible primitives and Node, NodeRef, or Vault objects.
 
             Examples:
                 Make a copy of a list or dict::
@@ -4798,6 +4798,9 @@ class Bytes(Prim):
     async def bool(self):
         return bool(self.valu)
 
+    async def _storm_copy(self):
+        return self
+
     @stormfunc(readonly=True)
     async def _methSlice(self, start, end=None):
         start = await toint(start)
@@ -6130,6 +6133,9 @@ class NodeRef(Prim):
         tobj = runt.view.core.model.reqType(self.valu[0])
         return tobj.repr(self.valu[1])
 
+    async def _storm_copy(self):
+        return self
+
     def value(self):
         return self.valu[1]
 
@@ -6296,6 +6302,9 @@ class Node(Prim):
 
     def __hash__(self):
         return hash((self._storm_typename, self.valu.iden))
+
+    async def _storm_copy(self):
+        return self
 
     def getObjLocals(self):
         if self.valu.nid is not None:
@@ -10263,7 +10272,7 @@ async def stormcopy(item):
     if item is None:
         return None
 
-    if isinstance(item, (int, str, bool, float, bytes, Bytes, decimal.Decimal, s_node.NodeBase, Node, NodeRef)):
+    if isinstance(item, (int, str, bool, float, bytes, decimal.Decimal, s_node.NodeBase)):
         return item
 
     try:
