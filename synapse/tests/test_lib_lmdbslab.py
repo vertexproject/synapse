@@ -1651,6 +1651,96 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.gt(slab.mapsize, mapsize)
 
+    async def test_lmdbslab_scankeysbyhierpref(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+
+                # Test invalid sepr values
+                with self.raises(s_exc.BadArg):
+                    list(slab.scanKeysByHierPref(b'foo', sepr=b'..', db=testdb))
+
+                with self.raises(s_exc.BadArg):
+                    list(slab.scanKeysByHierPref(b'foo', sepr=b'\xff', db=testdb))
+
+                # Test invalid depth
+                with self.raises(s_exc.BadArg):
+                    list(slab.scanKeysByHierPref(b'foo', depth=-1, db=testdb))
+
+                # Test empty db returns nothing
+                self.eq([], list(slab.scanKeysByHierPref(b'foo', db=testdb)))
+
+                # Populate with hierarchical tag-like keys
+                slab.put(b'foo', b'v1', db=testdb)
+                slab.put(b'foo.bar', b'v2', db=testdb)
+                slab.put(b'foo.bar.baz', b'v3', db=testdb)
+                slab.put(b'foo.bar.baz.faz', b'v4', db=testdb)
+                slab.put(b'foo.cat', b'v5', db=testdb)
+                slab.put(b'foo.cat.dog', b'v6', db=testdb)
+                slab.put(b'goo', b'v7', db=testdb)
+
+                # depth=0: yield keys with zero additional separators after prefix
+                vals = list(slab.scanKeysByHierPref(b'foo.', depth=0, db=testdb))
+                self.eq(vals, [b'foo.bar', b'foo.cat'])
+
+                # depth=1: allow one additional separator
+                vals = list(slab.scanKeysByHierPref(b'foo.', depth=1, db=testdb))
+                self.eq(vals, [b'foo.bar', b'foo.bar.baz', b'foo.cat', b'foo.cat.dog'])
+
+                # depth=2: allows two more separators - returns everything
+                vals = list(slab.scanKeysByHierPref(b'foo.', depth=2, db=testdb))
+                self.eq(vals, [b'foo.bar', b'foo.bar.baz', b'foo.bar.baz.faz', b'foo.cat', b'foo.cat.dog'])
+
+                # Prefix that doesn't match anything in range
+                vals = list(slab.scanKeysByHierPref(b'zzz', db=testdb))
+                self.eq(vals, [])
+
+                # Prefix where set_range finds a key but prefix doesn't match
+                vals = list(slab.scanKeysByHierPref(b'goo.', db=testdb))
+                self.eq(vals, [])
+
+                # Skip logic with deep hierarchies
+                slab.put(b'xx.a', b'v', db=testdb)
+                slab.put(b'xx.a.b.c', b'v', db=testdb)
+                slab.put(b'xx.a.b.d', b'v', db=testdb)
+                slab.put(b'xx.a.b.e', b'v', db=testdb)
+                slab.put(b'xx.z', b'v', db=testdb)
+
+                vals = list(slab.scanKeysByHierPref(b'xx.', depth=0, db=testdb))
+                self.eq(vals, [b'xx.a', b'xx.z'])
+
+                # set_range after skip goes past end of db
+                slab.put(b'yy.a.b', b'v', db=testdb)
+                slab.put(b'yy.a.c', b'v', db=testdb)
+                vals = list(slab.scanKeysByHierPref(b'yy.', depth=0, db=testdb))
+                self.eq(vals, [])
+
+                # After skip, next key has a different prefix
+                slab.put(b'mm.a.b', b'v', db=testdb)
+                slab.put(b'nn.x', b'v', db=testdb)
+                vals = list(slab.scanKeysByHierPref(b'mm.', depth=0, db=testdb))
+                self.eq(vals, [])
+
+                # Custom separator
+                slab.put(b'aa:bb', b'v', db=testdb)
+                slab.put(b'aa:bb:cc', b'v', db=testdb)
+                slab.put(b'aa:dd', b'v', db=testdb)
+                vals = list(slab.scanKeysByHierPref(b'aa:', sepr=b':', depth=0, db=testdb))
+                self.eq(vals, [b'aa:bb', b'aa:dd'])
+
+                # nodup on a dupsort db
+                dupsdb = slab.initdb('dups', dupsort=True)
+                slab.put(b'tt.a', b'v1', db=dupsdb)
+                slab.put(b'tt.a', b'v2', db=dupsdb)
+                slab.put(b'tt.a.b', b'v1', db=dupsdb)
+                slab.put(b'tt.c', b'v1', db=dupsdb)
+                vals = list(slab.scanKeysByHierPref(b'tt.', depth=0, db=dupsdb, nodup=True))
+                self.eq(vals, [b'tt.a', b'tt.c'])
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
