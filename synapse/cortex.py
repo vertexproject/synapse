@@ -6833,7 +6833,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ctor in self.modules:
             raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
         try:
-            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
+            modu = s_dyndeps.reqDynFunc(ctor, self, conf=conf)
             self.modules[ctor] = modu
             return modu
 

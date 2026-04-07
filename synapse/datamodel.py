@@ -832,7 +832,7 @@ class Model:
         for _, mdef in mods:
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
+                item = s_dyndeps.reqDynFunc(ctor, self, name, info, opts)
                 self.types[name] = item
                 self._modeldef['ctors'].append((name, ctor, opts, info))
 

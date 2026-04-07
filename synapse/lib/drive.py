@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 
 import regex
 
@@ -531,11 +530,7 @@ class Drive(s_base.Base):
 
         cbfunc = None
         if callback is not None:
-            cbfunc = s_dyndeps.getDynLocal(callback)
-            if cbfunc is None:
-                raise s_exc.BadArg(mesg=f'Failed to resolve callback {callback}')
-            if not inspect.iscoroutinefunction(cbfunc):
-                raise s_exc.BadArg(mesg=f'Callback is not a coroutine: {cbfunc}.')
+            cbfunc = s_dyndeps.reqDynCoro(callback)
 
         # if we were invoked via telepath, the schema needs to be mutable...
         schema = s_msgpack.deepcopy(schema, use_list=True)

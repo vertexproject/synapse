@@ -167,12 +167,12 @@ class DriveTest(s_t_utils.SynTest):
                 data = await cell.getDriveData(iden)
                 self.eq(data[1]['stuff'], 1234)
 
-                # Drive schema callbacks must be valid dynLocal items + coro
-                with self.raises(s_exc.BadArg):
+                # Drive schema callbacks must be valid reqDynCoro items
+                with self.raises(s_exc.NoSuchDyn):
                     await cell.drive.setTypeSchema('woot', testDataSchema_v1,
                                                    callback='synapse.tests.test_lib_drive.newp')
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.NoSuchDyn):
                     await cell.drive.setTypeSchema('woot', testDataSchema_v1,
                                                    callback='synapse.tests.test_lib_drive.migrate_not_coro')
 
