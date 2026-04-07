@@ -404,7 +404,7 @@ The following error example shows an example of a exception raised during the ex
 by the this particular error handler. ::
 
     {
-      "ahaservice": "00.cortex.synapse",
+      "service": "00.cortex.synapse",
       "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
