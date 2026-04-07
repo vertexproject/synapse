@@ -91,6 +91,13 @@ def _initTLSServerCiphers():
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
 def _verifyCertSignature(cert, cacert):
+    '''
+    Verify that cert was signed by cacert using RSA PKCS1v15.
+
+    Only RSA keys are supported. This is consistent with Certdirs
+    key generation policy (4096-bit RSA only). Raises BadCertVerify for
+    unsupported key types or invalid signatures.
+    '''
     pubkey = cacert.public_key()
     if isinstance(pubkey, c_rsa.RSAPublicKey):
         pubkey.verify(cert.signature, cert.tbs_certificate_bytes,
@@ -142,7 +149,12 @@ class Crl:
         self._save(now)
 
     def _verify(self, cert):
-        # Verify the cert was signed by the CA in self.name
+        '''
+        Verify that the certificate was issued by the CA associated with this CRL.
+
+        Checks the issuer name matches the CA subject, then verifies the
+        cryptographic signature. Raises BadCertVerify on failure.
+        '''
         cacert = self.certdir.getCaCert(self.name)
         if cert.issuer != cacert.subject:
             raise s_exc.BadCertVerify(mesg='Certificate was not issued by this CA')
@@ -611,10 +623,33 @@ class CertDir:
 
         return crls
 
-    def _verifyChain(self, cert, cacerts, crls=None, _seen=None, _imm_depth=0):
+    def _verifyChain(self, cert, cacerts, crls=None, _seen=None, _imm_depth=0, _max_depth=8):
+        '''
+        Recursively verify a certificate chain from cert up to a self-signed root.
 
+        For each certificate in the chain this method verifies the issuer
+        signature, checks BasicConstraints and path length limits per RFC 5280,
+        validates the certificate time window, and checks CRLs for revocation.
+
+        CRL checking is lenient: if no CRL exists for a given issuer the
+        revocation check is skipped for that certificate. This allows
+        independent CA chains to coexist in the same certdir when only some
+        chains have CRLs.
+
+        Args:
+            cert: The certificate to verify.
+            cacerts: List of trusted CA certificates.
+            crls: Optional list of CRLs to check for revocation.
+            _seen: Internal set of visited certificate fingerprints for cycle detection.
+            _imm_depth: Internal counter tracking the accumulated CA depth for
+                path length constraint enforcement.
+            _max_depth: Maximum allowed chain depth (default 8).
+        '''
         if _seen is None:
             _seen = set()
+
+        if len(_seen) >= _max_depth:
+            raise s_exc.BadCertVerify(mesg='Certificate chain exceeds maximum depth')
 
         certfp = cert.fingerprint(c_hashes.SHA256())
         if certfp in _seen:
@@ -672,7 +707,7 @@ class CertDir:
                     raise s_exc.BadCertVerify(mesg='certificate revoked')
 
         if issuercert.issuer != issuercert.subject:
-            self._verifyChain(issuercert, cacerts, crls, _seen, ca_depth)
+            self._verifyChain(issuercert, cacerts, crls, _seen, ca_depth, _max_depth)
 
     def genClientCert(self, name: str, outp: OutPutOrNone = None) -> None:
         '''

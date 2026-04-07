@@ -1517,3 +1517,24 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(bytsA)
             self.isin('certificate revoked', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_max_chain_depth(self):
+        '''A chain exceeding the maximum depth of 8 is rejected.'''
+        with self.getCertDir() as cdir:
+            # Build a chain with 9 CAs (root + 8 intermediates) to exceed the default max depth of 8
+            prev_name = 'adv-maxdepth-root'
+            cdir.genCaCert(prev_name)
+            for i in range(8):
+                name = f'adv-maxdepth-imm{i}'
+                cdir.genCaCert(name, signas=prev_name)
+                prev_name = name
+
+            cdir.genCodeCert('adv-maxdepth-code', signas=prev_name)
+
+            fp = cdir.getCodeCertPath('adv-maxdepth-code')
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('maximum depth', cm.exception.get('mesg'))
