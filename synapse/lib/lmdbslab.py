@@ -1432,7 +1432,7 @@ class Slab(s_base.Base):
 
     async def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
 
-        if len(sepr) > 1 or sepr == b'\xff':
+        if len(sepr) != 1 or sepr == b'\xff':
             mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
             raise s_exc.BadArg(mesg=mesg, sepr=sepr)
 
