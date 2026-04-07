@@ -1624,3 +1624,52 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
             self.isin('missing BasicConstraints', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_root_ca_validity(self):
+        '''Self-signed root CA validity dates are checked.'''
+        with self.getCertDir() as cdir:
+            now = datetime.datetime.now(datetime.UTC)
+
+            def _makeRootAndCode(rootname, codename, rootkey, not_valid_before, not_valid_after):
+                rootcert = (c_x509.CertificateBuilder()
+                    .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, rootname)]))
+                    .issuer_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, rootname)]))
+                    .public_key(rootkey.public_key())
+                    .serial_number(c_x509.random_serial_number())
+                    .not_valid_before(not_valid_before)
+                    .not_valid_after(not_valid_after)
+                    .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                    .sign(rootkey, c_hashes.SHA256()))
+
+                cdir.saveCaCertByts(rootcert.public_bytes(c_serialization.Encoding.PEM))
+
+                codecert = (c_x509.CertificateBuilder()
+                    .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, codename)]))
+                    .issuer_name(rootcert.subject)
+                    .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                    .serial_number(c_x509.random_serial_number())
+                    .not_valid_before(now)
+                    .not_valid_after(now + datetime.timedelta(days=3650))
+                    .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                    .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                    .sign(rootkey, c_hashes.SHA256()))
+
+                return codecert.public_bytes(c_serialization.Encoding.PEM)
+
+            # Expired root CA
+            expkey = c_rsa.generate_private_key(65537, 2048)
+            byts = _makeRootAndCode('adv-exproot', 'adv-exproot-code', expkey,
+                                    datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc),
+                                    datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc))
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate has expired', cm.exception.get('mesg'))
+
+            # Not-yet-valid root CA
+            futkey = c_rsa.generate_private_key(65537, 2048)
+            future = now + datetime.timedelta(days=365)
+            byts = _makeRootAndCode('adv-futroot', 'adv-futroot-code', futkey,
+                                    future, future + datetime.timedelta(days=3650))
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate is not yet valid', cm.exception.get('mesg'))

@@ -708,6 +708,13 @@ class CertDir:
 
         if issuercert.issuer != issuercert.subject:
             self._verifyChain(issuercert, cacerts, crls, _seen, ca_depth, _max_depth)
+        else:
+            # Validate the self-signed root CA's time window
+            if now > issuercert.not_valid_after_utc:
+                raise s_exc.BadCertVerify(mesg='certificate has expired')
+
+            if now < issuercert.not_valid_before_utc:
+                raise s_exc.BadCertVerify(mesg='certificate is not yet valid')
 
     def genClientCert(self, name: str, outp: OutPutOrNone = None) -> None:
         '''
