@@ -680,12 +680,12 @@ class CertDir:
         except c_x509.ExtensionNotFound:
             raise s_exc.BadCertVerify(mesg='Issuer certificate is missing BasicConstraints extension') from None
 
-        cert_is_ca = False
         try:
             cert_bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
-            cert_is_ca = cert_bc.value.ca
         except c_x509.ExtensionNotFound:
-            pass
+            raise s_exc.BadCertVerify(mesg='Certificate is missing BasicConstraints extension') from None
+
+        cert_is_ca = cert_bc.value.ca
 
         ca_depth = _imm_depth + (1 if cert_is_ca else 0)
         if issuer_bc.value.path_length is not None and ca_depth > issuer_bc.value.path_length:

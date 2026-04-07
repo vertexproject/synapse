@@ -1538,3 +1538,89 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
             self.isin('maximum depth', cm.exception.get('mesg'))
+
+    async def test_certdir_crl_revoke_wrong_ca(self):
+        '''Crl._verify rejects a cert whose issuer name does not match the CRL CA.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('crl-wrong-ca1')
+            cdir.genCaCert('crl-wrong-ca2')
+            _, codecert = cdir.genCodeCert('crl-wrong-code', signas='crl-wrong-ca1')
+
+            # Attempt to revoke a cert signed by ca1 via ca2's CRL
+            crl = cdir.genCaCrl('crl-wrong-ca2')
+            with self.raises(s_exc.BadCertVerify) as cm:
+                crl.revoke(codecert)
+            self.isin('crl-wrong-ca2', cm.exception.get('mesg'))
+
+    async def test_certdir_crl_revoke_unsupported_key(self):
+        '''Crl._verify re-raises BadCertVerify from _verifyCertSignature for unsupported key types.'''
+        with self.getCertDir() as cdir:
+            # Create an EC CA and save it where certdir can find it
+            eckey = c_ec.generate_private_key(c_ec.SECP256R1())
+            now = datetime.datetime.now(datetime.UTC)
+            caname = 'crl-eckey-ca'
+            subj = c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, caname)])
+            eccacert = (c_x509.CertificateBuilder()
+                .subject_name(subj)
+                .issuer_name(subj)
+                .public_key(eckey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(eckey, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(eccacert.public_bytes(c_serialization.Encoding.PEM))
+
+            # Save the EC private key so genCaCrl can load it
+            eckey_pem = eckey.private_bytes(
+                encoding=c_serialization.Encoding.PEM,
+                format=c_serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=c_serialization.NoEncryption(),
+            )
+            keypath = os.path.join(cdir.certdirs[0], 'cas', f'{caname}.key')
+            with open(keypath, 'wb') as fd:
+                fd.write(eckey_pem)
+
+            # Build a cert that is genuinely signed by the EC CA
+            certkey = c_rsa.generate_private_key(65537, 2048)
+            cert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'crl-eckey-cert')]))
+                .issuer_name(eccacert.subject)
+                .public_key(certkey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(eckey, c_hashes.SHA256()))
+
+            # _verify will fail because _verifyCertSignature rejects EC keys
+            crl = cdir.genCaCrl(caname)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                crl.revoke(cert)
+            self.isin(caname, cm.exception.get('mesg'))
+
+    async def test_certdir_verifyChain_cert_missing_bc(self):
+        '''_verifyChain rejects a cert that lacks BasicConstraints extension.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('nobc-leaf-root')
+            cakey = cdir.getCaKey('nobc-leaf-root')
+            cacert = cdir.getCaCert('nobc-leaf-root')
+
+            # Build a code cert WITHOUT BasicConstraints
+            now = datetime.datetime.now(datetime.UTC)
+            codecert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'nobc-leaf-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                # No BasicConstraints extension
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('missing BasicConstraints', cm.exception.get('mesg'))
