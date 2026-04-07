@@ -2107,6 +2107,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'ou:org | movenodes --precedence {layr2}', opts=view2)
             self.stormIsInErr('must be included when specifying precedence', msgs)
 
+            msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr1} --destlayer {layr3} --precedence {layr1} {layr3} {layr2}', opts=view3)
+            self.stormIsInErr('is not in the set of source/destination layers', msgs)
+
             q = '''
             [ ou:org=(foo,)
                 :desc=layr1
