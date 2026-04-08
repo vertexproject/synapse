@@ -265,6 +265,12 @@ testmodel = (
         'ctors': (
             ('test:type', 'synapse.tests.utils.TestType', {}, {}),
             ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
+            ('test:ctoronstorm', 'synapse.tests.utils.TestType', {}, {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
         ),
         'interfaces': (
             ('test:interface', {
@@ -352,6 +358,12 @@ testmodel = (
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
             ('test:onstorm', ('guid', {}), {}),
+            ('test:typeonstorm', ('guid', {}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
         ),
         'forms': (
 
