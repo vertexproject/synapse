@@ -9,6 +9,14 @@ omit =
 ;   - multiprocessing children: `COVERAGE_PROCESS_START=.coveragerc`
 ; When we move the baseline to Python 3.14, we should verify this
 ; workaround is required and remove the `.coveragerc.main` file.
+;
+; A single .coveragerc can't satisfy both the main process and its spawned subprocesses.
+; The subprocesses tasks need concurrency = multiprocessing and parallel = True so
+; coverage traces across process boundaries and writes separate .coverage.* data files
+; (merged later by --cov-append), without this subprocess coverage is lost.
+; Applying concurrency = multiprocessing to the main process causes coverage's
+; multiprocessing tracer to conflict with Python 3.11's async tracing, resulting
+; in lines after await being falsely reported as missed.
 [run]
 concurrency = multiprocessing
 parallel = True
