@@ -4172,7 +4172,7 @@ class Layer(s_nexus.Pusher):
         for _, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
             yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
 
-    async def getTagsByPref(self, pref, depth):
+    async def getTagsByPref(self, pref, depth=0):
         try:
             abrv = self.getPropAbrv('syn:tag', None)
         except s_exc.NoSuchAbrv:
@@ -4180,7 +4180,7 @@ class Layer(s_nexus.Pusher):
 
         fullpref = abrv + pref.encode()
 
-        async for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth, db=self.byprop, nodup=True):
+        async for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth=depth, db=self.byprop, nodup=True):
             yield lkey[8:].decode()
 
     async def _delNodeEdges(self, buid):

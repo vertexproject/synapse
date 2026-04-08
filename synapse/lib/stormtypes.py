@@ -3036,7 +3036,8 @@ class LibLift(Lib):
          'type': {'type': 'function', '_funcname': '_tagsByPref',
                   'args': (
                       {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
-                      {'name': 'depth', 'type': 'int', 'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields syn:tag nodes with the given prefix.'}}},
@@ -3055,12 +3056,12 @@ class LibLift(Lib):
             yield node
 
     @stormfunc(readonly=True)
-    async def _tagsByPref(self, prefix, depth):
+    async def _tagsByPref(self, prefix, depth=0):
         prefix = await tostr(prefix)
         depth = await toint(depth)
 
         snap = self.runt.snap
-        async for name in snap.view.getTagsByPref(prefix, depth):
+        async for name in snap.view.getTagsByPref(prefix, depth=depth):
             if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
                 yield node
 

@@ -6301,7 +6301,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(0, await core.nodes('yield $lib.lift.tagsByPref(rep, 0)'))
+            self.len(0, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
 
             tags = ['bar', 'foo', 'zap', 'repa', 'repb']
 
@@ -6316,19 +6316,19 @@ class StormTypesTest(s_test.SynTest):
 
             self.len(307, await core.nodes('syn:tag'))
 
-            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep, 0)'))
-            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep, 0)', opts=opts))
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)', opts=opts))
             self.len(3, await core.nodes('syn:tag^=rep +:depth<=0'))
 
-            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, 1)'))
-            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, 1)', opts=opts))
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)'))
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)', opts=opts))
             self.len(204, await core.nodes('syn:tag^=rep +:depth<=1'))
 
-            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, 2)'))
-            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, 2)', opts=opts))
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)'))
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)', opts=opts))
             self.len(304, await core.nodes('syn:tag^=rep +:depth<=2'))
 
-            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(b, 0)')
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(b)')
             nodes1 = await core.nodes('syn:tag^=b')
             self.len(1, nodes0)
 
@@ -6336,7 +6336,7 @@ class StormTypesTest(s_test.SynTest):
             nodes1 = [n.ndef for n in nodes1]
             self.eq(nodes0, nodes1)
 
-            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(z, 0)')
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(z)')
             nodes1 = await core.nodes('syn:tag^=z')
             self.len(1, nodes0)
 
