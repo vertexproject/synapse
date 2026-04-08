@@ -99,11 +99,10 @@ def _verifyCertSignature(cert, cacert):
     unsupported key types or invalid signatures.
     '''
     pubkey = cacert.public_key()
-    if isinstance(pubkey, c_rsa.RSAPublicKey):
-        pubkey.verify(cert.signature, cert.tbs_certificate_bytes,
-                      c_padding.PKCS1v15(), cert.signature_hash_algorithm)
-    else:
+    if not isinstance(pubkey, c_rsa.RSAPublicKey):
         raise s_exc.BadCertVerify(mesg=f'Unsupported CA key type: {type(pubkey).__name__}')
+    pubkey.verify(cert.signature, cert.tbs_certificate_bytes,
+                  c_padding.PKCS1v15(), cert.signature_hash_algorithm)
 
 class Crl:
 
