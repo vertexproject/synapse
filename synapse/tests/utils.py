@@ -17,7 +17,6 @@ using the various setup and teardown helpers available on
 ``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
 we have overridden.
 '''
-import gc
 import io
 import os
 import sys
@@ -1062,7 +1061,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         self.addAsyncCleanup(self._syn_task_check)
         self.addCleanup(s_glob._clearGlobals)
-        self.addCleanup(gc.collect)
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

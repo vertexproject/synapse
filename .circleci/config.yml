@@ -540,7 +540,7 @@ jobs:
   python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
@@ -560,7 +560,7 @@ jobs:
   python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
@@ -575,7 +575,7 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
         environment:
           PYVERS: 3.14
 
@@ -586,7 +586,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -598,7 +598,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -645,7 +645,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.14.4
     steps:
       - checkout
       - run:
