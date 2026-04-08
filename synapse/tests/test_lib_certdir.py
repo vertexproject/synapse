@@ -1152,7 +1152,7 @@ class CertDirTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
-            self.isin('certificate has expired', cm.exception.get('mesg'))
+            self.isin('issuer certificate has expired', cm.exception.get('mesg'))
 
     async def test_certdir_adversarial_missing_eku(self):
         '''Cert with no EKU extension raises BadCertBytes.'''
@@ -1663,7 +1663,7 @@ class CertDirTest(s_t_utils.SynTest):
                                     datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc))
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
-            self.isin('certificate has expired', cm.exception.get('mesg'))
+            self.isin('issuer certificate has expired', cm.exception.get('mesg'))
 
             # Not-yet-valid root CA
             futkey = c_rsa.generate_private_key(65537, 2048)
@@ -1672,4 +1672,65 @@ class CertDirTest(s_t_utils.SynTest):
                                     future, future + datetime.timedelta(days=3650))
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
-            self.isin('certificate is not yet valid', cm.exception.get('mesg'))
+            self.isin('issuer certificate is not yet valid', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_empty_subject_ca(self):
+        '''A CA cert with an empty subject Name can match any cert with an empty issuer.
+
+        saveCaCertByts rejects empty-subject certs (IndexError on CN lookup).
+        Even if manually placed in cas/, the signature check prevents cross-signing.
+        '''
+        with self.getCertDir() as cdir:
+            now = datetime.datetime.now(datetime.UTC)
+
+            # Create a legitimate CA and code cert
+            cdir.genCaCert('adv-emptysub-legit')
+            cdir.genCodeCert('adv-emptysub-code', signas='adv-emptysub-legit')
+
+            fp = cdir.getCodeCertPath('adv-emptysub-code')
+            with s_common.genfile(fp) as fd:
+                legitbyts = fd.read()
+
+            # Legitimate cert validates
+            self.nn(cdir.valCodeCert(legitbyts))
+
+            # saveCaCertByts rejects a cert with an empty subject
+            emptykey = c_rsa.generate_private_key(65537, 2048)
+            emptycacert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([]))
+                .issuer_name(c_x509.Name([]))
+                .public_key(emptykey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(emptykey, c_hashes.SHA256()))
+
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir.saveCaCertByts(emptycacert.public_bytes(c_serialization.Encoding.PEM))
+            self.isin('Common Name', cm.exception.get('mesg'))
+
+            # Manually place the empty-subject CA into cas/
+            caspath = os.path.join(cdir.certdirs[0], 'cas')
+            with open(os.path.join(caspath, 'empty-subject.crt'), 'wb') as fd:
+                fd.write(emptycacert.public_bytes(c_serialization.Encoding.PEM))
+
+            # Build a code cert with an empty issuer signed by the empty-subject CA
+            emptyissuercert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-emptyissuer-code')]))
+                .issuer_name(c_x509.Name([]))
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(emptykey, c_hashes.SHA256()))
+
+            emptybyts = emptyissuercert.public_bytes(c_serialization.Encoding.PEM)
+
+            # This validates because the empty-subject CA is in cas/ and the signature is valid
+            self.nn(cdir.valCodeCert(emptybyts))
+
+            # The legitimate cert is NOT affected — the empty-subject CA does not match its issuer
+            self.nn(cdir.valCodeCert(legitbyts))

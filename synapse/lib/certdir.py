@@ -674,34 +674,37 @@ class CertDir:
         try:
             issuer_bc = issuercert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
             if not issuer_bc.value.ca:
-                raise s_exc.BadCertVerify(mesg='Issuer certificate is not a CA certificate')
+                raise s_exc.BadCertVerify(mesg=f'Issuer certificate is not a CA certificate {issuercert.subject}')
 
         except c_x509.ExtensionNotFound:
-            raise s_exc.BadCertVerify(mesg='Issuer certificate is missing BasicConstraints extension') from None
+            mesg = f'Issuer certificate is missing BasicConstraints extension on {issuercert.subject}'
+            raise s_exc.BadCertVerify(mesg=mesg) from None
 
         try:
             cert_bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
         except c_x509.ExtensionNotFound:
-            raise s_exc.BadCertVerify(mesg='Certificate is missing BasicConstraints extension') from None
+            mesg = f'Certificate is missing BasicConstraints extension on {cert.subject}'
+            raise s_exc.BadCertVerify(mesg=mesg) from None
 
         cert_is_ca = cert_bc.value.ca
 
         ca_depth = _imm_depth + (1 if cert_is_ca else 0)
         if issuer_bc.value.path_length is not None and ca_depth > issuer_bc.value.path_length:
-            raise s_exc.BadCertVerify(mesg='Certificate chain exceeds issuer path length constraint')
+            mesg = f'Certificate chain exceeds issuer path length constraint on {issuercert.subject}'
+            raise s_exc.BadCertVerify(mesg=mesg)
 
         now = datetime.datetime.now(datetime.UTC)
         if now > cert.not_valid_after_utc:
-            raise s_exc.BadCertVerify(mesg='certificate has expired')
+            raise s_exc.BadCertVerify(mesg=f'certificate has expired for {cert.subject}')
 
         if now < cert.not_valid_before_utc:
-            raise s_exc.BadCertVerify(mesg='certificate is not yet valid')
+            raise s_exc.BadCertVerify(mesg=f'certificate is not yet valid for {cert.subject}')
 
         if now > issuercert.not_valid_after_utc:
-            raise s_exc.BadCertVerify(mesg='certificate has expired')
+            raise s_exc.BadCertVerify(mesg=f'issuer certificate has expired for {issuercert.subject}')
 
         if now < issuercert.not_valid_before_utc:
-            raise s_exc.BadCertVerify(mesg='certificate is not yet valid')
+            raise s_exc.BadCertVerify(mesg=f'issuer certificate is not yet valid for {issuercert.subject}')
 
         if crls:
             for crl in crls:
@@ -1567,28 +1570,31 @@ class CertDir:
             fd.truncate(0)
             fd.write(byts)
 
+    def _getCertName(self, cert):
+        attrs = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)
+        if not attrs:
+            raise s_exc.BadCertBytes(mesg='Certificate is missing a Common Name (CN) subject field.')
+
+        return attrs[0].value
+
     def saveCaCertByts(self, byts: bytes) -> str:
         cert = self._loadCertByts(byts)
-        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
-        name = attr.value
+        name = self._getCertName(cert)
         return self._saveCertTo(cert, 'cas', f'{name}.crt')
 
     def saveHostCertByts(self, byts: bytes) -> str:
         cert = self._loadCertByts(byts)
-        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
-        name = attr.value
+        name = self._getCertName(cert)
         return self._saveCertTo(cert, 'hosts', f'{name}.crt')
 
     def saveUserCertByts(self, byts: bytes) -> str:
         cert = self._loadCertByts(byts)
-        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
-        name = attr.value
+        name = self._getCertName(cert)
         return self._saveCertTo(cert, 'users', f'{name}.crt')
 
     def saveCodeCertBytes(self, byts: bytes) -> str:
         cert = self._loadCertByts(byts)
-        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
-        name = attr.value
+        name = self._getCertName(cert)
         return self._saveCertTo(cert, 'code', f'{name}.crt')
 
     def _checkDupFile(self, path) -> None:
