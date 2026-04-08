@@ -2148,38 +2148,10 @@ class Poly(Type):
 
         self.typeset = tuple(self.typeset)
 
-        forms = [name for name in self.typeset if name in self.modl.forminfos]
+        self.formtypes = frozenset(name for name in self.typeset if name in self.modl.forminfos)
+        self.ifaceset = frozenset(self.ifaces) if self.ifaces is not None else frozenset()
 
-        self.ifacefilter = None
-        if self.ifaces is not None:
-            ifaces = set(self.ifaces)
-
-            def ifacefilt(form):
-                return any(iface in ifaces for iface in form.ifaces)
-
-            self.ifacefilter = ifacefilt
-
-        self.hasforms = self.ifaces or forms
-
-        self.formfilter = None
-        if self.hasforms:
-            def formfilt(form):
-                if forms and any(f in forms for f in form.formtypes):
-                    return True
-
-                if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
-                    return True
-
-                return False
-
-            self.formfilter = formfilt
-
-        self.typefilter = None
-        if self.typeset:
-            def typefilt(tobj):
-                return any(t in self.typeset for t in tobj.types)
-
-            self.typefilter = typefilt
+        self.hasforms = bool(self.ifaceset or self.formtypes)
 
         self.defaulttypes = self.opts.get('default_types')
         if self.defaulttypes is not None:
@@ -2187,6 +2159,21 @@ class Poly(Type):
                 if not self.typeset or tname not in self.typeset:
                     mesg = f'Default types must be all be allowed on {self.name}.'
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
+
+    def typefilter(self, tobj):
+        if not self.typeset:
+            return False
+        return any(t in self.typeset for t in tobj.types)
+
+    def ifacefilter(self, form):
+        if not self.ifaceset:
+            return False
+        return any(iface in self.ifaceset for iface in form.ifaces)
+
+    def formfilter(self, form):
+        if self.formtypes and any(f in self.formtypes for f in form.formtypes):
+            return True
+        return self.ifacefilter(form)
 
     def getTypeSet(self):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
@@ -2318,8 +2305,8 @@ class Poly(Type):
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
-        if (tobj := self.modl.type(valu)) is None or self.typefilter is None or not self.typefilter(tobj):
-            if self.ifacefilter is None or (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
+        if (tobj := self.modl.type(valu)) is None or not self.typefilter(tobj):
+            if (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2343,10 +2330,7 @@ class Poly(Type):
 
         if isinstance(valu, s_node.Node):
             if cmpr == '=':
-                if self.typefilter is not None and self.typefilter(valu.form.type):
-                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
-
-                elif self.ifacefilter is not None and self.ifacefilter(valu.form):
+                if self.typefilter(valu.form.type) or self.ifacefilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2355,10 +2339,10 @@ class Poly(Type):
             if cmpr == '=':
                 typename = valu.valu[0]
 
-                if self.typefilter is not None and self.typefilter(self.modl.type(typename)):
+                if self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif self.ifacefilter is not None and (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
+                elif (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2450,9 +2434,8 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if self.typefilter is None or not self.typefilter(valu.form.type):
-            if self.ifacefilter is None or not self.ifacefilter(valu.form):
-                self._raiseBadTypeValu(valu.form.name)
+        if not self.typefilter(valu.form.type) and not self.ifacefilter(valu.form):
+            self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
             formname = valu.form.name
@@ -2466,9 +2449,8 @@ class Poly(Type):
         tobj = self.modl.type(typename)
         form = self.modl.form(typename)
 
-        if self.typefilter is None or not self.typefilter(tobj):
-            if form is None or self.ifacefilter is None or not self.ifacefilter(form):
-                self._raiseBadTypeValu(typename)
+        if not self.typefilter(tobj) and (form is None or not self.ifacefilter(form)):
+            self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
