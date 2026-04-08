@@ -3026,12 +3026,12 @@ class LibLift(Lib):
                               'desc': 'Yields nodes with the given nodedata name.'}}},
         {'name': 'tagsByPref',
          'desc': '''
-            Lift syn:tag nodes by prefix at specific depth levels in the tag hierarchy.
+            Lift syn:tag nodes by prefix.
 
             Notes:
-                The depth argument is relative to the depth of the prefix. Specifying a depth of 0
-                will only return tags at the same depth as the prefix. Increasing the depth value will
-                include additional levels in the tag hierarchy beyond the prefix.
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
             ''',
          'type': {'type': 'function', '_funcname': '_tagsByPref',
                   'args': (
