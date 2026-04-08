@@ -1734,3 +1734,55 @@ class CertDirTest(s_t_utils.SynTest):
 
             # The legitimate cert is NOT affected — the empty-subject CA does not match its issuer
             self.nn(cdir.valCodeCert(legitbyts))
+
+    async def test_certdir_adversarial_deceptive_selfsigned(self):
+        '''A cert signed by its own key but with issuer != subject is not treated as a root.
+
+        _verifyChain uses issuer == subject to identify self-signed roots. A cert
+        that is cryptographically self-signed but has a mismatched issuer field
+        will not terminate the chain walk and instead fails because no CA
+        matching the fake issuer name exists in the store.
+        '''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-deceptive-legit')
+
+            deceptivekey = c_rsa.generate_private_key(65537, 2048)
+            now = datetime.datetime.now(datetime.UTC)
+
+            # Self-signed by key but issuer != subject
+            deceptiveca = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-deceptive-root')]))
+                .issuer_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-fake-issuer')]))
+                .public_key(deceptivekey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(deceptivekey, c_hashes.SHA256()))
+
+            # Place in cas/ manually
+            caspath = os.path.join(cdir.certdirs[0], 'cas')
+            with open(os.path.join(caspath, 'adv-deceptive-root.crt'), 'wb') as fd:
+                fd.write(deceptiveca.public_bytes(c_serialization.Encoding.PEM))
+
+            # Code cert signed by the deceptive CA
+            codecert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-deceptive-code')]))
+                .issuer_name(deceptiveca.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .sign(deceptivekey, c_hashes.SHA256()))
+
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+
+            # _verifyChain finds deceptive CA as issuer of the code cert,
+            # but then tries to verify the deceptive CA itself. Since
+            # issuer != subject, it recurses looking for 'adv-fake-issuer'
+            # which does not exist in the store.
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
