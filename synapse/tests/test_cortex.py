@@ -3236,7 +3236,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         # Test on:add callback on a type-defined form
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:typeonstorm=*]')
+            nodes = await core.nodes('[test:onstorm2=*]')
             self.len(1, nodes)
             self.nn(nodes[0].get('tick'))
 
