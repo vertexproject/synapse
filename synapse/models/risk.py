@@ -59,7 +59,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        #{'type': 'prop', 'opts': {'name': 'cvss:v3.score'}},
+                        #{'type': 'prop', 'opts': {'name': 'cvss:v3_0:score'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
@@ -471,10 +471,6 @@ modeldefs = (
 
                 ('type', ('risk:tool:software:type:taxonomy', {}), {
                     'doc': 'A type for the tool, as a taxonomy entry.'}),
-
-                # FIXME is this just `:seen` and `meta:observable`?
-                ('used', ('ival', {}), {
-                    'doc': "The source's assessed interval for when the tool has been deployed."}),
 
                 ('availability', ('risk:availability', {}), {
                     'doc': "The source's assessed availability of the tool."}),

@@ -439,11 +439,6 @@ modeldefs = (
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of additional files submitted by the candidate.'}),
-
-                # TODO: doc:questionare / responses
-                # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
-                # TODO: proj:ticket to track evaluation of the candidate?
-
             )),
 
             ('ou:candidate:referral', {}, (

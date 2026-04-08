@@ -274,11 +274,9 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                # FIXME rename biz:sellable? donation / volunteers
                 ('item', (
+                        ('biz:service', {}),
                         ('meta:havable', {}),
-                        ('biz:product', {}),
-                        ('biz:service', {})
                     ), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),

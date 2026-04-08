@@ -124,7 +124,7 @@ modeldefs = (
                     'doc': 'An identifier for the deal.'}),
 
                 ('name', ('base:name', {}), {
-                    'doc': 'A title for the deal.'}),
+                    'doc': 'The name of the deal.'}),
 
                 ('type', ('biz:deal:type:taxonomy', {}), {
                     'doc': 'The type of deal.'}),

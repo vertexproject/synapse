@@ -1187,10 +1187,6 @@ modeldefs = (
         'interfaces': (
 
             ('it:host:runtime', {
-                'interfaces': (
-                    ('base:event', {}),
-                ),
-                'doc': 'Properties common to events which occur on a host.',
                 'props': (
 
                     ('exe', ('file:bytes', {}), {
@@ -1208,7 +1204,7 @@ modeldefs = (
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
-            }),
+                'doc': 'Properties common to runtime events and activity on a host.'}),
 
             ('it:host:event', {
                 'template': {'title': 'event'},
@@ -1219,7 +1215,7 @@ modeldefs = (
             }),
 
             ('it:host:activity', {
-                'template': {'title': 'event'},
+                'template': {'title': 'activity'},
                 'interfaces': (
                     ('base:activity', {}),
                     ('it:host:runtime', {}),
@@ -2203,14 +2199,14 @@ modeldefs = (
             )),
             ('it:exec:proc', {}, (
 
-                #('host', ('it:host', {}), {
-                    #'doc': 'The host that executed the process. May be an actual or a virtual / notional host.'}),
+                ('host', ('it:host', {}), {
+                    'doc': 'The host that executed the process.'}),
 
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.'}),
+                    'doc': 'The main executable file for the process.'}),
 
                 ('cmd', ('it:cmd', {}), {
-                    'doc': 'The command string used to launch the process, including any command line parameters.'}),
+                    'doc': 'The command string used to launch the process.'}),
 
                 ('cmd:history', ('it:cmd:history', {}), {
                     'doc': 'The command history entry which caused this process to be run.'}),
