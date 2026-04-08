@@ -4172,7 +4172,7 @@ class Layer(s_nexus.Pusher):
         for _, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
             yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
 
-    async def getTagsByPrefix(self, pref, depth=0):
+    async def getTagsByPref(self, pref, depth=0):
         try:
             abrv = self.getPropAbrv('syn:tag', None)
         except s_exc.NoSuchAbrv:

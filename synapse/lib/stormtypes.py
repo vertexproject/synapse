@@ -3063,7 +3063,7 @@ class LibLift(Lib):
         depth = await toint(depth)
 
         snap = self.runt.snap
-        async for name in snap.view.getTagsByPrefix(prefix, depth=depth):
+        async for name in snap.view.getTagsByPref(prefix, depth=depth):
             if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
                 yield node
 
