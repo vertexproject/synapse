@@ -1430,7 +1430,7 @@ class Slab(s_base.Base):
 
                 yield lkey
 
-    async def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
+    async def scanKeysByHierPref(self, byts, depth, sepr=b'.', db=None, nodup=False):
 
         if len(sepr) != 1 or sepr == b'\xff':
             mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
