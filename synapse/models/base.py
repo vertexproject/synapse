@@ -22,9 +22,6 @@ modeldefs = (
                 'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'name'}}),
-                ),
                 'doc': 'A base type for case insensitive names.'}),
 
             ('meta:name', ('base:name', {}), {
@@ -130,8 +127,9 @@ modeldefs = (
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
+                'template': {'title': 'ruleset'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -142,9 +140,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
+                'template': {'title': 'rule', 'syntax': ''},
                 'interfaces': (
                     ('meta:usable', {}),
-                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
@@ -406,11 +405,7 @@ modeldefs = (
 
             ('meta:usable', {
                 'template': {'title': 'item'},
-                'props': (
-                    ('used', ('ival', {}), {
-                        'doc': 'The time interval when the {title} was being used.'}),
-                ),
-                'doc': 'An interface for forms which can be used by an actor.'}),
+                'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',

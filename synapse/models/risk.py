@@ -34,12 +34,14 @@ alertstatus = (
 modeldefs = (
     ('risk', {
         'ctors': (
-            ('cvss:v2', 'synapse.models.risk.CvssV2', {}, {
-                'doc': 'A CVSS v2 vector string.', 'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)'
-            }),
-            ('cvss:v3', 'synapse.models.risk.CvssV3', {}, {
-                'doc': 'A CVSS v3.x vector string.', 'ex': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
-            }),
+            # TODO: implement type specific cmprs and virts for CVSS types
+            ('it:sec:cvss:v2', 'synapse.models.risk.CvssV2', {}, {
+                'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)',
+                'doc': 'A CVSS v2 vector string.'}),
+
+            ('it:sec:cvss:v3', 'synapse.models.risk.CvssV3', {}, {
+                'ex': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
+                'doc': 'A CVSS v3.x vector string.'}),
         ),
         'types': (
 
@@ -57,7 +59,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'cvss:v3_1:score'}},
+                        #{'type': 'prop', 'opts': {'name': 'cvss:v3.score'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
@@ -129,6 +131,11 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of alert types.'}),
 
             ('risk:alert', ('guid', {}), {
+                'template': {'title': 'alert'},
+                'interfaces': (
+                    ('proj:task', {}),
+                    ('meta:causal', {}),
+                ),
                 'doc': 'An alert which indicates the presence of a risk.'}),
 
             ('risk:compromise:status:taxonomy', ('taxonomy', {}), {
@@ -355,6 +362,9 @@ modeldefs = (
         ),
         'interfaces': (
 
+            ('risk:exploitable', {
+                'doc': 'An interface implemented by forms which may be exploited by an actor.'}),
+
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.'}),
 
@@ -462,6 +472,7 @@ modeldefs = (
                 ('type', ('risk:tool:software:type:taxonomy', {}), {
                     'doc': 'A type for the tool, as a taxonomy entry.'}),
 
+                # FIXME is this just `:seen` and `meta:observable`?
                 ('used', ('ival', {}), {
                     'doc': "The source's assessed interval for when the tool has been deployed."}),
 
@@ -534,48 +545,20 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
 
-                # FIXME cvss / vuln scoring
-                ('cvss:v2', ('cvss:v2', {}), {
+                ('cvss:v2', ('it:sec:cvss:v2', {}), {
                     'doc': 'The CVSS v2 vector for the vulnerability.'}),
 
                 ('cvss:v2_0:score', ('float', {}), {
                     'doc': 'The CVSS v2.0 overall score for the vulnerability.'}),
 
-                ('cvss:v2_0:score:base', ('float', {}), {
-                    'doc': 'The CVSS v2.0 base score for the vulnerability.'}),
-
-                ('cvss:v2_0:score:temporal', ('float', {}), {
-                    'doc': 'The CVSS v2.0 temporal score for the vulnerability.'}),
-
-                ('cvss:v2_0:score:environmental', ('float', {}), {
-                    'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
-
-                ('cvss:v3', ('cvss:v3', {}), {
+                ('cvss:v3', ('it:sec:cvss:v3', {}), {
                     'doc': 'The CVSS v3 vector for the vulnerability.'}),
 
                 ('cvss:v3_0:score', ('float', {}), {
                     'doc': 'The CVSS v3.0 overall score for the vulnerability.'}),
 
-                ('cvss:v3_0:score:base', ('float', {}), {
-                    'doc': 'The CVSS v3.0 base score for the vulnerability.'}),
-
-                ('cvss:v3_0:score:temporal', ('float', {}), {
-                    'doc': 'The CVSS v3.0 temporal score for the vulnerability.'}),
-
-                ('cvss:v3_0:score:environmental', ('float', {}), {
-                    'doc': 'The CVSS v3.0 environmental score for the vulnerability.'}),
-
                 ('cvss:v3_1:score', ('float', {}), {
                     'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
-
-                ('cvss:v3_1:score:base', ('float', {}), {
-                    'doc': 'The CVSS v3.1 base score for the vulnerability.'}),
-
-                ('cvss:v3_1:score:temporal', ('float', {}), {
-                    'doc': 'The CVSS v3.1 temporal score for the vulnerability.'}),
-
-                ('cvss:v3_1:score:environmental', ('float', {}), {
-                    'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
 
                 ('cwes', ('array', {'type': 'it:sec:cwe'}), {
                     'doc': 'MITRE CWE values that apply to the vulnerability.'}),
@@ -583,22 +566,13 @@ modeldefs = (
 
             ('risk:vulnerable', {}, (
 
-                # FIXME either/or prop?
-                ('vuln', ('risk:vuln', {}), {
-                    'doc': 'The vulnerability that the node is susceptible to.'}),
-
-                ('technique', ('meta:technique', {}), {
-                    'doc': 'The technique that the node is susceptible to.'}),
+                ('to', ('risk:mitigatable', {}), {
+                    'doc': 'The thing which the node is vulnerable to.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time window where the node was vulnerable.'}),
 
-                # TODO - interface for things which can be vulnerable?
-                ('node', (
-                        ('risk:targetable', {}),
-                        ('meta:havable', {}),
-                        ('meta:observable', {})
-                    ), {
+                ('node', ('risk:exploitable', {}), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('mitigated', ('bool', {}), {
@@ -613,8 +587,6 @@ modeldefs = (
 
             ('risk:alert:verdict:taxonomy', {}, {}),
             ('risk:alert', {}, (
-                # FIXME - This is REALLY close to meta:reported
-                # FIXME - This is also REALLY close to proj:doable
 
                 ('type', ('risk:alert:type:taxonomy', {}), {
                     'doc': 'A type for the alert, as a taxonomy entry.'}),
@@ -631,9 +603,6 @@ modeldefs = (
                 ('benign', ('bool', {}), {
                     'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                ('priority', ('meta:score', {}), {
-                    'doc': 'A priority rank for the alert.'}),
-
                 ('severity', ('meta:score', {}), {
                     'doc': 'A severity rank for the alert.'}),
 
@@ -641,35 +610,21 @@ modeldefs = (
                     'ex': 'benign.false_positive',
                     'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
-                ('assignee', ('entity:actor', {}), {
-                    'doc': 'The actor who is assigned to investigate the alert.'}),
-
-                ('engine', ('it:software', {}), {
-                    'doc': 'The software that generated the alert.'}),
-
-                ('detected', ('time', {}), {
-                    'doc': 'The time the alerted condition was detected.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the alert was most recently modified.'}),
-
-                ('vuln', ('risk:vuln', {}), {
-                    'doc': 'The optional vulnerability that the alert indicates.'}),
-
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the alert.'}),
-
-                ('id', ('base:id', {}), {
-                    'doc': 'An external identifier for the alert.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host which generated the alert.'}),
 
-                ('service:platform', ('inet:service:platform', {}), {
+                ('engine', ('it:software', {}), {
+                    'doc': 'The software that generated the alert.'}),
+
+                ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the alert.'}),
 
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which generated the alert.'}),
+                ('account', (('it:host:account', {}),
+                             ('inet:service:account', {})), {
+                    'doc': 'The account which generated the alert.'}),
             )),
 
             ('risk:compromise:type:taxonomy', {
@@ -720,10 +675,6 @@ modeldefs = (
 
                 ('success', ('bool', {}), {
                     'doc': 'Set if the attack was known to have succeeded or not.'}),
-
-                # FIXME overfit
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'Set if the attack was part of a larger campaign.'}),
 
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'A compromise that this attack contributed to.'}),

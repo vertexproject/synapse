@@ -44,7 +44,7 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('proj:sprint :project -> proj:project'))
 
             nodes = await core.nodes('''
-                [ proj:task=*
+                [ proj:ticket=*
 
                     :name=syn3.0
                     :desc=FooBar
@@ -71,7 +71,7 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'created', 1752624000000000)
             self.propeq(nodes[0], 'completed', 1752624000000000)
 
-            self.len(1, await core.nodes('proj:task :sprint -> proj:sprint'))
-            self.len(1, await core.nodes('proj:task :project -> proj:project'))
-            self.len(1, await core.nodes('proj:task -(has)> file:attachment'))
-            self.len(1, await core.nodes('proj:task <(about)- meta:note'))
+            self.len(1, await core.nodes('proj:ticket :sprint -> proj:sprint'))
+            self.len(1, await core.nodes('proj:ticket :project -> proj:project'))
+            self.len(1, await core.nodes('proj:ticket -(has)> file:attachment'))
+            self.len(1, await core.nodes('proj:ticket <(about)- meta:note'))

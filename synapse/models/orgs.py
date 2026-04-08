@@ -337,9 +337,7 @@ modeldefs = (
 
             ('ou:enacted', ('guid', {}), {
                 'interfaces': (
-                    ('proj:doable', {
-                        'template': {
-                            'task': 'adoption task'}}),
+                    ('proj:task', {}),
                 ),
                 'doc': 'An organization enacting a document.'}),
         ),
@@ -444,7 +442,7 @@ modeldefs = (
 
                 # TODO: doc:questionare / responses
                 # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
-                # TODO: proj:task to track evaluation of the candidate?
+                # TODO: proj:ticket to track evaluation of the candidate?
 
             )),
 

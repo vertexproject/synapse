@@ -495,13 +495,6 @@ modeldefs = (
 
                 ('mimes', ('array', {'type': 'file:mime'}), {
                     'doc': 'An array of alternate mime types for the file.'}),
-
-                # FIXME file:mime:exe interface?
-                # ('exe:compiler', ('it:software', {}), {
-                #     'doc': 'The software used to compile the file.'}),
-
-                # ('exe:packer', ('it:software', {}), {
-                #     'doc': 'The packer software used to encode the file.'}),
             )),
 
             ('file:mime', {}, ()),

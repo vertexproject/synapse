@@ -2698,12 +2698,8 @@ modeldefs = (
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str:lower', {}), {
+                ('encryption', ('base:name', {}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                # FIXME ownable interface? currently has :owner via meta:havable
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization that owns/operates the access point.'}),
             )),
 
             ('inet:wifi:ssid', {}, ()),

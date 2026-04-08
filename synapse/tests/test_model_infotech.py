@@ -52,7 +52,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:thread:created :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
-                it:exec:loadlib=*
+                it:exec:lib:load=*
                     :proc=*
                     :va=0x00a000
                     :loaded=20210202
@@ -67,10 +67,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'va', 0x00a000)
             self.propeq(nodes[0], 'loaded', 1612224000000000)
             self.propeq(nodes[0], 'unloaded', 1612310400000000)
-            self.len(1, await core.nodes('it:exec:loadlib :file -> file:bytes'))
-            self.len(1, await core.nodes('it:exec:loadlib :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:loadlib -> file:path +file:path=/home/invisigoth/rootkit.so'))
-            self.len(1, await core.nodes('it:exec:loadlib :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:load :file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:load :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:lib:load -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:lib:load :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:mmap=*
