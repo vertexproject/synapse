@@ -108,6 +108,17 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.eq(('node', 'noderef'), ret)
 
+            await core.nodes('$lib.vault.add(gvault, test, global, (null), ({}), ({}))')
+
+            self.eq('vault', await core.callStorm('return($lib.utils.type($lib.copy($lib.vault.byname(gvault))))'))
+
+            ret = await core.callStorm('''
+                $d = ({"vault": $lib.vault.byname(gvault)})
+                $c = $lib.copy($d)
+                return($lib.utils.type($c.vault))
+            ''')
+            self.eq('vault', ret)
+
             # copy cmdopts containing a node (CmdOpts._storm_copy NotMsgpackSafe fallback)
             pdef = {
                 'name': 'testcopy',

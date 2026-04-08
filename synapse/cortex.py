@@ -4571,6 +4571,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             newlayers[oldlayers.index(oldiden)] = newiden
 
             await view._setLayerIdens(newlayers)
+            view.clearCache()
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):
