@@ -306,7 +306,7 @@ class Drive(s_base.Base):
         bidn = s_common.uhex(iden)
 
         if typename is not None:
-            await self.reqTypeValidator(typename)
+            await self._reqTypeValidator(typename)
 
         if self._getItemInfo(bidn) is not None:
             mesg = f'A drive entry with ID {iden} already exists.'
@@ -579,7 +579,7 @@ class Drive(s_base.Base):
             if info is not None:
                 yield info
 
-    async def getTypeValidator(self, typename):
+    async def _getTypeValidator(self, typename):
         vtor = self.validators.get(typename)
         if vtor is not None:
             return vtor
@@ -593,8 +593,8 @@ class Drive(s_base.Base):
 
         return vtor
 
-    async def reqTypeValidator(self, typename):
-        vtor = await self.getTypeValidator(typename)
+    async def _reqTypeValidator(self, typename):
+        vtor = await self._getTypeValidator(typename)
         if vtor is not None:
             return vtor
 
@@ -602,7 +602,7 @@ class Drive(s_base.Base):
         raise s_exc.NoSuchType(mesg=mesg)
 
     async def reqValidData(self, typename, item):
-        return (await self.reqTypeValidator(typename))(item)
+        return (await self._reqTypeValidator(typename))(item)
 
 class FileDrive(Drive, s_spawner.SpawnerMixin):
 
