@@ -3023,8 +3023,7 @@ class LibLift(Lib):
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
         {'name': 'tagsByPref',
          'desc': '''
             Lift syn:tag nodes by prefix.
@@ -3041,8 +3040,7 @@ class LibLift(Lib):
                        'desc': 'The number of additional levels in the tag hierarchy to include.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
