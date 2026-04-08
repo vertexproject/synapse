@@ -250,3 +250,4 @@ class BaseTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('meta:feed -> meta:source +:name=woot'))
             self.len(1, await core.nodes('meta:feed -> meta:feed:type:taxonomy'))
+

@@ -313,6 +313,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
             self.len(1, await core.nodes('risk:threat:name=apt1 -> doc:reference'))
 
+            await core.nodes('risk:threat:name=apt1 [ +(targeted)> {[ meta:topic=cybersecurity ]} ]')
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(targeted)> meta:topic'))
+
             nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'apt1next')
