@@ -3025,18 +3025,47 @@ class LibLift(Lib):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        snap = self.runt.snap
+        async for name in snap.view.getTagsByPrefix(prefix, depth=depth):
+            if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
@@ -8301,23 +8330,6 @@ class View(Prim):
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
-        {'name': 'getTagsByPrefix',
-         'desc': '''
-            Get tag names with a specific prefix present in the View.
-
-            Notes:
-                By default this will only return tags at the depth specified in the prefix.
-                The depth argument may be provided to indicate the number of additional levels
-                in the tag hierarchy to include.
-            ''',
-         'type': {'type': 'function', '_funcname': '_methGetTagsByPrefix',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
-                      {'name': 'depth', 'type': 'int', 'default': 0,
-                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
-                  ),
-                  'returns': {'name': 'yields', 'type': 'str', 'desc': 'Tag names.'}}},
-
         {'name': 'getPropValues',
          'desc': 'Yield unique property values in the view for the given form or property name.',
          'type': {'type': 'function', '_funcname': '_methGetPropValues',
@@ -8432,7 +8444,6 @@ class View(Prim):
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
-            'getTagsByPrefix': self._methGetTagsByPrefix,
             'getPropArrayCount': self._methGetPropArrayCount,
 
             'fork': self._methViewFork,
@@ -8532,18 +8543,6 @@ class View(Prim):
         view = self.runt.snap.core.getView(viewiden)
 
         return await view.getTagPropCount(form, tag, propname, valu=valu)
-
-    @stormfunc(readonly=True)
-    async def _methGetTagsByPrefix(self, prefix, depth=0):
-        prefix = await tostr(prefix)
-        depth = await toint(depth)
-
-        viewiden = self.valu.get('iden')
-        self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
-
-        async for name in view.getTagsByPrefix(prefix, depth=depth):
-            yield name
 
     @stormfunc(readonly=True)
     async def _methGetPropArrayCount(self, propname, valu=undef):
