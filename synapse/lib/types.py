@@ -2140,18 +2140,11 @@ class Poly(Type):
             'type': {'=': self._storLiftType},
         }
 
-        self.ifaces = self.opts.get('interfaces')
-        self.typeset = set()
-
-        if (types := self.opts.get('types')) is not None:
-            self.typeset |= set(types)
-
-        self.typeset = tuple(self.typeset)
-
+        self.ifaces = frozenset(self.opts.get('interfaces') or ())
+        self.typeset = frozenset(self.opts.get('types') or ())
         self.formtypes = frozenset(name for name in self.typeset if name in self.modl.forminfos)
-        self.ifaceset = frozenset(self.ifaces) if self.ifaces is not None else frozenset()
 
-        self.hasforms = bool(self.ifaceset or self.formtypes)
+        self.hasforms = bool(self.ifaces or self.formtypes)
 
         self.defaulttypes = self.opts.get('default_types')
         if self.defaulttypes is not None:
@@ -2166,9 +2159,9 @@ class Poly(Type):
         return any(t in self.typeset for t in tobj.types)
 
     def ifacefilter(self, form):
-        if not self.ifaceset:
+        if not self.ifaces:
             return False
-        return any(iface in self.ifaceset for iface in form.ifaces)
+        return any(iface in self.ifaces for iface in form.ifaces)
 
     def formfilter(self, form):
         if self.formtypes and any(f in self.formtypes for f in form.formtypes):
