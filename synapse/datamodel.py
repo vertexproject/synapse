@@ -868,27 +868,6 @@ class Model:
         self.typesetcache[key] = typeset
         return typeset
 
-    def getFormSet(self, forms=None, interfaces=None):
-        key = (forms, interfaces)
-        if (formset := self.formsetcache.get(key)) is not None:
-            return formset
-
-        formset = set()
-
-        if forms:
-            for form in forms:
-                for cform in self.getChildForms(form):
-                    formset.add(self.form(cform))
-
-        if interfaces:
-            for iface in interfaces:
-                for form in self.formsbyiface.get(iface):
-                    formset.add(self.form(form))
-
-        formset = tuple(formset)
-        self.formsetcache[key] = formset
-        return formset
-
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
             return forms
@@ -1024,22 +1003,14 @@ class Model:
 
     def convertPolyinfo(self, propdef):
 
-        forms = []
         types = []
         ifaces = []
         defaults = []
 
         for typename, typeinfo in propdef:
 
-            if typename in self.forminfos:
-                forms.append(typename)
-
-                if typeinfo.get('defnorm', True):
-                    defaults.append(typename)
-
-            elif typename in self.ifaces:
+            if typename in self.ifaces:
                 ifaces.append(typename)
-
             else:
                 types.append(typename)
 
@@ -1047,9 +1018,6 @@ class Model:
                     defaults.append(typename)
 
         polyinfo = {}
-        if forms:
-            polyinfo['forms'] = tuple(forms)
-
         if ifaces:
             polyinfo['interfaces'] = tuple(ifaces)
 
@@ -1061,27 +1029,27 @@ class Model:
 
         return polyinfo
 
-    def convertPropdef(self, propdef):
-        typename = propdef[0]
+    def convertTypedef(self, typedef):
+        typename = typedef[0]
 
         if not isinstance(typename, tuple):
             if isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
-                return propdef
+                return typedef
 
             if tobj is None and typename not in self.ifaces:
                 raise s_exc.NoSuchType(name=typename)
 
-            propdef = (propdef,)
+            typedef = (typedef,)
 
-        return ('poly', self.convertPolyinfo(propdef))
+        return ('poly', self.convertPolyinfo(typedef))
 
     def processPropdefs(self, propdefs):
 
         realdefs = []
 
-        for pname, propdef, propinfo in propdefs:
+        for pname, typedef, propinfo in propdefs:
 
-            realdefs.append((pname, self.convertPropdef(propdef), propinfo))
+            realdefs.append((pname, self.convertTypedef(typedef), propinfo))
 
         return tuple(realdefs)
 
@@ -1127,42 +1095,6 @@ class Model:
 
         self.modeldefs.extend(mods)
 
-        ctors = {}
-
-        # load all the base type ctors in order...
-        for _, mdef in mods:
-
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
-                self.types[name] = item
-                ctors[name] = (name, ctor, opts, info)
-
-        # load all the types in order...
-        for _, mdef in mods:
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
-
-        # finish initializing types
-        for name, tobj in self.types.items():
-            tobj._initType()
-            if (info := ctors.get(name)) is not None:
-                self._modeldef['ctors'].append(info)
-            else:
-                self._modeldef['types'].append(tobj.getTypeDef())
-
-        # load all the interfaces...
-        for _, mdef in mods:
-            for name, info in mdef.get('interfaces', ()):
-                self.addIface(name, info)
-
-        # Load all the tagprops
-        for _, mdef in mods:
-            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
-                self.addTagProp(tpname, typedef, tpinfo)
-
-        formchildren = collections.defaultdict(list)
-        childforms = set()
-
         allforms = []
 
         # Gather all the forms first
@@ -1178,7 +1110,7 @@ class Model:
                     self.forminfos[name] = forminfo
 
             # Allow props declared directly on types to become forms...
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+            for typename, _, typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     forminfo = {}
                     if (ondef := typeinfo.get('on')) is not None:
@@ -1189,6 +1121,49 @@ class Model:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
+
+        # load all the interfaces...
+        for _, mdef in mods:
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
+
+        ctors = {}
+
+        # load all the base type ctors in order...
+        for _, mdef in mods:
+
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
+                self.types[name] = item
+                ctors[name] = (name, ctor, opts, info)
+
+        # load all the types in order...
+        for _, mdef in mods:
+            for typename, typedef, typeinfo in mdef.get('types', ()):
+
+                if isinstance(typedef[0], tuple):
+                    basename = 'poly'
+                    typeopts = self.convertPolyinfo(typedef)
+                else:
+                    basename, typeopts = typedef
+
+                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+
+        # finish initializing types
+        for name, tobj in self.types.items():
+            tobj._initType()
+            if (info := ctors.get(name)) is not None:
+                self._modeldef['ctors'].append(info)
+            else:
+                self._modeldef['types'].append(tobj.getTypeDef())
+
+        # Load all the tagprops
+        for _, mdef in mods:
+            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                self.addTagProp(tpname, typedef, tpinfo)
+
+        formchildren = collections.defaultdict(list)
+        childforms = set()
 
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
@@ -1545,7 +1520,7 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
-        if self.forms.get(name) is not None:
+        if name in self.forminfos is not None:
             raise s_exc.DupName(mesg=f'Interface name conflicts with existing form: {name}')
 
         if self.ifaces.get(name) is not None:
@@ -1599,14 +1574,13 @@ class Model:
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
         (basename, typeinfo) = tdef
-        typelist = typeinfo.get('forms', ()) + typeinfo.get('types', ())
 
         if self.types.get(basename) is None:
             mesg = f'No type named {basename} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=basename)
 
         virts = []
-        for typename in typelist:
+        for typename in typeinfo.get('types', ()):
             _type = self.types.get(typename)
             if _type is None:
                 mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'

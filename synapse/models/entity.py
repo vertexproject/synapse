@@ -192,7 +192,11 @@ modeldefs = (
 
         'types': (
 
-            ('entity:individual', ('poly', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+            ('entity:individual', (
+                    ('ps:person', {}),
+                    ('entity:contact', {}),
+                    ('inet:service:account', {})
+                ), {
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {

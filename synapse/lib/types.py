@@ -2057,7 +2057,7 @@ class Loc(Type):
 
     async def _storLiftEq(self, cmpr, valu):
 
-        if valu.endswith('.*'):
+        if isinstance(valu, str) and valu.endswith('.*'):
             norm, info = await self.norm(valu[:-2])
             return (
                 ('^=', norm, self.stortype),
@@ -2119,7 +2119,6 @@ class Poly(Type):
 
     _opt_defs = (
         ('default_types', None),    # type: ignore
-        ('forms', None),            # type: ignore
         ('types', None),            # type: ignore
         ('interfaces', None),       # type: ignore
     )
@@ -2141,28 +2140,31 @@ class Poly(Type):
             'type': {'=': self._storLiftType},
         }
 
-        self.forms = self.opts.get('forms')
         self.ifaces = self.opts.get('interfaces')
         self.typeset = set()
-
-        if self.forms is not None:
-            forms = set(self.forms)
-            self.typeset |= forms
 
         if (types := self.opts.get('types')) is not None:
             self.typeset |= set(types)
 
         self.typeset = tuple(self.typeset)
 
+        forms = [name for name in self.typeset if name in self.modl.forminfos]
+
+        self.ifacefilter = None
         if self.ifaces is not None:
             ifaces = set(self.ifaces)
 
-        self.hasforms = self.forms or self.ifaces
-        self.formfilter = None
+            def ifacefilt(form):
+                return any(iface in ifaces for iface in form.ifaces)
 
+            self.ifacefilter = ifacefilt
+
+        self.hasforms = self.ifaces or forms
+
+        self.formfilter = None
         if self.hasforms:
             def formfilt(form):
-                if self.forms is not None and any(f in forms for f in form.formtypes):
+                if forms and any(f in forms for f in form.formtypes):
                     return True
 
                 if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
@@ -2188,9 +2190,6 @@ class Poly(Type):
 
     def getTypeSet(self):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
-
-    def getFormSet(self):
-        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
 
     def getCmprCtor(self, name):
         ctors = {}
@@ -2320,7 +2319,7 @@ class Poly(Type):
         valu = valu.lower().strip()
 
         if (tobj := self.modl.type(valu)) is None or self.typefilter is None or not self.typefilter(tobj):
-            if (form := self.modl.form(valu)) is None or self.formfilter is None or not self.formfilter(form):
+            if self.ifacefilter is None or (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2347,7 +2346,7 @@ class Poly(Type):
                 if self.typefilter is not None and self.typefilter(valu.form.type):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
-                elif self.formfilter is not None and self.formfilter(valu.form):
+                elif self.ifacefilter is not None and self.ifacefilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2359,7 +2358,7 @@ class Poly(Type):
                 if self.typefilter is not None and self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif self.formfilter is not None and (form := self.modl.form(typename)) is not None and self.formfilter(form):
+                elif self.ifacefilter is not None and (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2452,7 +2451,7 @@ class Poly(Type):
     async def _normStormNode(self, valu, view=None):
 
         if self.typefilter is None or not self.typefilter(valu.form.type):
-            if self.formfilter is None or not self.formfilter(valu.form):
+            if self.ifacefilter is None or not self.ifacefilter(valu.form):
                 self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
@@ -2468,7 +2467,7 @@ class Poly(Type):
         form = self.modl.form(typename)
 
         if self.typefilter is None or not self.typefilter(tobj):
-            if form is None or self.formfilter is None or not self.formfilter(form):
+            if form is None or self.ifacefilter is None or not self.ifacefilter(form):
                 self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
@@ -2636,7 +2635,7 @@ class Str(Type):
 
     async def _storLiftEq(self, cmpr, valu):
 
-        if self.opts.get('globsuffix') and valu.endswith('*'):
+        if isinstance(valu, str) and self.opts.get('globsuffix') and valu.endswith('*'):
             return (
                 ('^=', valu[:-1], self.stortype),
             )

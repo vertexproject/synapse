@@ -63,8 +63,10 @@ modeldefs = (
                 },
                 'doc': 'A unique vulnerability.'}),
 
-            ('risk:vuln:id', ('poly', {'forms': ('it:sec:cve', 'meta:id'),
-                                       'default_types': ('it:sec:cve', 'meta:id')}), {
+            ('risk:vuln:id', (
+                    ('it:sec:cve', {}),
+                    ('meta:id', {})
+                ), {
                 'doc': 'A unique ID given to a vulnerability.'}),
 
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {

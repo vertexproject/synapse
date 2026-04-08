@@ -67,7 +67,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
-            self.stormIsInPrint("{'default_types': ('entity:name',), 'forms': ('entity:name',)}", mesgs)
+            self.stormIsInPrint("{'default_types': ('entity:name',), 'types': ('entity:name',)}", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
@@ -104,17 +104,17 @@ class StormlibModelTest(s_test.SynTest):
             self.true(await core.callStorm('return(("poly" in $lib.model.form(test:str).props))'))
             self.false(await core.callStorm('return(("newp" in $lib.model.form(test:str).props))'))
 
-            forms = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedforms)')
-            forms = [fdef['name'] for fdef in forms]
-            self.isin('test:int', forms)
-            self.isin('test:hasiface', forms)
+            types = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedtypes)')
+            types = [tdef[0] for tdef in types]
+            self.isin('test:int', types)
+            self.isin('test:hasiface', types)
 
-            forms = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedforms)')
-            forms = [fdef['name'] for fdef in forms]
-            self.isin('test:int', forms)
-            self.isin('test:hasiface', forms)
+            types = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedtypes)')
+            types = [tdef[0] for tdef in types]
+            self.isin('test:int', types)
+            self.isin('test:hasiface', types)
 
-            self.len(0, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedforms)'))
+            self.len(1, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedtypes)'))
 
     async def test_stormlib_model_depr(self):
 

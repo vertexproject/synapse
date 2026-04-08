@@ -9,8 +9,12 @@ modeldefs = (
                 ),
                 'doc': 'A GUID for a country.'}),
 
-            ('pol:country:code', ('poly', {'forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
-                                           'default_types': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id')}), {
+            ('pol:country:code', (
+                    ('iso:3166:alpha2', {}),
+                    ('iso:3166:numeric3', {}),
+                    ('iso:3166:alpha3', {}),
+                    ('meta:id', {}),
+                ), {
                 'doc': 'A country code.'}),
 
             ('pol:immigration:status', ('guid', {}), {

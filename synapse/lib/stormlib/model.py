@@ -391,8 +391,8 @@ class ModelProp(s_stormtypes.Prim):
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
                   'returns': {'type': 'model:type'}}},
         {'name': 'allowedforms', 'desc': 'Get Forms which may be used as values for the Property.',
-         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedForms',
-                  'returns': {'type': 'list', 'desc': 'A list of ``model:form`` objects for the forms allowed in the property.'}}},
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedTypes',
+                  'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
     )
     _storm_typename = 'model:property'
     def __init__(self, prop, path=None):
@@ -402,7 +402,7 @@ class ModelProp(s_stormtypes.Prim):
         self.ctors.update({
             'form': self._ctorPropForm,
             'type': self._ctorPropType,
-            'allowedforms': self._ctorPropAllowedForms,
+            'allowedtypes': self._ctorPropAllowedTypes,
         })
 
         self.locls['name'] = self.valu.name
@@ -417,7 +417,7 @@ class ModelProp(s_stormtypes.Prim):
 
         return ModelForm(self.valu.form, path=path)
 
-    def _ctorPropAllowedForms(self, path=None):
+    def _ctorPropAllowedTypes(self, path=None):
         ptyp = self.valu.type
         if ptyp.isarray:
             ptyp = ptyp.arraytype
@@ -425,7 +425,7 @@ class ModelProp(s_stormtypes.Prim):
         if not ptyp.ispoly:
             return ()
 
-        return tuple(ModelForm(form) for form in ptyp.getFormSet())
+        return tuple(ModelType(name) for name in ptyp.getTypeSet())
 
     def value(self):
         return self.valu.pack()
