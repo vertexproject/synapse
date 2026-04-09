@@ -1417,8 +1417,7 @@ class TeleTest(s_t_utils.SynTest):
                     except asyncio.CancelledError:
                         pass
 
-                    with self.raises(AssertionError):
-                        await stream.expect('error during task: callStorm', timeout=0.5)
+                self.notin('error during task: callStorm', stream.getvalue())
 
                 with self.getLoggerStream('synapse.daemon') as stream:
                     try:
