@@ -143,7 +143,7 @@ modeldefs = (
                     'doc': 'The buyer.'}),
 
                 ('buyer:name', ('entity:name', {}), {
-                    'doc': 'The name of the the buyer.'}),
+                    'doc': 'The name of the buyer.'}),
 
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The seller.'}),

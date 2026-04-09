@@ -449,11 +449,8 @@ modeldefs = (
                 'doc': 'An interface implemented by forms which are achievable.'}),
 
             ('meta:task', {
-
                 'doc': 'A common interface for tasks.',
-
                 'template': {'title': 'task'},
-
                 'props': (
 
                     ('id', ('base:id', {}), {
