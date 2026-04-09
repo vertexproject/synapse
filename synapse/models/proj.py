@@ -1,67 +1,7 @@
-statusenums = (
-    (0, 'new'),
-    (10, 'in validation'),
-    (20, 'in backlog'),
-    (30, 'in sprint'),
-    (40, 'in progress'),
-    (50, 'in review'),
-    (60, 'completed'),
-    (70, 'done'),
-    (80, 'blocked'),
-)
-
 modeldefs = (
     ('proj', {
 
-        'interfaces': (
-
-            ('proj:task', {
-
-                'doc': 'A common interface for tasks.',
-
-                'template': {'title': 'task'},
-
-                'props': (
-
-                    ('id', ('base:id', {}), {
-                        'doc': 'The ID of the {title}.'}),
-
-                    ('parent', ('proj:task', {}), {
-                        'doc': 'The parent task which includes this {title}.'}),
-
-                    ('project', ('proj:project', {}), {
-                        'doc': 'The project containing the {title}.'}),
-
-                    ('status', ('proj:task:status', {}), {
-                        'doc': 'The status of the {title}.'}),
-
-                    ('priority', ('meta:score', {}), {
-                        'doc': 'The priority of the {title}.'}),
-
-                    ('created', ('time', {}), {
-                        'doc': 'The time the {title} was created.'}),
-
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the {title} was last updated.'}),
-
-                    ('due', ('time', {}), {
-                        'doc': 'The time the {title} must be complete.'}),
-
-                    ('completed', ('time', {}), {
-                        'doc': 'The time the {title} was completed.'}),
-
-                    ('creator', ('entity:actor', {}), {
-                        'doc': 'The actor who created the {title}.'}),
-
-                    ('assignee', ('entity:actor', {}), {
-                        'doc': 'The actor who is assigned to complete the {title}.'}),
-                ),
-            }),
-        ),
         'types': (
-
-            ('proj:task:status', ('int', {'enums': statusenums}), {
-                'doc': 'A project issue status.'}),
 
             ('proj:sprint:status', ('str', {'enums': 'planned,current,completed'}), {
                 'doc': 'A project sprint status.'}),
@@ -75,9 +15,9 @@ modeldefs = (
             ('proj:ticket', ('guid', {}), {
                 'template': {'title': 'ticket'},
                 'interfaces': (
-                    ('proj:task', {}),
+                    ('meta:task', {}),
                 ),
-                'doc': 'A task.'}),
+                'doc': 'A ticket in a project management system.'}),
 
             ('proj:project:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -94,10 +34,7 @@ modeldefs = (
 
         'edges': (
 
-            (('proj:task', 'has', 'file:attachment'), {
-                'doc': 'The task includes the file attachment.'}),
-
-            (('proj:sprint', 'has', 'proj:task'), {
+            (('proj:sprint', 'has', 'meta:task'), {
                 'doc': 'The task was worked on during the sprint.'}),
         ),
 

@@ -132,7 +132,7 @@ modeldefs = (
             ('risk:alert', ('guid', {}), {
                 'template': {'title': 'alert'},
                 'interfaces': (
-                    ('proj:task', {}),
+                    ('meta:task', {}),
                     ('meta:causal', {}),
                 ),
                 'doc': 'An alert which indicates the presence of a risk.'}),

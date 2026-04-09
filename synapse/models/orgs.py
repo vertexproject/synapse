@@ -338,7 +338,7 @@ modeldefs = (
             ('ou:enacted', ('guid', {}), {
                 'template': {'title': 'adoption task'},
                 'interfaces': (
-                    ('proj:task', {}),
+                    ('meta:task', {}),
                 ),
                 'doc': 'An organization enacting a document.'}),
         ),

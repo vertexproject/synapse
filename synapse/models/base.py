@@ -7,6 +7,18 @@ scoreenums = (
     (50, 'highest'),
 )
 
+taskstatusenums = (
+    (0, 'new'),
+    (10, 'in validation'),
+    (20, 'in backlog'),
+    (30, 'in sprint'),
+    (40, 'in progress'),
+    (50, 'in review'),
+    (60, 'completed'),
+    (70, 'done'),
+    (80, 'blocked'),
+)
+
 modeldefs = (
     ('base', {
         'types': (
@@ -152,6 +164,9 @@ modeldefs = (
 
             ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                 'doc': 'A generic score enumeration.'}),
+
+            ('meta:task:status', ('int', {'enums': taskstatusenums}), {
+                'doc': 'A task status.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -433,6 +448,49 @@ modeldefs = (
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
 
+            ('meta:task', {
+
+                'doc': 'A common interface for tasks.',
+
+                'template': {'title': 'task'},
+
+                'props': (
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the {title}.'}),
+
+                    ('parent', ('meta:task', {}), {
+                        'doc': 'The parent task which includes this {title}.'}),
+
+                    ('project', ('proj:project', {}), {
+                        'doc': 'The project containing the {title}.'}),
+
+                    ('status', ('meta:task:status', {}), {
+                        'doc': 'The status of the {title}.'}),
+
+                    ('priority', ('meta:score', {}), {
+                        'doc': 'The priority of the {title}.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the {title} was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the {title} was last updated.'}),
+
+                    ('due', ('time', {}), {
+                        'doc': 'The time the {title} must be complete.'}),
+
+                    ('completed', ('time', {}), {
+                        'doc': 'The time the {title} was completed.'}),
+
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The actor who created the {title}.'}),
+
+                    ('assignee', ('entity:actor', {}), {
+                        'doc': 'The actor who is assigned to complete the {title}.'}),
+                ),
+            }),
+
             ('meta:negotiable', {
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
 
@@ -504,6 +562,9 @@ modeldefs = (
 
             (('meta:causal', 'ledto', 'meta:causal'), {
                 'doc': 'The source event led to the target event.'}),
+
+            (('meta:task', 'has', 'file:attachment'), {
+                'doc': 'The task includes the file attachment.'}),
         ),
         'forms': (
 
