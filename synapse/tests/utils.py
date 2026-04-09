@@ -285,7 +285,7 @@ testmodel = (
                     ('servers', ('array', {'type': 'inet:server'}), {}),
                 )
             }),
-            ('test:unused:iface', {}),
+            ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
             ('test:type10', ('test:type', {}), {
