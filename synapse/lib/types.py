@@ -2382,6 +2382,9 @@ class Poly(Type):
                 pass
 
         if not isvalid:
+            if cmpr == '?=':
+                return ()
+
             if badtype:
                 mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)
