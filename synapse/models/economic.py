@@ -254,7 +254,7 @@ modeldefs = (
 
                 ('seller', ('entity:actor', {}), {
                     'prevnames': ('from:contact',),
-                    'doc': 'The actor which sold the items.'}),
+                    'doc': 'The actor who sold the items.'}),
 
                 ('seller:name', ('entity:name', {}), {
                     'doc': 'The name of the actor who sold the items.'}),
