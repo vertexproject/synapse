@@ -540,7 +540,7 @@ class AstConverter(lark.Transformer):
         return s_ast.TryCatch(astinfo, kids)
 
 _grammar = s_data.getLark('storm')
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -650,17 +650,6 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def search(self):
-        try:
-            tree = LarkParser.parse(self.text, start='search')
-            newtree = AstConverter(self.text).transform(tree)
-
-        except lark.exceptions.LarkError as e:
-            raise self._larkToSynExc(e) from None
-
-        newtree.text = self.text
-        return newtree
-
     def cmdargs(self):
         '''
         Parse command args that might have storm queries as arguments
@@ -677,14 +666,6 @@ def parseQuery(text, mode='storm'):
     '''
     if mode == 'lookup':
         return Parser(text).lookup()
-
-    if mode == 'autoadd':
-        look = Parser(text).lookup()
-        look.autoadd = True
-        return look
-
-    if mode == 'search':
-        return Parser(text).search()
 
     return Parser(text).query()
 
@@ -833,7 +814,6 @@ ruleClassMap = {
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
     'relpropvalue': s_ast.RelPropValue,
-    'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),

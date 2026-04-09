@@ -245,28 +245,10 @@ class Lookup(Query):
     '''
     When storm input mode is "lookup"
     '''
-    def __init__(self, astinfo, kids, autoadd=False):
-        Query.__init__(self, astinfo, kids=kids)
-        self.autoadd = autoadd
 
     async def run(self, runt, genr):
 
-        if self.autoadd:
-            self.reqNotReadOnly(runt)
-
-        async def getnode(form, valu):
-            try:
-                if self.autoadd:
-                    runt.layerConfirm(('node', 'add', form))
-                    return await runt.view.addNode(form, valu)
-                else:
-                    norm, info = await runt.model.form(form).type.norm(valu, view=runt.view)
-                    node = await runt.view.getNodeByNdef((form, norm))
-                    if node is None:
-                        await runt.bus.fire('look:miss', ndef=(form, norm))
-                    return node
-            except s_exc.BadTypeValu:
-                return None
+        view = runt.view
 
         async def lookgenr():
 
@@ -277,53 +259,64 @@ class Lookup(Query):
             if not tokns:
                 return
 
-            for tokn in tokns:
-                async for form, valu in s_scrape.scrapeAsync(tokn, first=True):
-                    node = await getnode(form, valu)
-                    if node is not None:
-                        yield node, runt.initPath(node)
+            text = ' '.join(tokns)
 
-        realgenr = lookgenr()
-        if len(self.kids) > 1:
-            realgenr = self.kids[1].run(runt, realgenr)
+            rawscrapes = []
+            async for form, valu, info in view.scrapeIface(text):
+                rawscrapes.append((form, valu, info))
 
-        with s_scope.enter({'runt': runt}):
-            async for node, path in realgenr:
-                yield node, path
+            # filter to non-overlapping matches, preferring longer (more specific) matches
+            rawscrapes.sort(key=lambda x: (x[2].get('offset', 0), -len(x[2].get('match', ''))))
+            scrapes = []
+            covered = -1
+            for item in rawscrapes:
+                offset = item[2].get('offset', 0)
+                match = item[2].get('match', '')
+                if offset >= covered:
+                    scrapes.append(item)
+                    covered = offset + len(match)
 
-class Search(Query):
+            for form, valu, info in scrapes:
+                node = await view.getNodeByNdef((form, valu))
+                if node is None:
+                    await runt.bus.fire('look:miss', ndef=(form, valu))
+                    continue
 
-    async def run(self, runt, genr):
+                yield node, runt.initPath(node)
 
-        view = runt.view
+            # compute remainder by removing all scraped match spans from the text
+            remainder = text
+            for _, _, info in sorted(scrapes, key=lambda x: x[2].get('offset', 0), reverse=True):
+                match = info.get('match')
+                offset = info.get('offset')
+                if match is None or offset is None:
+                    continue
+                remainder = remainder[:offset] + remainder[offset + len(match):]
 
-        if not view.core.stormiface_search:
-            await runt.warn('Storm search interface is not enabled!', log=False)
-            return
-
-        async def searchgenr():
-
-            async for item in genr:
-                yield item
-
-            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
-            if not tokns:
+            remainder = remainder.strip()
+            if not remainder:
                 return
 
-            async with await s_spooled.Set.anit(dirn=runt.view.core.dirn, cell=runt.view.core) as buidset:
+            if not view.core.stormiface_search:
+                await runt.warn('Storm search interface is not enabled!', log=False)
+                return
+
+            tokns = remainder.split()
+
+            async with await s_spooled.Set.anit(dirn=view.core.dirn, cell=view.core) as buidset:
 
                 todo = s_common.todo('search', tokns)
-                async for (prio, buid) in view.mergeStormIface('search', todo):
+                async for (_, buid) in view.mergeStormIface('search', todo):
                     if buid in buidset:
                         await asyncio.sleep(0)
                         continue
 
                     await buidset.add(buid)
-                    node = await runt.view.getNodeByBuid(buid)
+                    node = await view.getNodeByBuid(buid)
                     if node is not None:
                         yield node, runt.initPath(node)
 
-        realgenr = searchgenr()
+        realgenr = lookgenr()
         if len(self.kids) > 1:
             realgenr = self.kids[1].run(runt, realgenr)
 

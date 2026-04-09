@@ -445,8 +445,8 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:str=hello ]')
 
-            # search iface results *are* deduplicated against themselves
-            nodes = await core.nodes('hello hello', opts={'mode': 'search'})
+            # search iface results *are* deduplicated against themselves via lookup remainder
+            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
             self.eq(['test:str'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
@@ -3390,13 +3390,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test reqValidStorm
             self.true(await proxy.reqValidStorm('test:str=test'))
             self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'}))
-            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'}))
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('1.2.3.4 ')
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
-            with self.raises(s_exc.BadSyntax):
-                await proxy.reqValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
 
             # test isValidStorm
             ok, info = await proxy.isValidStorm('test:str=test')
@@ -3407,20 +3404,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(ok)
             self.eq(info, {})
 
-            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
-            self.true(ok)
-            self.eq(info, {})
-
             ok, info = await proxy.isValidStorm('1.2.3.4 ')
             self.false(ok)
             self.eq(info[0], 'BadSyntax')
             self.isin('mesg', info[1])
 
             ok, info = await proxy.isValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
-            self.false(ok)
-            self.eq(info[0], 'BadSyntax')
-
-            ok, info = await proxy.isValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
             self.false(ok)
             self.eq(info[0], 'BadSyntax')
 

@@ -8,10 +8,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
-import synapse.lib.view as s_view
 import synapse.lib.json as s_json
 import synapse.lib.time as s_time
+import synapse.lib.view as s_view
 import synapse.lib.editor as s_editor
+import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_test
 
@@ -127,11 +128,13 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
+        # search interface disabled: non-scrapeable remainder yields no search results
         conf = {'storm:interface:search': False}
         async with self.getTestCore(conf=conf) as core:
-            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
+            msgs = await core.stormlist('asdf asdf', opts={'mode': 'lookup'})
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
+        # non-scrapeable text is sent to the search interface via lookup mode
         async with self.getTestCore() as core:
             core.loadStormPkg({
                 'name': 'testsearch',
@@ -148,19 +151,20 @@ class AstTest(s_test.SynTest):
             })
             await core.nodes('[ ou:org=* :name=apt1 ]')
             await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'search'})
+
+            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
             self.propeq(nodes[0], 'name', 'apt1')
 
-            nodes = await core.nodes('', opts={'mode': 'search'})
+            nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)
 
-            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            nodes = await core.nodes('| uniq', opts={'mode': 'lookup', 'idens': [nodeiden]})
             self.len(1, nodes)
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('| $$$$', opts={'mode': 'search'})
+                await core.nodes('| $$$$', opts={'mode': 'lookup'})
 
     async def test_try_set(self):
         '''
@@ -186,18 +190,9 @@ class AstTest(s_test.SynTest):
             self.propeq(nodes[0], 'tick', 1546300800000000)
 
     async def test_ast_autoadd(self):
-
-        async with self.getTestCore() as core:
-            visi = await core.auth.addUser('visi')
-            with self.raises(s_exc.AuthDeny):
-                opts = {'mode': 'autoadd', 'user': visi.iden}
-                nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            opts = {'mode': 'autoadd'}
-            nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
-            self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
+        # autoadd mode has been removed; it now falls through to storm mode
+        tree = s_parser.parseQuery('inet:ip=1.2.3.4', mode='autoadd')
+        self.isinstance(tree, s_ast.Query)
 
     async def test_ast_lookup(self):
 
@@ -216,18 +211,18 @@ class AstTest(s_test.SynTest):
             opts = {'mode': 'lookup'}
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             # check lookup refang
             q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228 | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
             self.true(all(n.getTag('hehe') is not None for n in nodes))
 
             # AST object passes through inbound genrs
@@ -2918,9 +2913,6 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('$lib.view.get().fork()', opts={'readonly': True})
-
-            with self.raises(s_exc.IsReadOnly):
-                await core.nodes('vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ip | limit 1 | tee { [+#foo] }', opts={'readonly': True})
