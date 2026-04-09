@@ -2369,7 +2369,9 @@ class Poly(Type):
         novirts = False
         badtype = False
 
-        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+        typeset = self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
+
+        for ntyp in typeset:
             try:
                 for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
                     cmprs[ncmpr] = True
@@ -2382,7 +2384,7 @@ class Poly(Type):
                 pass
 
         if not isvalid:
-            if cmpr == '?=':
+            if len(typeset) == 0 and cmpr == '?=':
                 return ()
 
             if badtype:

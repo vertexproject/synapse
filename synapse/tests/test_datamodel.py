@@ -1181,6 +1181,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 ptyp.getVirtInfo(('newp',))
 
+            # invalid virtual prop with tryoper still raises NoSuchVirt
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:flow:server.newp?=1.2.3.4')
+
             msgs = await core.stormlist('[test:str=foobar :polyarry++={[inet:server=tcp://1.2.3.4:9000]}]')
             for m in msgs:
                 s_json.reqjsonsafe(m)
