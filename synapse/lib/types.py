@@ -2369,7 +2369,16 @@ class Poly(Type):
         novirts = False
         badtype = False
 
-        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+        typeset = self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
+
+        if len(typeset) == 0:
+            if cmpr == '?=':
+                return ()
+
+            mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)
+
+        for ntyp in typeset:
             try:
                 for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
                     cmprs[ncmpr] = True
@@ -2382,9 +2391,6 @@ class Poly(Type):
                 pass
 
         if not isvalid:
-            if cmpr == '?=':
-                return ()
-
             if badtype:
                 mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)

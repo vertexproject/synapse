@@ -285,6 +285,7 @@ testmodel = (
                     ('servers', ('array', {'type': 'inet:server'}), {}),
                 )
             }),
+            ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
             ('test:type10', ('test:type', {}), {
@@ -497,6 +498,7 @@ testmodel = (
                     ('inet:fqdn', {})
                 )}), {}),
                 ('polyint', ('test:interface', {}), {}),
+                ('polyempty', ('test:unused:iface', {}), {}),
             )),
 
             ('test:str2', {}, ()),
