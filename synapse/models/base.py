@@ -38,6 +38,9 @@ modeldefs = (
                 'doc': 'A name used to refer to a specific event or activity.'}),
 
             ('meta:topic', ('base:name', {}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'doc': 'A topic string.'}),
 
             ('meta:feed', ('guid', {}), {
