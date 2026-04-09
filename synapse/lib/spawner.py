@@ -8,8 +8,8 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.const as s_const
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 import synapse.lib.process as s_process
 
 logger = logging.getLogger(__name__)
