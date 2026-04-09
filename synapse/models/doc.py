@@ -51,8 +51,31 @@ modeldefs = (
 
                     ('file:name', ('file:base', {}), {
                         'doc': 'The name of the file containing the {title} contents.'}),
+
+                    ('file:captured', ('time', {}), {
+                        'doc': 'The time when the file content was captured.'}),
                 ),
                 'doc': 'A common interface for documents.'}),
+
+            ('doc:published', {
+                'template': {'title': 'report'},
+                'props': (
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the {title} is publicly available.'}),
+
+                    ('published', ('time', {}), {
+                        'doc': 'The time the {title} was published.'}),
+
+                    ('publisher', ('entity:actor', {}), {
+                        'doc': 'The entity which published the {title}.'}),
+
+                    ('publisher:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which published the {title}.'}),
+
+                    ('topics', ('array', {'type': 'meta:topic'}), {
+                        'doc': 'The topics discussed in the {title}.'}),
+                ),
+                'doc': 'Properties common to published documents.'}),
 
             ('doc:signable', {
                 'props': (
@@ -118,6 +141,7 @@ modeldefs = (
                 'template': {'title': 'report', 'syntax': 'markdown'},
                 'interfaces': (
                     ('doc:document', {}),
+                    ('doc:published', {}),
                 ),
                 'doc': 'A report.'}),
 

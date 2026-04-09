@@ -1186,17 +1186,17 @@ modeldefs = (
         ),
         'interfaces': (
 
-            ('it:host:runtime', {
+            ('it:host:exec', {
                 'props': (
 
                     ('exe', ('file:bytes', {}), {
                         'doc': 'The executable file which caused the {title}.'}),
 
                     ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The host process which caused the {title}.'}),
+                        'doc': 'The process which caused the {title}.'}),
 
                     ('thread', ('it:exec:thread', {}), {
-                        'doc': 'The host thread which caused the {title}.'}),
+                        'doc': 'The thread which caused the {title}.'}),
 
                     ('host', ('it:host', {}), {
                         'doc': 'The host on which the {title} occurred.'}),
@@ -1210,17 +1210,17 @@ modeldefs = (
                 'template': {'title': 'event'},
                 'interfaces': (
                     ('base:event', {}),
-                    ('it:host:runtime', {}),
+                    ('it:host:exec', {}),
                 ),
-            }),
+                'doc': 'An event which occurred on a host.'}),
 
             ('it:host:activity', {
                 'template': {'title': 'activity'},
                 'interfaces': (
                     ('base:activity', {}),
-                    ('it:host:runtime', {}),
+                    ('it:host:exec', {}),
                 ),
-            }),
+                'doc': 'Activity which occurred on a host.'}),
         ),
         'edges': (
 
