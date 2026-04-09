@@ -1266,8 +1266,8 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq(nodes[4][1]['props']['poly.type'], 'test:int')
 
-            self.eq(nodes[5][1]['props']['polyarry.ip'], {(4, 16909060): 2, (4, 16909061): 1})
-            self.eq(nodes[5][1]['props']['polyarry.port'], {80: 2, 90: 1})
+            self.eq(nodes[5][1]['props']['polyarry.ip'], (((4, 16909060), 2), ((4, 16909061), 1)))
+            self.eq(nodes[5][1]['props']['polyarry.port'], ((80, 2), (90, 1)))
             self.eq(nodes[5][1]['props']['polyarry.size'], 3)
 
             opts['view'] = fork
