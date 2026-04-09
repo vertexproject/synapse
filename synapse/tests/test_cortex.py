@@ -3390,6 +3390,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test reqValidStorm
             self.true(await proxy.reqValidStorm('test:str=test'))
             self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'}))
+            with self.raises(s_exc.BadArg):
+                await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('1.2.3.4 ')
             with self.raises(s_exc.BadSyntax):
@@ -3403,6 +3405,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'})
             self.true(ok)
             self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
+            self.false(ok)
+            self.eq(info[0], 'BadArg')
 
             ok, info = await proxy.isValidStorm('1.2.3.4 ')
             self.false(ok)

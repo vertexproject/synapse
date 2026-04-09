@@ -1608,6 +1608,7 @@ class HttpApiTest(s_tests.SynTest):
                     ('1.2.3.4 | spin', {'mode': 'lookup'}, 'ok'),
                     ('1.2.3.4', {}, 'err'),
                     ('| 1.2.3.4 ', {'mode': 'lookup'}, 'err'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'err'),
                 )
                 url = f'https://localhost:{port}/api/v1/reqvalidstorm'
                 for (query, opts, rcode) in tvs:
@@ -1633,6 +1634,7 @@ class HttpApiTest(s_tests.SynTest):
                     ('1.2.3.4 | spin', {'mode': 'lookup'}, True),
                     ('1.2.3.4', {}, 'BadSyntax'),
                     ('| 1.2.3.4 ', {'mode': 'lookup'}, 'BadSyntax'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'BadArg'),
                     (12345678, {}, 'TypeError'),
                 )
                 url = f'https://localhost:{port}/api/v1/isvalidstorm'

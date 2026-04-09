@@ -517,7 +517,7 @@ Example:
 
     .. code:: python3
 
-        # Using lookup mode, the query text (before an optional | pipe to command mode) is scraped
+        # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
         # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
         # any matching nodes. A look:miss message is fired for any scraped value that is not found
         # in the current View. Any text that remains after scraping is sent to the Storm search

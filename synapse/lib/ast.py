@@ -297,7 +297,6 @@ class Lookup(Query):
                 return
 
             if not view.core.stormiface_search:
-                await runt.warn('Storm search interface is not enabled!', log=False)
                 return
 
             tokns = remainder.split()

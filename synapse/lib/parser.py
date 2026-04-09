@@ -664,10 +664,12 @@ def parseQuery(text, mode='storm'):
     '''
     Parse a storm query and return the Lark AST.  Cached here to speed up unit tests
     '''
-    if mode == 'lookup':
+    if mode == 'storm':
+        return Parser(text).query()
+    elif mode == 'lookup':
         return Parser(text).lookup()
 
-    return Parser(text).query()
+    raise s_exc.BadArg(mesg=f'Invalid query mode: {mode}')
 
 def parseEval(text):
     return Parser(text).eval()

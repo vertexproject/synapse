@@ -128,12 +128,6 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
-        # search interface disabled: non-scrapeable remainder yields no search results
-        conf = {'storm:interface:search': False}
-        async with self.getTestCore(conf=conf) as core:
-            msgs = await core.stormlist('asdf asdf', opts={'mode': 'lookup'})
-            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
-
         # non-scrapeable text is sent to the search interface via lookup mode
         async with self.getTestCore() as core:
             core.loadStormPkg({
@@ -190,9 +184,8 @@ class AstTest(s_test.SynTest):
             self.propeq(nodes[0], 'tick', 1546300800000000)
 
     async def test_ast_autoadd(self):
-        # autoadd mode has been removed; it now falls through to storm mode
-        tree = s_parser.parseQuery('inet:ip=1.2.3.4', mode='autoadd')
-        self.isinstance(tree, s_ast.Query)
+        with self.raises(s_exc.BadArg):
+            s_parser.parseQuery('inet:ip=1.2.3.4', mode='autoadd')
 
     async def test_ast_lookup(self):
 

@@ -1564,9 +1564,8 @@ class GrammarTest(s_t_utils.SynTest):
             parser.lookup()
 
     def test_mode_search(self):
-        # search mode has been removed; it falls through to storm mode
-        tree = s_parser.parseQuery('inet:fqdn=vertex.link', mode='search')
-        self.eq(str(tree), 'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: vertex.link]]')
+        with self.raises(s_exc.BadArg):
+            s_parser.parseQuery('inet:fqdn=vertex.link', mode='search')
 
     def test_mode_storm(self):
         # added for coverage of the top level function...
@@ -1574,9 +1573,8 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(str(tree), 'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: vertex.link]]')
 
     def test_mode_autoadd(self):
-        # autoadd mode has been removed; it falls through to storm mode
-        tree = s_parser.parseQuery('inet:fqdn=vertex.link', mode='autoadd')
-        self.eq(str(tree), 'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: vertex.link]]')
+        with self.raises(s_exc.BadArg):
+            s_parser.parseQuery('inet:fqdn=vertex.link', mode='autoadd')
 
     def test_parse_float(self):
         self.raises(s_exc.BadSyntax, s_grammar.parse_float, 'visi', 0)
