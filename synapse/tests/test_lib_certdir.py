@@ -1656,13 +1656,28 @@ class CertDirTest(s_t_utils.SynTest):
 
                 return codecert.public_bytes(c_serialization.Encoding.PEM)
 
-            # Expired root CA
+            # Expired root CA — direct code cert
             expkey = c_rsa.generate_private_key(65537, 2048)
             byts = _makeRootAndCode('adv-exproot', 'adv-exproot-code', expkey,
                                     datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc),
                                     datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc))
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
+            self.isin('issuer certificate has expired', cm.exception.get('mesg'))
+
+            # Expired root CA — with intermediate chain (root -> imm1 -> imm2 -> code)
+            # Save the expired root's key so genCaCert can sign intermediates with it
+            cdir._savePkeyTo(expkey, 'cas', 'adv-exproot.key')
+            cdir.genCaCert('adv-exproot-imm1', signas='adv-exproot')
+            cdir.genCaCert('adv-exproot-imm2', signas='adv-exproot-imm1')
+            cdir.genCodeCert('adv-exproot-deep-code', signas='adv-exproot-imm2')
+
+            fp = cdir.getCodeCertPath('adv-exproot-deep-code')
+            with s_common.genfile(fp) as fd:
+                deepbyts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(deepbyts)
             self.isin('issuer certificate has expired', cm.exception.get('mesg'))
 
             # Not-yet-valid root CA
