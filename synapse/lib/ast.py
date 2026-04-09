@@ -19,7 +19,6 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
-import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
