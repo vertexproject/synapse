@@ -152,15 +152,15 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 **Examples:**
 
-*Filter the current working set to only include host activity nodes (all nodes of all forms that inherit the it:host:activity interface):*
+*Filter the current working set to only include host event nodes (all nodes of all forms that inherit the it:host:event interface):*
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:windows:registry:set=* ] +it:host:activity
+    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:windows:registry:set=* ] +it:host:event
 
 ::
-  
-  <query> +it:host:activity
+
+  <query> +it:host:event
 
 *Filter the current working set to exclude taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 

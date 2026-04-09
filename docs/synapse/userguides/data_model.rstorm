@@ -121,7 +121,7 @@ Interfaces have two primary uses:
   **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes
   (``it:exec:file:write``) or process execution (``it:exec:proc``). These forms represent similar operations and
   share secondary properties such as the time of execution (``:time``) and the file (``:exe``) or process (``:proc``)
-  responsible for the activity. These properties are defined on an ``it:host:activity`` **interface** which is
+  responsible for the activity. These properties are defined on an ``it:host:event`` **interface** which is
   implemented for each form.
   
   Forms can implement multiple interfaces, and interfaces can implement other interfaces. Interfaces are "stackable"
