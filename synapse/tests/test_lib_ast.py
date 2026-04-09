@@ -249,6 +249,27 @@ class AstTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0][0], ('inet:ip', (4, 0x01020304)))
 
+        # a Storm scrape interface that returns info without match/offset is
+        # handled gracefully (the span is not removed from the remainder)
+        async with self.getTestCore() as core:
+            core.loadStormPkg({
+                'name': 'testscrape',
+                'modules': [
+                    {'name': 'testscrape', 'interfaces': ['scrape'], 'storm': '''
+                        function scrape(text) {
+                            [ inet:fqdn=scrape.test.com ]
+                            return ( (("inet:fqdn", "scrape.test.com", ({"custom": "info"})),) )
+                        }
+                    '''},
+                ],
+            })
+            # use text the built-in scraper won't match so the Storm scrape
+            # interface result (with no match/offset in info) reaches the
+            # remainder computation and exercises the continue branch
+            nodes = await core.nodes('notascrapabletoken', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'scrape.test.com'))
+
     async def test_ast_subq_vars(self):
 
         async with self.getTestCore() as core:
