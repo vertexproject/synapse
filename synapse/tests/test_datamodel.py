@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.json as s_json
 import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
@@ -1179,3 +1180,10 @@ class DataModelTest(s_t_utils.SynTest):
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
                 ptyp.getVirtInfo(('newp',))
+
+            msgs = await core.stormlist('[test:str=foobar :polyarry++={[inet:server=tcp://1.2.3.4:9000]}]')
+            for m in msgs:
+                s_json.reqjsonsafe(m)
+
+            nodes = await core.nodes('test:str=foobar')
+            s_json.reqjsonsafe(nodes[0].pack(virts=True))
