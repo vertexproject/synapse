@@ -59,7 +59,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        #{'type': 'prop', 'opts': {'name': 'cvss:v3_0:score'}},
+                        # {'type': 'prop', 'opts': {'name': 'cvss:v3_0:score'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },

@@ -151,8 +151,8 @@ modeldefs = (
                 ('seller:name', ('entity:name', {}), {
                     'doc': 'The name of the seller.'}),
 
-                #('purchase', ('econ:purchase', {}), {
-                    #'doc': 'Records a purchase resulting from the deal.'}),
+                # ('purchase', ('econ:purchase', {}), {
+                    # 'doc': 'Records a purchase resulting from the deal.'}),
             )),
 
             ('biz:listing', {}, (

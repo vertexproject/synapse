@@ -560,8 +560,8 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'skill::name'}},
-                        #{'type': 'prop', 'opts': {'name': 'period.min'}},
-                        #{'type': 'prop', 'opts': {'name': 'period.max'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
                 },
                 'props': (
