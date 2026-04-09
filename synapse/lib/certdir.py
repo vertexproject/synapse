@@ -20,7 +20,6 @@ import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
 import cryptography.hazmat.primitives.asymmetric.types as c_types
-import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 import cryptography.hazmat.primitives.serialization as c_serialization
 import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
@@ -92,17 +91,18 @@ TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
 def _verifyCertSignature(cert, cacert):
     '''
-    Verify that cert was signed by cacert using RSA PKCS1v15.
+    Verify that cert was directly issued and signed by cacert.
 
-    Only RSA keys are supported. This is consistent with Certdirs
+    Only RSA keys are supported. This is consistent with the certdir
     key generation policy (4096-bit RSA only). Raises BadCertVerify for
-    unsupported key types or invalid signatures.
+    unsupported key types or invalid signatures. Uses the cryptography
+    library verify_directly_issued_by API which checks both the issuer
+    name match and the cryptographic signature.
     '''
     pubkey = cacert.public_key()
     if not isinstance(pubkey, c_rsa.RSAPublicKey):
         raise s_exc.BadCertVerify(mesg=f'Unsupported CA key type: {type(pubkey).__name__}')
-    pubkey.verify(cert.signature, cert.tbs_certificate_bytes,
-                  c_padding.PKCS1v15(), cert.signature_hash_algorithm)
+    cert.verify_directly_issued_by(cacert)
 
 class Crl:
 
@@ -151,13 +151,10 @@ class Crl:
         '''
         Verify that the certificate was issued by the CA associated with this CRL.
 
-        Checks the issuer name matches the CA subject, then verifies the
+        Uses verify_directly_issued_by to check both issuer name and
         cryptographic signature. Raises BadCertVerify on failure.
         '''
         cacert = self.certdir.getCaCert(self.name)
-        if cert.issuer != cacert.subject:
-            raise s_exc.BadCertVerify(mesg='Certificate was not issued by this CA')
-
         try:
             _verifyCertSignature(cert, cacert)
         except s_exc.BadCertVerify:
@@ -658,9 +655,6 @@ class CertDir:
 
         issuercert = None
         for cacert in cacerts:
-            if cert.issuer != cacert.subject:
-                continue
-
             try:
                 _verifyCertSignature(cert, cacert)
                 issuercert = cacert
