@@ -146,3 +146,12 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'text', 'an exploit example')
             self.propeq(nodes[0], 'doc:url', 'https://github.com/foo/bar/exploit.py')
             self.len(1, await core.nodes('doc:reference#test01 :source -> risk:vuln'))
+
+            nodes = await core.nodes('''[
+                doc:report=*
+                    :id=RPT-001
+                    :ids=(RPT-001-A, RPT-001-B)
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'RPT-001')
+            self.propeq(nodes[0], 'ids', ('RPT-001-A', 'RPT-001-B'))

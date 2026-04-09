@@ -933,7 +933,7 @@ class Node(NodeBase):
                     for vname, vvals in vprops.items():
                         if vname[0] == '_':
                             continue
-                        retn[f'{name}.{vname}'] = {vval[0]: vcnt for vval, vcnt in vvals.items()}
+                        retn[f'{name}.{vname}'] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                     retn[f'{name}.size'] = len(valu)
                     retn[f'{name}.type'] = [v[0] for v in valu]

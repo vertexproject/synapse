@@ -216,7 +216,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, stype, vvals) = parms
+                    (name, valu, stype, vprops) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
@@ -231,8 +231,12 @@ class View(s_nexus.Pusher):  # type: ignore
                         stype &= s_layer.STOR_MASK_POLY
 
                         if stype & s_layer.STOR_FLAG_ARRAY:
-                            if vvals is not None:
-                                virts = dict(vvals)
+                            if vprops is not None:
+                                virts = {}
+                                for key, vvals in vprops.items():
+                                    if key[0] == '_':
+                                        continue
+                                    virts[key] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                             virts['size'] = len(valu)
                             virts['type'] = [v[0] for v in valu]
@@ -243,8 +247,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         else:
                             virts['type'] = valu[0]
 
-                            if vvals is not None:
-                                for vname, vval in vvals.items():
+                            if vprops is not None:
+                                for vname, vval in vprops.items():
                                     virts[vname] = vval[0]
 
                             if (svirts := s_node.storvirts.get(stype)) is not None:
