@@ -82,6 +82,7 @@ modeldefs = (
                 'doc': 'Properties common to published documents.'}),
 
             ('doc:signable', {
+                'template': {'title': 'document'},
                 'props': (
                     ('signed', ('time', {}), {
                         'doc': 'The date that the {title} signing was complete.'}),

@@ -437,6 +437,7 @@ modeldefs = (
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
 
             ('meta:recordable', {
+                'template': {'title': 'event'},
                 'props': (
                     ('recording:url', ('inet:url', {}), {
                         'doc': 'The URL hosting a recording of the {title}.'}),

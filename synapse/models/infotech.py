@@ -1201,6 +1201,7 @@ modeldefs = (
         'interfaces': (
 
             ('it:host:exec', {
+                'template': {'title': 'activity'},
                 'props': (
 
                     ('exe', ('file:bytes', {}), {

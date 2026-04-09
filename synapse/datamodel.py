@@ -861,7 +861,7 @@ class Model:
 
         if interfaces:
             for iface in interfaces:
-                for form in self.formsbyiface.get(iface):
+                for form in self.formsbyiface.get(iface, ()):
                     typeset.add(self.form(form).type)
 
         typeset = tuple(typeset)
@@ -882,7 +882,7 @@ class Model:
 
         if interfaces:
             for iface in interfaces:
-                for form in self.formsbyiface.get(iface):
+                for form in self.formsbyiface.get(iface, ()):
                     formset.add(self.form(form))
 
         formset = tuple(formset)

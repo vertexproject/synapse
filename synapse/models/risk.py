@@ -371,6 +371,7 @@ modeldefs = (
                 'doc': 'An interface implemented by forms which are targets of threats.'}),
 
             ('risk:victimized', {
+                'template': {'title': 'event'},
                 'props': (
                     ('victim', ('entity:actor', {}), {
                         'doc': 'The victim of the {title}.'}),

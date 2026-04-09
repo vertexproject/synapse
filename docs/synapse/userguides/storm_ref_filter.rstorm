@@ -257,13 +257,13 @@ property by specifying the full name of the interface and its property.
 
 **Example:**
 
-*Filter the current working set to only include those host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
+*Filter the current working set to only include those host event nodes (all nodes of all forms that inherit the it:host:event interface) that have a :time property:*
 
-.. storm-pre:: [ it:exec:file:add=* ( it:exec:file:add=* :time=now ) ] +it:host:activity:time
+.. storm-pre:: [ it:exec:file:add=* ( it:exec:file:add=* :time=now ) ] +it:host:event:time
 
 ::
-  
-  <query> +it:host:activity:time
+
+  <query> +it:host:event:time
 
 .. TIP::
   
@@ -476,13 +476,13 @@ property value by using the name of the interface.
   
   <query> +file:mime:msoffice:author = admin
 
-*Filter the current working set to exclude any host activity nodes (all nodes of all forms that inherit the it:host:activity interface) observed earlier than January 1, 2024:*
+*Filter the current working set to exclude any host event nodes (all nodes of all forms that inherit the it:host:event interface) observed earlier than January 1, 2024:*
 
-.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:file:write=* :time=2022/02/20) ] -it:host:activity:time < 2024/01/01
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:file:write=* :time=2022/02/20) ] -it:host:event:time < 2024/01/01
 
 ::
-  
-  <query> -it:host:activity:time < 2024/01/01
+
+  <query> -it:host:event:time < 2024/01/01
 
 
 .. _filter-prop-std-meta:
@@ -827,13 +827,13 @@ of times and intervals.
   <query> +:published @= ( now, '-1 day' )
 
 
-*Filter the current working set to only include the host activity nodes (all nodes of all forms that inherit the it:host:activity interface) whose :time value is within the past three hours:*
+*Filter the current working set to only include the host event nodes (all nodes of all forms that inherit the it:host:event interface) whose :time value is within the past three hours:*
 
-.. storm-pre:: [ (it:exec:mutex=* :time=2024/01/13) (it:exec:file:write=* :time=2024/01/31) (it:exec:proc=* :time=now) ] +it:host:activity:time @= (now, '-3 hours')
+.. storm-pre:: [ (it:exec:mutex:add=* :time=2024/01/13) (it:exec:file:write=* :time=2024/01/31) (it:exec:file:add=* :time=now) ] +it:host:event:time @= (now, '-3 hours')
 
 ::
-  
-  <query> +it:host:activity:time @= (now, '-3 hours')
+
+  <query> +it:host:event:time @= (now, '-3 hours')
 
 
 **Usage Notes:**
