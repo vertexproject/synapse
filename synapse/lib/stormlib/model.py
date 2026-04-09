@@ -390,7 +390,7 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'type', 'desc': 'Get the Type for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
                   'returns': {'type': 'model:type'}}},
-        {'name': 'allowedforms', 'desc': 'Get Forms which may be used as values for the Property.',
+        {'name': 'allowedtypes', 'desc': 'Get Types which may be used as values for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedTypes',
                   'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
     )
@@ -425,7 +425,7 @@ class ModelProp(s_stormtypes.Prim):
         if not ptyp.ispoly:
             return ()
 
-        return tuple(ModelType(name) for name in ptyp.getTypeSet())
+        return tuple(ModelType(tobj) for tobj in ptyp.getTypeSet())
 
     def value(self):
         return self.valu.pack()
