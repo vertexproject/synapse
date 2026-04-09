@@ -67,15 +67,15 @@ modeldefs = (
                 'doc': 'A project sprint status.'}),
 
             ('proj:ticket:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('proj:ticket:type:taxonomy',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of project task types.'}),
 
             ('proj:ticket', ('guid', {}), {
+                'template': {'title': 'ticket'},
                 'interfaces': (
-                    ('proj:task', {'template': {'task': 'task'}}),
+                    ('proj:task', {}),
                 ),
                 'doc': 'A task.'}),
 

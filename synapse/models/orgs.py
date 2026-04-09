@@ -336,6 +336,7 @@ modeldefs = (
                 'doc': 'A taxonomy of enacted statuses.'}),
 
             ('ou:enacted', ('guid', {}), {
+                'template': {'title': 'adoption task'},
                 'interfaces': (
                     ('proj:task', {}),
                 ),

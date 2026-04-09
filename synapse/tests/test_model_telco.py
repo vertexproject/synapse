@@ -19,22 +19,15 @@ class TelcoModelTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, typ.norm('1'))
 
             # tel:mob:tac
-            oguid = s_common.guid()
             place = s_common.guid()
-            props = {'manu': 'Acme Corp',
-                     'model': 'eYephone 9000',
-                     'internal': 'spYphone 9000',
-                     'org': oguid,
-                     }
-            q = '''[(tel:mob:tac=1 :manu=$p.manu :model=$p.model :internal=$p.internal :org=$p.org)]'''
+            props = {'model': 'eYephone 9000'}
+            q = '''[(tel:mob:tac=1 :model=$p.model :owner={[ ou:org=({"name": "acme"}) ]})]'''
             nodes = await core.nodes(q, opts={'vars': {'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:tac', 1))
-            self.propeq(node, 'manu', 'acme corp')
             self.propeq(node, 'model', 'eyephone 9000')
-            self.propeq(node, 'internal', 'spyphone 9000')
-            self.propeq(node, 'org', oguid)
+            self.nn(node.get('owner'))
 
             nodes = await core.nodes('[tel:mob:imid=(490154203237518, 310150123456789)]')
             self.len(1, nodes)
@@ -104,14 +97,12 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'name': 'Robert Grey',
                      'email': 'clown@vertex.link',
                      'app': softguid,
-                     'data': {'some key': 'some valu',
-                              'BEEP': 1}
                      }
             q = '''[(tel:mob:telem=$valu :time=$p.time :place:latlong=$p.latlong :place=$p.place :host=$p.host
              :place:loc=$p.loc :place:latlong:accuracy=$p.accuracy
              :cell=* :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
              :mac=$p.mac :ip=$p.ip :wifi:ap=* :adid=$p.adid
-             :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
+             :name=$p.name :email=$p.email :app=$p.app :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -131,7 +122,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.propeq(node, 'name', 'robert grey')
             self.propeq(node, 'email', 'clown@vertex.link')
             self.propeq(node, 'app', softguid)
-            self.propeq(node, 'data', {'some key': 'some valu', 'BEEP': 1})
             self.len(1, await core.nodes('tel:mob:telem :cell -> tel:mob:cell'))
             self.len(1, await core.nodes('tel:mob:telem :wifi:ap -> inet:wifi:ap'))
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))

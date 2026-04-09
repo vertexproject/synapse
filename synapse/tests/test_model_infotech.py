@@ -34,8 +34,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 it:exec:thread=*
                     :proc=*
-                    :created=20210202
-                    :exited=20210203
+                    :period=(20210202, 20210203)
                     :exitcode=0
                     :src:proc=*
                     :src:thread=*
@@ -43,13 +42,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
-            self.propeq(nodes[0], 'created', 1612224000000000)
-            self.propeq(nodes[0], 'exited', 1612310400000000)
+            self.propeq(nodes[0], 'period', (1612224000000000, 1612310400000000, 86400000000))
             self.propeq(nodes[0], 'exitcode', 0)
-            self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread:created :src:thread -> it:exec:thread'))
-            self.len(1, await core.nodes('it:exec:thread:created :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:thread :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread :src:proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread :src:thread -> it:exec:thread'))
+            self.len(1, await core.nodes('it:exec:thread :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:lib:load=*
@@ -73,7 +71,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:lib:load :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
-                it:exec:mmap=*
+                it:exec:mmap:add=*
                     :proc=*
                     :va=0x00a000
                     :size=4096
@@ -97,10 +95,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'created', 1612224000000000)
             self.propeq(nodes[0], 'deleted', 1612310400000000)
             self.propeq(nodes[0], 'hash:sha256', 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
-            self.len(1, await core.nodes('it:exec:mmap -> crypto:hash:sha256'))
-            self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:mmap -> file:path +file:path=/home/invisigoth/rootkit.so'))
-            self.len(1, await core.nodes('it:exec:mmap :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:mmap:add -> crypto:hash:sha256'))
+            self.len(1, await core.nodes('it:exec:mmap:add :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:mmap:add -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:mmap:add :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
@@ -169,7 +167,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :desc="Vertex Project Operations LAN"
                 :name="opslan.lax.vertex.link"
                 :net="10.1.0.0/16"
-                :org={ gen.ou.org "Vertex Project" }
+                :owner={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
                 :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
             ]
@@ -904,12 +902,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:mutex=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+            q = '''[(it:exec:mutex:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
                     :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': mprops}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:exec:mutex', m0))
+            self.eq(node.ndef, ('it:exec:mutex:add', m0))
             self.propeq(node, 'exe', exe)
             self.propeq(node, 'proc', proc)
             self.propeq(node, 'host', host)
@@ -926,12 +924,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:pipe=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+            q = '''[(it:exec:pipe:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
                     :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': p0, 'p': pipeprops}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:exec:pipe', p0))
+            self.eq(node.ndef, ('it:exec:pipe:add', p0))
             self.propeq(node, 'exe', exe)
             self.propeq(node, 'proc', proc)
             self.propeq(node, 'host', host)
@@ -1184,9 +1182,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/yara-lolz/V-31337
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk
-                    :author={[ entity:contact=* ]}
+                    :creator={[ entity:contact=* ]}
                     :name=foo :version=1.2.3
-                    +(detects)> {[ it:softwarename=woot :seen=2022 ]}
+                    +(detects)> {[ it:softwarename=woot ]}
                 ]
             ''')
 
@@ -1202,7 +1200,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'version.semver', 0x10000200003)
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
-            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename +:seen'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
@@ -1228,7 +1226,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :engine=1
                 :text=gronk
                 :name=foo
-                :author = {[ entity:contact=* :name=visi ]}
+                :creator = {[ entity:contact=* :name=visi ]}
                 :created = 20120101
                 :updated = 20220101
                 :enabled=1
@@ -1246,7 +1244,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'version', '1.2.3')
             self.propeq(nodes[0], 'created', 1325376000000000)
             self.propeq(nodes[0], 'updated', 1640995200000000)
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
 
             self.len(1, await core.nodes('it:app:snort:rule -(detects)> it:softwarename'))
 

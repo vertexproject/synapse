@@ -50,7 +50,6 @@ class ProjModelTest(s_test.SynTest):
                     :desc=FooBar
                     :type=hehe.haha
 
-                    :sprint={ proj:sprint }
                     :project={ proj:project }
 
                     :creator={[ syn:user=root ]}
@@ -61,6 +60,7 @@ class ProjModelTest(s_test.SynTest):
 
                     +(has)> {[ file:attachment=* ]}
                     <(about)+ {[ meta:note=* ]}
+                    <(has)+ { proj:sprint }
                 ]
             ''')
             self.propeq(nodes[0], 'name', 'syn3.0')
@@ -71,7 +71,7 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'created', 1752624000000000)
             self.propeq(nodes[0], 'completed', 1752624000000000)
 
-            self.len(1, await core.nodes('proj:ticket :sprint -> proj:sprint'))
+            self.len(1, await core.nodes('proj:ticket <(has)- proj:sprint'))
             self.len(1, await core.nodes('proj:ticket :project -> proj:project'))
             self.len(1, await core.nodes('proj:ticket -(has)> file:attachment'))
             self.len(1, await core.nodes('proj:ticket <(about)- meta:note'))

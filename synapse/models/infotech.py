@@ -653,6 +653,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of log event types.'}),
 
             ('it:log:event', ('guid', {}), {
+                'template': {'title': 'log event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -698,6 +699,7 @@ modeldefs = (
                 'doc': 'Software installed on a specific host.'}),
 
             ('it:exec:screenshot', ('guid', {}), {
+                'template': {'title': 'screenshot event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1002,12 +1004,14 @@ modeldefs = (
                 'doc': 'A thread executing in a process.'}),
 
             ('it:exec:lib:load', ('guid', {}), {
+                'template': {'title': 'library load event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'A library load event in a process.'}),
 
             ('it:exec:mmap:add', ('guid', {}), {
+                'template': {'title': 'memory map event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1027,6 +1031,7 @@ modeldefs = (
                 'doc': 'A unique query string.'}),
 
             ('it:exec:query', ('guid', {}), {
+                'template': {'title': 'query event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1050,36 +1055,42 @@ modeldefs = (
 
             ('it:exec:fetch', ('guid', {}), {
                 'prevnames': ('it:hosturl',),
+                'template': {'title': 'fetch event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
             ('it:exec:bind', ('guid', {}), {
+                'template': {'title': 'bind event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
 
             ('it:exec:file:add', ('guid', {}), {
+                'template': {'title': 'file add event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host adding a file to a filesystem.'}),
 
             ('it:exec:file:del', ('guid', {}), {
+                'template': {'title': 'file delete event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host deleting a file from a filesystem.'}),
 
             ('it:exec:file:read', ('guid', {}), {
+                'template': {'title': 'file read event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host reading a file from a filesystem.'}),
 
             ('it:exec:file:write', ('guid', {}), {
+                'template': {'title': 'file write event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1087,6 +1098,7 @@ modeldefs = (
 
             ('it:exec:windows:registry:get', ('guid', {}), {
                 'prevnames': ('it:exec:reg:get',),
+                'template': {'title': 'registry get event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1094,6 +1106,7 @@ modeldefs = (
 
             ('it:exec:windows:registry:set', ('guid', {}), {
                 'prevnames': ('it:exec:reg:set',),
+                'template': {'title': 'registry set event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1101,6 +1114,7 @@ modeldefs = (
 
             ('it:exec:windows:registry:del', ('guid', {}), {
                 'prevnames': ('it:exec:reg:del',),
+                'template': {'title': 'registry delete event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -2309,12 +2323,6 @@ modeldefs = (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The process which contains the thread.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the thread was created.'}),
-
-                ('exited', ('time', {}), {
-                    'doc': 'The time the thread exited.'}),
 
                 ('exitcode', ('int', {}), {
                     'doc': 'The exit code or return value for the thread.'}),

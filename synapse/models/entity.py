@@ -46,6 +46,7 @@ modeldefs = (
                 'doc': 'An interface implemented by activities which may be supported in by an actor.'}),
 
             ('entity:creatable', {
+                'template': {'title': 'item'},
                 'props': (
                     ('created', ('time', {}), {
                         'doc': 'The time that the {title} was created.'}),
@@ -560,8 +561,6 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'skill::name'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
                 },
                 'props': (
