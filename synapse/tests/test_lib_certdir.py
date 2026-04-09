@@ -1801,3 +1801,78 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
             self.isin('unable to get local issuer certificate', cm.exception.get('mesg'))
+
+    async def test_certdir_adversarial_unhandled_critical_extension(self):
+        '''A certificate with an unrecognized critical extension is rejected.'''
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('adv-critext-ca')
+            cakey = cdir.getCaKey('adv-critext-ca')
+            cacert = cdir.getCaCert('adv-critext-ca')
+
+            now = datetime.datetime.now(datetime.UTC)
+
+            # Code cert with an unknown critical extension
+            codecert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-critext-code')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .add_extension(c_x509.UnrecognizedExtension(
+                    oid=c_x509.ObjectIdentifier('1.2.3.4.5.6.7.8.9'),
+                    value=b'\x00'), critical=True)
+                .sign(cakey, c_hashes.SHA256()))
+
+            byts = codecert.public_bytes(c_serialization.Encoding.PEM)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('Unhandled critical extension', cm.exception.get('mesg'))
+
+            # Same extension but non-critical should pass
+            okcert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-critext-ok')]))
+                .issuer_name(cacert.subject)
+                .public_key(c_rsa.generate_private_key(65537, 2048).public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), critical=False)
+                .add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+                .add_extension(c_x509.UnrecognizedExtension(
+                    oid=c_x509.ObjectIdentifier('1.2.3.4.5.6.7.8.9'),
+                    value=b'\x00'), critical=False)
+                .sign(cakey, c_hashes.SHA256()))
+
+            okbyts = okcert.public_bytes(c_serialization.Encoding.PEM)
+            self.nn(cdir.valCodeCert(okbyts))
+
+            # Critical extension on issuer CA should also be rejected
+            badcakey = c_rsa.generate_private_key(65537, 2048)
+            badcacert = (c_x509.CertificateBuilder()
+                .subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-critext-badca')]))
+                .issuer_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, 'adv-critext-badca')]))
+                .public_key(badcakey.public_key())
+                .serial_number(c_x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=3650))
+                .add_extension(c_x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .add_extension(c_x509.UnrecognizedExtension(
+                    oid=c_x509.ObjectIdentifier('1.2.3.4.5.6.7.8.9'),
+                    value=b'\x00'), critical=True)
+                .sign(badcakey, c_hashes.SHA256()))
+
+            cdir.saveCaCertByts(badcacert.public_bytes(c_serialization.Encoding.PEM))
+
+            _, cacodecert = self._buildCodeCert('adv-critext-cacode', badcakey, badcacert)
+            cdir.saveCodeCertBytes(cacodecert.public_bytes(c_serialization.Encoding.PEM))
+
+            fp = cdir.getCodeCertPath('adv-critext-cacode')
+            with s_common.genfile(fp) as fd:
+                cabyts = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(cabyts)
+            self.isin('Unhandled critical extension', cm.exception.get('mesg'))

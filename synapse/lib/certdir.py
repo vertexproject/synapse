@@ -665,6 +665,16 @@ class CertDir:
         if issuercert is None:
             raise s_exc.BadCertVerify(mesg='unable to get local issuer certificate')
 
+        handled_oids = {
+            c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS,
+            c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE,
+        }
+        for chkcert in (cert, issuercert):
+            for ext in chkcert.extensions:
+                if ext.critical and ext.oid not in handled_oids:
+                    mesg = f'Unhandled critical extension {ext} on {chkcert.subject}'
+                    raise s_exc.BadCertVerify(mesg=mesg)
+
         try:
             issuer_bc = issuercert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
             if not issuer_bc.value.ca:
