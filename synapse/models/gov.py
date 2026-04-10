@@ -16,14 +16,7 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Chinese PLA MUCD.'}),
-        ),
-        'forms': (
-            ('gov:cn:icp', {}, ()),
-            ('gov:cn:mucd', {}, ()),
-        )
-    },
-    {
-        'types': (
+
             ('iso:oid', ('str', {'regex': '^([0-2])((\\.0)|(\\.[1-9][0-9]*))*$'}), {
                 'doc': 'An ISO Object Identifier string.'}),
 
@@ -44,24 +37,6 @@ modeldefs = (
 
             ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
                 'doc': 'UN M49 Numeric Country Code.'}),
-        ),
-
-        'forms': (
-            ('iso:oid', {}, (
-
-                ('desc', ('str', {}), {
-                    'doc': 'A description of the value or meaning of the OID.'}),
-
-                ('identifier', ('str', {}), {
-                    'doc': 'The string identifier for the deepest tree element.'}),
-            )),
-            ('iso:3166:alpha2', {}, ()),
-            ('iso:3166:alpha3', {}, ()),
-            ('iso:3166:numeric3', {}, ()),
-        ),
-    },
-    {
-        'types': (
 
             ('gov:us:ssn', ('str', {'regex': '^[0-9]{3}-[0-9]{2}-[0-9]{4}'}), {
                 'interfaces': (
@@ -80,6 +55,21 @@ modeldefs = (
         ),
 
         'forms': (
+            ('gov:cn:icp', {}, ()),
+            ('gov:cn:mucd', {}, ()),
+
+            ('iso:oid', {}, (
+
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the value or meaning of the OID.'}),
+
+                ('identifier', ('str', {}), {
+                    'doc': 'The string identifier for the deepest tree element.'}),
+            )),
+            ('iso:3166:alpha2', {}, ()),
+            ('iso:3166:alpha3', {}, ()),
+            ('iso:3166:numeric3', {}, ()),
+
             ('gov:us:cage', {}, (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which was issued the CAGE code.'}),
