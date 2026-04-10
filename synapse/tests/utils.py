@@ -1449,7 +1449,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     if not hasattr(self, 'patched'):
                         self.patched = True
-                        await self._addDataModels(testmodel)
+                        await self._addModelDefs(testmodel)
 
                 with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:

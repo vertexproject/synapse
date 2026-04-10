@@ -464,7 +464,7 @@ class DocModelTest(s_t_utils.SynTest):
         # the no-doc branch in the genFormMarkdown interfaces table
 
         async with self.getTestCore() as core:
-            core.model.addDataModels([{
+            core.model.addModelDefs([{
                 'interfaces': (
                     ('test:nodoc:iface', {
                         'props': (),
@@ -492,7 +492,7 @@ class DocModelTest(s_t_utils.SynTest):
         # "## Implementing Forms" section in genIfaceMarkdown
 
         async with self.getTestCore() as core:
-            core.model.addDataModels([{
+            core.model.addModelDefs([{
                 'interfaces': (
                     ('test:impl:iface', {
                         'doc': 'A test interface with an implementing form.',

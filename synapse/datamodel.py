@@ -536,7 +536,7 @@ def getBaseModel():
     modl = Model()
     mdef = s_base.modeldefs[0]
     types = tuple(t for t in mdef['types'] if t[1][0] is None)
-    modl.addDataModels([{'types': types}])
+    modl.addModelDefs([{'types': types}])
     return modl
 
 class Model:
@@ -929,7 +929,7 @@ class Model:
 
         return tuple(realdefs)
 
-    def addDataModels(self, mods):
+    def addModelDefs(self, mods):
         '''
         Add a list of model definition dictionaries.
 

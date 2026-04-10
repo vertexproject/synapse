@@ -2939,10 +2939,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self.model.addModelDefs(mdefs)
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
 

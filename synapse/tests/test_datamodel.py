@@ -94,7 +94,7 @@ class DataModelTest(s_t_utils.SynTest):
         )
 
         with self.raises(s_exc.BadFormDef):
-            modl.addDataModels(mods)
+            modl.addModelDefs(mods)
 
     async def test_datamodel_virtstor(self):
         modl = s_datamodel.getBaseModel()
@@ -119,7 +119,7 @@ class DataModelTest(s_t_utils.SynTest):
         )
 
         with self.raises(s_exc.NoSuchIface):
-            modl.addDataModels(mods)
+            modl.addModelDefs(mods)
 
     async def test_datamodel_dynamics(self):
 
@@ -242,7 +242,7 @@ class DataModelTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
                 core = await s_cortex.Cortex.anit(dirn)
-                await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
 
             dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
             dstream.noexpect('type test:dep:comp field str uses a deprecated type test:dep:easy')
@@ -279,7 +279,7 @@ class DataModelTest(s_t_utils.SynTest):
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn) as core:
-                    await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
                     await core._loadExtModel()
                     # self.true(await cstream.wait(6))
 
@@ -293,7 +293,7 @@ class DataModelTest(s_t_utils.SynTest):
         modl.addForm('foo:foo', {}, ())
         mdef = modl.getModelDef()
         modl2 = s_datamodel.getBaseModel()
-        modl2.addDataModels([mdef])
+        modl2.addModelDefs([mdef])
 
     async def test_model_comp_readonly_props(self):
         async with self.getTestCore() as core:
@@ -332,7 +332,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.getBaseModel().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
@@ -353,7 +353,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.getBaseModel().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
@@ -375,7 +375,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.getBaseModel().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # API direct
@@ -420,7 +420,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.getBaseModel().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
 
         # Comp type not extended does not gen deprecated warning
@@ -441,7 +441,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.getBaseModel().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         stream.noexpect('uses a deprecated type')
 
     async def test_datamodel_edges(self):
@@ -514,7 +514,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(s_t_utils.deprmodel)
+            await core._addModelDefs(s_t_utils.deprmodel)
 
             nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
             self.propeq(nodes[0], 'range:min', 1)
