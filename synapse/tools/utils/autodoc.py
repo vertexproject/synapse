@@ -645,7 +645,13 @@ async def docModel(outp,
     modeldefs = await core.getModelDefs()
     _, model = modeldefs[0]
 
-    ctors = model.get('ctors')
+    ctors = []
+    for typename, typedef, typeinfo in model.get('types', ()):
+        if typedef[0] is None:
+            typeopts = dict(typedef[1])
+            ctor = typeopts.pop('ctor')
+            ctors.append((typename, ctor, typeopts, dict(typeinfo)))
+
     forms = model.get('forms')
     edges = model.get('edges')
     props = collections.defaultdict(list)

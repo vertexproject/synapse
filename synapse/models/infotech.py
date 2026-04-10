@@ -608,11 +608,11 @@ attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0'
 
 modeldefs = (
     ('it', {
-        'ctors': (
-            ('it:semver', 'synapse.models.infotech.SemVer', {}, {
+        'types': (
+            ('it:semver', (None, {'ctor': 'synapse.models.infotech.SemVer'}), {
                 'doc': 'Semantic Version type.'}),
 
-            ('it:version', 'synapse.models.infotech.ItVersion', {}, {
+            ('it:version', (None, {'ctor': 'synapse.models.infotech.ItVersion'}), {
                 'virts': (
                     ('semver', ('it:semver', {}), {
                         'computed': True,
@@ -620,13 +620,11 @@ modeldefs = (
                 ),
                 'doc': 'A version string.'}),
 
-            ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
+            ('it:sec:cpe', (None, {'ctor': 'synapse.models.infotech.Cpe23Str'}), {
                 'doc': 'A NIST CPE 2.3 Formatted String.'}),
 
-            ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
+            ('it:sec:cpe:v2_2', (None, {'ctor': 'synapse.models.infotech.Cpe22Str'}), {
                 'doc': 'A NIST CPE 2.2 Formatted String.'}),
-        ),
-        'types': (
 
             ('it:dns:resolver', ('inet:server', {'defport': 53, 'defproto': 'udp'}), {
                 'props': (),

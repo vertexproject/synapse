@@ -2010,7 +2010,7 @@ class Parser:
             root = self
 
         if model is None:
-            model = s_datamodel.Model()
+            model = s_datamodel.getBaseModel()
         self.model = model
 
         self.prog = prog
