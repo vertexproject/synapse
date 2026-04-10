@@ -260,7 +260,7 @@ class ThreeType(s_types.Type):
         return '3'
 
 testmodel = (
-    ('test', {
+    {
 
         'interfaces': (
             ('test:interface', {
@@ -585,11 +585,11 @@ testmodel = (
                 'doc': 'The node matched on the target node.'}),
             ((None, 'test', None), {'doc': 'Test edge'}),
         ),
-    }),
+    },
 )
 
 deprmodel = (
-    ('depr', {
+    {
         'interfaces': (
             ('test:deprinterface', {
                 'doc': 'test interface',
@@ -646,7 +646,7 @@ deprmodel = (
                 ('beep', ('test:dep:str', {}), {}),
             )),
         ),
-    }),
+    },
 )
 
 class TestCmd(s_storm.Cmd):
@@ -1449,7 +1449,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     if not hasattr(self, 'patched'):
                         self.patched = True
-                        await self._addDataModels(testmodel)
+                        await self._addModelDefs(testmodel)
 
                 with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:

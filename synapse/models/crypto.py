@@ -10,7 +10,7 @@ x509vers = (
 )
 
 modeldefs = (
-    ('crypto', {
+    {
         'types': (
 
             ('crypto:currency:transaction', ('guid', {}), {
@@ -762,5 +762,5 @@ modeldefs = (
 
             )),
         )
-    }),
+    },
 )

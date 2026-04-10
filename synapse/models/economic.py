@@ -1,5 +1,5 @@
 modeldefs = (
-    ('econ', {
+    {
 
         'types': (
 
@@ -539,5 +539,5 @@ modeldefs = (
                     'doc': 'The account number.'}),
             )),
         ),
-    }),
+    },
 )

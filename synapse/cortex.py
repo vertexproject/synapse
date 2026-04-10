@@ -214,8 +214,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -2966,10 +2966,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self.model.addModelDefs(mdefs)
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
@@ -4082,8 +4082,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''

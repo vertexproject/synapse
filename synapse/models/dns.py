@@ -90,7 +90,7 @@ class DnsName(s_types.Str):
         return norm, {'subs': subs}
 
 modeldefs = (
-    ('inet:dns', {
+    {
 
         'types': (
 
@@ -369,5 +369,5 @@ modeldefs = (
                     'doc': 'The network client address used to register the dynamic FQDN.'}),
             )),
         )
-    }),
+    },
 )

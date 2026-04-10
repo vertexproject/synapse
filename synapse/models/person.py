@@ -1,5 +1,5 @@
 modeldefs = (
-    ('ps', {
+    {
         'types': (
             ('edu:course', ('guid', {}), {
                 'template': {'title': 'course'},
@@ -189,5 +189,5 @@ modeldefs = (
                     'doc': 'The type of skill as a taxonomy.'})
             )),
         )
-    }),
+    },
 )

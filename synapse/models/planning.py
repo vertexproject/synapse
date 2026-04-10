@@ -1,5 +1,5 @@
 modeldefs = (
-    ('plan', {
+    {
         'types': (
             ('plan:system', ('guid', {}), {
                 'template': {'title': 'planning system'},
@@ -151,5 +151,5 @@ modeldefs = (
                     'doc': 'The procedure which defines the link.'}),
             )),
         ),
-    }),
+    },
 )

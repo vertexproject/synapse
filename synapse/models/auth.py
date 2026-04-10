@@ -23,7 +23,7 @@ class Passwd(s_types.Str):
 
 modeldefs = (
 
-    ('auth', {
+    {
 
         'types': (
             ('auth:passwd', (None, {'ctor': 'synapse.models.auth.Passwd', 'strip': False}), {
@@ -57,5 +57,5 @@ modeldefs = (
             )),
         ),
 
-    }),
+    },
 )

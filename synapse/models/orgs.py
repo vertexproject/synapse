@@ -9,7 +9,7 @@ contracttypes = (
 )
 
 modeldefs = (
-    ('ou', {
+    {
 
         'interfaces': (
 
@@ -745,5 +745,5 @@ modeldefs = (
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),
-    }),
+    },
 )

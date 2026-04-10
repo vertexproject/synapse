@@ -32,7 +32,7 @@ alertstatus = (
 )
 
 modeldefs = (
-    ('risk', {
+    {
         'types': (
             # TODO: implement type specific cmprs and virts for CVSS types
             ('it:sec:cvss:v2', (None, {'ctor': 'synapse.models.risk.CvssV2'}), {
@@ -763,5 +763,5 @@ modeldefs = (
                     'doc': 'The total price paid by the target of the extortion.'}),
             )),
         ),
-    }),
+    },
 )

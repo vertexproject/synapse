@@ -1245,7 +1245,7 @@ class Url(s_types.Str):
         return norm, {'subs': subs}
 
 modeldefs = (
-    ('inet', {
+    {
         'edges': (
             (('inet:whois:iprecord', 'has', 'inet:ip'), {
                 'doc': 'The IP whois record describes the IP address.'}),
@@ -3186,5 +3186,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-    }),
+    },
 )

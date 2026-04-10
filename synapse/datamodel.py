@@ -534,9 +534,9 @@ def getBaseModel():
     '''
     import synapse.models.base as s_base
     modl = Model()
-    name, mdef = s_base.modeldefs[0]
+    mdef = s_base.modeldefs[0]
     types = tuple(t for t in mdef['types'] if t[1][0] is None)
-    modl.addDataModels([(name, {'types': types})])
+    modl.addModelDefs([{'types': types}])
     return modl
 
 class Model:
@@ -825,10 +825,10 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDefs(self):
+    def getModelDef(self):
         '''
         Returns:
-            A list of one model definition compatible with addDataModels that represents the current data model
+            A model definition dictionary representing the current data model.
         '''
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
@@ -836,7 +836,7 @@ class Model:
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
         mdef['edges'] = [e.pack() for e in self.edges.values()]
-        return [('all', mdef)]
+        return mdef
 
     def _getResolvedIfaces(self):
         '''Return a copy of interfaces with default template values resolved in docs and types.'''
@@ -929,9 +929,9 @@ class Model:
 
         return tuple(realdefs)
 
-    def addDataModels(self, mods):
+    def addModelDefs(self, mods):
         '''
-        Add a list of (name, mdef) tuples.
+        Add a list of model definition dictionaries.
 
         A model definition (mdef) is structured as follows::
 
@@ -962,7 +962,7 @@ class Model:
             }
 
         Args:
-            mods (list):  The list of tuples.
+            mods (list):  The list of model definition dicts.
 
         Returns:
             None
@@ -974,7 +974,7 @@ class Model:
         allforms = []
 
         # Gather all the forms first
-        for _, mdef in mods:
+        for mdef in mods:
 
             # Allow props declared directly on types to become forms...
             for typename, _, typeinfo in mdef.get('types', ()):
@@ -990,14 +990,14 @@ class Model:
                 self.forminfos[formname] = forminfo
 
         # load all the interfaces...
-        for _, mdef in mods:
+        for mdef in mods:
             for name, info in mdef.get('interfaces', ()):
                 self.addIface(name, info)
 
         ctors = {}
 
         # first pass: load ctor-based types (base type is None)
-        for _, mdef in mods:
+        for mdef in mods:
             for typename, typedef, typeinfo in mdef.get('types', ()):
                 if typedef[0] is not None:
                     continue
@@ -1009,7 +1009,7 @@ class Model:
                 ctors[typename] = ctor
 
         # second pass: load all derived types
-        for _, mdef in mods:
+        for mdef in mods:
             for typename, typedef, typeinfo in mdef.get('types', ()):
                 if typedef[0] is None:
                     continue
@@ -1033,7 +1033,7 @@ class Model:
                 self._modeldef['types'].append(tobj.getTypeDef())
 
         # Load all the tagprops
-        for _, mdef in mods:
+        for mdef in mods:
             for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
                 self.addTagProp(tpname, typedef, tpinfo)
 
@@ -1060,7 +1060,7 @@ class Model:
         addForms(allforms)
 
         # now we can load edge definitions...
-        for _, mdef in mods:
+        for mdef in mods:
             for etype, einfo in mdef.get('edges', ()):
                 self.addEdge(etype, einfo)
 

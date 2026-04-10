@@ -1,5 +1,5 @@
 modeldefs = (
-    ('proj', {
+    {
 
         'types': (
 
@@ -107,5 +107,5 @@ modeldefs = (
                     'ex': 'bug'}),
             )),
         ),
-    }),
+    },
 )

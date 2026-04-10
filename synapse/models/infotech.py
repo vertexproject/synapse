@@ -607,7 +607,7 @@ suslevels = (
 attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
 
 modeldefs = (
-    ('it', {
+    {
         'types': (
             ('it:semver', (None, {'ctor': 'synapse.models.infotech.SemVer'}), {
                 'doc': 'Semantic Version type.'}),
@@ -2813,5 +2813,5 @@ modeldefs = (
                     'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
             )),
         ),
-    }),
+    },
 )

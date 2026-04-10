@@ -1525,7 +1525,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.model.addDataModels(s_t_utils.deprmodel)
+            core.model.addModelDefs(s_t_utils.deprmodel)
 
             await core.nodes('$lib.model.ext.addFormProp(test:deprprop, _str, (str, ({})), ({}))')
 

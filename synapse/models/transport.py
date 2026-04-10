@@ -1,5 +1,5 @@
 modeldefs = (
-    ('transport', {
+    {
         'types': (
 
             ('transport:trip:status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
@@ -587,5 +587,5 @@ modeldefs = (
 
             ('transport:shipping:container', {}, ()),
         ),
-    }),
+    },
 )

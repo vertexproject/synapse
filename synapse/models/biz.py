@@ -2,7 +2,7 @@
 Model elements related to sales / bizdev / procurement
 '''
 modeldefs = (
-    ('biz', {
+    {
         'types': (
 
             ('biz:rfp:type:taxonomy', ('taxonomy', {}), {
@@ -198,5 +198,5 @@ modeldefs = (
                     'doc': 'The price of the product.'}),
             )),
         ),
-    }),
+    },
 )
