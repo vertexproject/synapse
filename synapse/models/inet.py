@@ -1384,6 +1384,7 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'props': (
                     ('proto', ('str:lower', {}), {
@@ -1476,6 +1477,7 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'props': (
                     ('proto', ('str:lower', {}), {
@@ -1602,6 +1604,7 @@ modeldefs = (
             ('inet:service:platform', ('guid', {}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'platform'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A network platform which provides services.'}),
 

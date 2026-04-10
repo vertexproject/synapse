@@ -643,6 +643,7 @@ modeldefs = (
                 'interfaces': (
                     ('phys:object', {}),
                     ('inet:service:object', {}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -897,6 +898,7 @@ modeldefs = (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
                     ('doc:authorable', {}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A software product, tool, or script.'}),
 
@@ -922,6 +924,7 @@ modeldefs = (
                 'prevnames': ('it:prod:hardware',),
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
@@ -1837,12 +1840,7 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability detected in the asset.'}),
 
-                # TODO: should this be an interface for things that can be vulnerable?
-                ('asset', (
-                        ('risk:targetable', {}),
-                        ('meta:observable', {}),
-                        ('meta:havable', {})
-                    ), {
+                ('asset', ('risk:exploitable', {}), {
                     'doc': 'The node which is vulnerable.'}),
 
                 ('desc', ('str', {}), {

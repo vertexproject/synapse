@@ -94,6 +94,9 @@ modeldefs = (
                 'doc': 'An asset status taxonomy.'}),
 
             ('ou:asset', ('guid', {}), {
+                'interfaces': (
+                    ('risk:exploitable', {}),
+                ),
                 'doc': 'A node for tracking assets which belong to an organization.',
                 'display': {
                     'columns': (
