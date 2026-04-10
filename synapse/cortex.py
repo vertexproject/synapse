@@ -2494,13 +2494,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 verskey = 'storage:version'
 
-                # migrate storage:version from pkg vars to pkg state if needed
-                if await self.getStormPkgState(name, verskey) is None:
-                    oldvers = await self.getStormPkgVar(name, verskey)
-                    if oldvers is not None:
-                        await self.setStormPkgState(name, verskey, oldvers)
-                        await self.popStormPkgVar(name, verskey)
-
                 curvers = -1
 
                 if inits is None:

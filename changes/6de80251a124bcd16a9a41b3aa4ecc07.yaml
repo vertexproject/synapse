@@ -1,7 +1,0 @@
----
-desc: Migrate ``storage:version`` tracking for Storm packages from package vars to package
-  state.
-desc:literal: false
-prs: []
-type: migration
-...

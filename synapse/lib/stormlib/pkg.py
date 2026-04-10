@@ -334,7 +334,6 @@ class LibPkg(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgState(self, name):
         name = await s_stormtypes.tostr(name)
-        s_stormtypes.confirm(('power-ups', name, 'admin'))
         return PkgState(self.runt, name)
 
 @s_stormtypes.registry.registerType
@@ -388,18 +387,13 @@ class PkgState(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-    def _reqPkgAdmin(self):
-        s_stormtypes.confirm(('power-ups', self.valu, 'admin'))
-
     @s_stormtypes.stormfunc(readonly=True)
     async def deref(self, name):
-        self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
         return await self.runt.view.core.getStormPkgState(self.valu, name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def iter(self):
-        self._reqPkgAdmin()
         async for name, valu in self.runt.view.core.iterStormPkgState(self.valu):
             yield name, valu
             await asyncio.sleep(0)

@@ -493,27 +493,16 @@ class StormLibPkgTest(s_test.SynTest):
                 # state is read-only from Storm: assignment must raise an error
                 await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval'))
 
-                # perms
-
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.state(pkg0))', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.state(pkg0).bar)', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                ''', opts=aslow))
-
-                await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
-
+                # perms: any user can get the state object, deref, and iter
                 self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.state(pkg0))', opts=aslow))
                 self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)', opts=aslow))
-                self.eq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
                     $kvs = ([])
                     for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
                     return($kvs)
                 ''', opts=aslow))
 
-                # state write is still denied even with admin perm
+                # state write is still denied from Storm
                 await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval', opts=aslow))
 
             async with self.getTestCore(dirn=dirn) as core:
@@ -523,37 +512,3 @@ class StormLibPkgTest(s_test.SynTest):
                 self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
                 self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
                 self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
-
-    async def test_stormlib_pkg_state_migrate(self):
-        '''
-        Verify that storage:version is migrated from pkg vars to pkg state on package load.
-        '''
-        with self.getTestDir() as dirn:
-
-            pkg0 = {
-                'name': 'migtest',
-                'version': '1.0.0',
-            }
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                await core.addStormPkg(pkg0)
-
-                # simulate legacy data by removing the new state entry and placing
-                # the version in the old vars location (as it was before this migration)
-                await core.popStormPkgState('migtest', 'storage:version')
-                await core.setStormPkgVar('migtest', 'storage:version', 42)
-
-                self.eq(42, await core.getStormPkgVar('migtest', 'storage:version'))
-                self.none(await core.getStormPkgState('migtest', 'storage:version'))
-
-            # restart the core -- package is persisted and migration runs on load
-            with self.getAsyncLoggerStream('synapse.cortex', 'migtest') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    await stream.wait(timeout=10)
-
-                    # storage:version is now in state
-                    self.eq(42, await core.getStormPkgState('migtest', 'storage:version'))
-
-                    # and no longer in vars
-                    self.none(await core.getStormPkgVar('migtest', 'storage:version'))
