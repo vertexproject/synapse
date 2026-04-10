@@ -56,6 +56,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
 
@@ -1245,6 +1246,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
             s_logging.setLogInfo('service', self.ahasvcname)
+
+            # Update the processpool configuration as early as possible; before
+            # we go through additional boot steps which may trigger pool workers
+            # to be created.
+            #
+            # Note: This behavior is currently a one-time configuration that we
+            # perform. Once pool workers are created, we cannot communicate
+            # additional updates to them without adding a sidechannel. In unit tests,
+            # it is highly likely that when reviewing the log output from processpool
+            # workers, the current service information will _not_ be present.
+            s_processpool._setPoolLogging(s_logging.getLogConf())
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -4501,6 +4513,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except:
             logger.exception('Error while bootstrapping cell config.')
             raise
+
+        s_processpool._setPoolLogging(logconf)
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)

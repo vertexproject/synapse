@@ -37,6 +37,20 @@ if multiprocessing.current_process().name == 'MainProcess':
 def _runtodo(todo):  # pragma: no cover
     return todo[0](*todo[1], **todo[2])
 
+def _initPoolWorker(logconf):  # prama: no cover
+    s_logging.setup(**logconf)
+    p = multiprocessing.current_process()
+    logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
+
+_pool_logconf = None
+def _setPoolLogging(logconf):
+    # This must be called before any calls to forked() and _parserforked()
+    global _pool_logconf
+    _pool_logconf = logconf
+    todo = (_initPoolWorker, (logconf,), {})
+    if forkpool is not None:
+        forkpool._initializer = _runtodo
+        forkpool._initargs = (todo,)
 
 async def forked(func, *args, **kwargs):
     '''
