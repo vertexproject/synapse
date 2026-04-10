@@ -738,9 +738,6 @@ class Model:
         hints = []
 
         for name, form in self.forms.items():
-            if form.type is None:
-                continue
-
             lhints = form.type.info.get('modes', {}).get('lookup')
             if not lhints:
                 continue

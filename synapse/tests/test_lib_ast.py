@@ -148,6 +148,19 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('| $$$$', opts={'mode': 'lookup'})
 
+            # when the model has no lookup hints, remainder text yields nothing
+            core.model._lookup_hints = []
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(0, nodes)
+            core.model._lookup_hints = None
+
+            # a hint with an unsupported comparator is skipped gracefully
+            core.model._lookup_hints = [('entity:name', '!!='), ('entity:name', '^=')]
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            core.model._lookup_hints = None
+
     async def test_try_set(self):
         '''
         Test ?= assignment
