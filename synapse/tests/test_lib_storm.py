@@ -2770,7 +2770,7 @@ class StormTest(s_t_utils.SynTest):
             await core.sync()
             await loadPkg(core, pkg)
 
-            self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
+            self.eq(-1, await core.getStormPkgState('testload', 'storage:version'))
 
         with self.getTestDir() as dirn:
 
@@ -2822,11 +2822,11 @@ class StormTest(s_t_utils.SynTest):
 
                 # only inaugural inits run on first load
 
-                await core.setStormPkgVar('testload', 'storage:version', 0)
+                await core.setStormPkgState('testload', 'storage:version', 0)
 
                 await loadPkg(core, pkg)
 
-                self.eq(1, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(1, await core.getStormPkgState('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.nn(init01 := await core.getStormVar('init01'))
 
@@ -2843,7 +2843,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(2, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(2, await core.getStormPkgState('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.eq(init01, await core.getStormVar('init01'))
                 self.nn(init02 := await core.getStormVar('init02'))
@@ -2864,7 +2864,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(3, await core.getStormPkgState('testload', 'storage:version'))
                 self.eq(init02, await core.getStormVar('init02'))
                 self.nn(await core.getStormVar('init03'))
 
@@ -2893,7 +2893,7 @@ class StormTest(s_t_utils.SynTest):
                 mesg = 'testload init vers=4 output: (\'SynErr\''
                 with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
                     await loadPkg(core, pkg)
-                    self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(3, await core.getStormPkgState('testload', 'storage:version'))
                     await stream.wait(timeout=10)
 
                 self.none(await core.getStormVar('init04'))
@@ -2907,7 +2907,7 @@ class StormTest(s_t_utils.SynTest):
 
                     # prior versions dont re-run, but a failed one does
 
-                    self.eq(6, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(6, await core.getStormPkgState('testload', 'storage:version'))
                     self.gt(await core.getStormVar('onload'), onload)
                     self.eq(init02, await core.getStormVar('init02'))
                     self.nn(await core.getStormVar('init04'))
@@ -2925,7 +2925,7 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(7, await core.getStormPkgVar('testload', 'storage:version'))
+                        self.eq(7, await core.getStormPkgState('testload', 'storage:version'))
 
                     pkg['version'] = '0.6.0'
                     pkg['inits']['versions'].append({
@@ -2937,19 +2937,16 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(8, await core.getStormPkgVar('testload', 'storage:version'))
+                        self.eq(8, await core.getStormPkgState('testload', 'storage:version'))
 
-                    # init that advances the version
+                    # inits run in order and advance the version
 
                     pkg['version'] = '0.7.0'
                     pkg['inits']['versions'].extend([
                         {
                             'version': 9,
                             'name': 'init09',
-                            'query': '''
-                                $lib.globals.init09 = $lib.time.now()
-                                $lib.pkg.vars(testload)."storage:version" = (10)
-                            ''',
+                            'query': '$lib.globals.init09 = $lib.time.now()',
                         },
                         {
                             'version': 10,
@@ -2965,9 +2962,9 @@ class StormTest(s_t_utils.SynTest):
 
                     await loadPkg(core, pkg)
 
-                    self.eq(11, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(11, await core.getStormPkgState('testload', 'storage:version'))
                     self.nn(await core.getStormVar('init09'))
-                    self.none(await core.getStormVar('init10'))
+                    self.nn(await core.getStormVar('init10'))
                     self.nn(await core.getStormVar('init11'))
 
                     # init queryopts
@@ -2986,7 +2983,7 @@ class StormTest(s_t_utils.SynTest):
 
                     await loadPkg(core, pkg)
 
-                    self.eq(12, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(12, await core.getStormPkgState('testload', 'storage:version'))
                     self.eq('heythere', await core.getStormVar('init12'))
 
     async def test_storm_tree(self):

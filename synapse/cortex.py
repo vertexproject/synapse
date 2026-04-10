@@ -750,7 +750,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
-        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -2493,15 +2494,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 verskey = 'storage:version'
 
+                # migrate storage:version from pkg vars to pkg state if needed
+                if await self.getStormPkgState(name, verskey) is None:
+                    oldvers = await self.getStormPkgVar(name, verskey)
+                    if oldvers is not None:
+                        await self.setStormPkgState(name, verskey, oldvers)
+                        await self.popStormPkgVar(name, verskey)
+
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgState(name, verskey) is None:
+                        await self.setStormPkgState(name, verskey, -1)
 
                 else:
                     inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
+                    curvers = await self.getStormPkgState(name, verskey)
                     if curvers is None:
                         inaugural = True
                         curvers = -1
@@ -2515,7 +2523,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgState(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2552,9 +2560,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        curvers = max(vers, stored := await self.getStormPkgState(name, verskey, default=-1))
                         if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                            await self.setStormPkgState(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2842,6 +2850,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def iterStormPkgVars(self, name):
         pkgvars = self._getStormPkgVarKV(name)
         for item in pkgvars.items():
+            yield item
+
+    # Storm package state APIs
+
+    def _getStormPkgStateKV(self, name):
+        if (pkgstate := self.stormpkgstate.get(name)) is None:
+            self.stormpkgstate[name] = pkgstate = self.cortexdata.getSubKeyVal(f'stormpkg:state:{name}:')
+        return pkgstate
+
+    async def getStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:pop')
+    async def popStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:set')
+    async def setStormPkgState(self, name, key, valu):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.set(key, valu)
+
+    async def iterStormPkgState(self, name):
+        pkgstate = self._getStormPkgStateKV(name)
+        for item in pkgstate.items():
             yield item
 
     async def addStormPkgQueue(self, pkgname, name):
