@@ -2772,6 +2772,37 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq(-1, await core.getStormPkgState('testload', 'storage:version'))
 
+        # on genuine first install, non-inaugural inits are skipped and their
+        # version is recorded in pkg state without running the init query
+
+        async with self.getTestCore() as core:
+            pkg = {
+                'name': 'testload',
+                'version': '0.1.0',
+                'inits': {
+                    'versions': [
+                        {
+                            'version': 0,
+                            'name': 'init00',
+                            'query': '$lib.globals.init00 = $lib.time.now()',
+                        },
+                        {
+                            'version': 1,
+                            'name': 'init01',
+                            'inaugural': True,
+                            'query': '$lib.globals.init01 = $lib.time.now()',
+                        },
+                    ]
+                },
+            }
+
+            await core.sync()
+            await loadPkg(core, pkg)
+
+            self.eq(1, await core.getStormPkgState('testload', 'storage:version'))
+            self.none(await core.getStormVar('init00'))
+            self.nn(await core.getStormVar('init01'))
+
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
