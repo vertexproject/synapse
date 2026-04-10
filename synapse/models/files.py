@@ -232,8 +232,8 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'file name'}}),
                 ),
-                'doc': 'A file name with no path.',
-                'ex': 'woot.exe'}),
+                'ex': 'woot.exe',
+                'doc': 'A file name with no path.'}),
 
             ('file:path', (None, {'ctor': 'synapse.models.files.FilePath'}), {
                 'interfaces': (
@@ -252,8 +252,8 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The file extension from the path.'}),
                 ),
-                'doc': 'A normalized file path.',
-                'ex': 'c:/windows/system32/calc.exe'}),
+                'ex': 'c:/windows/system32/calc.exe',
+                'doc': 'A normalized file path.'}),
 
             ('file:bytes', ('guid', {}), {
                 'interfaces': (

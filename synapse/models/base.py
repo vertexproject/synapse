@@ -45,18 +45,16 @@ basetypedefs = (
                 'doc': 'A time precision value.'}),
 
             ('time', (None, {'ctor': 'synapse.lib.types.Time'}), {
-                'doc': 'A date/time value.',
                 'virts': (
                     ('precision', ('timeprecision', {}), {
                         'doc': 'The precision for display and rounding the time.'}),
                 ),
-            }),
+                'doc': 'A date/time value.'}),
 
             ('duration', (None, {'ctor': 'synapse.lib.types.Duration'}), {
                 'doc': 'A duration value.'}),
 
             ('ival', (None, {'ctor': 'synapse.lib.types.Ival'}), {
-                'doc': 'A time window or interval.',
                 'virts': (
 
                     ('min', ('time', {}), {
@@ -71,7 +69,7 @@ basetypedefs = (
                     ('precision', ('timeprecision', {}), {
                         'doc': 'The precision for display and rounding the times.'}),
                 ),
-            }),
+                'doc': 'A time window or interval.'}),
 
             ('guid', (None, {'ctor': 'synapse.lib.types.Guid'}), {
                 'doc': 'The base GUID type.'}),
@@ -89,7 +87,6 @@ basetypedefs = (
                 'doc': 'The base geo political location type.'}),
 
             ('poly', (None, {'ctor': 'synapse.lib.types.Poly'}), {
-                'doc': 'A prop which can be of one or more types.',
                 'virts': (
                     ('type', ('syn:type', {}), {
                         'computed': True,
@@ -100,16 +97,15 @@ basetypedefs = (
                         'display': {'hidden': True},
                         'doc': 'The value which is referenced.'}),
                 ),
-            }),
+                'doc': 'A prop which can be of one or more types.'}),
 
             ('array', (None, {'ctor': 'synapse.lib.types.Array', 'type': 'int'}), {
-                'doc': 'A typed array which indexes each field.',
                 'virts': (
                     ('size', ('int', {}), {
                         'computed': True,
                         'doc': 'The number of elements in the array.'}),
                 ),
-            }),
+                'doc': 'A typed array which indexes each field.'}),
 
             ('data', (None, {'ctor': 'synapse.lib.types.Data'}), {
                 'doc': 'Arbitrary json compatible data.'}),

@@ -95,9 +95,8 @@ modeldefs = (
         'types': (
 
             ('inet:dns:name', (None, {'ctor': 'synapse.models.dns.DnsName'}), {
-                'doc': 'A DNS query name string. Likely an FQDN but not always.',
                 'ex': 'vertex.link',
-            }),
+                'doc': 'A DNS query name string. Likely an FQDN but not always.'}),
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
                 'interfaces': (
