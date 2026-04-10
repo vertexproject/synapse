@@ -1,0 +1,7 @@
+---
+desc: Migrate ``storage:version`` tracking for Storm packages from package vars to package
+  state. This migration occurs automatically on the first package load after upgrade.
+desc:literal: false
+prs: []
+type: migration
+...
