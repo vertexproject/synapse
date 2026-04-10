@@ -178,18 +178,11 @@ modeldefs = (
             ('transport:container', {
                 'interfaces': (
                     ('phys:object', {}),
+                    ('meta:havable', {}),
+                    ('entity:creatable', {}),
                 ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
-
-                    ('built', ('time', {}), {
-                        'doc': 'The date when the {title} was built.'}),
-
-                    ('manufacturer', ('entity:actor', {}), {
-                        'doc': 'The organization which manufactured the {title}.'}),
-
-                    ('manufacturer:name', ('entity:name', {}), {
-                        'doc': 'The name of the organization which manufactured the {title}.'}),
 
                     ('model', ('base:name', {}), {
                         'doc': 'The model of the {title}.'}),
@@ -205,10 +198,6 @@ modeldefs = (
 
                     ('max:cargo:volume', ('geo:dist', {}), {
                         'doc': 'The maximum volume the {title} can carry as cargo.'}),
-
-                    # FIXME ownership interface?
-                    ('owner', ('entity:actor', {}), {
-                        'doc': 'The contact information of the owner of the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...

@@ -140,14 +140,14 @@ class PsModelTest(s_t_utils.SynTest):
     async def test_ps_skillz(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ ps:proficiency=*
-                    :contact = {[ entity:contact=* :name=visi ]}
+                [ entity:proficiency=*
+                    :actor = {[ entity:contact=* :name=visi ]}
                     :skill = {[ ps:skill=* :type=hungry :name="Wanting Pizza" ]}
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('skill'))
-            self.nn(nodes[0].get('contact'))
-            self.len(1, await core.nodes('ps:proficiency -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('ps:proficiency -> ps:skill +:name="wanting pizza"'))
-            self.len(1, await core.nodes('ps:proficiency -> ps:skill -> ps:skill:type:taxonomy'))
+            self.nn(nodes[0].get('actor'))
+            self.len(1, await core.nodes('entity:proficiency -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('entity:proficiency -> ps:skill +:name="wanting pizza"'))
+            self.len(1, await core.nodes('entity:proficiency -> ps:skill -> ps:skill:type:taxonomy'))

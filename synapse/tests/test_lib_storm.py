@@ -3273,9 +3273,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
             self.len(1, nodes)
             q = '''
-                [(tel:mob:telem=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
-                 (tel:mob:telem=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
-                 (tel:mob:telem=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                [(it:log:event=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (it:log:event=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (it:log:event=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
                 uniq :data
             '''
             nodes = await core.nodes(q)

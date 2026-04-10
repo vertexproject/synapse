@@ -14,7 +14,7 @@ class DocModelTest(s_tests.SynTest):
                     :file=*
                     :created=20241018
                     :updated=20241018
-                    :author={[ entity:contact=* :name=visi ]}
+                    :creator={[ entity:contact=* :name=visi ]}
                     :version=1.2.3
                     :supersedes={[ doc:policy=* doc:policy=* ]}
                 ]
@@ -28,13 +28,13 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'version', '1.2.3')
 
             self.nn(nodes[0].get('file'))
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
 
             self.len(2, nodes[0].get('supersedes'))
 
             self.len(1, await core.nodes('doc:policy:id=V-41 :file -> file:bytes'))
             self.len(2, await core.nodes('doc:policy:id=V-41 :supersedes -> doc:policy'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :author -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('doc:policy:id=V-41 :creator -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
                 [ doc:standard=*
@@ -125,7 +125,7 @@ class DocModelTest(s_tests.SynTest):
                 doc:reference=*
                     :source={[ doc:report=* :title="an article about mars" ]}
                     :text="(Lee, 2020, para. 15)"
-                    :doc={[ doc:report=* :title="nasa mars report" :author={[ ps:person=* :name="bruce lee" ]} ]}
+                    :doc={[ doc:report=* :title="nasa mars report" :creator={[ ps:person=* :name="bruce lee" ]} ]}
                     :doc:url=https://nasa.gov/2020-mars
                     +#test00
             ]''')

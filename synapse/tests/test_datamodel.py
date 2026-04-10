@@ -561,7 +561,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
-            self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
+            self.eq(core.model.prop('it:exec:proc:create:time').info['virts'][0], vdef)
 
             # poly value virt type has `hidden` set in `display`
             self.eq(core.model.type('poly').info['virts'][1][0], 'value')
@@ -1180,6 +1180,16 @@ class DataModelTest(s_t_utils.SynTest):
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
                 ptyp.getVirtInfo(('newp',))
+
+            # invalid virtual prop with tryoper still raises NoSuchVirt
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:flow:server.newp?=1.2.3.4')
+
+            # handling for poly with no valid types
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:polyempty=newp')
+
+            self.len(0, await core.nodes('test:str:polyempty?=okay'))
 
             msgs = await core.stormlist('[test:str=foobar :polyarry++={[inet:server=tcp://1.2.3.4:9000]}]')
             for m in msgs:
