@@ -1,7 +1,0 @@
----
-desc: Fixed the Storm ``movenodes`` command to raise a ``StormRuntimeError`` with a descriptive
-  message when a layer in ``--precedence`` is not in the set of source/destination layers.
-desc:literal: false
-prs: []
-type: bug
-...
