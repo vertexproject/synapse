@@ -260,10 +260,10 @@ class LibPkg(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_libPkgState',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'A Storm Package name to get state for.', },
+                       'desc': 'A Storm Package name to get state for.'},
                   ),
                   'returns': {'type': 'pkg:state',
-                              'desc': 'A read-only dictionary representing the package state.', }}},
+                              'desc': 'A read-only dictionary representing the package state.'}}},
     )
     _storm_lib_perms = (
         {'perm': ('power-ups', '<power-up>', 'admin'), 'gate': 'cortex',
