@@ -81,7 +81,7 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.reqType('newp:newp')
 
     async def test_datamodel_formname(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         mods = (
             ('hehe', {
                 'types': (
@@ -97,14 +97,14 @@ class DataModelTest(s_t_utils.SynTest):
             modl.addDataModels(mods)
 
     async def test_datamodel_virtstor(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         modl.addType('test:virt', 'int', {}, {})
         modl.types['test:virt'].virtstor['fake'] = lambda: None
         with self.raises(s_exc.BadFormDef):
             modl.addForm('test:virt', {}, ())
 
     async def test_datamodel_no_interface(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         mods = (
             ('hehe', {
                 'types': (
@@ -123,7 +123,7 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_dynamics(self):
 
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
 
         with self.raises(s_exc.NoSuchType):
             modl.addType('he:he', 'ha:ha', {}, {})
@@ -194,7 +194,7 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_del_prop(self):
 
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
 
         modl.addType('foo:bar', 'int', {}, {})
         modl.addForm('foo:bar', {}, (('x', ('int', {}), {}), ))
@@ -287,12 +287,12 @@ class DataModelTest(s_t_utils.SynTest):
         '''
         Make sure you can make a new model with the output of datamodel.getModelDefs
         '''
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         modl.addIface('test:iface', {})
         modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
         modl.addForm('foo:foo', {}, ())
         mdef = modl.getModelDefs()
-        modl2 = s_datamodel.Model()
+        modl2 = s_datamodel.getBaseModel()
         modl2.addDataModels(mdef)
 
     async def test_model_comp_readonly_props(self):
@@ -332,7 +332,7 @@ class DataModelTest(s_t_utils.SynTest):
         })
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addDataModels([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
@@ -353,7 +353,7 @@ class DataModelTest(s_t_utils.SynTest):
         })
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addDataModels([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
@@ -375,7 +375,7 @@ class DataModelTest(s_t_utils.SynTest):
         })
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addDataModels([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # API direct
@@ -387,7 +387,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
+            s_datamodel.getBaseModel().addType('_bad:comp', 'comp', typeopts, {})
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Non-existent types
@@ -399,7 +399,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
+            s_datamodel.getBaseModel().addType('_bad:comp', 'comp', typeopts, {})
         self.isin('Type newp is not present in datamodel.', cm.exception.get('mesg'))
 
         # deprecated types
@@ -420,7 +420,7 @@ class DataModelTest(s_t_utils.SynTest):
         })
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addDataModels([badmodel])
         stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
 
         # Comp type not extended does not gen deprecated warning
@@ -441,7 +441,7 @@ class DataModelTest(s_t_utils.SynTest):
         })
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addDataModels([badmodel])
         stream.noexpect('uses a deprecated type')
 
     async def test_datamodel_edges(self):
@@ -547,7 +547,7 @@ class DataModelTest(s_t_utils.SynTest):
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
         # in sync with the default s_datamodel.Datamodel().types
-        basetypes = list(s_datamodel.Model().types)
+        basetypes = list(s_datamodel.getBaseModel().types)
         self.sorteq(s_schemas.datamodel_basetypes, basetypes)
 
     async def test_datamodel_virts(self):

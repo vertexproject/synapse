@@ -4184,7 +4184,7 @@ class StormTest(s_t_utils.SynTest):
         self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
-        ttyp = s_datamodel.Model().type('time')
+        ttyp = s_datamodel.getBaseModel().type('time')
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
@@ -4201,7 +4201,7 @@ class StormTest(s_t_utils.SynTest):
         self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
         # test ival argtype
-        ityp = s_datamodel.Model().type('ival')
+        ityp = s_datamodel.getBaseModel().type('ival')
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='ival')
@@ -4277,7 +4277,7 @@ class StormTest(s_t_utils.SynTest):
 
         # choices - like defaults, choices are not normalized
         pars = s_storm.Parser()
-        ttyp = s_datamodel.Model().type('time')
+        ttyp = s_datamodel.getBaseModel().type('time')
         pars.add_argument('foo', type='time', choices=['2022', (await ttyp.norm('2023'))[0]], help='foohelp')
 
         opts = await pars.parse_args(['2023'])

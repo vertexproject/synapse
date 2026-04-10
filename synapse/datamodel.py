@@ -18,8 +18,6 @@ import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 
-import synapse.models.base as s_base
-
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
@@ -530,6 +528,17 @@ class Edge:
     def pack(self):
         return (self.edgetype, self.edgeinfo)
 
+def getBaseModel():
+    '''
+    Get a Model loaded with the base type definitions.
+    '''
+    import synapse.models.base as s_base
+    modl = Model()
+    name, mdef = s_base.modeldefs[0]
+    types = tuple(t for t in mdef['types'] if t[1][0] is None)
+    modl.addDataModels([(name, {'types': types})])
+    return modl
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -580,12 +589,6 @@ class Model:
             'forms': [],
             'edges': [],
         }
-
-        # load the primitive base types
-        self.addDataModels(s_base.basetypedefs)
-
-        self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
-        self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, {})
@@ -1064,6 +1067,11 @@ class Model:
         # now we can check the forms display settings...
         for form in self.forms.values():
             self._checkFormDisplay(form)
+
+        # initialize metatypes if the time type is available
+        if self.types.get('time') is not None:
+            self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
+            self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def _getFormsMaybeIface(self, name):
 

@@ -19,7 +19,7 @@ taskstatusenums = (
     (80, 'blocked'),
 )
 
-basetypedefs = (
+modeldefs = (
     ('base', {
         'types': (
 
@@ -122,13 +122,6 @@ basetypedefs = (
 
             ('velocity', (None, {'ctor': 'synapse.lib.types.Velocity'}), {
                 'doc': 'A velocity with base units in mm/sec.'}),
-        ),
-    }),
-)
-
-modeldefs = (
-    ('base', {
-        'types': (
 
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
