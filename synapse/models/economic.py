@@ -254,7 +254,10 @@ modeldefs = (
 
                 ('seller', ('entity:actor', {}), {
                     'prevnames': ('from:contact',),
-                    'doc': 'The seller which sold the items.'}),
+                    'doc': 'The actor who sold the items.'}),
+
+                ('seller:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who sold the items.'}),
 
                 ('paid', ('time', {}), {
                     'doc': 'The time when the purchase was paid in full.'}),
@@ -271,10 +274,9 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                # FIXME rename biz:sellable? donation / volunteers
                 ('item', (
-                        ('biz:product', {}),
-                        ('biz:service', {})
+                        ('biz:service', {}),
+                        ('meta:havable', {}),
                     ), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
@@ -399,7 +401,6 @@ modeldefs = (
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
                     'doc': 'The type of security.'}),
 
-                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The last known/available price of the security.'}),
 
@@ -473,7 +474,6 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
-                # FIXME entity:contact?
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity which issued the receipt.'}),
 

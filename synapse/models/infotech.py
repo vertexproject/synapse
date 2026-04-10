@@ -653,8 +653,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of log event types.'}),
 
             ('it:log:event', ('guid', {}), {
+                'template': {'title': 'log event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'A GUID representing an individual log event.'}),
 
@@ -662,6 +663,9 @@ modeldefs = (
                 'doc': 'A log severity level.'}),
 
             ('it:network', ('guid', {}), {
+                'interfaces': (
+                    ('meta:havable', {}),
+                ),
                 'doc': 'A GUID that represents a logical network.'}),
 
             ('it:network:type:taxonomy', ('taxonomy', {}), {
@@ -695,8 +699,9 @@ modeldefs = (
                 'doc': 'Software installed on a specific host.'}),
 
             ('it:exec:screenshot', ('guid', {}), {
+                'template': {'title': 'screenshot event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'A screenshot of a host.'}),
 
@@ -887,10 +892,11 @@ modeldefs = (
 
             ('it:software', ('guid', {}), {
                 'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
+                'template': {'title': 'software'},
                 'interfaces': (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
-                    ('doc:authorable', {'template': {'title': 'software'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A software product, tool, or script.'}),
 
@@ -938,7 +944,30 @@ modeldefs = (
 
             # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
             ('it:os:windows:service', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'A Microsoft Windows service configuration on a host.'}),
+
+            ('it:os:windows:service:add', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:os:windows:service', {}), {
+                        'doc': 'The service which was added.'}),
+                ),
+                'doc': 'An event where a Microsoft Windows service configuration was added to a host.'}),
+
+            ('it:os:windows:service:del', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:os:windows:service', {}), {
+                        'doc': 'The service which was removed.'}),
+                ),
+                'doc': 'An event where a Microsoft Windows service configuration was removed from a host.'}),
 
             # TODO
             # ('it:os:windows:task', ('guid', {}), {
@@ -984,26 +1013,95 @@ modeldefs = (
                 'doc': 'An antivirus signature pattern type.'}),
 
             ('it:exec:proc', ('guid', {}), {
+                'template': {'title': 'process'},
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
-                'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+                'doc': 'A process executing on a host.'}),
+
+            ('it:exec:proc:create', ('guid', {}), {
+                'template': {'title': 'process creation event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was created.'}),
+                ),
+                'doc': 'A process creation event.'}),
+
+            ('it:exec:proc:signal', ('guid', {}), {
+                'template': {'title': 'process signal event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('signal', ('int', {}), {
+                        'doc': 'The POSIX signal which was sent to the target process.'}),
+
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was sent the signal.'}),
+                ),
+                'doc': 'An event where a process was sent a POSIX signal.'}),
+
+            ('it:exec:proc:terminate', ('guid', {}), {
+                'template': {'title': 'process termination event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was terminated.'}),
+                ),
+                'doc': 'A process termination event.'}),
 
             ('it:exec:thread', ('guid', {}), {
+                'template': {'title': 'thread'},
                 'interfaces': (
                     ('it:host:activity', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which contains the thread.'}),
+
+                    ('exitcode', ('int', {}), {
+                        'doc': 'The exit code or return value for the thread.'}),
                 ),
                 'doc': 'A thread executing in a process.'}),
 
-            ('it:exec:loadlib', ('guid', {}), {
+            ('it:exec:thread:create', ('guid', {}), {
+                'template': {'title': 'thread creation event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:thread', {}), {
+                        'doc': 'The thread which was created.'}),
+                ),
+                'doc': 'A thread creation event.'}),
+
+            ('it:exec:thread:terminate', ('guid', {}), {
+                'template': {'title': 'thread termination event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:thread', {}), {
+                        'doc': 'The thread which was terminated.'}),
+                ),
+                'doc': 'A thread termination event.'}),
+
+            ('it:exec:lib:load', ('guid', {}), {
+                'template': {'title': 'library load event'},
+                'interfaces': (
+                    ('it:host:event', {}),
                 ),
                 'doc': 'A library load event in a process.'}),
 
-            ('it:exec:mmap', ('guid', {}), {
+            ('it:exec:mmap:add', ('guid', {}), {
+                'template': {'title': 'memory map event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'A memory mapped segment located in a process.'}),
 
@@ -1021,86 +1119,100 @@ modeldefs = (
                 'doc': 'A unique query string.'}),
 
             ('it:exec:query', ('guid', {}), {
+                'template': {'title': 'query event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of an executed query.'}),
 
-            ('it:exec:mutex', ('guid', {}), {
+            # TODO: mutex:del mutex:acquire mutex:release
+            ('it:exec:mutex:add', ('guid', {}), {
+                'template': {'title': 'mutex creation event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
-                'doc': 'A mutex created by a process at runtime.'}),
+                'doc': 'An event where a process created a mutex.'}),
 
-            ('it:exec:pipe', ('guid', {}), {
+            # TODO: pipe:del pipe:read pipe:write
+            ('it:exec:pipe:add', ('guid', {}), {
+                'template': {'title': 'pipe creation event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
             ('it:exec:fetch', ('guid', {}), {
                 'prevnames': ('it:hosturl',),
+                'template': {'title': 'fetch event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
             ('it:exec:bind', ('guid', {}), {
+                'template': {'title': 'bind event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host binding a listening port.'}),
 
             ('it:exec:file:add', ('guid', {}), {
+                'template': {'title': 'file add event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host adding a file to a filesystem.'}),
 
             ('it:exec:file:del', ('guid', {}), {
+                'template': {'title': 'file delete event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host deleting a file from a filesystem.'}),
 
             ('it:exec:file:read', ('guid', {}), {
+                'template': {'title': 'file read event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host reading a file from a filesystem.'}),
 
             ('it:exec:file:write', ('guid', {}), {
+                'template': {'title': 'file write event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host writing a file to a filesystem.'}),
 
             ('it:exec:windows:registry:get', ('guid', {}), {
                 'prevnames': ('it:exec:reg:get',),
+                'template': {'title': 'registry get event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host getting a registry key.', }),
 
             ('it:exec:windows:registry:set', ('guid', {}), {
                 'prevnames': ('it:exec:reg:set',),
+                'template': {'title': 'registry set event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host creating or setting a registry key.', }),
 
             ('it:exec:windows:registry:del', ('guid', {}), {
                 'prevnames': ('it:exec:reg:del',),
+                'template': {'title': 'registry delete event'},
                 'interfaces': (
-                    ('it:host:activity', {}),
+                    ('it:host:event', {}),
                 ),
                 'doc': 'An instance of a host deleting a registry key.', }),
 
             ('it:app:yara:rule', ('meta:rule', {}), {
 
+                'template': {'title': 'YARA rule', 'syntax': 'yara'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {
-                        'title': 'YARA rule', 'syntax': 'yara'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
@@ -1128,8 +1240,9 @@ modeldefs = (
                 'doc': 'A STIX indicator pattern.'}),
 
             ('it:app:snort:rule', ('meta:rule', {}), {
+                'template': {'title': 'snort rule', 'syntax': ''},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'snort rule'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A snort rule.'}),
 
@@ -1180,29 +1293,43 @@ modeldefs = (
         ),
         'interfaces': (
 
-            ('it:host:activity', {
-                'doc': 'Properties common to instances of activity on a host.',
+            ('it:host:exec', {
+                'template': {'title': 'activity'},
                 'props': (
 
                     ('exe', ('file:bytes', {}), {
-                        'doc': 'The executable file which caused the activity.'}),
-
-                    ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The host process which caused the activity.'}),
-
-                    ('thread', ('it:exec:thread', {}), {
-                        'doc': 'The host thread which caused the activity.'}),
+                        'doc': 'The executable file which caused the {title}.'}),
 
                     ('host', ('it:host', {}), {
-                        'doc': 'The host on which the activity occurred.'}),
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the activity started.'}),
+                        'doc': 'The host on which the {title} occurred.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
-            }),
+                'doc': 'Properties common to runtime events and activity on a host.'}),
+
+            ('it:host:event', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('base:event', {}),
+                    ('it:host:exec', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which caused the {title}.'}),
+
+                    ('thread', ('it:exec:thread', {}), {
+                        'doc': 'The thread which caused the {title}.'}),
+                ),
+                'doc': 'An event which occurred on a host.'}),
+
+            ('it:host:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                    ('it:host:exec', {}),
+                ),
+                'doc': 'Activity which occurred on a host.'}),
         ),
         'edges': (
 
@@ -1295,6 +1422,9 @@ modeldefs = (
 
             (('it:sec:stix:indicator', 'detects', None), {
                 'doc': 'The STIX indicator can detect evidence of the target node.'}),
+
+            (('it:os:windows:service', 'ledto', 'it:exec:proc'), {
+                'doc': 'The service configuration caused the process to be created.'}),
         ),
         'forms': (
             ('it:hostname', {}, ()),
@@ -1444,14 +1574,11 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period when the network existed.'}),
 
-                # FIXME ownable / owner / operatable?
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org that owns/operates the network.'}),
-
                 ('net', ('inet:net', {}), {
                     'doc': 'The optional contiguous IP address range of this network.',
                     'prevnames': ('net4', 'net6')}),
 
+                # TODO should this be in a DHCP config node?
                 ('dns:resolvers', ('array', {'type': 'it:dns:resolver', 'sorted': False, 'uniq': False}), {
                     'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
 
@@ -2185,13 +2312,13 @@ modeldefs = (
             ('it:exec:proc', {}, (
 
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that executed the process. May be an actual or a virtual / notional host.'}),
+                    'doc': 'The host that executed the process.'}),
 
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.'}),
+                    'doc': 'The main executable file for the process.'}),
 
                 ('cmd', ('it:cmd', {}), {
-                    'doc': 'The command string used to launch the process, including any command line parameters.'}),
+                    'doc': 'The command string used to launch the process.'}),
 
                 ('cmd:history', ('it:cmd:history', {}), {
                     'doc': 'The command history entry which caused this process to be run.'}),
@@ -2199,14 +2326,8 @@ modeldefs = (
                 ('pid', ('int', {}), {
                     'doc': 'The process ID.'}),
 
-                ('time', ('time', {}), {
-                    'doc': 'The start time for the process.'}),
-
                 ('name', ('str', {}), {
                     'doc': 'The display name specified by the process.'}),
-
-                ('exited', ('time', {}), {
-                    'doc': 'The time the process exited.'}),
 
                 ('exitcode', ('int', {}), {
                     'doc': 'The exit code for the process.'}),
@@ -2216,22 +2337,6 @@ modeldefs = (
 
                 ('path', ('file:path', {}), {
                     'doc': 'The path to the executable of the process.'}),
-
-                ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which created the process.'}),
-
-                ('killedby', ('it:exec:proc', {}), {
-                    'doc': 'The process which killed this process.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-
-                # TODO
-                # ('windows:task', ('it:os:windows:task', {}), {
-                #     'doc': 'The Microsoft Windows scheduled task responsible for starting the process.'}),
-
-                ('windows:service', ('it:os:windows:service', {}), {
-                    'doc': 'The Microsoft Windows service responsible for starting the process.'}),
             )),
 
             ('it:os:windows:service', {}, (
@@ -2290,30 +2395,8 @@ modeldefs = (
                 ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
             )),
-            ('it:exec:thread', {}, (
 
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which contains the thread.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the thread was created.'}),
-
-                ('exited', ('time', {}), {
-                    'doc': 'The time the thread exited.'}),
-
-                ('exitcode', ('int', {}), {
-                    'doc': 'The exit code or return value for the thread.'}),
-
-                ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'An external process which created the thread.'}),
-
-                ('src:thread', ('it:exec:thread', {}), {
-                    'doc': 'The thread which created this thread.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:loadlib', {}, (
+            ('it:exec:lib:load', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The process where the library was loaded.'}),
@@ -2336,7 +2419,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:mmap', {}, (
+            ('it:exec:mmap:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The process where the memory was mapped.'}),
@@ -2348,13 +2431,13 @@ modeldefs = (
                     'doc': 'The size of the memory map in bytes.'}),
 
                 ('perms:read', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with read permissions.'}),
+                    'doc': 'True if the memory is mapped with read permissions.'}),
 
                 ('perms:write', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with write permissions.'}),
+                    'doc': 'True if the memory is mapped with write permissions.'}),
 
                 ('perms:execute', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with execute permissions.'}),
+                    'doc': 'True if the memory is mapped with execute permissions.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The time the memory map was created.'}),
@@ -2363,7 +2446,7 @@ modeldefs = (
                     'doc': 'The time the memory map was deleted.'}),
 
                 ('path', ('file:path', {}), {
-                    'doc': 'The file path if the mmap is a mapped view of a file.'}),
+                    'doc': 'The file path if the memory is a mapped view of a file.'}),
 
                 ('hash:sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'A SHA256 hash of the memory map.'}),
@@ -2371,10 +2454,10 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:mutex', {}, (
+            ('it:exec:mutex:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the mutex.'}),
+                    'doc': 'The process that created the mutex.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host running the process that created the mutex.'}),
@@ -2391,7 +2474,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:pipe', {}, (
+            ('it:exec:pipe:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that created the named pipe.'}),

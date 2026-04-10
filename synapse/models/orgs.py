@@ -336,10 +336,9 @@ modeldefs = (
                 'doc': 'A taxonomy of enacted statuses.'}),
 
             ('ou:enacted', ('guid', {}), {
+                'template': {'title': 'adoption task'},
                 'interfaces': (
-                    ('proj:doable', {
-                        'template': {
-                            'task': 'adoption task'}}),
+                    ('meta:task', {}),
                 ),
                 'doc': 'An organization enacting a document.'}),
         ),
@@ -441,11 +440,6 @@ modeldefs = (
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of additional files submitted by the candidate.'}),
-
-                # TODO: doc:questionare / responses
-                # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
-                # TODO: proj:task to track evaluation of the candidate?
-
             )),
 
             ('ou:candidate:referral', {}, (

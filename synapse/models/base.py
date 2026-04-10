@@ -7,6 +7,18 @@ scoreenums = (
     (50, 'highest'),
 )
 
+taskstatusenums = (
+    (0, 'new'),
+    (10, 'in validation'),
+    (20, 'in backlog'),
+    (30, 'in sprint'),
+    (40, 'in progress'),
+    (50, 'in review'),
+    (60, 'completed'),
+    (70, 'done'),
+    (80, 'blocked'),
+)
+
 modeldefs = (
     ('base', {
         'types': (
@@ -22,9 +34,6 @@ modeldefs = (
                 'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'name'}}),
-                ),
                 'doc': 'A base type for case insensitive names.'}),
 
             ('meta:name', ('base:name', {}), {
@@ -38,6 +47,9 @@ modeldefs = (
                 'doc': 'A name used to refer to a specific event or activity.'}),
 
             ('meta:topic', ('base:name', {}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'doc': 'A topic string.'}),
 
             ('meta:feed', ('guid', {}), {
@@ -130,8 +142,9 @@ modeldefs = (
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
+                'template': {'title': 'ruleset'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -142,14 +155,18 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
+                'template': {'title': 'rule', 'syntax': ''},
                 'interfaces': (
                     ('meta:usable', {}),
-                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
             ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                 'doc': 'A generic score enumeration.'}),
+
+            ('meta:task:status', ('int', {'enums': taskstatusenums}), {
+                'doc': 'A task status.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -406,11 +423,7 @@ modeldefs = (
 
             ('meta:usable', {
                 'template': {'title': 'item'},
-                'props': (
-                    ('used', ('ival', {}), {
-                        'doc': 'The time interval when the {title} was being used.'}),
-                ),
-                'doc': 'An interface for forms which can be used by an actor.'}),
+                'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',
@@ -435,10 +448,51 @@ modeldefs = (
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
 
+            ('meta:task', {
+                'doc': 'A common interface for tasks.',
+                'template': {'title': 'task'},
+                'props': (
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the {title}.'}),
+
+                    ('parent', ('meta:task', {}), {
+                        'doc': 'The parent task which includes this {title}.'}),
+
+                    ('project', ('proj:project', {}), {
+                        'doc': 'The project containing the {title}.'}),
+
+                    ('status', ('meta:task:status', {}), {
+                        'doc': 'The status of the {title}.'}),
+
+                    ('priority', ('meta:score', {}), {
+                        'doc': 'The priority of the {title}.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the {title} was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the {title} was last updated.'}),
+
+                    ('due', ('time', {}), {
+                        'doc': 'The time the {title} must be complete.'}),
+
+                    ('completed', ('time', {}), {
+                        'doc': 'The time the {title} was completed.'}),
+
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The actor who created the {title}.'}),
+
+                    ('assignee', ('entity:actor', {}), {
+                        'doc': 'The actor who is assigned to complete the {title}.'}),
+                ),
+            }),
+
             ('meta:negotiable', {
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
 
             ('meta:recordable', {
+                'template': {'title': 'event'},
                 'props': (
                     ('recording:url', ('inet:url', {}), {
                         'doc': 'The URL hosting a recording of the {title}.'}),
@@ -505,6 +559,9 @@ modeldefs = (
 
             (('meta:causal', 'ledto', 'meta:causal'), {
                 'doc': 'The source event led to the target event.'}),
+
+            (('meta:task', 'has', 'file:attachment'), {
+                'doc': 'The task includes the file attachment.'}),
         ),
         'forms': (
 
