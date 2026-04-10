@@ -387,11 +387,8 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'form', 'desc': 'Get the Form for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
                   'returns': {'type': ['model:form', 'null']}}},
-        {'name': 'type', 'desc': 'Get the Type for the Property.',
-         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
-                  'returns': {'type': 'model:type'}}},
-        {'name': 'allowedtypes', 'desc': 'Get Types which may be used as values for the Property.',
-         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedTypes',
+        {'name': 'types', 'desc': 'Get the Types allowed for the Property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropTypes',
                   'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
     )
     _storm_typename = 'model:property'
@@ -401,31 +398,28 @@ class ModelProp(s_stormtypes.Prim):
 
         self.ctors.update({
             'form': self._ctorPropForm,
-            'type': self._ctorPropType,
-            'allowedtypes': self._ctorPropAllowedTypes,
+            'types': self._ctorPropTypes,
         })
 
         self.locls['name'] = self.valu.name
         self.locls['full'] = self.valu.full
 
-    def _ctorPropType(self, path=None):
-        return ModelType(self.valu.type, path=path)
+    def _ctorPropTypes(self, path=None):
+        ptyp = self.valu.type
+
+        if self.valu.isform:
+            return (ModelType(ptyp),)
+
+        if ptyp.isarray:
+            ptyp = ptyp.arraytype
+
+        return tuple(ModelType(tobj) for tobj in ptyp.getTypeSet())
 
     def _ctorPropForm(self, path=None):
         if self.valu.form is None:
             return None
 
         return ModelForm(self.valu.form, path=path)
-
-    def _ctorPropAllowedTypes(self, path=None):
-        ptyp = self.valu.type
-        if ptyp.isarray:
-            ptyp = ptyp.arraytype
-
-        if not ptyp.ispoly:
-            return ()
-
-        return tuple(ModelType(tobj) for tobj in ptyp.getTypeSet())
 
     def value(self):
         return self.valu.pack()

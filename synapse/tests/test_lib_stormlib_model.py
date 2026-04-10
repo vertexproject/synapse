@@ -23,8 +23,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
-            self.eq('poly', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
-            self.eq(s_layer.STOR_TYPE_POLY, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
+            self.eq('inet:ip', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).types.0.name)'))
+            self.eq(s_layer.STOR_TYPE_IPADDR, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).types.0.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
             self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ip).repr(([4, $(0x01020304)])))'))
@@ -104,17 +104,17 @@ class StormlibModelTest(s_test.SynTest):
             self.true(await core.callStorm('return(("poly" in $lib.model.form(test:str).props))'))
             self.false(await core.callStorm('return(("newp" in $lib.model.form(test:str).props))'))
 
-            types = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedtypes)')
+            types = await core.callStorm('return($lib.model.form(test:str).props.poly.types)')
             types = [tdef[0] for tdef in types]
             self.isin('test:int', types)
             self.isin('test:hasiface', types)
 
-            types = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedtypes)')
+            types = await core.callStorm('return($lib.model.form(test:str).props.polyarry.types)')
             types = [tdef[0] for tdef in types]
             self.isin('test:int', types)
             self.isin('test:hasiface', types)
 
-            self.len(1, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedtypes)'))
+            self.len(1, await core.callStorm('return($lib.model.form(test:str).props.hehe.types)'))
 
     async def test_stormlib_model_depr(self):
 
