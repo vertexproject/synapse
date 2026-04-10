@@ -3303,7 +3303,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        tdef = self.model.convertPropdef(tdef)
+        tdef = self.model.convertTypedef(tdef)
 
         self.model.getTypeClone(tdef)
 

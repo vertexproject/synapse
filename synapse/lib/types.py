@@ -2057,7 +2057,7 @@ class Loc(Type):
 
     async def _storLiftEq(self, cmpr, valu):
 
-        if valu.endswith('.*'):
+        if isinstance(valu, str) and valu.endswith('.*'):
             norm, info = await self.norm(valu[:-2])
             return (
                 ('^=', norm, self.stortype),
@@ -2119,7 +2119,6 @@ class Poly(Type):
 
     _opt_defs = (
         ('default_types', None),    # type: ignore
-        ('forms', None),            # type: ignore
         ('types', None),            # type: ignore
         ('interfaces', None),       # type: ignore
     )
@@ -2141,43 +2140,11 @@ class Poly(Type):
             'type': {'=': self._storLiftType},
         }
 
-        self.forms = self.opts.get('forms')
-        self.ifaces = self.opts.get('interfaces')
-        self.typeset = set()
+        self.ifaces = frozenset(self.opts.get('interfaces') or ())
+        self.typeset = frozenset(self.opts.get('types') or ())
+        self.formtypes = frozenset(name for name in self.typeset if name in self.modl.forminfos)
 
-        if self.forms is not None:
-            forms = set(self.forms)
-            self.typeset |= forms
-
-        if (types := self.opts.get('types')) is not None:
-            self.typeset |= set(types)
-
-        self.typeset = tuple(self.typeset)
-
-        if self.ifaces is not None:
-            ifaces = set(self.ifaces)
-
-        self.hasforms = self.forms or self.ifaces
-        self.formfilter = None
-
-        if self.hasforms:
-            def formfilt(form):
-                if self.forms is not None and any(f in forms for f in form.formtypes):
-                    return True
-
-                if self.ifaces is not None and any(iface in ifaces for iface in form.ifaces):
-                    return True
-
-                return False
-
-            self.formfilter = formfilt
-
-        self.typefilter = None
-        if self.typeset:
-            def typefilt(tobj):
-                return any(t in self.typeset for t in tobj.types)
-
-            self.typefilter = typefilt
+        self.hasforms = bool(self.ifaces or self.formtypes)
 
         self.defaulttypes = self.opts.get('default_types')
         if self.defaulttypes is not None:
@@ -2186,11 +2153,23 @@ class Poly(Type):
                     mesg = f'Default types must be all be allowed on {self.name}.'
                     raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
 
+    def typefilter(self, tobj):
+        if not self.typeset:
+            return False
+        return any(t in self.typeset for t in tobj.types)
+
+    def ifacefilter(self, form):
+        if not self.ifaces:
+            return False
+        return any(iface in self.ifaces for iface in form.ifaces)
+
+    def formfilter(self, form):
+        if self.formtypes and any(f in self.formtypes for f in form.formtypes):
+            return True
+        return self.ifacefilter(form)
+
     def getTypeSet(self):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
-
-    def getFormSet(self):
-        return self.modl.getFormSet(forms=self.forms, interfaces=self.ifaces)
 
     def getCmprCtor(self, name):
         ctors = {}
@@ -2319,8 +2298,8 @@ class Poly(Type):
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
-        if (tobj := self.modl.type(valu)) is None or self.typefilter is None or not self.typefilter(tobj):
-            if (form := self.modl.form(valu)) is None or self.formfilter is None or not self.formfilter(form):
+        if (tobj := self.modl.type(valu)) is None or not self.typefilter(tobj):
+            if (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2344,10 +2323,7 @@ class Poly(Type):
 
         if isinstance(valu, s_node.Node):
             if cmpr == '=':
-                if self.typefilter is not None and self.typefilter(valu.form.type):
-                    return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
-
-                elif self.formfilter is not None and self.formfilter(valu.form):
+                if self.typefilter(valu.form.type) or self.ifacefilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2356,10 +2332,10 @@ class Poly(Type):
             if cmpr == '=':
                 typename = valu.valu[0]
 
-                if self.typefilter is not None and self.typefilter(self.modl.type(typename)):
+                if self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif self.formfilter is not None and (form := self.modl.form(typename)) is not None and self.formfilter(form):
+                elif (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2460,9 +2436,8 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if self.typefilter is None or not self.typefilter(valu.form.type):
-            if self.formfilter is None or not self.formfilter(valu.form):
-                self._raiseBadTypeValu(valu.form.name)
+        if not self.typefilter(valu.form.type) and not self.ifacefilter(valu.form):
+            self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
             formname = valu.form.name
@@ -2476,9 +2451,8 @@ class Poly(Type):
         tobj = self.modl.type(typename)
         form = self.modl.form(typename)
 
-        if self.typefilter is None or not self.typefilter(tobj):
-            if form is None or self.formfilter is None or not self.formfilter(form):
-                self._raiseBadTypeValu(typename)
+        if not self.typefilter(tobj) and (form is None or not self.ifacefilter(form)):
+            self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
@@ -2645,7 +2619,7 @@ class Str(Type):
 
     async def _storLiftEq(self, cmpr, valu):
 
-        if self.opts.get('globsuffix') and valu.endswith('*'):
+        if isinstance(valu, str) and self.opts.get('globsuffix') and valu.endswith('*'):
             return (
                 ('^=', valu[:-1], self.stortype),
             )

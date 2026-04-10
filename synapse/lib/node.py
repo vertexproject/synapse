@@ -169,9 +169,9 @@ class NodeBase:
 
     def hasPropAltsValu(self, prop, valu):
         # valu must be normalized in advance
-        proptype = prop.type
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 arryvalu = self.get(prop.name)
                 if arryvalu is not None and valu in arryvalu:
                     return True

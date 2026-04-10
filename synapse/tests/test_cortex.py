@@ -3228,6 +3228,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'norm', 'foobar')
 
+        # Test on:add callback on a ctor-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:ctoronstorm=foobar]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
+        # Test on:add callback on a type-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:onstorm2=*]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

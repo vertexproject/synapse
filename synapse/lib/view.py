@@ -2707,18 +2707,18 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getPropAltCount(self, prop, valu):
         # valu must be normalized in advance
         count = 0
-        proptype = prop.type
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 count += await self.getPropArrayCount(prop.full, valu=valu, norm=False)
             else:
                 count += await self.getPropCount(prop.full, valu=valu, norm=False)
         return count
 
     async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
-        proptype = prop.type
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
             else:
