@@ -14,7 +14,7 @@ Features and Enhancements
 - Added loglevel support to the Storm ``$lib.cron.at()`` API.
   (`#4853 <https://github.com/vertexproject/synapse/pull/4853>`_)
 - Added a ``$lib.lift.tagsByPref()`` API to efficiently retrieve tags by prefix
-  at specific levels in the tag tree.
+  at a specific depth in the tag tree.
   (`#4866 <https://github.com/vertexproject/synapse/pull/4866>`_)
 
 Bugfixes
