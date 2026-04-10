@@ -387,7 +387,7 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'form', 'desc': 'Get the Form for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
                   'returns': {'type': ['model:form', 'null']}}},
-        {'name': 'types', 'desc': 'Get the Types allowed for the Property.',
+        {'name': 'types', 'desc': 'Get the types allowed for the property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropTypes',
                   'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
     )
