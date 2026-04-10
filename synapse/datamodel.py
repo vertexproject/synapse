@@ -957,7 +957,7 @@ class Model:
                     ftype = typ.tcache[fname]
                 except s_exc.BadTypeDef:
                     mesg = f'The {typ.name} field {fname} is declared as a type ({ftypename}) that does not exist.'
-                    logger.warning(mesg, s_logging.getLogExtra(type=typ.name, field=fname))
+                    logger.warning(mesg, extra=s_logging.getLogExtra(type=typ.name, field=fname))
                     continue
 
                 # We're only interested in extended model comp types
@@ -966,11 +966,11 @@ class Model:
 
                 if ftype.ismutable:
                     mesg = f'Comp types with mutable fields ({typ.name}:{fname}) are deprecated and will be removed in 3.0.0.'
-                    logger.warning(mesg, s_logging.getLogExtra(type=typ.name, field=fname))
+                    logger.warning(mesg, extra=s_logging.getLogExtra(type=typ.name, field=fname))
 
                 if ftype.deprecated:
                     mesg = f'The type {typ.name} field {fname} uses a deprecated type {ftype.name}.'
-                    logger.warning(mesg, s_logging.getLogExtra(type=typ.name, field=fname, field_type=ftype.name))
+                    logger.warning(mesg, extra=s_logging.getLogExtra(type=typ.name, field=fname, field_type=ftype.name))
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
