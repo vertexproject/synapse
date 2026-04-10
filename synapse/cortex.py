@@ -214,8 +214,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -4055,8 +4055,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''

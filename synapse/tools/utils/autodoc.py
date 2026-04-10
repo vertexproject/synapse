@@ -642,8 +642,7 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
 
 async def docModel(outp,
                    core):
-    modeldefs = await core.getModelDefs()
-    _, model = modeldefs[0]
+    model = await core.getModelDef()
 
     ctors = []
     for typename, typedef, typeinfo in model.get('types', ()):

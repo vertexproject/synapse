@@ -4,7 +4,7 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 geotestmodel = (
-    ('geo:test', {
+    {
 
         'types': (
             ('test:latlong', ('geo:latlong', {}), {}),
@@ -20,7 +20,7 @@ geotestmodel = (
             )),
             ('test:distoff', {}, ()),
         ),
-    }),
+    },
 )
 
 geojson0 = {

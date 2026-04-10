@@ -132,7 +132,7 @@ class FilePath(s_types.Str):
         return fullpath, {'adds': adds, 'virts': virts}
 
 modeldefs = (
-    ('file', {
+    {
         'interfaces': (
             ('file:mime:meta', {
                 'template': {'metadata': 'metadata'},
@@ -802,5 +802,5 @@ modeldefs = (
                     'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
             )),
         ),
-    }),
+    },
 )

@@ -1,5 +1,5 @@
 modeldefs = (
-    ('doc', {
+    {
         'interfaces': (
 
             ('doc:authorable', {
@@ -273,5 +273,5 @@ modeldefs = (
                     'doc': 'A URL for the reference.'}),
             )),
         ),
-    }),
+    },
 )

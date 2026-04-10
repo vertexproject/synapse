@@ -10484,7 +10484,7 @@ Features and Enhancements
   (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
 - Add ``aha:svcinfo`` configuration option for the base Cell.
   (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
-- Add interfaces to the output of ``model.getModelDefs()`` and the
+- Add interfaces to the output of ``model.getModelDef()`` and the
   ``getModelDict()`` APIs.
   (`#2092 <https://github.com/vertexproject/synapse/pull/2092>`_)
 - Update pylmdb to ``v1.1.1``.

@@ -1,5 +1,5 @@
 modeldefs = (
-    ('pol', {
+    {
 
         'types': (
 
@@ -251,5 +251,5 @@ modeldefs = (
             )),
         ),
 
-    }),
+    },
 )

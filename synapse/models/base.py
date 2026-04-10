@@ -20,7 +20,7 @@ taskstatusenums = (
 )
 
 modeldefs = (
-    ('base', {
+    {
         'types': (
 
             ('int', (None, {'ctor': 'synapse.lib.types.Int'}), {
@@ -833,5 +833,5 @@ modeldefs = (
             ('meta:technique:type:taxonomy', {}, ()),
 
         ),
-    }),
+    },
 )

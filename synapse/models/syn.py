@@ -141,7 +141,7 @@ async def _liftRuntSynTagProp(view, prop, cmprvalu=None):
 
 
 modeldefs = (
-    ('syn', {
+    {
 
         'types': (
             ('syn:user', (None, {'ctor': 'synapse.models.syn.SynUser'}), {
@@ -273,5 +273,5 @@ modeldefs = (
                     'doc': 'The layer storage nodes for the node that was deleted.', 'computed': True}),
             )),
         ),
-    }),
+    },
 )

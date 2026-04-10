@@ -379,7 +379,7 @@ class LatLong(s_types.Type):
         return f'{norm[0]},{norm[1]}'
 
 modeldefs = (
-    ('geo', {
+    {
 
         'interfaces': (
 
@@ -539,5 +539,5 @@ modeldefs = (
                     'doc': 'The image file to use as the primary image of the place.'}),
             )),
         )
-    }),
+    },
 )

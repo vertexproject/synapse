@@ -83,14 +83,14 @@ class DataModelTest(s_t_utils.SynTest):
     async def test_datamodel_formname(self):
         modl = s_datamodel.getBaseModel()
         mods = (
-            ('hehe', {
+            {
                 'types': (
                     ('derp', ('int', {}), {}),
                 ),
                 'forms': (
                     ('derp', {}, ()),
                 ),
-            }),
+            },
         )
 
         with self.raises(s_exc.BadFormDef):
@@ -106,7 +106,7 @@ class DataModelTest(s_t_utils.SynTest):
     async def test_datamodel_no_interface(self):
         modl = s_datamodel.getBaseModel()
         mods = (
-            ('hehe', {
+            {
                 'types': (
                     ('test:derp', ('int', {}), {
                         'interfaces': (('foo:bar', {}),),
@@ -115,7 +115,7 @@ class DataModelTest(s_t_utils.SynTest):
                 'forms': (
                     ('test:derp', {}, ()),
                 ),
-            }),
+            },
         )
 
         with self.raises(s_exc.NoSuchIface):
@@ -285,15 +285,15 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_getmodeldefs(self):
         '''
-        Make sure you can make a new model with the output of datamodel.getModelDefs
+        Make sure you can make a new model with the output of datamodel.getModelDef
         '''
         modl = s_datamodel.getBaseModel()
         modl.addIface('test:iface', {})
         modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
         modl.addForm('foo:foo', {}, ())
-        mdef = modl.getModelDefs()
+        mdef = modl.getModelDef()
         modl2 = s_datamodel.getBaseModel()
-        modl2.addDataModels(mdef)
+        modl2.addDataModels([mdef])
 
     async def test_model_comp_readonly_props(self):
         async with self.getTestCore() as core:
@@ -316,7 +316,7 @@ class DataModelTest(s_t_utils.SynTest):
         mutmesg = 'Comp types with mutable fields (_bad:comp:hehe) are not allowed'
 
         # Comp type with a direct data field
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'data'),
@@ -329,14 +329,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.getBaseModel().addDataModels([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'bad:data'),
@@ -350,14 +350,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.getBaseModel().addDataModels([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('bad:data00', ('data', {}), {}),
                 ('bad:data01', ('bad:data00', {}), {}),
@@ -372,7 +372,7 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.getBaseModel().addDataModels([badmodel])
@@ -403,7 +403,7 @@ class DataModelTest(s_t_utils.SynTest):
         self.isin('Type newp is not present in datamodel.', cm.exception.get('mesg'))
 
         # deprecated types
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('depr:type', ('int', {}), {'deprecated': True}),
                 ('_bad:comp', ('comp', {'fields': (
@@ -417,14 +417,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.getBaseModel().addDataModels([badmodel])
         stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
 
         # Comp type not extended does not gen deprecated warning
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('depr:type', ('int', {}), {'deprecated': True}),
                 ('bad:comp', ('comp', {'fields': (
@@ -438,7 +438,7 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.getBaseModel().addDataModels([badmodel])
@@ -500,7 +500,7 @@ class DataModelTest(s_t_utils.SynTest):
             taxprops = {p[0]: p for p in taxinfo['props']}
             self.eq(taxprops['parent'][1][0], 'meta:taxonomy')
 
-            model = (await core.getModelDefs())[0][1]
+            model = await core.getModelDef()
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
             self.nn(core.model.edge(('test:interface', 'matches', None)))

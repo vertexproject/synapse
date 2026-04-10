@@ -138,7 +138,7 @@ class Imei(s_types.Int):
                                 mesg='Failed to norm IMEI')
 
 modeldefs = (
-    ('tel', {
+    {
         'types': (
 
             ('tel:mob:imei', (None, {'ctor': 'synapse.models.telco.Imei'}), {
@@ -396,5 +396,5 @@ modeldefs = (
                     'doc': 'The app used to report the mobile telemetry sample.'}),
             )),
         )
-    }),
+    },
 )

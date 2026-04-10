@@ -2122,7 +2122,7 @@ class TypesTest(s_t_utils.SynTest):
         }
         async with self.getTestCore() as core:
 
-            core.model.addDataModels([('asdf', mdef)])
+            core.model.addDataModels([mdef])
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})

@@ -464,7 +464,7 @@ class DocModelTest(s_t_utils.SynTest):
         # the no-doc branch in the genFormMarkdown interfaces table
 
         async with self.getTestCore() as core:
-            core.model.addDataModels([('test', {
+            core.model.addDataModels([{
                 'interfaces': (
                     ('test:nodoc:iface', {
                         'props': (),
@@ -480,7 +480,7 @@ class DocModelTest(s_t_utils.SynTest):
                 'forms': (
                     ('test:nodoc:form', {}, ()),
                 ),
-            })])
+            }])
 
             text = await s_docmodel.genFormMarkdown(core, 'test:nodoc:form')
             self.isin('`test:nodoc:iface`', text)
@@ -492,7 +492,7 @@ class DocModelTest(s_t_utils.SynTest):
         # "## Implementing Forms" section in genIfaceMarkdown
 
         async with self.getTestCore() as core:
-            core.model.addDataModels([('test', {
+            core.model.addDataModels([{
                 'interfaces': (
                     ('test:impl:iface', {
                         'doc': 'A test interface with an implementing form.',
@@ -510,7 +510,7 @@ class DocModelTest(s_t_utils.SynTest):
                 'forms': (
                     ('test:impl:form', {}, ()),
                 ),
-            })])
+            }])
 
             text = await s_docmodel.genIfaceMarkdown(core, 'test:impl:iface')
             self.isin('# `test:impl:iface`', text)

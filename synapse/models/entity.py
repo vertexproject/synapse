@@ -1,5 +1,5 @@
 modeldefs = (
-    ('entity', {
+    {
 
         'interfaces': (
 
@@ -764,5 +764,5 @@ modeldefs = (
             )),
 
         ),
-    }),
+    },
 )
