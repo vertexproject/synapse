@@ -262,16 +262,6 @@ class ThreeType(s_types.Type):
 testmodel = (
     ('test', {
 
-        'ctors': (
-            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-            ('test:ctoronstorm', 'synapse.tests.utils.TestType', {}, {
-                'on': {'add': {'q': '[ :tick=2025 ]'}},
-                'props': (
-                    ('tick', ('time', {}), {}),
-                ),
-            }),
-        ),
         'interfaces': (
             ('test:interface', {
                 'doc': 'test interface',
@@ -294,6 +284,14 @@ testmodel = (
             ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
+            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {}),
+            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {}),
+            ('test:ctoronstorm', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
             ('test:type10', ('test:type', {}), {
                 'doc': 'A fake type.'}),
 
@@ -592,9 +590,6 @@ testmodel = (
 
 deprmodel = (
     ('depr', {
-        'ctors': (
-            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-        ),
         'interfaces': (
             ('test:deprinterface', {
                 'doc': 'test interface',
@@ -604,6 +599,7 @@ deprmodel = (
             }),
         ),
         'types': (
+            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {'deprecated': True}),
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
             ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),

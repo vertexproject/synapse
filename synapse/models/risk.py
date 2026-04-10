@@ -33,17 +33,15 @@ alertstatus = (
 
 modeldefs = (
     ('risk', {
-        'ctors': (
+        'types': (
             # TODO: implement type specific cmprs and virts for CVSS types
-            ('it:sec:cvss:v2', 'synapse.models.risk.CvssV2', {}, {
+            ('it:sec:cvss:v2', (None, {'ctor': 'synapse.models.risk.CvssV2'}), {
                 'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)',
                 'doc': 'A CVSS v2 vector string.'}),
 
-            ('it:sec:cvss:v3', 'synapse.models.risk.CvssV3', {}, {
+            ('it:sec:cvss:v3', (None, {'ctor': 'synapse.models.risk.CvssV3'}), {
                 'ex': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
                 'doc': 'A CVSS v3.x vector string.'}),
-        ),
-        'types': (
 
             ('risk:vuln', ('guid', {}), {
                 'template': {'title': 'vulnerability'},

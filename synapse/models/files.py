@@ -133,36 +133,6 @@ class FilePath(s_types.Str):
 
 modeldefs = (
     ('file', {
-        'ctors': (
-
-            ('file:base', 'synapse.models.files.FileBase', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'file name'}}),
-                ),
-                'doc': 'A file name with no path.',
-                'ex': 'woot.exe'}),
-
-            ('file:path', 'synapse.models.files.FilePath', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'file path'}}),
-                ),
-                'virts': (
-                    ('dir', ('file:path', {}), {
-                        'computed': True,
-                        'doc': 'The directory from the path.'}),
-
-                    ('base', ('file:base', {}), {
-                        'computed': True,
-                        'doc': 'The file base name from the path.'}),
-
-                    ('ext', ('str', {}), {
-                        'computed': True,
-                        'doc': 'The file extension from the path.'}),
-                ),
-                'doc': 'A normalized file path.',
-                'ex': 'c:/windows/system32/calc.exe'}),
-        ),
-
         'interfaces': (
             ('file:mime:meta', {
                 'template': {'metadata': 'metadata'},
@@ -257,6 +227,33 @@ modeldefs = (
         ),
 
         'types': (
+
+            ('file:base', (None, {'ctor': 'synapse.models.files.FileBase'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file name'}}),
+                ),
+                'doc': 'A file name with no path.',
+                'ex': 'woot.exe'}),
+
+            ('file:path', (None, {'ctor': 'synapse.models.files.FilePath'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file path'}}),
+                ),
+                'virts': (
+                    ('dir', ('file:path', {}), {
+                        'computed': True,
+                        'doc': 'The directory from the path.'}),
+
+                    ('base', ('file:base', {}), {
+                        'computed': True,
+                        'doc': 'The file base name from the path.'}),
+
+                    ('ext', ('str', {}), {
+                        'computed': True,
+                        'doc': 'The file extension from the path.'}),
+                ),
+                'doc': 'A normalized file path.',
+                'ex': 'c:/windows/system32/calc.exe'}),
 
             ('file:bytes', ('guid', {}), {
                 'interfaces': (

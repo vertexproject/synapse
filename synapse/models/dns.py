@@ -92,16 +92,12 @@ class DnsName(s_types.Str):
 modeldefs = (
     ('inet:dns', {
 
-        'ctors': (
+        'types': (
 
-            ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
+            ('inet:dns:name', (None, {'ctor': 'synapse.models.dns.DnsName'}), {
                 'doc': 'A DNS query name string. Likely an FQDN but not always.',
                 'ex': 'vertex.link',
             }),
-
-        ),
-
-        'types': (
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
                 'interfaces': (

@@ -574,7 +574,6 @@ class Model:
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
-            'ctors': [],
             'types': [],
             'forms': [],
             'edges': [],
@@ -1060,12 +1059,12 @@ class Model:
         A model definition (mdef) is structured as follows::
 
             {
-                "ctors":(
-                    ('name', 'class.path.ctor', {}, {'doc': 'The foo thing.'}),
-                ),
-
                 "types":(
                     ('name', ('basetype', {typeopts}), {info}),
+
+                    # Types with custom Python classes use None as the base
+                    # with the 'ctor' key specifying the class path:
+                    ('name', (None, {'ctor': 'class.path', ...typeopts}), {info}),
                 ),
 
                 "forms":(
@@ -1100,15 +1099,6 @@ class Model:
         # Gather all the forms first
         for _, mdef in mods:
 
-            # Allow props declared directly on ctors to become forms...
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                if (props := info.get('props')) is not None:
-                    forminfo = {}
-                    if (ondef := info.get('on')) is not None:
-                        forminfo['on'] = ondef
-                    allforms.append((name, forminfo, props))
-                    self.forminfos[name] = forminfo
-
             # Allow props declared directly on types to become forms...
             for typename, _, typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
@@ -1129,17 +1119,23 @@ class Model:
 
         ctors = {}
 
-        # load all the base type ctors in order...
-        for _, mdef in mods:
-
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
-                self.types[name] = item
-                ctors[name] = (name, ctor, opts, info)
-
-        # load all the types in order...
+        # first pass: load ctor-based types (base type is None)
         for _, mdef in mods:
             for typename, typedef, typeinfo in mdef.get('types', ()):
+                if typedef[0] is not None:
+                    continue
+
+                typeopts = dict(typedef[1])
+                ctor = typeopts.pop('ctor')
+                item = s_dyndeps.tryDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
+                self.types[typename] = item
+                ctors[typename] = ctor
+
+        # second pass: load all derived types
+        for _, mdef in mods:
+            for typename, typedef, typeinfo in mdef.get('types', ()):
+                if typedef[0] is None:
+                    continue
 
                 if isinstance(typedef[0], tuple):
                     basename = 'poly'
@@ -1152,8 +1148,10 @@ class Model:
         # finish initializing types
         for name, tobj in self.types.items():
             tobj._initType()
-            if (info := ctors.get(name)) is not None:
-                self._modeldef['ctors'].append(info)
+            if (ctor := ctors.get(name)) is not None:
+                opts = dict(tobj.opts)
+                opts['ctor'] = ctor
+                self._modeldef['types'].append((name, (None, opts), dict(tobj.info)))
             else:
                 self._modeldef['types'].append(tobj.getTypeDef())
 
@@ -1824,7 +1822,9 @@ class Model:
         Add a Type instance to the data model.
         '''
         ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
-        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
+        opts = dict(item.opts)
+        opts['ctor'] = ctor
+        self._modeldef['types'].append((item.name, (None, opts), dict(item.info)))
         self.types[item.name] = item
 
     def type(self, name):
