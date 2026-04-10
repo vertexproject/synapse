@@ -388,6 +388,63 @@ class RiskModelTest(s_t_utils.SynTest):
             self.sorteq(['meta:technique', 'risk:mitigation'], [n.ndef[0] for n in nodes])
 
             nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:software=* :name=vulnsoft ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('node'))
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:software +:name=vulnsoft'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:server=tcp://1.2.3.4:80 ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:server'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ ou:asset=* :name=myasset ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> ou:asset +:name=myasset'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:host=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:host'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:client=tcp://5.6.7.8:12345 ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:client'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:service:platform=* :name=myplatform ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:platform +:name=myplatform'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:hardware=* :name=myhardware ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:hardware +:name=myhardware'))
+
+            nodes = await core.nodes('''
                 [ risk:outage=*
                     :name="The Big One"
                     :period=(2023, 2024)
