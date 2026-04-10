@@ -1,9 +1,9 @@
 modeldefs = (
     ('econ', {
 
-        'ctors': (
-            ('econ:price', 'synapse.lib.types.Price', {}, {
-                'doc': 'The amount of money expected, required, or given in payment for something.',
+        'types': (
+
+            ('econ:price', (None, {'ctor': 'synapse.lib.types.Price'}), {
                 'ex': '2.20',
                 'virts': (
 
@@ -13,10 +13,7 @@ modeldefs = (
                     ('asof', ('time', {}), {
                         'doc': 'The time the price was sampled or recorded.'}),
                 ),
-            }),
-        ),
-
-        'types': (
+                'doc': 'The amount of money expected, required, or given in payment for something.'}),
 
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),

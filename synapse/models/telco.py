@@ -139,32 +139,28 @@ class Imei(s_types.Int):
 
 modeldefs = (
     ('tel', {
-        'ctors': (
+        'types': (
 
-            ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
+            ('tel:mob:imei', (None, {'ctor': 'synapse.models.telco.Imei'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'IMEI'}}),
                 ),
                 'ex': '490154203237518',
                 'doc': 'An International Mobile Equipment Id.'}),
 
-            ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
+            ('tel:mob:imsi', (None, {'ctor': 'synapse.models.telco.Imsi'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'IMSI'}}),
                 ),
                 'ex': '310150123456789',
                 'doc': 'An International Mobile Subscriber Id.'}),
 
-            ('tel:phone', 'synapse.models.telco.Phone', {}, {
+            ('tel:phone', (None, {'ctor': 'synapse.models.telco.Phone'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'phone number'}}),
                 ),
                 'ex': '+15558675309',
                 'doc': 'A phone number.'}),
-
-        ),
-
-        'types': (
 
             ('tel:call', ('guid', {}), {
                 'interfaces': (

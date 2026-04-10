@@ -381,19 +381,6 @@ class LatLong(s_types.Type):
 modeldefs = (
     ('geo', {
 
-        'ctors': (
-            ('geo:dist', 'synapse.models.geospace.Dist', {}, {
-                'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
-            }),
-            ('geo:area', 'synapse.models.geospace.Area', {}, {
-                'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq.km'
-            }),
-            ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
-                'doc': 'A Lat/Long string specifying a point on Earth.',
-                'ex': '-12.45,56.78'
-            }),
-        ),
-
         'interfaces': (
 
             ('geo:locatable', {
@@ -444,6 +431,16 @@ modeldefs = (
         ),
 
         'types': (
+
+            ('geo:dist', (None, {'ctor': 'synapse.models.geospace.Dist'}), {
+                'ex': '10 km',
+                'doc': 'A geographic distance (base unit is mm).'}),
+            ('geo:area', (None, {'ctor': 'synapse.models.geospace.Area'}), {
+                'ex': '10 sq.km',
+                'doc': 'A geographic area (base unit is square mm).'}),
+            ('geo:latlong', (None, {'ctor': 'synapse.models.geospace.LatLong'}), {
+                'ex': '-12.45,56.78',
+                'doc': 'A Lat/Long string specifying a point on Earth.'}),
 
             ('geo:telem', ('guid', {}), {
                 'interfaces': (
