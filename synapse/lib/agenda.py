@@ -951,7 +951,7 @@ class Agenda(s_base.Base):
         await self.core.addCronEdits(appt.iden, edits)
 
         logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, text=appt.query, view=appt.iden))
+                    extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, text=appt.query, view=appt.view))
         starttime = self._getNowTick()
 
         success = False
