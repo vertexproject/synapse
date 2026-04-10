@@ -284,8 +284,14 @@ testmodel = (
             ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
-            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {}),
-            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {}),
+            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
+                'props': (),
+            }),
+            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {
+                'props': (
+                    ('three', ('int', {}), {}),
+                ),
+            }),
             ('test:ctoronstorm', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
                 'on': {'add': {'q': '[ :tick=2025 ]'}},
                 'props': (
@@ -293,292 +299,292 @@ testmodel = (
                 ),
             }),
             ('test:type10', ('test:type', {}), {
-                'doc': 'A fake type.'}),
+                'doc': 'A fake type.',
+                'props': (
+                    ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+                    ('int2', ('int', {}), {}),
+                    ('strprop', ('test:lower', {}), {}),
+                    ('guidprop', ('guid', {}), {}),
+                    ('locprop', ('loc', {}), {}),
+                ),
+            }),
 
             ('test:lower', ('str', {'lower': True}), {}),
-            ('test:lowstr', ('str', {'lower': True}), {}),
+            ('test:lowstr', ('str', {'lower': True}), {
+                'props': (),
+            }),
 
             ('test:time', ('time', {}), {}),
 
-            ('test:ro', ('str', {}), {}),
-            ('test:int', ('int', {}), {}),
-            ('test:float', ('float', {}), {}),
+            ('test:ro', ('str', {}), {
+                'props': (
+                    ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+                    ('readable', ('str', {}), {'doc': 'computed property.', 'computed': True}),
+                ),
+            }),
+            ('test:int', ('int', {}), {
+                'props': (
+                    ('loc', ('loc', {}), {}),
+                    ('int2', ('int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('type', ('test:str', {}), {'alts': ('types',)}),
+                    ('types', ('array', {'type': 'test:str'}), {}),
+                ),
+            }),
+            ('test:float', ('float', {}), {
+                'props': (
+                    ('closed', ('test:float:closed', {}), {}),
+                    ('open', ('test:float:open', {}), {}),
+                ),
+            }),
             ('test:float:closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
             ('test:float:open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-            ('test:str', ('str', {}), {}),
-            ('test:str2', ('test:str', {}), {}),
-            ('test:inhstr', ('str', {}), {}),
-            ('test:inhstr2', ('test:inhstr', {}), {}),
-            ('test:inhstr3', ('test:inhstr2', {}), {}),
-            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
-            ('test:migr', ('str', {}), {}),
-            ('test:auto', ('str', {}), {}),
-            ('test:guid', ('guid', {}), {}),
-            ('test:guidchild', ('test:guid', {}), {}),
-            ('test:data', ('data', {}), {}),
+            ('test:str', ('str', {}), {
+                'props': (
+                    ('bar', (
+                        ('test:str', {}),
+                        ('test:int', {}),
+                        ('test:comp', {}),
+                        ('test:auto', {}),
+                        ('test:guid', {}),
+                        ('test:virtiface', {}),
+                        ('test:ro', {}),
+                        ('inet:ip', {}),
+                        ('inet:fqdn', {}),
+                        ('meta:source', {}),
+                        ('ps:person', {})
+                    ), {}),
+                    ('tick', ('test:time', {}), {}),
+                    ('hehe', ('str', {}), {}),
+                    ('net', ('inet:net', {}), {}),
+                    ('somestr', ('test:str', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('pivvirt', ('test:virtiface', {}), {}),
+                    ('gprop', ('test:guid', {}), {}),
+                    ('inhstr', ('test:inhstr', {}), {}),
+                    ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                    ('poly', (
+                        ('test:int', {}),
+                        ('test:str', {}),
+                        ('test:lowstr', {}),
+                        ('test:interface', {}),
+                        ('inet:server', {}),
+                        ('inet:fqdn', {})
+                    ), {}),
+                    ('polyarry', ('array', {'type': (
+                        ('test:int', {}),
+                        ('test:str', {}),
+                        ('test:lowstr', {}),
+                        ('test:interface', {}),
+                        ('inet:server', {}),
+                        ('inet:fqdn', {}),
+                        ('test:auto', {}),
+                        ('test:ro', {}),
+                        ('it:dev:int', {}),
+                        ('it:dev:str', {})
+                    )}), {}),
+                    ('polyarry2', ('array', {'type': (
+                        ('test:int', {}),
+                        ('test:guid', {}),
+                        ('test:auto', {}),
+                        ('test:ro', {})
+                    )}), {}),
+                    ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
+                        ('test:int', {}),
+                        ('test:str', {}),
+                        ('test:lowstr', {}),
+                        ('test:interface', {}),
+                        ('inet:server', {}),
+                        ('inet:fqdn', {})
+                    )}), {}),
+                    ('polyint', ('test:interface', {}), {}),
+                    ('polyempty', ('test:unused:iface', {}), {}),
+                ),
+            }),
+            ('test:str2', ('test:str', {}), {
+                'props': (),
+            }),
+            ('test:inhstr', ('str', {}), {
+                'props': (
+                    ('name', ('str', {}), {}),
+                ),
+            }),
+            ('test:inhstr2', ('test:inhstr', {}), {
+                'props': (
+                    ('child1', ('str', {}), {}),
+                ),
+            }),
+            ('test:inhstr3', ('test:inhstr2', {}), {
+                'props': (
+                    ('child2', ('str', {}), {}),
+                ),
+            }),
+            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
+                'props': (),
+            }),
+            ('test:migr', ('str', {}), {
+                'props': (
+                    ('tick', ('test:time', {}), {}),
+                ),
+            }),
+            ('test:auto', ('str', {}), {
+                'props': (),
+            }),
+            ('test:guid', ('guid', {}), {
+                'props': (
+                    ('name', ('test:str', {}), {}),
+                    ('size', ('test:int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('tick', ('test:time', {}), {}),
+                    ('comp', ('test:comp', {}), {}),
+                    ('server', ('inet:server', {}), {}),
+                    ('raw', ('data', {}), {}),
+                    ('iden', ('guid', {}), {}),
+                ),
+            }),
+            ('test:guidchild', ('test:guid', {}), {
+                'props': (),
+            }),
+            ('test:data', ('data', {}), {
+                'props': (
+                    ('data', ('test:data', {}), {}),
+                ),
+            }),
             ('test:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
-                )
+                ),
+                'props': (),
             }),
-            ('test:hugenum', ('hugenum', {}), {}),
+            ('test:hugenum', ('hugenum', {}), {
+                'props': (
+                    ('huge', ('test:hugenum', {}), {}),
+                ),
+            }),
 
-            ('test:arrayprop', ('guid', {}), {}),
+            ('test:arrayprop', ('guid', {}), {
+                'props': (
+                    ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
+                    ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
+                    ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
+                    ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                    ('children', ('array', {'type': 'test:arrayprop'}), {}),
+                    ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
+                    ('multivirt', ('array', {'type': (
+                        ('file:path', {}),
+                        ('inet:server', {})
+                    ), 'uniq': False}), {}),
+                    ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
+                ),
+            }),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
                 ('haha', 'test:lower'))
-            }), {'doc': 'A fake comp type.'}),
+            }), {
+                'doc': 'A fake comp type.',
+                'props': (
+                    ('hehe', ('test:int', {}), {'computed': True}),
+                    ('haha', ('test:lower', {}), {'computed': True}),
+                    ('seen', ('ival', {}), {}),
+                ),
+            }),
             ('test:compcomp', ('comp', {'fields': (
                 ('comp1', 'test:comp'),
                 ('comp2', 'test:comp'))
-            }), {}),
+            }), {
+                'props': (
+                    ('comp1', ('test:comp', {}), {'computed': True}),
+                    ('comp2', ('test:comp', {}), {'computed': True}),
+                ),
+            }),
             ('test:complexcomp', ('comp', {'fields': (
                 ('foo', 'test:int'),
                 ('bar', ('str', {'lower': True}),),
-            )}), {'doc': 'A complex comp type.'}),
-            ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
-            ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+            )}), {
+                'doc': 'A complex comp type.',
+                'props': (
+                    ('foo', ('test:int', {}), {'computed': True}),
+                    ('bar', ('str', {'lower': 1}), {'computed': True})
+                ),
+            }),
+            ('test:hexa', ('hex', {}), {
+                'doc': 'anysize test hex type.',
+                'props': (),
+            }),
+            ('test:hex4', ('hex', {'size': 4}), {
+                'doc': 'size 4 test hex type.',
+                'props': (),
+            }),
             ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
-            ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
+            ('test:zeropad', ('hex', {'zeropad': 20}), {
+                'doc': 'test hex type, zero padded to 40 bytes.',
+                'props': (),
+            }),
 
-            ('test:pivtarg', ('str', {}), {}),
-            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
-            ('test:haspivcomp', ('int', {}), {}),
+            ('test:pivtarg', ('str', {}), {
+                'props': (
+                    ('name', ('str', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                ),
+            }),
+            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {
+                'props': (
+                    ('targ', ('test:pivtarg', {}), {'computed': True}),
+                    ('lulz', ('test:str', {}), {'computed': True}),
+                    ('tick', ('time', {}), {}),
+                    ('size', ('test:int', {}), {}),
+                    ('width', ('test:int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                ),
+            }),
+            ('test:haspivcomp', ('int', {}), {
+                'props': (
+                    ('have', ('test:pivcomp', {}), {}),
+                ),
+            }),
 
-            ('test:cycle0', ('str', {}), {}),
-            ('test:cycle1', ('str', {}), {}),
+            ('test:cycle0', ('str', {}), {
+                'props': (
+                    ('cycle1', ('test:cycle1', {}), {}),
+                ),
+            }),
+            ('test:cycle1', ('str', {}), {
+                'props': (
+                    ('cycle0', ('test:cycle0', {}), {}),
+                ),
+            }),
 
-            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
-            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
-            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
-            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),), 'props': ()}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),), 'props': ()}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),), 'props': ()}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),), 'props': ()}),
 
-            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
-            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
-            ('test:onstorm', ('guid', {}), {}),
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {
+                'props': (),
+            }),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {
+                'props': (),
+            }),
+            ('test:onstorm', ('guid', {}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                    ('name', ('str', {}), {
+                        'on': {'set': {'q': '[ :hehe=$node.props.name ]'}},
+                    }),
+                    ('hehe', ('str', {}), {}),
+                    ('ondelprop', ('str', {}), {
+                        'on': {'del': {'q': '[ :hehe="deleted" ]'}},
+                    }),
+                ),
+            }),
             ('test:onstorm2', ('guid', {}), {
                 'on': {'add': {'q': '[ :tick=2025 ]'}},
                 'props': (
                     ('tick', ('time', {}), {}),
                 ),
             }),
-        ),
-        'forms': (
-
-            ('test:lowstr', {}, ()),
-            ('test:arrayprop', {}, (
-                ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
-                ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
-                ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
-                ('strregexs', ('array', {'type': 'test:strregex'}), {}),
-                ('children', ('array', {'type': 'test:arrayprop'}), {}),
-                ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
-                ('multivirt', ('array', {'type': (
-                    ('file:path', {}),
-                    ('inet:server', {})
-                ), 'uniq': False}), {}),
-                ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
-            )),
-            ('test:taxonomy', {}, ()),
-            ('test:type10', {}, (
-
-                ('intprop', ('int', {'min': 20, 'max': 30}), {}),
-                ('int2', ('int', {}), {}),
-                ('strprop', ('test:lower', {}), {}),
-                ('guidprop', ('guid', {}), {}),
-                ('locprop', ('loc', {}), {}),
-            )),
-
-            ('test:cycle0', {}, (
-                ('cycle1', ('test:cycle1', {}), {}),
-            )),
-
-            ('test:cycle1', {}, (
-                ('cycle0', ('test:cycle0', {}), {}),
-            )),
-
-            ('test:type', {}, ()),
-
-            ('test:comp', {}, (
-                ('hehe', ('test:int', {}), {'computed': True}),
-                ('haha', ('test:lower', {}), {'computed': True}),
-                ('seen', ('ival', {}), {}),
-            )),
-
-            ('test:compcomp', {}, (
-                ('comp1', ('test:comp', {}), {'computed': True}),
-                ('comp2', ('test:comp', {}), {'computed': True}),
-            )),
-
-            ('test:complexcomp', {}, (
-                ('foo', ('test:int', {}), {'computed': True}),
-                ('bar', ('str', {'lower': 1}), {'computed': True})
-            )),
-
-            ('test:int', {}, (
-                ('loc', ('loc', {}), {}),
-                ('int2', ('int', {}), {}),
-                ('seen', ('ival', {}), {}),
-                ('type', ('test:str', {}), {'alts': ('types',)}),
-                ('types', ('array', {'type': 'test:str'}), {}),
-            )),
-
-            ('test:float', {}, (
-                ('closed', ('test:float:closed', {}), {}),
-                ('open', ('test:float:open', {}), {}),
-            )),
-
-            ('test:guid', {}, (
-                ('name', ('test:str', {}), {}),
-                ('size', ('test:int', {}), {}),
-                ('seen', ('ival', {}), {}),
-                ('tick', ('test:time', {}), {}),
-                ('comp', ('test:comp', {}), {}),
-                ('server', ('inet:server', {}), {}),
-                ('raw', ('data', {}), {}),
-                ('iden', ('guid', {}), {}),
-            )),
-
-            ('test:guidchild', {}, ()),
-
-            ('test:data', {}, (
-                ('data', ('test:data', {}), {}),
-            )),
-
-            ('test:hugenum', {}, (
-                ('huge', ('test:hugenum', {}), {}),
-            )),
-
-            ('test:str', {}, (
-                ('bar', (
-                    ('test:str', {}),
-                    ('test:int', {}),
-                    ('test:comp', {}),
-                    ('test:auto', {}),
-                    ('test:guid', {}),
-                    ('test:virtiface', {}),
-                    ('test:ro', {}),
-                    ('inet:ip', {}),
-                    ('inet:fqdn', {}),
-                    ('meta:source', {}),
-                    ('ps:person', {})
-                ), {}),
-                ('tick', ('test:time', {}), {}),
-                ('hehe', ('str', {}), {}),
-                ('net', ('inet:net', {}), {}),
-                ('somestr', ('test:str', {}), {}),
-                ('seen', ('ival', {}), {}),
-                ('pivvirt', ('test:virtiface', {}), {}),
-                ('gprop', ('test:guid', {}), {}),
-                ('inhstr', ('test:inhstr', {}), {}),
-                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (
-                    ('test:int', {}),
-                    ('test:str', {}),
-                    ('test:lowstr', {}),
-                    ('test:interface', {}),
-                    ('inet:server', {}),
-                    ('inet:fqdn', {})
-                ), {}),
-                ('polyarry', ('array', {'type': (
-                    ('test:int', {}),
-                    ('test:str', {}),
-                    ('test:lowstr', {}),
-                    ('test:interface', {}),
-                    ('inet:server', {}),
-                    ('inet:fqdn', {}),
-                    ('test:auto', {}),
-                    ('test:ro', {}),
-                    ('it:dev:int', {}),
-                    ('it:dev:str', {})
-                )}), {}),
-                ('polyarry2', ('array', {'type': (
-                    ('test:int', {}),
-                    ('test:guid', {}),
-                    ('test:auto', {}),
-                    ('test:ro', {})
-                )}), {}),
-                ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
-                    ('test:int', {}),
-                    ('test:str', {}),
-                    ('test:lowstr', {}),
-                    ('test:interface', {}),
-                    ('inet:server', {}),
-                    ('inet:fqdn', {})
-                )}), {}),
-                ('polyint', ('test:interface', {}), {}),
-                ('polyempty', ('test:unused:iface', {}), {}),
-            )),
-
-            ('test:str2', {}, ()),
-
-            ('test:inhstr', {}, (
-                ('name', ('str', {}), {}),
-            )),
-
-            ('test:inhstr2', {}, (
-                ('child1', ('str', {}), {}),
-            )),
-
-            ('test:inhstr3', {}, (
-                ('child2', ('str', {}), {}),
-            )),
-
-            ('test:strregex', {}, ()),
-
-            ('test:migr', {}, (
-                ('tick', ('test:time', {}), {}),
-            )),
-
-            ('test:threetype', {}, (
-                ('three', ('int', {}), {}),
-            )),
-            ('test:auto', {}, ()),
-            ('test:hexa', {}, ()),
-            ('test:hex4', {}, ()),
-            ('test:zeropad', {}, ()),
-            ('test:pivtarg', {}, (
-                ('name', ('str', {}), {}),
-                ('seen', ('ival', {}), {}),
-            )),
-
-            ('test:pivcomp', {}, (
-                ('targ', ('test:pivtarg', {}), {'computed': True}),
-                ('lulz', ('test:str', {}), {'computed': True}),
-                ('tick', ('time', {}), {}),
-                ('size', ('test:int', {}), {}),
-                ('width', ('test:int', {}), {}),
-                ('seen', ('ival', {}), {}),
-            )),
-
-            ('test:haspivcomp', {}, (
-                ('have', ('test:pivcomp', {}), {}),
-            )),
-
-            ('test:ro', {}, (
-                ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-                ('readable', ('str', {}), {'doc': 'computed property.', 'computed': True}),
-            )),
-
-            ('test:hasiface', {}, ()),
-            ('test:hasiface2', {}, ()),
-            ('test:virtiface', {}, ()),
-            ('test:virtiface2', {}, ()),
-
-            ('test:enums:int', {}, ()),
-            ('test:enums:str', {}, ()),
-
-            ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
-                ('tick', ('time', {}), {}),
-                ('name', ('str', {}), {
-                    'on': {'set': {'q': '[ :hehe=$node.props.name ]'}},
-                }),
-                ('hehe', ('str', {}), {}),
-                ('ondelprop', ('str', {}), {
-                    'on': {'del': {'q': '[ :hehe="deleted" ]'}},
-                }),
-            )),
         ),
         'edges': (
             (('test:interface', 'matches', None), {
@@ -599,52 +605,63 @@ deprmodel = (
             }),
         ),
         'types': (
-            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {'deprecated': True}),
-            ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
+            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {
+                'deprecated': True,
+                'props': (
+                    ('beep', ('test:dep:str', {}), {}),
+                ),
+            }),
+            ('test:dep:easy', ('test:str', {}), {
+                'deprecated': True,
+                'props': (
+                    ('guid', ('test:guid', {}), {'deprecated': True}),
+                    ('array', ('test:dep:array', {}), {}),
+                    ('comp', ('test:dep:comp', {}), {}),
+                ),
+            }),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
             ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
-            ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+            ('test:deprprop', ('test:str', {}), {
+                'deprecated': True,
+                'props': (),
+            }),
             ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-            ('test:deprform', ('test:str', {}), {}),
-            ('test:deprform2', ('test:str', {}), {'deprecated': True}),
-            ('test:deprsub', ('str', {}), {}),
-            ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
+            ('test:deprform', ('test:str', {}), {
+                'props': (
+                    ('deprprop', ('test:deprarray', {}), {}),
+                    ('okayprop', ('str', {}), {}),
+                    ('deprprop2', ('test:str', {}), {'deprecated': True}),
+                ),
+            }),
+            ('test:deprform2', ('test:str', {}), {
+                'deprecated': True,
+                'props': (),
+            }),
+            ('test:deprsub', ('str', {}), {
+                'props': (
+                    ('range', ('test:range', {}), {}),
+                    ('range:min', ('int', {}), {'deprecated': True}),
+                    ('range:max', ('int', {}), {}),
+                ),
+            }),
+            ('test:depriface', ('str', {}), {
+                'interfaces': (('test:deprinterface', {}),),
+                'props': (
+                    ('beep', ('test:dep:str', {}), {}),
+                ),
+            }),
             ('test:range', ('range', {}), {}),
             ('test:deprsub2', ('comp', {'fields': (
                 ('name', 'test:str'),
                 ('range', 'test:range'))
-            }), {}),
-        ),
-        'forms': (
-            ('test:deprprop', {}, ()),
-            ('test:deprform', {}, (
-                ('deprprop', ('test:deprarray', {}), {}),
-                ('okayprop', ('str', {}), {}),
-                ('deprprop2', ('test:str', {}), {'deprecated': True}),
-            )),
-            ('test:deprform2', {}, ()),
-            ('test:deprsub', {}, (
-                ('range', ('test:range', {}), {}),
-                ('range:min', ('int', {}), {'deprecated': True}),
-                ('range:max', ('int', {}), {}),
-            )),
-            ('test:deprsub2', {}, (
-                ('name', ('str', {}), {}),
-                ('range', ('test:range', {}), {}),
-                ('range:min', ('int', {}), {}),
-                ('range:max', ('int', {}), {'deprecated': True}),
-            )),
-            ('test:dep:easy', {'deprecated': True}, (
-                ('guid', ('test:guid', {}), {'deprecated': True}),
-                ('array', ('test:dep:array', {}), {}),
-                ('comp', ('test:dep:comp', {}), {}),
-            )),
-            ('test:dep:str', {}, (
-                ('beep', ('test:dep:str', {}), {}),
-            )),
-            ('test:depriface', {}, (
-                ('beep', ('test:dep:str', {}), {}),
-            )),
+            }), {
+                'props': (
+                    ('name', ('str', {}), {}),
+                    ('range', ('test:range', {}), {}),
+                    ('range:min', ('int', {}), {}),
+                    ('range:max', ('int', {}), {'deprecated': True}),
+                ),
+            }),
         ),
     },
 )

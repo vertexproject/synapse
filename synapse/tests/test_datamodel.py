@@ -85,10 +85,7 @@ class DataModelTest(s_t_utils.SynTest):
         mods = (
             {
                 'types': (
-                    ('derp', ('int', {}), {}),
-                ),
-                'forms': (
-                    ('derp', {}, ()),
+                    ('derp', ('int', {}), {'props': ()}),
                 ),
             },
         )
@@ -110,10 +107,8 @@ class DataModelTest(s_t_utils.SynTest):
                 'types': (
                     ('test:derp', ('int', {}), {
                         'interfaces': (('foo:bar', {}),),
+                        'props': (),
                     }),
-                ),
-                'forms': (
-                    ('test:derp', {}, ()),
                 ),
             },
         )
@@ -321,13 +316,10 @@ class DataModelTest(s_t_utils.SynTest):
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'data'),
                     ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a data field.'}),
-            ),
-            'forms': (
-                ('_bad:comp', {}, (
+                }), {'doc': 'A fake comp type with a data field.', 'props': (
                     ('hehe', ('data', {}), {}),
                     ('haha', ('int', {}), {}),
-                )),
+                )}),
             ),
         }
 
@@ -341,14 +333,11 @@ class DataModelTest(s_t_utils.SynTest):
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'bad:data'),
                     ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a data field.'}),
-                ('bad:data', ('data', {}), {}),
-            ),
-            'forms': (
-                ('_bad:comp', {}, (
+                }), {'doc': 'A fake comp type with a data field.', 'props': (
                     ('hehe', ('bad:data', {}), {}),
                     ('haha', ('int', {}), {}),
-                )),
+                )}),
+                ('bad:data', ('data', {}), {}),
             ),
         }
 
@@ -364,13 +353,10 @@ class DataModelTest(s_t_utils.SynTest):
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'bad:data01'),
                     ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a data field.'}),
-            ),
-            'forms': (
-                ('_bad:comp', {}, (
+                }), {'doc': 'A fake comp type with a data field.', 'props': (
                     ('hehe', ('bad:data01', {}), {}),
                     ('haha', ('int', {}), {}),
-                )),
+                )}),
             ),
         }
 
@@ -409,13 +395,10 @@ class DataModelTest(s_t_utils.SynTest):
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'depr:type'),
                     ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a deprecated field.'}),
-            ),
-            'forms': (
-                ('_bad:comp', {}, (
+                }), {'doc': 'A fake comp type with a deprecated field.', 'props': (
                     ('hehe', ('depr:type', {}), {}),
                     ('haha', ('int', {}), {}),
-                )),
+                )}),
             ),
         }
 
@@ -430,13 +413,10 @@ class DataModelTest(s_t_utils.SynTest):
                 ('bad:comp', ('comp', {'fields': (
                     ('hehe', 'depr:type'),
                     ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a deprecated field.'}),
-            ),
-            'forms': (
-                ('bad:comp', {}, (
+                }), {'doc': 'A fake comp type with a deprecated field.', 'props': (
                     ('hehe', ('depr:type', {}), {}),
                     ('haha', ('int', {}), {}),
-                )),
+                )}),
             ),
         }
 

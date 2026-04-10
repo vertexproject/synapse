@@ -7,18 +7,16 @@ geotestmodel = (
     {
 
         'types': (
-            ('test:latlong', ('geo:latlong', {}), {}),
-            ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
-        ),
-
-        'forms': (
-
-            ('test:latlong', {}, (
-                ('lat', ('geo:latitude', {}), {}),
-                ('long', ('geo:longitude', {}), {}),
-                ('dist', ('geo:dist', {}), {}),
-            )),
-            ('test:distoff', {}, ()),
+            ('test:latlong', ('geo:latlong', {}), {
+                'props': (
+                    ('lat', ('geo:latitude', {}), {}),
+                    ('long', ('geo:longitude', {}), {}),
+                    ('dist', ('geo:dist', {}), {}),
+                ),
+            }),
+            ('test:distoff', ('geo:dist', {'baseoff': 1000}), {
+                'props': (),
+            }),
         ),
     },
 )

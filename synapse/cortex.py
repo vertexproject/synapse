@@ -13,7 +13,6 @@ import synapse
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.models as s_models
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -33,7 +32,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.config as s_config
 import synapse.lib.parser as s_parser
-import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -2960,12 +2958,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         health.update('cortex', 'nominal')
 
     async def _loadModels(self):
-        mdefs = []
-
-        for path in s_models.modeldefs:
-            if (defs := s_dyndeps.getDynLocal(path)) is not None:
-                mdefs.extend(defs)
-
+        mdefs = s_datamodel.loadYamlModelDefs()
         self.model.addModelDefs(mdefs)
 
     async def _addModelDefs(self, mods):

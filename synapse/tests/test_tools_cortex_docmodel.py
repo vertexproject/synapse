@@ -475,10 +475,8 @@ class DocModelTest(s_t_utils.SynTest):
                     ('test:nodoc:form', ('str', {}), {
                         'interfaces': (('test:nodoc:iface', {}),),
                         'doc': 'A form with a no-doc interface.',
+                        'props': (),
                     }),
-                ),
-                'forms': (
-                    ('test:nodoc:form', {}, ()),
                 ),
             }])
 
@@ -505,10 +503,8 @@ class DocModelTest(s_t_utils.SynTest):
                     ('test:impl:form', ('str', {}), {
                         'doc': 'A form implementing test:impl:iface.',
                         'interfaces': (('test:impl:iface', {}),),
+                        'props': (),
                     }),
-                ),
-                'forms': (
-                    ('test:impl:form', {}, ()),
                 ),
             }])
 

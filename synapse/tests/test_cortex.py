@@ -3130,8 +3130,8 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('file:mime:image:file::sha256=$sha256', opts=opts)
             self.len(2, nodes)
-            self.eq('file:mime:jpg', nodes[0].ndef[0])
-            self.eq('file:mime:gif', nodes[1].ndef[0])
+            self.eq('file:mime:gif', nodes[0].ndef[0])
+            self.eq('file:mime:jpg', nodes[1].ndef[0])
 
             # When pivoting through mixed types, don't raise BadTypeValu for incompatible operations
             # since they could be valid in some cases

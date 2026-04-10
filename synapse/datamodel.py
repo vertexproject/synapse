@@ -528,15 +528,109 @@ class Edge:
     def pack(self):
         return (self.edgetype, self.edgeinfo)
 
+def _yamlToTuple(obj):
+    '''Recursively convert YAML lists to tuples for the type system.'''
+    if isinstance(obj, list):
+        return tuple(_yamlToTuple(item) for item in obj)
+    if isinstance(obj, dict):
+        return {k: _yamlToTuple(v) for k, v in obj.items()}
+    return obj
+
+def _convertYamlProps(props):
+    '''Convert a YAML props mapping to a tuple of (propname, typedef, propinfo).'''
+    if not props:
+        return ()
+    result = []
+    for name, pinfo in props.items():
+        pinfo = dict(pinfo)
+        typedef = _yamlToTuple(pinfo.pop('type', None))
+        result.append((name, typedef, pinfo))
+    return tuple(result)
+
+def loadYamlModelDefs():
+    '''Load model definitions from synapse/datamodel.yaml.'''
+    import os
+    path = os.path.join(os.path.dirname(__file__), 'datamodel.yaml')
+    ydef = s_common.yamlload(path)
+
+    mdef = {}
+
+    types = []
+    for name, info in ydef.get('types', {}).items():
+        info = dict(info)
+        typedef = _yamlToTuple(info.pop('type'))
+        if (props := info.get('props')) is not None:
+            info['props'] = _convertYamlProps(props)
+        if (virts := info.get('virts')) is not None:
+            info['virts'] = _convertYamlProps(virts)
+        if (ifaces := info.get('interfaces')) is not None:
+            info['interfaces'] = _yamlToTuple(ifaces)
+        if (prevnames := info.get('prevnames')) is not None:
+            info['prevnames'] = _yamlToTuple(prevnames)
+        types.append((name, typedef, info))
+    mdef['types'] = tuple(types)
+
+    ifaces = []
+    for name, info in ydef.get('interfaces', {}).items():
+        info = dict(info)
+        if (props := info.get('props')) is not None:
+            info['props'] = _convertYamlProps(props)
+        if (iifaces := info.get('interfaces')) is not None:
+            info['interfaces'] = _yamlToTuple(iifaces)
+        ifaces.append((name, info))
+    mdef['interfaces'] = tuple(ifaces)
+
+    edges = []
+    for edge in ydef.get('edges', []):
+        key = tuple(edge[0])
+        edges.append((key, edge[1]))
+    mdef['edges'] = tuple(edges)
+
+    return [mdef]
+
+_BASE_CTORS = frozenset((
+    'synapse.lib.types.Int',
+    'synapse.lib.types.Float',
+    'synapse.lib.types.Range',
+    'synapse.lib.types.Str',
+    'synapse.lib.types.Hex',
+    'synapse.lib.types.Bool',
+    'synapse.lib.types.TimePrecision',
+    'synapse.lib.types.Time',
+    'synapse.lib.types.Duration',
+    'synapse.lib.types.Ival',
+    'synapse.lib.types.Guid',
+    'synapse.lib.types.TagPart',
+    'synapse.lib.types.Tag',
+    'synapse.lib.types.Comp',
+    'synapse.lib.types.Loc',
+    'synapse.lib.types.Poly',
+    'synapse.lib.types.Array',
+    'synapse.lib.types.Data',
+    'synapse.lib.types.HugeNum',
+    'synapse.lib.types.Taxon',
+    'synapse.lib.types.Taxonomy',
+    'synapse.lib.types.Velocity',
+))
+
 def getBaseModel():
     '''
     Get a Model loaded with the base type definitions.
     '''
-    import synapse.models.base as s_base
+    mdefs = loadYamlModelDefs()
     modl = Model()
-    mdef = s_base.modeldefs[0]
-    types = tuple(t for t in mdef['types'] if t[1][0] is None)
-    modl.addModelDefs([{'types': types}])
+    types = []
+    for name, typedef, typeinfo in mdefs[0]['types']:
+        if typedef[0] is not None:
+            continue
+        opts = typedef[1]
+        if opts.get('ctor') not in _BASE_CTORS:
+            continue
+        # Strip form-related keys for base model bootstrapping
+        typeinfo = {k: v for k, v in typeinfo.items()
+                    if k not in ('props', 'interfaces', 'on', 'runt', 'liftfunc')}
+        types.append((name, typedef, typeinfo))
+    modl.addModelDefs([{'types': tuple(types)}])
     return modl
 
 class Model:
@@ -942,12 +1036,13 @@ class Model:
                     # Types with custom Python classes use None as the base
                     # with the 'ctor' key specifying the class path:
                     ('name', (None, {'ctor': 'class.path', ...typeopts}), {info}),
-                ),
 
-                "forms":(
-                    (formname, (typename, typeopts), {info}, (
-                        (propname, (typename, typeopts), {info}),
-                    )),
+                    # Types with 'props' in info become forms:
+                    ('name', ('basetype', {typeopts}), {
+                        'props': ((propname, (typename, typeopts), {info}),),
+                        'on': {'add': {'q': 'storm query'}},
+                        'runt': True,
+                    }),
                 ),
                 "tagprops":(
                     (tagpropname, (typename, typeopts), {info}),
@@ -980,14 +1075,11 @@ class Model:
             for typename, _, typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     forminfo = {}
-                    if (ondef := typeinfo.get('on')) is not None:
-                        forminfo['on'] = ondef
+                    for key in ('on', 'runt', 'liftfunc'):
+                        if (val := typeinfo.get(key)) is not None:
+                            forminfo[key] = val
                     allforms.append((typename, forminfo, props))
                     self.forminfos[typename] = forminfo
-
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                allforms.append((formname, forminfo, propdefs))
-                self.forminfos[formname] = forminfo
 
         # load all the interfaces...
         for mdef in mods:
@@ -1008,19 +1100,44 @@ class Model:
                 self.types[typename] = item
                 ctors[typename] = ctor
 
-        # second pass: load all derived types
+        # second pass: load all derived types (order-independent)
+        pending = []
         for mdef in mods:
             for typename, typedef, typeinfo in mdef.get('types', ()):
                 if typedef[0] is None:
                     continue
+                pending.append((typename, typedef, typeinfo))
 
+        while pending:
+            remaining = []
+            resolved = False
+            for typename, typedef, typeinfo in pending:
                 if isinstance(typedef[0], tuple):
                     basename = 'poly'
+                else:
+                    basename = typedef[0]
+
+                if basename != 'poly' and basename not in self.types:
+                    remaining.append((typename, typedef, typeinfo))
+                    continue
+
+                if isinstance(typedef[0], tuple):
                     typeopts = self.convertPolyinfo(typedef)
                 else:
-                    basename, typeopts = typedef
+                    typeopts = typedef[1]
 
                 self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+                resolved = True
+
+            if not resolved and remaining:
+                # Force load to get the original error
+                typename, typedef, typeinfo = remaining[0]
+                if isinstance(typedef[0], tuple):
+                    self.addType(typename, 'poly', self.convertPolyinfo(typedef), typeinfo, skipinit=True)
+                else:
+                    self.addType(typename, typedef[0], typedef[1], typeinfo, skipinit=True)
+
+            pending = remaining
 
         # finish initializing types
         for name, tobj in self.types.items():

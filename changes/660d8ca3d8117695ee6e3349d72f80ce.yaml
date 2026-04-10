@@ -1,0 +1,6 @@
+---
+desc: Consolidated all data model declarations into ``synapse/datamodel.yaml``. Removed the ``forms`` key from model definitions; form properties are now declared via the ``props`` key on type definitions.
+desc:literal: false
+prs: []
+type: feature
+...

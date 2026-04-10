@@ -2111,13 +2111,12 @@ class TypesTest(s_t_utils.SynTest):
         mdef = {
             'types': (
                 ('test:array', ('array', {'type': 'inet:ip'}), {}),
-                ('test:witharray', ('guid', {}), {}),
-            ),
-            'forms': (
-                ('test:witharray', {}, (
-                    ('ips', ('test:array', {}), {}),
-                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
-                )),
+                ('test:witharray', ('guid', {}), {
+                    'props': (
+                        ('ips', ('test:array', {}), {}),
+                        ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
+                    ),
+                }),
             ),
         }
         async with self.getTestCore() as core:
