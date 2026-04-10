@@ -561,7 +561,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
-            self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
+            self.eq(core.model.prop('it:exec:proc:create:time').info['virts'][0], vdef)
 
             # poly value virt type has `hidden` set in `display`
             self.eq(core.model.type('poly').info['virts'][1][0], 'value')
