@@ -5970,6 +5970,53 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}), errok=(true))')
             self.len(0, nodes)
 
+    async def test_storm_lib_lift_bytagpref(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(0, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+
+            tags = ['bar', 'foo', 'zap', 'repa', 'repb']
+
+            for pref in ('rep.', 'rep.test', 'rep.test.'):
+                tags.extend([f'{pref}{x}' for x in range(100)])
+
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view, 'vars': {'tags': tags}}
+
+            await core.nodes('[ test:str=foo +#$tags ]', opts=opts)
+            await core.nodes('[ test:str=foo +#$tags ]', opts={'vars': {'tags': tags}})
+
+            self.len(307, await core.nodes('syn:tag'))
+
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)', opts=opts))
+            self.len(3, await core.nodes('syn:tag^=rep +:depth<=0'))
+
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)'))
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)', opts=opts))
+            self.len(204, await core.nodes('syn:tag^=rep +:depth<=1'))
+
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)'))
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)', opts=opts))
+            self.len(304, await core.nodes('syn:tag^=rep +:depth<=2'))
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(b)')
+            nodes1 = await core.nodes('syn:tag^=b')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(z)')
+            nodes1 = await core.nodes('syn:tag^=z')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
+
     async def test_stormtypes_node(self):
 
         async with self.getTestCore() as core:

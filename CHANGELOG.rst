@@ -12,6 +12,36 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.238.0 - 2026-04-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Added loglevel support to the Storm ``$lib.cron.at()`` API.
+  (`#4853 <https://github.com/vertexproject/synapse/pull/4853>`_)
+- Added a ``$lib.lift.tagsByPref()`` API to efficiently retrieve tags by prefix
+  at a specific depth in the tag tree.
+  (`#4866 <https://github.com/vertexproject/synapse/pull/4866>`_)
+
+Bugfixes
+--------
+- Fixed the Storm ``movenodes`` command to raise a ``StormRuntimeError`` with a
+  descriptive message when a layer in ``--precedence`` is not in the set of
+  source/destination layers.
+  (`#4859 <https://github.com/vertexproject/synapse/pull/4859>`_)
+
+Notes
+-----
+- Removed the ``pyOpenSSL`` dependency. Certificate verification now uses the
+  ``cryptography`` library exclusively. The ``cryptography`` dependency has
+  been updated to ``>=46.0.7,<47.0.0``.
+  (`#4867 <https://github.com/vertexproject/synapse/pull/4867>`_)
+- Updated the allowed versions of the ``idna``, ``packaging``, and ``xxhash``
+  libraries.
+  (`#4872 <https://github.com/vertexproject/synapse/pull/4872>`_)
+  (`#4873 <https://github.com/vertexproject/synapse/pull/4873>`_)
+  (`#4876 <https://github.com/vertexproject/synapse/pull/4876>`_)
+
 v2.237.0 - 2026-04-01
 =====================
 

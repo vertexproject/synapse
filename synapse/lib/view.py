@@ -1579,6 +1579,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
             yield self.core.getAbrvIndx(abrv)[0]
 
+    async def getTagsByPref(self, pref, depth=0):
+
+        genrs = [layr.getTagsByPref(pref, depth=depth) for layr in self.layers]
+
+        lastvalu = None
+        async for valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+            yield valu
+
     async def _initViewLayers(self):
 
         self.layers = []

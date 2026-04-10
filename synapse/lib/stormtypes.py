@@ -2582,17 +2582,16 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
                       {'name': 'name', 'desc': 'The name of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
+
         {'name': 'byPropRefs', 'desc': 'Lift nodes which are referenced by properties of other nodes.',
          'type': {'type': 'function', '_funcname': '_byPropRefs',
                   'args': (
@@ -2600,9 +2599,8 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
          'type': {'type': 'function', '_funcname': '_byTypeValue',
                   'args': (
@@ -2610,9 +2608,8 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the type.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byPropsDict', 'desc': 'Lift all nodes of a form which have a set of properties with specific values.',
          'type': {'type': 'function', '_funcname': '_byPropsDict',
                   'args': (
@@ -2621,9 +2618,25 @@ class LibLift(Lib):
                       {'name': 'errok', 'desc': 'If set, norming failures will not raise an exception.',
                        'type': 'boolean', 'default': False},
                   ),
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.'}}},
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
@@ -2634,6 +2647,7 @@ class LibLift(Lib):
             'byPropRefs': self._byPropRefs,
             'byPropsDict': self._byPropsDict,
             'byTypeValue': self._byTypeValue,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
@@ -2773,6 +2787,16 @@ class LibLift(Lib):
 
         async for node in self.runt.view.nodesByPropTypeValu(name, valu, cmpr=cmpr):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        view = self.runt.view
+        async for name in view.getTagsByPref(prefix, depth=depth):
+            if (node := await view.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
