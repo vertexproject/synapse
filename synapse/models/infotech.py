@@ -944,7 +944,30 @@ modeldefs = (
 
             # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
             ('it:os:windows:service', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'A Microsoft Windows service configuration on a host.'}),
+
+            ('it:os:windows:service:add', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:os:windows:service', {}), {
+                        'doc': 'The service which was added.'}),
+                ),
+                'doc': 'An event where a Microsoft Windows service configuration was added to a host.'}),
+
+            ('it:os:windows:service:del', ('guid', {}), {
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:os:windows:service', {}), {
+                        'doc': 'The service which was removed.'}),
+                ),
+                'doc': 'An event where a Microsoft Windows service configuration was removed from a host.'}),
 
             # TODO
             # ('it:os:windows:task', ('guid', {}), {
@@ -996,12 +1019,77 @@ modeldefs = (
                 ),
                 'doc': 'A process executing on a host.'}),
 
+            ('it:exec:proc:create', ('guid', {}), {
+                'template': {'title': 'process creation event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was created.'}),
+                ),
+                'doc': 'A process creation event.'}),
+
+            ('it:exec:proc:signal', ('guid', {}), {
+                'template': {'title': 'process signal event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('signal', ('int', {}), {
+                        'doc': 'The POSIX signal which was sent to the target process.'}),
+
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was sent the signal.'}),
+                ),
+                'doc': 'An event where a process was sent a POSIX signal.'}),
+
+            ('it:exec:proc:terminate', ('guid', {}), {
+                'template': {'title': 'process termination event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:proc', {}), {
+                        'doc': 'The process which was terminated.'}),
+                ),
+                'doc': 'A process termination event.'}),
+
             ('it:exec:thread', ('guid', {}), {
                 'template': {'title': 'thread'},
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which contains the thread.'}),
+
+                    ('exitcode', ('int', {}), {
+                        'doc': 'The exit code or return value for the thread.'}),
+                ),
                 'doc': 'A thread executing in a process.'}),
+
+            ('it:exec:thread:create', ('guid', {}), {
+                'template': {'title': 'thread creation event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:thread', {}), {
+                        'doc': 'The thread which was created.'}),
+                ),
+                'doc': 'A thread creation event.'}),
+
+            ('it:exec:thread:terminate', ('guid', {}), {
+                'template': {'title': 'thread termination event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('target', ('it:exec:thread', {}), {
+                        'doc': 'The thread which was terminated.'}),
+                ),
+                'doc': 'A thread termination event.'}),
 
             ('it:exec:lib:load', ('guid', {}), {
                 'template': {'title': 'library load event'},
@@ -1207,12 +1295,6 @@ modeldefs = (
                     ('exe', ('file:bytes', {}), {
                         'doc': 'The executable file which caused the {title}.'}),
 
-                    ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The process which caused the {title}.'}),
-
-                    ('thread', ('it:exec:thread', {}), {
-                        'doc': 'The thread which caused the {title}.'}),
-
                     ('host', ('it:host', {}), {
                         'doc': 'The host on which the {title} occurred.'}),
 
@@ -1226,6 +1308,13 @@ modeldefs = (
                 'interfaces': (
                     ('base:event', {}),
                     ('it:host:exec', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which caused the {title}.'}),
+
+                    ('thread', ('it:exec:thread', {}), {
+                        'doc': 'The thread which caused the {title}.'}),
                 ),
                 'doc': 'An event which occurred on a host.'}),
 
@@ -1328,6 +1417,9 @@ modeldefs = (
 
             (('it:sec:stix:indicator', 'detects', None), {
                 'doc': 'The STIX indicator can detect evidence of the target node.'}),
+
+            (('it:os:windows:service', 'ledto', 'it:exec:proc'), {
+                'doc': 'The service configuration caused the process to be created.'}),
         ),
         'forms': (
             ('it:hostname', {}, ()),
@@ -2229,14 +2321,8 @@ modeldefs = (
                 ('pid', ('int', {}), {
                     'doc': 'The process ID.'}),
 
-                ('time', ('time', {}), {
-                    'doc': 'The start time for the process.'}),
-
                 ('name', ('str', {}), {
                     'doc': 'The display name specified by the process.'}),
-
-                ('exited', ('time', {}), {
-                    'doc': 'The time the process exited.'}),
 
                 ('exitcode', ('int', {}), {
                     'doc': 'The exit code for the process.'}),
@@ -2246,22 +2332,6 @@ modeldefs = (
 
                 ('path', ('file:path', {}), {
                     'doc': 'The path to the executable of the process.'}),
-
-                ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which created the process.'}),
-
-                ('killedby', ('it:exec:proc', {}), {
-                    'doc': 'The process which killed this process.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-
-                # TODO
-                # ('windows:task', ('it:os:windows:task', {}), {
-                #     'doc': 'The Microsoft Windows scheduled task responsible for starting the process.'}),
-
-                ('windows:service', ('it:os:windows:service', {}), {
-                    'doc': 'The Microsoft Windows service responsible for starting the process.'}),
             )),
 
             ('it:os:windows:service', {}, (
@@ -2320,23 +2390,7 @@ modeldefs = (
                 ('platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
             )),
-            ('it:exec:thread', {}, (
 
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which contains the thread.'}),
-
-                ('exitcode', ('int', {}), {
-                    'doc': 'The exit code or return value for the thread.'}),
-
-                ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'An external process which created the thread.'}),
-
-                ('src:thread', ('it:exec:thread', {}), {
-                    'doc': 'The thread which created this thread.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
             ('it:exec:lib:load', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
@@ -2398,7 +2452,7 @@ modeldefs = (
             ('it:exec:mutex:add', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the mutex.'}),
+                    'doc': 'The process that created the mutex.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host running the process that created the mutex.'}),

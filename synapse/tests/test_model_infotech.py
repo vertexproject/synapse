@@ -36,8 +36,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :proc=*
                     :period=(20210202, 20210203)
                     :exitcode=0
-                    :src:proc=*
-                    :src:thread=*
                     :sandbox:file=*
             ]''')
             self.len(1, nodes)
@@ -45,8 +43,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'period', (1612224000000000, 1612310400000000, 86400000000))
             self.propeq(nodes[0], 'exitcode', 0)
             self.len(1, await core.nodes('it:exec:thread :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread :src:proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread :src:thread -> it:exec:thread'))
             self.len(1, await core.nodes('it:exec:thread :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
@@ -102,22 +98,17 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
-                    :killedby=*
                     :exitcode=0
-                    :exited=20210202
                     :sandbox:file=*
                     :name=RunDLL32
                     :path=c:/windows/system32/rundll32.exe
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
-            self.nn(nodes[0].get('killedby'))
             self.propeq(nodes[0], 'exitcode', 0)
-            self.propeq(nodes[0], 'exited', 1612224000000000)
             self.propeq(nodes[0], 'name', 'RunDLL32')
             self.propeq(nodes[0], 'path', 'c:/windows/system32/rundll32.exe')
             self.len(1, await core.nodes('it:exec:proc:path.base=rundll32.exe'))
-            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 
             # FIXME host:activity interface?
@@ -809,11 +800,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'account': '*',
                 'path': raw_path,
-                'src:proc': src_proc,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host :time=$p.time
-                :account=$p.account :path=$p.path :src:proc=$p."src:proc"
+            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host
+                :account=$p.account :path=$p.path
                 :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
             self.len(1, nodes)
@@ -823,9 +813,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'pid', pid)
             self.propeq(node, 'cmd', cmd0)
             self.propeq(node, 'host', host)
-            self.propeq(node, 'time', tick)
             self.propeq(node, 'path', norm_path)
-            self.propeq(node, 'src:proc', src_proc)
             self.propeq(node, 'sandbox:file', sandfile)
             self.nn(node.get('account'))
             self.len(1, await core.nodes('it:exec:proc -> it:host:account'))
@@ -1949,7 +1937,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> it:host'))
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
-            self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
+            self.len(1, await core.nodes('[ it:exec:proc=* <(ledto)+ { it:os:windows:service } ]'))
 
             nodes = await core.nodes('''[
                 it:os:windows:registry:entry=*
