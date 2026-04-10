@@ -84,7 +84,7 @@ modeldefs = (
                 'doc': 'The base type for compound node fields.'}),
 
             ('loc', (None, {'ctor': 'synapse.lib.types.Loc'}), {
-                'doc': 'The base geo political location type.'}),
+                'doc': 'The base geopolitical location type.'}),
 
             ('poly', (None, {'ctor': 'synapse.lib.types.Poly'}), {
                 'virts': (
