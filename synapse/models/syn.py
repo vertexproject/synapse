@@ -195,7 +195,13 @@ modeldefs = (
 
                 ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
-                ('base', ('str', {}), {'computed': True,
+                ('base', ('str', {}), {
+                    'computed': True,
+                    'modes': {
+                        'lookup': [
+                            {'cmpr': '^='},
+                        ]
+                    },
                     'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
             )),
             ('syn:user', {}, ()),

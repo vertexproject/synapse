@@ -511,7 +511,7 @@ mode
 ----
 
 This is the mode that a Storm query is parsed in. Specifying ``lookup`` mode enables unified text
-input that combines scraping, lifting, and search.
+input that combines scraping, lifting, and datamodel hint-based lookups.
 
 Example:
 
@@ -520,8 +520,9 @@ Example:
         # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
         # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
         # any matching nodes. A look:miss message is fired for any scraped value that is not found
-        # in the current View. Any text that remains after scraping is sent to the Storm search
-        # interface (if enabled) to lift additional nodes.
+        # in the current View. Any text that remains after scraping is matched against forms and
+        # properties that define lookup mode hints in the data model (via the modes.lookup info key),
+        # using the comparator specified by each hint (e.g. ^= for prefix matching).
         opts = {'mode': 'lookup'}
 
 ndefs

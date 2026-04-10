@@ -687,11 +687,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
-        'storm:interface:search': {
-            'default': True,
-            'description': 'Enable Storm search interfaces for lookup mode.',
-            'type': 'boolean',
-        },
         'storm:interface:scrape': {
             'default': True,
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
@@ -799,7 +794,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initStormLibs()
 
         self.modsbyiface = {}
-        self.stormiface_search = self.conf.get('storm:interface:search')
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()

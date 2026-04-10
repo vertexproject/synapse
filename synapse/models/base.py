@@ -35,6 +35,11 @@ modeldefs = (
                 'doc': 'A name used to refer to an entity or event.'}),
 
             ('event:name', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'doc': 'A name used to refer to a specific event or activity.'}),
 
             ('meta:topic', ('base:name', {}), {

@@ -128,28 +128,16 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
-        # non-scrapeable text is sent to the search interface via lookup mode
+        # non-scrapeable text is matched via datamodel lookup hints in lookup mode
         async with self.getTestCore() as core:
-            core.loadStormPkg({
-                'name': 'testsearch',
-                'modules': [
-                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
-                        function search(tokens) {
-                            for $tokn in $tokens {
-                                ou:org:name^=$tokn
-                                emit ((0), $lib.hex.decode($node.iden()))
-                            }
-                        }
-                    '''},
-                ],
-            })
-            await core.nodes('[ ou:org=* :name=apt1 ]')
-            await core.nodes('[ ou:org=* :name=vertex ]')
+            await core.nodes('[ entity:name="Vertex Project" ]')
+            await core.nodes('[ entity:name="APT1 Group" ]')
+            await core.nodes('[ it:softwarename="Synapse Platform" ]')
 
-            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.propeq(nodes[0], 'name', 'apt1')
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
             nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)

@@ -296,23 +296,25 @@ class Lookup(Query):
             if not remainder:
                 return
 
-            if not view.core.stormiface_search:
+            hints = runt.model.getLookupHints()
+            if not hints:
                 return
-
-            tokns = remainder.split()
 
             async with await s_spooled.Set.anit(dirn=view.core.dirn, cell=view.core) as buidset:
 
-                todo = s_common.todo('search', tokns)
-                async for (_, buid) in view.mergeStormIface('search', todo):
-                    if buid in buidset:
-                        await asyncio.sleep(0)
-                        continue
+                for tokn in remainder.split():
+                    for prop_name, cmpr in hints:
+                        try:
+                            async for node in view.nodesByPropValu(prop_name, cmpr, tokn):
+                                if node.buid in buidset:
+                                    await asyncio.sleep(0)
+                                    continue
 
-                    await buidset.add(buid)
-                    node = await view.getNodeByBuid(buid)
-                    if node is not None:
-                        yield node, runt.initPath(node)
+                                await buidset.add(node.buid)
+                                yield node, runt.initPath(node)
+
+                        except (s_exc.BadTypeValu, s_exc.BadCmprValu, s_exc.NoSuchCmpr):
+                            continue
 
         realgenr = lookgenr()
         if len(self.kids) > 1:

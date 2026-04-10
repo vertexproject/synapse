@@ -399,55 +399,23 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, core.modsbyiface.get('lookup'))
 
     async def test_cortex_lookup_search_dedup(self):
-        pkgdef = {
-            'name': 'foobar',
-            'modules': [
-                {'name': 'foobar',
-                 'interfaces': ['search'],
-                 'storm': '''
-                    function getBuid(form, valu) {
-                        *$form?=$valu
-                        return($lib.hex.decode($node.iden()))
-                    }
-                    function search(tokens) {
-                        $score = (0)
-                        for $tok in $tokens {
-                            $buid = $getBuid("inet:email", $tok)
-                            if $buid { emit ($score, $buid) }
-                            $buid = $getBuid("test:str", $tok)
-                            if $buid { emit ($score, $buid) }
-                            $score = ($score + 10)
-                        }
-                    }
-                 '''
-                 },
-            ]
-        }
 
         async with self.getTestCore() as core:
 
             await core.nodes('[ inet:email=foo@bar.com ]')
 
             nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            buid = nodes[0].buid
             self.eq(['inet:email'], [n.ndef[0] for n in nodes])
 
             # scrape results are not deduplicated
             nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
             self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
 
-            core.loadStormPkg(pkgdef)
-            self.len(1, await core.getStormIfaces('search'))
+            await core.nodes('[ entity:name="vertex project" ]')
 
-            todo = s_common.todo('search', ('foo@bar.com',))
-            vals = [r async for r in core.view.mergeStormIface('search', todo)]
-            self.eq(((0, buid),), vals)
-
-            await core.nodes('[ test:str=hello ]')
-
-            # search iface results *are* deduplicated against themselves via lookup remainder
-            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
-            self.eq(['test:str'], [n.ndef[0] for n in nodes])
+            # hint-based results *are* deduplicated against themselves via lookup remainder
+            nodes = await core.nodes('vertex vertex', opts={'mode': 'lookup'})
+            self.eq(['entity:name'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
