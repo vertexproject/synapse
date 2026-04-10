@@ -18,6 +18,8 @@ import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 
+import synapse.models.base as s_base
+
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
@@ -579,136 +581,8 @@ class Model:
             'edges': [],
         }
 
-        # add the primitive base types
-        info = {'doc': 'The base 64 bit signed integer type.'}
-        item = s_types.Int(self, 'int', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base floating point type.'}
-        item = s_types.Float(self, 'float', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A base range type.'}
-        item = s_types.Range(self, 'range', info, {'type': ('int', {})})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base string type.'}
-        item = s_types.Str(self, 'str', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base hex type.'}
-        item = s_types.Hex(self, 'hex', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base boolean type.'}
-        item = s_types.Bool(self, 'bool', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A time precision value.'}
-        item = s_types.TimePrecision(self, 'timeprecision', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'doc': 'A date/time value.',
-            'virts': (
-                ('precision', ('timeprecision', {}), {
-                    'doc': 'The precision for display and rounding the time.'}),
-            ),
-        }
-        item = s_types.Time(self, 'time', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A duration value.'}
-        item = s_types.Duration(self, 'duration', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-
-                ('min', ('time', {}), {
-                    'doc': 'The starting time of the interval.'}),
-
-                ('max', ('time', {}), {
-                    'doc': 'The ending time of the interval.'}),
-
-                ('duration', ('duration', {}), {
-                    'doc': 'The duration of the interval.'}),
-
-                ('precision', ('timeprecision', {}), {
-                    'doc': 'The precision for display and rounding the times.'}),
-            ),
-            'doc': 'A time window or interval.',
-        }
-        item = s_types.Ival(self, 'ival', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base GUID type.'}
-        item = s_types.Guid(self, 'guid', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A tag component string.'}
-        item = s_types.TagPart(self, 'syn:tag:part', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for a synapse tag.'}
-        item = s_types.Tag(self, 'syn:tag', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for compound node fields.'}
-        item = s_types.Comp(self, 'comp', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base geo political location type.'}
-        item = s_types.Loc(self, 'loc', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-                ('type', ('syn:type', {}), {
-                    'computed': True,
-                    'doc': 'The type of value which is referenced.'}),
-
-                ('value', ('data', {}), {
-                    'computed': True,
-                    'display': {'hidden': True},
-                    'doc': 'The value which is referenced.'}),
-            ),
-            'doc': 'A prop which can be of one or more types.',
-        }
-        item = s_types.Poly(self, 'poly', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-                ('size', ('int', {}), {
-                    'computed': True,
-                    'doc': 'The number of elements in the array.'}),
-            ),
-            'doc': 'A typed array which indexes each field.'
-        }
-        item = s_types.Array(self, 'array', info, {'type': 'int'})
-        self.addBaseType(item)
-
-        info = {'doc': 'Arbitrary json compatible data.'}
-        item = s_types.Data(self, 'data', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
-                       'precision of 24 decimal digits.'}
-        item = s_types.HugeNum(self, 'hugenum', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A component of a hierarchical taxonomy.'}
-        item = s_types.Taxon(self, 'taxon', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A hierarchical taxonomy.'}
-        item = s_types.Taxonomy(self, 'taxonomy', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A velocity with base units in mm/sec.'}
-        item = s_types.Velocity(self, 'velocity', info, {})
-        self.addBaseType(item)
+        # load the primitive base types
+        self.addDataModels(s_base.basetypedefs)
 
         self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
         self.metatypes['updated'] = self.getTypeClone(('time', {}))
@@ -1816,16 +1690,6 @@ class Model:
                 self.delFormProp(kid, propname)
 
         self.childpropcache.clear()
-
-    def addBaseType(self, item):
-        '''
-        Add a Type instance to the data model.
-        '''
-        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
-        opts = dict(item.opts)
-        opts['ctor'] = ctor
-        self._modeldef['types'].append((item.name, (None, opts), dict(item.info)))
-        self.types[item.name] = item
 
     def type(self, name):
         '''

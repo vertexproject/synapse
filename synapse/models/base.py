@@ -19,6 +19,117 @@ taskstatusenums = (
     (80, 'blocked'),
 )
 
+basetypedefs = (
+    ('base', {
+        'types': (
+
+            ('int', (None, {'ctor': 'synapse.lib.types.Int'}), {
+                'doc': 'The base 64 bit signed integer type.'}),
+
+            ('float', (None, {'ctor': 'synapse.lib.types.Float'}), {
+                'doc': 'The base floating point type.'}),
+
+            ('range', (None, {'ctor': 'synapse.lib.types.Range', 'type': ('int', {})}), {
+                'doc': 'A base range type.'}),
+
+            ('str', (None, {'ctor': 'synapse.lib.types.Str'}), {
+                'doc': 'The base string type.'}),
+
+            ('hex', (None, {'ctor': 'synapse.lib.types.Hex'}), {
+                'doc': 'The base hex type.'}),
+
+            ('bool', (None, {'ctor': 'synapse.lib.types.Bool'}), {
+                'doc': 'The base boolean type.'}),
+
+            ('timeprecision', (None, {'ctor': 'synapse.lib.types.TimePrecision'}), {
+                'doc': 'A time precision value.'}),
+
+            ('time', (None, {'ctor': 'synapse.lib.types.Time'}), {
+                'doc': 'A date/time value.',
+                'virts': (
+                    ('precision', ('timeprecision', {}), {
+                        'doc': 'The precision for display and rounding the time.'}),
+                ),
+            }),
+
+            ('duration', (None, {'ctor': 'synapse.lib.types.Duration'}), {
+                'doc': 'A duration value.'}),
+
+            ('ival', (None, {'ctor': 'synapse.lib.types.Ival'}), {
+                'doc': 'A time window or interval.',
+                'virts': (
+
+                    ('min', ('time', {}), {
+                        'doc': 'The starting time of the interval.'}),
+
+                    ('max', ('time', {}), {
+                        'doc': 'The ending time of the interval.'}),
+
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the interval.'}),
+
+                    ('precision', ('timeprecision', {}), {
+                        'doc': 'The precision for display and rounding the times.'}),
+                ),
+            }),
+
+            ('guid', (None, {'ctor': 'synapse.lib.types.Guid'}), {
+                'doc': 'The base GUID type.'}),
+
+            ('syn:tag:part', (None, {'ctor': 'synapse.lib.types.TagPart'}), {
+                'doc': 'A tag component string.'}),
+
+            ('syn:tag', (None, {'ctor': 'synapse.lib.types.Tag'}), {
+                'doc': 'The base type for a synapse tag.'}),
+
+            ('comp', (None, {'ctor': 'synapse.lib.types.Comp'}), {
+                'doc': 'The base type for compound node fields.'}),
+
+            ('loc', (None, {'ctor': 'synapse.lib.types.Loc'}), {
+                'doc': 'The base geo political location type.'}),
+
+            ('poly', (None, {'ctor': 'synapse.lib.types.Poly'}), {
+                'doc': 'A prop which can be of one or more types.',
+                'virts': (
+                    ('type', ('syn:type', {}), {
+                        'computed': True,
+                        'doc': 'The type of value which is referenced.'}),
+
+                    ('value', ('data', {}), {
+                        'computed': True,
+                        'display': {'hidden': True},
+                        'doc': 'The value which is referenced.'}),
+                ),
+            }),
+
+            ('array', (None, {'ctor': 'synapse.lib.types.Array', 'type': 'int'}), {
+                'doc': 'A typed array which indexes each field.',
+                'virts': (
+                    ('size', ('int', {}), {
+                        'computed': True,
+                        'doc': 'The number of elements in the array.'}),
+                ),
+            }),
+
+            ('data', (None, {'ctor': 'synapse.lib.types.Data'}), {
+                'doc': 'Arbitrary json compatible data.'}),
+
+            ('hugenum', (None, {'ctor': 'synapse.lib.types.HugeNum'}), {
+                'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
+                       'precision of 24 decimal digits.'}),
+
+            ('taxon', (None, {'ctor': 'synapse.lib.types.Taxon'}), {
+                'doc': 'A component of a hierarchical taxonomy.'}),
+
+            ('taxonomy', (None, {'ctor': 'synapse.lib.types.Taxonomy'}), {
+                'doc': 'A hierarchical taxonomy.'}),
+
+            ('velocity', (None, {'ctor': 'synapse.lib.types.Velocity'}), {
+                'doc': 'A velocity with base units in mm/sec.'}),
+        ),
+    }),
+)
+
 modeldefs = (
     ('base', {
         'types': (
