@@ -498,3 +498,149 @@ class LoggingTest(s_test.SynTest):
             self.nn(storm)
             self.isin('$x', storm['text'])
             self.isin('$x', storm['vars'])
+
+    async def test_lib_logging_stormprim_primitives(self):
+
+        # bytes passthrough
+        self.eq(b'hello', s_logging._stormprim(b'hello'))
+
+        # bool passthrough
+        self.eq(True, s_logging._stormprim(True))
+        self.eq(False, s_logging._stormprim(False))
+
+        # float passthrough
+        self.eq(3.14, s_logging._stormprim(3.14))
+
+        # None passthrough
+        self.none(s_logging._stormprim(None))
+
+        # tuple converts to list with recursion
+        self.eq([1, 'two', 3.0], s_logging._stormprim((1, 'two', 3.0)))
+
+        # nested tuple also converts to list
+        self.eq([[1, 2], 3], s_logging._stormprim(((1, 2), 3)))
+
+        # unknown object (no .valu, not primitive/list/dict) falls back to repr()
+        class Unkn:
+            def __repr__(self):
+                return 'Unkn()'
+
+        self.eq('Unkn()', s_logging._stormprim(Unkn()))
+
+    async def test_lib_logging_stormprim_exception(self):
+
+        # A dict subclass whose items() raises forces the except handler
+        class BadDict(dict):
+            def items(self):
+                raise RuntimeError('boom')
+
+        result = s_logging._stormprim(BadDict(a=1))
+        self.isinstance(result, str)
+
+    async def test_lib_logging_storminfo_no_traceback(self):
+
+        # Exception created but never raised has __traceback__ == None
+        e = Exception('test')
+        self.none(s_logging._storminfo(e))
+
+    async def test_lib_logging_storminfo_no_astinfo(self):
+
+        # innermost frame ends with ast.py but no frame has self.astinfo
+        frame = mock.MagicMock()
+        frame.f_code.co_filename = '/some/path/ast.py'
+        frame.f_locals = {}
+
+        tb = mock.MagicMock()
+        tb.tb_next = None
+        tb.tb_frame = frame
+
+        # Use a plain class so __traceback__ is not type-checked by Python
+        class FakeExc:
+            pass
+
+        e = FakeExc()
+        e.__traceback__ = tb
+
+        self.none(s_logging._storminfo(e))
+
+    async def test_lib_logging_storminfo_underscore_and_missing_vars(self):
+
+        # _-prefixed vars are filtered; vars in text but absent from allvars are skipped
+        astinfo = mock.MagicMock()
+        astinfo.text = '$_priv + $known + $missing'
+        astinfo.soff = 0
+        astinfo.eoff = len(astinfo.text)
+
+        slf = mock.MagicMock()
+        slf.astinfo = astinfo
+
+        runt = mock.MagicMock()
+        runt.vars = {'known': 42}
+
+        frame = mock.MagicMock()
+        frame.f_code.co_filename = '/some/path/ast.py'
+        frame.f_locals = {'self': slf, 'runt': runt}
+
+        tb = mock.MagicMock()
+        tb.tb_next = None
+        tb.tb_frame = frame
+
+        # Use a plain class so __traceback__ is not type-checked by Python
+        class FakeExc:
+            pass
+
+        e = FakeExc()
+        e.__traceback__ = tb
+
+        result = s_logging._storminfo(e)
+        self.nn(result)
+        self.eq(result['text'], '$_priv + $known + $missing')
+
+        # $_priv excluded (starts with _), $missing excluded (not in allvars)
+        self.isin('$known', result['vars'])
+        self.notin('$_priv', result['vars'])
+        self.notin('$missing', result['vars'])
+        self.len(1, result['vars'])
+
+    async def test_lib_logging_storminfo_runt_none_path_vars(self):
+
+        # runt absent from f_locals; path has vars -- vars should still be collected
+        astinfo = mock.MagicMock()
+        astinfo.text = '$x + $y'
+        astinfo.soff = 0
+        astinfo.eoff = len(astinfo.text)
+
+        slf = mock.MagicMock()
+        slf.astinfo = astinfo
+
+        path = mock.MagicMock()
+        path.vars = {'x': 10, 'y': 20}
+
+        frame = mock.MagicMock()
+        frame.f_code.co_filename = '/some/path/ast.py'
+        frame.f_locals = {'self': slf, 'path': path}
+
+        tb = mock.MagicMock()
+        tb.tb_next = None
+        tb.tb_frame = frame
+
+        # Use a plain class so __traceback__ is not type-checked by Python
+        class FakeExc:
+            pass
+
+        e = FakeExc()
+        e.__traceback__ = tb
+
+        result = s_logging._storminfo(e)
+        self.nn(result)
+        self.isin('$x', result['vars'])
+        self.isin('$y', result['vars'])
+
+    async def test_lib_logging_storminfo_exception(self):
+
+        # Force the top-level except handler by making __traceback__ raise on access
+        e = mock.MagicMock(spec=Exception)
+        type(e).__traceback__ = mock.PropertyMock(side_effect=RuntimeError('boom'))
+
+        result = s_logging._storminfo(e)
+        self.none(result)
