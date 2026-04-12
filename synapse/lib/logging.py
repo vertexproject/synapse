@@ -6,6 +6,8 @@ import weakref
 import traceback
 import collections
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -18,6 +20,90 @@ import synapse.lib.version as s_version
 logger = logging.getLogger(__name__)
 
 _log_wins = weakref.WeakSet()
+
+_re_stormvar = regex.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
+
+def _stormprim(valu):
+    '''
+    Synchronous conversion of storm values to Python primitives.
+    '''
+    try:
+        if isinstance(valu, (str, int, bool, float, type(None), bytes)):
+            return valu
+
+        if isinstance(valu, (tuple, list)):
+            return [_stormprim(v) for v in valu]
+
+        if isinstance(valu, dict):
+            return {_stormprim(k): _stormprim(v) for k, v in valu.items()}
+
+        # Storm Prim types store their underlying value in .valu
+        if hasattr(valu, 'valu'):
+            return _stormprim(valu.valu)
+
+        return repr(valu)
+
+    except Exception:
+        return repr(valu)
+
+def _storminfo(e):
+    '''
+    Extract storm context from a Python exception if it originated from storm AST execution.
+
+    Returns a dict with 'text' and 'vars' keys, or None if not a storm exception.
+    '''
+    try:
+        raw = e.__traceback__
+        if raw is None:
+            return None
+
+        # find innermost frame for early bail
+        inner = raw
+        while inner.tb_next is not None:
+            inner = inner.tb_next
+
+        if not inner.tb_frame.f_code.co_filename.endswith('ast.py'):
+            return None
+
+        # walk frames, keep last one with an astinfo-bearing self
+        stormframe = None
+        cur = raw
+        while cur is not None:
+            slf = cur.tb_frame.f_locals.get('self')
+            if slf is not None and hasattr(slf, 'astinfo'):
+                stormframe = cur
+            cur = cur.tb_next
+
+        if stormframe is None:
+            return None
+
+        frame = stormframe.tb_frame
+        astinfo = frame.f_locals['self'].astinfo
+        text = astinfo.text[astinfo.soff:astinfo.eoff]
+
+        # collect all accessible storm variables
+        allvars = {}
+        runt = frame.f_locals.get('runt')
+        if runt is not None and hasattr(runt, 'vars'):
+            allvars.update(runt.vars)
+
+        path = frame.f_locals.get('path')
+        if path is not None and hasattr(path, 'vars'):
+            allvars.update(path.vars)
+
+        # include only variables referenced in the storm text, excluding _ prefixes
+        stormvars = {}
+        for match in _re_stormvar.finditer(text):
+            name = match.group(1)
+            if name.startswith('_'):
+                continue
+            if name in allvars:
+                stormvars[f'${name}'] = repr(_stormprim(allvars[name]))
+
+        return {'text': text, 'vars': stormvars}
+
+    except Exception:
+        return None
 
 def excinfo(e, _seen=None):
 
@@ -52,6 +138,9 @@ def excinfo(e, _seen=None):
 
     if ret.get('mesg') is None:
         ret['mesg'] = str(e)
+
+    if (storm := _storminfo(e)) is not None:
+        ret['storm'] = storm
 
     return ret
 
