@@ -25,7 +25,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -3402,6 +3401,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('| 1.2.3.4', {'mode': 'autoadd'})
 
+            # test isValidStorm
+            ok, info = await proxy.isValidStorm('test:str=test')
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', {'mode': 'lookup'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', {'mode': 'autoadd'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 ')
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+            self.isin('mesg', info[1])
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4 ', {'mode': 'lookup'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4', {'mode': 'autoadd'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm(12345678)
+            self.false(ok)
+            self.eq(info[0], 'TypeError')
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -3528,6 +3557,29 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg['params'].get('view'), view)
+            self.eq(mesg['params'].get('text'), 'help foo')
+            self.eq(mesg['username'], 'root')
+
+            udef = await core.addUser('foouser', )
+            await core.setUserAdmin(udef.get('iden'), True)
+            asfoo = {'user': udef.get('iden')}
+
+            with self.getLoggerStream('synapse.storm') as stream:
+                await alist(core.storm('help ask', opts=asfoo))
+
+            mesg = stream.jsonlines()[0]
+            self.eq(mesg['params'].get('view'), view)
+            self.eq(mesg['params'].get('text'), 'help ask')
+            self.eq(mesg['username'], 'foouser')
+
+            q = '[test:str=hehe] [test:int=$node.value()]'
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                await alist(core.storm(q, opts=asfoo))
+            msgs = stream.jsonlines()
+            emsg = [m for m in msgs if 'Error during storm execution' in m.get('message')][0]
+            self.eq(emsg['params'].get('view'), view)
+            self.eq(emsg['params'].get('text'), q)
+            self.eq(emsg['username'], 'foouser')
 
     async def test_strict(self):
 
@@ -4830,7 +4882,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            node = (await core0.nodes('[ test:int=4 ]'))[0]
             pack = node.pack()
             pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
             podes.append(pack)
@@ -6279,7 +6331,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 asuser['vars'] = {'iden': iden}
 
                 with self.raises(s_exc.AuthDeny):
-                    await core.callStorm(f'$lib.dmon.del($iden)', opts=asuser)
+                    await core.callStorm('$lib.dmon.del($iden)', opts=asuser)
 
                 # remove the dmon without a nexus entry to verify recover works
                 await core._delStormDmon(iden)
@@ -6372,6 +6424,70 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await stream.expect('Dmon View is invalid. Stopping Dmon', timeout=6)
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
+
+    async def test_cortex_storm_dmon_add_view(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.queue.add(dmon)')
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+
+            # Specify an alternate view via ddef and verify stormopts.view is set
+            dmonq = '''
+                $q = $lib.queue.get(dmon)
+                for ($offs, $item) in $q.gets(size=3, wait=12) {
+                    [ test:int=$item ]
+                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $q.cull($offs)
+                }
+            '''
+            ddef = await core.callStorm(
+                'return($lib.dmon.add($storm, name=viewdmon, ddef=({"stormopts": {"view": $view}})))',
+                opts={'vars': {'storm': dmonq, 'view': view2_iden}},
+            )
+            self.eq(ddef['stormopts']['view'], view2_iden)
+
+            await asyncio.sleep(0)
+
+            q = '''$q = $lib.queue.get(dmon) $q.puts((10, 20, 30))'''
+            with self.getLoggerStream('synapse.lib.storm') as stream:
+                await core.nodes(q)
+                await stream.expect("made ('test:int', 30)")
+
+            # Nodes should be in the forked view
+            nodes = await core.nodes('test:int', opts={'view': view2_iden})
+            self.len(3, nodes)
+
+            # Nodes should not be in the default view
+            nodes = await core.nodes('test:int')
+            self.len(0, nodes)
+
+            # Specifying an invalid view raises NoSuchView
+            with self.raises(s_exc.NoSuchView):
+                await core.callStorm(
+                    '$lib.dmon.add($storm, name=baddmon, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': 'newp'}},
+                )
+
+            # Verify permission check uses the specified view gateiden
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')), gateiden=core.view.iden)
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                # visi has dmon.add on default view but not on view2
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm(
+                        '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                        opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                    )
+
+                # Grant on view2 and it should work
+                await visi.addRule((True, ('dmon', 'add')), gateiden=view2_iden)
+                await proxy.callStorm(
+                    '$lib.dmon.add($storm, name=testperm, ddef=({"stormopts": {"view": $view}}))',
+                    opts={'vars': {'storm': '$lib.print(hi)', 'view': view2_iden}},
+                )
 
     async def test_cortex_storm_cmd_bads(self):
 
@@ -7906,43 +8022,33 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin(f'Detected {count - 4} deprecated properties', data)
 
-    async def test_cortex_dmons_after_modelrev(self):
+    async def test_cortex_stor_migr_dmon_ddef_view(self):
+
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
+                iden = s_common.guid()
+                ddef = {
+                    'iden': iden,
+                    'user': core.auth.rootuser.iden,
+                    'storm': '$lib.print(hi)',
+                    'view': core.getView().iden,
+                    'enabled': True,
+                    'extra': 'shouldberemoved',
+                }
+                core.cortexdata.getSubKeyVal('storm:dmons:').set(iden, ddef)
+                # Regress the storage version so migration 7 runs on next start
+                core.cellvers.set('cortex:storage', 6)
 
-                # Add a dmon so something gets started
-                await core.callStorm('''
-                    $ddef = $lib.dmon.add(${
-                        $lib.print(hi)
-                        $lib.warn(omg)
-                        $s = `Running {$auto.type} {$auto.iden}`
-                        $lib.log.info($s, ({"iden": $auto.iden}))
-                    })
-                ''')
-
-                # Create this so we can find the model rev version before the
-                # latest
-                mrev = s_modelrev.ModelRev(core)
-
-                # Add a layer and regress the version so it gets migrated on the
-                # next start
-                ldef = await core.addLayer()
-                layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers(mrev.revs[-2][0])
-
-            with self.getLoggerStream('') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
-
-            stream.seek(0)
-            data = stream.read()
-
-            # Check that the model migration happens before the dmons start
-            mrevstart = data.find('beginning model migration')
-            dmonstart = data.find('Starting Dmon')
-            self.ne(-1, mrevstart)
-            self.ne(-1, dmonstart)
-            self.lt(mrevstart, dmonstart)
+            async with self.getTestCore(dirn=dirn) as core:
+                subkv = core.cortexdata.getSubKeyVal('storm:dmons:')
+                migrated = subkv.get(iden)
+                self.nn(migrated)
+                self.notin('view', migrated)
+                self.notin('extra', migrated)
+                self.eq(migrated['iden'], iden)
+                self.eq(migrated['storm'], '$lib.print(hi)')
+                self.eq(migrated['user'], core.auth.rootuser.iden)
+                self.true(migrated['enabled'])
 
     async def test_cortex_taxonomy_migr(self):
 
@@ -7972,6 +8078,68 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(core.model.ifaces.get('taxonomy'))
             self.none(core.model.formsbyiface.get('taxonomy'))
             self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
+
+    async def test_cortex_modelrev_task(self):
+
+        async def dummy(self):
+            await asyncio.Future()
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core00:
+                await self.waitForActiveMigration(core00)
+
+            with patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
+                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
+
+                    await core01.promote(graceful=False)
+                    await asyncio.sleep(0)
+
+                    task = await core01.callStorm('''
+                        for $task in $lib.task.list() {
+                            if ($task.name = "cortex:migration:layers") {
+                                return($task)
+                            }
+                        }
+                    ''')
+                    self.nn(task)
+                    self.true(task['protected'])
+                    self.true(task['background'])
+
+                    self.true(await core01.isCellActive())
+
+                    emesg = 'Task cortex:migration:layers is protected.'
+
+                    # cannot kill through exposed Storm APIs
+
+                    opts = {'vars': {'iden': task['iden']}}
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('task.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('ps.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    # cannot kill through exposed Telepath APIs
+
+                    async with core01.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.killTask(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.kill(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                    # internal kill still works
+
+                    self.nn(rtask := core01.boss.get(task['iden']))
+                    await rtask.kill(safe=False)
+                    self.none(core01.boss.get(task['iden']))
 
     async def test_cortex_vaults(self):
         '''
@@ -8275,27 +8443,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, 'foo', self)
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, 'foo', self)
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, self, 'bar')
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, self, 'bar')
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchIden) as exc:
                 # iden not valid
                 await core.setVaultPerm(giden, '1234', s_cell.PERM_EDIT)
-            self.eq(f'Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
+            self.eq('Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid scope

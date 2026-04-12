@@ -214,19 +214,20 @@ class HandlerBase:
         '''
         uri = self.request.uri
         remote_ip = self.request.remote_ip
-        enfo = {'uri': uri,
-                'remoteip': remote_ip,
-                }
+        erfo = {
+            'uri': uri,
+            'remote_ip': remote_ip,
+        }
         errm = f'Failed to authenticate request to {uri} from {remote_ip} '
         if mesg:
             errm = f'{errm}: {mesg}'
         if user:
             errm = f'{errm}: user={user}'
-            enfo['user'] = user
+            erfo['target_user'] = user
         if username:
             errm = f'{errm} ({username})'
-            enfo['username'] = username
-        logger.log(level, msg=errm, extra=s_logging.getLogExtra(**enfo))
+            erfo['target_username'] = username
+        logger.log(level, msg=errm, extra=s_logging.getLogExtra(**erfo))
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
@@ -712,6 +713,23 @@ class ReqValidStormV1(StormHandler):
         else:
             return self.sendRestRetn(ret)
 
+class IsValidStormV1(StormHandler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        _, body = await self.getUseridenBody()
+        if body is s_common.novalu:
+            return
+
+        opts = body.get('opts', {})
+        query = body.get('query')
+
+        ret = await self.cell.isValidStorm(query, opts)
+        return self.sendRestRetn(ret)
+
 class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
@@ -877,13 +895,15 @@ class AuthUserV1(Handler):
         if locked is not None:
             await authcell.setUserLocked(iden, bool(locked))
 
+        gateiden = body.get('gate')
+
         rules = body.get('rules')
         if rules is not None:
-            await authcell.setUserRules(iden, rules, gateiden=None)
+            await authcell.setUserRules(iden, rules, gateiden=gateiden)
 
         admin = body.get('admin')
         if admin is not None:
-            await authcell.setUserAdmin(iden, bool(admin), gateiden=None)
+            await authcell.setUserAdmin(iden, bool(admin), gateiden=gateiden)
 
         archived = body.get('archived')
         if archived is not None:
@@ -946,9 +966,11 @@ class AuthRoleV1(Handler):
         if body is None:
             return
 
+        gateiden = body.get('gate')
+
         rules = body.get('rules')
         if rules is not None:
-            await authcell.setRoleRules(iden, rules, gateiden=None)
+            await authcell.setRoleRules(iden, rules, gateiden=gateiden)
 
         self.sendRestRetn(await authcell.getRoleDef(iden))
 

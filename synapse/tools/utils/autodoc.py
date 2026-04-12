@@ -43,6 +43,7 @@ info_ignores = (
     'template',
     'display',
     'deprecated',
+    'props',
 )
 
 raw_back_slash_colon = r'\:'
@@ -194,7 +195,7 @@ def processTypes(rst, dochelp, types):
 
         if topt:
             rst.addLines('',
-                         f'This type has the following options set:',
+                         'This type has the following options set:',
                          ''
                          )
 
@@ -328,7 +329,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
 
             has_popts = has_popts_data(props)
 
-            rst.addLines('', '', f'  Properties:', )
+            rst.addLines('', '', '  Properties:', )
             rst.addLines('   .. list-table::',
                          '      :header-rows: 1',
                          '      :widths: auto',
@@ -382,7 +383,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                                 else:
                                     rst.addLines(f'          | {k}: ``{v}``')
                     else:
-                        rst.addLines(f'        - ')
+                        rst.addLines('        - ')
 
         if formedges:
 
@@ -394,7 +395,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 if generic_edges:
                     source_edges.extend(generic_edges)
 
-                rst.addLines(f'  Source Edges:',)
+                rst.addLines('  Source Edges:',)
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
                              '      :widths: auto',
@@ -435,7 +436,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 if generic_edges:
                     dst_edges.extend(generic_edges)
 
-                rst.addLines(f'  Target Edges:', )
+                rst.addLines('  Target Edges:', )
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
                              '      :widths: auto',
@@ -988,9 +989,9 @@ async def main(argv, outp=s_output.stdout):
     if opts.doc_stormtypes:
         libdocs, typedocs = await docStormTypes()
         if opts.savedir:
-            with open(s_common.genpath(opts.savedir, f'stormtypes_libs.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, 'stormtypes_libs.rst'), 'wb') as fd:
                 fd.write(libdocs.getRstText().encode())
-            with open(s_common.genpath(opts.savedir, f'stormtypes_prims.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, 'stormtypes_prims.rst'), 'wb') as fd:
                 fd.write(typedocs.getRstText().encode())
 
     return 0

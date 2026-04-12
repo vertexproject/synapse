@@ -20,8 +20,9 @@ class ProjModelTest(s_test.SynTest):
             self.nn(proj)
             self.len(1, await core.nodes('proj:project:desc=bar'))
 
-            nodes = await core.nodes('proj:project [ :type=foo.bar ]')
+            nodes = await core.nodes('proj:project [ :type=foo.bar :platform={[ inet:service:platform=* ]} ]')
             self.len(1, nodes)
+            self.nn(nodes[0].get('platform'))
             self.eq('foo.bar.', nodes[0].get('type'))
 
             self.len(1, await core.nodes('proj:project -> proj:project:type:taxonomy'))

@@ -9,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 
 from typing import AnyStr, Dict
 
@@ -74,6 +75,25 @@ _vfuncs = {
 
 assert set(_efuncs.keys()) == set(_vfuncs.keys())
 
+def _mkShadowKey(passwd, shadow):
+    func_params = shadow.get('func_params') or {}
+    params_key = tuple(sorted(func_params.items()))
+    return (passwd, shadow.get('type'), shadow.get('hashed'), params_key)
+
+async def _checkShadowV2(key):
+    passwd, ptyp, hashed, params_key = key
+    shadow = {
+        'type': ptyp,
+        'hashed': hashed,
+        'func_params': dict(params_key),
+    }
+    func = _vfuncs.get(ptyp)
+    if func is None:
+        raise s_exc.CryptoErr(mesg=f'type [{ptyp}] does not map to a known function', valu=ptyp)
+    return await func(passwd=passwd, shadow=shadow)
+
+_shadowCache = s_cache.FixedCache(_checkShadowV2, size=256)
+
 async def getShadowV2(passwd: AnyStr) -> Dict:
     '''
     Get the shadow dictionary for a given password.
@@ -101,11 +121,7 @@ async def checkShadowV2(passwd: AnyStr, shadow: Dict) -> bool:
     Returns:
         bool: True if the password is valid, false otherwise.
     '''
-    ptyp = shadow.get('type')
-    func = _vfuncs.get(ptyp)
-    if func is None:
-        raise s_exc.CryptoErr(mesg=f'type [{ptyp}] does not map to a known function', valu=ptyp)
-    return await func(passwd=passwd, shadow=shadow)
+    return await _shadowCache.aget(_mkShadowKey(passwd, shadow))
 
 async def generateApiKey(iden=None):
     if iden is None:
@@ -119,6 +135,8 @@ async def generateApiKey(iden=None):
     return iden, key, shadow
 
 def parseApiKey(valu):
+    if '+' in valu or '/' in valu:
+        return False, 'Invalid character in API key.'
     try:
         buf = base64.b64decode(valu.encode('utf-8'), altchars=b'-_', validate=True)
     except binascii.Error as e:

@@ -18,6 +18,7 @@ class ShutdownToolTest(s_test.SynTest):
             # add a dmon to ensure task.background=True works correctly
             await core.addStormDmon({
                 'iden': s_common.guid(),
+                'user': core.auth.rootuser.iden,
                 'storm': 'while (true) { $lib.time.sleep(1) }',
             })
 

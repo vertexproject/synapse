@@ -947,7 +947,7 @@ class TrigTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            node = (await core0.nodes('[ test:int=4 ]'))[0]
             pack = node.pack()
             podes.append(pack)
 

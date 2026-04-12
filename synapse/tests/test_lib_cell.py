@@ -61,11 +61,14 @@ def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
 async def _doEOFBackup(path):
+    # This function has to be detected as an async generator
+    if False:
+        yield
     return
 
 async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
-    await s_daemon.t2call(link, _doEOFBackup, (path,), {})
+    await s_daemon.t2call(link, _doEOFBackup, (path,), {}, first=False)
     link.writer.write_eof()
     await link.fini()
 
@@ -938,6 +941,8 @@ class CellTest(s_t_utils.SynTest):
 
                 self.eq(info.get('features'), cell.features)
                 self.eq(info.get('features', {}).get('testvalu'), 2)
+
+                self.none(info.get('optimized'))
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
@@ -2627,10 +2632,7 @@ class CellTest(s_t_utils.SynTest):
                 log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     await core.nexsroot.addWriteHold(tmp_reason := 'something else')
-                    with self.raises(s_exc.SynErr):
-                        await stream.expect(log_enable_writes, timeout=1)
-                stream.seek(0)
-                self.eq(stream.read(), '')
+                self.eq(stream.getvalue(), '')
 
                 await core.nexsroot.delWriteHold(tmp_reason)
                 revt.clear()
@@ -2762,13 +2764,25 @@ class CellTest(s_t_utils.SynTest):
 
                 conf = {'onboot:optimize': True}
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    pass
+                    info = await core.getCellInfo()
+                    optimized = info.get('optimized')
+                    self.nn(optimized)
+                    self.nn(optimized['init']['time'])
+                    self.nn(optimized['init']['size'])
+                    self.nn(optimized['fini']['time'])
+                    self.nn(optimized['fini']['size'])
+                    self.le(optimized['init']['time'], optimized['fini']['time'])
 
             stream.seek(0)
             self.isin('onboot optimization complete!', stream.read())
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+            # Verify optimization record persists across restarts without optimization
+            async with self.getTestCore(dirn=dirn) as core:
+                info = await core.getCellInfo()
+                self.eq(info.get('optimized'), optimized)
 
             _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
             realstat = os.stat
@@ -3640,6 +3654,27 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+    async def test_cell_task_dedup(self):
+
+        async with self.getTestCell() as cell:
+
+            iden00 = s_common.guid()
+            task00 = {'iden': iden00, 'service': 'peer.cell.synapse'}
+
+            iden01 = s_common.guid()
+            task01 = {'iden': iden01, 'service': 'peer.cell.synapse'}
+
+            async def peerGenr(todo, timeout=None):
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task01))
+
+            with mock.patch.object(cell, 'callPeerGenr', peerGenr):
+                tasks = [task async for task in cell.getTasks()]
+
+            self.len(2, tasks)
+            self.eq([iden00, iden01], [t['iden'] for t in tasks])
 
     async def test_cell_fini_order(self):
 

@@ -7,12 +7,13 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.coro as s_coro
+
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 import stix2validator
 
@@ -505,7 +506,7 @@ def _validateConfig(runt, config):
                 alltypes.add(name)
 
     if not isinstance(maxsize, int):
-        mesg = f'STIX Bundle config maxsize option must be an integer.'
+        mesg = 'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
     if maxsize > 10000 and not runt.allowed(perm_maxsize):
@@ -515,7 +516,7 @@ def _validateConfig(runt, config):
 
     formmaps = config.get('forms')
     if formmaps is None:
-        mesg = f'STIX Bundle config is missing "forms" mappings.'
+        mesg = 'STIX Bundle config is missing "forms" mappings.'
         raise s_exc.NeedConfValu(mesg=mesg)
 
     for formname, formconf in formmaps.items():
@@ -660,7 +661,7 @@ class LibStix(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await s_coro.semafork(validateStix, bundle)
+        return await s_processpool.semafork(validateStix, bundle)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def liftBundle(self, bundle):

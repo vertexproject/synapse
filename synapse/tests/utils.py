@@ -24,13 +24,11 @@ import copy
 import math
 import types
 import shutil
-import typing
 import asyncio
 import inspect
 import logging
 import tempfile
 import unittest
-import threading
 import contextlib
 import collections
 
@@ -67,7 +65,6 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.logging as s_logging
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
@@ -75,7 +72,6 @@ import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tools.storm.pkg.gen as s_genpkg
@@ -817,21 +813,33 @@ class LoggerStream(io.StringIO):
         self._lines.clear()
         self.seek(0)
         self.truncate()
+        self._event.clear()
 
     def write(self, s):
-        retn = io.StringIO.write(self, s)
+        io.StringIO.write(self, s)
         self._lines.append(s)
         self._event.set()
 
-    async def expect(self, text, count=1, timeout=5, escape=True):
+    async def expect(self, text, count=1, timeout=6, escape=True):
+        '''
+        Expect a string to be present in the logged text.
 
+        Args:
+            text: String to search the logs for.
+            count: Number of occurances of the entry.
+            timeout: Amount of time to wait for the text to be logged.
+            escape: re.escape() the provided text; to to false is text is a regular expression.
+
+        Returns:
+            True if the text is found.
+        '''
         try:
             coro = self._expect(text, count=count, escape=escape)
             await s_common.wait_for(coro, timeout=timeout)
         except TimeoutError:
             logger.warning(f'Pattern [{text}] not found in...')
             [logger.warning(f'    {line}') for line in self._lines]
-            raise s_exc.SynErr(mesg=f'Pattern [{text}] not found!')
+            raise AssertionError(f'Pattern [{text}] not found!')
 
     async def _expect(self, text, count=1, escape=True):
 
@@ -1045,7 +1053,6 @@ class SynTest(unittest.TestCase):
 
     def tearDown(self):
         s_logging.reset()
-        return super().tearDown()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -1090,6 +1097,12 @@ class SynTest(unittest.TestCase):
         with self.getTestDir(copyfrom=dirn) as regrdir:
             yield regrdir
 
+    async def waitForActiveMigration(self, core):
+        '''
+        Wait for any tasks that may occur after anit() returns the object.
+        '''
+        self.true(await s_coro.event_wait(core._migration_evnt, timeout=30))
+
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
@@ -1104,9 +1117,13 @@ class SynTest(unittest.TestCase):
 
                     with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
                         async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            if not core.conf.get('mirror'):
+                                await self.waitForActiveMigration(core)
                             yield core
                 else:
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        if not core.conf.get('mirror'):
+                            await self.waitForActiveMigration(core)
                         yield core
 
     @contextlib.asynccontextmanager

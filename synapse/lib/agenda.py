@@ -6,15 +6,19 @@ import logging
 import calendar
 import datetime
 import itertools
+import contextlib
+
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.logging as s_logging
+import synapse.lib.schemas as s_schemas
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -258,6 +262,7 @@ class _Appt:
         'doc',
         'name',
         'pool',
+        'affinity',
         'created',
         'enabled',
         'errcount',
@@ -271,12 +276,13 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, affinity=None, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
         self.stor = stor
         self.pool = pool
+        self.affinity = affinity
         self.iden = iden
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -343,6 +349,7 @@ class _Appt:
             'doc': self.doc,
             'name': self.name,
             'pool': self.pool,
+            'affinity': self.affinity,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -359,7 +366,8 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs[:5])
+            'lasterrs': list(self.lasterrs[:5]),
+            'loglevel': self.loglevel
         }
 
     @classmethod
@@ -374,6 +382,7 @@ class _Appt:
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.pool = val.get('pool', False)
+        appt.affinity = val.get('affinity')
         appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -516,6 +525,42 @@ class Agenda(s_base.Base):
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
 
+    def _processPeriodParams(self, reqs, incunit, incvals):
+        '''
+        Process period parameters (reqs, incunit, incvals) into recs and nexttime.
+        '''
+        if not reqs and incunit is None:
+            mesg = 'at least one of reqs and incunit must be non-empty'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if incunit is not None and incvals is None:
+            mesg = 'incvals must be non-None if incunit is non-None'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if reqs is None:
+            reqs = [{}]
+        elif isinstance(reqs, Mapping):
+            reqs = [reqs]
+
+        nexttime = None
+        recs = []
+        recur = incunit is not None
+
+        for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise s_exc.BadArg(mesg=mesg)
+                nexttime = self._getNowTick()
+                continue
+
+            reqdicts = self._dictproduct(req)
+            if not isinstance(incvals, Iterable):
+                incvals = (incvals, )
+            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+
+        return (recs, nexttime, recur)
+
     @staticmethod
     def _dictproduct(rdict):
         '''
@@ -583,10 +628,14 @@ class Agenda(s_base.Base):
         view = cdef.get('view')
         created = cdef.get('created')
         loglevel = cdef.get('loglevel', 'WARNING')
+        s_schemas.reqValidLoglevel(loglevel)
 
         pool = cdef.get('pool', False)
+        affinity = cdef.get('affinity')
 
-        recur = incunit is not None
+        if affinity and pool:
+            raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         indx = self._next_indx
         self._next_indx += 1
 
@@ -595,41 +644,20 @@ class Agenda(s_base.Base):
             raise s_exc.DupIden(iden=iden, mesg=mesg)
 
         if not query:
-            raise ValueError('"query" key of cdef parameter is not present or empty')
+            mesg = '"query" key of cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.core.getStormQuery(query)
 
         if not creator:
-            raise ValueError('"creator" key is cdef parameter is not present or empty')
+            mesg = '"creator" key is cdef parameter is not present or empty'
+            raise s_exc.BadArg(mesg=mesg)
 
-        if not reqs and incunit is None:
-            raise ValueError('at least one of reqs and incunit must be non-empty')
-
-        if incunit is not None and incvals is None:
-            raise ValueError('incvals must be non-None if incunit is non-None')
-
-        if isinstance(reqs, Mapping):
-            reqs = [reqs]
-
-        # Find all combinations of values in reqdict values and incvals values
-        nexttime = None
-        recs = []  # type: ignore
-        for req in reqs:
-            if TimeUnit.NOW in req:
-                if incunit is not None:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
-                nexttime = self._getNowTick()
-                continue
-
-            reqdicts = self._dictproduct(req)
-            if not isinstance(incvals, Iterable):
-                incvals = (incvals, )
-            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+        recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
 
         # TODO: this is insane. Make _Appt take the cdef directly...
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
-                           created=created, pool=pool, loglevel=loglevel)
+                           created=created, pool=pool, affinity=affinity, loglevel=loglevel)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -653,7 +681,7 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        await self.mod(iden, appt.query)
+        await self.mod(iden, {'query': appt.query})
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
@@ -664,24 +692,59 @@ class Agenda(s_base.Base):
         appt.enabled = False
         await appt.save()
 
-    async def mod(self, iden, query):
+    async def mod(self, iden, cdef):
         '''
-        Change the query of an appointment
+        Modify an existing appointment
         '''
         appt = self.appts.get(iden)
         if appt is None:
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        if not query:
-            raise ValueError('empty query')
+        if not cdef:
+            return
 
-        await self.core.getStormQuery(query)
+        query = cdef.get('query')
+        if query is not None:
+            if not query:
+                raise s_exc.BadArg(mesg='empty query')
+            await self.core.getStormQuery(query)
+            appt.query = query
 
-        appt.query = query
+        reqs = cdef.get('reqs')
+        incunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        if reqs is not None or incunit is not None or incvals is not None:
+
+            recs, nexttime, recur = self._processPeriodParams(reqs, incunit, incvals)
+
+            appt.recs = recs
+            appt.recur = recur
+            appt.nexttime = nexttime
+            appt._recidxnexttime = None
+
+            if appt.nexttime is None and appt.recs:
+                now = self._getNowTick()
+                appt.nexttime = now
+                appt.updateNexttime(now)
+
+            if appt.nexttime is None:
+                raise s_exc.BadTime(mesg='Appointment is in the past')
+
+            if appt.nexttime:
+                if appt not in self.apptheap:
+                    mesg = 'Cannot modify the schedule of a finished non-recurring cron job.'
+                    raise s_exc.BadConfValu(mesg=mesg)
+                heapq.heapify(self.apptheap)
+
         appt.enabled = True  # in case it was disabled for a bad query
 
         await appt.save()
+
+        if appt.nexttime and self.apptheap and self.apptheap[0] is appt:
+            self._wake_event.set()
+
+        return appt.pack()
 
     async def move(self, croniden, viewiden):
         '''
@@ -783,22 +846,18 @@ class Agenda(s_base.Base):
                 if appt.isrunning:  # pragma: no cover
                     mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
                            f' to run. Skipping.'
-                    logger.warning(mesg,
-                                   extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
+                    logger.warning(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
                 else:
                     try:
                         await self._execute(appt)
                     except Exception as e:
-                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
-                        user = self.core.auth.user(appt.creator)
-                        if user is not None:
-                            extra['username'] = user.name
+                        extra = {'iden': appt.iden, 'name': appt.name, 'view': appt.view}
                         if isinstance(e, s_exc.SynErr):
                             mesg = e.get('mesg', str(e))
                         else:  # pragma: no cover
                             mesg = str(e)
                         logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
-                                         extra={'synapse': extra})
+                                         extra=self.core.getLogExtra(**extra))
                         await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
@@ -808,23 +867,21 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.creator)
         if user is None:
             logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator))
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
             logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name, 'view': appt.view}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, view=appt.view))
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -832,6 +889,7 @@ class Agenda(s_base.Base):
 
         coro = self._runJob(user, appt)
         task = self.core.runActiveTask(coro)
+        task._syn_scope['user'] = user
 
         appt.task = await self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
         async def fini():
@@ -850,6 +908,36 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
+    async def _getAffinityProxy(self, appt, timeout=10):
+        '''
+        Attempt to get a telepath proxy to the affinity service.
+        Returns None if the service is unavailable or affinity is set to None.
+        '''
+        if appt.affinity is None:
+            return None
+        try:
+            prox = await s_telepath.openurl(f'aha://{appt.affinity}', timeout=timeout)
+            return prox
+        except Exception as e:
+            logger.warning(
+                f'Affinity service {appt.affinity} unavailable for cron {appt.iden}, running locally: {e}',
+                extra={'synapse': {'iden': appt.iden, 'affinity': appt.affinity}}
+            )
+            return None
+
+    @contextlib.asynccontextmanager
+    async def _getStormGenr(self, appt, opts, timeout=10):
+
+        proxy = await self._getAffinityProxy(appt, timeout=timeout)
+        if proxy is None:
+            yield self.core.storm(appt.query, opts=opts)
+            return
+
+        try:
+            yield proxy.storm(appt.query, opts=opts)
+        finally:
+            await proxy.fini()
+
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
@@ -863,8 +951,7 @@ class Agenda(s_base.Base):
         await self.core.addCronEdits(appt.iden, edits)
 
         logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                       'username': user.name, 'view': appt.view}})
+                    extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, text=appt.query, view=appt.view))
         starttime = self._getNowTick()
 
         success = False
@@ -884,22 +971,26 @@ class Agenda(s_base.Base):
 
             await self.core.feedBeholder('cron:start', {'iden': appt.iden})
 
-            async for mesg in self.core.storm(appt.query, opts=opts):
+            async with self._getStormGenr(appt, opts, timeout=10) as stormgenr:
 
-                if mesg[0] == 'node':
-                    count += 1
+                async for mesg in stormgenr:
 
-                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
-                    text = mesg[1].get('mesg', '<missing message>')
-                    extra = self.core.getLogExtra(cron=appt.iden, **mesg[1])
-                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+                    if mesg[0] == 'node':
+                        count += 1
 
-                elif mesg[0] == 'err':
-                    excname, errinfo = mesg[1]
-                    errinfo.pop('eline', None)
-                    errinfo.pop('efile', None)
-                    excctor = getattr(s_exc, excname, s_exc.SynErr)
-                    raise excctor(**errinfo)
+                    elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
+                        text = mesg[1].get('mesg', '<missing message>')
+                        _params = mesg[1]
+                        _params['iden'] = appt.iden
+                        logger.warning(f'Cron job {appt.iden} issued warning: {text}',
+                                       extra=self.core.getLogExtra(**_params))
+
+                    elif mesg[0] == 'err':
+                        excname, errinfo = mesg[1]
+                        errinfo.pop('eline', None)
+                        errinfo.pop('efile', None)
+                        excctor = getattr(s_exc, excname, s_exc.SynErr)
+                        raise excctor(**errinfo)
 
         except asyncio.CancelledError:
             result = 'cancelled'
@@ -908,7 +999,7 @@ class Agenda(s_base.Base):
         except Exception as e:
             result = f'raised exception {e}'
             logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             extra=self.core.getLogExtra(iden=appt.iden, name=appt.name),
                              )
         else:
             success = True
@@ -932,8 +1023,7 @@ class Agenda(s_base.Base):
                    f'took {took:.3f}s'
             if not self.core.isactive:
                 mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
-            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                 'result': result, 'username': user.name, 'took': took}})
+            logger.info(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, result=result, took=took))
             edits = {
                 'lastfinishtime': finishtime,
                 'isrunning': False,

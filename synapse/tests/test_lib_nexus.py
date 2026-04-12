@@ -221,6 +221,8 @@ class NexusTest(s_t_utils.SynTest):
         with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
             slabsize00 = s_common.getDirSize(regrdirn)
             async with self.getTestCore(dirn=regrdirn) as core00:
+                await self.waitForActiveMigration(core00)
+
                 slabsize01 = s_common.getDirSize(regrdirn)
                 # Ensure that realsize hasn't grown wildly. That would be indicative
                 # of a sparse file copy and not a directory move.
@@ -228,7 +230,7 @@ class NexusTest(s_t_utils.SynTest):
 
                 nexsindx = await core00.getNexsIndx()
                 layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.gt(nexsindx, layrindx)
+                self.ge(nexsindx, layrindx)
 
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
@@ -316,7 +318,7 @@ class NexusTest(s_t_utils.SynTest):
                             await s_common.wait_for(core.addView(vdef), 0.1)
 
                     # This will get the lock and succeed
-                    vdef = {'layers': (deflayr,), 'name': f'waitview'}
+                    vdef = {'layers': (deflayr,), 'name': 'waitview'}
                     core.schedCoro(core.addView(vdef))
                     evnt.set()
 
@@ -484,6 +486,21 @@ class NexusTest(s_t_utils.SynTest):
             # We didn't miss or duplicate items added during window construction
             self.eq([0, 1, 2, 3], items)
 
+            nexsindx = cell.nexsroot.nexslog.index()
+
+            async with cell.getLocalProxy() as prox:
+                async def listen():
+                    async for item in prox.getNexusChanges(nexsindx, wait=True):
+                        break
+                    return item
+
+                task = cell.schedCoro(listen())
+                await cell.sync()
+
+                offs, item = await asyncio.wait_for(task, timeout=5)
+                self.eq(offs, nexsindx)
+                self.eq(item[1], 'sync')
+
     async def test_nexus_mirror_nowait(self):
 
         with self.getTestDir() as dirn:
@@ -634,31 +651,69 @@ class NexusTest(s_t_utils.SynTest):
     async def test_nexus_mirror_connect_timeout(self):
 
         with self.getTestDir() as dirn:
+
             path00 = s_common.genpath(dirn, 'core00')
             path01 = s_common.genpath(dirn, 'core01')
-            conf00 = {'nexslog:en': True}
 
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
-                pass
+            async with self.getTestAha() as aha:
 
-            s_backup.backup(path00, path01)
+                conf00 = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
 
-            with mock.patch('synapse.lib.nexus.FOLLOWER_CONNECT_WAIT_S', 0.05):
-                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
-                    await asyncio.sleep(0.1)
+                async with self.getTestCore(dirn=path00, conf=conf00) as core00:
 
-                    # We weren't able to connect to the leader within the timeout so we're readonly
-                    self.true(core01.nexsroot.readonly)
-                    self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
+                    provinfo = {'mirror': '00.cortex'}
+                    conf01 = {'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)}
+                    async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+                        pass
 
-                    evnt1 = asyncio.Event()
-                    orig = s_nexus.NexsRoot._eat
-                    async def hookEat(self, item, indx=None):
-                        evnt1.set()
-                        return await orig(self, item, indx=indx)
+                with mock.patch('synapse.lib.nexus.FOLLOWER_CONNECT_WAIT_S', 0.05), \
+                     mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 0.05):
 
-                    with mock.patch('synapse.lib.nexus.NexsRoot._eat', hookEat):
+                    async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+
+                        # We weren't able to connect to the leader within the timeout so we're readonly
+                        self.true(core01.nexsroot.readonly)
+                        self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
+
+                        evnt1 = asyncio.Event()
+                        orig = s_nexus.NexsRoot._eat
+                        async def hookEat(self, item, indx=None):
+                            evnt1.set()
+                            return await orig(self, item, indx=indx)
+
+                        with mock.patch('synapse.lib.nexus.NexsRoot._eat', hookEat):
+                            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+
+                                await s_common.wait_for(core01.nexsroot.miruplink.wait(), 1)
+
+                                self.false(core01.nexsroot.readonly)
+                                self.len(0, core01.nexsroot.writeholds)
+
+                                self.len(1, core00.views)
+                                self.len(1, core01.views)
+
+                                # Clear mirrors on the leader to ensure we don't receive a response
+                                await core01.sync()
+                                core00.nexsroot._linkmirrors.clear()
+
+                                deflayr = (await core00.getLayerDef()).get('iden')
+                                vdef = {'layers': (deflayr,), 'name': 'nextview'}
+                                evnt1.clear()
+                                coro = core01.schedCoro(core01.addView(vdef))
+
+                                await evnt1.wait()
+
+                        # Our task should be cancelled by the reconnect timeout
+                        with self.raises(s_exc.LinkErr) as cm:
+                            await coro
+
+                        self.true(cm.exception.get('mesg').startswith('Unable to connect to leader'))
+                        self.true(core01.nexsroot.readonly)
+                        self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
+
+                        # We didn't get the event from the leader yet
+                        self.len(1, core01.views)
+
                         async with self.getTestCore(dirn=path00, conf=conf00) as core00:
 
                             await s_common.wait_for(core01.nexsroot.miruplink.wait(), 1)
@@ -666,35 +721,17 @@ class NexusTest(s_t_utils.SynTest):
                             self.false(core01.nexsroot.readonly)
                             self.len(0, core01.nexsroot.writeholds)
 
-                            self.len(1, core00.views)
-                            self.len(1, core01.views)
+                            await core01.sync()
 
-                            deflayr = (await core00.getLayerDef()).get('iden')
-                            vdef = {'layers': (deflayr,), 'name': 'nextview'}
-                            coro = core01.schedCoro(core01.addView(vdef))
+                            # Now we're sync'ed and caught back up
+                            self.len(2, core00.views)
+                            self.len(2, core01.views)
 
-                            await evnt1.wait()
+                            # After promotion we should not have any stray connect timeouts
+                            await core01.promote(graceful=True)
+                            await s_common.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
-                    # Our task should be cancelled by the reconnect timeout
-                    with self.raises(s_exc.LinkErr) as cm:
-                        await coro
-
-                    self.true(cm.exception.get('mesg').startswith('Unable to connect to leader'))
-                    self.true(core01.nexsroot.readonly)
-                    self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
-
-                    # We didn't get the event from the leader yet
-                    self.len(1, core01.views)
-
-                    async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-
-                        await s_common.wait_for(core01.nexsroot.miruplink.wait(), 1)
-
-                        self.false(core01.nexsroot.readonly)
-                        self.len(0, core01.nexsroot.writeholds)
-
-                        await core01.sync()
-
-                        # Now we're sync'ed and caught back up
-                        self.len(2, core00.views)
-                        self.len(2, core01.views)
+                            self.false(core00.nexsroot.readonly)
+                            self.false(core01.nexsroot.readonly)
+                            self.len(0, core00.nexsroot.writeholds)
+                            self.len(0, core01.nexsroot.writeholds)

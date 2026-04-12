@@ -90,7 +90,6 @@ class NexsRoot(s_base.Base):
         await s_base.Base.__anit__(self)
 
         # avoid import cycle
-        import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
 
         self.cell = cell
@@ -204,7 +203,7 @@ class NexsRoot(s_base.Base):
             shutil.rmtree(fn)
 
         os.makedirs(fn, exist_ok=True)
-        logger.warning(f'Moving existing nexslog')
+        logger.warning('Moving existing nexslog')
         try:
             os.replace(nexspath, fn)
         except OSError as e:  # pragma: no cover
@@ -402,6 +401,10 @@ class NexsRoot(s_base.Base):
 
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+
+            # Clone the current scope to the applytask, so that log events in the scope
+            # would have access to any user / sess values which have been set.
+            s_scope.clone(self.applytask)
 
         except:
             self.cell.nexslock.release()
@@ -625,7 +628,7 @@ class NexsRoot(s_base.Base):
             self.miruplink.clear()
             self.issuewait = False
 
-            if not self.isfini:
+            if self.client is not None and not self.client.isfini:
                 self.client.schedCoro(self.connectTimeout())
 
         proxy.onfini(onfini)
@@ -724,7 +727,7 @@ class NexsRoot(s_base.Base):
                             respfutu.set_result(retn)
 
             except s_exc.LinkShutDown:
-                logger.warning(f'mirror loop: leader closed the connection.')
+                logger.warning('mirror loop: leader closed the connection.')
 
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')

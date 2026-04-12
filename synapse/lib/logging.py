@@ -9,19 +9,19 @@ import collections
 import regex
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
-import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
 _log_wins = weakref.WeakSet()
-
 _re_stormvar = regex.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
+
+LOG_PUMP_TASK_TIMEOUT = 1
+LOG_QUEUE_SIZE = 1000
 
 def _stormprim(valu):
     '''
@@ -136,6 +136,9 @@ def excinfo(e, _seen=None):
         ret['info'] = e.errinfo.copy()
         ret['mesg'] = ret['info'].pop('mesg', None)
 
+    if isinstance(e, BaseExceptionGroup) and e.exceptions:
+        ret['group'] = [excinfo(exc) for exc in e.exceptions]
+
     if ret.get('mesg') is None:
         ret['mesg'] = str(e)
 
@@ -150,6 +153,12 @@ def setLogInfo(name, valu):
     Configure global values which should be added to every log.
     '''
     _glob_loginfo[name] = valu
+
+def popLogInfo(name):
+    '''
+    Remove a global value from being added to every log.
+    '''
+    _glob_loginfo.pop(name, None)
 
 def getLogExtra(**kwargs):
     '''
@@ -169,6 +178,8 @@ class JsonFormatter(logging.Formatter):
             'logger': {
                 'name': record.name,
                 'func': record.funcName,
+                'process': record.processName,
+                'thread': record.threadName,
             },
             'level': record.levelname,
             'time': self.formatTime(record, self.datefmt),
@@ -184,7 +195,6 @@ class JsonFormatter(logging.Formatter):
             loginfo['username'] = user.name
 
         elif (sess := s_scope.get('sess')) is not None:
-            loginfo['sess'] = sess.iden
             if sess.user is not None:
                 loginfo['user'] = sess.user.iden
                 loginfo['username'] = sess.user.name
@@ -222,11 +232,12 @@ class StreamHandler(logging.StreamHandler):
 
     _pump_task = None
     _pump_event = None
+    _pump_exit_flag = False
     _glob_handler = None
 
-    _logs_fifo = collections.deque(maxlen=1000)
-    _logs_todo = collections.deque(maxlen=1000)
-    _text_todo = collections.deque(maxlen=1000)
+    _logs_fifo = collections.deque(maxlen=LOG_QUEUE_SIZE)
+    _logs_todo = collections.deque(maxlen=LOG_QUEUE_SIZE)
+    _text_todo = collections.deque(maxlen=LOG_QUEUE_SIZE)
 
     def emit(self, record):
 
@@ -261,7 +272,9 @@ async def _pumpLogStream():
 
             if not logstodo and not texttodo:
                 StreamHandler._pump_event.clear()
-                continue
+                if StreamHandler._pump_exit_flag is True:
+                    return
+                continue  # pragma: no cover
 
             StreamHandler._logs_todo.clear()
             StreamHandler._text_todo.clear()
@@ -271,11 +284,18 @@ async def _pumpLogStream():
 
             for wind in _log_wins:
                 await wind.puts(logstodo)
-
+            # Don't hold onto refs of the Window objects inside of this function after we have used them.
+            # If we don't clear this ref, then we will hold a reference to the window object longer than needed.
+            # This can lead to the last window object never being GC'd while the pumpLogStream task is running,
+            # even after its caller has exited the watch() function.
+            wind = None  # NOQA
             await s_coro.executor(_writestderr, fulltext)
 
-        except Exception as e:
-            traceback.print_exc()
+            if StreamHandler._pump_exit_flag is True and len(StreamHandler._logs_todo) == 0 and len(StreamHandler._text_todo) == 0:
+                return
+
+        except Exception:
+            _writestderr('Error during log handling:\n' + traceback.format_exc())
 
 def logs(last=100):
     return tuple(StreamHandler._logs_fifo)[-last:]
@@ -338,7 +358,7 @@ def setup(**conf):
 
     return conf
 
-def reset():
+def reset(clear=True):
     # This may be called by tests to cleanup loop specific objects
     # ( it does not need to be called by in general by service fini )
 
@@ -351,13 +371,51 @@ def reset():
 
     StreamHandler._pump_task = None
     StreamHandler._pump_event = None
+    StreamHandler._pump_exit_flag = False
     StreamHandler._glob_handler = None
     StreamHandler._text_todo.clear()
     StreamHandler._logs_fifo.clear()
     StreamHandler._logs_todo.clear()
 
-    _glob_logconf.clear()
-    _glob_loginfo.clear()
+    if clear:
+        _glob_logconf.clear()
+        _glob_loginfo.clear()
+
+async def _shutdown_task():
+    # Give the pump task a small opportunity to drain its
+    # queue of items and exit cleanly.
+    if StreamHandler._pump_task is not None:
+        StreamHandler._pump_exit_flag = True  # Set the task to exit
+        StreamHandler._pump_event.set()  # Wake the task
+        try:
+            await asyncio.wait_for(StreamHandler._pump_task, timeout=LOG_PUMP_TASK_TIMEOUT)
+        except asyncio.TimeoutError:  # pragma: no cover
+            pass
+
+
+async def shutdown():  # pragma: no cover
+    '''
+    Inverse of setup. Gives the pump task the opportunity to exit
+    before removing it and resetting log attributes. A StreamHandler
+    is then re-installed on the root logger to allow for messages
+    from sources like atexit handlers to be logged.
+
+    This should be called at service or tool teardown.
+    '''
+    await _shutdown_task()
+
+    # Reset all logging configs except globals since we may need those.
+    reset(clear=False)
+
+    fmtclass = JsonFormatter
+    if not _glob_logconf.get('structlog'):
+        fmtclass = TextFormatter
+
+    # Reinstall a StreamHandler and the formatter on the root logger
+    rootlogger = logging.getLogger()
+    stream = logging.StreamHandler()
+    stream.setFormatter(fmtclass(datefmt=_glob_logconf.get('datefmt')))
+    rootlogger.addHandler(stream)
 
 def getLogConf():
     logconf = _glob_logconf.copy()

@@ -746,6 +746,103 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                     self.eq('AuthDeny', retn.get('code'))
 
+    async def test_http_auth_gate(self):
+        '''
+        Test the gate key in /api/v1/auth/user/<iden> and /api/v1/auth/role/<iden>.
+        '''
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            gateiden = core.view.iden
+
+            async with self.getHttpSess() as sess:
+
+                # Create an admin user to make API calls and a non-admin user for gate testing
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    visiiden = item['result']['iden']
+
+                info = {'name': 'noob', 'passwd': 'nooblet'}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    noobiden = item['result']['iden']
+
+                info = {'name': 'analysts'}
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                    item = await resp.json()
+                    analystiden = item['result']['iden']
+
+                # Set user rules scoped to a gate
+                rules = [(True, ('view', 'read'))]
+                info = {'rules': rules, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify rules were applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_user = next(u for u in gate['users'] if u['iden'] == noobiden)
+                self.isin((True, ('view', 'read')), gate_user['rules'])
+
+                udef = await core.getUserDef(noobiden)
+                self.eq((), udef['rules'])
+
+                # Set user admin scoped to a gate
+                info = {'admin': True, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify admin was applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_user = next(u for u in gate['users'] if u['iden'] == noobiden)
+                self.true(gate_user['admin'])
+
+                udef = await core.getUserDef(noobiden)
+                self.false(udef['admin'])
+
+                # Set role rules scoped to a gate
+                rules = [(True, ('view', 'read'))]
+                info = {'rules': rules, 'gate': gateiden}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                # Verify role rules were applied on the gate, not globally
+                gate = await core.getAuthGate(gateiden)
+                gate_role = next(r for r in gate['roles'] if r['iden'] == analystiden)
+                self.isin((True, ('view', 'read')), gate_role['rules'])
+
+                rdef = await core.getRoleDef(analystiden)
+                self.eq((), rdef['rules'])
+
+                # Without gate key, rules are applied globally (default behavior unchanged)
+                rules = [(True, ('node', 'add'))]
+                info = {'rules': rules}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                udef = await core.getUserDef(noobiden)
+                self.isin((True, ('node', 'add')), udef['rules'])
+
+                info = {'rules': rules}
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                rdef = await core.getRoleDef(analystiden)
+                self.isin((True, ('node', 'add')), rdef['rules'])
+
     async def test_http_impersonate(self):
 
         async with self.getTestCore() as core:
@@ -1054,6 +1151,7 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
                     await core.callStorm('cron.move $cron $view', opts=opts)
                     await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.mod $cron --period daily@10:00', opts=opts)
                     await core.callStorm('cron.disable $cron', opts=opts)
                     await core.callStorm('cron.enable $cron', opts=opts)
                     await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
@@ -1084,6 +1182,7 @@ class HttpApiTest(s_tests.SynTest):
                         'layer:set',
                         'cron:move',
                         'cron:edit:query',
+                        'cron:edit:period',
                         'cron:disable',
                         'cron:enable',
                         'cron:edit:name',
@@ -1650,6 +1749,36 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(data.get('status'), 'err')
                         self.eq(data.get('code'), 'NotAuthenticated')
 
+                # check isvalidstorm with various queries
+                tvs = (
+                    ('test:str=test', {}, True),
+                    ('1.2.3.4 | spin', {'mode': 'lookup'}, True),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, True),
+                    ('1.2.3.4', {}, 'BadSyntax'),
+                    ('| 1.2.3.4 ', {'mode': 'lookup'}, 'BadSyntax'),
+                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'BadSyntax'),
+                    (12345678, {}, 'TypeError'),
+                )
+                url = f'https://localhost:{port}/api/v1/isvalidstorm'
+                for (query, opts, expected_ok) in tvs:
+                    body = {'query': query, 'opts': opts}
+                    async with sess.post(url, json=body) as resp:
+                        self.eq(resp.status, http.HTTPStatus.OK)
+                        data = await resp.json()
+                        self.eq(data.get('status'), 'ok')
+                        ok, info = data.get('result')
+                        self.eq(ok, expected_ok is True)
+                        if expected_ok is not True:
+                            self.eq(info[0], expected_ok)
+
+                # Sad path
+                async with aiohttp.client.ClientSession() as bad_sess:
+                    async with bad_sess.post(url, ssl=False) as resp:
+                        data = await resp.json()
+                        self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
+                        self.eq(data.get('status'), 'err')
+                        self.eq(data.get('code'), 'NotAuthenticated')
+
     async def test_tls_ciphers(self):
 
         async with self.getTestCore() as core:
@@ -1945,8 +2074,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.isin('headers', mesg['params'])
                 self.eq(mesg['params']['headers'].get('user-agent'), 'test_request_logging')
                 self.isin('remoteip', mesg['params'])
@@ -1963,8 +2092,8 @@ class HttpApiTest(s_tests.SynTest):
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/active')
                 self.notin('headers', mesg['params'])
-                self.notin('username', mesg['params'])
-                self.notin('user', mesg['params'])
+                self.notin('username', mesg)
+                self.notin('user', mesg)
                 self.isin('remoteip', mesg['params'])
                 self.isin('200 GET /api/v1/active', mesg.get('message'))
 
@@ -1979,8 +2108,8 @@ class HttpApiTest(s_tests.SynTest):
 
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['params'].get('uri'), '/api/v1/login')
-                    self.eq(mesg['params'].get('username'), 'visi')
-                    self.eq(mesg['params'].get('user'), visiiden)
+                    self.eq(mesg['username'], 'visi')
+                    self.eq(mesg['user'], visiiden)
 
                     # session cookie loging populates the data upon reuse
                     with self.getLoggerStream(logname) as stream:
@@ -1990,8 +2119,8 @@ class HttpApiTest(s_tests.SynTest):
 
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['params'].get('uri'), '/api/v1/auth/users')
-                    self.eq(mesg['params'].get('username'), 'visi')
-                    self.eq(mesg['params'].get('user'), visiiden)
+                    self.eq(mesg['username'], 'visi')
+                    self.eq(mesg['user'], visiiden)
 
         async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
 
@@ -2019,8 +2148,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.eq(mesg['params'].get('remoteip'), '1.2.3.4')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
@@ -2037,8 +2166,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['params'].get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg['params'].get('username'), 'root')
-                self.eq(mesg['params'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['username'], 'root')
+                self.eq(mesg['user'], core.auth.rootuser.iden)
                 self.eq(mesg['params'].get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))

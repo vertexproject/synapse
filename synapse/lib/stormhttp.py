@@ -578,7 +578,10 @@ class HttpResp(s_stormtypes.Prim):
 
         except s_exc.BadJsonText as e:
             mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
-            raise s_exc.BadJsonText(mesg=mesg)
+            info = {'mesg': mesg}
+            if (text := e.get('text')) is not None:
+                info['text'] = text
+            raise s_exc.BadJsonText(**info)
 
     async def _httpRespMsgpack(self):
         byts = self.valu.get('body')

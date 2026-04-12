@@ -1,11 +1,14 @@
 import regex
+import asyncio
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.types as s_types
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
@@ -13,7 +16,7 @@ import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 34)
+maxvers = (0, 2, 35)
 
 class ModelRev:
 
@@ -53,6 +56,7 @@ class ModelRev:
             ((0, 2, 32), self.revModel_0_2_32),
             ((0, 2, 33), self.revModel_0_2_33),
             ((0, 2, 34), self.revModel_0_2_34),
+            ((0, 2, 35), self.revModel_0_2_35),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -829,6 +833,10 @@ class ModelRev:
         await self._normFormSubs(layers, 'inet:email')
         await self._propToForm(layers, 'inet:email:base', 'inet:email')
 
+    async def revModel_0_2_35(self, layers):
+        migr = await ModelMigration_0_2_35.anit(self.core, layers)
+        await migr.revModel_0_2_35()
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -932,7 +940,7 @@ class ModelRev:
                     oldm = e.errinfo.get('mesg')
                     iden = s_common.ehex(buid)
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                                   extra=self.core.getLogExtra(node=iden, layer=layr.iden))
                     continue
 
                 if norm == propvalu:
@@ -1001,7 +1009,7 @@ class ModelRev:
                         oldm = e.errinfo.get('mesg')
                         iden = s_common.ehex(buid)
                         logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                                       extra=self.core.getLogExtra(node=iden, layer=layr.iden))
                         continue
 
                     nodeedits.append(
@@ -1221,13 +1229,24 @@ class ModelRev:
         '''
         await self.runStorm(storm, opts=opts)
 
-class ModelMigration_0_2_31:
+class ModelMigrationBase:
+    '''
+    Base class for model migration infrastructure. Provides shared edit queuing,
+    node tracking, reference resolution, and node move/remove operations.
+
+    Subclasses must set ``queuename`` and may override ``getNode()``, ``storeNode()``,
+    and ``moveNode()`` for migration-specific behavior.
+    '''
+
+    queuename = None
+
     @classmethod
     async def anit(cls, core, layers):
         self = cls()
 
         self.core = core
         self.layers = layers
+        self.migrname = self.queuename.split(':')[0]
 
         self.meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
@@ -1241,7 +1260,7 @@ class ModelMigration_0_2_31:
         self.core.onfini(self.todos)
 
         try:
-            await self.core.getCoreQueue('model_0_2_31:nodes')
+            await self.core.getCoreQueue(self.queuename)
             self.hasq = True
         except s_exc.NoSuchName:
             self.hasq = False
@@ -1259,7 +1278,7 @@ class ModelMigration_0_2_31:
             await self._flushEdits()
 
     async def _flushEdits(self):
-        for layriden, layredits in self.nodeedits.items():
+        async for layriden, layredits in s_coro.pause(self.nodeedits.items()):
             layer = self.core.getLayer(layriden)
             if layer is None: # pragma: no cover
                 continue
@@ -1406,7 +1425,6 @@ class ModelMigration_0_2_31:
             node.setdefault('layers', [])
             node.setdefault('n1edges', {})
             node.setdefault('n2edges', {})
-            node.setdefault('verdict', None)
             node.setdefault('nodedata', {})
         return node
 
@@ -1451,243 +1469,6 @@ class ModelMigration_0_2_31:
 
         await self.nodes.set(buid, node)
         return node
-
-    async def revModel_0_2_31(self):
-
-        form = self.core.model.form('it:sec:cpe')
-
-        logger.info(f'Collecting and classifying it:sec:cpe nodes in {len(self.layers)} layers')
-
-        # Pick up and classify all bad CPE nodes
-        for idx, layer in enumerate(self.layers):
-            logger.debug('Classifying nodes in layer %s %s', idx, layer.iden)
-
-            async for buid, sode in layer.getStorNodesByForm('it:sec:cpe'):
-
-                verdict = 'remove'
-
-                # Delete invalid v2_2 props while we're iterating
-                props = sode.get('props', {})
-                if (v2_2 := props.get('v2_2')) is not None:
-                    propvalu, stortype = v2_2
-                    if not s_infotech.isValidCpe22(propvalu):
-                        logger.debug(f'Queueing invalid v2_2 value for deletion iden={s_common.ehex(buid)} valu={propvalu}')
-                        await self._queueEdit(
-                            layer.iden,
-                            (buid, 'it:sec:cpe', (
-                                (s_layer.EDIT_PROP_DEL, ('v2_2', propvalu, stortype), ()),
-                            ))
-                        )
-                    else:
-                        verdict = 'migrate'
-
-                if (formvalu := sode.get('valu')) is None:
-                    continue
-
-                formvalu = formvalu[0]
-                if s_infotech.isValidCpe23(formvalu):
-                    continue
-
-                node = self.getNode(buid)
-                node['formvalu'] = formvalu
-                node['formname'] = 'it:sec:cpe'
-                node['verdict'] = verdict
-                layers = list(node['layers'])
-                layers.append(layer.iden)
-                node['layers'] = layers
-
-                await self.nodes.set(buid, node)
-
-        await self._flushEdits()
-
-        invalid = len(self.nodes)
-        logger.info(f'Processing {invalid} invalid it:sec:cpe nodes in {len(self.layers)} layers')
-
-        # Pick up all related CPE node info. The majority of the work happens in this loop
-        for idx, layer in enumerate(self.layers):
-            logger.debug('Processing nodes in layer %s %s', idx, layer.iden)
-
-            for buid, node in self.nodes.items():
-                await self._loadNode(layer, buid, node=node)
-
-                formvalu = node.get('formvalu')
-                formname = node.get('formname')
-                formndef = (formname, formvalu)
-
-                refs = node['refs'].get(layer.iden, [])
-
-                for refinfo in self.getRefInfo(formname):
-                    (refform, refprop, reftype, isarray, isro) = refinfo
-
-                    if reftype == 'ndef':
-                        propvalu = formndef
-                    else:
-                        propvalu = formvalu
-
-                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                        # Save the reference info
-                        refs.append((s_common.ehex(refbuid), refinfo))
-
-                        # Add a todo to get valu and refs to the new nodes
-                        await self.todos.add(('getvalu', (refbuid, True)))
-
-                if refs:
-                    node['refs'][layer.iden] = refs
-
-                await self.nodes.set(buid, node)
-
-        logger.info('Processing invalid it:sec:cpe node references (this may happen multiple times)')
-
-        # Collect sources, direct references, second-degree references, etc.
-        while len(self.todos):
-            # Copy the list of todos and then clear the original list. This makes it so we will process all the todos
-            # but we can add new todos (that will iterate over all the layers) below to gather supporting data as
-            # needed.
-            todotmp = await self.todos.copy()
-            await self.todos.clear()
-
-            for idx, layer in enumerate(self.layers):
-                logger.debug('Processing references in layer %s %s', idx, layer.iden)
-
-                async for entry in todotmp:
-                    match entry:
-                        case ('getvalu', (buid, fullnode)):
-                            if fullnode:
-                                node = await self._loadNode(layer, buid)
-                                formvalu = node.get('formvalu')
-                                if formvalu is None:
-                                    continue
-
-                                formname = node.get('formname')
-
-                                await self.todos.add(('getrefs', (buid, formname, formvalu)))
-                            else:
-                                sode = await layer.getStorNode(buid)
-
-                                if (formvalu := sode.get('valu')) is None:
-                                    continue
-
-                                formvalu = formvalu[0]
-                                formname = sode.get('form')
-
-                                node = self.getNode(buid)
-                                node['formvalu'] = formvalu
-                                node['formname'] = formname
-                                layers = list(node['layers'])
-                                layers.append(layer.iden)
-                                node['layers'] = layers
-
-                                await self.nodes.set(buid, node)
-
-                        case ('getrefs', (buid, formname, formvalu)):
-
-                            node = self.getNode(buid)
-                            formndef = (formname, formvalu)
-
-                            node.setdefault('refs', {})
-                            refs = node['refs'].get(layer.iden, [])
-
-                            for refinfo in self.getRefInfo(formname):
-                                (refform, refprop, reftype, isarray, isro) = refinfo
-
-                                if reftype == 'ndef':
-                                    propvalu = formndef
-                                else:
-                                    propvalu = formvalu
-
-                                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                                    # Save the reference info
-                                    refs.append((s_common.ehex(refbuid), refinfo))
-
-                                    # Add a todo to get valu and refs to the new nodes
-                                    await self.todos.add(('getvalu', (refbuid, True)))
-
-                            if refs:
-                                node['refs'][layer.iden] = refs
-
-                            await self.nodes.set(buid, node)
-
-            await todotmp.fini()
-
-        logger.info(f'Migrating/removing {invalid} invalid it:sec:cpe nodes')
-
-        count = 0
-        removed = 0
-        migrated = 0
-        for buid, node in self.nodes.items():
-            action = node.get('verdict')
-
-            if action is None:
-                continue
-
-            if action == 'migrate':
-                propvalu = None
-                for layriden, sode in node.get('sodes').items():
-                    props = sode.get('props', {})
-                    propvalu, stortype = props.get('v2_2', (None, None))
-                    if propvalu is not None:
-                        break
-
-                if propvalu is None: # pragma: no cover
-                    # We didn't find a v2_2 value so remove this node
-                    await self.removeNode(buid)
-                    removed += 1
-
-                else:
-                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
-                    # remove the node.
-                    try:
-                        newvalu, _ = form.type.norm(propvalu)
-
-                    except s_exc.BadTypeValu: # pragma: no cover
-                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
-                        await self.removeNode(buid)
-                        removed += 1
-
-                    else:
-                        await self.moveNode(buid, newvalu)
-                        migrated += 1
-
-            elif action == 'remove':
-                newvalu = None
-                # Before removing the node, iterate over the sodes looking for a good :v2_2 value
-                for layriden, sode in node.get('sodes').items():
-                    props = sode.get('props', {})
-                    propvalu, stortype = props.get('v2_2', (None, None))
-                    if propvalu is None:
-                        continue
-
-                    # This prop is going to be the new primary value so delete the secondary prop
-                    await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
-
-                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
-                    # remove the node.
-                    try:
-                        newvalu, _ = form.type.norm(propvalu)
-                    except s_exc.BadTypeValu: # pragma: no cover
-                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
-                        continue
-
-                    # Oh yeah! Migrate the node instead of removing it
-                    await self.moveNode(buid, newvalu)
-
-                    migrated += 1
-                    break
-
-                else:
-                    await self.removeNode(buid)
-                    removed += 1
-
-            count = migrated + removed
-            if count % 1000 == 0: # pragma: no cover
-                logger.info(f'Processed {count} it:sec:cpe nodes')
-
-        await self._flushEdits()
-
-        logger.info(f'Finished processing {count} it:sec:cpe nodes: {migrated} migrated, {removed} removed')
-
-        await self.todos.fini()
-        await self.nodes.fini()
 
     @s_cache.memoizemethod()
     def getRoProps(self, formname):
@@ -1813,7 +1594,7 @@ class ModelMigration_0_2_31:
 
         # Make some changes before serializing
         item = s_msgpack.deepcopy(node)
-        item.pop('verdict', None)
+        self._prepareStoreItem(item)
         item['iden'] = s_common.ehex(buid)
         item['sources'] = list(sources)
         item['n2edges'] = n2edges
@@ -1831,10 +1612,13 @@ class ModelMigration_0_2_31:
                 item['sodes'][layriden].pop('props')
 
         if not self.hasq:
-            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+            await self.core.addCoreQueue(self.queuename, {})
             self.hasq = True
 
-        await self.core.coreQueuePuts('model_0_2_31:nodes', (item,))
+        await self.core.coreQueuePuts(self.queuename, (item,))
+
+    def _prepareStoreItem(self, item):
+        pass  # pragma: no cover
 
     async def getSodeByPropValuNoNorm(self, layer, formname, propname, valu, cmpr='='):
         prop = self.core.model.reqProp(f'{formname}:{propname}')
@@ -1904,7 +1688,7 @@ class ModelMigration_0_2_31:
         # Node
         await self.editNodeDel(layriden, buid, formname, formvalu)
 
-    async def moveNode(self, buid, newvalu):
+    async def moveNode(self, buid, newvalu, newsubs=None):
         assert self.nodes.has(buid)
         node = self.getNode(buid)
 
@@ -1918,35 +1702,164 @@ class ModelMigration_0_2_31:
 
         form = self.core.model.reqForm(formname)
 
+        # Load the destination node from all layers to check for an existing node
+        destnode = self.getNode(newbuid)
+        for layer in self.layers:
+            await self._loadNode(layer, newbuid, node=destnode)
+        await self.nodes.set(newbuid, destnode)
+
+        existing = destnode.get('formvalu') is not None
+
         # Node
         for layriden in node['layers']:
             # Create the new node in the same layers as the old node
             await self.editNodeAdd(layriden, newbuid, formname, newvalu, form.type.stortype)
 
-        # Edits
-        for layriden, sode in node['sodes'].items():
-            props = sode.get('props', {})
-            for propname, propvalu in props.items():
-                propvalu, stortype = propvalu
-                await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+        if not existing:
 
-            tags = sode.get('tags', {})
-            for tagname, tagvalu in tags.items():
-                await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
-
-            tagprops = sode.get('tagprops', {})
-            for tagname, propvalus in tagprops.items():
-                for propname, propvalu in propvalus.items():
+            # No existing destination node - proceed with original logic
+            # Edits
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                for propname, propvalu in props.items():
                     propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
+                    await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
 
-                    await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+                tags = sode.get('tags', {})
+                for tagname, tagvalu in tags.items():
+                    await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
 
-        # Nodedata
-        for layriden, data in node['nodedata'].items():
-            for name, valu in data:
-                await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+                tagprops = sode.get('tagprops', {})
+                for tagname, propvalus in tagprops.items():
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
 
-        # Edges
+                        await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            # Nodedata
+            for layriden, data in node['nodedata'].items():
+                for name, valu in data:
+                    await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+        else:
+
+            # Existing destination node found - merge with conflicts
+            conflicts = {}
+
+            # Props
+            propconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                props = sode.get('props', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existprops = existsode.get('props', {})
+
+                for propname, propvalu in props.items():
+                    propvalu, stortype = propvalu
+                    # Use newsubs to override prop values when re-normalizing comp forms
+                    if newsubs is not None and propname in newsubs:
+                        propvalu = newsubs[propname]
+
+                    if propname == '.created':
+                        continue
+
+                    if propname == '.seen':
+                        if propname in existprops:
+                            existv, _existst = existprops[propname]
+                            merged = (min(propvalu[0], existv[0]), max(propvalu[1], existv[1]))
+                            if merged != existv:
+                                await self.editPropSet(layriden, newbuid, formname, propname, merged, None, stortype)
+                        else:
+                            await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+
+                        continue
+
+                    if propname in existprops:
+                        existv, _existst = existprops[propname]
+                        if existv == propvalu:
+                            continue
+                        propconflicts[propname] = propvalu
+                    else:
+                        await self.editPropSet(layriden, newbuid, formname, propname, propvalu, None, stortype)
+
+            if propconflicts:
+                conflicts['props'] = propconflicts
+
+            # Tags
+            for layriden, sode in node['sodes'].items():
+                tags = sode.get('tags', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtags = existsode.get('tags', {})
+
+                for tagname, tagvalu in tags.items():
+                    if tagname in existtags:
+                        # If no tagvalu then nothing to update
+                        if tagvalu == (None, None):
+                            continue
+
+                        existv = existtags[tagname]
+                        if existv == (None, None):
+                            # No existing valu, set incoming tagvalu and go around
+                            await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+                            continue
+
+                        # Existing valu and incoming tagvalu so merge them
+                        merged = (min(tagvalu[0], existv[0]), max(tagvalu[1], existv[1]))
+                        if merged == existv:
+                            continue
+
+                        await self.editTagSet(layriden, newbuid, formname, tagname, merged, None)
+                    else:
+                        await self.editTagSet(layriden, newbuid, formname, tagname, tagvalu, None)
+
+            # Tagprops
+            tagpropconflicts = {}
+            for layriden, sode in node['sodes'].items():
+                tagprops = sode.get('tagprops', {})
+                existsode = destnode['sodes'].get(layriden, {})
+                existtagprops = existsode.get('tagprops', {})
+
+                for tagname, propvalus in tagprops.items():
+                    existpropvalus = existtagprops.get(tagname, {})
+                    for propname, propvalu in propvalus.items():
+                        propvalu, stortype = propvalu
+                        if propname in existpropvalus:
+                            existv, _existst = existpropvalus[propname]
+                            if existv == propvalu:
+                                continue
+                            tagpropconflicts.setdefault(tagname, {})
+                            tagpropconflicts[tagname][propname] = propvalu
+                        else:
+                            await self.editTagpropSet(layriden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+
+            if tagpropconflicts:
+                conflicts['tagprops'] = tagpropconflicts
+
+            # Nodedata
+            ndconflicts = {}
+            for layriden, data in node['nodedata'].items():
+                existnd = dict(destnode['nodedata'].get(layriden, []))
+                for name, valu in data:
+                    if name in existnd:
+                        existv = existnd[name]
+                        if existv == valu:
+                            continue
+                        ndconflicts[name] = valu
+                    else:
+                        await self.editNodedataSet(layriden, newbuid, formname, name, valu, None)
+
+            if ndconflicts:
+                conflicts['nodedata'] = ndconflicts
+
+            # Write conflicts as nodedata on the destination node
+            if conflicts:
+                for layriden in destnode['layers']:
+                    await self.editNodedataSet(layriden, newbuid, formname, self.migrname, {formvalu: conflicts}, None)
+                    break
+
+        # Edges (always additive - no conflict possible)
         for layriden, edges in node['n1edges'].items():
             for verb, iden in edges:
                 await self.editEdgeAdd(layriden, newbuid, formname, verb, iden)
@@ -1969,7 +1882,27 @@ class ModelMigration_0_2_31:
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
                 if isro:
-                    await self.removeNode(refbuid)
+                    # For read-only comp form refs, compute the new comp value and recursively move
+                    refnode = self.getNode(refbuid)
+                    refformname = refnode.get('formname')
+                    refformvalu = refnode.get('formvalu')
+
+                    refformobj = self.core.model.form(refformname)
+                    if refformobj is not None and isinstance(refformobj.type, s_types.Comp):
+                        try:
+                            newrefvalu, refnorminfo = refformobj.type.norm(refformvalu)
+                        except Exception:
+                            logger.debug('Failed to re-normalize comp form %s for migration, removing node', refformname)
+                            await self.removeNode(refbuid)
+                            continue
+
+                        if newrefvalu != refformvalu:
+                            refsubs = refnorminfo.get('subs')
+                            await self.moveNode(refbuid, newrefvalu, newsubs=refsubs)
+
+                    else:
+                        await self.removeNode(refbuid)  # pragma: no cover
+
                     continue
 
                 if reftype == 'ndef':
@@ -2002,3 +1935,447 @@ class ModelMigration_0_2_31:
                     await self.editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
 
         await self.delNode(buid)
+
+    async def _collectReferences(self):
+        # Collect references
+        while len(self.todos):
+            todotmp = await self.todos.copy()
+            await self.todos.clear()
+
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Processing references in layer %s %s', idx, layer.iden)
+
+                async for entry in todotmp:
+                    match entry:
+                        case ('getvalu', (buid, fullnode)):
+                            if fullnode:
+                                node = await self._loadNode(layer, buid)
+                                formvalu = node.get('formvalu')
+                                if formvalu is None:
+                                    continue
+
+                                formname = node.get('formname')
+
+                                await self.todos.add(('getrefs', (buid, formname, formvalu)))
+                            else:
+                                sode = await layer.getStorNode(buid)
+
+                                if (formvalu := sode.get('valu')) is None:
+                                    continue
+
+                                formvalu = formvalu[0]
+                                formname = sode.get('form')
+
+                                node = self.getNode(buid)
+                                node['formvalu'] = formvalu
+                                node['formname'] = formname
+                                layers = list(node['layers'])
+                                layers.append(layer.iden)
+                                node['layers'] = layers
+
+                                await self.nodes.set(buid, node)
+
+                        case ('getrefs', (buid, formname, formvalu)):
+
+                            node = self.getNode(buid)
+                            formndef = (formname, formvalu)
+
+                            node.setdefault('refs', {})
+                            refs = node['refs'].get(layer.iden, [])
+
+                            for refinfo in self.getRefInfo(formname):
+                                (refform, refprop, reftype, isarray, isro) = refinfo
+
+                                if reftype == 'ndef':
+                                    propvalu = formndef
+                                else:
+                                    propvalu = formvalu
+
+                                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                                    refs.append((s_common.ehex(refbuid), refinfo))
+
+                                    await self.todos.add(('getvalu', (refbuid, True)))
+
+                            if refs:
+                                node['refs'][layer.iden] = refs
+
+                            await self.nodes.set(buid, node)
+
+                    await asyncio.sleep(0)
+
+            await todotmp.fini()
+
+class ModelMigration_0_2_31(ModelMigrationBase):
+
+    queuename = 'model_0_2_31:nodes'
+
+    def getNode(self, buid):
+        node = self.nodes.get(buid, {})
+        if not node:
+            node.setdefault('refs', {})
+            node.setdefault('sodes', {})
+            node.setdefault('layers', [])
+            node.setdefault('n1edges', {})
+            node.setdefault('n2edges', {})
+            node.setdefault('verdict', None)
+            node.setdefault('nodedata', {})
+        return node
+
+    def _prepareStoreItem(self, item):
+        item.pop('verdict', None)
+
+    async def revModel_0_2_31(self):
+
+        form = self.core.model.form('it:sec:cpe')
+
+        logger.info(f'Collecting and classifying it:sec:cpe nodes in {len(self.layers)} layers')
+
+        # Pick up and classify all bad CPE nodes
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Classifying nodes in layer %s %s', idx, layer.iden)
+
+            async for buid, sode in layer.getStorNodesByForm('it:sec:cpe'):
+
+                verdict = 'remove'
+
+                # Delete invalid v2_2 props while we're iterating
+                props = sode.get('props', {})
+                if (v2_2 := props.get('v2_2')) is not None:
+                    propvalu, stortype = v2_2
+                    if not s_infotech.isValidCpe22(propvalu):
+                        logger.debug(f'Queueing invalid v2_2 value for deletion iden={s_common.ehex(buid)} valu={propvalu}')
+                        await self._queueEdit(
+                            layer.iden,
+                            (buid, 'it:sec:cpe', (
+                                (s_layer.EDIT_PROP_DEL, ('v2_2', propvalu, stortype), ()),
+                            ))
+                        )
+                    else:
+                        verdict = 'migrate'
+
+                if (formvalu := sode.get('valu')) is None:
+                    continue
+
+                formvalu = formvalu[0]
+                if s_infotech.isValidCpe23(formvalu):
+                    continue
+
+                node = self.getNode(buid)
+                node['formvalu'] = formvalu
+                node['formname'] = 'it:sec:cpe'
+                node['verdict'] = verdict
+                layers = list(node['layers'])
+                layers.append(layer.iden)
+                node['layers'] = layers
+
+                await self.nodes.set(buid, node)
+
+        await self._flushEdits()
+
+        invalid = len(self.nodes)
+        logger.info(f'Processing {invalid} invalid it:sec:cpe nodes in {len(self.layers)} layers')
+
+        # Pick up all related CPE node info. The majority of the work happens in this loop
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Processing nodes in layer %s %s', idx, layer.iden)
+
+            for buid, node in self.nodes.items():
+                await self._loadNode(layer, buid, node=node)
+
+                formvalu = node.get('formvalu')
+                formname = node.get('formname')
+                formndef = (formname, formvalu)
+
+                refs = node['refs'].get(layer.iden, [])
+
+                for refinfo in self.getRefInfo(formname):
+                    (refform, refprop, reftype, isarray, isro) = refinfo
+
+                    if reftype == 'ndef':
+                        propvalu = formndef
+                    else:
+                        propvalu = formvalu
+
+                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                        # Save the reference info
+                        refs.append((s_common.ehex(refbuid), refinfo))
+
+                        # Add a todo to get valu and refs to the new nodes
+                        await self.todos.add(('getvalu', (refbuid, True)))
+
+                if refs:
+                    node['refs'][layer.iden] = refs
+
+                await self.nodes.set(buid, node)
+
+        logger.info('Processing invalid it:sec:cpe node references (this may happen multiple times)')
+        await self._collectReferences()
+
+        logger.info(f'Migrating/removing {invalid} invalid it:sec:cpe nodes')
+
+        count = 0
+        removed = 0
+        migrated = 0
+        for buid, node in self.nodes.items():
+            action = node.get('verdict')
+
+            if action is None:
+                continue
+
+            if action == 'migrate':
+                propvalu = None
+                for layriden, sode in node.get('sodes').items():
+                    props = sode.get('props', {})
+                    propvalu, stortype = props.get('v2_2', (None, None))
+                    if propvalu is not None:
+                        break
+
+                if propvalu is None: # pragma: no cover
+                    # We didn't find a v2_2 value so remove this node
+                    await self.removeNode(buid)
+                    removed += 1
+
+                else:
+                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
+                    # remove the node.
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+
+                    except s_exc.BadTypeValu: # pragma: no cover
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
+                        await self.removeNode(buid)
+                        removed += 1
+
+                    else:
+                        await self.moveNode(buid, newvalu)
+                        migrated += 1
+
+            elif action == 'remove':
+                newvalu = None
+                # Before removing the node, iterate over the sodes looking for a good :v2_2 value
+                for layriden, sode in node.get('sodes').items():
+                    props = sode.get('props', {})
+                    propvalu, stortype = props.get('v2_2', (None, None))
+                    if propvalu is None:
+                        continue
+
+                    # This prop is going to be the new primary value so delete the secondary prop
+                    await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
+
+                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
+                    # remove the node.
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+                    except s_exc.BadTypeValu: # pragma: no cover
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
+                        continue
+
+                    # Oh yeah! Migrate the node instead of removing it
+                    await self.moveNode(buid, newvalu)
+
+                    migrated += 1
+                    break
+
+                else:
+                    await self.removeNode(buid)
+                    removed += 1
+
+            count = migrated + removed
+            if count % 1000 == 0: # pragma: no cover
+                logger.info(f'Processed {count} it:sec:cpe nodes')
+
+        await self._flushEdits()
+
+        logger.info(f'Finished processing {count} it:sec:cpe nodes: {migrated} migrated, {removed} removed')
+
+        await self.todos.fini()
+        await self.nodes.fini()
+
+class ModelMigration_0_2_35(ModelMigrationBase):
+
+    queuename = 'model_0_2_35:nodes'
+
+    async def revModel_0_2_35(self):
+
+        formnames = ('inet:server', 'inet:client', 'inet:url')
+        formstr = ','.join(formnames)
+
+        logger.info(f'Collecting {formstr} nodes in {len(self.layers)} layers')
+
+        for formname in formnames:
+            form = self.core.model.form(formname)
+
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
+
+                async for buid, sode in layer.getStorNodesByForm(formname):
+
+                    if (formvalu := sode.get('valu')) is None:
+                        continue
+
+                    if formname == 'inet:url' and 'ipv6' not in sode.get('props', {}):
+                        continue
+
+                    formvalu = formvalu[0]
+
+                    try:
+                        newvalu, _ = form.type.norm(formvalu)
+                    except s_exc.BadTypeValu:  # pragma: no cover
+                        logger.error('Encountered un-normable node valu: %s=%s', formname, formvalu)
+                        continue
+
+                    # We need to collect all the inet:client/inet:server nodes
+                    # because there's a :port prop migration below but we don't
+                    # need all the inet:url nodes so skip any that are already
+                    # correct.
+                    if formname == 'inet:url' and formvalu == newvalu:
+                        continue
+
+                    node = self.getNode(buid)
+                    node['formvalu'] = formvalu
+                    node['formname'] = formname
+                    layers = list(node['layers'])
+                    layers.append(layer.iden)
+                    node['layers'] = layers
+
+                    await self.nodes.set(buid, node)
+
+        total = len(self.nodes)
+        logger.info(f'Processing {total} {formstr} nodes in {len(self.layers)} layers')
+
+        if total == 0:
+            await self.todos.fini()
+            await self.nodes.fini()
+            return
+
+        # Load full node info
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading node info in layer %s %s', idx, layer.iden)
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                await self._loadNode(layer, buid, node=node)
+                await self.nodes.set(buid, node)
+
+        # SYN-5627: strip port properties that don't match the primary value
+        # Do this before we load references so we don't have to load refs for nodes where the primary value is correct.
+        logger.info('Migrating mismatched port properties')
+        count = 0
+        async for buid, node in s_coro.pause(self.nodes.items()):
+
+            formname = node.get('formname')
+            formvalu = node.get('formvalu')
+
+            if formname is None or formvalu is None:  # pragma: no cover
+                continue
+
+            if formname not in ('inet:client', 'inet:server'):
+                continue
+
+            form = self.core.model.form(formname)
+            if form is None:  # pragma: no cover
+                continue
+
+            try:
+                newvalu, newinfo = form.type.norm(formvalu)
+            except Exception:  # pragma: no cover
+                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                await self.removeNode(buid)
+                continue
+
+            newport = newinfo.get('subs', {}).get('port')
+            stortype = form.props.get('port').type.stortype
+
+            for layriden, sode in node.get('sodes', {}).items():
+                oldport = sode.get('props', {}).get('port')
+                if oldport is not None:
+                    oldport = oldport[0]
+
+                if newport == oldport:
+                    continue
+
+                count += 1
+                if newport is None:
+                    await self.editPropDel(layriden, buid, formname, 'port', oldport, stortype)
+                else:
+                    await self.editPropSet(layriden, buid, formname, 'port', newport, None, stortype)
+
+            # Primary value is correct, remove this from the node list so we don't do any more processing on it
+            if newvalu == formvalu:
+                self.nodes.pop(buid)
+
+        logger.info(f'Finished migrating {count} mismatched port properties')
+
+        # Update total now that we removed all the nodes that don't need primary value migrations
+        total = len(self.nodes)
+
+        # Load node refs
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading node info in layer %s %s', idx, layer.iden)
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                formvalu = node.get('formvalu')
+                formname = node.get('formname')
+                formndef = (formname, formvalu)
+
+                refs = node['refs'].get(layer.iden, [])
+
+                for refinfo in self.getRefInfo(formname):
+                    (refform, refprop, reftype, isarray, isro) = refinfo
+
+                    if reftype == 'ndef':
+                        propvalu = formndef
+                    else:
+                        propvalu = formvalu
+
+                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                        refs.append((s_common.ehex(refbuid), refinfo))
+
+                        await self.todos.add(('getvalu', (refbuid, True)))
+
+                if refs:
+                    node['refs'][layer.iden] = refs
+
+                await self.nodes.set(buid, node)
+
+        logger.info(f'Processing {formstr} node references (this may happen multiple times)')
+        await self._collectReferences()
+
+        logger.info(f'Migrating {total} {formstr} nodes')
+
+        count = 0
+        migrated = 0
+        removed = 0
+        async for buid, node in s_coro.pause(self.nodes.items()):
+
+            formname = node.get('formname')
+            formvalu = node.get('formvalu')
+
+            if formname is None or formvalu is None:  # pragma: no cover
+                continue
+
+            # Only process primary target forms; comp form refs are handled recursively
+            if formname not in formnames:
+                continue
+
+            form = self.core.model.form(formname)
+            if form is None:  # pragma: no cover
+                continue
+
+            try:
+                newvalu, newinfo = form.type.norm(formvalu)
+            except Exception:  # pragma: no cover
+                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                await self.removeNode(buid)
+                removed += 1
+                continue
+
+            await self.moveNode(buid, newvalu)
+            migrated += 1
+
+            count = migrated + removed
+            if count % 1000 == 0:  # pragma: no cover
+                logger.info(f'Processed {count} bare IPv6 address nodes')
+
+        await self._flushEdits()
+
+        logger.info(f'Finished processing bare IPv6 address nodes: {migrated} migrated, {removed} removed')

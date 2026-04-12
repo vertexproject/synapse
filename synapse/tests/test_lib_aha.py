@@ -627,7 +627,7 @@ class AhaTest(s_test.SynTest):
                     self.none(yamlconf.get('aha:admin'))
 
                     self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
+                    self.eq('ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
 

@@ -252,7 +252,34 @@ Both of the Python examples use session managers which manage the session cookie
     This API allows the caller to modify specified elements of a user dictionary.
 
     *Input*
-        This API expects a JSON dictionary containing any updated values for the user.
+        This API expects a JSON dictionary. The following keys are supported:
+
+        ``name``
+            (optional) A string to rename the user.
+
+        ``email``
+            (optional) A string to set the user's email address.
+
+        ``passwd``
+            (optional) A string to set the user's password.
+
+        ``locked``
+            (optional) A boolean to lock or unlock the user.
+
+        ``archived``
+            (optional) A boolean to archive or unarchive the user.
+
+        ``rules``
+            (optional) A list of rules to set on the user. If ``gate`` is also specified,
+            the rules are applied to that auth gate rather than globally.
+
+        ``admin``
+            (optional) A boolean to grant or revoke admin privileges. If ``gate`` is also
+            specified, the admin privilege is applied to that auth gate rather than globally.
+
+        ``gate``
+            (optional) A gate iden string. When present, ``rules`` and ``admin`` are applied
+            to the specified auth gate rather than globally on the user.
 
     *Returns*
         The updated user dictionary.
@@ -290,7 +317,15 @@ Both of the Python examples use session managers which manage the session cookie
     This API allows the caller to modify specified elements of a role dictionary.
 
     *Input*
-        This API expects a dictionary containing any updated values for the role.
+        This API expects a JSON dictionary. The following keys are supported:
+
+        ``rules``
+            (optional) A list of rules to set on the role. If ``gate`` is also specified,
+            the rules are applied to that auth gate rather than globally.
+
+        ``gate``
+            (optional) A gate iden string. When present, ``rules`` is applied to the
+            specified auth gate rather than globally on the role.
 
     *Returns*
         The updated role dictionary.

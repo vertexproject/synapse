@@ -197,9 +197,16 @@ class Addr(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
+            ipv6, v6info = self.modl.type('inet:ipv6').norm(valu)
+
+            v6subs = v6info.get('subs')
+            if v6subs is not None:
+                v6v4addr = v6subs.get('ipv4')
+                if v6v4addr is not None:
+                    subs['ipv4'] = v6v4addr
+
             subs['ipv6'] = ipv6
-            return f'{proto}://{ipv6}', {'subs': subs}
+            return f'{proto}://[{ipv6}]', {'subs': subs}
 
         # Otherwise treat as IPv4
         valu, port, pstr = self._getPort(valu)
@@ -1007,8 +1014,11 @@ class Url(s_types.Str):
                 host, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
                 subs['ipv6'] = host
 
-                if match:
-                    host = f'[{host}]'
+                v6v4addr = ipv6_subs.get('subs', {}).get('ipv4')
+                if v6v4addr is not None:
+                    subs['ipv4'] = v6v4addr
+
+                host = f'[{host}]'
 
             except Exception:
                 pass
@@ -1233,8 +1243,26 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An e-mail address.'}),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                        'doc': 'A Fully Qualified Domain Name (FQDN).',
-                        'ex': 'vertex.link'}),
+                        'props': (
+                            ('domain', ('inet:fqdn', {}), {
+                                'ro': True,
+                                'doc': 'The parent domain for the FQDN.'}),
+
+                            ('host', ('str', {'lower': True}), {
+                                'ro': True,
+                                'doc': 'The host part of the FQDN.'}),
+
+                            ('issuffix', ('bool', {}), {
+                                'doc': 'True if the FQDN is considered a suffix.'}),
+
+                            ('iszone', ('bool', {}), {
+                                'doc': 'True if the FQDN is considered a zone.'}),
+
+                            ('zone', ('inet:fqdn', {}), {
+                                'doc': 'The zone level parent for this FQDN.'}),
+                        ),
+                        'ex': 'vertex.link',
+                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
@@ -2075,6 +2103,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The it:host node for the client.'
                         }),
                         ('port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The client tcp/udp port.'
                         }),
                     )),
@@ -2318,26 +2347,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The client IPv6 address the host used as a network egress.'}),
                     )),
 
-                    ('inet:fqdn', {}, (
-                        ('domain', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The parent domain for the FQDN.',
-                        }),
-                        ('host', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The host part of the FQDN.',
-                        }),
-                        ('issuffix', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a suffix.',
-                        }),
-                        ('iszone', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a zone.',
-                        }),
-                        ('zone', ('inet:fqdn', {}), {
-                            'doc': 'The zone level parent for this FQDN.',
-                        }),
-                    )),
-
                     ('inet:group', {}, ()),
 
                     ('inet:http:request:header', {}, (
@@ -2570,6 +2579,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The it:host node for the server.'
                         }),
                         ('port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The server tcp/udp port.'
                         }),
                     )),

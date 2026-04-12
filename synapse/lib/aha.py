@@ -117,7 +117,7 @@ class AhaServicesV1(s_httpapi.Handler):
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:  # pragma: no cover
-            logger.exception(f'Error getting Aha services.')
+            logger.exception('Error getting Aha services.')
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn(ret)
 
@@ -557,7 +557,7 @@ class AhaCell(s_cell.Cell):
     # Rename the class and remove these two overrides in 3.0.0
     @classmethod
     def getEnvPrefix(cls):
-        return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
+        return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     async def _initCellBoot(self):
 

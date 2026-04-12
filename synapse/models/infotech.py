@@ -8,8 +8,6 @@ import regex
 import synapse.exc as s_exc
 import synapse.data as s_data
 
-import synapse.common as s_common
-
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -734,6 +732,28 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A MITRE ATT&CK Flow diagram.',
                 }),
+
+                ('it:dev:function', ('guid', {}), {
+                    'props': (
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'An identifier for the function.'}),
+
+                        ('name', ('it:dev:str', {}), {
+                            'doc': 'The name of the function.'}),
+
+                        ('desc', ('str', {}), {
+                            'doc': 'A description of the function.'}),
+                    ),
+                    'doc': 'A function defined by code.'}),
+
+                ('it:dev:function:sample', ('guid', {}), {
+                    'interfaces': ('file:mime:meta',),
+                    'props': (
+                        ('function', ('it:dev:function', {}), {
+                            'doc': 'The function contained within the file.'}),
+                    ),
+                    'doc': 'An instance of a function in an executable.'}),
+
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer selected string.'
                 }),

@@ -56,6 +56,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
 
@@ -106,7 +107,7 @@ def adminapi(log=False):
                                      user=self.user.iden, username=self.user.name)
             if log:
                 extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
-                logger.info(f'Admin API invoked', extra=extra)
+                logger.info('Admin API invoked api=%s', func.__qualname__, extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -179,7 +180,7 @@ async def _iterBackupWork(path, linkinfo):
     logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
 
-    await s_daemon.t2call(link, _doIterBackup, (path,), {})
+    await s_daemon.t2call(link, _doIterBackup, (path,), {}, first=False)
     await link.fini()
 
     logger.info(f'Backup streaming for [{path}] completed.')
@@ -1202,6 +1203,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._save_optimized = False
+        self._last_optimized = None
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -1243,6 +1246,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
             s_logging.setLogInfo('service', self.ahasvcname)
+
+            # Update the processpool configuration as early as possible; before
+            # we go through additional boot steps which may trigger pool workers
+            # to be created.
+            #
+            # Note: This behavior is currently a one-time configuration that we
+            # perform. Once pool workers are created, we cannot communicate
+            # additional updates to them without adding a sidechannel. In unit tests,
+            # it is highly likely that when reviewing the log output from processpool
+            # workers, the current service information will _not_ be present.
+            s_processpool._setPoolLogging(s_logging.getLogConf())
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -1317,6 +1331,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        self.optimizeddb = self.slab.initdb('cell:optimized')  # time -> optimization record
+
+        if self._save_optimized:
+            lkey = s_common.int64en(self._last_optimized['init']['time'])
+            self.slab.put(lkey, s_msgpack.en(self._last_optimized), db=self.optimizeddb)
+            self._save_optimized = False
+
+        else:
+            last = self.slab.last(db=self.optimizeddb)
+            if last is not None:
+                self._last_optimized = s_msgpack.un(last[1])
 
         # for runtime cell configuration values
         self.slab.initdb('cell:conf')
@@ -1649,6 +1675,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not lmdbs: # pragma: no cover
             return
 
+        inittime = s_common.now()
+        initsize = s_common.getDirSize(self.dirn)
+
         logger.warning('Beginning onboot optimization (this could take a while)...')
 
         size = len(lmdbs)
@@ -1657,7 +1686,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
-                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
@@ -1670,6 +1699,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     os.rename(dstpath, srcpath)
 
             logger.warning('... onboot optimization complete!')
+
+            finitime = s_common.now()
+            finisize = s_common.getDirSize(self.dirn)
+
+            optinfo = {
+                'init': {
+                    'time': inittime,
+                    'size': initsize,
+                },
+                'fini': {
+                    'time': finitime,
+                    'size': finisize,
+                },
+            }
+
+            self._last_optimized = optinfo
+            self._save_optimized = True
 
         except Exception as e: # pragma: no cover
             logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
@@ -3503,16 +3549,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if headers:
             enfo['headers'] = headers
 
+        extra = s_logging.getLogExtra(**enfo)
+
         # It is possible that a Cell implementor may register handlers which
         # do not derive from our Handler class, so we have to handle that.
         if hasattr(handler, 'web_useriden') and handler.web_useriden:
             user = handler.web_useriden
-            enfo['user'] = user
+            extra['loginfo'].setdefault('user', user)
         if hasattr(handler, 'web_username') and handler.web_username:
             username = handler.web_username
-            enfo['username'] = username
-
-        extra = s_logging.getLogExtra(**enfo)
+            extra['loginfo'].setdefault('username', username)
 
         if user:
             mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
@@ -4110,7 +4156,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         insecure_marker = 'https+insecure://'
         kwargs = {}
         if rurl.startswith(insecure_marker):
-            logger.warning(f'Disabling SSL verification for restore request.')
+            logger.warning('Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
             rurl = 'https://' + rurl[len(insecure_marker):]
 
@@ -4134,7 +4180,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                         content_length = int(resp.headers.get('content-length', 0))
                         if content_length > 100:
-                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
+                            logger.warning(f'Downloading {content_length / s_const.megabyte:.3f} MB of data.')
                             pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
                         else:  # pragma: no cover
                             logger.warning(f'Odd content-length encountered: {content_length}')
@@ -4150,7 +4196,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             if pvals and tsize > pvals[0]:
                                 pvals.pop(0)
                                 percentage = (tsize / content_length) * 100
-                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
+                                logger.warning(f'Downloaded {tsize / s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
@@ -4465,8 +4511,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf.setConfFromFile(path)
             conf.setConfFromFile(mods_path, force=True)
         except:
-            logger.exception(f'Error while bootstrapping cell config.')
+            logger.exception('Error while bootstrapping cell config.')
             raise
+
+        s_processpool._setPoolLogging(logconf)
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4575,8 +4623,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
 
-        if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
+        with s_scope.enter({'user': user}):
+            if not await user.tryPasswd(passwd):
+                raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 
@@ -4715,10 +4764,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getTasks(self, peers=True, timeout=None):
 
+        seen = set()
+
         for task in self.boss.ps():
 
             item = task.packv2()
             item['service'] = self.ahasvcname
+
+            seen.add(item['iden'])
 
             yield item
 
@@ -4732,6 +4785,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not ok: # pragma: no cover
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
+
+            if retn['iden'] in seen:
+                continue
+
+            seen.add(retn['iden'])
 
             yield retn
 
@@ -4857,6 +4915,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'nexus': nxfo,
             },
             'features': self.features,
+            'optimized': self._last_optimized,
         }
         return ret
 
@@ -5331,7 +5390,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'The service is already frozen.'
             raise s_exc.BadState(mesg=mesg)
 
-        logger.warning(f'Freezing service for volume snapshot.')
+        logger.warning('Freezing service for volume snapshot.')
 
         logger.warning('...acquiring nexus lock to prevent edits.')
 

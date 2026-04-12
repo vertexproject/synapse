@@ -273,6 +273,39 @@ class StormLibAuthTest(s_test.SynTest):
             perms = [d['perm'] for d in defs]
             self.isin(('globals', 'get'), perms)
 
+            # Verify new intermediate permission definitions
+            self.isin(('axon',), perms)
+            self.isin(('layer',), perms)
+            self.isin(('layer', 'set'), perms)
+            self.isin(('model',), perms)
+            self.isin(('model', 'form'), perms)
+            self.isin(('node', 'edge'), perms)
+            self.isin(('node', 'data'), perms)
+            self.isin(('pkg',), perms)
+            self.isin(('storm',), perms)
+            self.isin(('task',), perms)
+            self.isin(('view', 'set'), perms)
+            self.isin(('auth',), perms)
+            self.isin(('auth', 'role'), perms)
+            self.isin(('auth', 'role', 'set'), perms)
+            self.isin(('auth', 'self'), perms)
+            self.isin(('auth', 'self', 'set'), perms)
+            self.isin(('auth', 'user'), perms)
+            self.isin(('auth', 'user', 'set'), perms)
+            self.isin(('service',), perms)
+            self.isin(('queue',), perms)
+            self.isin(('trigger',), perms)
+            self.isin(('cron',), perms)
+            self.isin(('backup',), perms)
+            # Verify previously undeclared leaf perms
+            self.isin(('auth', 'user', 'add'), perms)
+            self.isin(('auth', 'user', 'del'), perms)
+            self.isin(('auth', 'role', 'add'), perms)
+            self.isin(('auth', 'role', 'del'), perms)
+
+            self.nn(await core.callStorm('return($lib.auth.getPermDef((view, set)))'))
+            self.nn(await core.callStorm('return($lib.auth.getPermDef((auth,)))'))
+
             msgs = await core.stormlist('auth.user.mod visi --name cool --locked $lib.true')
             self.stormIsInPrint('User (visi) renamed to cool.', msgs)
             self.stormIsInPrint('User (visi) locked status set to true.', msgs)
@@ -1168,7 +1201,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
-            self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+            self.len(3, await core.callStorm('return($lib.auth.users.list())'))
 
             msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({core.auth.allrole.iden}))')
             self.stormIsInPrint('auth:role', msgs)

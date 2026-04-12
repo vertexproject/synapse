@@ -18,6 +18,7 @@ import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth + 1:3}: {call.strip()}')
             continue
 
         try:
@@ -400,6 +401,8 @@ class Base:
 
         for base in list(self.tofini):
             await base.fini()
+        # Do not continue to hold a reference to the last item we iterated on.
+        base = None  # NOQA
 
         await self._kill_active_tasks()
 
@@ -597,6 +600,9 @@ class Base:
         '''
         await self.addSignalHandlers()
         await self.waitfini()
+        # shutdown logging to allow it to drain any queued messages it has, swapping in a stream handler,
+        # and then cancellling the task so we do not have to await the pump task in bg tasks.
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):

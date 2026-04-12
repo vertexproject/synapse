@@ -87,6 +87,9 @@ _LayerPushPullSchema = {
 reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
 reqValidPull = reqValidPush
 
+loglevelSchema = {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())}
+reqValidLoglevel = s_config.getJsValidator(loglevelSchema)
+
 _CronJobSchema = {
     'type': 'object',
     'properties': {
@@ -96,8 +99,9 @@ _CronJobSchema = {
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
+        'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
-        'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
+        'loglevel': s_msgpack.deepcopy(loglevelSchema),
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
@@ -853,6 +857,7 @@ _reqValidPkgdefSchema = {
                 'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
                 'version': {'type': 'integer', 'minimum': 0},
             },
             'additionalProperties': False,
@@ -1093,7 +1098,6 @@ _reqValidDdefSchema = {
     'properties': {
         'name': {'type': 'string'},
         'storm': {'type': 'string'},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'enabled': {'type': 'boolean', 'default': True},
@@ -1104,7 +1108,7 @@ _reqValidDdefSchema = {
             ]
         }
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'user', 'storm'],
     'definitions': {
         'stormopts': {

@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmd as s_cmd
 
-from synapse.tools.utils.rstorm import logger, main
+from synapse.tools.utils.rstorm import main
 
 s_common.deprecated('synapse.tools.rstorm is deprecated. Please use synapse.tools.utils.rstorm instead.',
                     curv='v2.225.0')

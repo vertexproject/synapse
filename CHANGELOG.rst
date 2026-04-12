@@ -6,6 +6,246 @@
 Synapse Changelog
 *****************
 
+v2.238.0 - 2026-04-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Added loglevel support to the Storm ``$lib.cron.at()`` API.
+  (`#4853 <https://github.com/vertexproject/synapse/pull/4853>`_)
+- Added a ``$lib.lift.tagsByPref()`` API to efficiently retrieve tags by prefix
+  at a specific depth in the tag tree.
+  (`#4866 <https://github.com/vertexproject/synapse/pull/4866>`_)
+
+Bugfixes
+--------
+- Fixed the Storm ``movenodes`` command to raise a ``StormRuntimeError`` with a
+  descriptive message when a layer in ``--precedence`` is not in the set of
+  source/destination layers.
+  (`#4859 <https://github.com/vertexproject/synapse/pull/4859>`_)
+
+Notes
+-----
+- Removed the ``pyOpenSSL`` dependency. Certificate verification now uses the
+  ``cryptography`` library exclusively. The ``cryptography`` dependency has
+  been updated to ``>=46.0.7,<47.0.0``.
+  (`#4867 <https://github.com/vertexproject/synapse/pull/4867>`_)
+- Updated the allowed versions of the ``idna``, ``packaging``, and ``xxhash``
+  libraries.
+  (`#4872 <https://github.com/vertexproject/synapse/pull/4872>`_)
+  (`#4873 <https://github.com/vertexproject/synapse/pull/4873>`_)
+  (`#4876 <https://github.com/vertexproject/synapse/pull/4876>`_)
+
+v2.237.0 - 2026-04-01
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated invalid ``inet:client``, ``inet:server``, and ``inet:url`` nodes. For all three
+  forms, the canonical representation of IPv6 addresses requires the address
+  to be enclosed in square brackets (``[`` and ``]``) in URIs. During
+  migration, if a non-canonical node is migrated to a canonical node, the
+  migration will attempt to merge the properties, tags, tagprops, and nodedata
+  of the two nodes. The merge strategy is as follows:
+
+    - If the item being merged is the same in both nodes or the non-canonical
+      node does not have the item set, the canonical node value stays the
+      same.
+    - If the item being merged is different in both nodes, the canonical node
+      value takes precedence and the non-canonical node value will be saved in
+      nodedata under the ``model_0_2_35`` key.
+    - If the canonical node does not have the item and the non-canonical node
+      does, the non-canonical value is used.
+    - ``.seen`` props and tag values will be expanded using normal ival
+      expansion rules.
+  (`#4785 <https://github.com/vertexproject/synapse/pull/4785>`_)
+- Migrated the ``port`` property of both ``inet:client`` and ``inet:server`` to
+  be read-only. This migration includes correcting the ``port`` property value
+  to match the node value.
+  (`#4785 <https://github.com/vertexproject/synapse/pull/4785>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_237_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ability to set ``loglevel`` when creating a Cron job and included it in
+  Cron job responses.
+  (`#4789 <https://github.com/vertexproject/synapse/pull/4789>`_)
+- Added an ``isValidStorm()`` API to the Cortex, and a corresponding
+  ``api/v1/isvalidstorm`` HTTP endpoint. These return a tuple of ``isok, info``
+  data, indicating if a query is valid Storm syntax.
+  (`#4845 <https://github.com/vertexproject/synapse/pull/4845>`_)
+
+Bugfixes
+--------
+- Fixed a startup race condition that could cause Storm package ``onload``
+  queries to run before Storm dmons were loaded. Layer migrations will now run
+  as a background task once the Cortex has become active.
+  (`#4751 <https://github.com/vertexproject/synapse/pull/4751>`_)
+- Fixed ``inet:server``, ``inet:client``, and ``inet:url`` normalization to
+  consistently use the RFC3986 canonical representation for IPv6 addresses in a
+  URI. A data migration is included for existing non-canonical nodes.
+  (`#4785 <https://github.com/vertexproject/synapse/pull/4785>`_)
+- Updated the ``sci:evidence:hypothesis`` property to use the correct type.
+  (`#4837 <https://github.com/vertexproject/synapse/pull/4837>`_)
+- Removed warning messages related to Cron job affinity when affinity is not
+  configured for a Cron job.
+  (`#4846 <https://github.com/vertexproject/synapse/pull/4846>`_)
+
+Notes
+-----
+- Updated the allowed versions of the ``cbor2`` library.
+  (`#4847 <https://github.com/vertexproject/synapse/pull/4847>`_)
+- Updated the allowed versions of the ``pygments`` library.
+  (`#4849 <https://github.com/vertexproject/synapse/pull/4849>`_)
+
+v2.236.0 - 2026-03-26
+=====================
+
+Features and Enhancements
+-------------------------
+- Added ``affinity`` option to cron jobs to prefer running Storm queries on a
+  specific AHA service with fallback to local execution.
+  (`#4770 <https://github.com/vertexproject/synapse/pull/4770>`_)
+- Added support to the ``--period`` option for both ``cron.add`` and
+  ``cron.mod`` for running ``yearly`` jobs on a specific date and time.
+  (`#4777 <https://github.com/vertexproject/synapse/pull/4777>`_)
+- Added optimization tracking to the ``getCellInfo()`` API. When the
+  ``onboot:optimize`` option is used, the time and directory size before and
+  after the optimization are recorded and included in the ``getCellInfo()``
+  response under the ``optimized`` key.
+  (`#4778 <https://github.com/vertexproject/synapse/pull/4778>`_)
+- Added a ``cache:size`` layer configuration option and
+  ``SYN_CORTEX_LAYERS_CACHE_SIZE`` environment variable to tune the layer buid
+  cache size.
+  (`#4801 <https://github.com/vertexproject/synapse/pull/4801>`_)
+
+Bugfixes
+--------
+- Updated API key parsing to reject keys which contain ``+/`` characters. This
+  should not affect any API keys generated by Synapse.
+  (`#4790 <https://github.com/vertexproject/synapse/pull/4790>`_)
+- Fixed a regression in IPv4 address scraping where some IPv4 addresses were
+  not being recognized when they appeared after a colon character.
+  (`#4831 <https://github.com/vertexproject/synapse/pull/4831>`_)
+- Added error handling to the Telepath client so that if the server sends an
+  unexpected message type during a remote call, a ``BadMesgFormat`` exception
+  is raised instead of silently returning ``None`` and leaking the connection.
+  (`#4832 <https://github.com/vertexproject/synapse/pull/4832>`_)
+
+Improved documentation
+----------------------
+- Fixed the Storm example for ``edge:add`` triggers.
+  (`#4816 <https://github.com/vertexproject/synapse/pull/4816>`_)
+
+v2.235.0 - 2026-03-12
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated Storm Dmon ddefs to remove the top-level ``view`` key and any other
+  additional properties which are no longer valid.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added a ``phones`` property to the ``ps:contact`` form to store an array of
+  secondary/associated phone numbers.
+  (`#4764 <https://github.com/vertexproject/synapse/pull/4764>`_)
+- See :ref:`userguide_model_v2_235_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added an optional ``queryopts`` field to the Storm package ``inits``
+  definition.
+  (`#4752 <https://github.com/vertexproject/synapse/pull/4752>`_)
+- Added ``gate`` key support when POSTing to the ``/api/v1/auth/user/<id>`` and
+  ``/api/v1/auth/role/<id>`` HTTP APIs, allowing ``rules`` and ``admin`` to be
+  scoped to a specific auth gate.
+  (`#4766 <https://github.com/vertexproject/synapse/pull/4766>`_)
+- Added a layer of caching for API key and password handling, to decrease
+  duplicate work done for subsequent authentication requests.
+  (`#4774 <https://github.com/vertexproject/synapse/pull/4774>`_)
+- Updated the ``diff --tag`` Storm command to accept list variables in addition
+  to individual tag arguments.
+  (`#4783 <https://github.com/vertexproject/synapse/pull/4783>`_)
+
+Bugfixes
+--------
+- Fixed the ``Cell.getTasks()`` API to deduplicate tasks which may be reported
+  by multiple links to one peer.
+  (`#4769 <https://github.com/vertexproject/synapse/pull/4769>`_)
+- Fixed ``$lib.dmon.add()`` to allow specifying an alternate view via the
+  ``view`` key in ``ddef.stormopts``.
+  (`#4771 <https://github.com/vertexproject/synapse/pull/4771>`_)
+- Updated ``BadJsonText`` exceptions raised during JSON deserialization to
+  include a trimmed snippet of the input text starting at the error position
+  for additional context.
+  (`#4773 <https://github.com/vertexproject/synapse/pull/4773>`_)
+
+Notes
+-----
+- Added information about ``SynTask`` data when printing asyncio tasks in
+  response to receving a ``SIGUSR2`` signal.
+  (`#4728 <https://github.com/vertexproject/synapse/pull/4728>`_)
+
+v2.234.0 - 2026-02-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a new ``--period`` option to both ``cron.add`` and ``cron.mod``
+  commands for setting or modifying cron job schedules. The older schedule
+  options have been deprecated.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``getNexusChanges`` API could potentially send
+  ``t2:yield`` messages before the initial ``t2:genr`` message.
+  (`#4748 <https://github.com/vertexproject/synapse/pull/4748>`_)
+
+Deprecations
+------------
+- Deprecated ``--minute``, ``--hour``, ``--day``, ``--month``, ``--year``,
+  ``--hourly``, ``--daily``, ``--monthly``, and ``--yearly``options for the
+  ``cron.add`` command.
+  (`#4718 <https://github.com/vertexproject/synapse/pull/4718>`_)
+
+v2.233.1 - 2026-02-11
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in Storm where a switch statement could have duplicate switch
+  cases.
+  (`#4742 <https://github.com/vertexproject/synapse/pull/4742>`_)
+- Fixed an issue where mirror promotion would incorrectly re-schedule the
+  disconnection timeout task on the client after it was shut down.
+  (`#4743 <https://github.com/vertexproject/synapse/pull/4743>`_)
+
+v2.233.0 - 2026-02-06
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_233_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Add missing exception information to the RecursionLimitError.
+  (`#4735 <https://github.com/vertexproject/synapse/pull/4735>`_)
+
+Notes
+-----
+- Move process related functions from ``synapse.lib.coro`` into
+  ``synapse.lib.process`` and ``synapse.lib.processpool``.
+  (`#4729 <https://github.com/vertexproject/synapse/pull/4729>`_)
+
 v2.232.0 - 2026-02-02
 =====================
 

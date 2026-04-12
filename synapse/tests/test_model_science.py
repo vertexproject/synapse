@@ -1,5 +1,3 @@
-import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 class SciModelTest(s_t_utils.SynTest):
@@ -51,6 +49,8 @@ class SciModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('observation'))
             self.eq(False, nodes[0].get('refutes'))
             self.eq("Shadows in wave diffusion pattern support the hypothesis.", nodes[0].get('summary'))
+
+            self.len(1, await core.nodes('sci:evidence -> sci:hypothesis'))
 
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)
