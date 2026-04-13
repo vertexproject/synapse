@@ -1671,3 +1671,83 @@ class StormLibPkgTest(s_test.SynTest):
                 self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
                 self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
                 self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
+
+    async def test_stormlib_pkg_uninstall_already_uninstalling_nexus(self):
+
+        # _uninstallStormPkg returns early when uninstalling state is already set (nexus replay)
+        async with self.getTestCore() as core:
+
+            pkg = {
+                'name': 'test.dupenexus',
+                'version': '1.0.0',
+            }
+
+            await core.addStormPkg(pkg)
+
+            # Manually set the uninstalling state to simulate a nexus replay
+            pkgstate = core._getStormPkgStateKV('test.dupenexus')
+            pkgstate.set('uninstalling', {'keep': [], 'time': s_common.now()})
+
+            # Calling the nexus handler again should return early (no-op)
+            await core._uninstallStormPkg('test.dupenexus', ())
+
+            # Package should still exist (no cleanup was triggered)
+            self.nn(core.pkgdefs.get('test.dupenexus'))
+
+    async def test_stormlib_pkg_extmodel_cleanup_nosuch(self):
+
+        # _cleanupStormPkgExtModel handles already-deleted model elements
+        async with self.getTestCore() as core:
+
+            # Package references model elements that don't actually exist
+            pkg = {
+                'name': 'test.nosuchmodel',
+                'version': '1.0.0',
+                'extmodel': {
+                    'types': {
+                        '_test:nosuchtype': {'type': 'str'},
+                    },
+                    'forms': {
+                        '_test:nosuchform': {'type': 'str'},
+                    },
+                    'props': {
+                        '_test:nosuchprop': {
+                            'forms': ['_test:nosuchform'],
+                            'typedef': ['str', {}],
+                        },
+                    },
+                    'tagprops': {
+                        '_test:nosuchtagprop': {
+                            'typedef': ['int', {}],
+                        },
+                    },
+                },
+            }
+
+            # Directly call cleanup with a pkgdef whose model elements don't exist
+            await core._cleanupStormPkgExtModel(pkg)
+
+    async def test_stormlib_pkg_cancel_onload_exception(self):
+
+        # _cancelStormPkgOnload logs warning when task raises unexpected exception
+        async with self.getTestCore() as core:
+
+            evnt = asyncio.Event()
+
+            async def badcoro():
+                try:
+                    evnt.set()
+                    await asyncio.sleep(60)
+                except asyncio.CancelledError:
+                    raise RuntimeError('onload boom')
+
+            task = asyncio.get_event_loop().create_task(badcoro())
+            core._pkgOnloadTasks['test.badonload'] = task
+
+            await evnt.wait()
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'Exception cancelling onload') as stream:
+                await core._cancelStormPkgOnload('test.badonload')
+                self.true(await stream.wait(timeout=10))
+
+            self.notin('test.badonload', core._pkgOnloadTasks)
