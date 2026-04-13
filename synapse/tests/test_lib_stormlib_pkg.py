@@ -1230,8 +1230,19 @@ class StormLibPkgTest(s_test.SynTest):
                     yield mesg
 
             with mock.patch.object(core, 'storm', mock_storm):
+                real_runActiveTask = core.runActiveTask
+                task = None
+
+                def capture_runActiveTask(coro):
+                    nonlocal task
+                    task = real_runActiveTask(coro)
+                    return task
+
+                with mock.patch.object(core, 'runActiveTask', capture_runActiveTask):
+                    core._startPkgUninstall(pkg, ())
+
                 with self.raises(asyncio.CancelledError):
-                    await core._runStormPkgOnuninstall(pkg, ())
+                    await task
 
     async def test_stormlib_pkg_uninstall_keep_validation(self):
 
@@ -1606,7 +1617,7 @@ class StormLibPkgTest(s_test.SynTest):
     async def test_stormlib_pkg_state(self):
         with self.getTestDir() as dirn:
 
-            async with self.getTestCore(dnr=dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 lowuser = await core.addUser('lowuser')
                 aslow = {'user': lowuser.get('iden')}
