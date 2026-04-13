@@ -558,9 +558,8 @@ class Node(NodeBase):
                 continue
 
             if (valt := props.get(name)) is not None:
-                if getr:
-                    if getr(valt) is None:
-                        return False
+                if getr and getr(valt) is None:
+                    return False
                 return True
 
         return False

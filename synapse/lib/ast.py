@@ -1564,7 +1564,11 @@ class LiftOper(Oper):
 
         return props, None
 
-    def getPivLifts(self, runt, props, pivs):
+    def getPivLifts(self, runt, props, pivs):  # pragma: no cover
+        # TODO: this needs updates to support pivot lifts through poly types so nothing can take this path currently.
+        # we should check index counts to determine if it is potentially more efficient to lift poly pivots like this.
+        return
+
         plist = [prop.full for prop in props]
         virt = None
         pivlifts = []
@@ -1573,8 +1577,6 @@ class LiftOper(Oper):
 
         for piv in pivs:
             if ptyp.ispoly:
-                # TODO: check index counts to determine if it is potentially more efficient
-                # to lift poly pivots like this
                 return
 
             if (virtinfo := ptyp.virts.get(piv)) is not None:
@@ -1869,7 +1871,7 @@ class LiftByArrayVirt(LiftOper):
     async def lift(self, runt, path):
 
         name = await self.kids[0].compute(runt, path)
-        vnames = await self.kids[1].compute(runt, path)
+        virt = await self.kids[1].compute(runt, path)
         cmpr = self.kids[2].value()
         valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
 
@@ -1881,13 +1883,11 @@ class LiftByArrayVirt(LiftOper):
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
-                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True, virt=vnames):
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True, virt=virt):
                         yield node
                     return
 
-                (plift, virt) = pivlifts[-1]
-
-                virt = vnames
+                plift = pivlifts[-1][0]
 
                 genrs = []
                 for prop in plift:
@@ -1908,7 +1908,7 @@ class LiftByArrayVirt(LiftOper):
 
             genrs = []
             for prop in props:
-                genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virt=vnames))
+                genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virt=virt))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -2103,9 +2103,7 @@ class LiftFormTagVirt(LiftOper):
             genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virt=virt))
 
         def cmprkey(node):
-            tagv = node.getTag(tag, defval=(0, 0))
-            tagv = getr(tagv)
-            return tagv
+            return getr(node.getTag(tag, defval=(0, 0)))
 
         async for node in s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse):
             yield node
@@ -2131,9 +2129,7 @@ class LiftFormTagVirtValu(LiftOper):
             genrs.append(runt.view.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse))
 
         def cmprkey(node):
-            tagv = node.getTag(tag, defval=(0, 0))
-            tagv = getr(tagv)
-            return tagv
+            return getr(node.getTag(tag, defval=(0, 0)))
 
         async for node in s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse):
             yield node
@@ -2369,7 +2365,7 @@ class LiftPropVirtBy(LiftOper):
 
     async def lift(self, runt, path):
         name = await self.kids[0].compute(runt, path)
-        vnames = await self.kids[1].compute(runt, path)
+        virt = await self.kids[1].compute(runt, path)
         cmpr = await self.kids[2].compute(runt, path)
         valu = await self.kids[3].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
@@ -2382,13 +2378,11 @@ class LiftPropVirtBy(LiftOper):
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
-                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, virt=vnames):
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, virt=virt):
                         yield node
                     return
 
-                (plift, virt) = pivlifts[-1]
-
-                virt = vnames
+                plift = pivlifts[-1][0]
 
                 genrs = []
                 for prop in plift:
@@ -2404,15 +2398,15 @@ class LiftPropVirtBy(LiftOper):
                 return
 
             metaname = None
-            if props[0].isform and vnames in runt.model.metatypes:
-                metaname = vnames
+            if props[0].isform and virt in runt.model.metatypes:
+                metaname = virt
 
             genrs = []
             for prop in props:
                 if metaname is not None:
                     genrs.append(runt.view.nodesByMetaValu(metaname, cmpr, valu, form=prop.full, reverse=self.reverse))
                 else:
-                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virt=vnames))
+                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virt=virt))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -2425,7 +2419,7 @@ class LiftPropVirtBy(LiftOper):
 
             elif props[0].type.ispoly:
 
-                if (virtinfo := props[0].type.virts.get(vnames)) is not None:
+                if (virtinfo := props[0].type.virts.get(virt)) is not None:
                     vgetr = virtinfo[1]
                     def cmprkey(node):
                         return node.get(relname, getr=vgetr)
@@ -2436,12 +2430,12 @@ class LiftPropVirtBy(LiftOper):
                             return None
 
                         vtyp = runt.model.type(valu[0])
-                        (vtyp, vgetr) = vtyp.getVirtInfo(vnames)
+                        (vtyp, vgetr) = vtyp.getVirtInfo(virt)
 
                         return node.get(relname, getr=vgetr)
 
             else:
-                vgetr = props[0].type.getVirtGetr(vnames)
+                vgetr = props[0].type.getVirtGetr(virt)
                 def cmprkey(node):
                     return node.get(relname, getr=vgetr)
 
@@ -3692,10 +3686,10 @@ class ArrayCond(Cond):
     async def getCondEval(self, runt):
 
         offs = 0
-        virt = None
+        vkid = None
         if len(self.kids) == 4:
             offs = 1
-            virt = self.kids[1]
+            vkid = self.kids[1]
 
         relprop = self.kids[0]
         cmpr = self.kids[offs + 1].value()
@@ -3716,7 +3710,7 @@ class ArrayCond(Cond):
 
             ptyp = prop.type.arraytype
 
-            if virt is None:
+            if vkid is None:
                 if (ctor := ptyp.getCmprCtor(cmpr)) is None:
                     raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
@@ -3733,20 +3727,20 @@ class ArrayCond(Cond):
                 return False
 
             else:
-                vnames = await virt.compute(runt, path)
+                virt = await vkid.compute(runt, path)
 
                 valu, vvals = realnode.getWithVirts(realprop)
                 if not valu:
                     return False
 
-                if isinstance(ptyp.virtindx.get(vnames), str):
-                    if (valu := vvals.get(vnames)) is None:
+                if isinstance(ptyp.virtindx.get(virt), str):
+                    if (valu := vvals.get(virt)) is None:
                         return False
 
                 val2 = await valukid.compute(runt, path)
 
-                if ptyp.virts.get(vnames) is not None:
-                    vtyp = ptyp.getVirtType(vnames)
+                if ptyp.virts.get(virt) is not None:
+                    vtyp = ptyp.getVirtType(virt)
 
                     if (ctor := vtyp.getCmprCtor(cmpr)) is None:
                         raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
@@ -3760,7 +3754,7 @@ class ArrayCond(Cond):
                     return False
 
                 else:
-                    if (vval := vvals.get(vnames)) is None:
+                    if (vval := vvals.get(virt)) is None:
                         return False
 
                     tnames = set(v[0] for v in valu)
@@ -3768,7 +3762,7 @@ class ArrayCond(Cond):
                     cmprs = {}
                     for tname in tnames:
                         ftyp = runt.model.type(tname)
-                        vtyp = ftyp.getVirtType(vnames)
+                        vtyp = ftyp.getVirtType(virt)
 
                         if vtyp.stortype not in cmprs:
                             if (ctor := vtyp.getCmprCtor(cmpr)) is None:
@@ -3988,8 +3982,7 @@ class TagVirtCond(Cond):
                 if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                     raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-                tval = node.getTag(name)
-                tval = getr(tval)
+                tval = getr(node.getTag(name))
 
                 return await (await cmprctor(valu))(tval)
 
@@ -4009,8 +4002,7 @@ class TagVirtCond(Cond):
             cmpr = await cmprctor(valu)
 
             async def cond(node, path):
-                tval = node.getTag(name)
-                tval = getr(tval)
+                tval = getr(node.getTag(name))
                 return await cmpr(tval)
 
             return cond
@@ -4025,8 +4017,7 @@ class TagVirtCond(Cond):
             if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-            tval = node.getTag(name)
-            tval = getr(tval)
+            tval = getr(node.getTag(name))
 
             return await (await cmprctor(valu))(tval)
 
@@ -4171,13 +4162,13 @@ class PropValue(Value):
     def prepare(self):
         self.isconst = isinstance(self.kids[0], Const)
 
-        self.virts = None
-        self.constvirts = None
+        self.virt = None
+        self.constvirt = None
 
         if len(self.kids) > 1:
-            self.virts = self.kids[1]
-            if isinstance(self.virts.kids[0], Const):
-                self.constvirts = self.virts.kids[0].value()
+            self.virt = self.kids[1]
+            if isinstance(self.virt.kids[0], Const):
+                self.constvirt = self.virt.kids[0].value()
 
     def isRuntSafe(self, runt):
         return False
@@ -4207,9 +4198,9 @@ class PropValue(Value):
         getr = None
         ptyp = prop.type
 
-        if self.virts is not None:
-            if (virt := self.constvirts) is None:
-                virt = await self.virts.compute(runt, path)
+        if self.virt is not None:
+            if (virt := self.constvirt) is None:
+                virt = await self.virt.compute(runt, path)
 
             if ptyp.ispoly and ptyp.virts.get(virt) is None:
                 if (valu := node.get(realprop)) is None:
@@ -4301,11 +4292,8 @@ class TagVirtValue(Value):
         name = await self.kids[0].compute(runt, path)
         virt = await self.kids[1].compute(runt, path)
 
-        valu = path.node.getTag(name)
         getr = runt.model.type('ival').getVirtGetr(virt)
-        valu = getr(valu)
-
-        return valu
+        return getr(path.node.getTag(name))
 
 class TagProp(Value):
 
@@ -4925,25 +4913,25 @@ class PivotTargetVirt(Value):
     def init(self, core):
         [k.init(core) for k in self.kids]
 
-        self.virts = self.kids[1]
-        self.constvirts = None
-        if isinstance(self.virts.kids[0], Const):
-            self.constvirts = self.virts.kids[0].value()
+        self.virt = self.kids[1]
+        self.constvirt = None
+        if isinstance(self.virt.kids[0], Const):
+            self.constvirt = self.virt.kids[0].value()
 
         self.constprops = None
         if isinstance(self.kids[0], Const):
             self.constprops = core.model.reqPropList(self.kids[0].value(), extra=self.kids[0].addExcInfo)
 
         self.constval = None
-        if self.constprops and self.constvirts:
-            self.constval = [(prop, self.constvirts) for prop in self.constprops]
+        if self.constprops and self.constvirt:
+            self.constval = [(prop, self.constvirt) for prop in self.constprops]
 
     async def compute(self, runt, path):
         if self.constval is not None:
             return self.constval
 
-        if (virt := self.constvirts) is None:
-            virt = await self.virts.compute(runt, path)
+        if (virt := self.constvirt) is None:
+            virt = await self.virt.compute(runt, path)
 
         if (props := self.constprops) is None:
             valu = await self.kids[0].compute(runt, path)
