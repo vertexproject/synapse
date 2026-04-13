@@ -40,8 +40,8 @@ stormcmds = [
                 $lib.print('Loaded storm packages:')
                 $lib.print($printer.header())
                 for $pkg in $pkgs {
-                    $vars = $lib.pkg.vars($pkg.name)
-                    $uninst = $vars.uninstalling
+                    $pkgstate = $lib.pkg.state($pkg.name)
+                    $uninst = $pkgstate.uninstalling
                     if ($uninst != (null)) {
                         $keep = $uninst.keep
                         if ($keep.size() > 0) {

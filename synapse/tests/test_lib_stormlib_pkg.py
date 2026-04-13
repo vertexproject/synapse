@@ -853,8 +853,8 @@ class StormLibPkgTest(s_test.SynTest):
                 await core.callStorm('$lib.pkg.vars(test.reboot).foo = bar')
 
                 # Manually persist the uninstalling state (simulating mid-uninstall restart)
-                pkgvars = core._getStormPkgVarKV('test.reboot')
-                pkgvars.set('uninstalling', {'keep': [], 'time': s_common.now()})
+                pkgstate = core._getStormPkgStateKV('test.reboot')
+                pkgstate.set('uninstalling', {'keep': [], 'time': s_common.now()})
 
             # Reopen the cortex - it should resume the uninstall
             async with self.getTestCore(dirn=dirn) as core:
@@ -974,8 +974,8 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.pkg.get(test.safemode))'))
 
             # Package should still be in uninstalling state
-            pkgvars = core._getStormPkgVarKV('test.safemode')
-            self.nn(pkgvars.get('uninstalling'))
+            pkgstate = core._getStormPkgStateKV('test.safemode')
+            self.nn(pkgstate.get('uninstalling'))
 
             core.safemode = False
 
@@ -1057,9 +1057,9 @@ class StormLibPkgTest(s_test.SynTest):
             }
             await core.addStormPkg(pkg_uninst)
 
-            # Manually set the uninstalling state via pkgvars (no keep)
-            pkgvars = core._getStormPkgVarKV('test.uninst')
-            pkgvars.set('uninstalling', {'keep': [], 'time': s_common.now()})
+            # Manually set the uninstalling state via pkgstate (no keep)
+            pkgstate = core._getStormPkgStateKV('test.uninst')
+            pkgstate.set('uninstalling', {'keep': [], 'time': s_common.now()})
 
             pkg_keep = {
                 'name': 'test.keepitems',
@@ -1068,8 +1068,8 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg_keep)
 
             # Manually set the uninstalling state with keep items
-            pkgvars = core._getStormPkgVarKV('test.keepitems')
-            pkgvars.set('uninstalling', {'keep': ['variables', 'queues'], 'time': s_common.now()})
+            pkgstate = core._getStormPkgStateKV('test.keepitems')
+            pkgstate.set('uninstalling', {'keep': ['variables', 'queues'], 'time': s_common.now()})
 
             msgs = await core.stormlist('pkg.list')
 
@@ -1204,8 +1204,8 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.pkg.get(test.ondelexc))'))
 
             # Package should still be in uninstalling state
-            pkgvars = core._getStormPkgVarKV('test.ondelexc')
-            self.nn(pkgvars.get('uninstalling'))
+            pkgstate = core._getStormPkgStateKV('test.ondelexc')
+            self.nn(pkgstate.get('uninstalling'))
 
     async def test_stormlib_pkg_onuninstall_cancelled(self):
 

@@ -1283,7 +1283,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             for pkgdef in list(self.stormpkgs.values()):
                 name = pkgdef.get('name')
-                uninst = self._getStormPkgVarKV(name).get('uninstalling')
+                uninst = self._getStormPkgStateKV(name).get('uninstalling')
                 if uninst is not None:
                     self._startPkgUninstall(pkgdef, keep=uninst.get('keep'))
                 else:
@@ -2182,7 +2182,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         name = pkgdef.get('name')
         olddef = self.pkgdefs.get(name)
-        if olddef is not None and self._getStormPkgVarKV(name).get('uninstalling') is not None:
+        if olddef is not None and self._getStormPkgStateKV(name).get('uninstalling') is not None:
             mesg = f'Package ({name}) is currently being uninstalled.'
             raise s_exc.BadArg(mesg=mesg)
 
@@ -2222,7 +2222,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if uninstall:
 
-            if self._getStormPkgVarKV(name).get('uninstalling') is not None:
+            if self._getStormPkgStateKV(name).get('uninstalling') is not None:
                 mesg = 'Package is already being uninstalled.'
                 raise s_exc.BadArg(mesg=mesg)
 
@@ -2271,11 +2271,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         # If the uninstall is already started, don't start it again
-        pkgvars = self._getStormPkgVarKV(name)
-        if pkgvars.get('uninstalling') is not None:
+        pkgstate = self._getStormPkgStateKV(name)
+        if pkgstate.get('uninstalling') is not None:
             return
 
-        pkgvars.set('uninstalling', {'keep': keep, 'time': s_common.now()})
+        pkgstate.set('uninstalling', {'keep': keep, 'time': s_common.now()})
 
         if self.isactive:
             await self.feedBeholder('pkg:uninstall:start', {'name': name, 'keep': keep})
@@ -2334,10 +2334,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             await self._cleanupStormPkg(pkgdef, keep)
 
-            # Clear the uninstalling state
-            pkgvars = self._getStormPkgVarKV(name)
-            pkgvars.pop('uninstalling')
-
             await self._push('pkg:del', name)
 
             await self.fire('core:pkg:uninstall:complete', pkg=name)
@@ -2348,7 +2344,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         name = pkgdef.get('name')
 
-        # The ordering here is specific: dmons, queues, vaults, variables, extended model
+        # The ordering here is specific: dmons, queues, vaults, variables, extended model, package state
 
         if 'dmons' not in keep:
             for ddef in pkgdef.get('dmons', ()):
@@ -2380,6 +2376,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if 'extmodel' not in keep:
             await self._cleanupStormPkgExtModel(pkgdef)
+
+        pkgstate = self._getStormPkgStateKV(name)
+        for key in list(pkgstate.keys()):
+            await self.popStormPkgState(name, key)
+        self.stormpkgstate.pop(name, None)
 
     async def _cleanupStormPkgExtModel(self, pkgdef):
 
