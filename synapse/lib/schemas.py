@@ -750,7 +750,15 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
-        'onuninstall': {'type': 'string'},
+        'onuninstall': {
+            'type': 'object',
+            'properties': {
+                'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
+            },
+            'required': ['query'],
+            'additionalProperties': False,
+        },
         'dmons': {
             'type': 'array',
             'items': {
@@ -837,13 +845,13 @@ _reqValidPkgdefSchema = {
             },
             'additionalProperties': False,
         },
-        'model': {
+        'extmodel': {
             'type': 'object',
             'properties': {
                 'types': {
                     'type': 'object',
                     'patternProperties': {
-                        '^.*$': {
+                        '^_': {
                             'type': 'object',
                             'properties': {
                                 'type': {'type': 'string'},
@@ -859,7 +867,7 @@ _reqValidPkgdefSchema = {
                 'forms': {
                     'type': 'object',
                     'patternProperties': {
-                        '^.*$': {
+                        '^_': {
                             'type': 'object',
                             'properties': {
                                 'type': {'type': 'string'},
@@ -875,7 +883,7 @@ _reqValidPkgdefSchema = {
                 'props': {
                     'type': 'object',
                     'patternProperties': {
-                        '^.*$': {
+                        '^_': {
                             'type': 'object',
                             'properties': {
                                 'forms': {
@@ -902,7 +910,7 @@ _reqValidPkgdefSchema = {
                 'tagprops': {
                     'type': 'object',
                     'patternProperties': {
-                        '^.*$': {
+                        '^_': {
                             'type': 'object',
                             'properties': {
                                 'typedef': {

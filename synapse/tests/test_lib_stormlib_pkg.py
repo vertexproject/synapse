@@ -464,7 +464,7 @@ class StormLibPkgTest(s_test.SynTest):
         # Basic uninstall with onuninstall handler, pkg vars cleaned, queues cleaned, beholder events
         async with self.getTestCore() as core:
 
-            onuninstall = '$lib.print(`onuninstall called keep={$keep}`)'
+            onuninstall = {'query': '$lib.print(`onuninstall called keep={$keep}`)'}
             pkg = {
                 'name': 'test.uninstall',
                 'version': '1.0.0',
@@ -519,10 +519,10 @@ class StormLibPkgTest(s_test.SynTest):
             self.isin('pkg:uninstall:start', bnames)
             self.isin('pkg:del', bnames)
 
-        # onuninstall receives keep set via $lib.pkg.uninstall
+        # onuninstall receives keep set via $lib.pkg.del with uninstall
         async with self.getTestCore() as core:
 
-            onuninstall = 'if (not $keep) { $lib.print(keep_empty) } else { $lib.print(`keep={$keep}`) }'
+            onuninstall = {'query': 'if (not $keep) { $lib.print(keep_empty) } else { $lib.print(`keep={$keep}`) }'}
             pkg = {
                 'name': 'test.keepset',
                 'version': '1.0.0',
@@ -535,7 +535,7 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex', 'keep=') as stream:
-                await core.callStorm('$lib.pkg.uninstall(test.keepset, keep=(pkg-vars,))')
+                await core.callStorm('$lib.pkg.del(test.keepset, uninstall=$lib.true, keep=(variables,))')
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
@@ -559,7 +559,7 @@ class StormLibPkgTest(s_test.SynTest):
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            msgs = await core.stormlist('pkg.del test.keepqueues --uninstall --uninstall-keep queues')
+            msgs = await core.stormlist('pkg.del test.keepqueues --uninstall --uninstall-keep (queues,)')
             self.stormIsInPrint('Uninstalling package: test.keepqueues', msgs)
 
             await donewaiter.wait(timeout=30)
@@ -582,7 +582,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.callStorm('$lib.pkg.queues(test.keeppkgvars).add(q1).put(42)')
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.keeppkgvars', keep=('pkg-vars',))
+            await core.delStormPkg('test.keeppkgvars', uninstall=True, keep=('variables',))
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.keeppkgvars))'))
@@ -623,7 +623,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(core.getVault(viden))
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.vaultclean')
+            await core.delStormPkg('test.vaultclean', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.vaultclean))'))
@@ -655,7 +655,7 @@ class StormLibPkgTest(s_test.SynTest):
             viden = await core.addVault(vdef)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.vaultkeep', keep=('vaults',))
+            await core.delStormPkg('test.vaultkeep', uninstall=True, keep=('vaults',))
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.vaultkeep))'))
@@ -681,7 +681,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(await core.getStormDmon(dmoniden))
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.dmonclean')
+            await core.delStormPkg('test.dmonclean', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.dmonclean))'))
@@ -732,7 +732,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(await core.getStormDmon(dmoniden))
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.dmonkeep', keep=('dmons',))
+            await core.delStormPkg('test.dmonkeep', uninstall=True, keep=('dmons',))
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.dmonkeep))'))
@@ -760,18 +760,19 @@ class StormLibPkgTest(s_test.SynTest):
 
             # Uninstall should not error on missing dmon
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.dmonmissing')
+            await core.delStormPkg('test.dmonmissing', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.dmonmissing))'))
 
-        # onuninstall failure does NOT prevent deletion
+        # onuninstall storm error ($lib.raise) - storm err messages are logged but
+        # the handler completes normally (storm errors don't abort the uninstall)
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.ondelfail',
                 'version': '1.0.0',
-                'onuninstall': '$lib.raise(FatalError, boom)',
+                'onuninstall': {'query': '$lib.raise(FatalError, boom)'},
             }
 
             await core.addStormPkg(pkg)
@@ -779,12 +780,12 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall output') as stream:
-                await core.callStorm('$lib.pkg.uninstall(test.ondelfail)')
+                await core.callStorm('$lib.pkg.del(test.ondelfail, uninstall=$lib.true)')
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
 
-            # Package should still be deleted despite onuninstall failure
+            # Package should be deleted (storm errors don't abort uninstall)
             self.none(await core.callStorm('return($lib.pkg.get(test.ondelfail))'))
 
         # Package without onuninstall: auto-cleanup still runs
@@ -800,7 +801,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.callStorm('$lib.pkg.queues(test.noondel).add(q1).put(1)')
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.callStorm('$lib.pkg.uninstall(test.noondel)')
+            await core.callStorm('$lib.pkg.del(test.noondel, uninstall=$lib.true)')
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.noondel))'))
@@ -815,7 +816,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.badsyntax',
                 'version': '1.0.0',
-                'onuninstall': '} invalid storm {',
+                'onuninstall': {'query': '} invalid storm {'},
             }
 
             with self.raises(s_exc.BadSyntax):
@@ -841,7 +842,7 @@ class StormLibPkgTest(s_test.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 # Create a pkg with an onuninstall to simulate reboot during uninstall
-                onuninstall = '$lib.print(onuninstall_resumed)'
+                onuninstall = {'query': '$lib.print(onuninstall_resumed)'}
                 pkg = {
                     'name': 'test.reboot',
                     'version': '1.0.0',
@@ -852,10 +853,8 @@ class StormLibPkgTest(s_test.SynTest):
                 await core.callStorm('$lib.pkg.vars(test.reboot).foo = bar')
 
                 # Manually persist the uninstalling state (simulating mid-uninstall restart)
-                pkgdef = core.pkgdefs.get('test.reboot')
-                pkgdef['_uninstalling'] = {'keep': [], 'time': s_common.now()}
-                core.pkgdefs.set('test.reboot', pkgdef)
-                core.stormpkgs['test.reboot'] = pkgdef
+                pkgvars = core._getStormPkgVarKV('test.reboot')
+                pkgvars.set('uninstalling', {'keep': [], 'time': s_common.now()})
 
             # Reopen the cortex - it should resume the uninstall
             async with self.getTestCore(dirn=dirn) as core:
@@ -874,7 +873,7 @@ class StormLibPkgTest(s_test.SynTest):
                 'name': 'test.cancelonload',
                 'version': '1.0.0',
                 'onload': '$lib.time.sleep(60)',
-                'onuninstall': '$lib.print(onuninstall_after_cancel)',
+                'onuninstall': {'query': '$lib.print(onuninstall_after_cancel)'},
             }
 
             await core.addStormPkg(pkg)
@@ -885,7 +884,7 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall_after_cancel') as stream:
-                await core.uninstallStormPkg('test.cancelonload')
+                await core.delStormPkg('test.cancelonload', uninstall=True)
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
@@ -900,7 +899,7 @@ class StormLibPkgTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             dmoniden = s_common.guid()
-            onuninstall = '$lib.print(should_not_run)'
+            onuninstall = {'query': '$lib.print(should_not_run)'}
             pkg = {
                 'name': 'test.plaindelete',
                 'version': '1.0.0',
@@ -924,8 +923,10 @@ class StormLibPkgTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.pkg.get(test.plaindelete))'))
 
-            # Dmons are cleaned up on plain delete
-            self.none(await core.getStormDmon(dmoniden))
+            # Dmons are disabled (not deleted) on plain delete
+            ddef = await core.getStormDmon(dmoniden)
+            self.nn(ddef)
+            self.true(ddef.get('enabled') is False)
 
             # Pkg vars are NOT cleaned (plain delete does not auto-cleanup)
             self.eq('1', await core.callStorm('return($lib.pkg.vars(test.plaindelete).v)'))
@@ -952,28 +953,29 @@ class StormLibPkgTest(s_test.SynTest):
             # Package should be deleted
             self.none(await core.callStorm('return($lib.pkg.get(test.delcancelonload))'))
 
-        # Safe mode: onuninstall skipped
+        # Safe mode: entire uninstall skipped, package stays
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.safemode',
                 'version': '1.0.0',
-                'onuninstall': '$lib.print(should_not_run_in_safemode)',
+                'onuninstall': {'query': '$lib.print(should_not_run_in_safemode)'},
             }
 
             await core.addStormPkg(pkg)
 
             core.safemode = True
 
-            skipwaiter = core.waiter(1, 'core:pkg:onuninstall:skipped')
-            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.callStorm('$lib.pkg.uninstall(test.safemode)')
-            evnts = await skipwaiter.wait(timeout=30)
-            self.ge(len(evnts), 1)
+            with self.getAsyncLoggerStream('synapse.cortex', 'safemode is active') as stream:
+                await core.callStorm('$lib.pkg.del(test.safemode, uninstall=$lib.true)')
+                self.true(await stream.wait(timeout=30))
 
-            await donewaiter.wait(timeout=30)
+            # Package should still exist (safemode skips entire uninstall)
+            self.nn(await core.callStorm('return($lib.pkg.get(test.safemode))'))
 
-            self.none(await core.callStorm('return($lib.pkg.get(test.safemode))'))
+            # Package should still be in uninstalling state
+            pkgvars = core._getStormPkgVarKV('test.safemode')
+            self.nn(pkgvars.get('uninstalling'))
 
             core.safemode = False
 
@@ -983,29 +985,29 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.doubleuninst',
                 'version': '1.0.0',
-                'onuninstall': '$lib.time.sleep(3)',
+                'onuninstall': {'query': '$lib.time.sleep(3)'},
             }
 
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            await core.callStorm('$lib.pkg.uninstall(test.doubleuninst)')
+            await core.callStorm('$lib.pkg.del(test.doubleuninst, uninstall=$lib.true)')
 
             # The _uninstalling state is set synchronously via nexus, so it is
             # immediately visible for the duplicate check.
             with self.raises(s_exc.BadArg):
-                await core.uninstallStormPkg('test.doubleuninst')
+                await core.delStormPkg('test.doubleuninst', uninstall=True)
 
             await donewaiter.wait(timeout=30)
 
-        # $lib.pkg.uninstall() path works
+        # $lib.pkg.del() with uninstall path works
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.libuninstall',
                 'version': '1.0.0',
-                'onuninstall': '$lib.print(lib_uninstall_onuninstall)',
+                'onuninstall': {'query': '$lib.print(lib_uninstall_onuninstall)'},
             }
 
             await core.addStormPkg(pkg)
@@ -1013,14 +1015,14 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex', 'lib_uninstall_onuninstall') as stream:
-                await core.callStorm('$lib.pkg.uninstall(test.libuninstall)')
+                await core.callStorm('$lib.pkg.del(test.libuninstall, uninstall=$lib.true)')
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.libuninstall))'))
 
-        # CoreApi uninstallStormPkg works
+        # CoreApi delStormPkg with uninstall=True works
         async with self.getTestCore() as core:
 
             pkg = {
@@ -1032,7 +1034,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.callStorm('$lib.pkg.vars(test.coreapi).x = 1')
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.coreapi')
+            await core.delStormPkg('test.coreapi', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.coreapi))'))
@@ -1055,11 +1057,9 @@ class StormLibPkgTest(s_test.SynTest):
             }
             await core.addStormPkg(pkg_uninst)
 
-            # Manually set the _uninstalling state (no keep)
-            pkgdef = core.pkgdefs.get('test.uninst')
-            pkgdef['_uninstalling'] = {'keep': None, 'time': s_common.now()}
-            core.pkgdefs.set('test.uninst', pkgdef)
-            core.stormpkgs['test.uninst'] = pkgdef
+            # Manually set the uninstalling state via pkgvars (no keep)
+            pkgvars = core._getStormPkgVarKV('test.uninst')
+            pkgvars.set('uninstalling', {'keep': [], 'time': s_common.now()})
 
             pkg_keep = {
                 'name': 'test.keepitems',
@@ -1067,11 +1067,9 @@ class StormLibPkgTest(s_test.SynTest):
             }
             await core.addStormPkg(pkg_keep)
 
-            # Manually set the _uninstalling state with keep items
-            pkgdef = core.pkgdefs.get('test.keepitems')
-            pkgdef['_uninstalling'] = {'keep': ['pkg-vars', 'queues'], 'time': s_common.now()}
-            core.pkgdefs.set('test.keepitems', pkgdef)
-            core.stormpkgs['test.keepitems'] = pkgdef
+            # Manually set the uninstalling state with keep items
+            pkgvars = core._getStormPkgVarKV('test.keepitems')
+            pkgvars.set('uninstalling', {'keep': ['variables', 'queues'], 'time': s_common.now()})
 
             msgs = await core.stormlist('pkg.list')
 
@@ -1079,12 +1077,12 @@ class StormLibPkgTest(s_test.SynTest):
             self.stormIsInPrint('test.normal 1.0.0', msgs, whitespace=False)
             self.stormNotInPrint('test.normal 1.0.0 uninstalling', msgs, whitespace=False)
 
-            # Package with _uninstalling and no keep should show "uninstalling"
+            # Package with uninstalling and no keep should show "uninstalling"
             self.stormIsInPrint('test.uninst 2.0.0 uninstalling', msgs, whitespace=False)
             self.stormNotInPrint('test.uninst 2.0.0 uninstalling (keep', msgs, whitespace=False)
 
-            # Package with _uninstalling and keep items should show "uninstalling (keeping ...)"
-            self.stormIsInPrint('test.keepitems 3.0.0 uninstalling (keeping pkg-vars, queues)', msgs, whitespace=False)
+            # Package with uninstalling and keep items should show "uninstalling (keeping ...)"
+            self.stormIsInPrint('test.keepitems 3.0.0 uninstalling (keeping variables, queues)', msgs, whitespace=False)
 
     async def test_stormlib_pkg_install_blocked_during_uninstall(self):
 
@@ -1094,14 +1092,14 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.blockinstall',
                 'version': '1.0.0',
-                'onuninstall': '$lib.time.sleep(5)',
+                'onuninstall': {'query': '$lib.time.sleep(5)'},
             }
 
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
-            await core.callStorm('$lib.pkg.uninstall(test.blockinstall)')
+            await core.callStorm('$lib.pkg.del(test.blockinstall, uninstall=$lib.true)')
 
             # Attempt to install same package while uninstall is in progress
             with self.raises(s_exc.BadArg) as cm:
@@ -1117,7 +1115,7 @@ class StormLibPkgTest(s_test.SynTest):
 
     async def test_stormlib_pkg_uninstall_coreapi(self):
 
-        # CoreApi.uninstallStormPkg via telepath proxy
+        # CoreApi.delStormPkg with uninstall=True via telepath proxy
         async with self.getTestCoreAndProxy() as (core, prox):
 
             pkg = {
@@ -1129,7 +1127,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.callStorm('$lib.pkg.vars(test.proxuninst).v = 1')
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await prox.uninstallStormPkg('test.proxuninst')
+            await prox.delStormPkg('test.proxuninst', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.proxuninst))'))
@@ -1137,11 +1135,11 @@ class StormLibPkgTest(s_test.SynTest):
 
     async def test_stormlib_pkg_uninstall_nosuchpkg(self):
 
-        # uninstallStormPkg on nonexistent package raises NoSuchPkg
+        # delStormPkg with uninstall=True on nonexistent package raises NoSuchPkg
         async with self.getTestCore() as core:
 
             with self.raises(s_exc.NoSuchPkg):
-                await core.uninstallStormPkg('test.doesnotexist')
+                await core.delStormPkg('test.doesnotexist', uninstall=True)
 
     async def test_stormlib_pkg_uninstall_nexus_replay(self):
 
@@ -1149,14 +1147,14 @@ class StormLibPkgTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             # Directly call the nexus handler with a nonexistent package name
-            await core._uninstallStormPkg('test.nonexistent', None)
+            await core._uninstallStormPkg('test.nonexistent', ())
 
     async def test_stormlib_pkg_onuninstall_warn(self):
 
         # onuninstall handler that emits a warn message
         async with self.getTestCore() as core:
 
-            onuninstall = '$lib.warn(warnmsg)'
+            onuninstall = {'query': '$lib.warn(warnmsg)'}
             pkg = {
                 'name': 'test.ondelwarn',
                 'version': '1.0.0',
@@ -1168,7 +1166,7 @@ class StormLibPkgTest(s_test.SynTest):
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall output: warnmsg') as stream:
-                await core.uninstallStormPkg('test.ondelwarn')
+                await core.delStormPkg('test.ondelwarn', uninstall=True)
                 self.true(await stream.wait(timeout=30))
 
             await donewaiter.wait(timeout=30)
@@ -1177,10 +1175,10 @@ class StormLibPkgTest(s_test.SynTest):
 
     async def test_stormlib_pkg_onuninstall_exception(self):
 
-        # onuninstall where self.storm() raises a Python exception (not a storm error message)
+        # onuninstall where self.storm() raises a Python exception - aborts uninstall
         async with self.getTestCore() as core:
 
-            onuninstall = '$lib.print(hello)'
+            onuninstall = {'query': '$lib.print(hello)'}
             pkg = {
                 'name': 'test.ondelexc',
                 'version': '1.0.0',
@@ -1197,23 +1195,24 @@ class StormLibPkgTest(s_test.SynTest):
                 async for mesg in real_storm(text, *args, **kwargs):
                     yield mesg
 
-            donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-
             with mock.patch.object(core, 'storm', mock_storm):
                 with self.getAsyncLoggerStream('synapse.cortex', 'onuninstall failed for package') as stream:
-                    await core.uninstallStormPkg('test.ondelexc')
+                    await core.delStormPkg('test.ondelexc', uninstall=True)
                     self.true(await stream.wait(timeout=30))
 
-            await donewaiter.wait(timeout=30)
+            # Package should still exist (uninstall aborted on exception)
+            self.nn(await core.callStorm('return($lib.pkg.get(test.ondelexc))'))
 
-            self.none(await core.callStorm('return($lib.pkg.get(test.ondelexc))'))
+            # Package should still be in uninstalling state
+            pkgvars = core._getStormPkgVarKV('test.ondelexc')
+            self.nn(pkgvars.get('uninstalling'))
 
     async def test_stormlib_pkg_onuninstall_cancelled(self):
 
         # onuninstall where the task is cancelled during execution
         async with self.getTestCore() as core:
 
-            onuninstall = '$lib.time.sleep(60)'
+            onuninstall = {'query': '$lib.time.sleep(60)'}
             pkg = {
                 'name': 'test.ondelcancel',
                 'version': '1.0.0',
@@ -1232,11 +1231,11 @@ class StormLibPkgTest(s_test.SynTest):
 
             with mock.patch.object(core, 'storm', mock_storm):
                 with self.raises(asyncio.CancelledError):
-                    await core._runStormPkgOnuninstall(pkg, None)
+                    await core._runStormPkgOnuninstall(pkg, ())
 
     async def test_stormlib_pkg_uninstall_keep_validation(self):
 
-        # $lib.pkg.uninstall with keep as non-list raises BadArg
+        # $lib.pkg.del with keep as non-list raises BadArg
         async with self.getTestCore() as core:
 
             pkg = {
@@ -1247,11 +1246,11 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.callStorm('$lib.pkg.uninstall(test.keepvalid, keep=notalist)')
+                await core.callStorm('$lib.pkg.del(test.keepvalid, uninstall=$lib.true, keep=notalist)')
 
             self.isin('must be a list', cm.exception.get('mesg'))
 
-        # $lib.pkg.uninstall with keep containing non-string raises BadArg
+        # $lib.pkg.del with keep containing non-string raises BadArg
         async with self.getTestCore() as core:
 
             pkg = {
@@ -1262,9 +1261,9 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.callStorm('$lib.pkg.uninstall(test.keepvalid2, keep=((1),))')
+                await core.callStorm('$lib.pkg.del(test.keepvalid2, uninstall=$lib.true, keep=((1),))')
 
-        # $lib.pkg.uninstall with unknown keep value raises BadArg
+        # $lib.pkg.del with unknown keep value raises BadArg
         async with self.getTestCore() as core:
 
             pkg = {
@@ -1275,7 +1274,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.callStorm('$lib.pkg.uninstall(test.keepvalid3, keep=(newp,))')
+                await core.callStorm('$lib.pkg.del(test.keepvalid3, uninstall=$lib.true, keep=(newp,))')
 
             self.isin('Invalid keep item', cm.exception.get('mesg'))
 
@@ -1289,7 +1288,7 @@ class StormLibPkgTest(s_test.SynTest):
 
             await core.addStormPkg(pkg)
 
-            msgs = await core.stormlist('pkg.del test.keepvalid4 --uninstall --uninstall-keep newp')
+            msgs = await core.stormlist('pkg.del test.keepvalid4 --uninstall --uninstall-keep (newp,)')
             self.stormIsInErr('Invalid keep item', msgs)
 
         # core API with unknown keep value raises BadArg
@@ -1303,7 +1302,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.uninstallStormPkg('test.keepvalid5', keep=['newp'])
+                await core.delStormPkg('test.keepvalid5', uninstall=True, keep=['newp'])
 
             self.isin('Invalid keep item', cm.exception.get('mesg'))
 
@@ -1315,7 +1314,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.model',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:mytype': {
                             'type': 'str',
@@ -1350,18 +1349,18 @@ class StormLibPkgTest(s_test.SynTest):
 
             pkgdef = await core.callStorm('return($lib.pkg.get(test.model))')
             self.nn(pkgdef)
-            self.nn(pkgdef.get('model'))
-            self.eq(pkgdef['model']['types']['_test:mytype']['type'], 'str')
-            self.eq(pkgdef['model']['forms']['_test:myform']['type'], 'str')
-            self.eq(pkgdef['model']['props']['_test:myprop']['forms'], ['_test:myform'])
-            self.eq(pkgdef['model']['props']['_test:myprop']['typedef'], ['str', {'lower': True}])
-            self.eq(pkgdef['model']['tagprops']['_test:mytagprop']['typedef'], ['int', {'min': 0}])
+            self.nn(pkgdef.get('extmodel'))
+            self.eq(pkgdef['extmodel']['types']['_test:mytype']['type'], 'str')
+            self.eq(pkgdef['extmodel']['forms']['_test:myform']['type'], 'str')
+            self.eq(pkgdef['extmodel']['props']['_test:myprop']['forms'], ['_test:myform'])
+            self.eq(pkgdef['extmodel']['props']['_test:myprop']['typedef'], ['str', {'lower': True}])
+            self.eq(pkgdef['extmodel']['tagprops']['_test:mytagprop']['typedef'], ['int', {'min': 0}])
 
             # Valid model with only some sub-keys
             pkg2 = {
                 'name': 'test.model2',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:mytype2': {
                             'type': 'int',
@@ -1374,13 +1373,13 @@ class StormLibPkgTest(s_test.SynTest):
 
             pkgdef2 = await core.callStorm('return($lib.pkg.get(test.model2))')
             self.nn(pkgdef2)
-            self.eq(pkgdef2['model']['types']['_test:mytype2']['type'], 'int')
+            self.eq(pkgdef2['extmodel']['types']['_test:mytype2']['type'], 'int')
 
             # Empty model is valid
             pkg3 = {
                 'name': 'test.model3',
                 'version': '1.0.0',
-                'model': {},
+                'extmodel': {},
             }
 
             await core.addStormPkg(pkg3)
@@ -1389,7 +1388,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg4 = {
                 'name': 'test.model4',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:bad': {
                             'typeopts': {'lower': True},
@@ -1405,7 +1404,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg5 = {
                 'name': 'test.model5',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'forms': {
                         '_test:bad': {
                             'typeinfo': {'doc': 'Missing type field.'},
@@ -1421,7 +1420,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg6 = {
                 'name': 'test.model6',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'props': {
                         '_test:bad': {
                             'propinfo': {'doc': 'Missing required fields.'},
@@ -1437,7 +1436,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg7 = {
                 'name': 'test.model7',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'tagprops': {
                         '_test:bad': {
                             'propinfo': {'doc': 'Missing typedef.'},
@@ -1453,7 +1452,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg8 = {
                 'name': 'test.model8',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:bad': {
                             'type': 'str',
@@ -1470,7 +1469,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg9 = {
                 'name': 'test.model9',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'newp': {},
                 },
             }
@@ -1482,7 +1481,7 @@ class StormLibPkgTest(s_test.SynTest):
             s_schemas.reqValidPkgdef({
                 'name': 'test.direct',
                 'version': '0.0.1',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:dtype': {'type': 'str'},
                     },
@@ -1517,13 +1516,13 @@ class StormLibPkgTest(s_test.SynTest):
 
     async def test_stormlib_pkg_uninstall_model_cleanup(self):
 
-        # Uninstall a package with model definitions triggers model cleanup
+        # Uninstall a package with model definitions triggers model and data cleanup
         async with self.getTestCore() as core:
 
             pkg = {
                 'name': 'test.modelclean',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:cleantype': {'type': 'str'},
                     },
@@ -1546,11 +1545,26 @@ class StormLibPkgTest(s_test.SynTest):
 
             await core.addStormPkg(pkg)
 
+            # Register the ext model elements and create data
+            await core.addType('_test:cleantype', 'str', {}, {})
+            await core.addForm('_test:cleanform', 'str', {}, {})
+            await core.addFormProp('_test:cleanform', '_test:cleanprop', ('str', {}), {})
+            await core.addTagProp('_test:cleantagprop', ('int', {}), {})
+
+            # Create nodes with the ext model
+            await core.nodes('[_test:cleanform=foo :_test:cleanprop=bar +#test:_test:cleantagprop=42]')
+            self.len(1, await core.nodes('_test:cleanform'))
+
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.modelclean')
+            await core.delStormPkg('test.modelclean', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.modelclean))'))
+
+            # Verify all data and model elements were cleaned up
+            self.none(core.model.form('_test:cleanform'))
+            self.none(core.model.type('_test:cleantype'))
+            self.none(core.model.type('_test:cleanform'))
 
         # Uninstall with keep=model skips model cleanup
         async with self.getTestCore() as core:
@@ -1558,7 +1572,7 @@ class StormLibPkgTest(s_test.SynTest):
             pkg = {
                 'name': 'test.modelkeep',
                 'version': '1.0.0',
-                'model': {
+                'extmodel': {
                     'types': {
                         '_test:keeptype': {'type': 'str'},
                     },
@@ -1568,7 +1582,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.modelkeep', keep=('model',))
+            await core.delStormPkg('test.modelkeep', uninstall=True, keep=('extmodel',))
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.modelkeep))'))
@@ -1584,7 +1598,7 @@ class StormLibPkgTest(s_test.SynTest):
             await core.addStormPkg(pkg)
 
             donewaiter = core.waiter(1, 'core:pkg:uninstall:complete')
-            await core.uninstallStormPkg('test.nomodel')
+            await core.delStormPkg('test.nomodel', uninstall=True)
             await donewaiter.wait(timeout=30)
 
             self.none(await core.callStorm('return($lib.pkg.get(test.nomodel))'))

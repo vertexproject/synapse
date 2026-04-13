@@ -40,9 +40,11 @@ stormcmds = [
                 $lib.print('Loaded storm packages:')
                 $lib.print($printer.header())
                 for $pkg in $pkgs {
-                    if ($pkg._uninstalling != (null)) {
-                        $keep = $pkg._uninstalling.keep
-                        if ($keep != (null) and ($keep.size() > 0)) {
+                    $vars = $lib.pkg.vars($pkg.name)
+                    $uninst = $vars.uninstalling
+                    if ($uninst != (null)) {
+                        $keep = $uninst.keep
+                        if ($keep.size() > 0) {
                             $status = `uninstalling (keeping {(", ").join($keep)})`
                         } else {
                             $status = "uninstalling"
@@ -108,8 +110,8 @@ stormcmds = [
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
             ('--uninstall', {'default': False, 'action': 'store_true',
                 'help': 'Run the uninstall lifecycle (onuninstall handler + cleanup).'}),
-            ('--uninstall-keep', {'default': None, 'type': 'str',
-                'help': 'Comma-separated list of things to keep during uninstall (pkg-vars, vaults, dmons, queues, model).'}),
+            ('--uninstall-keep', {'default': [],
+                'help': 'List of items to keep during uninstall (variables, vaults, dmons, queues, extmodel).'}),
         ),
         'storm': '''
 
@@ -131,16 +133,8 @@ stormcmds = [
 
                 if $cmdopts.uninstall {
 
-                    $keep = (null)
-                    if ($cmdopts.uninstall_keep != (null)) {
-                        $keep = ([])
-                        for $item in $cmdopts.uninstall_keep.split(",") {
-                            $keep.append($item.strip())
-                        }
-                    }
-
                     $lib.print(`Uninstalling package: {$name}`)
-                    $lib.pkg.uninstall($name, keep=$keep)
+                    $lib.pkg.del($name, uninstall=$lib.true, keep=$cmdopts.uninstall_keep)
 
                 } else {
 
@@ -261,13 +255,9 @@ class LibPkg(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_libPkgDel',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'uninstall', 'desc': 'Uninstall a Storm Package with cleanup lifecycle.',
-         'type': {'type': 'function', '_funcname': '_libPkgUninstall',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the package to uninstall.', },
-                      {'name': 'keep', 'type': 'list', 'default': None,
+                      {'name': 'uninstall', 'type': 'boolean', 'default': False,
+                       'desc': 'Run the uninstall lifecycle (onuninstall handler + cleanup).', },
+                      {'name': 'keep', 'type': 'list', 'default': (),
                        'desc': 'A list of items to keep during uninstall.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -309,7 +299,6 @@ class LibPkg(s_stormtypes.Lib):
             'get': self._libPkgGet,
             'has': self._libPkgHas,
             'del': self._libPkgDel,
-            'uninstall': self._libPkgUninstall,
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
             'vars': self._libPkgVars,
@@ -339,24 +328,22 @@ class LibPkg(s_stormtypes.Lib):
             return False
         return True
 
-    async def _libPkgDel(self, name):
-        self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.view.core.delStormPkg(name)
-
-    async def _libPkgUninstall(self, name, keep=None):
+    async def _libPkgDel(self, name, uninstall=False, keep=()):
         self.runt.confirm(('pkg', 'del'), None)
         name = await s_stormtypes.tostr(name)
-        if keep is not None:
-            keep = await s_stormtypes.toprim(keep)
-            if not isinstance(keep, (list, tuple)):
+        uninstall = await s_stormtypes.tobool(uninstall)
+        keep = await s_stormtypes.toprim(keep)
+        if not isinstance(keep, (list, tuple)):
+            mesg = 'The keep argument must be a list of strings.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for v in keep:
+            if not isinstance(v, str):
                 mesg = 'The keep argument must be a list of strings.'
                 raise s_exc.BadArg(mesg=mesg)
-            for v in keep:
-                if not isinstance(v, str):
-                    mesg = 'The keep argument must be a list of strings.'
-                    raise s_exc.BadArg(mesg=mesg)
-            keep = list(keep)
-        await self.runt.view.core.uninstallStormPkg(name, keep=keep)
+
+        keep = list(keep)
+        await self.runt.view.core.delStormPkg(name, uninstall=uninstall, keep=keep)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgList(self):
