@@ -3436,41 +3436,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for indx, nid, _ in genr:
                 yield indx, nid, lidx
 
-        if not virt and not prop.type.arraytype.ispoly:
-            last = None
-            genrs = []
-            stortype = self.layers[0].stortypes[cmprvals[0][-1]]
-
-            for lidx, layr in enumerate(self.layers):
-                genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virt=virt)
-                genrs.append(wrapgenr(lidx, genr))
-
-            async for indx, nid, lidx in s_common.merggenr2(genrs):
-                if (indx, nid) == last:
-                    continue
-
-                last = (indx, nid)
-
-                if (node := await self.getNodeByNid(nid)) is None:
-                    continue
-
-                (valu, valulayr) = node.getWithLayer(prop.name)
-                if lidx != valulayr:
-                    continue
-
-                if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                    for sval in valu:
-                        if stortype.indx(sval)[0] == indx:
-                            aval = sval
-                            break
-                    else:
-                        continue
-
-                for _ in range(valu.count(aval)):
-                    yield node
-                    await asyncio.sleep(0)
-
-        elif not virt:
+        if not virt:
             for cmprval in cmprvals:
                 last = None
                 genrs = []
@@ -3530,84 +3496,23 @@ class View(s_nexus.Pusher):  # type: ignore
                             yield node
                             await asyncio.sleep(0)
 
-        elif prop.type.arraytype.ispoly:
-            for cmprval in cmprvals:
-                last = None
-                genrs = []
-                stortype = cmprval[-1]
+            return
 
-                vgetr = None
-                if (vinfo := prop.type.arraytype.virts.get(virt)) is not None:
-                    vgetr = vinfo[1]
-                    stortype = self.layers[0].polytype
-                else:
-                    realtype = stortype & s_layer.STOR_MASK_POLY
-                    stortype = self.layers[0].stortypes[realtype]
-
-                for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
-                    genrs.append(wrapgenr(lidx, genr))
-
-                async for indx, nid, lidx in s_common.merggenr2(genrs):
-                    if (indx, nid) == last:
-                        continue
-
-                    last = (indx, nid)
-
-                    if (node := await self.getNodeByNid(nid)) is None:
-                        continue
-
-                    if vgetr is not None:
-                        pvalu, valulayr = node.getWithLayer(prop.name)
-                        if lidx != valulayr:
-                            continue
-
-                        # currently form is the only liftable poly virt and is always decodable
-                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
-                            for vval in pvalu:
-                                if stortype.indx(vval)[0] == indx:
-                                    aval = vval
-                                    break
-                            else:
-                                continue
-
-                        vcnt = pvalu.count(aval)
-
-                    else:
-                        (pvalu, valulayr) = node.getRawWithLayer(prop.name)
-                        if lidx != valulayr:
-                            continue
-
-                        if (vinfo := pvalu[2].get(virt)) is None:
-                            continue
-
-                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                            for (vval, vtyp) in vinfo:
-                                if stortype.indx(vval)[0] == indx:
-                                    aval = vval
-                                    break
-                            else:
-                                continue
-
-                        if (vcnt := vinfo.get((aval, realtype))) is None:
-                            continue
-
-                    for _ in range(vcnt):
-                        yield node
-                        await asyncio.sleep(0)
-
-        else:
+        for cmprval in cmprvals:
             last = None
             genrs = []
-            realtype = cmprvals[0][-1]
-            stortype = self.layers[0].stortypes[realtype]
+            stortype = cmprval[-1]
 
             vgetr = None
-            if not isinstance(prop.type.arraytype.virtindx.get(virt), str):
-                vgetr = prop.type.arraytype.getVirtGetr(virt)
+            if (vinfo := prop.type.arraytype.virts.get(virt)) is not None:
+                vgetr = vinfo[1]
+                stortype = self.layers[0].polytype
+            else:
+                realtype = stortype & s_layer.STOR_MASK_POLY
+                stortype = self.layers[0].stortypes[realtype]
 
             for lidx, layr in enumerate(self.layers):
-                genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virt=virt)
+                genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
                 genrs.append(wrapgenr(lidx, genr))
 
             async for indx, nid, lidx in s_common.merggenr2(genrs):
@@ -3620,11 +3525,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
                 if vgetr is not None:
-                    (pvalu, valulayr) = node.getWithLayer(prop.name)
+                    pvalu, valulayr = node.getWithLayer(prop.name)
                     if lidx != valulayr:
                         continue
 
-                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                    # currently form is the only liftable poly virt and is always decodable
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
                         for vval in pvalu:
                             if stortype.indx(vval)[0] == indx:
                                 aval = vval
@@ -3635,15 +3541,14 @@ class View(s_nexus.Pusher):  # type: ignore
                     vcnt = pvalu.count(aval)
 
                 else:
-                    (valu, valulayr) = node.getRawWithLayer(prop.name)
+                    (pvalu, valulayr) = node.getRawWithLayer(prop.name)
                     if lidx != valulayr:
                         continue
 
-                    if (vinfo := valu[2].get(virt)) is None:
+                    if (vinfo := pvalu[2].get(virt)) is None:
                         continue
 
-                    # currently there are no non-poly virt that can fail to decode
-                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
                         for (vval, vtyp) in vinfo:
                             if stortype.indx(vval)[0] == indx:
                                 aval = vval

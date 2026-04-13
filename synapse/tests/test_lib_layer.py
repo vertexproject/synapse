@@ -2570,6 +2570,17 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
             self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
+            # repr with poly prop virt where prop is not set returns None
+            nodes = await core.nodes('[ test:guid=* ]')
+            self.none(nodes[0].repr('server.ip'))
+
+            # getWithLayer with getr
+            nodes = await core.nodes('inet:http:request:server.ip=127.0.0.4')
+            prop = core.model.prop('inet:http:request:server')
+            getr = prop.type.getVirtGetr('ip')
+            valu, layr = nodes[0].getWithLayer('server', getr=getr)
+            self.nn(valu)
+
             await core.nodes('inet:http:request:server.ip | [ -:server ]')
             self.len(0, await core.nodes('inet:http:request:server.ip'))
 
@@ -2676,6 +2687,16 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:guid +inet:http:request:server.ip=1.2.3.4'))
 
             self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
+
+            # getVirtIndx with invalid virt name
+            ival = core.model.type('ival')
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtIndx('newp')
+
+            # RuntNode.valu with getr
+            nodes = await core.nodes('syn:form=inet:server')
+            runtnode = nodes[0]
+            self.eq(runtnode.valu(getr=lambda x: x[0]), 'inet:server')
 
             layr = core.getLayer()
             indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', 'ip')
