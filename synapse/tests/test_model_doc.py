@@ -14,8 +14,7 @@ class DocModelTest(s_tests.SynTest):
                     :file=*
                     :created=20241018
                     :updated=20241018
-                    :author={[ entity:contact=* :name=visi ]}
-                    :contributors={[ entity:contact=* :name=shuka ]}
+                    :creator={[ entity:contact=* :name=visi ]}
                     :version=1.2.3
                     :supersedes={[ doc:policy=* doc:policy=* ]}
                 ]
@@ -29,15 +28,13 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'version', '1.2.3')
 
             self.nn(nodes[0].get('file'))
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
 
             self.len(2, nodes[0].get('supersedes'))
-            self.len(1, nodes[0].get('contributors'))
 
             self.len(1, await core.nodes('doc:policy:id=V-41 :file -> file:bytes'))
             self.len(2, await core.nodes('doc:policy:id=V-41 :supersedes -> doc:policy'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :author -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :contributors -> entity:contact +:name=shuka'))
+            self.len(1, await core.nodes('doc:policy:id=V-41 :creator -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
                 [ doc:standard=*
@@ -64,7 +61,7 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'id', 'V-99')
             self.propeq(nodes[0], 'desc', 'Some requirement text.')
             self.propeq(nodes[0], 'priority', 20)
-            self.false(nodes[0].get('optional'))
+            self.propeq(nodes[0], 'optional', 0)
             self.nn(nodes[0].get('standard'))
             self.len(1, await core.nodes('doc:requirement <(meets)- meta:technique'))
             self.len(1, await core.nodes('doc:requirement -> doc:standard'))
@@ -98,8 +95,6 @@ class DocModelTest(s_tests.SynTest):
             [ doc:contract=*
                 :title="Fullbright Scholarship"
                 :type=foo.bar
-                :issuer={[ ou:org=({"name": "vertex"}) ]}
-                :parties={[ entity:contact=* entity:contact=* ]}
                 :file={[ file:bytes=* ]}
                 :signed=202001
                 :period=(202002, 202003)
@@ -109,10 +104,6 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'signed', 1577836800000000)
             self.propeq(nodes[0], 'period', (1580515200000000, 1583020800000000, 2505600000000))
-            self.len(2, nodes[0].get('parties'))
-
-            self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
-            self.len(2, await core.nodes('doc:contract :parties -> *'))
 
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)
@@ -134,12 +125,12 @@ class DocModelTest(s_tests.SynTest):
                 doc:reference=*
                     :source={[ doc:report=* :title="an article about mars" ]}
                     :text="(Lee, 2020, para. 15)"
-                    :doc={[ doc:report=* :title="nasa mars report" :author={[ ps:person=* :name="bruce lee" ]} ]}
+                    :doc={[ doc:report=* :title="nasa mars report" :creator={[ ps:person=* :name="bruce lee" ]} ]}
                     :doc:url=https://nasa.gov/2020-mars
                     +#test00
             ]''')
             self.len(1, nodes)
-            self.eq('(Lee, 2020, para. 15)', nodes[0].get('text'))
+            self.propeq(nodes[0], 'text', '(Lee, 2020, para. 15)')
             self.propeq(nodes[0], 'doc:url', 'https://nasa.gov/2020-mars')
             self.len(1, await core.nodes('doc:reference#test00 :source -> doc:report'))
             self.len(1, await core.nodes('doc:reference#test00 :doc -> doc:report'))
@@ -155,3 +146,12 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'text', 'an exploit example')
             self.propeq(nodes[0], 'doc:url', 'https://github.com/foo/bar/exploit.py')
             self.len(1, await core.nodes('doc:reference#test01 :source -> risk:vuln'))
+
+            nodes = await core.nodes('''[
+                doc:report=*
+                    :id=RPT-001
+                    :ids=(RPT-001-A, RPT-001-B)
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'RPT-001')
+            self.propeq(nodes[0], 'ids', ('RPT-001-A', 'RPT-001-B'))

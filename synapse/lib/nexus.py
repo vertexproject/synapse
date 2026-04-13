@@ -533,7 +533,8 @@ class NexsRoot(s_base.Base):
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
 
             async def fini():
-                self._linkmirrors.remove(wind)
+                if wind in self._linkmirrors:
+                    self._linkmirrors.remove(wind)
 
             wind.onfini(fini)
 

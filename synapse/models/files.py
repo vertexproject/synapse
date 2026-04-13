@@ -114,55 +114,25 @@ class FilePath(s_types.Str):
         fullpath = lead + '/'.join(path)
 
         base = path[-1]
-        subs = {'base': (self.basetype.typehash, base, {})}
         virts = {'base': (base, self.basetype.stortype)}
 
         if '.' in base:
             ext = base.rsplit('.', 1)[1]
             extsub = (self.exttype.typehash, ext, {})
-            subs['ext'] = extsub
-            subs['base'][2]['subs'] = {'ext': extsub}
+            adds = (('file:base', base, {'subs': {'ext': extsub}}),)
             virts['ext'] = (ext, self.exttype.stortype)
+        else:
+            adds = (('file:base', base, {}),)
 
         if len(path) > 1:
             dirn, info = await self._normPyStr(lead + '/'.join(path[:-1]))
-            subs['dir'] = (self.typehash, dirn, info)
+            adds += (('file:path', dirn, info),)
             virts['dir'] = (dirn, self.stortype)
 
-        return fullpath, {'subs': subs, 'virts': virts}
+        return fullpath, {'adds': adds, 'virts': virts}
 
 modeldefs = (
-    ('file', {
-        'ctors': (
-
-            ('file:base', 'synapse.models.files.FileBase', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'file name'}}),
-                ),
-                'doc': 'A file name with no path.',
-                'ex': 'woot.exe'}),
-
-            ('file:path', 'synapse.models.files.FilePath', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'file path'}}),
-                ),
-                'virts': (
-                    ('dir', ('file:path', {}), {
-                        'computed': True,
-                        'doc': 'The directory from the path.'}),
-
-                    ('base', ('file:base', {}), {
-                        'computed': True,
-                        'doc': 'The file base name from the path.'}),
-
-                    ('ext', ('str', {}), {
-                        'computed': True,
-                        'doc': 'The file extension from the path.'}),
-                ),
-                'doc': 'A normalized file path.',
-                'ex': 'c:/windows/system32/calc.exe'}),
-        ),
-
+    {
         'interfaces': (
             ('file:mime:meta', {
                 'template': {'metadata': 'metadata'},
@@ -226,7 +196,7 @@ modeldefs = (
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'MIME specific altitude information extracted from metadata.'}),
 
-                    ('text', ('str', {'lower': True, 'onespace': True}), {
+                    ('text', ('base:name', {}), {
                         'doc': 'The text contained within the image.'}),
                 ),
                 'doc': 'Properties common to image file formats.',
@@ -257,6 +227,33 @@ modeldefs = (
         ),
 
         'types': (
+
+            ('file:base', (None, {'ctor': 'synapse.models.files.FileBase'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file name'}}),
+                ),
+                'ex': 'woot.exe',
+                'doc': 'A file name with no path.'}),
+
+            ('file:path', (None, {'ctor': 'synapse.models.files.FilePath'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'file path'}}),
+                ),
+                'virts': (
+                    ('dir', ('file:path', {}), {
+                        'computed': True,
+                        'doc': 'The directory from the path.'}),
+
+                    ('base', ('file:base', {}), {
+                        'computed': True,
+                        'doc': 'The file base name from the path.'}),
+
+                    ('ext', ('str', {}), {
+                        'computed': True,
+                        'doc': 'The file extension from the path.'}),
+                ),
+                'ex': 'c:/windows/system32/calc.exe',
+                'doc': 'A normalized file path.'}),
 
             ('file:bytes', ('guid', {}), {
                 'interfaces': (
@@ -418,6 +415,12 @@ modeldefs = (
             ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                 'doc': 'A key value pair found in a PE VS_VERSIONINFO structure.'}),
 
+            ('file:macho:loadcmd:type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                'doc': 'A Mach-O load command type.'}),
+
+            ('file:macho:section:type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                'doc': 'A Mach-O section type.'}),
+
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                 'doc': 'The typecode for the resource.'}),
 
@@ -489,13 +492,6 @@ modeldefs = (
 
                 ('mimes', ('array', {'type': 'file:mime'}), {
                     'doc': 'An array of alternate mime types for the file.'}),
-
-                # FIXME file:mime:exe interface?
-                # ('exe:compiler', ('it:software', {}), {
-                #     'doc': 'The software used to compile the file.'}),
-
-                # ('exe:packer', ('it:software', {}), {
-                #     'doc': 'The packer software used to encode the file.'}),
             )),
 
             ('file:mime', {}, ()),
@@ -702,7 +698,7 @@ modeldefs = (
             ('file:path', {}, ()),
 
             ('file:mime:macho:loadcmd', {}, (
-                ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                ('type', ('file:macho:loadcmd:type', {}), {
                     'doc': 'The type of the load command.'}),
             )),
 
@@ -736,7 +732,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'Name of the section.'}),
 
-                ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                ('type', ('file:macho:section:type', {}), {
                     'doc': 'The type of the section.'}),
 
                 ('sha256', ('crypto:hash:sha256', {}), {
@@ -806,5 +802,5 @@ modeldefs = (
                     'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
             )),
         ),
-    }),
+    },
 )

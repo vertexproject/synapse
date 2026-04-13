@@ -46,6 +46,9 @@ info_ignores = (
     'display',
     'deprecated',
     'props',
+    'virts',
+    'prevnames',
+    'interfaces',
 )
 
 raw_back_slash_colon = r'\:'
@@ -353,7 +356,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
             for pname, (ptname, ptopts), popts in props:
 
-                _ = popts.pop('doc', None)
+                popts.pop('doc', None)
                 doc = dochelp.props.get((name, pname))
                 if not doc.endswith('.'):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
@@ -363,12 +366,13 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
                 rst.addLines(f'      * - ``:{pname}``',)
                 if ptopts:
+                    ptopts.pop('default_types', None)
 
                     rst.addLines(f'        - | :ref:`{hptlink}`', )
                     for k, v in ptopts.items():
                         if ptname == 'array' and k == 'type':
                             if isinstance(v, tuple):
-                                v = 'polyprop'
+                                v = 'poly'
                             tlink = f'dm-type-{v.replace(":", "-")}'
                             rst.addLines(f'          | {k}: :ref:`{tlink}`', )
                         else:
@@ -638,10 +642,15 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
 
 async def docModel(outp,
                    core):
-    modeldefs = await core.getModelDefs()
-    _, model = modeldefs[0]
+    model = await core.getModelDef()
 
-    ctors = model.get('ctors')
+    ctors = []
+    for typename, typedef, typeinfo in model.get('types', ()):
+        if typedef[0] is None:
+            typeopts = dict(typedef[1])
+            ctor = typeopts.pop('ctor')
+            ctors.append((typename, ctor, typeopts, dict(typeinfo)))
+
     forms = model.get('forms')
     edges = model.get('edges')
     props = collections.defaultdict(list)

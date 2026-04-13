@@ -1351,6 +1351,26 @@ class TeleTest(s_t_utils.SynTest):
                     foo.link.set('hostname', sni)
                     self.eq('woot', await foo.echo('woot'))
 
+    async def test_taskv2_unexpected_mesg(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            async with await s_telepath.openurl(url) as proxy:
+
+                mocklink = mock.MagicMock()
+                mocklink.tx = mock.AsyncMock()
+                mocklink.rx = mock.AsyncMock(return_value=('t2:unknwn', {}))
+                mocklink.fini = mock.AsyncMock()
+
+                with mock.patch.object(proxy, 'getPoolLink', mock.AsyncMock(return_value=mocklink)):
+                    with self.raises(s_exc.BadMesgFormat):
+                        await proxy.bar(1, 2)
+
+                mocklink.fini.assert_called_once()
+
     async def test_telepath_getviewdef(self):
 
         async with self.getTestCore() as core:

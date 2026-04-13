@@ -1,5 +1,5 @@
 modeldefs = (
-    ('lang', {
+    {
 
         'interfaces': (
             ('lang:transcript', {
@@ -40,9 +40,6 @@ modeldefs = (
                     ('edu:learnable', {}),
                 ),
                 'doc': 'A specific written or spoken language.'}),
-
-            ('lang:statement', ('guid', {}), {
-                'doc': 'A single statement which is part of a transcript.'}),
 
         ),
         'forms': (
@@ -102,26 +99,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'lang:name'}), {
                     'doc': 'An array of alternative names for the language.'}),
             )),
-
-            ('lang:statement', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the speaker made the statement.'}),
-
-                ('transcript', ('lang:transcript', {}), {
-                    'doc': 'The transcript where the statement was recorded.'}),
-
-                ('transcript:offset', ('duration', {}), {
-                    'doc': 'The time offset of the statement within the transcript.'}),
-
-                ('speaker', ('entity:actor', {}), {
-                    'doc': 'The entity making the statement.'}),
-
-                ('text', ('str', {}), {
-                    'doc': 'The transcribed text of the statement.'}),
-            )),
-
         ),
 
-    }),
+    },
 )

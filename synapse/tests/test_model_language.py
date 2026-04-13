@@ -20,8 +20,8 @@ class LangModuleTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'input', 'Hola')
             self.propeq(nodes[0], 'output', 'Hi')
-            self.propeq(nodes[0], 'input:lang', '0eae93b46d1c1951525424769faa5205')
-            self.propeq(nodes[0], 'output:lang', 'a8eeae81da6c305c9cf6e4962bd106b2')
+            self.propeq(nodes[0], 'input:lang', '83e8f5fe6992924a7e88916cf8b5ba36')
+            self.propeq(nodes[0], 'output:lang', '577f4caf89d89fcc9d605c33fd803af8')
             self.propeq(nodes[0], 'desc', 'Greetings')
 
             self.len(1, await core.nodes('lang:phrase -> lang:translation:input'))
@@ -37,22 +37,6 @@ class LangModuleTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
             self.len(1, nodes)
             self.eq('For   The  People', nodes[0].repr())
-
-            nodes = await core.nodes('''
-                [ lang:statement=*
-                    :time=20150823
-                    :speaker={[ ps:person=({"name": "visi"}) ]}
-                    :text="We should be handing out UNCs like candy."
-                    :transcript={[ ou:meeting=* ]}
-                    :transcript:offset=02:00
-                ]
-            ''')
-            self.len(1, nodes)
-            self.propeq(nodes[0], 'time', 1440288000000000)
-            self.propeq(nodes[0], 'transcript:offset', 120000000)
-            self.propeq(nodes[0], 'text', 'We should be handing out UNCs like candy.')
-            self.len(1, await core.nodes('lang:statement :speaker -> ps:person +:name=visi'))
-            self.len(1, await core.nodes('lang:statement :transcript -> ou:meeting'))
 
     async def test_hashtag(self):
 

@@ -1,9 +1,9 @@
 modeldefs = (
-    ('econ', {
+    {
 
-        'ctors': (
-            ('econ:price', 'synapse.lib.types.Price', {}, {
-                'doc': 'The amount of money expected, required, or given in payment for something.',
+        'types': (
+
+            ('econ:price', (None, {'ctor': 'synapse.lib.types.Price'}), {
                 'ex': '2.20',
                 'virts': (
 
@@ -13,10 +13,7 @@ modeldefs = (
                     ('asof', ('time', {}), {
                         'doc': 'The time the price was sampled or recorded.'}),
                 ),
-            }),
-        ),
-
-        'types': (
+                'doc': 'The amount of money expected, required, or given in payment for something.'}),
 
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),
@@ -153,6 +150,12 @@ modeldefs = (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
+            ('econ:acct:number', ('str', {'regex': '[0-9]{1, 12}'}), {
+                'doc': 'A bank account number.'}),
+
+            ('econ:invoice:number', ('str', {'regex': '[0-9]+'}), {
+                'doc': 'An invoice or transaction number.'}),
         ),
 
         'interfaces': (
@@ -181,6 +184,9 @@ modeldefs = (
 
             (('econ:statement', 'has', 'econ:payment'), {
                 'doc': 'The financial statement includes the payment.'}),
+
+            (('econ:purchase', 'ledto', 'econ:payment'), {
+                'doc': 'The purchase led to the payment.'}),
         ),
 
         'forms': (
@@ -237,7 +243,7 @@ modeldefs = (
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The ABA routing number on the check.'}),
 
-                ('account:number', ('str', {'regex': '[0-9]{1, 12}'}), {
+                ('account:number', ('econ:acct:number', {}), {
                     'doc': 'The bank account number.'}),
             )),
 
@@ -245,7 +251,10 @@ modeldefs = (
 
                 ('seller', ('entity:actor', {}), {
                     'prevnames': ('from:contact',),
-                    'doc': 'The seller which sold the items.'}),
+                    'doc': 'The actor who sold the items.'}),
+
+                ('seller:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who sold the items.'}),
 
                 ('paid', ('time', {}), {
                     'doc': 'The time when the purchase was paid in full.'}),
@@ -262,8 +271,10 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                # FIXME rename biz:sellable? donation / volunteers
-                ('item', (('biz:product', 'biz:service'), {}), {
+                ('item', (
+                        ('biz:service', {}),
+                        ('meta:havable', {}),
+                    ), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
             )),
@@ -313,7 +324,7 @@ modeldefs = (
                 ('cash', ('bool', {}), {
                     'doc': 'The payment was made with physical currency.'}),
 
-                ('status', ('str', {'lower': True}), {
+                ('status', ('str:lower', {}), {
                     'doc': 'The status of the payment.'}),
 
                 ('payee', ('entity:actor', {}), {
@@ -381,13 +392,12 @@ modeldefs = (
                 ('exchange', ('econ:fin:exchange', {}), {
                     'doc': 'The exchange on which the security is traded.'}),
 
-                ('ticker', ('str', {'lower': True}), {
+                ('ticker', ('str:lower', {}), {
                     'doc': 'The identifier for this security within the exchange.'}),
 
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
                     'doc': 'The type of security.'}),
 
-                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The last known/available price of the security.'}),
 
@@ -461,7 +471,6 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
-                # FIXME entity:contact?
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity which issued the receipt.'}),
 
@@ -526,9 +535,9 @@ modeldefs = (
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The routing number.'}),
 
-                ('number', ('str', {'regex': '[0-9]+'}), {
+                ('number', ('econ:invoice:number', {}), {
                     'doc': 'The account number.'}),
             )),
         ),
-    }),
+    },
 )

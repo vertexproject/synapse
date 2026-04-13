@@ -429,8 +429,8 @@ class FileTest(s_t_utils.SynTest):
             norm, info = await path.norm('c:\\Windows\\System32\\calc.exe')
 
             self.eq(norm, 'c:/windows/system32/calc.exe')
-            self.eq(info['subs']['dir'][1], 'c:/windows/system32')
-            self.eq(info['subs']['base'][1], 'calc.exe')
+            self.eq(info['virts']['dir'][0], 'c:/windows/system32')
+            self.eq(info['virts']['base'][0], 'calc.exe')
 
             norm, info = await path.norm(r'/foo////bar/.././baz.json')
             self.eq(norm, '/foo/baz.json')
@@ -443,17 +443,17 @@ class FileTest(s_t_utils.SynTest):
 
             norm, info = await path.norm('c:')
             self.eq(norm, 'c:')
-            subs = info.get('subs')
-            self.none(subs.get('ext'))
-            self.none(subs.get('dir'))
-            self.eq(subs.get('base')[1], 'c:')
+            virts = info.get('virts')
+            self.none(virts.get('ext'))
+            self.none(virts.get('dir'))
+            self.eq(virts.get('base')[0], 'c:')
 
             norm, info = await path.norm('/foo')
             self.eq(norm, '/foo')
-            subs = info.get('subs')
-            self.none(subs.get('ext'))
-            self.none(subs.get('dir'))
-            self.eq(subs.get('base')[1], 'foo')
+            virts = info.get('virts')
+            self.none(virts.get('ext'))
+            self.none(virts.get('dir'))
+            self.eq(virts.get('base')[0], 'foo')
 
             nodes = await core.nodes('[file:path=$valu :seen=2022]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
@@ -462,10 +462,10 @@ class FileTest(s_t_utils.SynTest):
             self.propeq(node, '.ext', 'exe')
             self.propeq(node, '.dir', '/foo/bar')
             self.nn(node.get('seen'))
-            # FIXME virts need to autoadd!
-            # self.len(1, await core.nodes('file:path="/foo/bar"'))
-            # self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
-            # self.len(1, await core.nodes('file:base^=baz'))
+            self.len(1, await core.nodes('file:path="/foo/bar"'))
+            self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
+            self.len(1, await core.nodes('file:base^=baz'))
+
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/'}})
             self.len(1, nodes)
             node = nodes[0]
@@ -523,7 +523,7 @@ class FileTest(s_t_utils.SynTest):
 
                 self.propeq(n, 'file', fileguid)
                 self.propeq(n, 'file:offs', 0)
-                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.propeq(n, 'file:data', ('foo', 'bar'))
 
             nodes = await core.nodes('''[
                 file:mime:msdoc=*
@@ -588,7 +588,7 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'file', fileguid)
             self.propeq(nodes[0], 'file:offs', 0)
-            self.eq(('foo', 'bar'), nodes[0].get('file:data'))
+            self.propeq(nodes[0], 'file:data', ('foo', 'bar'))
             self.propeq(nodes[0], 'guid', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
     async def test_model_file_meta_exif(self):
@@ -606,14 +606,14 @@ class FileTest(s_t_utils.SynTest):
             def testexif(n):
                 self.propeq(n, 'file', fileguid)
                 self.propeq(n, 'file:offs', 0)
-                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.propeq(n, 'file:data', ('foo', 'bar'))
                 self.propeq(n, 'desc', 'aaaa')
                 self.propeq(n, 'comment', 'bbbb')
                 self.propeq(n, 'text', 'foo bar')
                 self.propeq(n, 'created', 1578236238000000)
                 self.propeq(n, 'id', 'a6b4')
                 self.propeq(n, 'author', conguid)
-                self.eq((38.9582839, -77.358946), n.get('latlong'))
+                self.propeq(n, 'latlong', (38.9582839, -77.358946))
                 self.propeq(n, 'altitude', 6371137800)
 
             nodes = await core.nodes('''[

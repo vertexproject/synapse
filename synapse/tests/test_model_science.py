@@ -31,7 +31,7 @@ class SciModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'type', 'lab.light.')
             self.propeq(nodes[0], 'name', 'double-slit')
             self.propeq(nodes[0], 'desc', 'Foo bar baz.')
-            self.eq((1710806400000000, 1710892800000000, 86400000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1710806400000000, 1710892800000000, 86400000000))
             self.nn(nodes[0].get('actor'))
             self.len(1, await core.nodes('sci:experiment :actor -> entity:contact +:name=feynman'))
 
@@ -53,6 +53,8 @@ class SciModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('observation'))
             self.propeq(nodes[0], 'refutes', False)
             self.propeq(nodes[0], 'desc', "Shadows in wave diffusion pattern support the hypothesis.")
+
+            self.len(1, await core.nodes('sci:evidence -> sci:hypothesis'))
 
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)

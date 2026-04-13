@@ -23,8 +23,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
-            self.eq('poly', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
-            self.eq(s_layer.STOR_TYPE_POLY, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
+            self.eq('inet:ip', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).types.0.name)'))
+            self.eq(s_layer.STOR_TYPE_IPADDR, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).types.0.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
             self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ip).repr(([4, $(0x01020304)])))'))
@@ -67,7 +67,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
-            self.stormIsInPrint("'type': ('poly', {'forms': ('entity:name',), 'interfaces': ()})", mesgs)
+            self.stormIsInPrint("{'default_types': ('entity:name',), 'types': ('entity:name',)}", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
@@ -104,17 +104,17 @@ class StormlibModelTest(s_test.SynTest):
             self.true(await core.callStorm('return(("poly" in $lib.model.form(test:str).props))'))
             self.false(await core.callStorm('return(("newp" in $lib.model.form(test:str).props))'))
 
-            forms = await core.callStorm('return($lib.model.form(test:str).props.poly.allowedforms)')
-            forms = [fdef['name'] for fdef in forms]
-            self.isin('test:int', forms)
-            self.isin('test:hasiface', forms)
+            types = await core.callStorm('return($lib.model.form(test:str).props.poly.types)')
+            types = [tdef[0] for tdef in types]
+            self.isin('test:int', types)
+            self.isin('test:hasiface', types)
 
-            forms = await core.callStorm('return($lib.model.form(test:str).props.polyarry.allowedforms)')
-            forms = [fdef['name'] for fdef in forms]
-            self.isin('test:int', forms)
-            self.isin('test:hasiface', forms)
+            types = await core.callStorm('return($lib.model.form(test:str).props.polyarry.types)')
+            types = [tdef[0] for tdef in types]
+            self.isin('test:int', types)
+            self.isin('test:hasiface', types)
 
-            self.len(0, await core.callStorm('return($lib.model.form(test:str).props.hehe.allowedforms)'))
+            self.len(1, await core.callStorm('return($lib.model.form(test:str).props.hehe.types)'))
 
     async def test_stormlib_model_depr(self):
 
@@ -122,7 +122,7 @@ class StormlibModelTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core._addDataModels(s_test.deprmodel)
+                await core._addModelDefs(s_test.deprmodel)
 
                 # create both a deprecated form and a node with a deprecated prop
                 await core.nodes('[ test:deprform=* :deprprop2=foo test:deprprop=baz ]')
@@ -162,7 +162,7 @@ class StormlibModelTest(s_test.SynTest):
             # ensure that the locks persisted and got loaded correctly
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core._addDataModels(s_test.deprmodel)
+                await core._addModelDefs(s_test.deprmodel)
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 # warn due to unlocked
@@ -187,7 +187,7 @@ class StormlibModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(s_test.deprmodel)
+            await core._addModelDefs(s_test.deprmodel)
 
             mesgs = await core.stormlist('model.deprecated.check')
 

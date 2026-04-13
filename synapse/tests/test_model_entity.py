@@ -134,21 +134,20 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ndef)
 
             nodes = await core.nodes('''[
-                entity:attendee=*
-                    :person={[ ps:person=* ]}
+                entity:attended=*
+                    :actor={[ ps:person=* ]}
                     :period=(201202,201203)
-                    :event={[ ou:event=* ]}
-                    :roles+=staff
-                    :roles+=STAFF
+                    :activity={[ ou:event=* ]}
+                    :role=staff
             ]''')
             self.len(1, nodes)
-            self.eq(('staff',), nodes[0].get('roles'))
+            self.propeq(nodes[0], 'role', 'staff')
             self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
-            self.len(1, await core.nodes('entity:attendee -> ps:person'))
+            self.len(1, await core.nodes('entity:attended -> ps:person'))
 
-            self.len(1, await core.nodes('entity:attendee -> ou:event'))
-            self.len(1, await core.nodes('entity:attendee :event -> ou:event'))
+            self.len(1, await core.nodes('entity:attended -> ou:event'))
+            self.len(1, await core.nodes('entity:attended :activity -> ou:event'))
 
             nodes = await core.nodes('''
                 [ entity:campaign=*
@@ -203,7 +202,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :parent={[ meta:technique=* :name=metawoot ]}
-                    :used=(2025, 20260124)
                 ]
             ''')
             self.len(1, nodes)
@@ -216,7 +214,6 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'id', 'Foo')
             self.propeq(nodes[0], 'sophistication', 40)
             self.propeq(nodes[0], 'reporter:name', 'vertex')
-            self.propeq(nodes[0], 'used', (1735689600000000, 1769212800000000, 33523200000000))
             self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))

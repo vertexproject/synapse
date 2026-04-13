@@ -49,7 +49,7 @@ inherit the interface.
 .. TIP::
   
   In a production instance of Synapse, lifting **all** nodes of a commonly used form (e.g., ``inet:fqdn`` or
-  ``inet:ip``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:activity``)
+  ``inet:ip``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:event``)
   may return thousands or tens of thousands of nodes. Lifting by form or interface can be used with the Storm
   :ref:`storm-limit` command to return only a specified number of nodes (for example, to view a sample of
   available data).
@@ -139,13 +139,13 @@ You can use the name of an :ref:`interface` to lift all forms that inherit that 
 
 **Examples:**
 
-*Lift all host activity nodes (all nodes of all forms that inherit it:host:activity interface):*
+*Lift all host event nodes (all nodes of all forms that inherit it:host:event interface):*
 
 .. storm-pre:: [ it:exec:file:add=* it:exec:windows:registry:set=* it:exec:fetch=*  ]
-.. storm-pre:: it:host:activity
+.. storm-pre:: it:host:event
 ::
-  
-  it:host:activity
+
+  it:host:event
 
 *Lift all taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 
@@ -211,14 +211,14 @@ by specifying the full name of the interface and its property.
 
 **Examples:**
 
-*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
+*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that have a :time property:*
 
-.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:fetch=* :time=2023/12/18) ] 
-.. storm-pre:: it:host:activity:time
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:fetch=* :time=2023/12/18) ]
+.. storm-pre:: it:host:event:time
 
 ::
-  
-  it:host:activity:time
+
+  it:host:event:time
 
 *Lift all protocol request nodes (all nodes of all forms that inherit the inet:proto:request interface) that have an associated network flow (i.e., that have a :flow property):*
 
@@ -498,14 +498,14 @@ by using the name of the interface.
 
 **Examples:**
 
-*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) associated with the host name "ron-pc":*
+*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) associated with the host name "ron-pc":*
 
 .. storm-pre:: [ ( it:host=* :name=ron-pc ) ( it:exec:file:add=* :host={ it:host:name=ron-pc } ) ( it:exec:fetch=* :host={ it:host:name=ron-pc } ) ]
-.. storm-pre:: it:host:activity:host = { it:host:name=ron-pc } 
+.. storm-pre:: it:host:event:host = { it:host:name=ron-pc }
 
 ::
-  
-  it:host:activity:host = { it:host:name=ron-pc }
+
+  it:host:event:host = { it:host:name=ron-pc }
 
 .. TIP::
   
@@ -514,14 +514,14 @@ by using the name of the interface.
   insetad of specifying the guid value directly. Subqueries are a useful way to work with guid forms by referencing
   nodes using more human-friendly secondary property values. See :ref:`subquery-ref-nodes` for a more detailed discussion.
 
-*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that were observed on or after February 1, 2024:*
+*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that were observed on or after February 1, 2024:*
 
 .. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:windows:registry:del=* :time=2023/06/23) (it:exec:fetch=* :time=2024/02/04) ]
-.. storm-pre:: it:host:activity:time >= 2024/02/01
+.. storm-pre:: it:host:event:time >= 2024/02/01
 
 ::
-  
-  it:host:activity:time >= 2024/02/01
+
+  it:host:event:time >= 2024/02/01
 
 
 .. _lift-prop-std-meta:
@@ -789,14 +789,14 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   doc:report:published @= ( now, '-1 day' )
 
-*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that occurred within the past three hours:*
+*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that occurred within the past three hours:*
 
-.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:mutex=* :time=2024/01/15) ]
-.. storm-pre:: it:host:activity:time @= (now, '-3 hours')
+.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:mutex:add=* :time=2024/01/15) ]
+.. storm-pre:: it:host:event:time @= (now, '-3 hours')
 
 ::
-  
-  it:host:activity:time @= (now, '-3 hours')
+
+  it:host:event:time @= (now, '-3 hours')
 
 **Usage Notes:**
 
@@ -1361,12 +1361,12 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
   
   When using the ``reverse`` keyword to lift by secondary property value using an :ref:`interface` name, Synapse
   performs the lifts for each form in parallel, and yields the results in descending order. For example, the following
-  query will return all nodes of all forms that inherit the ``it:host:activity`` interface that have a ``:time``
+  query will return all nodes of all forms that inherit the ``it:host:event`` interface that have a ``:time``
   value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
-  
+
   ::
-    
-    reverse (it:host:activity:time >= 2024/02/01)
+
+    reverse (it:host:event:time >= 2024/02/01)
 
 
 **Syntax:**

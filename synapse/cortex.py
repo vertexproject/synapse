@@ -214,8 +214,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -333,6 +333,19 @@ class CoreApi(s_cell.CellApi):
             BadSyntaxError: If the query is invalid.
         '''
         return await self.cell.reqValidStorm(text, opts)
+
+    async def isValidStorm(self, text, *, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts=opts)
 
     async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
@@ -732,11 +745,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
         self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
         self._pkgOnloadTasks = {}  # name: asyncio.Task
 
         self.svcsbyiden = {}
@@ -818,6 +833,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1238,13 +1254,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        if self.isactive:
-            await self._checkLayerModels()
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1257,6 +1269,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1275,11 +1289,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 else:
                     self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -2689,12 +2707,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgState(name, verskey) is None:
+                        await self.setStormPkgState(name, verskey, -1)
 
                 else:
                     inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
+                    curvers = await self.getStormPkgState(name, verskey)
                     if curvers is None:
                         inaugural = True
                         curvers = -1
@@ -2708,7 +2726,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgState(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2745,9 +2763,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        curvers = max(vers, stored := await self.getStormPkgState(name, verskey, default=-1))
                         if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                            await self.setStormPkgState(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -3078,6 +3096,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in pkgvars.items():
             yield item
 
+    # Storm package state APIs
+
+    def _getStormPkgStateKV(self, name):
+        if (pkgstate := self.stormpkgstate.get(name)) is None:
+            self.stormpkgstate[name] = pkgstate = self.cortexdata.getSubKeyVal(f'stormpkg:state:{name}:')
+        return pkgstate
+
+    async def getStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:pop')
+    async def popStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:set')
+    async def setStormPkgState(self, name, key, valu):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.set(key, valu)
+
+    async def iterStormPkgState(self, name):
+        pkgstate = self._getStormPkgStateKV(name)
+        for item in pkgstate.items():
+            yield item
+
     async def addStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -3173,10 +3217,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self.model.addModelDefs(mdefs)
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
@@ -3537,18 +3581,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # TODO: do we actually want to auto-convert to poly props?
-        typename, typeinfo = tdef
-        if not typeinfo:
-            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.model.forminfos)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.model.ifaces)
-            typename = 'poly'
-            tdef = (typename, typeinfo)
+        tdef = self.model.convertTypedef(tdef)
 
         self.model.getTypeClone(tdef)
 
@@ -4088,6 +4121,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -4299,8 +4333,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''
@@ -4815,6 +4849,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             newlayers[oldlayers.index(oldiden)] = newiden
 
             await view._setLayerIdens(newlayers)
+            view.clearCache()
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):
@@ -5854,6 +5889,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mode = opts.get('mode', 'storm')
         await self.getStormQuery(text, mode=mode)
         return True
+
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except Exception as e:
+            return s_common.retnexc(e)
 
     def _logStormQuery(self, text, user, info=None):
         '''

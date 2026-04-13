@@ -718,11 +718,11 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(core0.auth.rootuser.iden, meta.get('user'))
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(6, offs)
+                self.eq(5, offs)
                 self.eq(['test:str', 'bar'], nodeedits[0][:2])
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(7, offs)
+                self.eq(6, offs)
                 self.eq(['test:str', 'baz'], nodeedits[0][:2])
 
                 # Once we've caught back up to the end of the nexus log, we shouldn't get a duplicate from the window
@@ -730,7 +730,7 @@ class LayerTest(s_t_utils.SynTest):
                 await core0.nodes('[ test:str=faz ]')
 
                 offs, nodeedits, meta = await task
-                self.eq(8, offs)
+                self.eq(7, offs)
                 self.eq(['test:str', 'faz'], nodeedits[0][:2])
 
                 await genr.aclose()
@@ -1634,7 +1634,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr.getStorNode(nid)
             self.eq('foo', sode['valu'][0])
-            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0][1])
 
             s_common.gendir(layr.dirn, 'adir')
 
@@ -1647,7 +1647,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = copylayr.getStorNode(nid)
             self.eq('foo', sode['valu'][0])
-            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0][1])
 
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
@@ -2332,21 +2332,21 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str:poly={[test:str=newp]}'))
 
-            self.len(1, await core.nodes('test:str:poly.form=test:int'))
-            self.len(1, await core.nodes('test:str:poly.form=inet:fqdn'))
-            self.len(0, await core.nodes('test:str:poly.form=test:str'))
+            self.len(1, await core.nodes('test:str:poly.type=test:int'))
+            self.len(1, await core.nodes('test:str:poly.type=inet:fqdn'))
+            self.len(0, await core.nodes('test:str:poly.type=test:str'))
 
-            self.len(2, await core.nodes('test:str.created +:poly.form'))
-            self.len(1, await core.nodes('test:str.created +:poly.form=inet:fqdn'))
+            self.len(2, await core.nodes('test:str.created +:poly.type'))
+            self.len(1, await core.nodes('test:str.created +:poly.type=inet:fqdn'))
 
-            self.len(2, await core.nodes('test:str:polyarry*[.form=test:int]'))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=inet:fqdn]'))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(2, await core.nodes('test:str:polyarry*[.type=test:int]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=inet:fqdn]'))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
-            self.len(1, await core.nodes('test:str.created +:polyarry*[.form=inet:fqdn]'))
+            self.len(1, await core.nodes('test:str.created +:polyarry*[.type=inet:fqdn]'))
 
-            with self.raises(s_exc.NoSuchForm):
-                await core.nodes('test:str:poly.form=newp')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:poly.type=newp')
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp=newp')
@@ -2856,11 +2856,14 @@ class LayerTest(s_t_utils.SynTest):
             infork = {'view': fork00['iden']}
 
             await core.nodes('''
+                $typeopts = ({'enums': [[10, "low"], [20, "medium"], [30, "high"]]})
+                $lib.model.ext.addType('_custom:risk:level', 'int', $typeopts, ({}))
+
                 for $prop in (_custom:risk:level, _custom:risk:severity) {
                     $lib.model.ext.addFormProp(
                         test:guid,
                         $prop,
-                        (["int", {"enums": [[10, "low"], [20, "medium"], [30, "high"]]}]),
+                        (["_custom:risk:level", {}]),
                         ({"doc": "hey now"}),
                     )
                 }
@@ -2925,7 +2928,7 @@ class LayerTest(s_t_utils.SynTest):
                 for $layer in $lib.layer.list() {
                     for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
                         $oldv = $sode.props."_custom:risk:level"
-                        $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0)
+                        $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0.1)
                         $layer.delStorNodeProp($nid, $fullprop)
 
                         $layer.delNodeData($nid, foo)
@@ -2946,7 +2949,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].iden(), testnode00[1]['iden'])
             self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][1])
-            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'])
+            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'][1])
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
             inview = {'view': view00}
@@ -2984,7 +2987,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
             self.len(1, await core.nodes('[test:str=virts :polyarry={[test:str=foo1 test:int=3]}]'))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts2 = {'view': viewiden2, 'vars': {'long': 'a' * 500}}
@@ -3003,8 +3006,8 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=virts')
             sode = nodes[0].sodes[0]
             sode['props']['polyarry'] = ((('test:int', 3),), *sode['props']['polyarry'][1:])
-            self.len(0, await core.nodes('test:str:polyarry*[.form=test:str]'))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=test:int]'))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:int]'))
 
             forkview = core.getView(viewiden2)
             await core.nodes('[ test:arrayprop=(0,) :strs=($long, $long) ]', opts=viewopts2)
@@ -3030,7 +3033,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:arrayprop=(2,) :plainstr=(v4,) ]', opts=viewopts2)
 
             # Invalid array index coverage
-            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'plainstr', ('a' * 500,))
+            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'plainstr', (('str', 'a' * 500),))
 
             self.len(0, await core.nodes('test:arrayprop:plainstr*[=$long]', opts=viewopts2))
             self.len(0, await core.nodes('test:arrayprop:plainstr*[=v3]', opts=viewopts2))
@@ -3048,22 +3051,22 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes(q)
 
             self.len(2, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
-            self.len(3, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(3, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry [ :polyarry={ inet:server=tcp://1.2.3.4:90 } ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(1, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry [ -:polyarry ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry | delnode', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
             viewopts3 = {'view': viewiden3}
@@ -3119,4 +3122,4 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
 
             nodes = await core.nodes('[ test:str=empty ]')
-            self.eq(((None, None), None), nodes[0].getRawWithLayer('polyarry'))
+            self.eq(((None, None, None), None), nodes[0].getRawWithLayer('polyarry'))

@@ -1,5 +1,5 @@
 modeldefs = (
-    ('sci', {
+    {
         'types': (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -96,7 +96,7 @@ modeldefs = (
 
             ('sci:evidence', {}, (
 
-                ('hypothesis', ('sci:experiment', {}), {
+                ('hypothesis', ('sci:hypothesis', {}), {
                     'doc': 'The hypothesis which the evidence supports or refutes.'}),
 
                 ('observation', ('sci:observation', {}), {
@@ -109,5 +109,5 @@ modeldefs = (
                     'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),
             )),
         ),
-    }),
+    },
 )

@@ -159,7 +159,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :period=(20250120, 20290120)
                 ]
             ''')
-            self.eq((1737331200000000, 1863561600000000, 126230400000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1737331200000000, 1863561600000000, 126230400000000))
             self.len(1, await core.nodes('pol:term -> pol:race'))
             self.len(1, await core.nodes('pol:term -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:term -> pol:office +:title=potus'))
@@ -202,4 +202,4 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('contact'))
             self.propeq(nodes[0], 'state', 'requested')
             self.propeq(nodes[0], 'type', 'citizen.naturalized.')
-            self.eq((1679961600000000, 1704067200000000, 24105600000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1679961600000000, 1704067200000000, 24105600000000))

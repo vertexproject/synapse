@@ -1,6 +1,9 @@
 modeldefs = (
-    ('transport', {
+    {
         'types': (
+
+            ('transport:trip:status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
+                'doc': 'A transport trip status.'}),
 
             # TODO is transport:journey a thing?
 
@@ -175,18 +178,11 @@ modeldefs = (
             ('transport:container', {
                 'interfaces': (
                     ('phys:object', {}),
+                    ('meta:havable', {}),
+                    ('entity:creatable', {}),
                 ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
-
-                    ('built', ('time', {}), {
-                        'doc': 'The date when the {title} was built.'}),
-
-                    ('manufacturer', ('entity:actor', {}), {
-                        'doc': 'The organization which manufactured the {title}.'}),
-
-                    ('manufacturer:name', ('entity:name', {}), {
-                        'doc': 'The name of the organization which manufactured the {title}.'}),
 
                     ('model', ('base:name', {}), {
                         'doc': 'The model of the {title}.'}),
@@ -194,7 +190,7 @@ modeldefs = (
                     ('serial', ('base:id', {}), {
                         'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
-                    ('max:occupants', ('int', {'min': 0}), {
+                    ('max:occupants', ('int:min0', {}), {
                         'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('mass', {}), {
@@ -202,10 +198,6 @@ modeldefs = (
 
                     ('max:cargo:volume', ('geo:dist', {}), {
                         'doc': 'The maximum volume the {title} can carry as cargo.'}),
-
-                    # FIXME ownership interface?
-                    ('owner', ('entity:actor', {}), {
-                        'doc': 'The contact information of the owner of the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...
@@ -282,10 +274,10 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
+                    ('status', ('transport:trip:status', {}), {
                         'doc': 'The status of the {trip}.'}),
 
-                    ('occupants', ('int', {'min': 0}), {
+                    ('occupants', ('int:min0', {}), {
                         'doc': 'The number of occupants of the {vehicle} on this {trip}.'}),
 
                     ('cargo:mass', ('mass', {}), {
@@ -443,7 +435,7 @@ modeldefs = (
                 ('airspeed', ('velocity', {}), {
                     'doc': 'The air speed of the aircraft at the time.'}),
 
-                ('verticalspeed', ('velocity', {'relative': True}), {
+                ('verticalspeed', ('velocity:relative', {}), {
                     'doc': 'The relative vertical speed of the aircraft at the time.'}),
 
                 ('time', ('time', {}), {
@@ -595,5 +587,5 @@ modeldefs = (
 
             ('transport:shipping:container', {}, ()),
         ),
-    }),
+    },
 )

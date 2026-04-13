@@ -44,7 +44,7 @@ stormcmds = [
         ),
         'storm': '''
             $kild = $lib.task.kill($cmdopts.iden)
-            $lib.print("kill status: {kild}", kild=$kild)
+            $lib.print(`kill status: {$kild}`)
         ''',
     },
 ]

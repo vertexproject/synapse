@@ -212,6 +212,12 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
+                # invalid loglevel
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT',
+                        'storm': '$lib.print(hehe)', 'loglevel': 'nope',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(s_exc.SchemaViolation, agenda.add(cdef))
+
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
                 cdef = {'user': core.auth.rootuser.iden, 'iden': doit,
@@ -319,7 +325,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # Test that isrunning updated, cancelling works
                 cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ip=([4, 1]) ] | sleep 120',
-                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
+                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1,
+                        'loglevel': 'CRITICAL'}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
@@ -329,6 +336,7 @@ class AgendaTest(s_t_utils.SynTest):
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
                 self.eq(core.view.iden, appt.task.info.get('view'))
+                self.eq(appt.loglevel, 'CRITICAL')
 
                 self.true(await core._killCronTask(guid))
 

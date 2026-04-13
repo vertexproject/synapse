@@ -53,5 +53,5 @@ class MatTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('object'))
             self.nn(nodes[0].get('container'))
             self.propeq(nodes[0], 'type', 'component.')
-            self.eq((1704067200000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1704067200000000, 9223372036854775807, 0xffffffffffffffff))
             self.len(1, await core.nodes('phys:contained -> phys:contained:type:taxonomy'))

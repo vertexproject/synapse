@@ -49,16 +49,16 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'description': '+:desc return(:desc)',
-                        'objective': '-(had)> entity:goal +:name return(:name)',
+                        'objective': ':actor -> entity:motive:actor :goal -> entity:goal +:name return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
                     },
                     'rels': (
                         ('attributed-to', 'threat-actor', ':actor -> ou:org'),
                         ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack -(targeted)> ou:org'),
-                        ('targets', 'identity', '-> risk:attack -(targeted)> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack:activity -(used)> risk:vuln'),
                     ),
                 },
             },
@@ -96,8 +96,8 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', '-> geo:place'),
-                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targeted)> ou:org'),
-                        ('targets', 'vulnerability', '-> entity:campaign -> risk:attack -(used)> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ou:org'),
+                        ('targets', 'vulnerability', '-> risk:attack:activity -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -1171,8 +1171,8 @@ class LibStixExport(s_stormtypes.Lib):
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
                                         ("originates-from", "location", ":org -> ou:org -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack -(targeted)> ou:org"),
-                                        ("targets", "identity", "-> risk:attack -(targeted)> ps:person"),
+                                        ("targets", "identity", "-> risk:attack:activity -(targeted)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack:activity -(targeted)> ps:person"),
                                     ),
                                 },
                             },
@@ -1254,7 +1254,9 @@ class LibStixExport(s_stormtypes.Lib):
 
         return StixBundle(self, self.runt, config)
 
-    def timestamp(self, tick):
+    @s_stormtypes.stormfunc(readonly=True)
+    async def timestamp(self, tick):
+        tick = await s_stormtypes.toprim(tick)
         dt = datetime.datetime.fromtimestamp(tick / 1000000.0, datetime.UTC)
         millis = int(dt.microsecond / 1000)
         return f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{millis:03d}Z'
@@ -1464,7 +1466,7 @@ class StixBundle(s_stormtypes.Prim):
     async def _addRel(self, srcid, reltype, targid):
 
         stixid = f'relationship--{uuid4((srcid, reltype, targid))}'
-        tstamp = self.libstix.timestamp(s_common.now())
+        tstamp = await self.libstix.timestamp(s_common.now())
 
         obj = {
             'id': stixid,

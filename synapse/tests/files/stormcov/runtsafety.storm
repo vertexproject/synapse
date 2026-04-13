@@ -1,0 +1,7 @@
+[ inet:fqdn=cov.com ]
+spin |
+$lib.print($node)
+// lines: 1, 2, 3
+// coverage: 1, 2
+// arcs: (-1,1), (1,2), (2,3), (3,-1)
+// arcs_hit: (-1,1), (1,2), (2,-1)
