@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
+import synapse.lib.logging as s_logging
 
 class Parser(argparse.ArgumentParser):
     '''
@@ -43,7 +44,12 @@ class Parser(argparse.ArgumentParser):
         '''
         self.outp.printf(text)
 
-async def wrapmain(func): # pragma: no cover
+async def wrapmain(func, logconf=None): # pragma: no cover
+
+    if logconf is None:
+        logconf = {'level': 'DEBUG'}
+
+    s_logging.setup(**logconf)
 
     try:
         return await func(sys.argv[1:])
@@ -56,7 +62,8 @@ async def wrapmain(func): # pragma: no cover
         return 1
 
     finally:
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout=10)
 
-def exitmain(func): # pragma: no cover
-    sys.exit(asyncio.run(wrapmain(func)))
+def exitmain(func, logconf=None): # pragma: no cover
+    sys.exit(asyncio.run(wrapmain(func, logconf=logconf)))

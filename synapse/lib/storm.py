@@ -1283,16 +1283,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
-        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopping Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
         if self.task is not None:
             self.task.cancel()
         self.task = None
-        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
         if self.task:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
-                               iden=self.iden)
+                               extra=self.core.getLogExtra(iden=self.iden))
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1314,7 +1314,7 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
-        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
@@ -1335,26 +1335,26 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
                 logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             try:
@@ -1372,7 +1372,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
+                    logger.warning(f'Dmon query exited: {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
                     self.status = 'sleeping'
 
@@ -1385,7 +1385,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
+                logger.exception(f'Dmon error ({self.iden})', extra=self.core.getLogExtra(iden=self.iden))
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
@@ -1425,8 +1425,6 @@ class Runtime(s_base.Base):
         self.funcscope = False
 
         self.query = query
-
-        self.spawn_log_conf = await self.snap.core._getSpawnLogConf()
 
         self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
