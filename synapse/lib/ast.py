@@ -3148,10 +3148,6 @@ class PropPivot(PivotOper):
 
     def buildgenr(self, runt, targets):
 
-        if not isinstance(targets, list):
-            prop, virt = targets
-            return self.pivogenr(runt, prop, virt=virt)
-
         pgenrs = []
         for (prop, virt) in targets:
             pgenrs.append(self.pivogenr(runt, prop, virt=virt))
@@ -3512,7 +3508,13 @@ class HasRelPropCond(Cond):
         try:
             vgetr = ptyp.getVirtGetr(virt)
         except s_exc.NoSuchVirt:
-            return False
+            for ntyp in prop.type.getTypeSet():
+                if virt in ntyp.virts:
+                    return False
+
+            typename = prop.type.name
+            mesg = f'Virtual prop {virt} is not valid for any types supported by {typename}.'
+            raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(virt, prop.type, mesg=mesg))
 
         return realnode.has(name, getr=vgetr)
 
