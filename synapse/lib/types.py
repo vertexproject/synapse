@@ -167,7 +167,7 @@ class Type:
 
         lifts = self.storlifts
 
-        if virt:
+        if virt is not None:
             if (lifts := self.virtlifts.get(virt)) is None:
                 return await self.getVirtType(virt).getStorCmprs(cmpr, valu)
 
@@ -1708,7 +1708,7 @@ class Ival(Type):
             self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
     async def getStorCmprs(self, cmpr, valu, virt=None):
-        if virt:
+        if virt is not None:
             cmpr = f'{virt}{cmpr}'
 
         func = self.storlifts.get(cmpr)
