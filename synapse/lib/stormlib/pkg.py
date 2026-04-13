@@ -110,7 +110,7 @@ stormcmds = [
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
             ('--uninstall', {'default': False, 'action': 'store_true',
                 'help': 'Run the uninstall lifecycle (onuninstall handler + cleanup).'}),
-            ('--uninstall-keep', {'default': [],
+            ('--uninstall-keep', {'default': None,
                 'help': 'List of items to keep during uninstall (variables, vaults, dmons, queues, extmodel).'}),
         ),
         'storm': '''
@@ -132,6 +132,11 @@ stormcmds = [
                 $name = $pkgs.list().index(0)
 
                 if $cmdopts.uninstall {
+
+                    $keep = $cmdopts.uninstall_keep
+                    if ($keep = null) {
+                        $keep = ([])
+                    }
 
                     $lib.print(`Uninstalling package: {$name}`)
                     $lib.pkg.del($name, uninstall=$lib.true, keep=$cmdopts.uninstall_keep)
@@ -257,7 +262,7 @@ class LibPkg(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
                       {'name': 'uninstall', 'type': 'boolean', 'default': False,
                        'desc': 'Run the uninstall lifecycle (onuninstall handler + cleanup).', },
-                      {'name': 'keep', 'type': 'list', 'default': (),
+                      {'name': 'keep', 'type': 'list', 'default': None,
                        'desc': 'A list of items to keep during uninstall.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -338,11 +343,15 @@ class LibPkg(s_stormtypes.Lib):
             return False
         return True
 
-    async def _libPkgDel(self, name, uninstall=False, keep=()):
+    async def _libPkgDel(self, name, uninstall=False, keep=None):
         self.runt.confirm(('pkg', 'del'), None)
         name = await s_stormtypes.tostr(name)
         uninstall = await s_stormtypes.tobool(uninstall)
+
         keep = await s_stormtypes.toprim(keep)
+        if keep is None:
+            keep = []
+
         if not isinstance(keep, (list, tuple)):
             mesg = 'The keep argument must be a list of strings.'
             raise s_exc.BadArg(mesg=mesg)
