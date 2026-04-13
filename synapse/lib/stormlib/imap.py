@@ -10,7 +10,6 @@ import regex
 import synapse.exc as s_exc
 import synapse.data as s_data
 
-import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.stormtypes as s_stormtypes
 

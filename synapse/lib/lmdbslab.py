@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import threading
 import collections
 
 import logging
@@ -20,7 +19,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -1386,6 +1384,46 @@ class Slab(s_base.Base):
 
                 if lmax is not None and lkey[:size] > lmax:
                     return
+
+                yield lkey
+
+    async def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
+
+        if len(sepr) != 1 or sepr == b'\xff':
+            mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
+            raise s_exc.BadArg(mesg=mesg, sepr=sepr)
+
+        if depth < 0:
+            mesg = f'Invalid depth value {depth} for scanKeysByHierPref, must be >= 0.'
+            raise s_exc.BadArg(mesg=mesg, depth=depth)
+
+        with ScanKeys(self, db, nodup=nodup) as scan:
+
+            if not scan.set_range(byts):
+                return
+
+            size = len(byts)
+            splitcnt = depth + 1
+            seprnext = (int.from_bytes(sepr, 'big') + 1).to_bytes(1, 'big')
+
+            for lkey in scan.iternext():
+
+                while True:
+                    await asyncio.sleep(0)
+
+                    if lkey[:size] != byts:
+                        return
+
+                    if len(parts := lkey[size:].split(sepr, splitcnt)) <= splitcnt:
+                        break
+
+                    taillen = len(parts[-1]) + 1
+                    nextvalu = lkey[:-taillen] + seprnext
+
+                    if not scan.set_range(nextvalu):
+                        return
+
+                    lkey = scan.atitem
 
                 yield lkey
 

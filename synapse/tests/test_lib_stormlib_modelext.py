@@ -395,7 +395,7 @@ class StormtypesModelextTest(s_test.SynTest):
                     self.eq(propmesg['data']['info']['form'], '_behold:score')
                     self.eq(propmesg['data']['info']['prop']['full'], '_behold:score:_rank')
                     self.eq(propmesg['data']['info']['prop']['name'], '_rank')
-                    self.eq(propmesg['data']['info']['prop']['stortype'], 9)
+                    self.eq(propmesg['data']['info']['prop']['stortype'], 29)
 
                     tagpmesg = await sock.receive_json()
                     self.eq(tagpmesg['data']['event'], 'model:tagprop:add')

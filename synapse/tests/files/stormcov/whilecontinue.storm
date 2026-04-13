@@ -1,0 +1,13 @@
+$x = (0)
+while ($x < 2) {
+    $x = ($x + 1)
+    continue
+}
+// lines: 1, 2, 3, 4
+// coverage: 1, 2, 3, 4
+// arcs: (-1,1), (1,2), (2,-1), (2,3), (3,4), (4,2)
+// arcs_hit: (-1,1), (1,2), (2,-1), (2,3), (3,4), (4,2)
+
+// NOTE: There's no exit arc from the body of the while loop because it can't
+// exit. The only way to exit the while loop is for the condition to be false
+// which means the only exit arc from the loop is (2, -1).

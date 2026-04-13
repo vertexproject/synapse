@@ -1,4 +1,3 @@
-import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 class CnGovTest(s_t_utils.SynTest):

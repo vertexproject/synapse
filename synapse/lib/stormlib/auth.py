@@ -1,4 +1,3 @@
-import copy
 import asyncio
 
 import synapse.exc as s_exc
@@ -24,7 +23,7 @@ stormcmds = (
         ),
         'storm': '''
             $user = $lib.auth.users.add($cmdopts.name, email=$cmdopts.email)
-            $lib.print('User ({name}) added with iden: {iden}', name=$user.name, iden=$user.iden)
+            $lib.print(`User ({$user.name}) added with iden: {$user.iden}`)
         ''',
     },
     {
@@ -138,7 +137,7 @@ stormcmds = (
         ),
         'storm': '''
             $role = $lib.auth.roles.add($cmdopts.name)
-            $lib.print('Role ({name}) added with iden: {iden}', name=$role.name, iden=$role.iden)
+            $lib.print(`Role ({$role.name}) added with iden: {$role.iden}`)
         ''',
     },
     {
@@ -241,7 +240,7 @@ stormcmds = (
                 $user.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to user {$cmdopts.name}.`)
             } else {
-                $lib.warn('User ({name}) not found!', name=$cmdopts.name)
+                $lib.warn(`User ({$cmdopts.name}) not found!`)
             }
         ''',
     },
@@ -313,7 +312,7 @@ stormcmds = (
                 $role.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to role {$cmdopts.name}.`)
             } else {
-                $lib.warn('Role ({name}) not found!', name=$cmdopts.name)
+                $lib.warn(`Role ({$cmdopts.name}) not found!`)
             }
         ''',
     },

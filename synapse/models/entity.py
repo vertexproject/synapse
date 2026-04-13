@@ -1,5 +1,5 @@
 modeldefs = (
-    ('entity', {
+    {
 
         'interfaces': (
 
@@ -19,24 +19,45 @@ modeldefs = (
                 ),
             }),
 
-            ('entity:attendable', {
+            ('entity:event', {
                 'template': {'title': 'event'},
                 'interfaces': (
-                    ('geo:locatable', {}),
-                    ('lang:transcript', {}),
+                    ('base:event', {}),
+                    ('entity:action', {}),
                 ),
+                'doc': 'Properties common to events carried out by an actor.'}),
+
+            ('entity:activity', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                    ('entity:action', {}),
+                ),
+                'doc': 'Properties common to activity carried out by an actor.'}),
+
+            ('entity:participable', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'doc': 'An interface implemented by activities which an actor may participate in.'}),
+
+            ('entity:supportable', {
+                'doc': 'An interface implemented by activities which may be supported in by an actor.'}),
+
+            ('entity:creatable', {
+                'template': {'title': 'item'},
                 'props': (
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {title}.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the {title} was created.'}),
 
-                    ('period', ('ival', {}), {
-                        'doc': 'The period of time over which the {title} occurred.'}),
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The primary actor which created the {title}.'}),
 
-                    ('parent', ('entity:attendable', {}), {
-                        'doc': 'The parent event which hosts the {title}.'}),
+                    ('creator:name', ('entity:name', {}), {
+                        'doc': 'The name of the primary actor which created the {title}.'}),
                 ),
-                'doc': 'Properties common to events which individuals may attend.',
-            }),
+                'doc': 'An interface implemented by forms which represent things made or created by an actor.'}),
 
             ('entity:contactable', {
 
@@ -78,8 +99,6 @@ modeldefs = (
                                 'doc': 'The duration of the lifespan of the individual or organziation.'}),
                         ),
                         'doc': 'The lifespan of the {title}.'}),
-
-                    # FIXME place of birth / death?
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
@@ -153,27 +172,47 @@ modeldefs = (
             ('entity:multiple', {
                 'doc': 'Properties which apply to entities which may represent a group or organization.'}),
 
-            ('entity:abstract', {
+            ('entity:resolvable', {
                 'template': {'title': 'entity'},
                 'props': (
-                    ('resolved', ('entity:resolved', {}), {
+                    ('resolved', (
+                            ('ou:org', {}),
+                            ('ps:person', {})
+                        ), {
                         'doc': 'The resolved entity to which this {title} belongs.'}),
                 ),
                 'doc': 'An abstract entity which can be resolved to an organization or person.'}),
+
+            ('entity:stance', {
+                'template': {'title': 'stance'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the {title}.'}),
+
+                    ('expires', ('time', {}), {
+                        'doc': 'The time that the {title} expires.'}),
+
+                    ('activity', ('meta:negotiable', {}), {
+                        'doc': 'The negotiation activity this {title} was part of.'}),
+                ),
+                'doc': 'An interface for asks/offers in a negotiation.'}),
         ),
 
         'types': (
 
-            ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
-                'doc': 'A fully resolved entity such as a person or organization.'}),
-
-            ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+            ('entity:individual', (
+                    ('ps:person', {}),
+                    ('entity:contact', {}),
+                    ('inet:service:account', {})
+                ), {
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
                 'doc': 'A name used to refer to an entity.'}),
-
-            # FIXME syn:user is an actor...
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
                 'interfaces': (
@@ -194,7 +233,7 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                     ('meta:observable', {}),
                 ),
@@ -247,15 +286,9 @@ modeldefs = (
             ('entity:had', ('guid', {}), {
                 'doc': 'An item which was possessed by an actor.'}),
 
-            ('entity:attendee', ('guid', {}), {
-                'doc': 'A person attending an event.'}),
-
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
 
-            # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
-            # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
-            # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
             ('entity:goal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -272,6 +305,7 @@ modeldefs = (
                 'template': {'title': 'goal'},
                 'interfaces': (
                     ('meta:reported', {}),
+                    ('meta:achievable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -279,6 +313,16 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A stated or assessed goal.'}),
+
+            ('entity:motive', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('goal', ('entity:goal', {}), {
+                        'doc': 'The goal which motivated the actor.'}),
+                ),
+                'doc': 'A goal held by an actor for a period of time.'}),
 
             ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -295,9 +339,11 @@ modeldefs = (
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:activity', {}),
                     ('meta:reported', {}),
                     ('meta:observable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -311,6 +357,10 @@ modeldefs = (
                 'doc': 'Activity in pursuit of a goal.'}),
 
             ('entity:conflict', ('guid', {}), {
+                'template': {'title': 'conflict'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
 
             ('entity:contribution', ('guid', {}), {
@@ -323,11 +373,211 @@ modeldefs = (
             ('entity:discovery', ('guid', {}), {
                 'doc': 'A discovery made by an actor.'}),
 
+            ('entity:studied', ('guid', {}), {
+                'template': {'title': 'studied'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
+                'props': (
+                    ('institution', ('ou:org', {}), {
+                        'doc': 'The organization providing educational services.'}),
+                ),
+                'doc': 'A period when an actor studied or was educated.'}),
+
+            ('entity:achieved', ('guid', {}), {
+                'template': {'title': 'achieved'},
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'achievement::name'}},
+                        {'type': 'prop', 'opts': {'name': 'achievement::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                    ),
+                },
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('achievement', ('meta:achievable', {}), {
+                        'doc': 'The achievement that the actor reached.'}),
+                ),
+                'doc': 'An event where an actor achieved a goal or was given an award.'}),
+
+            ('entity:believed', ('guid', {}), {
+                'template': {'title': 'believed'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('belief', ('meta:believable', {}), {
+                        'doc': 'The belief held by the actor.'}),
+                ),
+                'doc': 'A period where an actor held a belief.'}),
+
+            ('entity:discovered', ('guid', {}), {
+                'template': {'title': 'discovery'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('item', ('meta:discoverable', {}), {
+                        'doc': 'The item discovered by the actor.'}),
+                ),
+                'doc': 'An event where an entity made a discovery.'}),
+
+            ('entity:signed', ('guid', {}), {
+                'template': {'title': 'signed'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('doc', ('doc:signable', {}), {
+                        'doc': 'The document which the actor signed.'}),
+                ),
+                'doc': 'An event where an actor signed a document.'}),
+
+            ('entity:asked', ('guid', {}), {
+                'template': {'title': 'ask'},
+                'interfaces': (
+                    ('entity:stance', {}),
+                ),
+                'props': (),
+                'doc': 'An event where an actor made an ask as part of a negotiation.'}),
+
+            ('entity:offered', ('guid', {}), {
+                'template': {'title': 'offer'},
+                'interfaces': (
+                    ('entity:stance', {}),
+                ),
+                'props': (),
+                'doc': 'An event where an actor made an offer as part of a negotiation.'}),
+
+            ('entity:attended', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('activity', ('base:activity', {}), {
+                        'doc': 'The activity attended by the actor.'}),
+
+                    ('role', ('base:name', {}), {
+                        'doc': 'The role the actor played in attending the activity.'}),
+                ),
+                'doc': 'A period where an actor attended an event or activity.'}),
+
+            ('entity:supported', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'sponsor',
+                        'doc': 'The role the actor played in supporting the activity.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the actors support of the activity.'}),
+
+                    ('activity', ('entity:supportable', {}), {
+                        'doc': 'The activity which the actor supported.'}),
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The financial value of the support given by the actor.'}),
+                ),
+                'doc': 'A period where an actor supported, sponsored, or materially contributed to an activity or cause.'}),
+
+            ('entity:registered', ('guid', {}), {
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+
+                    ('activity', ('entity:participable', {}), {
+                        'doc': 'The activity which the actor registered for.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'attendee',
+                        'doc': 'The role which the actor registered for.'}),
+
+                    # TODO: this could eventually include non-inet registration like postal mail...
+                    ('request', ('inet:proto:request', {}), {
+                        'doc': 'The request which the actor sent in order to register.'}),
+                ),
+                'doc': 'An event where an actor registered for an event or activity.'}),
+
+            ('entity:participated', ('guid', {}), {
+                'template': {'title': 'participation'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('activity', ('entity:participable', {}), {
+                        'doc': 'The activity which the actor participated in.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'organizer',
+                        'doc': 'The role which the actor played in the activity.'}),
+                ),
+                'doc': 'A period where an actor participated in an activity.'}),
+
+            ('entity:said', ('guid', {}), {
+                'template': {'title': 'statement'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                    ('meta:recordable', {}),
+                ),
+                'props': (
+                    ('text', ('str', {}), {
+                        'doc': 'The transcribed text of what the actor said.'}),
+                ),
+                'doc': 'A statement made by an actor.'}),
+
+            ('entity:created', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    # this will eventually grow to include additional interfaces
+                    ('item', ('entity:creatable', {}), {
+                        'doc': 'The item which the actor helped to create.'}),
+
+                    ('role', ('entity:title', {}), {
+                        'ex': 'illustrator',
+                        'doc': 'The role which the actor played in creating the item.'}),
+                ),
+                'doc': 'An activity where an actor helped to create an item.'}),
+
+            ('entity:proficiency', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'skill::name'}},
+                    ),
+                },
+                'props': (
+                    ('level', ('meta:score', {}), {
+                        'doc': 'The level of proficiency.'}),
+
+                    ('skill', ('edu:learnable', {}), {
+                        'doc': 'The topic or skill in which the contact is proficient.'}),
+                ),
+                'doc': 'A period of time where an actor had proficiency with a skill.'}),
         ),
 
         'edges': (
-            (('entity:actor', 'had', 'entity:goal'), {
-                'doc': 'The actor had the goal.'}),
 
             (('entity:actor', 'used', 'meta:usable'), {
                 'doc': 'The actor used the target node.'}),
@@ -352,6 +602,18 @@ modeldefs = (
 
             (('entity:contribution', 'had', 'econ:payment'), {
                 'doc': 'The contribution includes the payment.'}),
+
+            (('entity:studied', 'included', 'edu:class'), {
+                'doc': 'The class was taken by the student as part of their studies.'}),
+
+            (('entity:studied', 'included', 'edu:learnable'), {
+                'doc': 'The target node was included by the actor as part of their studies.'}),
+
+            (('entity:believed', 'followed', 'belief:tenet'), {
+                'doc': 'The actor followed the tenet during the period.'}),
+
+            (('entity:campaign', 'ledto', 'econ:purchase'), {
+                'doc': 'The campaign led to the purchase.'}),
         ),
 
         'forms': (
@@ -379,7 +641,11 @@ modeldefs = (
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the contact list.'}),
 
-                ('source', ('ndef', {'forms': ('it:host', 'inet:service:account', 'file:bytes')}), {
+                ('source', (
+                        ('it:host', {}),
+                        ('inet:service:account', {}),
+                        ('file:bytes', {})
+                    ), {
                     'doc': 'The source that the contact list was extracted from.'}),
             )),
 
@@ -420,26 +686,6 @@ modeldefs = (
                     'doc': 'The target entity in the relationship.'}),
             )),
 
-            ('entity:attendee', {}, (
-
-                ('person', ('entity:individual', {}), {
-                    'doc': 'The person who attended the event.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the person attended the event.'}),
-
-                ('roles', ('array', {'type': 'base:name', 'split': ','}), {
-                    'doc': 'List of the roles the person had at the event.'}),
-
-                ('event', ('entity:attendable', {}), {
-                    'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
-                    'doc': 'The event that the person attended.'}),
-
-                # ('link', ('entity:link', {}), {
-                #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
-            )),
-
-
             ('entity:goal:type:taxonomy', {}, ()),
             ('entity:goal', {}, (
 
@@ -465,13 +711,9 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
-                    'doc': 'Actors who participated in the campaign.'}),
-
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the campaign achieved its goals.'}),
 
-                # TODO: should we create risk:campaign and define this there
                 ('sophistication', ('meta:score', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
@@ -479,30 +721,11 @@ modeldefs = (
                     'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
 
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the entity was running the campaign.'}),
-
                 ('cost', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The actual cost of the campaign.'}),
 
                 ('budget', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
                     'doc': 'The budget allocated to execute the campaign.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to record econ:price properties.'}),
-
-                ('team', ('ou:team', {}), {
-                    'doc': 'The org team responsible for carrying out the campaign.'}),
-
-                # FIXME overfit?
-                ('conflict', ('entity:conflict', {}), {
-                    'doc': 'The conflict in which this campaign is a primary participant.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
@@ -513,9 +736,6 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the conflict.'}),
 
-                ('period', ('ival', {}), {
-                    'doc': 'The period of time when the conflict was ongoing.'}),
-
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),
             )),
@@ -524,12 +744,8 @@ modeldefs = (
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
-                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used for the assessed value.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
@@ -548,5 +764,5 @@ modeldefs = (
             )),
 
         ),
-    }),
+    },
 )

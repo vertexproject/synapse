@@ -1,40 +1,20 @@
 modeldefs = (
-    ('ps', {
+    {
         'types': (
             ('edu:course', ('guid', {}), {
+                'template': {'title': 'course'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'course'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A course of study taught by an org.'}),
 
-            ('edu:class', ('guid', {}), {
+            ('edu:class', ('meta:activity', {}), {
+                'template': {'title': 'class'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'class'}}),
+                    ('meta:recordable', {}),
+                    ('entity:participable', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
-
-            ('ps:education', ('guid', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'student::name'}},
-                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
-                        # TODO allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
-                    ),
-                },
-                'doc': 'A period of education for an individual.'}),
-
-            ('ps:achievement', ('guid', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'awardee::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::name'}},
-                        {'type': 'prop', 'opts': {'name': 'award::org::name'}},
-                        {'type': 'prop', 'opts': {'name': 'awarded'}},
-                    ),
-                },
-                'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
                 'template': {'title': 'person'},
@@ -83,26 +63,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of skill types.'}),
 
-            ('ps:proficiency', ('guid', {}), {
-                'doc': 'The assessment that a given contact possesses a specific skill.',
-                'display': {
-                    'columns': (
-                        # FIXME interface embed props
-                        # {'type': 'prop', 'opts': {'name': 'contact::name'}},
-                        # {'type': 'prop', 'opts': {'name': 'skill::name'}},
-                    ),
-                }}),
         ),
         'interfaces': (
 
             ('edu:learnable', {
                 'doc': 'An interface inherited by nodes which represent a skill which can be learned.'}),
 
-        ),
-        'edges': (
-
-            (('ps:education', 'included', 'edu:class'), {
-                'doc': 'The class was taken by the student as part of their education process.'}),
         ),
         'forms': (
 
@@ -136,9 +102,6 @@ modeldefs = (
 
                 ('pay', ('econ:price', {}), {
                     'doc': 'The average yearly income paid to the contact.'}),
-
-                ('pay:currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the pay.'}),
 
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
@@ -192,45 +155,12 @@ modeldefs = (
                 ('virtual:provider', ('entity:actor', {}), {
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
             )),
-            ('ps:education', {}, (
-
-                ('student', ('entity:individual', {}), {
-                    'doc': 'The student who attended the educational institution.'}),
-
-                ('institution', ('ou:org', {}), {
-                    'doc': 'The organization providing educational services.'}),
-
-                ('period', ('ival', {'precision': 'day'}), {
-                    'prevnames': ('attended:first', 'attended:last'),
-                    'doc': 'The period of time when the student attended the institution.'}),
-
-                ('achievement', ('ps:achievement', {}), {
-                    'doc': 'The degree or certificate awarded to the individual.'}),
-
-            )),
-            ('ps:achievement', {}, (
-
-                ('awardee', ('entity:individual', {}), {
-                    'doc': 'The recipient of the award.'}),
-
-                ('award', ('ou:award', {}), {
-                    'doc': 'The award bestowed on the awardee.'}),
-
-                ('awarded', ('time', {}), {
-                    'doc': 'The date the award was granted to the awardee.'}),
-
-                ('expires', ('time', {}), {
-                    'doc': 'The date the award or certification expires.'}),
-
-                ('revoked', ('time', {}), {
-                    'doc': 'The date the award was revoked by the org.'}),
-
-            )),
 
             ('ps:person', {}, (
                 ('vitals', ('ps:vitals', {}), {
                     'doc': 'The most recent vitals for the person.'}),
             )),
+
             ('ps:vitals', {}, (
 
                 ('time', ('time', {}), {
@@ -240,9 +170,6 @@ modeldefs = (
                 ('individual', ('entity:individual', {}), {
                     'prevnames': ('contact', 'person'),
                     'doc': 'The individual that the vitals are about.'}),
-
-                ('econ:currency', ('econ:currency', {}), {
-                    'doc': 'The currency that the price values are recorded using.'}),
 
                 ('econ:net:worth', ('econ:price', {}), {
                     'doc': 'The net worth of the contact.'}),
@@ -255,19 +182,12 @@ modeldefs = (
 
             ('ps:skill:type:taxonomy', {}, ()),
             ('ps:skill', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the skill.'}),
+
                 ('type', ('ps:skill:type:taxonomy', {}), {
                     'doc': 'The type of skill as a taxonomy.'})
             )),
-
-            ('ps:proficiency', {}, (
-                ('skill', ('edu:learnable', {}), {
-                    'doc': 'The topic or skill in which the contact is proficient.'}),
-
-                ('contact', ('entity:actor', {}), {
-                    'doc': 'The entity which is proficient in the skill.'}),
-            )),
         )
-    }),
+    },
 )

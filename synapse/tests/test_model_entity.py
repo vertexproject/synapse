@@ -82,7 +82,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'title', 'lead developer')
             self.propeq(node, 'titles', ('senior dev', 'team lead'))
 
-            # entity:abstract interface props
+            # entity:resolvable interface props
             self.nn(node.get('resolved'))
 
             # geo:locatable interface props
@@ -134,21 +134,20 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ndef)
 
             nodes = await core.nodes('''[
-                entity:attendee=*
-                    :person={[ ps:person=* ]}
+                entity:attended=*
+                    :actor={[ ps:person=* ]}
                     :period=(201202,201203)
-                    :event={[ ou:event=* ]}
-                    :roles+=staff
-                    :roles+=STAFF
+                    :activity={[ ou:event=* ]}
+                    :role=staff
             ]''')
             self.len(1, nodes)
-            self.eq(('staff',), nodes[0].get('roles'))
+            self.propeq(nodes[0], 'role', 'staff')
             self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
-            self.len(1, await core.nodes('entity:attendee -> ps:person'))
+            self.len(1, await core.nodes('entity:attended -> ps:person'))
 
-            self.len(1, await core.nodes('entity:attendee -> ou:event'))
-            self.len(1, await core.nodes('entity:attendee :event -> ou:event'))
+            self.len(1, await core.nodes('entity:attended -> ou:event'))
+            self.len(1, await core.nodes('entity:attended :activity -> ou:event'))
 
             nodes = await core.nodes('''
                 [ entity:campaign=*
@@ -165,7 +164,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :actor={[ entity:contact=* ]}
-                    :actors={[ entity:contact=* ]}
                     :seen=2022
                     +(had)> {[ entity:goal=* ]}
                 ]
@@ -190,7 +188,7 @@ class EntityModelTest(s_t_utils.SynTest):
             # FIXME this seems like it should work...
             # self.len(1, await core.nodes('entity:campaign --> entity:goal'))
             self.len(1, await core.nodes('entity:campaign -(had)> entity:goal'))
-            self.len(1, await core.nodes(f'entity:campaign:id=Foo :slogan -> lang:phrase'))
+            self.len(1, await core.nodes('entity:campaign:id=Foo :slogan -> lang:phrase'))
 
             nodes = await core.nodes('''
                 [ meta:technique=*
@@ -204,7 +202,6 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :parent={[ meta:technique=* :name=metawoot ]}
-                    :used=(2025, 20260124)
                 ]
             ''')
             self.len(1, nodes)
@@ -217,7 +214,6 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'id', 'Foo')
             self.propeq(nodes[0], 'sophistication', 40)
             self.propeq(nodes[0], 'reporter:name', 'vertex')
-            self.propeq(nodes[0], 'used', (1735689600000000, 1769212800000000, 33523200000000))
             self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
@@ -232,13 +228,11 @@ class EntityModelTest(s_t_utils.SynTest):
                     :actor={[ ou:org=* :name=vertex ]}
                     :time=20220718
                     :value=10
-                    :currency=usd
                     :campaign={[ entity:campaign=({"name": "good guys"}) ]}
                 ]
             ''')
             self.propeq(nodes[0], 'time', 1658102400000000)
             self.propeq(nodes[0], 'value', '10')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
             self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
 
@@ -251,8 +245,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'name', 'world war iii')
             self.propeq(nodes[0], 'period', (2493072000000000, 2493072000000001, 1))
 
-            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={entity:conflict} ]')
-            self.len(1, await core.nodes('entity:campaign -> entity:conflict'))
+            nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) ]')
             self.len(1, await core.nodes('entity:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''[
@@ -350,3 +343,81 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.len(1, await core.nodes('entity:relationship :reporter -> ou:org'))
+
+    async def test_entity_causal_events(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                entity:discovered=*
+                    :actor={[ entity:contact=* :name=discoverer ]}
+                    :time=20230101
+                    :item={[ risk:vuln=* :name=zerodayX ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('item'))
+            self.propeq(nodes[0], 'time', 1672531200000000)
+            self.len(1, await core.nodes('entity:discovered :actor -> entity:contact +:name=discoverer'))
+            self.len(1, await core.nodes('entity:discovered :item -> risk:vuln +:name=zerodayx'))
+
+            nodes = await core.nodes('''[
+                entity:signed=*
+                    :actor={[ entity:contact=* :name=signer ]}
+                    :time=20230201
+                    :doc={[ doc:contract=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('doc'))
+            self.len(1, await core.nodes('entity:signed :actor -> entity:contact +:name=signer'))
+            self.len(1, await core.nodes('entity:signed :doc -> doc:contract'))
+
+            nodes = await core.nodes('''[
+                entity:asked=*
+                    :actor={[ entity:contact=* :name=buyer ]}
+                    :time=20230101
+                    :value=50.00
+                    :expires=20230201
+                    :activity={[ risk:extortion=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.propeq(nodes[0], 'value', '50')
+            self.nn(nodes[0].get('expires'))
+            self.nn(nodes[0].get('activity'))
+            self.len(1, await core.nodes('entity:asked :actor -> entity:contact +:name=buyer'))
+            self.len(1, await core.nodes('entity:asked :activity -> risk:extortion'))
+
+            nodes = await core.nodes('''[
+                entity:offered=*
+                    :actor={[ entity:contact=* :name=seller ]}
+                    :time=20230101
+                    :value=75.00
+                    :expires=20230201
+                    :activity={[ risk:extortion=* :name="APT99 Extortion" ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.propeq(nodes[0], 'value', '75')
+            self.len(1, await core.nodes('entity:offered :actor -> entity:contact +:name=seller'))
+            self.len(1, await core.nodes('entity:offered :activity -> risk:extortion'))
+
+    async def test_entity_believed(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                entity:believed=*
+                    :actor={[ entity:contact=* :name=visi ]}
+                    :belief={[ belief:system=* ]}
+                    :period=(20230209, 20230210)
+                    +(followed)> {[ belief:tenet=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.nn(nodes[0].get('belief'))
+
+            self.propeq(nodes[0], 'period', (1675900800000000, 1675987200000000, 86400000000))
+
+            self.len(1, await core.nodes('entity:believed -(followed)> belief:tenet'))

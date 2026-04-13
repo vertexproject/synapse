@@ -10,14 +10,13 @@ import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 
 class TypesTest(s_t_utils.SynTest):
 
     async def test_type(self):
         # Base type tests, mainly sad paths
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('bool')
         self.eq(t.info.get('bases'), ('base',))
         with self.raises(s_exc.NoSuchCmpr):
@@ -48,7 +47,7 @@ class TypesTest(s_t_utils.SynTest):
                 await mass.norm('newps')
 
     async def test_velocity(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         velo = model.type('velocity')
 
         with self.raises(s_exc.BadTypeValu):
@@ -94,7 +93,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_hugenum(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
@@ -132,7 +131,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_taxonomy(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         taxo = model.type('taxonomy')
         self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz'))[0])
         self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz.'))[0])
@@ -223,7 +222,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
 
     async def test_duration(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('duration')
 
         self.eq('2D 00:00:00', t.repr(172800000000))
@@ -250,7 +249,7 @@ class TypesTest(s_t_utils.SynTest):
             await t.norm('1:a:b')
 
     async def test_bool(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('bool')
 
         self.eq(await t.norm(-1), (1, {}))
@@ -301,7 +300,7 @@ class TypesTest(s_t_utils.SynTest):
                 await typ.norm((123, 'haha', 'newp'))
 
     async def test_guid(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
 
         guid = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
         self.eq(guid.lower(), (await model.type('guid').norm(guid))[0])
@@ -414,14 +413,11 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
             # $try can be used at top level, currently only applies to $props
-            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
-            nodes = [m for m in msgs if m[0] == 'node']
+            nodes = await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             self.len(1, nodes)
-            node = nodes[0][1]
-            props = node[1]['props']
-            self.none(props.get('phone'))
-            self.eq(props.get('name')[1], 'burrito corp')
-            self.eq(props.get('desc'), 'burritos man')
+            self.none(nodes[0].get('phone'))
+            self.propeq(nodes[0], 'name', 'burrito corp')
+            self.propeq(nodes[0], 'desc', 'burritos man')
 
             # $try can also be specified in $props which overrides top level $try
             with self.raises(s_exc.BadTypeValu):
@@ -640,7 +636,7 @@ class TypesTest(s_t_utils.SynTest):
             self.propeq(node, 'size', 5)
 
             opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
-            nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
+            nodes = await core.nodes('''[ it:app:yara:match=* :target={[ file:bytes=({"sha256": $sha256}) ]} ]''', opts=opts)
             self.len(1, nodes)
 
             nodes = await core.nodes('it:app:yara:match -> *')
@@ -680,7 +676,7 @@ class TypesTest(s_t_utils.SynTest):
             salt03 = await core.nodes('[ ou:org=({"name": "saltyorg", "$salt": "salt1", "$props": {"desc": "a salted org"}}) ]')
             self.len(1, salt03)
             self.eq(salt00[0].ndef, salt03[0].ndef)
-            self.eq('a salted org', salt03[0].get('desc'))
+            self.propeq(salt03[0], 'desc', 'a salted org')
 
             # $salt is not stored as a property
             self.none(salt00[0].get('$salt'))
@@ -944,7 +940,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_int(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('int')
 
         # test ranges
@@ -1067,7 +1063,7 @@ class TypesTest(s_t_utils.SynTest):
             model.type('int').clone({'ismin': True, 'ismax': True})
 
     async def test_float(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('float')
 
         self.nn((await t.norm(1.2345))[0])
@@ -1118,7 +1114,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
 
     async def test_ival(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         ival = model.types.get('ival')
 
         self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
@@ -1273,7 +1269,7 @@ class TypesTest(s_t_utils.SynTest):
             now = s_common.now()
             nodes = await core.nodes('[test:guid="*" :seen=("-1 day","?")]')
             node = nodes[0]
-            valu = node.get('seen')
+            valu = node.get('seen')[1]
             self.eq(valu[1], ival.unksize)
             self.true(now - s_const.day <= valu[0] < now)
 
@@ -1371,7 +1367,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'ival', {'precision': 'newp'}, {})
 
             nodes = await core.nodes('[ test:str=foo :seen=(2021, ?) :seen.duration=1D ]')
             self.propeq(nodes[0], 'seen', (1609459200000000, 1609545600000000, 86400000000))
@@ -1451,7 +1447,7 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str:seen@=(1, 2, 3, 4)')
 
     async def test_loc(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         loctype = model.types.get('loc')
 
         self.eq('us.va', (await loctype.norm('US.    VA'))[0])
@@ -1518,84 +1514,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, await core.count('test:int:loc^=""'))
             self.eq(0, await core.count('test:int:loc^=23'))
 
-    async def test_ndef(self):
-        async with self.getTestCore() as core:
-            t = core.model.type('test:ndef')
-
-            norm, info = await t.norm(('test:str', 'Foobar!'))
-            self.eq(norm, ('test:str', 'Foobar!'))
-            self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
-                           'subs': {'form': (t.formtype.typehash, 'test:str', {})}})
-
-            rval = t.repr(('test:str', 'Foobar!'))
-            self.eq(rval, ('test:str', 'Foobar!'))
-            rval = t.repr(('test:int', 1234))
-            self.eq(rval, ('test:int', '1234'))
-
-            await self.asyncraises(s_exc.NoSuchForm, t.norm(('test:newp', 'newp')))
-            self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(('newp',)))
-
-            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
-            await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
-            await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
-
-            self.len(1, await core.nodes('risk:vulnerable.created +:node.form=it:dev:int'))
-            self.len(1, await core.nodes('risk:vulnerable.created +:node.form=inet:fqdn'))
-            self.len(0, await core.nodes('risk:vulnerable.created +:node.form=it:dev:str'))
-
-            self.len(1, await core.nodes('test:str.created +:ndefs*[.form=it:dev:int]'))
-            self.len(0, await core.nodes('test:str.created +:ndefs*[.form=it:dev:str]'))
-
-            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node.form)'))
-
-            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node.form)'))
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str.created +:ndefs*[.form>it:dev:str]')
-
-            ndef = core.model.type('test:ndef:formfilter1')
-            await ndef.norm(('inet:ip', '1.2.3.4'))
-            await ndef.norm(('inet:ip', '::1'))
-
-            with self.raises(s_exc.BadTypeValu):
-                await ndef.norm(('inet:fqdn', 'newp.com'))
-
-            ndef = core.model.type('test:ndef:formfilter2')
-
-            with self.raises(s_exc.BadTypeValu):
-                await ndef.norm(('inet:fqdn', 'newp.com'))
-
-            with self.raises(s_exc.BadTypeDef):
-                await core.model.type('ndef').clone({'forms': ('inet:fqdn',), 'interface': 'foo:bar'})
-
-    async def test_nodeprop(self):
-        async with self.getTestCore() as core:
-            t = core.model.type('nodeprop')
-            ptyp = core.model.type('syn:prop')
-
-            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': (ptyp.typehash, 'test:str', {})}})
-            self.eq(await t.norm('test:str=This is a sTring'), expected)
-            self.eq(await t.norm(('test:str', 'This is a sTring')), expected)
-
-            await self.asyncraises(s_exc.NoSuchProp, t.norm(('test:str:newp', 'newp')))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(('test:str:tick', '2020', 'a wild argument appears')))
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str:baz@=newp')
-
-            with self.raises(s_exc.NoSuchProp):
-                await core.nodes('test:str:baz.prop=newp')
-
-            prop = await core.callStorm('[ test:str=foo :baz=(test:int:type, one) ] return(:baz.prop)')
-            self.eq(prop, 'test:int:type')
-
-            await core.nodes('[ test:str=foo :pdefs=((test:int:type, one), (test:str:hehe, two)) ]')
-            await core.nodes('[ test:str=bar :pdefs=((test:str:hehe, two),) ]')
-            self.len(1, await core.nodes('test:str.created +:pdefs*[.prop=test:int:type]'))
-
     async def test_range(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('range')
 
         await self.asyncraises(s_exc.BadTypeValu, t.norm(1))
@@ -1623,15 +1543,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[test:str=a :bar=(test:str, b) :tick=19990101]'))
+            self.len(1, await core.nodes('[test:str=a :tick=19990101]'))
             self.len(1, await core.nodes('[test:str=b :seen=(20100101, 20110101) :tick=20151207]'))
-            self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+            self.len(1, await core.nodes('[test:str=m :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[test:str=n1 :bar=(test:comp, (2048, horton))]'))
-            self.len(1, await core.nodes('[test:str=n2 :bar=(test:comp, (9001, "A mean one"))]'))
-            self.len(1, await core.nodes('[test:str=n3 :bar=(test:int, 16)]'))
+            self.len(1, await core.nodes('[test:comp=(2048, horton)]'))
             self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
+            self.len(1, await core.nodes('[test:comp=(9001, "A mean one")]'))
             self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
             self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
 
@@ -1640,8 +1559,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await core.nodes('test:comp +:haha*range=(grinch, meanone)')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
-            self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await core.nodes('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
             guid0 = 'B' * 32
@@ -1650,8 +1567,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('test:str +:bar*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
-            self.eq({node.ndef[1] for node in nodes}, {'n1'})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -1666,18 +1581,16 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
             # sad path
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:comp +:haha*range=(somestring,)')
-            with self.raises(s_exc.BadCmprValu):
-                await core.nodes('test:str +:bar*range=Foobar')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:int +test:int*range=3456')
 
     async def test_str(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
 
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', (await lowr.norm('FOO'))[0])
@@ -1750,7 +1663,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_syntag(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         tagtype = model.type('syn:tag')
 
         self.eq('foo.bar', (await tagtype.norm(('FOO', ' BAR')))[0])
@@ -1802,7 +1715,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_time(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         ttime = model.types.get('time')
 
         with self.raises(s_exc.BadTypeValu):
@@ -1843,7 +1756,7 @@ class TypesTest(s_t_utils.SynTest):
 
             tock = (await t.norm('2015'))[0]
 
-            await self.asyncraises(s_exc.BadCmprValu, t.cmpr('2015', 'range=', tick))
+            await self.asyncraises(s_exc.BadTypeValu, t.cmpr('2015', 'range=', tick))
 
             prec = core.model.type('timeprecision')
             styp = prec.stortype
@@ -1947,7 +1860,7 @@ class TypesTest(s_t_utils.SynTest):
                 await tmax.norm('2025-04-05 12:34:56.123456', prec=123)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
+                await core.addType('test:int', 'time', {'precision': 'newp'}, {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
@@ -2038,9 +1951,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
 
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015)')
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +:tick*range=("?", "+1 day")')
@@ -2164,15 +2077,15 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[test:str=a :tick=2014]')
             self.len(1, nodes)
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             nodes = await core.nodes('[test:str=b :tick=2015]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=c :tick=2016]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
             nodes = await core.nodes('[test:str=d :tick=now]')
-            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
@@ -2209,7 +2122,7 @@ class TypesTest(s_t_utils.SynTest):
         }
         async with self.getTestCore() as core:
 
-            core.model.addDataModels([('asdf', mdef)])
+            core.model.addModelDefs([mdef])
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
@@ -2282,7 +2195,7 @@ class TypesTest(s_t_utils.SynTest):
 
             nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
+            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', (('str', 'newp' * 100),))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
             await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})

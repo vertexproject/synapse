@@ -1,0 +1,8 @@
+try {
+    [ inet:fqdn=foo.com ]
+} catch * as err {
+    [ inet:fqdn=err.com ]
+}
+// lines: 2, 3, 4
+// coverage: 2
+// arcs: (-1,2), (2,-1), (2,3), (3,4), (4,-1)

@@ -25,7 +25,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -1433,14 +1432,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.addForm('_low:str', 'str', {'lower': True}, {})
                 await core.addTagProp('lowstr', ('_low:str', {}), {})
                 await core.addTagProp('normstr', ('_low:str', {'lower': False}), {})
-                await core.addTagProp('refsnode', ('ndef', {}), {})
-                await core.addTagProp('refsprop', ('nodeprop', {}), {})
 
                 await core.nodes('''[
                     test:str=foo
                     +#foo:lowstr=fooBAR
-                    +#foo:refsnode=(test:str, refd)
-                    +#foo:refsprop=(test:str:hehe, nprop)
                     (test:str=bar :hehe=nprop)
                 ]''')
 
@@ -1448,36 +1443,16 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
-                nodes = await core.nodes('test:str=refd <- *')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
-                nodes = await core.nodes('test:str=bar <- *')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
                 vdef2 = await core.view.fork()
                 forkopts = {'view': vdef2.get('iden')}
                 self.len(1, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(1, await core.nodes('test:str=refd <- *', opts=forkopts))
-                self.len(1, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 await core.nodes('[ test:str=foo +#foo:lowstr=otherval ]', opts=forkopts)
                 self.len(1, await core.nodes('_low:str=foobar <- *'))
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
 
-                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]', opts=forkopts)
-                self.len(1, await core.nodes('test:str=refd <- *'))
-                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
-
-                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]', opts=forkopts)
-                self.len(1, await core.nodes('test:str=bar <- *'))
-                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
-
-                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsnode -#foo:refsprop]', opts=forkopts)
+                await core.nodes('[ test:str=foo -#foo:lowstr]', opts=forkopts)
                 self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
-                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
-                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
 
                 # Duplicate values in multiple layers of a view only return once
                 await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]', opts=forkopts)
@@ -1487,12 +1462,6 @@ class CortexTest(s_t_utils.SynTest):
                 # Renorming coverage for props with different typeopts
                 await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
                 self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
-
-                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]')
-                self.len(0, await core.nodes('test:str=refd <- *'))
-
-                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]')
-                self.len(0, await core.nodes('test:str=bar <- *'))
 
                 await core.delViewWithLayer(vdef2.get('iden'))
                 await core.nodes('_low:str | delnode')
@@ -1608,26 +1577,11 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
             self.eq(refs.get('ip'), ('inet:ip', (4, 0x01020304)))
 
-            self.len(1, await core.nodes('[test:str=testndef :somestr=$somestr :bar=$valu]',
-                                         opts={'vars': {'somestr': sorc, 'valu': node.ndef}}))
-
             # test un-populated properties
             nodes = await core.nodes('[entity:contact="*"]')
             self.len(1, nodes)
             node = nodes[0]
             self.len(0, node.getNodeRefs())
-            # test ndef field
-            nodes = await core.nodes('[test:str=foo :bar=(inet:fqdn, woot.com)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            refs = dict(node.getNodeRefs())
-            refs.get('ndef', ('inet:fqdn', 'woot.com'))
-            # Test empty ndef
-            nodes = await core.nodes('[test:str=woot]')
-            self.len(1, nodes)
-            node = nodes[0]
-            refs = dict(node.getNodeRefs())
-            self.none(refs.get('bar'))
             # test un-populated array prop
             nodes = await core.nodes('[test:arrayprop="*"]')
             self.len(1, nodes)
@@ -1639,18 +1593,6 @@ class CortexTest(s_t_utils.SynTest):
             refs = node.getNodeRefs()
             ints = sorted([r[1] for r in refs if r[0] == 'ints'])
             self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
-
-            opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('test:str:somestr=$sorc -> *', opts=opts)
-
-            self.len(2, nodes)
-            self.isin('inet:dns:a', {n.ndef[0] for n in nodes})
-
-            opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('test:str:somestr=$sorc :bar -> *', opts=opts)
-
-            self.len(1, nodes)
-            self.eq('inet:dns:a', nodes[0].ndef[0])
 
     async def test_cortex_lift_regex(self):
 
@@ -1671,7 +1613,7 @@ class CortexTest(s_t_utils.SynTest):
             async def nodeVals(query, prop=None, tag=None):
                 nodes = await core.nodes(query)
                 if prop:
-                    return [node.get(prop) for node in nodes]
+                    return [node.get(prop)[1] for node in nodes]
                 if tag:
                     return [node.getTag(tag) for node in nodes]
                 return [node.ndef[1] for node in nodes]
@@ -1755,7 +1697,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([(6, 3), (6, 2), (6, 1)], await nodeVals('reverse(inet:ip*range=(([6, 1]), ([6, 3])))'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
-            await buidRevEq('inet:server:ip="::5"')
+            await buidRevEq('inet:server.ip="::5"')
 
             await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
 
@@ -1814,7 +1756,7 @@ class CortexTest(s_t_utils.SynTest):
 
             a_guid = "a" * 32
             opts = {'vars': {'guid': a_guid}}
-            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter={{[ou:org=$guid]}} ]}}', opts=opts)
+            await core.nodes('for $x in $lib.range(5) {[ risk:vuln=* :reporter={[ou:org=$guid]} ]}', opts=opts)
             await buidRevEq(f'risk:vuln:reporter={a_guid}')
 
             pref = 'a' * 31
@@ -1823,12 +1765,12 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([f'{pref}0', f'{pref}1', f'{pref}2'], await nodeVals(f'test:guid^={pref[:-1]}'))
             self.eq([f'{pref}2', f'{pref}1', f'{pref}0'], await nodeVals(f'reverse(test:guid^={pref[:-1]})'))
 
-            await core.nodes('for $x in $lib.range(5) {[ it:exec:proc=* :time=`202{$x}` ]}')
+            await core.nodes('for $x in $lib.range(5) {[ it:exec:proc:create=* :time=`202{$x}` ]}')
 
             self.eq((1609459200000000, 1640995200000000),
-                    await nodeVals('it:exec:proc:time@=(2021, 2023)', prop='time'))
+                    await nodeVals('it:exec:proc:create:time@=(2021, 2023)', prop='time'))
             self.eq((1640995200000000, 1609459200000000),
-                    await nodeVals('reverse(it:exec:proc:time@=(2021, 2023))', prop='time'))
+                    await nodeVals('reverse(it:exec:proc:create:time@=(2021, 2023))', prop='time'))
 
             await core.nodes('for $x in $lib.range(5) {[ test:str=$x :seen=`202{$x}` ]}')
 
@@ -2099,12 +2041,11 @@ class CortexTest(s_t_utils.SynTest):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
 
             self.len(0, await wcore.nodes('test:auto=autothis'))
-            q = '[test:str=woot :bar=(test:auto, autothis) :baz=(test:type10:strprop, WOOT) :tick=20160505]'
+            q = '[test:str=woot :bar={[test:auto=autothis]} :tick=20160505]'
             nodes = await wcore.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'bar', ('test:auto', 'autothis'))
-            self.propeq(node, 'baz', ('test:type10:strprop', 'woot'))
+            self.propeq(node, 'bar', 'autothis')
             self.propeq(node, 'tick', 1462406400000000)
             self.len(1, await wcore.nodes('test:auto=autothis'))
             # add some time range bumper nodes
@@ -2368,7 +2309,7 @@ class CortexTest(s_t_utils.SynTest):
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
-            await wcore.nodes('[ test:str=foo :bar=(meta:source, "*") ]')
+            await wcore.nodes('[ test:str=foo :bar={[meta:source=*]} ]')
 
             self.len(1, await core.nodes('meta:source -> test:str:bar'))
 
@@ -2622,12 +2563,12 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int :loc -> test:newp')
             self.stormIsInErr('No property named test:newp', msgs)
 
-            # ndef pivots
+            # poly pivots
             await core.nodes('''
                 [
                     ( test:str=ndefpivdst )
-                    ( test:str=ndefpivsrc :bar=(test:str, ndefpivdst) )
-                    ( test:str=ndefpivprp :bar=(test:str, ndefpivdst) )
+                    ( test:str=ndefpivsrc :bar={test:str=ndefpivdst} )
+                    ( test:str=ndefpivprp :bar={test:str=ndefpivdst} )
                 ]
             ''')
 
@@ -2651,11 +2592,6 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:int')
             self.len(0, nodes)
-
-            await core.nodes('test:str=ndefpivdst delnode')
-            msgs = await core.stormlist('test:str=ndefpivsrc :bar -> test:str')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn("Missing node corresponding to ndef ('test:str', 'ndefpivdst')", msgs)
 
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
@@ -2905,6 +2841,10 @@ class CortexTest(s_t_utils.SynTest):
 
             evnt = asyncio.Event()
 
+            synts = core.boss.ps()
+            if len(synts) == 1 and synts[0].name == 'cortex:migration:layers':
+                await synts[0].waitfini(5)
+
             self.len(0, core.boss.ps())
 
             async def todo():
@@ -3024,9 +2964,6 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ip +:asn::_pivo')
             self.len(1, nodes)
 
-            await core.nodes('[ risk:vulnerable=* :node=(inet:ip, 1.2.3.4) ]')
-            self.len(1, await core.nodes('risk:vulnerable +:node::asn::owner:name'))
-
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 
@@ -3143,14 +3080,14 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
 
             self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
-            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
+            # TODO: allow embed lift through virt
+            # self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
+            # self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
 
             await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
             await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
@@ -3166,6 +3103,7 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
+            await core.nodes('test:str:bar::seen.min>2021 [ -:bar ]')
             await core.nodes('test:guid:seen.min>2021 | delnode')
             self.len(1, await core.nodes('test:str:bar::seen.min>2020'))
 
@@ -3203,6 +3141,11 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[test:str=newp :bar={[test:str=newp :hehe=newp]}]')
             self.len(0, await core.nodes('test:str:bar::hehe::foo=baz'))
 
+            # test pivprop through a non-form type raises NoSuchForm
+            await core.nodes('[test:str=hehe :hehe=notaform]')
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('test:str=hehe +:hehe::tick=2020')
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -3215,25 +3158,25 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:onstorm=*]')
             self.len(1, nodes)
             self.nn(nodes[0].get('tick'))
-            self.eq(nodes[0].get('tick'), 1735689600000000)
+            self.propeq(nodes[0], 'tick', 1735689600000000)
 
             # Test on:set callback - setting :name should copy it to :hehe
             nodes = await core.nodes('[test:onstorm=* :name=foobar]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'foobar')
+            self.propeq(nodes[0], 'hehe', 'foobar')
 
             # Test on:set fires on update too
             iden = nodes[0].ndef[1]
             nodes = await core.nodes(f'test:onstorm={iden} [:name=bazqux]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'bazqux')
+            self.propeq(nodes[0], 'hehe', 'bazqux')
 
             # Test on:del callback - deleting :ondelprop should set :hehe to "deleted"
             nodes = await core.nodes(f'test:onstorm={iden} [:ondelprop=hi]')
             self.len(1, nodes)
             nodes = await core.nodes(f'test:onstorm={iden} [-:ondelprop]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('hehe'), 'deleted')
+            self.propeq(nodes[0], 'hehe', 'deleted')
 
             # Test that callbacks run as the calling user with asroot elevation
             visi = await core.auth.addUser('visi')
@@ -3283,7 +3226,19 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ it:dev:str=Foobar ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('norm'), 'foobar')
+            self.propeq(nodes[0], 'norm', 'foobar')
+
+        # Test on:add callback on a ctor-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:ctoronstorm=foobar]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
+        # Test on:add callback on a type-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:onstorm2=*]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
 
     async def test_cortex_coreinfo(self):
 
@@ -3454,6 +3409,36 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await proxy.reqValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
+
+            # test isValidStorm
+            ok, info = await proxy.isValidStorm('test:str=test')
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
+            self.true(ok)
+            self.eq(info, {})
+
+            ok, info = await proxy.isValidStorm('1.2.3.4 ')
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+            self.isin('mesg', info[1])
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
+            self.false(ok)
+            self.eq(info[0], 'BadSyntax')
+
+            ok, info = await proxy.isValidStorm(12345678)
+            self.false(ok)
+            self.eq(info[0], 'TypeError')
 
     async def test_stormcmd(self):
 
@@ -4405,10 +4390,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" test:ndefcomp=(5, $node) ]')
-            self.len(2, nodes)
-            self.eq('test:ndefcomp', nodes[0].ndef[0])
-
             nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '1234'))
@@ -4663,7 +4644,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core0:
 
-            await core0._addDataModels(s_t_utils.deprmodel)
+            await core0._addModelDefs(s_t_utils.deprmodel)
 
             podes = []
 
@@ -4684,14 +4665,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            node = (await core0.nodes('[ test:int=4 ]'))[0]
             pack = node.pack()
             pack[1]['edges'] = [('refs', ('inet:ip', f'{y}')) for y in range(500)]
             podes.append(pack)
 
         async with self.getTestCore() as core1:
 
-            await core1._addDataModels(s_t_utils.deprmodel)
+            await core1._addModelDefs(s_t_utils.deprmodel)
 
             await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
@@ -4829,19 +4810,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.nodes('model.deprecated.lock test:deprprop')
 
             data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
-                                                            'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=dform', opts={'view': view2_iden})
             self.len(1, nodes)
             self.nn(nodes[0].get('okayprop'))
             self.none(nodes[0].get('deprprop'))
-            self.none(nodes[0].get('ndefprop'))
             self.len(0, await core1.nodes('test:deprprop', opts={'view': view2_iden}))
-
-            with self.raises(s_exc.IsDeprLocked):
-                q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
-                await core1.nodes(q, opts={'view': view2_iden})
 
             # TODO: we skip locked forms when attempting to norm
             # should we raise IsDeprLocked if there are locked forms and no unlocked forms norm successfully??
@@ -5319,7 +5294,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await core.nodes('[ test:int=10 ] -> test:taxonomy')
 
-            nodes = await core.nodes('[ test:str=woot :bar=(inet:fqdn, woot.com) ] -> inet:fqdn')
+            nodes = await core.nodes('[ test:str=woot :bar={[inet:fqdn=woot.com]} ] -> inet:fqdn')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
     async def test_storm_expressions(self):
@@ -5494,11 +5469,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[ps:person=*] $person = $node { [(test:str=foo :bar=$person)] } -ps:person test:str +:bar=$person'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-
-            # Lift by var as node
-            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
 
     async def test_storm_ifstmt(self):
 
@@ -5983,14 +5953,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # getPropNorm can norm sub props
             norm, info = await core.getPropNorm('test:str:tick', '3001')
-            self.eq(norm, 32535216000000000)
+            self.eq(norm, ('test:time', 32535216000000000))
             self.eq(info, {})
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
             # specify typeopts to getTypeNorm/getPropNorm
-            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), typeopts={'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
-            self.eq(norm, ('pass', 'the', 'time'))
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), typeopts={'uniq': True, 'sorted': True, 'type': 'test:lower'})
+            self.eq(norm, (('test:lower', 'pass'), ('test:lower', 'the'), ('test:lower', 'time')))
 
             norm, info = await prox.getPropNorm('test:comp', "1234:comedy", typeopts={'sepr': ':'})
             self.eq(norm, (1234, "comedy"))
@@ -6137,11 +6107,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 asuser = {'user': user.iden}
 
                 ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
+                self.isinstance(ddef, dict)
                 iden = ddef.get('iden')
                 asuser['vars'] = {'iden': iden}
 
                 with self.raises(s_exc.AuthDeny):
-                    await core.callStorm(f'$lib.dmon.del($iden)', opts=asuser)
+                    await core.callStorm('$lib.dmon.del($iden)', opts=asuser)
 
                 # remove the dmon without a nexus entry to verify recover works
                 await core._delStormDmon(iden)
@@ -6199,7 +6170,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.byname(dmon2)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:str=$item ]
-                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $lib.print(`made {$node.ndef()}`)
                     $q.cull($offs)
                 }
                 '''
@@ -7180,7 +7151,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_telepath.Client.anit(curl) as client_obj:
                     await client_obj.waitready()
                     with self.raises(s_exc.BadDataValu) as cm:
-                        await client_obj.callStorm(f'$lib.feed.fromAxon($sha256)', opts=opts)
+                        await client_obj.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
                     self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
 
     async def test_cortex_export_toaxon(self):
@@ -7410,7 +7381,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=dirn) as core:
 
-                    await core._addDataModels(s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.deprmodel)
 
                     # Create a test:deprprop so it doesn't generate a warning
                     await core.callStorm('[test:dep:easy=foobar :guid=*]')
@@ -7431,7 +7402,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 here = stream.tell()
 
                 async with self.getTestCore(dirn=dirn) as core:
-                    await core._addDataModels(s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.deprmodel)
 
                 # Check that the warnings are gone now
                 stream.seek(here)
@@ -7443,51 +7414,63 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(1, data.count('deprecated properties unlocked'))
                     self.isin(f'Detected {count - 3} deprecated properties', data)
 
-    async def test_cortex_dmons_after_modelrev(self):
+    async def test_cortex_modelrev_task(self):
+
+        async def dummy(self):
+            await asyncio.Future()
+
         with self.getTestDir() as dirn:
-            async with self.getTestCore(dirn=dirn) as core:
 
-                # Add a dmon so something gets started
-                await core.callStorm('''
-                    $ddef = $lib.dmon.add(${
-                        $lib.print(hi)
-                        $lib.warn(omg)
-                        $s = `Running {$auto.type} {$auto.iden}`
-                        $lib.log.info($s, ({"iden": $auto.iden}))
-                    })
-                ''')
+            async with self.getTestCore(dirn=dirn) as core00:
+                await self.waitForActiveMigration(core00)
 
-                # Create this so we can find the model rev version before the
-                # latest
-                mrev = s_modelrev.ModelRev(core)
+            with mock.patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
+                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
 
-                # Add a layer and regress the version so it gets migrated on the
-                # next start
-                ldef = await core.addLayer()
-                layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers((0, 0, 0))
+                    await core01.promote(graceful=False)
+                    await asyncio.sleep(0)
 
-            async def _pass(todo):
-                pass
+                    task = await core01.callStorm('''
+                        for $task in $lib.task.list() {
+                            if ($task.name = "cortex:migration:layers") {
+                                return($task)
+                            }
+                        }
+                    ''')
+                    self.nn(task)
+                    self.true(task['protected'])
+                    self.true(task['background'])
 
-            def _fake(self, core):
-                self.core = core
-                self.revs = ((s_modelrev.maxvers, _pass),)
+                    self.true(await core01.isCellActive())
 
-            with mock.patch.object(s_modelrev.ModelRev, '__init__', _fake):
-                with self.getLoggerStream('') as stream:
-                    async with self.getTestCore(dirn=dirn) as core:
-                        pass
+                    emesg = 'Task cortex:migration:layers is protected.'
 
-            stream.seek(0)
-            data = stream.read()
+                    # cannot kill through exposed Storm APIs
 
-            # Check that the model migration happens before the dmons start
-            mrevstart = data.find('beginning model migration')
-            dmonstart = data.find('Starting Dmon')
-            self.ne(-1, mrevstart)
-            self.ne(-1, dmonstart)
-            self.lt(mrevstart, dmonstart)
+                    opts = {'vars': {'iden': task['iden']}}
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('task.kill $iden', opts=opts)
+                    self.eq(cm.exception.get('mesg'), emesg)
+
+                    # cannot kill through exposed Telepath APIs
+
+                    async with core01.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.killTask(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.kill(task['iden'])
+                        self.eq(cm.exception.get('mesg'), emesg)
+
+                    # internal kill still works
+
+                    self.nn(rtask := core01.boss.get(task['iden']))
+                    await rtask.kill(safe=False)
+                    self.none(core01.boss.get(task['iden']))
 
     async def test_cortex_vaults(self):
         '''
@@ -7791,27 +7774,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, 'foo', self)
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, 'foo', self)
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, self, 'bar')
-            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, self, 'bar')
-            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchIden) as exc:
                 # iden not valid
                 await core.setVaultPerm(giden, '1234', s_cell.PERM_EDIT)
-            self.eq(f'Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
+            self.eq('Iden 1234 is not a valid user or role.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid scope
@@ -8504,7 +8487,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add a regular trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE TRIGGER: {$node}`)
-                $tick = :tick
+                $tick = :tick.value
                 $str = { [( test:str=TRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -8515,7 +8498,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add an async trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE ATRIGGER: {$node}`)
-                $tick = :tick
+                $tick = :tick.value
                 $str = { [( test:str=ATRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -8775,7 +8758,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '''
                 test:guid=(d0,)
-                $d=:raw
+                $d=:raw.value
                 $d.list.rem(listval0)
                 $d.str = foo
                 $d.int = ($d.int + 1)
@@ -8795,12 +8778,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             # modifying the property value shouldn't update the node
             q = '''
                 test:guid=(d0,)
-                $d=:raw
+                $d=:raw.value
                 $d.dict = $lib.undef
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('raw')['dict'], {'dictkey': 'dictval'})  # not propeq - indexing into prop value
+            self.eq(nodes[0].get('raw')[1]['dict'], {'dictkey': 'dictval'})  # not propeq - indexing into prop value
 
             q = '''
                 test:guid=(d0,)
@@ -8814,33 +8797,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (1, 'foo'),
             ))
 
-            # Nodeprops could have mutable types in them so make sure modifying
-            # them doesn't cause modifications to the node
-            q = '''
-                $data = { test:guid=(d0,) return(:raw) }
-                [ test:str=foobar :baz=(test:guid:raw, $data) ]
-                ($prop, $valu) = :baz
-                $valu.list.rem(listval0)
-                return((:baz, $valu))
-            '''
-            valu = await core.callStorm(q)
-
-            exp = {
-                'str': 'strval',
-                'int': 1,
-                'dict': {'dictkey': 'dictval'},
-                'list': ('listval1',),
-                'tuple': ('tupleval0', 'tupleval1'),
-            }
-
-            self.eq(valu, (('test:guid:raw', data), exp))
-
             # Make sure $node.props aren't modifiable either
-            nodes = await core.nodes('test:str=foobar $node.props.baz.1.list.rem(listval0)')
+            nodes = await core.nodes('test:guid=(d0,) $node.props.raw.list.rem(listval0)')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'baz', ('test:guid:raw', data))
-
-            # Dereferencing mutable types from $node.props should
-            # return mutable instances without mutating the original prop valu
-            valu = await core.callStorm('test:str=foobar ($prop, $valu) = :baz $valu.list.rem(listval0) return((:baz, $valu))')
-            self.eq(valu, (('test:guid:raw', data), exp))
+            self.propeq(nodes[0], 'raw', data)

@@ -115,7 +115,7 @@ Unless otherwise specified, the target ( *<target>* ) of a pivot can be:
 - a form name (e.g., ``crypto:hash:md5`` );
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - a form and property name (e.g., ``file:bytes:md5``);
-- an :ref:`interface` name (e.g., ``it:host:activity``);
+- an :ref:`interface` name (e.g., ``it:host:event``);
 - an interface and property name (e.g., ``file:mime:msoffice:application``);
 - a list of form names (e.g., ``( inet:dns:request, inet:flow )``); or
 - a wildcard / asterisk ( ``*`` ).
@@ -134,7 +134,7 @@ For the specialized use case of :ref:`raw-pivot-syntax`, the target of the pivot
   ``inet:fqdn=vertex.link -> inet:dns:a +:ip=127.0.0.1``
 
 Depending on the kind of pivot operation, you may need to specify a **source property** for the pivot as
-well; see the discussion of :ref:`implicit-pivot-syntax` below.
+well; see the discussion of :ref:`explicit-implicit-pivot-syntax` below.
 
 While there are a few specialized use cases (such as pivoting to or from tags), most pivots involve navigating
 between the following kinds of properties:
@@ -155,10 +155,10 @@ Primary to primary property pivots are a specialized use case that is commonly h
   :ref:`gloss-type-aware` to simplify pivot operations and identify relationships among nodes.
 
 
-.. _implicit-pivot-syntax:
+.. _explicit-implicit-pivot-syntax:
 
-Implicit Pivot Syntax
-+++++++++++++++++++++
+Explicit vs. Implicit Pivot Syntax
+++++++++++++++++++++++++++++++++++
 
 Pivot operations in Storm can always be executed by **explicitly** specifying the source and target
 properties for the pivot. This is referred to as **explicit pivot syntax** or "explicit syntax" for
@@ -361,25 +361,25 @@ The query above uses the wildcard ( ``*`` ) as a partial match for any form name
 The query above uses the wildcard ( ``*`` ) as a partial match for any form name that starts with ``inet:dns:a``
 followed by zero or more characters.
 
-*Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
+*Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:event interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
     .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
-    .. storm-pre:: file:bytes -> it:host:activity
-    .. storm-pre:: file:bytes -> it:host:activity:exe
+    .. storm-pre:: file:bytes -> it:host:event
+    .. storm-pre:: file:bytes -> it:host:event:exe
 
 ::
   
-  <file:bytes nodes> -> it:host:activity
+  <file:bytes nodes> -> it:host:event
 
-The query above uses implicit syntax. The ``it:host:activity`` interface defines two properties of type
+The query above uses implicit syntax. The ``it:host:event`` interface defines two properties of type
 ``file:bytes`` for host activity nodes - ``:exe`` and ``:sandbox:file``. The query above will return all
 activity nodes where the inbound files appear in either property. If you only want to see activity nodes
 whose ``:exe`` property (for example) matches the inbound files, you need to use explicit syntax:
 
 ::
   
-  <file:bytes nodes> -> it:host:activity:exe
+  <file:bytes nodes> -> it:host:event:exe
 
 *Pivot from a set of usernames (inet:user nodes) to any file paths (file:path nodes) where the username is an element of the path (a :base value - for example, where a username might appear in a PDB path):*
 
@@ -419,8 +419,7 @@ you must use explicit syntax.
 The above query uses implicit pivot syntax.
 
 A ``entity:relationship`` node represents a specific relationship between entities. The ``:source`` and ``:target``
-properties are a type of ``ndef`` which consists of a ``( <form>, <valu> )`` pair which is limited to nodes which
-implement the ``entity:actor`` interface, such as ``risk:threat``.
+properties are limited to nodes which implement the ``entity:actor`` interface, such as ``risk:threat``.
 
 Because the query above uses implicit syntax, it will return any ``risk:threat`` nodes which are either the ``:source``
 or ``:target`` property on the ``entity:relationship``. If you wanted to return only relationship nodes which
@@ -578,15 +577,15 @@ You must use explicit syntax to specify both the source and target properties.
     
     <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
 
-*Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that share the same file as their :exe property:*
+*Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:event interface) that share the same file as their :exe property:*
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
     .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
-    .. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
+    .. storm-pre:: inet:dns:request :exe -> it:host:event:exe
 
 ::
   
-  <inet:dns:request nodes> :exe -> it:host:activity:exe
+  <inet:dns:request nodes> :exe -> it:host:event:exe
 
 *Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
 
@@ -976,13 +975,13 @@ tag is included in all of those trees).
 
 The query above would return (for example) ``inet:dns:a`` nodes, ``inet:dns:request`` nodes, etc.
 
-*Pivot from a set of syn:tag nodes to any host activity nodes (all nodes of all forms that inherit the it:host:activity interface) with those tags applied:*
+*Pivot from a set of syn:tag nodes to any host activity nodes (all nodes of all forms that inherit the it:host:event interface) with those tags applied:*
 
-.. storm-pre:: syn:tag -> it:host:activity
+.. storm-pre:: syn:tag -> it:host:event
 
 ::
   
-  <syn:tag nodes> -> it:host:activity
+  <syn:tag nodes> -> it:host:event
 
 *Pivot from a set of syn:tag nodes to any IP (inet:ip), server (inet:server), or network flow (inet:flow) nodes with those tags applied and retain the syn:tag nodes in the results (pivot and join):*
 
@@ -1061,7 +1060,7 @@ Unless otherwise specified, the target ( *<target>* ) of an edge traversal can b
 - a form and property name (e.g., ``inet:url:fqdn``);
 - a form and property name, comparison operator, and value (e.g., a secondary property value, such as ``risk:tool:software:used@=(2018, 2022)``)
 - a partial form name (wildcard match, e.g., ``hash:*``);
-- an interface name (e.g., ``it:host:activity``);
+- an interface name (e.g., ``it:host:event``);
 - a list of form names (e.g., ``( crypto:hash:sha256, file:bytes )``); or
 - a wildcard / asterisk ( ``*`` ).
 

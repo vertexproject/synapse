@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import collections
 
@@ -9,7 +8,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.layer as s_layer
-import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.lmdbslab as s_lmdbslab
 

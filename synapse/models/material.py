@@ -27,7 +27,7 @@ massunits = {
 }
 
 modeldefs = (
-    ('mat', {
+    {
 
         'interfaces': (
 
@@ -140,5 +140,5 @@ modeldefs = (
                     'doc': 'The taxonomy type for the specification.'}),
             )),
         ),
-    }),
+    },
 )

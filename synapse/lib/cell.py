@@ -45,7 +45,6 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -1118,6 +1117,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._save_optimized = False
+        self._last_optimized = None
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -1231,6 +1232,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        self.optimizeddb = self.slab.initdb('cell:optimized')  # time -> optimization record
+
+        if self._save_optimized:
+            lkey = s_common.int64en(self._last_optimized['init']['time'])
+            await self.slab.put(lkey, s_msgpack.en(self._last_optimized), db=self.optimizeddb)
+            self._save_optimized = False
+
+        else:
+            last = self.slab.last(db=self.optimizeddb)
+            if last is not None:
+                self._last_optimized = s_msgpack.un(last[1])
 
         # for runtime cell configuration values
         self.slab.initdb('cell:conf')
@@ -1422,6 +1435,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not lmdbs: # pragma: no cover
             return
 
+        inittime = s_common.now()
+        initsize = s_common.getDirSize(self.dirn)
+
         logger.warning('Beginning onboot optimization (this could take a while)...')
 
         size = len(lmdbs)
@@ -1443,6 +1459,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     os.rename(dstpath, srcpath)
 
             logger.warning('... onboot optimization complete!')
+
+            finitime = s_common.now()
+            finisize = s_common.getDirSize(self.dirn)
+
+            optinfo = {
+                'init': {
+                    'time': inittime,
+                    'size': initsize,
+                },
+                'fini': {
+                    'time': finitime,
+                    'size': finisize,
+                },
+            }
+
+            self._last_optimized = optinfo
+            self._save_optimized = True
 
         except Exception as e: # pragma: no cover
             logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
@@ -3833,7 +3866,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         insecure_marker = 'https+insecure://'
         kwargs = {}
         if rurl.startswith(insecure_marker):
-            logger.warning(f'Disabling SSL verification for restore request.')
+            logger.warning('Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
             rurl = 'https://' + rurl[len(insecure_marker):]
 
@@ -4186,7 +4219,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf.setConfFromFile(path)
             conf.setConfFromFile(mods_path, force=True)
         except:
-            logger.exception(f'Error while bootstrapping cell config.')
+            logger.exception('Error while bootstrapping cell config.')
             raise
 
         s_processpool.set_pool_logging(logger, logconf=conf['_log_conf'])
@@ -4533,6 +4566,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'nexus': nxfo,
             },
             'features': self.features,
+            'optimized': self._last_optimized,
         }
         return ret
 
@@ -5007,7 +5041,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'The service is already frozen.'
             raise s_exc.BadState(mesg=mesg)
 
-        logger.warning(f'Freezing service for volume snapshot.')
+        logger.warning('Freezing service for volume snapshot.')
 
         logger.warning('...acquiring nexus lock to prevent edits.')
 

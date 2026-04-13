@@ -196,8 +196,9 @@ When a Synapse release contains a data migration for a part of the Synapse data 
 what component is being migrated and why. This will be made under the ``Automated Migrations`` header, at the
 top of the changelog.
 
-Automatic data migrations may cause additional startup times on the first boot of the version. When beginning a data
-migration, a WARNING level log message will be printed for each stage of the migration::
+Automatic data model migrations may cause additional load on the on the first boot of the version, as the migrations
+are run in the background. When beginning a data migration, a WARNING level log message will be printed for each stage
+of the migration::
 
      beginning model migration -> (0, 2, 8)
 
@@ -484,6 +485,10 @@ After the optimization process is completed, the ``onboot:optimize`` option can 
 back to ``false``. It is not necessary to optimize the databases on every boot of a
 service, but regularly scheduling an optimization pass based on the write activity of
 the service will help ensure optimal performance.
+
+When an optimization is performed, the service records the time and directory size before
+and after the optimization. This information is available in the ``optimized`` key of the
+dictionary returned by ``getCellInfo()`` and persists across restarts.
 
 .. note::
 

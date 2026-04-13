@@ -2,14 +2,13 @@
 """
 Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
 
-Requires pycodestyle and nbstripout to be installed.
+Requires ruff and nbstripout to be installed.
 
 Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
 """
 from __future__ import print_function
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -17,9 +16,9 @@ import tempfile
 
 def system(*args, **kwargs):
     kwargs.setdefault('stdout', subprocess.PIPE)
-    proc = subprocess.Popen(args, **kwargs)
-    out, err = proc.communicate()
-    return out
+    kwargs.setdefault('encoding', 'utf-8')
+    proc = subprocess.run(args, **kwargs)
+    return proc.returncode, proc.stdout, proc.stderr
 
 def main():
     regen_datamodel()
@@ -45,8 +44,8 @@ def regen_datamodel():
     print('docs/datamodel.md updated and staged.')
 
 def lint_python():
-    gitdir = system('git', 'rev-parse', '--show-toplevel').decode('utf-8').strip()
-    files = system('git', 'diff', '--cached', '--name-only').decode('utf-8')
+    gitdir = system('git', 'rev-parse', '--show-toplevel')[1].strip()
+    files = system('git', 'diff', '--cached', '--name-only')[1]
     pyfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
     nbfiles = [os.path.join(gitdir, file.strip()) for file in files.split('\n') if file.strip().endswith('.ipynb')]
 
@@ -66,19 +65,19 @@ def lint_python():
             with open(filename, 'w') as f:
                 system('git', 'show', ':' + name, stdout=f)
 
-        args = ['pycodestyle', f'--config={gitdir}/setup.cfg']
+        args = ['ruff', 'check', f'--config={gitdir}/pyproject.toml']
         args.append('.')
-        output = system(*args, cwd=tempdir)
+        code, stdout, stderr = system(*args, cwd=tempdir)
         shutil.rmtree(tempdir)
-        if output:
-            print('PEP8 style violations have been detected.  Please fix them\n'
+        if code != 0:
+            print('Style violations have been detected.  Please fix them\n'
                   'or force the commit with "git commit --no-verify".\n')
-            print(output.decode('utf-8'),)
+            print(stdout)
             sys.exit(1)
     if nbfiles:
         print('Ipython notebooks detected - stripping their output automatically and re-adding them.')
-        output = system('nbstripout', '--help').decode('utf-8')
-        if 'notebook' in output:
+        stdout = system('nbstripout', '--help')[1]
+        if 'notebook' in stdout:
             for nbfp in nbfiles:
                 nbfp = os.path.join(gitdir, nbfp)
                 args = ['nbstripout', nbfp]

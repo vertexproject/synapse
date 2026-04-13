@@ -36,7 +36,6 @@ import synapse.lib.agenda as s_agenda
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.urlhelp as s_urlhelp
-import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 
 logger = logging.getLogger(__name__)
@@ -711,7 +710,7 @@ class LibDmon(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname'},
                       {'name': 'ddef', 'type': 'dict', 'desc': 'Additional daemon definition fields. ', 'default': None},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.'}}},
+                  'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.'}}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
@@ -1119,7 +1118,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_exit',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'Optional string to warn.', 'default': None, },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
@@ -1224,7 +1222,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_warn',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to warn.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'print', 'desc': '''
@@ -1239,14 +1236,14 @@ class LibBase(Lib):
                 Format and print string based on variables::
 
                     storm> $d=({"key1": (1), "key2": "two"})
-                         for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
+                         for ($key, $value) in $d { $lib.print(`{$key} => {$value}`) }
                     key1 => 1
                     key2 => two
 
                 Use values off of a node to format and print string::
 
                     storm> inet:ipv4:asn
-                         $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
+                         $lib.print(`node: {$node.ndef()}, asn: {:asn}`) | spin
                     node: ('inet:ipv4', 16909060), asn: 1138
 
             Notes:
@@ -1256,7 +1253,6 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_print',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to print.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'range', 'desc': '''
@@ -1369,7 +1365,7 @@ class LibBase(Lib):
             Create and return a deep copy of the given storm object.
 
             Note:
-                This is currently limited to msgpack compatible primitives.
+                This is currently limited to msgpack compatible primitives and Node, NodeRef, or Vault objects.
 
             Examples:
                 Make a copy of a list or dict::
@@ -1382,7 +1378,7 @@ class LibBase(Lib):
                        'desc': 'The item to make a copy of.', },
                   ),
                   'returns': {'type': 'prim',
-                              'desc': 'A deep copy of the primitive object.', }}},
+                              'desc': 'A deep copy of the object.', }}},
     )
 
     _storm_lib_perms = (
@@ -1509,24 +1505,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _copy(self, item):
-        # short circuit a few python types
-        if item is None:
-            return None
-
-        if isinstance(item, (int, str, bool)):
-            return item
-
-        try:
-            valu = fromprim(item)
-        except s_exc.NoSuchType:
-            mesg = 'Type does not have a Storm primitive and cannot be copied.'
-            raise s_exc.BadArg(mesg=mesg) from None
-
-        try:
-            return await valu._storm_copy()
-        except s_exc.NoSuchType:
-            mesg = 'Nested type does not support being copied!'
-            raise s_exc.BadArg(mesg=mesg) from None
+        return await stormcopy(item)
 
     def _reqTypeByName(self, name):
         typeitem = self.runt.view.core.model.type(name)
@@ -1590,9 +1569,9 @@ class LibBase(Lib):
             raise s_exc.BadArg(mesg=f'Failed to repr {name=} valu={s_common.trimText(repr(valu))}; {e}') from None
 
     @stormfunc(readonly=True)
-    async def _exit(self, mesg=None, **kwargs):
+    async def _exit(self, mesg=None):
         if mesg:
-            mesg = await self._get_mesg(mesg, **kwargs)
+            mesg = await self._get_mesg(mesg)
             await self.runt.warn(mesg, log=False)
             raise s_stormctrl.StormExit(mesg=mesg)
         raise s_stormctrl.StormExit()
@@ -1679,16 +1658,14 @@ class LibBase(Lib):
         return max(ints)
 
     @staticmethod
-    async def _get_mesg(mesg, **kwargs):
+    async def _get_mesg(mesg):
         if not isinstance(mesg, str):
             mesg = await torepr(mesg)
-        elif kwargs:
-            mesg = await kwarg_format(mesg, **kwargs)
         return mesg
 
     @stormfunc(readonly=True)
-    async def _print(self, mesg, **kwargs):
-        mesg = await self._get_mesg(mesg, **kwargs)
+    async def _print(self, mesg):
+        mesg = await self._get_mesg(mesg)
         await self.runt.printf(mesg)
 
     @stormfunc(readonly=True)
@@ -1748,8 +1725,8 @@ class LibBase(Lib):
                 await self.runt.printf(fline)
 
     @stormfunc(readonly=True)
-    async def _warn(self, mesg, **kwargs):
-        mesg = await self._get_mesg(mesg, **kwargs)
+    async def _warn(self, mesg):
+        mesg = await self._get_mesg(mesg)
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
@@ -1946,7 +1923,7 @@ class LibAxon(Lib):
                     $headers."User-Agent" = Foo/Bar
 
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
-                    if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
+                    if $resp.ok { $lib.print(`Downloaded: {$resp.size} bytes`) }
             """,
          'type': {'type': 'function', '_funcname': 'wget',
                   'args': (
@@ -2137,7 +2114,7 @@ class LibAxon(Lib):
             Print the total number of files stored in the Axon::
 
                 $data = $lib.axon.metrics()
-                $lib.print("The Axon has {n} files", n=$data."file:count")
+                $lib.print(`The Axon has {$data."file:count"} files`)
         ''',
         'type': {'type': 'function', '_funcname': 'metrics',
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
@@ -2148,7 +2125,7 @@ class LibAxon(Lib):
                 Save a base64 encoded buffer to the Axon::
 
                     storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+                         $lib.print(`size={$size} sha256={$sha256}`)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
          'type': {'type': 'function', '_funcname': 'put',
@@ -2605,17 +2582,16 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
                       {'name': 'name', 'desc': 'The name of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
+
         {'name': 'byPropRefs', 'desc': 'Lift nodes which are referenced by properties of other nodes.',
          'type': {'type': 'function', '_funcname': '_byPropRefs',
                   'args': (
@@ -2623,9 +2599,8 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
          'type': {'type': 'function', '_funcname': '_byTypeValue',
                   'args': (
@@ -2633,9 +2608,8 @@ class LibLift(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value for the type.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
         {'name': 'byPropsDict', 'desc': 'Lift all nodes of a form which have a set of properties with specific values.',
          'type': {'type': 'function', '_funcname': '_byPropsDict',
                   'args': (
@@ -2644,9 +2618,25 @@ class LibLift(Lib):
                       {'name': 'errok', 'desc': 'If set, norming failures will not raise an exception.',
                        'type': 'boolean', 'default': False},
                   ),
+                  'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes.'}}},
+
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.'}}},
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
@@ -2657,6 +2647,7 @@ class LibLift(Lib):
             'byPropRefs': self._byPropRefs,
             'byPropsDict': self._byPropsDict,
             'byTypeValue': self._byTypeValue,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
@@ -2698,7 +2689,7 @@ class LibLift(Lib):
                 if not item.isform:
                     flatprops.extend(item.getAlts())
                 else:
-                    flatprops.extend(plist)
+                    flatprops.append(item)
 
         def getType(prop):
             if prop.type.isarray:
@@ -2710,7 +2701,7 @@ class LibLift(Lib):
         ptyp = getType(flatprops[0])
         form = ptyp.name
 
-        if not ptyp.ispoly and self.runt.model.form(form) is None:
+        if (ptyp.ispoly and not ptyp.hasforms) or (not ptyp.ispoly and self.runt.model.form(form) is None):
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
             raise s_exc.StormRuntimeError(mesg=mesg, type=form)
 
@@ -2796,6 +2787,16 @@ class LibLift(Lib):
 
         async for node in self.runt.view.nodesByPropTypeValu(name, valu, cmpr=cmpr):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        view = self.runt.view
+        async for name in view.getTagsByPref(prefix, depth=depth):
+            if (node := await view.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
@@ -3108,6 +3109,7 @@ class LibTime(Lib):
 
     @stormfunc(readonly=True)
     async def _format(self, valu, format):
+        valu = await toprim(valu)
         timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:
@@ -4202,6 +4204,7 @@ class LibBase64(Lib):
 
     @stormfunc(readonly=True)
     async def _decode(self, valu, urlsafe=True):
+        valu = await toprim(valu)
         try:
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
@@ -4820,8 +4823,7 @@ class Bytes(Prim):
         return bool(self.valu)
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        return self
 
     @stormfunc(readonly=True)
     async def _methSlice(self, start, end=None):
@@ -4917,8 +4919,10 @@ class Dict(Prim):
         return bool(self.valu)
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in self.valu.items()}
 
     async def _storm_contains(self, item):
         item = await toprim(item)
@@ -4970,6 +4974,13 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_copy(self):
+        valu = vars(self.valu.opts)
+        try:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return {k: await stormcopy(v) for (k, v) in valu.items()}
 
     async def _storm_contains(self, item):
         item = await toprim(item)
@@ -5259,8 +5270,10 @@ class List(Prim):
         self.valu[indx] = valu
 
     async def _storm_copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
+        try:
+            return s_msgpack.deepcopy(self.valu, use_list=True)
+        except s_exc.NotMsgpackSafe:
+            return [await stormcopy(v) for v in self.valu]
 
     async def _storm_contains(self, item):
         return await self._methListHas(item)
@@ -6082,25 +6095,25 @@ class NodeData(Prim):
 @registry.registerType
 class NodeRef(Prim):
     '''
-    A form and value tuple representing a node.
+    A type and value tuple representing a node.
     '''
     _storm_locals = (
-        {'name': 'form', 'desc': 'Get the form of the tuple.',
+        {'name': 'type', 'desc': 'Get the type of the tuple.',
          'type': 'str'},
-        {'name': 'ndef', 'desc': 'Get the form and valu of the tuple.',
+        {'name': 'ndef', 'desc': 'Get the type and valu of the tuple.',
          'type': 'list'},
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
          'type': 'any'},
-        {'name': 'isform', 'desc': 'Check if the form in the tuple is a given form.',
-         'type': {'type': 'function', '_funcname': '_methIsForm',
+        {'name': 'istype', 'desc': 'Check if the type in the tuple is a given type.',
+         'type': {'type': 'function', '_funcname': '_methIsType',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the form in the tuple against.'},
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The type or types to compare the type in the tuple against.'},
                   ),
-                  'returns': {'desc': 'True if the form is at least one of the forms specified, false otherwise.',
+                  'returns': {'desc': 'True if the type is at least one of the types specified, false otherwise.',
                               'type': 'boolean'}}},
 
     )
-    _storm_typename = 'ndef'
+    _storm_typename = 'noderef'
     _ismutable = False
 
     def __init__(self, valu, path=None):
@@ -6133,19 +6146,26 @@ class NodeRef(Prim):
 
     def getObjLocals(self):
         return {
-            'form': self.valu[0],
+            'type': self.valu[0],
             'ndef': self.valu,
             'value': self.valu[1],
-            'isform': self._methIsForm,
+            'istype': self._methIsType,
         }
 
     async def stormrepr(self):
         runt = s_scope.get('runt')
-        form = runt.view.core.model.reqForm(self.valu[0])
-        return form.type.repr(self.valu[1])
+        tobj = runt.view.core.model.reqType(self.valu[0])
+        return tobj.repr(self.valu[1])
+
+    async def _storm_copy(self):
+        return self
 
     def value(self):
         return self.valu[1]
+
+    async def iter(self):
+        for item in tuple(self.valu[1]):
+            yield item
 
     @stormfunc(readonly=True)
     async def _derefGet(self, name):
@@ -6158,17 +6178,18 @@ class NodeRef(Prim):
         return await fromprim(self.valu[1]).deref(name)
 
     @stormfunc(readonly=True)
-    async def _methIsForm(self, name):
+    async def _methIsType(self, name):
         names = await toprim(name)
 
         if not isinstance(names, (list, tuple)):
             names = (name,)
 
         runt = s_scope.get('runt')
-        form = runt.view.core.model.reqForm(self.valu[0])
-        for name in names:
-            if name in form.formtypes:
-                return True
+
+        if (tobj := runt.view.core.model.type(self.valu[0])) is not None:
+            for name in names:
+                if name in tobj.types:
+                    return True
 
         return False
 
@@ -6279,24 +6300,6 @@ class Node(Prim):
                   'returns': {'desc': 'True if the node is at least one of the forms specified, false otherwise.',
                               'type': 'boolean'}}},
 
-        {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
-         'type': {'type': 'function', '_funcname': '_methNodeProtocol',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                        'desc': 'The protocol name implemented by the property.', },
-                      {'name': 'propname', 'type': 'str', 'default': None,
-                        'desc': 'The relative name of the property which declares the protocol.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
-
-        {'name': 'protocols', 'desc': 'Return a list of protocol objects for the node.',
-         'type': {'type': 'function', '_funcname': '_methNodeProtocols',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'default': None,
-                        'desc': 'Only return protocols with the given name.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
-
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
@@ -6324,6 +6327,9 @@ class Node(Prim):
     def __hash__(self):
         return hash((self._storm_typename, self.valu.iden))
 
+    async def _storm_copy(self):
+        return self
+
     def getObjLocals(self):
         if self.valu.nid is not None:
             nid = s_common.int64un(self.valu.nid)
@@ -6345,8 +6351,6 @@ class Node(Prim):
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
-            'protocol': self._methNodeProtocol,
-            'protocols': self._methNodeProtocols,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6423,17 +6427,6 @@ class Node(Prim):
                 return True
 
         return False
-
-    @stormfunc(readonly=True)
-    async def _methNodeProtocol(self, name, propname=None):
-        name = await tostr(name)
-        propname = await tostr(propname, noneok=True)
-        return self.valu.protocol(name, propname=propname)
-
-    @stormfunc(readonly=True)
-    async def _methNodeProtocols(self, name=None):
-        name = await tostr(name, noneok=True)
-        return self.valu.protocols(name=name)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):
@@ -7756,6 +7749,9 @@ class Layer(Prim):
                 valu = None
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
+
+        elif name == 'cache:size':
+            valu = await toint(valu)
 
         elif name == 'readonly':
             valu = await tobool(valu)
@@ -9428,6 +9424,86 @@ class LibCron(Lib):
 
         return None
 
+    def _parseTimePart(self, timepart):
+        reqs = {}
+        if ':' in timepart:
+            h, m = timepart.split(':')
+            if h:
+                try:
+                    reqs['hour'] = int(h, 10)
+                except ValueError:
+                    mesg = f'Invalid hour value: {h}'
+                    raise s_exc.BadTime(mesg=mesg)
+            if m:
+                try:
+                    reqs['minute'] = int(m, 10)
+                except ValueError:
+                    mesg = f'Invalid minute value: {m}'
+                    raise s_exc.BadTime(mesg=mesg)
+        else:
+            try:
+                reqs['hour'] = int(timepart, 10)
+            except ValueError:
+                mesg = f'Invalid hour value: {timepart}'
+                raise s_exc.BadTime(mesg=mesg)
+
+        return reqs
+
+    def _validateFields(self, reqs):
+        for field, fieldname in (
+            ('hour', 'hour'),
+            ('minute', 'minute'),
+            ('dayofmonth', 'day of month'),
+            ('month', 'month'),
+        ):
+            if field not in reqs:
+                continue
+            timeunit = s_agenda.TimeUnit.fromString(field)
+            minval, maxval = s_agenda._UnitBounds[timeunit][0]
+            vals = reqs[field]
+            if not isinstance(vals, (list, tuple)):
+                vals = (vals,)
+            for v in vals:
+                if not (minval <= v <= maxval):
+                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+    def _parsePeriodYearly(self, text):
+        reqs = []
+
+        vals = None
+
+        if '/' in text:
+            _, vals = text.split('/', 1)
+            for dtstr in vals.split(','):
+                req = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+                parts = dtstr.split('@')
+
+                dmstr = parts[0]
+                if '@' in dtstr:
+                    tstr = parts[1]
+                    req.update(self._parseTimePart(tstr))
+
+                try:
+                    mstr, dstr = dmstr.split('-')
+                    req['month'] = int(mstr)
+                    req['dayofmonth'] = int(dstr)
+                except ValueError:
+                    mesg = f'Invalid month-day value for yearly period: {dtstr}'
+                    raise s_exc.BadTime(mesg=mesg)
+                self._validateFields(req)
+
+                reqs.append(req)
+        elif '@' in text:
+            _, tstr = text.split('@', 1)
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+            reqs.update(self._parseTimePart(tstr))
+            self._validateFields(reqs)
+        else:
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+
+        return reqs, 'year', 1
+
     def _parsePeriod(self, text):
         '''
         Parse a period string into requirements, increment unit, and increment values.
@@ -9438,29 +9514,6 @@ class LibCron(Lib):
 
         parts = text.split('@', 1)
         base = parts[0]
-        timepart = parts[1] if len(parts) > 1 else None
-
-        if timepart:
-            if ':' in timepart:
-                h, m = timepart.split(':')
-                if h:
-                    try:
-                        reqs['hour'] = int(h, 10)
-                    except ValueError:
-                        mesg = f'Invalid hour value: {h}'
-                        raise s_exc.BadTime(mesg=mesg)
-                if m:
-                    try:
-                        reqs['minute'] = int(m, 10)
-                    except ValueError:
-                        mesg = f'Invalid minute value: {m}'
-                        raise s_exc.BadTime(mesg=mesg)
-            else:
-                try:
-                    reqs['hour'] = int(timepart, 10)
-                except ValueError:
-                    mesg = f'Invalid hour value: {timepart}'
-                    raise s_exc.BadTime(mesg=mesg)
 
         if '/' in base:
             period, vals = base.split('/', 1)
@@ -9469,6 +9522,13 @@ class LibCron(Lib):
             vals = None
 
         period = period.lower()
+        if period == 'yearly':
+            return self._parsePeriodYearly(text)
+
+        timepart = parts[1] if len(parts) > 1 else None
+
+        if timepart:
+            reqs.update(self._parseTimePart(timepart))
 
         if period == 'hourly':
             if timepart is None:
@@ -9532,34 +9592,11 @@ class LibCron(Lib):
                 reqs['dayofmonth'] = 1
             incvals = 1
 
-        elif period == 'yearly':
-            incunit = 'year'
-            incvals = 1
-            reqs['month'] = 1
-            reqs['dayofmonth'] = 1
-            reqs.setdefault('hour', 0)
-            reqs.setdefault('minute', 0)
         else:
             mesg = f'Unknown period: {period}'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        for field, fieldname in (
-            ('hour', 'hour'),
-            ('minute', 'minute'),
-            ('dayofmonth', 'day of month'),
-            ('month', 'month'),
-        ):
-            if field not in reqs:
-                continue
-            timeunit = s_agenda.TimeUnit.fromString(field)
-            minval, maxval = s_agenda._UnitBounds[timeunit][0]
-            vals = reqs[field]
-            if not isinstance(vals, (list, tuple)):
-                vals = (vals,)
-            for v in vals:
-                if not (minval <= v <= maxval):
-                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
-                    raise s_exc.BadConfValu(mesg=mesg)
+        self._validateFields(reqs)
 
         return reqs, incunit, incvals
 
@@ -9568,6 +9605,12 @@ class LibCron(Lib):
         incval = None
         reqdict = {}
         pool = await tobool(kwargs.get('pool', False))
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
+            if pool:
+                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -9576,6 +9619,8 @@ class LibCron(Lib):
         }
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         try:
             reqdict, incunit, incval = self._parsePeriod(period)
@@ -9586,10 +9631,12 @@ class LibCron(Lib):
         cdef = {'storm': query,
                 'reqs': reqdict,
                 'pool': pool,
+                'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
                 'user': self.runt.user.iden,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')
@@ -9620,6 +9667,12 @@ class LibCron(Lib):
         now = time.time()
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
+        affinity = kwargs.get('affinity')
+        if affinity is not None:
+            affinity = await tostr(affinity)
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -9668,10 +9721,12 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
                 'user': self.runt.user.iden,
+                'affinity': affinity,
                 'creator': self.runt.user.iden
                 }
 
@@ -9844,6 +9899,7 @@ class CronJob(Prim):
             'viewshort': view[:8] + '..',
             'storm': self.valu.get('storm') or '<missing>',
             'pool': self.valu.get('pool', False),
+            'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
@@ -10235,6 +10291,26 @@ async def totype(valu, basetypes=False) -> str:
         return fp._storm_typename
 
     return valu.__class__.__name__
+
+async def stormcopy(item):
+    if item is None:
+        return None
+
+    if isinstance(item, (int, str, bool, float, bytes, decimal.Decimal, s_node.NodeBase)):
+        return item
+
+    try:
+        if not isinstance(item, StormType):
+            item = fromprim(item)
+    except s_exc.NoSuchType:
+        mesg = 'Type does not have a Storm primitive and cannot be copied.'
+        raise s_exc.BadArg(mesg=mesg) from None
+
+    try:
+        return await item._storm_copy()
+    except s_exc.BadArg:
+        mesg = 'Nested type does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg) from None
 
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):

@@ -267,7 +267,7 @@ class NexusTest(s_t_utils.SynTest):
                             await asyncio.wait_for(core.addView(vdef), 0.1)
 
                     # This will get the lock and succeed
-                    vdef = {'layers': (deflayr,), 'name': f'waitview'}
+                    vdef = {'layers': (deflayr,), 'name': 'waitview'}
                     core.schedCoro(core.addView(vdef))
                     evnt.set()
 
@@ -656,7 +656,7 @@ class NexusTest(s_t_utils.SynTest):
 
                             # After promotion we should not have any stray connect timeouts
                             await core01.promote(graceful=True)
-                            await asyncio.sleep(0.1)
+                            await asyncio.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)
                             self.false(core01.nexsroot.readonly)

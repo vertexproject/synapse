@@ -24,7 +24,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.time as s_time
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
-import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -51,57 +50,57 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
-import synapse.lib.stormhttp as s_stormhttp  # NOQA
+import synapse.lib.stormhttp as s_stormhttp  # noqa: F401
 
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
-import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
-import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
-import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
-import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
-import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
-import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
-import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
-import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
-import synapse.lib.stormlib.file as s_stormlib_file  # NOQA
-import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
-import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
-import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
-import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
-import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
-import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
-import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
-import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
-import synapse.lib.stormlib.task as s_stormlib_task  # NOQA
-import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
-import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
-import synapse.lib.stormlib.bytes as s_stormlib_bytes  # NOQA
-import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
-import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
-import synapse.lib.stormlib.index as s_stormlib_index  # NOQA
-import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
+import synapse.lib.stormlib.aha as s_stormlib_aha  # noqa: F401
+import synapse.lib.stormlib.gen as s_stormlib_gen  # noqa: F401
+import synapse.lib.stormlib.gis as s_stormlib_gis  # noqa: F401
+import synapse.lib.stormlib.hex as s_stormlib_hex  # noqa: F401
+import synapse.lib.stormlib.log as s_stormlib_log  # noqa: F401
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # noqa: F401
+import synapse.lib.stormlib.xml as s_stormlib_xml  # noqa: F401
+import synapse.lib.stormlib.auth as s_stormlib_auth  # noqa: F401
+import synapse.lib.stormlib.cell as s_stormlib_cell  # noqa: F401
+import synapse.lib.stormlib.file as s_stormlib_file  # noqa: F401
+import synapse.lib.stormlib.imap as s_stormlib_imap  # noqa: F401
+import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # noqa: F401
+import synapse.lib.stormlib.json as s_stormlib_json  # noqa: F401
+import synapse.lib.stormlib.math as s_stormlib_math  # noqa: F401
+import synapse.lib.stormlib.mime as s_stormlib_mime  # noqa: F401
+import synapse.lib.stormlib.pack as s_stormlib_pack  # noqa: F401
+import synapse.lib.stormlib.smtp as s_stormlib_smtp  # noqa: F401
+import synapse.lib.stormlib.stix as s_stormlib_stix  # noqa: F401
+import synapse.lib.stormlib.task as s_stormlib_task  # noqa: F401
+import synapse.lib.stormlib.yaml as s_stormlib_yaml  # noqa: F401
+import synapse.lib.stormlib.basex as s_stormlib_basex  # noqa: F401
+import synapse.lib.stormlib.bytes as s_stormlib_bytes  # noqa: F401
+import synapse.lib.stormlib.cache as s_stormlib_cache  # noqa: F401
+import synapse.lib.stormlib.graph as s_stormlib_graph  # noqa: F401
+import synapse.lib.stormlib.index as s_stormlib_index  # noqa: F401
+import synapse.lib.stormlib.iters as s_stormlib_iters  # noqa: F401
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
-import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
-import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
-import synapse.lib.stormlib.utils as s_stormlib_utils  # NOQA
-import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
-import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
-import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
-import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
-import synapse.lib.stormlib.quorum as s_stormlib_quorum  # NOQA
-import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
-import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
-import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
-import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
-import synapse.lib.stormlib.tabular as s_stormlib_tabular  # NOQA
-import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
-import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
-import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
-import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
-import synapse.lib.stormlib.compression as s_stormlib_compression  # NOQA
+import synapse.lib.stormlib.oauth as s_stormlib_oauth  # noqa: F401
+import synapse.lib.stormlib.stats as s_stormlib_stats  # noqa: F401
+import synapse.lib.stormlib.storm as s_stormlib_storm  # noqa: F401
+import synapse.lib.stormlib.utils as s_stormlib_utils  # noqa: F401
+import synapse.lib.stormlib.vault as s_stormlib_vault  # noqa: F401
+import synapse.lib.stormlib.backup as s_stormlib_backup  # noqa: F401
+import synapse.lib.stormlib.cortex as s_stormlib_cortex  # noqa: F401
+import synapse.lib.stormlib.hashes as s_stormlib_hashes  # noqa: F401
+import synapse.lib.stormlib.quorum as s_stormlib_quorum  # noqa: F401
+import synapse.lib.stormlib.random as s_stormlib_random  # noqa: F401
+import synapse.lib.stormlib.scrape as s_stormlib_scrape   # noqa: F401
+import synapse.lib.stormlib.infosec as s_stormlib_infosec  # noqa: F401
+import synapse.lib.stormlib.spooled as s_stormlib_spooled  # noqa: F401
+import synapse.lib.stormlib.tabular as s_stormlib_tabular  # noqa: F401
+import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
+import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
+import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
@@ -215,8 +214,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -334,6 +333,19 @@ class CoreApi(s_cell.CellApi):
             BadSyntaxError: If the query is invalid.
         '''
         return await self.cell.reqValidStorm(text, opts)
+
+    async def isValidStorm(self, text, *, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts=opts)
 
     async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
@@ -651,6 +663,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
+        'layers:cache:size': {
+            'default': None,
+            'description': 'Default nid cache size for new layers.',
+            'type': ['integer', 'null'],
+        },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
             'type': 'integer',
@@ -728,11 +745,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
-        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -813,6 +832,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -840,7 +860,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormMacro(self, name, user=None):
 
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -942,7 +962,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
 
         byts = self.slab.pop(name.encode(), db=self.macrodb)
 
@@ -1233,13 +1253,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        if self.isactive:
-            await self._checkLayerModels()
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1252,6 +1268,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1265,11 +1283,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -2475,12 +2497,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgState(name, verskey) is None:
+                        await self.setStormPkgState(name, verskey, -1)
 
                 else:
                     inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
+                    curvers = await self.getStormPkgState(name, verskey)
                     if curvers is None:
                         inaugural = True
                         curvers = -1
@@ -2494,7 +2516,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgState(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2531,9 +2553,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        curvers = max(vers, stored := await self.getStormPkgState(name, verskey, default=-1))
                         if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                            await self.setStormPkgState(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2823,6 +2845,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in pkgvars.items():
             yield item
 
+    # Storm package state APIs
+
+    def _getStormPkgStateKV(self, name):
+        if (pkgstate := self.stormpkgstate.get(name)) is None:
+            self.stormpkgstate[name] = pkgstate = self.cortexdata.getSubKeyVal(f'stormpkg:state:{name}:')
+        return pkgstate
+
+    async def getStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:pop')
+    async def popStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:set')
+    async def setStormPkgState(self, name, key, valu):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.set(key, valu)
+
+    async def iterStormPkgState(self, name):
+        pkgstate = self._getStormPkgStateKV(name)
+        for item in pkgstate.items():
+            yield item
+
     async def addStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -2918,10 +2966,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self.model.addModelDefs(mdefs)
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
@@ -3282,18 +3330,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # TODO: do we actually want to auto-convert to poly props?
-        typename, typeinfo = tdef
-        if not typeinfo:
-            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.model.forminfos)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.model.ifaces)
-            typename = 'poly'
-            tdef = (typename, typeinfo)
+        tdef = self.model.convertTypedef(tdef)
 
         self.model.getTypeClone(tdef)
 
@@ -3833,6 +3870,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -4044,8 +4082,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''
@@ -4560,6 +4598,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             newlayers[oldlayers.index(oldiden)] = newiden
 
             await view._setLayerIdens(newlayers)
+            view.clearCache()
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):
@@ -5456,7 +5495,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_schemas.reqValidExportStormMeta(meta)
         except s_exc.SchemaViolation as e:
-            raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+            raise s_exc.BadDataValu(mesg='Invalid syn.nodes data.')
 
         if meta['vers'] != 1:
             mesg = f"Unsupported export version: {meta['vers']}, expected 1"
@@ -5599,6 +5638,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mode = opts.get('mode', 'storm')
         await self.getStormQuery(text, mode=mode)
         return True
+
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except Exception as e:
+            return s_common.retnexc(e)
 
     def _logStormQuery(self, text, user, info=None):
         '''
@@ -5898,13 +5954,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             elif name == 'storm':
                 await self.getStormQuery(valu)
 
-            elif name == 'reqs':
-                reqs = self._convert_reqdict(valu)
-                if 'incunit' in edits and s_agenda.TimeUnit.NOW in reqs:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise s_exc.BadConfValu(mesg)
+            elif name == 'pool':
+                if valu and edits.get('affinity'):
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
 
-            elif name not in ('name', 'enabled', 'pool', 'doc', 'loglevel', 'incvals', 'incunit'):
+            elif name == 'affinity':
+                if valu and edits.get('pool'):
+                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
+
+            elif name == 'reqs':
+                if isinstance(valu, Mapping):
+                    reqs = self._convert_reqdict(valu)
+                    if 'incunit' in edits and s_agenda.TimeUnit.NOW in reqs:
+                        mesg = "Recurring jobs may not be scheduled to run 'now'"
+                        raise s_exc.BadConfValu(mesg)
+                else:
+                    nreqs = []
+                    for req in valu:
+                        nr = self._convert_reqdict(req)
+                        if 'incunit' in edits and s_agenda.TimeUnit.NOW in nr:
+                            mesg = "Recurring jobs may not be scheduled to run 'now'"
+                            raise s_exc.BadConfValu(mesg)
+                        nreqs.append(nr)
+                    reqs = nreqs
+
+            elif name not in ('name', 'enabled', 'pool', 'affinity', 'doc', 'loglevel', 'incvals', 'incunit'):
                 raise s_exc.BadOptValu(mesg='Cron Job does not support setting specified property.', prop=name)
 
             if cdef.get(name) == valu:
@@ -6430,7 +6504,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault secrets must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
@@ -6468,7 +6542,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg='Vault configs must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 

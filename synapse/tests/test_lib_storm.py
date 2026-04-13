@@ -1,12 +1,11 @@
-import copy
 import asyncio
 import textwrap
-import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -554,14 +553,14 @@ class StormTest(s_t_utils.SynTest):
                     $lib.print('nested raise')
                     $lib.raise($errname, mesg='inner error!')
                 } catch foo as err {
-                    $lib.print('caught foo e={e}', e=$err)
+                    $lib.print(`caught foo e={$err}`)
                     if $innerRaise {
                         $lib.raise($innererrname, mesg='inner error!')
                     }
                 }
                 $lib.print('no foo err!')
             } catch bar as err {
-                $lib.print('caught bar e={e}', e=$err)
+                $lib.print(`caught bar e={$err}`)
             }
             $lib.print('fin')'''
             msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': '', 'innerRaise': False, }})
@@ -615,7 +614,7 @@ class StormTest(s_t_utils.SynTest):
             try {
                 $lib.raise(foo, test)
             } catch (1, $lib.true, foo) as err {
-                $lib.print('caught err={e}', e=$err)
+                $lib.print(`caught err={$err}`)
             }
             ''')
             self.stormIsInPrint('caught err=', msgs)
@@ -885,22 +884,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq((0, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(0))'))
 
             task = core.stormdmons.getDmon(ddef0['iden']).task
-            self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
 
-            self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
-            self.false(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
-            self.false(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
-            self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
-            self.true(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
-            self.false(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.true(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
-            self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
-            self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
-            self.false(await core.callStorm(f'return($lib.dmon.start(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.bump(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.stop(newp))'))
+            self.false(await core.callStorm('return($lib.dmon.start(newp))'))
 
             self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
 
@@ -955,7 +954,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq((1577836800000000, 1577836800000001, 1), sodes[0]['tags']['foo'])
             self.eq((('inet:asn', 99), 16393, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
-            self.eq(('unicast', 1, None), sodes[1]['props']['type'])
+            self.eq((('str', 'unicast'), 16385, None), sodes[1]['props']['type'])
             self.eq((('inet:asn', 56), 16393, None), sodes[1]['props']['asn'])
 
             nodes = await core.nodes('[inet:ip=11.22.33.44 +#bar:score=200]')
@@ -1236,7 +1235,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''[
                 (it:exec:query=* :time=2025-04?)
                 (test:str=foo :seen=2020 :bar={[test:str=bar]})
-                (test:str=baz :seen=(2020, ?) :ndefs={[test:str=1 test:str=2]})
+                (test:str=baz :seen=(2020, ?) :polyarry={[test:str=1 test:str=2]})
                 (test:str=faz :seen=(2020, *))
                 (test:str=multi :poly={[test:int=5]})
                 (test:str=multi2 :polyarry={[inet:server=1.2.3.4:80 inet:server=1.2.3.5:80 inet:server=1.2.3.4:90]})
@@ -1246,29 +1245,29 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['props']['time.precision'], 8)
 
             self.eq(nodes[1][1]['props']['bar'], ('test:str', 'bar'))
-            self.eq(nodes[1][1]['props']['bar.form'], 'test:str')
-            self.eq(nodes[1][1]['props']['seen'], (1577836800000000, 1577836800000001, 1))
+            self.eq(nodes[1][1]['props']['bar.type'], 'test:str')
+            self.eq(nodes[1][1]['props']['seen'], ('ival', (1577836800000000, 1577836800000001, 1)))
             self.eq(nodes[1][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[1][1]['props']['seen.max'], 1577836800000001)
             self.eq(nodes[1][1]['props']['seen.duration'], 1)
 
-            self.eq(nodes[2][1]['props']['seen'], (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff))
+            self.eq(nodes[2][1]['props']['seen'], ('ival', (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff)))
             self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
             self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
-            self.eq(nodes[2][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[2][1]['props']['ndefs.size'], 2)
-            self.eq(nodes[2][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+            self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[2][1]['props']['polyarry.size'], 2)
+            self.eq(nodes[2][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
-            self.eq(nodes[3][1]['props']['seen'], (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe))
+            self.eq(nodes[3][1]['props']['seen'], ('ival', (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe)))
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
             self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
 
-            self.eq(nodes[4][1]['props']['poly.form'], 'test:int')
+            self.eq(nodes[4][1]['props']['poly.type'], 'test:int')
 
-            self.eq(nodes[5][1]['props']['polyarry.ip'], {(4, 16909060): 2, (4, 16909061): 1})
-            self.eq(nodes[5][1]['props']['polyarry.port'], {80: 2, 90: 1})
+            self.eq(nodes[5][1]['props']['polyarry.ip'], (((4, 16909060), 2), ((4, 16909061), 1)))
+            self.eq(nodes[5][1]['props']['polyarry.port'], ((80, 2), (90, 1)))
             self.eq(nodes[5][1]['props']['polyarry.size'], 3)
 
             opts['view'] = fork
@@ -1279,9 +1278,9 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0][1]['props'].get('seen.min'))
             self.none(nodes[0][1]['props'].get('seen.max'))
             self.none(nodes[0][1]['props'].get('seen.duration'))
-            self.eq(nodes[0][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[0][1]['props']['ndefs.size'], 2)
-            self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+            self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[0][1]['props']['polyarry.size'], 2)
+            self.eq(nodes[0][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -1526,7 +1525,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.model.addDataModels(s_t_utils.deprmodel)
+            core.model.addModelDefs(s_t_utils.deprmodel)
 
             await core.nodes('$lib.model.ext.addFormProp(test:deprprop, _str, (str, ({})), ({}))')
 
@@ -1788,11 +1787,14 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
             self.stormIsInErr('cannot also be the destination layer', msgs)
 
-            msgs = await core.stormlist(f'ou:org | movenodes --precedence foo', opts=view2)
+            msgs = await core.stormlist('ou:org | movenodes --precedence foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
             msgs = await core.stormlist(f'ou:org | movenodes --precedence {layr2}', opts=view2)
             self.stormIsInErr('must be included when specifying precedence', msgs)
+
+            msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr1} --destlayer {layr3} --precedence {layr1} {layr3} {layr2}', opts=view3)
+            self.stormIsInErr('is not in the set of source/destination layers', msgs)
 
             q = '''
             [ ou:org=(foo,)
@@ -1829,7 +1831,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001, 1))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
@@ -1857,7 +1859,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
@@ -1902,7 +1904,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
-            self.eq(sode['props'].get('desc')[0], 'prio')
+            self.eq(sode['props'].get('desc')[0][1], 'prio')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001, 63072000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 2)
             self.eq(sode['tagprops'].get('two').get('score')[0], 2)
@@ -2121,7 +2123,7 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(embeds['object']['$nid'])
             self.eq('inet:service:channel', embeds['object']['$form'])
-            self.eq('foochan', embeds['object']['name'])
+            self.eq('foochan', embeds['object']['name'][1])
             self.eq(None, embeds['object']['newp'])
 
             self.eq('inet:service:account', embeds['object::creator']['$form'])
@@ -2133,14 +2135,14 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:payment=* :payer:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
                         'econ:payment': {
-                            'payer:instrument': ['name'],
+                            'instrument': ['name'],
                         }
                     }
                 }
@@ -2150,8 +2152,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.nn(embeds['payer:instrument']['$nid'])
-            self.eq('infime', embeds['payer:instrument']['name'][1])
+            self.nn(embeds['instrument']['$nid'])
+            self.eq('infime', embeds['instrument']['name'][1])
 
             # embeds include virtual prop values
             await core.nodes('''[
@@ -2160,10 +2162,10 @@ class StormTest(s_t_utils.SynTest):
                     test:guid=*
                       :server=1.2.3.4:80
                       :seen=(2020, 2021)
-                      :name={[ test:str=arrayvirt :ndefs=((test:str, foo), (test:int, 5)) ]}
+                      :name={[ test:str=arrayvirt :polyarry={[test:str=foo test:int=5]} ]}
                   ]}
             ]''')
-            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('ndefs',)}}}}
+            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('polyarry',)}}}}
             msgs = await core.stormlist('test:str=embed', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             self.eq('test:str', node[0][0])
@@ -2173,14 +2175,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq((4, 16909060), embeds['gprop']['server.ip'])
             self.eq(80, embeds['gprop']['server.port'])
 
-            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'])
+            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'][1])
             self.eq(1577836800000000, embeds['gprop']['seen.min'])
             self.eq(1609459200000000, embeds['gprop']['seen.max'])
             self.eq(31622400000000, embeds['gprop']['seen.duration'])
 
-            self.eq((('test:str', 'foo'), ('test:int', 5)), embeds['gprop::name']['ndefs'])
-            self.eq(2, embeds['gprop::name']['ndefs.size'])
-            self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
+            self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
+            self.eq(2, embeds['gprop::name']['polyarry.size'])
+            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.type'])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
@@ -2411,20 +2413,20 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            q = f'''
-            $lib.dmon.add(${{
-                for $x in $lib.range(2) {{
+            q = '''
+            $lib.dmon.add(${
+                for $x in $lib.range(2) {
                     inet:ip=1.2.3.4
-                    if $node {{
+                    if $node {
                         $lib.queue.gen(foo).put($node.props.asn)
                         $lib.queue.gen(bar).get(1)
-                    }}
+                    }
                     [ inet:ip=1.2.3.4 :asn=5 ]
                     $lib.queue.gen(foo).put($node.props.asn)
                     $lib.queue.gen(bar).get(0)
-                }}
+                }
                 | spin
-            }}, name=foo)'''
+            }, name=foo)'''
             await core.nodes(q)
 
             self.eq((0, 5), await core.callStorm('return($lib.queue.gen(foo).get(0))'))
@@ -2490,6 +2492,8 @@ class StormTest(s_t_utils.SynTest):
                         self.nn(ddef['iden'])
                         await waiter.wait(timeout=10)
 
+                        # getStormDmons is a from_leader API so make sure it has applied to change
+                        await core02.sync()
                         dmons = await core02.getStormDmons()
                         self.len(1, dmons)
                         self.eq(dmons[0]['iden'], ddef['iden'])
@@ -2636,6 +2640,43 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
 
+    async def test_storm_pkg_onload_bootup(self):
+        # verify that when the pkg onload handler is called it has access to the expected data
+        orig = s_cortex.Cortex._runStormPkgOnload
+        syntest = self
+
+        pkg = {
+            'name': 'testload',
+            'version': '0.3.0',
+            'onload': '$lib.print(hello)',
+        }
+
+        def _runStormPkgOnload(self, pkgdef):
+            syntest.len(1, self.stormdmons.getDmonDefs())
+            return orig(self, pkgdef)
+
+        with self.getTestDir() as dirn:
+
+            with mock.patch('synapse.cortex.Cortex._runStormPkgOnload', new=_runStormPkgOnload):
+
+                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+
+                        self.len(0, core.stormdmons.getDmonDefs())
+                        await core.nodes('$lib.dmon.add(${})')
+                        self.len(1, core.stormdmons.getDmonDefs())
+
+                        await core.addStormPkg(pkg)
+
+                        self.true(await stream.wait(timeout=10))
+
+                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+
+                        self.len(1, core.stormdmons.getDmonDefs())
+
+                        self.true(await stream.wait(timeout=10))
+
     async def test_storm_pkg_onload_active(self):
         pkg = {
             'name': 'testload',
@@ -2732,7 +2773,38 @@ class StormTest(s_t_utils.SynTest):
             await core.sync()
             await loadPkg(core, pkg)
 
-            self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
+            self.eq(-1, await core.getStormPkgState('testload', 'storage:version'))
+
+        # on genuine first install, non-inaugural inits are skipped and their
+        # version is recorded in pkg state without running the init query
+
+        async with self.getTestCore() as core:
+            pkg = {
+                'name': 'testload',
+                'version': '0.1.0',
+                'inits': {
+                    'versions': [
+                        {
+                            'version': 0,
+                            'name': 'init00',
+                            'query': '$lib.globals.init00 = $lib.time.now()',
+                        },
+                        {
+                            'version': 1,
+                            'name': 'init01',
+                            'inaugural': True,
+                            'query': '$lib.globals.init01 = $lib.time.now()',
+                        },
+                    ]
+                },
+            }
+
+            await core.sync()
+            await loadPkg(core, pkg)
+
+            self.eq(1, await core.getStormPkgState('testload', 'storage:version'))
+            self.none(await core.getStormVar('init00'))
+            self.nn(await core.getStormVar('init01'))
 
         with self.getTestDir() as dirn:
 
@@ -2784,11 +2856,11 @@ class StormTest(s_t_utils.SynTest):
 
                 # only inaugural inits run on first load
 
-                await core.setStormPkgVar('testload', 'storage:version', 0)
+                await core.setStormPkgState('testload', 'storage:version', 0)
 
                 await loadPkg(core, pkg)
 
-                self.eq(1, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(1, await core.getStormPkgState('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.nn(init01 := await core.getStormVar('init01'))
 
@@ -2805,7 +2877,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(2, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(2, await core.getStormPkgState('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.eq(init01, await core.getStormVar('init01'))
                 self.nn(init02 := await core.getStormVar('init02'))
@@ -2826,7 +2898,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(3, await core.getStormPkgState('testload', 'storage:version'))
                 self.eq(init02, await core.getStormVar('init02'))
                 self.nn(await core.getStormVar('init03'))
 
@@ -2855,7 +2927,7 @@ class StormTest(s_t_utils.SynTest):
                 mesg = 'testload init vers=4 output: (\'SynErr\''
                 with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
                     await loadPkg(core, pkg)
-                    self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(3, await core.getStormPkgState('testload', 'storage:version'))
                     await stream.wait(timeout=10)
 
                 self.none(await core.getStormVar('init04'))
@@ -2869,7 +2941,7 @@ class StormTest(s_t_utils.SynTest):
 
                     # prior versions dont re-run, but a failed one does
 
-                    self.eq(6, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(6, await core.getStormPkgState('testload', 'storage:version'))
                     self.gt(await core.getStormVar('onload'), onload)
                     self.eq(init02, await core.getStormVar('init02'))
                     self.nn(await core.getStormVar('init04'))
@@ -2887,7 +2959,7 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(7, await core.getStormPkgVar('testload', 'storage:version'))
+                        self.eq(7, await core.getStormPkgState('testload', 'storage:version'))
 
                     pkg['version'] = '0.6.0'
                     pkg['inits']['versions'].append({
@@ -2899,19 +2971,16 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(8, await core.getStormPkgVar('testload', 'storage:version'))
+                        self.eq(8, await core.getStormPkgState('testload', 'storage:version'))
 
-                    # init that advances the version
+                    # inits run in order and advance the version
 
                     pkg['version'] = '0.7.0'
                     pkg['inits']['versions'].extend([
                         {
                             'version': 9,
                             'name': 'init09',
-                            'query': '''
-                                $lib.globals.init09 = $lib.time.now()
-                                $lib.pkg.vars(testload)."storage:version" = (10)
-                            ''',
+                            'query': '$lib.globals.init09 = $lib.time.now()',
                         },
                         {
                             'version': 10,
@@ -2927,9 +2996,9 @@ class StormTest(s_t_utils.SynTest):
 
                     await loadPkg(core, pkg)
 
-                    self.eq(11, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(11, await core.getStormPkgState('testload', 'storage:version'))
                     self.nn(await core.getStormVar('init09'))
-                    self.none(await core.getStormVar('init10'))
+                    self.nn(await core.getStormVar('init10'))
                     self.nn(await core.getStormVar('init11'))
 
                     # init queryopts
@@ -2948,7 +3017,7 @@ class StormTest(s_t_utils.SynTest):
 
                     await loadPkg(core, pkg)
 
-                    self.eq(12, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.eq(12, await core.getStormPkgState('testload', 'storage:version'))
                     self.eq('heythere', await core.getStormVar('init12'))
 
     async def test_storm_tree(self):
@@ -2987,8 +3056,8 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=woot.haha')
             self.len(1, nodes)
             newt = nodes[0]
-            self.eq(newt.get('doc'), 'haha doc')
-            self.eq(newt.get('title'), 'haha title')
+            self.propeq(newt, 'doc', 'haha doc')
+            self.propeq(newt, 'title', 'haha title')
 
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
@@ -3093,16 +3162,16 @@ class StormTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'movetag woah perm')
+                    await asvisi.callStorm('movetag woah perm')
 
                 await visi.addRule((True, ('node', 'tag', 'del', 'woah')))
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'movetag woah perm')
+                    await asvisi.callStorm('movetag woah perm')
 
                 await visi.addRule((True, ('node', 'tag', 'add', 'perm')))
 
-                await asvisi.callStorm(f'movetag woah perm')
+                await asvisi.callStorm('movetag woah perm')
 
             self.len(0, await core.nodes('#woah'))
             self.len(1, await core.nodes('#perm'))
@@ -3235,9 +3304,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
             self.len(1, nodes)
             q = '''
-                [(tel:mob:telem=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
-                 (tel:mob:telem=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
-                 (tel:mob:telem=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                [(it:log:event=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (it:log:event=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (it:log:event=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
                 uniq :data
             '''
             nodes = await core.nodes(q)
@@ -3517,7 +3586,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[test:str=foo :bar=(inet:ip, 1.2.3.4)]'))
+            self.len(1, await core.nodes('[test:str=foo :bar={[inet:ip=1.2.3.4]}]'))
             self.len(1, await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :asn=0 ]'))
 
@@ -3662,10 +3731,10 @@ class StormTest(s_t_utils.SynTest):
 
             # Variables are scoped down into the sub runtime
             q = (
-                f'$foo=5 tee '
-                f'{{ [ inet:asn=3 ] }} '
-                f'{{ [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
-                f'{{ [ inet:asn=$foo ] }}'
+                '$foo=5 tee '
+                '{ [ inet:asn=3 ] } '
+                '{ [ inet:asn=4 ] $lib.print(`made asn node: {$node}`) } '
+                '{ [ inet:asn=$foo ] }'
             )
             msgs = await core.stormlist(q)
             self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
@@ -4146,7 +4215,7 @@ class StormTest(s_t_utils.SynTest):
         self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
-        ttyp = s_datamodel.Model().type('time')
+        ttyp = s_datamodel.getBaseModel().type('time')
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
@@ -4163,7 +4232,7 @@ class StormTest(s_t_utils.SynTest):
         self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
         # test ival argtype
-        ityp = s_datamodel.Model().type('ival')
+        ityp = s_datamodel.getBaseModel().type('ival')
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='ival')
@@ -4239,7 +4308,7 @@ class StormTest(s_t_utils.SynTest):
 
         # choices - like defaults, choices are not normalized
         pars = s_storm.Parser()
-        ttyp = s_datamodel.Model().type('time')
+        ttyp = s_datamodel.getBaseModel().type('time')
         pars.add_argument('foo', type='time', choices=['2022', (await ttyp.norm('2023'))[0]], help='foohelp')
 
         opts = await pars.parse_args(['2023'])
@@ -4932,17 +5001,17 @@ class StormTest(s_t_utils.SynTest):
                 async with core.getLocalProxy(user='visi') as asvisi:
 
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr0).addPush(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr0).addPush(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr0).delPush(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr0).delPush(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).delPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
+                        await asvisi.callStorm('$lib.layer.get($layr2).delPull(hehe)', opts=opts)
 
                 actv = len(core.activecoros)
                 # view0 -push-> view1 <-pull- view2
@@ -5318,20 +5387,20 @@ class StormTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+                    await asvisi.callStorm('test:str | tag.prune runt.need.perms')
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'test:str | tag.prune $node.value()')
+                    await asvisi.callStorm('test:str | tag.prune $node.value()')
 
             await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
 
             async with core.getLocalProxy(user='visi') as asvisi:
-                await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+                await asvisi.callStorm('test:str | tag.prune runt.need.perms')
 
                 node = (await core.nodes('test:str=foo'))[0]
                 self.eq(node.getTagNames(), ['runtsafety'])
 
-                await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
+                await asvisi.callStorm('test:str=runt.safety.two | tag.prune $node.value()')
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
                 self.eq(node.getTagNames(), ['runt', 'runt.child'])

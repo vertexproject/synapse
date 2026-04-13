@@ -1,5 +1,3 @@
-import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 class PlanModelTest(s_t_utils.SynTest):
@@ -10,7 +8,7 @@ class PlanModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ plan:system=*
                     :name="Woot CNO Planner"
-                    :author={[ entity:contact=* :name=visi ]}
+                    :creator={[ entity:contact=* :name=visi ]}
                     :created=20240202
                     :updated=20240203
                     :version=1.0.0
@@ -24,7 +22,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'version', '1.0.0')
             self.propeq(nodes[0], 'url', 'https://vertex.link')
 
-            self.len(1, await core.nodes('plan:system :author -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('plan:system :creator -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
                 [ plan:phase=*
@@ -58,7 +56,7 @@ class PlanModelTest(s_t_utils.SynTest):
                     :system={ plan:system:name="Woot CNO Planner"}
                     :title="Pwn Some Boxes"
                     :desc="Yoink."
-                    :author={ entity:contact:name=visi }
+                    :creator={ entity:contact:name=visi }
                     :created=20240202
                     :updated=20240203
                     :version=1.0.0
@@ -101,7 +99,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'title', 'Pwn Some Boxes')
             self.propeq(nodes[0], 'desc', 'Yoink.')
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'created', 1706832000000000)
             self.propeq(nodes[0], 'updated', 1706918400000000)
             self.propeq(nodes[0], 'version', '1.0.0')

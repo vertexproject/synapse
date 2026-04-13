@@ -1,6 +1,5 @@
 import cryptography.x509 as c_x509
 
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd

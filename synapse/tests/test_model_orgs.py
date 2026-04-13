@@ -155,7 +155,6 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:conference=39f8d9599cd663b00013bfedf69dcf53
                     :name="arrowcon 2018"
-                    :name:base=arrowcon
                     :names=("arrow conference 2018", "arrcon18", "arrcon18")
                     :period=(20180301, 20180303)
                     :website=http://arrowcon.org/2018
@@ -165,7 +164,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018')
             self.propeq(nodes[0], 'names', ('arrcon18', 'arrow conference 2018',))
-            self.propeq(nodes[0], 'name:base', 'arrowcon')
             self.propeq(nodes[0], 'period', (1519862400000000, 1520035200000000, 172800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
             self.propeq(nodes[0], 'website', 'http://arrowcon.org/2018')
@@ -181,17 +179,13 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:event=39f8d9599cd663b00013bfedf69dcf53
                     :name='arrowcon 2018 dinner'
-                    :desc='arrowcon dinner'
                     :period=(201803011900, 201803012200)
-                    :parent={[ ou:conference=39f8d9599cd663b00013bfedf69dcf53 ]}
                     :place=39f8d9599cd663b00013bfedf69dcf53
                     :website=http://arrowcon.org/2018/dinner
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('ou:event', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018 dinner')
-            self.propeq(nodes[0], 'desc', 'arrowcon dinner')
-            self.propeq(nodes[0], 'parent', '39f8d9599cd663b00013bfedf69dcf53', form='ou:conference')
             self.propeq(nodes[0], 'period', (1519930800000000, 1519941600000000, 10800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
             self.propeq(nodes[0], 'website', 'http://arrowcon.org/2018/dinner')
@@ -237,78 +231,48 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:preso=*
                     :name=syn101
-                    :desc=squeee
                     :period=(202008081200, 202008081400)
 
                     :place=*
                     :place:loc=us.nv.lasvegas
 
-                    :parent={ ou:conference }
-                    :sponsors={[ entity:contact=* ]}
-                    :organizers={[ entity:contact=* ]}
-                    :presenters={[ entity:contact=* entity:contact=* ]}
-
-                    :deck:file=*
                     :recording:file=*
-
-                    :deck:url=http://vertex.link/syn101deck
-                    :attendee:url=http://vertex.link/syn101live
                     :recording:url=http://vertex.link/syn101recording
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'syn101')
-            self.propeq(nodes[0], 'desc', 'squeee')
 
             self.propeq(nodes[0], 'period', (1596888000000000, 1596895200000000, 7200000000))
 
-            self.propeq(nodes[0], 'deck:url', 'http://vertex.link/syn101deck')
-            self.propeq(nodes[0], 'attendee:url', 'http://vertex.link/syn101live')
             self.propeq(nodes[0], 'recording:url', 'http://vertex.link/syn101recording')
 
             self.nn(nodes[0].get('place'))
-            self.nn(nodes[0].get('deck:file'))
             self.nn(nodes[0].get('recording:file'))
 
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
-
-            self.len(1, await core.nodes(f'ou:preso -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:preso :sponsors -> entity:contact'))
-            self.len(1, await core.nodes(f'ou:preso :organizers -> entity:contact'))
-            self.len(2, await core.nodes(f'ou:preso :presenters -> entity:contact'))
 
             nodes = await core.nodes('''[
                 ou:contest=*
                     :name="defcon ctf 2020"
                     :type=cyber.ctf
-                    :name:base="defcon ctf"
                     :period=(20200808, 20200811)
                     :website=http://vertex.link/contest
 
                     :place=*
                     :place:latlong=(20, 30)
                     :place:loc=us.nv.lasvegas
-
-                    :parent={ ou:conference }
-                    :organizers={[ entity:contact=* ]}
-                    :sponsors={[ entity:contact=* ]}
-
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'defcon ctf 2020')
             self.propeq(nodes[0], 'type', 'cyber.ctf.')
-            self.propeq(nodes[0], 'name:base', 'defcon ctf')
-
             self.propeq(nodes[0], 'period', (1596844800000000, 1597104000000000, 259200000000))
 
             self.propeq(nodes[0], 'website', 'http://vertex.link/contest')
 
-            self.eq((20, 30), nodes[0].get('place:latlong'))
+            self.propeq(nodes[0], 'place:latlong', (20, 30))
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
 
-            self.len(1, await core.nodes(f'ou:contest -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:contest :parent -> ou:conference'))
-            self.len(1, await core.nodes(f'ou:contest :sponsors -> entity:contact'))
-            self.len(1, await core.nodes(f'ou:contest :organizers -> entity:contact'))
+            self.len(1, await core.nodes('ou:contest -> ou:contest:type:taxonomy'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)
@@ -325,7 +289,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'url', 'https://vertex.link/woot')
             self.propeq(nodes[0], 'rank', 1)
             self.propeq(nodes[0], 'score', 20)
-            self.eq((1735689600000000, 1735776000000000, 86400000000), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1735689600000000, 1735776000000000, 86400000000))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
             self.len(1, await core.nodes('ou:contest:result -> entity:contact'))
 
@@ -343,7 +307,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :priority:confidentiality=highest
                     :priority:integrity=highest
                     :priority:availability=highest
-                    :node = (it:host, *)
+                    :node = {[ it:host=* ]}
                     :period=(2016, ?)
                     :status=deployed
                     :org={[ ou:org=* :name=vertex ]}
@@ -351,7 +315,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :operator={[ entity:contact=* :name=bar ]}
                 ]''')
             self.len(1, nodes)
-            self.eq((1451606400000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
+            self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'name', 'visi laptop')
             self.propeq(nodes[0], 'type', 'host.laptop.')
             self.propeq(nodes[0], 'status', 'deployed.')
@@ -380,7 +344,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :completed=20241018
                     :creator={[ syn:user=root ]}
                     :assignee={[ syn:user=visi ]}
-                    :scope=(ou:team, *)
+                    :scope={[ ou:team=* ]}
 
                     <(shows)+ {[ meta:rule=* ]}
                 ]
@@ -491,9 +455,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'name', 'foo bar')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
-            self.sorteq(('1234', '5678'), nodes[0].get('sic'))
-            self.sorteq(('11111', '22222'), nodes[0].get('naics'))
-            self.sorteq(('C1393', ), nodes[0].get('isic'))
+            self.propeq(nodes[0], 'sic', ('1234', '5678'))
+            self.propeq(nodes[0], 'naics', ('11111', '22222'))
+            self.propeq(nodes[0], 'isic', ('C1393', ))
             self.propeq(nodes[0], 'desc', 'Moldy cheese')
 
             self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
@@ -519,7 +483,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :remote = (1)
                     :pay:min=20
                     :pay:max=22
-                    :pay:currency=BTC
                     :pay:pertime=1:00:00
                 ]
             ''')
@@ -534,7 +497,6 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.propeq(nodes[0], 'pay:min', '20')
             self.propeq(nodes[0], 'pay:max', '22')
-            self.propeq(nodes[0], 'pay:currency', 'btc')
             self.propeq(nodes[0], 'pay:pertime', 3600000000)
 
             self.nn(nodes[0].get('org'))
@@ -557,7 +519,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :org = *
                     :org:name = WootCorp
                     :org:fqdn = wootwoot.com
-                    :currency = USD
                     :costs = 200
                     :budget = 300
                     :revenue = 500
@@ -576,7 +537,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'time', 1627689600000000)
             self.propeq(nodes[0], 'org:name', 'wootcorp')
             self.propeq(nodes[0], 'org:fqdn', 'wootwoot.com')
-            self.propeq(nodes[0], 'currency', 'usd')
             self.propeq(nodes[0], 'costs', '200')
             self.propeq(nodes[0], 'budget', '300')
             self.propeq(nodes[0], 'revenue', '500')

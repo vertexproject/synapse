@@ -7,7 +7,6 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
-import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -66,7 +65,7 @@ new_pkg = {
     'synapse_version': '>=3.0.0,<4.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
-                                        $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
+                                        $lib.print(`{$arg1}={$arg2}`)
                                         return ()
                                     }
                                   '''
@@ -135,7 +134,7 @@ class RealService(s_stormsvc.StormSvc):
                  'storm': '''
                  function asdf(x, y) { return ($($x + $y)) }
                  function printmodconf() {
-                     for ($k, $v) in $modconf { $lib.print('{k}={v}', k=$k, v=$v) }
+                     for ($k, $v) in $modconf { $lib.print(`{$k}={$v}`) }
                      return ( $lib.true )
                  }
                  ''',
@@ -316,9 +315,9 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
-                        $lib.print('DEBUG: fooz={fooz}', fooz=$fooz)
+                        $lib.print(`DEBUG: fooz={$fooz}`)
                     }
-                    $lib.print('my foo var is {f}', f=$fooz)
+                    $lib.print(`my foo var is {$fooz}`)
                     ''',
                 },
             ),
@@ -426,13 +425,13 @@ class StormSvcTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             msgs = await core.stormlist('service.add --help')
-            self.stormIsInPrint(f'Add a storm service to the cortex.', msgs)
+            self.stormIsInPrint('Add a storm service to the cortex.', msgs)
 
             msgs = await core.stormlist('service.del --help')
-            self.stormIsInPrint(f'Remove a storm service from the cortex.', msgs)
+            self.stormIsInPrint('Remove a storm service from the cortex.', msgs)
 
             msgs = await core.stormlist('service.list --help')
-            self.stormIsInPrint(f'List the storm services configured in the cortex.', msgs)
+            self.stormIsInPrint('List the storm services configured in the cortex.', msgs)
 
             msgs = await core.stormlist('service.add fake tcp://localhost:3333/foo')
             ssvc = core.getStormSvcs()[0]
@@ -682,7 +681,7 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
-                    msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
+                    msgs = await core.stormlist('$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
                     self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
@@ -964,25 +963,25 @@ class StormSvcTest(s_test.SynTest):
 
             await core.nodes('[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 ]')
 
-            scmd = f'inet:ip=1.2.3.4 $foo=$node.repr() | magic $foo'
+            scmd = 'inet:ip=1.2.3.4 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
-            scmd = f'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo'
+            scmd = 'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic $foo'
+            scmd = '$foo=8.8.8.8 | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic $foo --debug'
+            scmd = '$foo=8.8.8.8 | magic $foo --debug'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-            scmd = f'$foo=8.8.8.8 | magic --debug $foo'
+            scmd = '$foo=8.8.8.8 | magic --debug $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)

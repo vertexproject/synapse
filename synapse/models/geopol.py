@@ -1,5 +1,5 @@
 modeldefs = (
-    ('pol', {
+    {
 
         'types': (
 
@@ -9,8 +9,19 @@ modeldefs = (
                 ),
                 'doc': 'A GUID for a country.'}),
 
+            ('pol:country:code', (
+                    ('iso:3166:alpha2', {}),
+                    ('iso:3166:numeric3', {}),
+                    ('iso:3166:alpha3', {}),
+                    ('meta:id', {}),
+                ), {
+                'doc': 'A country code.'}),
+
             ('pol:immigration:status', ('guid', {}), {
                 'doc': 'A node which tracks the immigration status of a contact.'}),
+
+            ('pol:immigration:state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                'doc': 'An immigration state.'}),
 
             ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -21,22 +32,35 @@ modeldefs = (
             ('pol:vitals', ('guid', {}), {
                 'doc': 'A set of vital statistics about a country.'}),
 
-            ('pol:isonum', ('int', {}), {
-                'doc': 'The ISO integer country code.', 'ex': '840'}),
-
             ('pol:election', ('guid', {}), {
+                'template': {'title': 'election'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'An election involving one or more races for office.'}),
 
             ('pol:race', ('guid', {}), {
+                'template': {'title': 'political race'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
                 'doc': 'An individual race for office.'}),
 
             ('pol:office', ('guid', {}), {
                 'doc': 'An elected or appointed office.'}),
 
             ('pol:term', ('guid', {}), {
+                'template': {'title': 'term'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'A term in office held by a specific individual.'}),
 
             ('pol:candidate', ('guid', {}), {
+                'template': {'title': 'candidacy'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'A candidate for office in a specific race.'}),
 
             ('pol:pollingplace', ('guid', {}), {
@@ -50,19 +74,12 @@ modeldefs = (
                 ('flag', ('file:bytes', {}), {
                     'doc': 'A thumbnail image of the flag of the country.'}),
 
-                ('code', (('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'), {
-                    'default_forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
-                    }), {
+                ('code', ('pol:country:code', {}), {
                     'alts': ('codes',),
                     'prevnames': ('iso2',),
                     'doc': 'The country code.'}),
 
-                ('codes', ('array', {
-                    'type': ('iso:3166:alpha2', 'iso:3166:alpha3', 'iso:3166:numeric3', 'meta:id'),
-                    'typeopts': {
-                        'default_forms': ('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'meta:id'),
-                    },
-                    }), {
+                ('codes', ('array', {'type': 'pol:country:code'}), {
                     'doc': 'An array of country codes.'}),
 
                 ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
@@ -112,7 +129,7 @@ modeldefs = (
                     'ex': 'citizen.naturalized',
                     'doc': 'A taxonomy entry for the immigration status type.'}),
 
-                ('state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                ('state', ('pol:immigration:state', {}), {
                     'doc': 'The state of the immigration status.'}),
 
                 ('period', ('ival', {}), {
@@ -135,11 +152,9 @@ modeldefs = (
                 ('population', ('int', {}), {
                     'doc': 'The total number of people living in the country.'}),
 
+                # TODO: should this be an array to match pol:country:currencies?
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The national currency.'}),
-
-                ('econ:currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to record price properties.'}),
 
                 ('econ:gdp', ('econ:price', {}), {
                     'doc': 'The gross domestic product of the country.'}),
@@ -185,15 +200,8 @@ modeldefs = (
                 ('office', ('pol:office', {}), {
                     'doc': 'The office held for the term.'}),
 
-                ('period', ('ival', {}), {
-                    'prevnames': ('start', 'end'),
-                    'doc': 'The time period of the term of office.'}),
-
                 ('race', ('pol:race', {}), {
                     'doc': 'The race that determined who held office during the term.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the person who held office during the term.'}),
 
                 ('party', ('ou:org', {}), {
                     'doc': 'The political party of the person who held office during the term.'}),
@@ -202,9 +210,6 @@ modeldefs = (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact information of the candidate.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),
@@ -246,5 +251,5 @@ modeldefs = (
             )),
         ),
 
-    }),
+    },
 )

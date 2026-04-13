@@ -2,7 +2,7 @@
 Model elements related to sales / bizdev / procurement
 '''
 modeldefs = (
-    ('biz', {
+    {
         'types': (
 
             ('biz:rfp:type:taxonomy', ('taxonomy', {}), {
@@ -12,24 +12,41 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of RFP types.'}),
 
             ('biz:rfp', ('guid', {}), {
+                'template': {'title': 'RFP'},
                 'interfaces': (
-                    ('doc:document', {'template': {
-                        'document': 'RFP',
-                        'title': 'RFP'}}),
+                    ('doc:document', {}),
+                    ('doc:published', {}),
                 ),
                 'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
 
             ('biz:deal', ('guid', {}), {
+                'interfaces': (
+                    ('base:activity', {}),
+                    ('meta:negotiable', {}),
+                ),
                 'doc': 'A sales or procurement effort in pursuit of a purchase.'}),
 
             ('biz:listing', ('guid', {}), {
-                'doc': 'A product or service being listed for sale at a given price by a specific seller.'}),
+                'template': {'title': 'listing'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'doc': 'A product or service being listed for sale.'}),
 
             ('biz:product', ('guid', {}), {
-                'doc': 'A product which is available for purchase.'}),
+                'template': {'title': 'product'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('entity:creatable', {}),
+                ),
+                'doc': 'A type of product which is available for purchase.'}),
 
             ('biz:service', ('guid', {}), {
-                'doc': 'A service which is performed by a specific organization.'}),
+                'template': {'title': 'service offering'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'doc': 'A service offered by an actor.'}),
 
             ('biz:service:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -65,6 +82,15 @@ modeldefs = (
 
             (('biz:rfp', 'has', 'doc:requirement'), {
                 'doc': 'The RFP lists the requirement.'}),
+
+            (('biz:rfp', 'ledto', 'biz:deal'), {
+                'doc': 'The RFP led to the deal being proposed.'}),
+
+            (('biz:listing', 'ledto', 'econ:purchase'), {
+                'doc': 'The listing led to the purchase.'}),
+
+            (('biz:deal', 'ledto', 'econ:purchase'), {
+                'doc': 'The deal led to the purchase.'}),
         ),
 
         'forms': (
@@ -85,9 +111,6 @@ modeldefs = (
                 ('status', ('biz:deal:status:taxonomy', {}), {
                     'doc': 'The status of the RFP.'}),
 
-                ('posted', ('time', {}), {
-                    'doc': 'The date/time that the RFP was posted.'}),
-
                 ('due:questions', ('time', {}), {
                     'prevnames': ('quesdue',),
                     'doc': 'The date/time that questions are due.'}),
@@ -95,18 +118,14 @@ modeldefs = (
                 ('due:proposal', ('time', {}), {
                     'prevnames': ('propdue',),
                     'doc': 'The date/time that proposals are due.'}),
-
-                ('contact', ('entity:actor', {}), {
-                    'doc': 'The contact information given for the org requesting offers.'}),
-
             )),
             ('biz:deal', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An identifier for the deal.'}),
 
-                ('title', ('str', {}), {
-                    'doc': 'A title for the deal.'}),
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of the deal.'}),
 
                 ('type', ('biz:deal:type:taxonomy', {}), {
                     'doc': 'The type of deal.'}),
@@ -120,51 +139,26 @@ modeldefs = (
                 ('contacted', ('time', {}), {
                     'doc': 'The last time the contacts communicated about the deal.'}),
 
-                ('rfp', ('biz:rfp', {}), {
-                    'doc': 'The RFP that the deal is in response to.'}),
-
                 ('buyer', ('entity:actor', {}), {
-                    'doc': 'The primary contact information for the buyer.'}),
+                    'doc': 'The buyer.'}),
+
+                ('buyer:name', ('entity:name', {}), {
+                    'doc': 'The name of the buyer.'}),
 
                 ('seller', ('entity:actor', {}), {
-                    'doc': 'The primary contact information for the seller.'}),
+                    'doc': 'The seller.'}),
 
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of econ:price values associated with the deal.'}),
-
-                ('buyer:budget', ('econ:price', {}), {
-                    'doc': 'The buyers budget for the eventual purchase.'}),
-
-                ('buyer:deadline', ('time', {}), {
-                    'doc': 'When the buyer intends to make a decision.'}),
-
-                ('offer:price', ('econ:price', {}), {
-                    'doc': 'The total price of the offered products.'}),
-
-                ('offer:expires', ('time', {}), {
-                    'doc': 'When the offer expires.'}),
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'Records a purchase resulting from the deal.'}),
+                ('seller:name', ('entity:name', {}), {
+                    'doc': 'The name of the seller.'}),
             )),
 
             ('biz:listing', {}, (
 
-                ('seller', ('entity:actor', {}), {
-                    'doc': 'The contact information for the seller.'}),
-
-                ('current', ('bool', {}), {
-                    'doc': 'Set to true if the offer is still current.'}),
-
-                ('period', ('ival', {}), {
-                    'prevnames': ('time', 'expires'),
-                    'doc': 'The period when the listing existed.'}),
+                ('name', ('base:name', {}), {
+                    'doc': 'The name or title of the listing.'}),
 
                 ('price', ('econ:price', {}), {
                     'doc': 'The asking price of the product or service.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the asking price.'}),
 
                 ('count:total', ('int', {'min': 0}), {
                     'doc': 'The number of instances for sale.'}),
@@ -177,20 +171,14 @@ modeldefs = (
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the service being performed.'}),
 
-                ('provider', ('entity:actor', {}), {
-                    'doc': 'The entity which performs the service.'}),
-
-                ('provider:name', ('entity:name', {}), {
-                    'doc': 'The name of the entity which performs the service.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The period of time when the actor made the service available.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the service.'}),
 
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
-
-                ('launched', ('time', {}), {
-                    'doc': 'The time when the operator first made the service available.'}),
             )),
             ('biz:product', {}, (
 
@@ -206,22 +194,9 @@ modeldefs = (
                 ('launched', ('time', {}), {
                     'doc': 'The time the product was first made available.'}),
 
-                ('manufacturer', ('entity:actor', {}), {
-                    'prevnames': ('maker',),
-                    'doc': 'A contact for the manufacturer of the product.'}),
-
-                ('manufacturer:name', ('entity:name', {}), {
-                    'doc': 'The name of the manufacturer of the product.'}),
-
-                ('price:retail', ('econ:price', {}), {
-                    'doc': 'The MSRP price of the product.'}),
-
-                ('price:bottom', ('econ:price', {}), {
-                    'doc': 'The minimum offered or observed price of the product.'}),
-
-                ('price:currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the retail and bottom price properties.'}),
+                ('price', ('econ:price', {}), {
+                    'doc': 'The price of the product.'}),
             )),
         ),
-    }),
+    },
 )

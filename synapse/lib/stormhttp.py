@@ -14,7 +14,6 @@ import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerType

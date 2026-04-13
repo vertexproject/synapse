@@ -9,53 +9,31 @@ contracttypes = (
 )
 
 modeldefs = (
-    ('ou', {
+    {
 
         'interfaces': (
 
-            ('ou:attendable', {
+            ('ou:promotable', {
                 'template': {'title': 'event'},
-                'interfaces': (
-                    ('meta:havable', {}),
-                    ('entity:attendable', {}),
-                ),
                 'props': (
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('event:name', {}), {
                         'alts': ('names',),
-                        'ex': 'cyberwarcon 2025',
+                        'ex': 'pivotcon 2026',
                         'doc': 'The name of the {title}.'}),
 
-                    ('name:base', ('meta:name', {}), {
-                        'ex': 'cyberwarcon',
-                        'doc': 'The base name of the {title} (for a recurring event).'}),
-
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'event:name'}), {
                         'doc': 'An array of alternate names for the {title}.'}),
-                ),
-                'doc': 'An interface which is inherited by all organized events.'}),
-
-            ('ou:sponsored', {
-                'template': {'title': 'event'},
-                'interfaces': (
-                    ('ou:attendable', {}),
-                ),
-                'props': (
 
                     ('website', ('inet:url', {}), {
                         'prevnames': ('url',),
-                        'doc': 'The URL of the {title} website.'}),
+                        'doc': 'The website of the {title} website.'}),
 
-                    ('contact', ('entity:contact', {}), {
-                        'doc': 'Contact information for the {title}.'}),
+                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
+                        'doc': 'Social media accounts associated with the {title}.'}),
 
-                    ('sponsors', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'The entities which sponsored the {title}.'}),
-
-                    ('organizers', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'An array of {title} organizers.'}),
                 ),
-                'doc': 'Properties which are common to events which are hosted or sponsored by organizations.'}),
+                'doc': 'Properties which are common to activities which are promoted by an organization.'}),
         ),
         'types': (
             ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
@@ -116,6 +94,9 @@ modeldefs = (
                 'doc': 'An asset status taxonomy.'}),
 
             ('ou:asset', ('guid', {}), {
+                'interfaces': (
+                    ('risk:exploitable', {}),
+                ),
                 'doc': 'A node for tracking assets which belong to an organization.',
                 'display': {
                     'columns': (
@@ -159,20 +140,32 @@ modeldefs = (
 
             ('ou:meeting', ('guid', {}), {
                 'prevnames': ('ou:meet',),
+                'template': {'title': 'meeting'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'meeting'}}),
+                    ('geo:locatable', {}),
+                    ('meta:recordable', {}),
+                    ('entity:participable', {}),
+                ),
+                'props': (
+                    ('name', ('event:name', {}), {
+                        'ex': 'discuss the future and stuff',
+                        'doc': 'The name of the {title}.'}),
                 ),
                 'doc': 'A meeting.'}),
 
             ('ou:preso', ('guid', {}), {
+                'template': {'title': 'presentation'},
                 'interfaces': (
-                    ('ou:sponsored', {'template': {'title': 'presentation'}}),
+                    ('ou:promotable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:recordable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
                 ),
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
@@ -180,7 +173,11 @@ modeldefs = (
             ('ou:conference', ('guid', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('ou:promotable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:recordable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
                 ),
                 'display': {
                     'columns': (
@@ -191,41 +188,65 @@ modeldefs = (
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
                 },
+                'props': (
+                    ('family', ('event:name', {}), {
+                        'ex': 'pivotcon',
+                        'doc': 'The family name of the {title} used to group recurring events.'}),
+                ),
                 'doc': 'A conference.'}),
 
             ('ou:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('ou:event', ('guid', {}), {
                 'template': {'title': 'event'},
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('ou:promotable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:recordable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
                 ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'parent::name'}},
+                        {'type': 'prop', 'opts': {'name': 'activity::name'}},
                         # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
                 },
+                'props': (
+                    ('type', ('ou:event:type:taxonomy', {}), {
+                        'doc': 'The type of event.'}),
+                ),
                 'doc': 'An generic organized event.'}),
 
             ('ou:contest:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of contest types.'}),
 
             ('ou:contest', ('guid', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
-                    ('ou:sponsored', {}),
+                    ('ou:promotable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:recordable', {}),
+                    ('entity:supportable', {}),
+                    ('entity:participable', {}),
+                ),
+                'props': (
+                    ('type', ('ou:contest:type:taxonomy', {}), {
+                        'ex': 'cyber.ctf',
+                        'doc': 'The type of contest.'}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
@@ -253,15 +274,6 @@ modeldefs = (
             ('ou:id:history', ('guid', {}), {
                 'prevnames': ('ou:id:update',),
                 'doc': 'Changes made to an ID over time.'}),
-
-            ('ou:award:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of award types.'}),
-
-            ('ou:award', ('guid', {}), {
-                'doc': 'An award issued by an organization.'}),
 
             ('ou:vitals', ('guid', {}), {
                 'doc': 'Vital statistics about an org for a given time period.'}),
@@ -327,10 +339,9 @@ modeldefs = (
                 'doc': 'A taxonomy of enacted statuses.'}),
 
             ('ou:enacted', ('guid', {}), {
+                'template': {'title': 'adoption task'},
                 'interfaces': (
-                    ('proj:doable', {
-                        'template': {
-                            'task': 'adoption task'}}),
+                    ('meta:task', {}),
                 ),
                 'doc': 'An organization enacting a document.'}),
         ),
@@ -395,10 +406,6 @@ modeldefs = (
                 ('pay:max', ('econ:price', {}), {
                     'doc': 'The maximum pay for the job.'}),
 
-                ('pay:currency', ('econ:currency', {}), {
-                    'prevnames': ('paycurrency',),
-                    'doc': 'The currency used for payment.'}),
-
                 ('pay:pertime', ('duration', {}), {
                     'ex': '1:00:00',
                     'doc': 'The duration over which the position pays.'}),
@@ -436,11 +443,6 @@ modeldefs = (
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of additional files submitted by the candidate.'}),
-
-                # TODO: doc:questionare / responses
-                # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
-                # TODO: proj:task to track evaluation of the candidate?
-
             )),
 
             ('ou:candidate:referral', {}, (
@@ -475,9 +477,6 @@ modeldefs = (
                 ('org:fqdn', ('inet:fqdn', {}), {
                     'prevnames': ('orgfqdn',),
                     'doc': 'The org FQDN as reported by the source of the vitals.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the econ:price values.'}),
 
                 ('costs', ('econ:price', {}), {
                     'doc': 'The costs/expenditures over the period.'}),
@@ -514,21 +513,6 @@ modeldefs = (
 
                 ('delta:population', ('int', {}), {
                     'doc': 'The change in population over last period.'}),
-            )),
-            ('ou:award:type:taxonomy', {}, ()),
-            ('ou:award', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The name of the award.',
-                    'ex': 'Bachelors of Science'}),
-
-                ('type', ('ou:award:type:taxonomy', {}), {
-                    'doc': 'The type of award.',
-                    'ex': 'certification'}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization which issues the award.'}),
-
             )),
 
             ('ou:id:type:taxonomy', {}, ()),
@@ -615,7 +599,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that the team is associated with.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the team.'}),
             )),
 
@@ -628,7 +612,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the assset.'}),
 
                 ('period', ('ival', {}), {
@@ -652,7 +636,8 @@ modeldefs = (
                 ('priority:availability', ('meta:score', {}), {
                     'doc': 'The priority of protecting the availability of the asset.'}),
 
-                ('node', ('ndef', {}), {
+                # TODO: what are the correct options for node here?
+                ('node', ('meta:havable', {}), {
                     'doc': 'The node which represents the asset.'}),
 
                 ('place', ('geo:place', {}), {
@@ -711,9 +696,6 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('presenters', ('array', {'type': 'entity:individual'}), {
-                    'doc': 'An array of individuals who gave the presentation.'}),
-
                 ('deck:url', ('inet:url', {}), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
 
@@ -722,30 +704,9 @@ modeldefs = (
 
                 ('attendee:url', ('inet:url', {}), {
                     'doc': 'The URL visited by live attendees of the presentation.'}),
-
-                ('recording:url', ('inet:url', {}), {
-                    'doc': 'The URL hosting a recording of the presentation.'}),
-
-                ('recording:file', ('file:bytes', {}), {
-                    'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meeting', {}, (
-                ('hosts', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The contacts who hosted or called the meeting.'}),
-            )),
-            ('ou:conference', {}, ()),
-            ('ou:event', {}, (
-                ('type', ('ou:event:type:taxonomy', {}), {
-                    'doc': 'The type of event.'}),
-            )),
-            ('ou:contest:type:taxonomy', {}, ()),
-            ('ou:contest', {}, (
-
-                ('type', ('ou:contest:type:taxonomy', {}), {
-                    'ex': 'cyber.ctf',
-                    'doc': 'The type of contest.'}),
-
-            )),
+            # TODO this should be an entity:activity
+            # TODO does it still make sense for contest/meeting/preso to be here vs entity:?
             ('ou:contest:result', {}, (
 
                 ('contest', ('ou:contest', {}), {
@@ -772,12 +733,20 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which is enacting the document.'}),
 
-                ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
+                ('doc', (
+                        ('doc:policy', {}),
+                        ('doc:standard', {}),
+                        ('doc:requirement', {})
+                    ), {
                     'doc': 'The document enacted by the organization.'}),
 
-                ('scope', ('ndef', {}), {
+                # TODO: what valid scopes are there?
+                ('scope', (
+                        ('ou:team', {}),
+                        ('ou:org', {})
+                    ), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),
-    }),
+    },
 )

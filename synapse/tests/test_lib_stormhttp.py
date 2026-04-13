@@ -9,7 +9,6 @@ import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -160,6 +159,8 @@ class StormHttpTest(s_test.SynTest):
             '''
             with self.raises(s_exc.BadJsonText) as cm:
                 resp = await core.callStorm(q, opts=badopts)
+            self.isin('Unable to decode HTTP response as json', cm.exception.get('mesg'))
+            self.eq(cm.exception.get('text'), "{'not':'json!'}")
 
             # params as a urlencoded string
             q = '''
@@ -642,7 +643,7 @@ class StormHttpTest(s_test.SynTest):
 
             size, sha256 = await core.axon.put(b'asdf')
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
-            resp = await core.callStorm(f'return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
+            resp = await core.callStorm('return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 

@@ -13,7 +13,6 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
-import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
@@ -130,6 +129,21 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add yearly { $lib.print(yearly) }
+
+    # Run every year on January 1st at 07:00 UTC
+    cron.add yearly@07 { $lib.print(yearly) }
+
+    # Run every year on January 1st at 12:21 UTC
+    cron.add yearly@12:21 { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add yearly/05-14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add yearly/11-14@13:43 { $lib.print(yearly) }
+
+    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    cron.add yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
@@ -279,7 +293,7 @@ stormcmds = (
                 if $info.name { $name = $info.name.ljust(20) }
                 else { $name = '                    ' }
 
-                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
+                $lib.print(`    {$info.iden}:  ({$name}): {$info.status}`)
             }
         ''',
     },
@@ -290,6 +304,8 @@ stormcmds = (
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--cache-size', {'help': 'Number of storage nodes to cache.', 'type': 'int',
+                              'dest': 'cache:size'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
@@ -321,7 +337,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.layer.del($cmdopts.iden)
-            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Layer deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -361,7 +377,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPull($cmdopts.src, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer pull added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer pull added: {$pdef.iden}`)
             }
         ''',
     },
@@ -440,7 +456,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPush($cmdopts.dest, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer push added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer push added: {$pdef.iden}`)
             }
         ''',
     },
@@ -546,7 +562,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.view.del($cmdopts.iden)
-            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -574,7 +590,7 @@ stormcmds = (
         'storm': '''
             $forkview = $lib.view.get($cmdopts.iden).fork(name=$cmdopts.name)
             $lib.print($forkview.repr())
-            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+            $lib.print(`View {$cmdopts.iden} forked to new view: {$forkview.iden}`)
         ''',
     },
     {
@@ -621,7 +637,7 @@ stormcmds = (
             } else {
                 $view.swapLayer()
             }
-            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View merged: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -649,7 +665,7 @@ stormcmds = (
             $opts.help = $lib.undef
             $opts.disabled = $lib.undef
             $trig = $lib.trigger.add($opts)
-            $lib.print("Added trigger: {iden}", iden=$trig.iden)
+            $lib.print(`Added trigger: {$trig.iden}`)
         ''',
     },
     {
@@ -660,7 +676,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.del($cmdopts.iden)
-            $lib.print("Deleted trigger: {iden}", iden=$iden)
+            $lib.print(`Deleted trigger: {$iden}`)
         ''',
     },
     {
@@ -779,6 +795,8 @@ stormcmds = (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--pool', {'action': 'store_true', 'default': False,
                 'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -788,12 +806,13 @@ stormcmds = (
             $cron = $lib.cron.add($cmdopts.period,
                                   $cmdopts.query,
                                   pool=$cmdopts.pool,
+                                  affinity=$cmdopts.affinity,
                                   iden=$cmdopts.iden,
                                   view=$cmdopts.view,
                                   doc=$cmdopts.doc,
                                   name=$cmdopts.name)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -808,6 +827,8 @@ stormcmds = (
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
             ('--iden', {'help': 'A set iden to assign to the new cron job'}),
             ('--view', {'help': 'View to run the cron job against'}),
+            ('--affinity', {'default': None,
+                'help': 'AHA service name to preferentially run the cron job on.'}),
         ),
         'storm': '''
             $cron = $lib.cron.at($cmdopts.query,
@@ -817,9 +838,10 @@ stormcmds = (
                                  dt=$cmdopts.dt,
                                  now=$cmdopts.now,
                                  iden=$cmdopts.iden,
-                                 view=$cmdopts.view)
+                                 view=$cmdopts.view,
+                                 affinity=$cmdopts.affinity)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -830,7 +852,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.cron.del($cmdopts.iden)
-            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Deleted cron job: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -874,7 +896,7 @@ stormcmds = (
                     }
                 }
             }
-            $lib.print("{count} cron/at jobs deleted.", count=$count)
+            $lib.print(`{$count} cron/at jobs deleted.`)
         ''',
     },
 
@@ -938,23 +960,24 @@ stormcmds = (
             if $cron {
                 $job = $cron.pprint()
 
-                $lib.print('iden:            {iden}', iden=$job.iden)
-                $lib.print('creator:         {creator}', creator=$job.creator)
-                $lib.print('user:            {user}', user=$job.user)
-                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`iden:            {$job.iden}`)
+                $lib.print(`creator:         {$job.creator}`)
+                $lib.print(`user:            {$job.user}`)
+                $lib.print(`enabled:         {$job.enabled}`)
                 $lib.print(`pool:            {$job.pool}`)
-                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
-                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
-                $lib.print('# errors:        {errcount}', errcount=$job.errcount)
-                $lib.print('last start time: {laststart}', laststart=$job.laststart)
-                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
-                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
-                $lib.print('query:           {query}', query=$job.query)
+                $lib.print(`affinity:        {$job.affinity}`)
+                $lib.print(`recurring:       {$job.isrecur}`)
+                $lib.print(`# starts:        {$job.startcount}`)
+                $lib.print(`# errors:        {$job.errcount}`)
+                $lib.print(`last start time: {$job.laststart}`)
+                $lib.print(`last end time:   {$job.lastend}`)
+                $lib.print(`last result:     {$job.lastresult}`)
+                $lib.print(`query:           {$job.query}`)
 
                 if $lib.len($job.lasterrs) {
                     $lib.print('most recent errors:')
                     for $err in $job.lasterrs {
-                        $lib.print('                 {err}', err=$err)
+                        $lib.print(`                 {$err}`)
                     }
                 }
 
@@ -965,8 +988,7 @@ stormcmds = (
                         $incunit = (`{$rec.incunit}`).ljust(10)
                         $incval = (`{$rec.incval}`).ljust(6)
 
-                        $lib.print('                 {incunit} {incval} {reqdict}',
-                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                        $lib.print(`                 {$incunit} {$incval} {$rec.reqdict}`)
                     }
                 } else {
                     $lib.print('entries:         <None>')
@@ -1046,7 +1068,7 @@ stormcmds = (
                     }
                     yield $lib.feed.genr($nodes, (true))
                 } else {
-                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
+                    $lib.exit(`nodes.import got HTTP error code: {$resp.code} for {$url}`)
                 }
             }
         }
@@ -1117,7 +1139,7 @@ stormcmds = (
             $resp = $lib.cell.uptime(name=$cmdopts.name)
             $uptime = $lib.model.type(duration).repr($resp.uptime)
             $starttime = $lib.time.format($resp.starttime, "%Y-%m-%d %H:%M:%S")
-            $lib.print("up {uptime} (since {since})", uptime=$uptime, since=$starttime)
+            $lib.print(`up {$uptime} (since {$starttime})`)
         ''',
     },
 )
@@ -1988,7 +2010,7 @@ class Parser:
             root = self
 
         if model is None:
-            model = s_datamodel.Model()
+            model = s_datamodel.getBaseModel()
         self.model = model
 
         self.prog = prog
@@ -2917,7 +2939,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)
@@ -4019,6 +4041,10 @@ class MoveNodesCmd(Cmd):
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                if layr not in layrlist:
+                    mesg = f'Layer {layr} in precedence is not in the set of source/destination layers.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, layr=layr)
+
                 layrlist.remove(layr)
 
             if len(layrlist) > 0:
@@ -4924,17 +4950,17 @@ class MoveTagCmd(Cmd):
 
             newnode = await view.addNode('syn:tag', newtag)
 
-            olddoc = node.get('doc')
-            if olddoc is not None:
-                await newnode.set('doc', olddoc)
+            olddoc = node.getWithVirts('doc')
+            if olddoc[0] is not None:
+                await newnode.set('doc', s_stormtypes.NodeRef(olddoc))
 
-            olddocurl = node.get('doc:url')
-            if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl[1])
+            olddocurl = node.getWithVirts('doc:url')
+            if olddocurl[0] is not None:
+                await newnode.set('doc:url', s_stormtypes.NodeRef(olddocurl))
 
-            oldtitle = node.get('title')
-            if oldtitle is not None:
-                await newnode.set('title', oldtitle)
+            oldtitle = node.getWithVirts('title')
+            if oldtitle[0] is not None:
+                await newnode.set('title', s_stormtypes.NodeRef(oldtitle))
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.getTags():

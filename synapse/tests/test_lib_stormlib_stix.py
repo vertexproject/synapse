@@ -74,7 +74,7 @@ class StormLibStixTest(s_test.SynTest):
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(22, await core.nodes('''[
+            self.len(23, await core.nodes('''[
                 (inet:asn=30 :owner:name=woot30)
                 (inet:asn=40 :owner:name=woot40)
                 (inet:ip=1.2.3.4 :asn=30)
@@ -83,8 +83,9 @@ class StormLibStixTest(s_test.SynTest):
                 (entity:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :place={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
-                (entity:campaign=$campaign :name=woot :actor={ou:org:name=attacker} +(had)> {[entity:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={entity:campaign} +(targeted)> {ou:org:name=target})
+                (entity:campaign=$campaign :name=woot :actor={ou:org:name=attacker})
+                (entity:motive=* :actor={ou:org:name=attacker} :goal={[entity:goal=$goal :name=pwning]})
+                (risk:attack=$attack :activity=$campaign +(targeted)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
@@ -312,8 +313,8 @@ class StormLibStixTest(s_test.SynTest):
             [(risk:vuln=(vuln3,) :name="bobs version of CVE-2013-001" :id={[ it:sec:cve=CVE-2013-0001 ]} )]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(entity:campaign=(campaign1,) :name="bob hax" :actor={[ ou:org=(bob1,) ]} )]
-            [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
-            [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk1,) :activity=(campaign1,) +(used)> {risk:vuln=(vuln1,)} )]
+            [(risk:attack=(attk2,) :activity=(campaign1,) +(used)> {risk:vuln=(vuln3,)} )]
             ''')
 
             bund = await core.callStorm('''

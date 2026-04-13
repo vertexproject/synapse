@@ -4,7 +4,7 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 geotestmodel = (
-    ('geo:test', {
+    {
 
         'types': (
             ('test:latlong', ('geo:latlong', {}), {}),
@@ -20,7 +20,7 @@ geotestmodel = (
             )),
             ('test:distoff', {}, ()),
         ),
-    }),
+    },
 )
 
 geojson0 = {
@@ -359,7 +359,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(geotestmodel)
+            await core._addModelDefs(geotestmodel)
 
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
@@ -416,7 +416,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(geotestmodel)
+            await core._addModelDefs(geotestmodel)
             nodes = await core.nodes('[ test:distoff=-3cm ]')
             self.eq(970, nodes[0].ndef[1])
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))
@@ -431,7 +431,7 @@ class GeoTest(s_t_utils.SynTest):
                 [ geo:telem=*
                     :time=20220618
                     :desc=foobar
-                    :node=(test:int, 1234)
+                    :node={[ tel:phone=1234 ]}
 
                     :place={[ geo:place=({"name": "Woot"}) ]}
                     :place:loc=us.ny.woot
@@ -454,14 +454,14 @@ class GeoTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'foobar')
             self.propeq(nodes[0], 'place:name', 'woot')
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
-            self.eq(('test:int', 1234), nodes[0].get('node'))
-            self.len(1, await core.nodes('test:int=1234'))
+            self.propeq(nodes[0], 'node', '1234', form='tel:phone')
+            self.len(1, await core.nodes('tel:phone=1234'))
 
             self.nn(nodes[0].get('place'))
             self.nn('us.ny.woot', nodes[0].get('place:loc'))
             self.nn('woot', nodes[0].get('place:name'))
             self.nn('123 main street', nodes[0].get('place:address'))
-            self.eq((10.1, 3.0), nodes[0].get('place:latlong'))
+            self.propeq(nodes[0], 'place:latlong', (10.1, 3.0))
             self.propeq(nodes[0], 'place:latlong:accuracy', 10000)
 
             self.propeq(nodes[0], 'phys:mass', '10000')

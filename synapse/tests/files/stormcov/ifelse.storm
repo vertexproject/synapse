@@ -1,0 +1,9 @@
+if (true) {
+    [ inet:fqdn=yes.com ]
+} else {
+    [ inet:fqdn=no.com ]
+}
+// lines: 1, 2, 4
+// coverage: 1, 2
+// arcs: (-1,1), (1,2), (1,4), (2,-1), (4,-1)
+// arcs_hit: (-1,1), (1,2), (2,-1)

@@ -46,6 +46,9 @@ info_ignores = (
     'display',
     'deprecated',
     'props',
+    'virts',
+    'prevnames',
+    'interfaces',
 )
 
 raw_back_slash_colon = r'\:'
@@ -128,11 +131,11 @@ def processCtors(rst, dochelp, ctors, types):
 
         tnfo = types.get(name)
         if (virts := tnfo.get('virts')) is not None:
-            rst.addLines('', f'This type has the following virtual properties:', '')
+            rst.addLines('', 'This type has the following virtual properties:', '')
             for virt in virts:
                 rst.addLines(f' * ``{virt}``')
 
-        rst.addLines('', f'This type supports lifting using the following operators:', '')
+        rst.addLines('', 'This type supports lifting using the following operators:', '')
         for cmpr in tnfo.get('lift_cmprs'):
             rst.addLines(f' * ``{cmpr}``')
 
@@ -205,7 +208,7 @@ def processTypes(rst, dochelp, types):
 
         if (opts := tnfo.get('opts')):
             rst.addLines('',
-                         f'This type has the following options set:',
+                         'This type has the following options set:',
                          ''
                          )
 
@@ -337,7 +340,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
             has_popts = has_popts_data(props)
 
-            rst.addLines('', '', f'  Properties:', )
+            rst.addLines('', '', '  Properties:', )
             rst.addLines('   .. list-table::',
                          '      :header-rows: 1',
                          '      :widths: auto',
@@ -353,7 +356,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
             for pname, (ptname, ptopts), popts in props:
 
-                _ = popts.pop('doc', None)
+                popts.pop('doc', None)
                 doc = dochelp.props.get((name, pname))
                 if not doc.endswith('.'):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
@@ -363,12 +366,13 @@ def processFormsProps(rst, dochelp, forms, alledges):
 
                 rst.addLines(f'      * - ``:{pname}``',)
                 if ptopts:
+                    ptopts.pop('default_types', None)
 
                     rst.addLines(f'        - | :ref:`{hptlink}`', )
                     for k, v in ptopts.items():
                         if ptname == 'array' and k == 'type':
                             if isinstance(v, tuple):
-                                v = 'polyprop'
+                                v = 'poly'
                             tlink = f'dm-type-{v.replace(":", "-")}'
                             rst.addLines(f'          | {k}: :ref:`{tlink}`', )
                         else:
@@ -393,7 +397,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
                                 else:
                                     rst.addLines(f'          | {k}: ``{v}``')
                     else:
-                        rst.addLines(f'        - ')
+                        rst.addLines('        - ')
 
         if formedges:
 
@@ -405,7 +409,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
                 if generic_edges:
                     source_edges.extend(generic_edges)
 
-                rst.addLines(f'  Source Edges:',)
+                rst.addLines('  Source Edges:',)
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
                              '      :widths: auto',
@@ -446,7 +450,7 @@ def processFormsProps(rst, dochelp, forms, alledges):
                 if generic_edges:
                     dst_edges.extend(generic_edges)
 
-                rst.addLines(f'  Target Edges:', )
+                rst.addLines('  Target Edges:', )
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
                              '      :widths: auto',
@@ -638,10 +642,15 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
 
 async def docModel(outp,
                    core):
-    modeldefs = await core.getModelDefs()
-    _, model = modeldefs[0]
+    model = await core.getModelDef()
 
-    ctors = model.get('ctors')
+    ctors = []
+    for typename, typedef, typeinfo in model.get('types', ()):
+        if typedef[0] is None:
+            typeopts = dict(typedef[1])
+            ctor = typeopts.pop('ctor')
+            ctors.append((typename, ctor, typeopts, dict(typeinfo)))
+
     forms = model.get('forms')
     edges = model.get('edges')
     props = collections.defaultdict(list)
@@ -947,9 +956,9 @@ async def main(argv, outp=s_output.stdout):
     if opts.doc_stormtypes:
         libdocs, typedocs = await docStormTypes()
         if opts.savedir:
-            with open(s_common.genpath(opts.savedir, f'stormtypes_libs.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, 'stormtypes_libs.rst'), 'wb') as fd:
                 fd.write(libdocs.getRstText().encode())
-            with open(s_common.genpath(opts.savedir, f'stormtypes_prims.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, 'stormtypes_prims.rst'), 'wb') as fd:
                 fd.write(typedocs.getRstText().encode())
 
     return 0
