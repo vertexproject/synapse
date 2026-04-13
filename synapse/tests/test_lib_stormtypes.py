@@ -5680,6 +5680,13 @@ class StormTypesTest(s_test.SynTest):
             cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
             self.eq('zoinks', cdef.get('doc'))
 
+            # test loglevel for cron.at
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}", loglevel=CRITICAL).pack())')
+            self.eq('CRITICAL', cdef.get('loglevel'))
+
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}").pack())')
+            self.eq('WARNING', cdef.get('loglevel'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
@@ -5847,13 +5854,13 @@ class StormTypesTest(s_test.SynTest):
                 q = '{$lib.queue.get(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
-                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
+                    with self.getLoggerStream('synapse.storm.log') as stream:
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
-                        self.true(await stream.wait(6))
+                        await stream.expect('m3 cron', timeout=6)
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
-                    self.eq(mesg['iden'], guid)
+                    self.eq(mesg['params']['iden'], guid)
 
                 ##################
 
@@ -6288,6 +6295,53 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(hehe)')
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
+
+    async def test_storm_lib_lift_bytagpref(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(0, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+
+            tags = ['bar', 'foo', 'zap', 'repa', 'repb']
+
+            for pref in ('rep.', 'rep.test', 'rep.test.'):
+                tags.extend([f'{pref}{x}' for x in range(100)])
+
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view, 'vars': {'tags': tags}}
+
+            await core.nodes('[ test:str=foo +#$tags ]', opts=opts)
+            await core.nodes('[ test:str=foo +#$tags ]', opts={'vars': {'tags': tags}})
+
+            self.len(307, await core.nodes('syn:tag'))
+
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)', opts=opts))
+            self.len(3, await core.nodes('syn:tag^=rep +:depth<=0'))
+
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)'))
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)', opts=opts))
+            self.len(204, await core.nodes('syn:tag^=rep +:depth<=1'))
+
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)'))
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)', opts=opts))
+            self.len(304, await core.nodes('syn:tag^=rep +:depth<=2'))
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(b)')
+            nodes1 = await core.nodes('syn:tag^=b')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(z)')
+            nodes1 = await core.nodes('syn:tag^=z')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
 
     async def test_stormtypes_node(self):
 

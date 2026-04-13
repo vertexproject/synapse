@@ -84,6 +84,11 @@ class TestDockerValidate(s_t_utils.SynTest):
             outp.expect('Signature has invalid certificate: certificate revoked')
             self.false(ret)
 
+            outp.clear()
+            ret = s_t_d_validate.checkCRL(outp, {'Cert': {'Raw': base64.b64encode(b'newp').decode()}}, certdir)
+            outp.expect('Failed to load signature bytes')
+            self.false(ret)
+
             # checkCosignSignature
             outp = self.getTestOutp()
             with mock.patch('subprocess.run') as patch:

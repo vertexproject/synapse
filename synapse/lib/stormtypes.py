@@ -3023,20 +3023,47 @@ class LibLift(Lib):
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        snap = self.runt.snap
+        async for name in snap.view.getTagsByPref(prefix, depth=depth):
+            if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
@@ -10064,6 +10091,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         affinity = kwargs.get('affinity')
         if affinity is not None:
             affinity = await tostr(affinity)
@@ -10115,6 +10144,7 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
