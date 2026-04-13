@@ -5489,6 +5489,17 @@ class Layer(s_nexus.Pusher):
             # n1nid, verbabrv, n2nid, tomb
             yield lkey[-9:-1], vabrv, lval, lkey[-1:] == FLAG_TOMB
 
+    async def getTagsByPref(self, pref, depth=0):
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, 'syn:tag', None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        fullpref = abrv + pref.encode()
+
+        async for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth=depth, db=self.indxdb, nodup=True):
+            yield lkey[8:].decode()
+
     async def _delNodeEdges(self, nid, form, sode):
 
         formabrv = self.core.setIndxAbrv(INDX_FORM, form)

@@ -1,89 +1,23 @@
-statusenums = (
-    (0, 'new'),
-    (10, 'in validation'),
-    (20, 'in backlog'),
-    (30, 'in sprint'),
-    (40, 'in progress'),
-    (50, 'in review'),
-    (60, 'completed'),
-    (70, 'done'),
-    (80, 'blocked'),
-)
-
 modeldefs = (
-    ('proj', {
+    {
 
-        'interfaces': (
-
-            ('proj:doable', {
-
-                'doc': 'A common interface for tasks.',
-
-                'template': {
-                    'task': 'task'},
-
-                'props': (
-
-                    ('id', ('meta:id', {}), {
-                        'doc': 'The ID of the {task}.'}),
-
-                    ('parent', ('proj:doable', {}), {
-                        'doc': 'The parent task which includes this {task}.'}),
-
-                    ('project', ('proj:project', {}), {
-                        'doc': 'The project containing the {task}.'}),
-
-                    ('status', ('proj:issue:status', {}), {
-                        # TODO: make runtime setable int enum typeopts
-                        'doc': 'The status of the {task}.'}),
-
-                    ('sprint', ('proj:sprint', {}), {
-                        'doc': 'The sprint that contains the {task}.'}),
-
-                    ('priority', ('meta:score', {}), {
-                        'doc': 'The priority of the {task}.'}),
-
-                    ('created', ('time', {}), {
-                        'doc': 'The time the {task} was created.'}),
-
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the {task} was last updated.'}),
-
-                    ('due', ('time', {}), {
-                        'doc': 'The time the {task} must be complete.'}),
-
-                    ('completed', ('time', {}), {
-                        'doc': 'The time the {task} was completed.'}),
-
-                    ('creator', ('entity:actor', {}), {
-                        'doc': 'The actor who created the {task}.'}),
-
-                    ('assignee', ('entity:actor', {}), {
-                        'doc': 'The actor who is assigned to complete the {task}.'}),
-                ),
-            }),
-        ),
         'types': (
-
-            ('proj:issue:status', ('int', {'enums': statusenums}), {
-                'doc': 'A project issue status.'}),
 
             ('proj:sprint:status', ('str', {'enums': 'planned,current,completed'}), {
                 'doc': 'A project sprint status.'}),
 
-            ('proj:task:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('proj:ticket:type:taxonomy',),
+            ('proj:ticket:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of project task types.'}),
 
-            ('proj:task', ('guid', {}), {
-                'prevnames': ('proj:ticket',),
+            ('proj:ticket', ('guid', {}), {
+                'template': {'title': 'ticket'},
                 'interfaces': (
-                    ('proj:doable', {'template': {'task': 'task'}}),
+                    ('meta:task', {}),
                 ),
-                'doc': 'A task.'}),
+                'doc': 'A ticket in a project management system.'}),
 
             ('proj:project:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -100,8 +34,8 @@ modeldefs = (
 
         'edges': (
 
-            (('proj:doable', 'has', 'file:attachment'), {
-                'doc': 'The task includes the file attachment.'}),
+            (('proj:sprint', 'has', 'meta:task'), {
+                'doc': 'The task was worked on during the sprint.'}),
         ),
 
         'forms': (
@@ -152,8 +86,8 @@ modeldefs = (
                     'doc': 'A description of the sprint.'}),
             )),
 
-            ('proj:task:type:taxonomy', {}, {}),
-            ('proj:task', {}, (
+            ('proj:ticket:type:taxonomy', {}, {}),
+            ('proj:ticket', {}, (
 
                 ('url', ('inet:url', {}), {
                     'prevnames': ('ext:url',),
@@ -168,10 +102,10 @@ modeldefs = (
                 ('points', ('int', {}), {
                     'doc': 'Optional SCRUM style story points value.'}),
 
-                ('type', ('proj:task:type:taxonomy', {}), {
+                ('type', ('proj:ticket:type:taxonomy', {}), {
                     'doc': 'The type of task.',
                     'ex': 'bug'}),
             )),
         ),
-    }),
+    },
 )

@@ -169,9 +169,9 @@ class NodeBase:
 
     def hasPropAltsValu(self, prop, valu):
         # valu must be normalized in advance
-        proptype = prop.type
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 arryvalu = self.get(prop.name)
                 if arryvalu is not None and valu in arryvalu:
                     return True
@@ -926,7 +926,7 @@ class Node(NodeBase):
                     for vname, vvals in vprops.items():
                         if vname[0] == '_':
                             continue
-                        retn[f'{name}.{vname}'] = {vval[0]: vcnt for vval, vcnt in vvals.items()}
+                        retn[f'{name}.{vname}'] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                     retn[f'{name}.size'] = len(valu)
                     retn[f'{name}.type'] = [v[0] for v in valu]

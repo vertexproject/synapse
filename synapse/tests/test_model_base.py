@@ -112,12 +112,12 @@ class BaseTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ meta:ruleset=*
-                    :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
+                    :created=20200202 :updated=20220401 :creator={[ entity:contact=* ]}
                     :name=" My Rules" :desc="My cool ruleset" ]
             ''')
             self.len(1, nodes)
 
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'created', 1580601600000000)
             self.propeq(nodes[0], 'updated', 1648771200000000)
             self.propeq(nodes[0], 'name', 'My Rules')
@@ -125,7 +125,7 @@ class BaseTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ meta:rule=*
-                    :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
+                    :created=20200202 :updated=20220401 :creator={[ entity:contact=* ]}
                     :name=" My Rule" :desc="My cool rule"
                     :type=foo.bar
                     :text="while TRUE { BAD }"
@@ -136,7 +136,7 @@ class BaseTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
 
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'created', 1580601600000000)
             self.propeq(nodes[0], 'updated', 1648771200000000)
@@ -175,9 +175,9 @@ class BaseTest(s_t_utils.SynTest):
                 self.nn(doc)
                 self.ge(len(doc), 3)
 
-            for ifdef in core.model.ifaces.values():
+            for name, ifdef in core.model.ifaces.items():
                 doc = ifdef.get('doc')
-                self.nn(doc)
+                self.nn(doc, msg=f'Interface has not doc: {name}')
                 self.ge(len(doc), 3)
 
     async def test_model_doc_deprecated(self):

@@ -108,6 +108,17 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.eq(('node', 'noderef'), ret)
 
+            await core.nodes('$lib.vault.add(gvault, test, global, (null), ({}), ({}))')
+
+            self.eq('vault', await core.callStorm('return($lib.utils.type($lib.copy($lib.vault.byname(gvault))))'))
+
+            ret = await core.callStorm('''
+                $d = ({"vault": $lib.vault.byname(gvault)})
+                $c = $lib.copy($d)
+                return($lib.utils.type($c.vault))
+            ''')
+            self.eq('vault', ret)
+
             # copy cmdopts containing a node (CmdOpts._storm_copy NotMsgpackSafe fallback)
             pdef = {
                 'name': 'testcopy',
@@ -1425,34 +1436,34 @@ class StormTypesTest(s_test.SynTest):
             n2 = s_common.guid()
             n3 = s_common.guid()
 
-            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            nodes = await core.nodes('[it:log:event="*" :data=$data]', opts={'vars': {'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
 
-            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': mstr}})
+            nodes = await core.nodes('[it:log:event="*" :data=$data]', opts={'vars': {'data': mstr}})
             self.len(1, nodes)
             node2 = nodes[0]
-            q = '''tel:mob:telem=$n1 $gzthing = :data
+            q = '''it:log:event=$n1 $gzthing = :data
                 $foo = $lib.base64.decode($gzthing).gunzip()
                 $lib.print($foo)
-                [( tel:mob:telem=$n2 :data=$foo.decode() )]'''
+                [( it:log:event=$n2 :data=$foo.decode() )]'''
 
             msgs = await core.stormlist(q, opts={'vars': {'n1': node1.ndef[1], 'n2': n2}})
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('ohhai', msgs)
 
             # make sure we gunzip correctly
-            nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n2}})
+            nodes = await core.nodes('it:log:event=$valu', opts={'vars': {'valu': n2}})
             self.len(1, nodes)
             self.propeq(nodes[0], 'data', hstr)
 
-            text = '''tel:mob:telem=$n2 $bar = :data
-                    [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
+            text = '''it:log:event=$n2 $bar = :data
+                    [( it:log:event=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
             msgs = await core.stormlist(text, opts={'vars': {'n2': node2.ndef[1], 'n3': n3}})
             self.stormHasNoWarnErr(msgs)
 
             # make sure we gzip correctly
-            nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n3}})
+            nodes = await core.nodes('it:log:event=$valu', opts={'vars': {'valu': n3}})
             self.len(1, nodes)
             self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data')[1])))
 
@@ -1465,30 +1476,30 @@ class StormTypesTest(s_test.SynTest):
             n2 = s_common.guid()
             n3 = s_common.guid()
 
-            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            nodes = await core.nodes('[it:log:event="*" :data=$data]', opts={'vars': {'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
-            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': mstr}})
+            nodes = await core.nodes('[it:log:event="*" :data=$data]', opts={'vars': {'data': mstr}})
             self.len(1, nodes)
             node2 = nodes[0]
 
-            q = '''tel:mob:telem=$valu $bzthing = :data $foo = $lib.base64.decode($bzthing).bunzip()
+            q = '''it:log:event=$valu $bzthing = :data $foo = $lib.base64.decode($bzthing).bunzip()
             $lib.print($foo)
-            [( tel:mob:telem=$n2 :data=$foo.decode() )] -tel:mob:telem=$valu'''
+            [( it:log:event=$n2 :data=$foo.decode() )] -it:log:event=$valu'''
             msgs = await core.stormlist(q, opts={'vars': {'valu': node1.ndef[1], 'n2': n2}})
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('ohhai', msgs)
 
             # make sure we bunzip correctly
             opts = {'vars': {'iden': n2}}
-            nodes = await core.nodes('tel:mob:telem=$iden', opts=opts)
+            nodes = await core.nodes('it:log:event=$iden', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'data', hstr)
 
             # bzip
-            q = '''tel:mob:telem=$valu $bar = :data
-                [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().bzip()) )] -tel:mob:telem=$valu'''
+            q = '''it:log:event=$valu $bar = :data
+                [( it:log:event=$n3 :data=$lib.base64.encode($bar.encode().bzip()) )] -it:log:event=$valu'''
             nodes = await core.nodes(q, opts={'vars': {'valu': node2.ndef[1], 'n3': n3}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1502,13 +1513,13 @@ class StormTypesTest(s_test.SynTest):
             valu = s_common.guid()
             n2 = s_common.guid()
 
-            nodes = await core.nodes('[tel:mob:telem=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
+            nodes = await core.nodes('[it:log:event=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
             self.propeq(node1, 'data', ghstr)
 
-            q = '''tel:mob:telem=$valu $jzthing=:data $foo=$jzthing.encode().json() [(tel:mob:telem=$n2 :data=$foo)]
-                  -tel:mob:telem=$valu'''
+            q = '''it:log:event=$valu $jzthing=:data $foo=$jzthing.encode().json() [(it:log:event=$n2 :data=$foo)]
+                  -it:log:event=$valu'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'n2': n2}})
             self.len(1, nodes)
             node2 = nodes[0]
@@ -2286,7 +2297,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $set = $lib.set()
                 inet:ip $set.add(:asn.value)
-                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
+                [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2295,7 +2306,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $set = $lib.set()
                 inet:ip $set.adds((:asn.value, :asn.value))
-                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
+                [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2305,7 +2316,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set()
                 inet:ip $set.adds((:asn.value, :asn.value))
                 { +:asn=20 $set.rem(:asn.value) }
-                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
+                [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2315,7 +2326,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set()
                 inet:ip $set.add(:asn.value)
                 $set.rems((:asn.value, :asn.value))
-                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
+                [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -5481,7 +5492,7 @@ class StormTypesTest(s_test.SynTest):
             view00 = await core.callStorm('return($lib.view.get().iden)')
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            cdef = await core.callStorm('return($lib.cron.add(hourly@:30, "{[tel:mob:telem=*]}"))')
+            cdef = await core.callStorm('return($lib.cron.add(hourly@:30, "{[it:log:event=*]}"))')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
             self.eq(view00, cdef.get('view'))
@@ -5521,7 +5532,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await core.callStorm('$lib.cron.get($iden).hehe = haha', opts=opts)
 
-            mesgs = await core.stormlist('cron.add hourly@:01 {[tel:mob:telem=*]} --name myname --doc mydoc')
+            mesgs = await core.stormlist('cron.add hourly@:01 {[it:log:event=*]} --name myname --doc mydoc')
             for mesg in mesgs:
                 if mesg[0] == 'print':
                     iden0 = mesg[1]['mesg'].split(' ')[-1]
@@ -5534,10 +5545,10 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
 
             # test loglevel for cron.at
-            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}", loglevel=CRITICAL))')
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[it:log:event=*]}", loglevel=CRITICAL))')
             self.eq('CRITICAL', cdef.get('loglevel'))
 
-            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[tel:mob:telem=*]}"))')
+            cdef = await core.callStorm('return($lib.cron.at(now=$lib.true, query="{[it:log:event=*]}"))')
             self.eq('WARNING', cdef.get('loglevel'))
 
     async def test_storm_lib_cron(self):
@@ -5958,6 +5969,53 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}), errok=(true))')
             self.len(0, nodes)
+
+    async def test_storm_lib_lift_bytagpref(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(0, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+
+            tags = ['bar', 'foo', 'zap', 'repa', 'repb']
+
+            for pref in ('rep.', 'rep.test', 'rep.test.'):
+                tags.extend([f'{pref}{x}' for x in range(100)])
+
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view, 'vars': {'tags': tags}}
+
+            await core.nodes('[ test:str=foo +#$tags ]', opts=opts)
+            await core.nodes('[ test:str=foo +#$tags ]', opts={'vars': {'tags': tags}})
+
+            self.len(307, await core.nodes('syn:tag'))
+
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)'))
+            self.len(3, await core.nodes('yield $lib.lift.tagsByPref(rep)', opts=opts))
+            self.len(3, await core.nodes('syn:tag^=rep +:depth<=0'))
+
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)'))
+            self.len(204, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=1)', opts=opts))
+            self.len(204, await core.nodes('syn:tag^=rep +:depth<=1'))
+
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)'))
+            self.len(304, await core.nodes('yield $lib.lift.tagsByPref(rep, depth=2)', opts=opts))
+            self.len(304, await core.nodes('syn:tag^=rep +:depth<=2'))
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(b)')
+            nodes1 = await core.nodes('syn:tag^=b')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
+
+            nodes0 = await core.nodes('yield $lib.lift.tagsByPref(z)')
+            nodes1 = await core.nodes('syn:tag^=z')
+            self.len(1, nodes0)
+
+            nodes0 = [n.ndef for n in nodes0]
+            nodes1 = [n.ndef for n in nodes1]
+            self.eq(nodes0, nodes1)
 
     async def test_stormtypes_node(self):
 

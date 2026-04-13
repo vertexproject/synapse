@@ -1,9 +1,10 @@
 modeldefs = (
-    ('ps', {
+    {
         'types': (
             ('edu:course', ('guid', {}), {
+                'template': {'title': 'course'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'course'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A course of study taught by an org.'}),
 
@@ -44,7 +45,6 @@ modeldefs = (
                 ),
                 'doc': 'Statistics and demographic data about a person.'}),
 
-            # FIXME still need to discuss skills / proficiency with meta:causal
             ('ps:skill', ('guid', {}), {
                 'interfaces': (
                     ('edu:learnable', {}),
@@ -63,15 +63,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of skill types.'}),
 
-            ('ps:proficiency', ('guid', {}), {
-                'doc': 'The assessment that a given contact possesses a specific skill.',
-                'display': {
-                    'columns': (
-                        # FIXME interface embed props
-                        # {'type': 'prop', 'opts': {'name': 'contact::name'}},
-                        # {'type': 'prop', 'opts': {'name': 'skill::name'}},
-                    ),
-                }}),
         ),
         'interfaces': (
 
@@ -197,14 +188,6 @@ modeldefs = (
                 ('type', ('ps:skill:type:taxonomy', {}), {
                     'doc': 'The type of skill as a taxonomy.'})
             )),
-
-            ('ps:proficiency', {}, (
-                ('skill', ('edu:learnable', {}), {
-                    'doc': 'The topic or skill in which the contact is proficient.'}),
-
-                ('contact', ('entity:actor', {}), {
-                    'doc': 'The entity which is proficient in the skill.'}),
-            )),
         )
-    }),
+    },
 )

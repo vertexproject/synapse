@@ -918,9 +918,9 @@ class AstTest(s_test.SynTest):
             ]'''
             await core.nodes(q)
 
-            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity'))
-            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity:host'))
-            self.len(3, await core.nodes('it:log:event=(event,) :host -> it:host:activity:host'))
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:event'))
+            self.len(6, await core.nodes('it:host=(host,) -> it:host:event:host'))
+            self.len(6, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
 
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns*'))
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns:*'))
@@ -958,15 +958,15 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:*'))
             self.len(2, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:a*'))
 
-            await core.nodes('it:host=(host,) [ +(refs)> { it:host:activity:host } ]')
+            await core.nodes('it:host=(host,) [ +(refs)> { it:host:event:host } ]')
 
-            self.len(3, await core.nodes('it:host=(host,) -(refs)> it:host:activity'))
+            self.len(3, await core.nodes('it:host=(host,) -(refs)> it:host:event'))
 
-            await core.nodes('it:host=(host,) [ <(refs)+ { it:host:activity:host } ]')
+            await core.nodes('it:host=(host,) [ <(refs)+ { it:host:event:host } ]')
 
-            self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:activity'))
-            self.len(3, await core.nodes('it:host:activity +it:host:activity:host'))
-            self.len(3, await core.nodes('.created +it:host:activity:host=(host,)'))
+            self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:event'))
+            self.len(3, await core.nodes('it:host:event +it:host:event:host'))
+            self.len(3, await core.nodes('.created +it:host:event:host=(host,)'))
 
             self.len(0, await core.nodes('it:host +inet:fqdn:zone'))
             self.len(1, await core.nodes('.created +inet:fqdn:zone=vertex.link'))
@@ -996,10 +996,10 @@ class AstTest(s_test.SynTest):
             self.len(5, await core.nodes('inet:net=1.2.3.4/30', opts={'graph': {'refs': True}}))
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('it:host:activity +it:host:activity:host>5')
+                await core.nodes('it:host:event +it:host:event:host>5')
 
             with self.raises(s_exc.NoSuchForm):
-                await core.nodes('it:host:activity +newp:*')
+                await core.nodes('it:host:event +newp:*')
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:fqdn=vertex.link -> newp:*')
@@ -1038,18 +1038,18 @@ class AstTest(s_test.SynTest):
             ]'''
             await core.nodes(q)
 
-            self.len(4, await core.nodes('it:host:activity'))
-            self.len(4, await core.nodes('it:host:activity#foo'))
-            self.len(4, await core.nodes('it:host:activity#foo:score=5'))
-            self.len(3, await core.nodes('it:host:activity:host'))
-            self.len(3, await core.nodes('it:host:activity:host=(host,)'))
+            self.len(4, await core.nodes('it:host:event'))
+            self.len(4, await core.nodes('it:host:event#foo'))
+            self.len(4, await core.nodes('it:host:event#foo:score=5'))
+            self.len(6, await core.nodes('it:host:event:host'))
+            self.len(6, await core.nodes('it:host:event:host=(host,)'))
 
-            self.len(4, await core.nodes('.created +it:host:activity'))
-            self.len(3, await core.nodes('.created +it:host:activity:host'))
+            self.len(4, await core.nodes('.created +it:host:event'))
+            self.len(3, await core.nodes('.created +it:host:event:host'))
 
-            self.len(4, await core.nodes('it:host:activity.created'))
-            self.len(4, await core.nodes('it:host:activity.created>2000-01-01'))
-            self.len(0, await core.nodes('it:host:activity.created<2000-01-01'))
+            self.len(4, await core.nodes('it:host:event.created'))
+            self.len(4, await core.nodes('it:host:event.created>2000-01-01'))
+            self.len(0, await core.nodes('it:host:event.created<2000-01-01'))
 
             self.len(4, await core.nodes('inet:dns*'))
             self.len(4, await core.nodes('inet:dns:*'))

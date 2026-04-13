@@ -528,6 +528,17 @@ class Edge:
     def pack(self):
         return (self.edgetype, self.edgeinfo)
 
+def getBaseModel():
+    '''
+    Get a Model loaded with the base type definitions.
+    '''
+    import synapse.models.base as s_base
+    modl = Model()
+    mdef = s_base.modeldefs[0]
+    types = tuple(t for t in mdef['types'] if t[1][0] is None)
+    modl.addModelDefs([{'types': types}])
+    return modl
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -574,145 +585,10 @@ class Model:
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
-            'ctors': [],
             'types': [],
             'forms': [],
             'edges': [],
         }
-
-        # add the primitive base types
-        info = {'doc': 'The base 64 bit signed integer type.'}
-        item = s_types.Int(self, 'int', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base floating point type.'}
-        item = s_types.Float(self, 'float', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A base range type.'}
-        item = s_types.Range(self, 'range', info, {'type': ('int', {})})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base string type.'}
-        item = s_types.Str(self, 'str', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base hex type.'}
-        item = s_types.Hex(self, 'hex', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base boolean type.'}
-        item = s_types.Bool(self, 'bool', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A time precision value.'}
-        item = s_types.TimePrecision(self, 'timeprecision', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'doc': 'A date/time value.',
-            'virts': (
-                ('precision', ('timeprecision', {}), {
-                    'doc': 'The precision for display and rounding the time.'}),
-            ),
-        }
-        item = s_types.Time(self, 'time', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A duration value.'}
-        item = s_types.Duration(self, 'duration', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-
-                ('min', ('time', {}), {
-                    'doc': 'The starting time of the interval.'}),
-
-                ('max', ('time', {}), {
-                    'doc': 'The ending time of the interval.'}),
-
-                ('duration', ('duration', {}), {
-                    'doc': 'The duration of the interval.'}),
-
-                ('precision', ('timeprecision', {}), {
-                    'doc': 'The precision for display and rounding the times.'}),
-            ),
-            'doc': 'A time window or interval.',
-        }
-        item = s_types.Ival(self, 'ival', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base GUID type.'}
-        item = s_types.Guid(self, 'guid', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A tag component string.'}
-        item = s_types.TagPart(self, 'syn:tag:part', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for a synapse tag.'}
-        item = s_types.Tag(self, 'syn:tag', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for compound node fields.'}
-        item = s_types.Comp(self, 'comp', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base geo political location type.'}
-        item = s_types.Loc(self, 'loc', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-                ('type', ('syn:type', {}), {
-                    'computed': True,
-                    'doc': 'The type of value which is referenced.'}),
-
-                ('value', ('data', {}), {
-                    'computed': True,
-                    'display': {'hidden': True},
-                    'doc': 'The value which is referenced.'}),
-            ),
-            'doc': 'A prop which can be of one or more types.',
-        }
-        item = s_types.Poly(self, 'poly', info, {})
-        self.addBaseType(item)
-
-        info = {
-            'virts': (
-                ('size', ('int', {}), {
-                    'computed': True,
-                    'doc': 'The number of elements in the array.'}),
-            ),
-            'doc': 'A typed array which indexes each field.'
-        }
-        item = s_types.Array(self, 'array', info, {'type': 'int'})
-        self.addBaseType(item)
-
-        info = {'doc': 'Arbitrary json compatible data.'}
-        item = s_types.Data(self, 'data', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
-                       'precision of 24 decimal digits.'}
-        item = s_types.HugeNum(self, 'hugenum', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A component of a hierarchical taxonomy.'}
-        item = s_types.Taxon(self, 'taxon', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A hierarchical taxonomy.'}
-        item = s_types.Taxonomy(self, 'taxonomy', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A velocity with base units in mm/sec.'}
-        item = s_types.Velocity(self, 'velocity', info, {})
-        self.addBaseType(item)
-
-        self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
-        self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, {})
@@ -861,33 +737,12 @@ class Model:
 
         if interfaces:
             for iface in interfaces:
-                for form in self.formsbyiface.get(iface):
+                for form in self.formsbyiface.get(iface, ()):
                     typeset.add(self.form(form).type)
 
         typeset = tuple(typeset)
         self.typesetcache[key] = typeset
         return typeset
-
-    def getFormSet(self, forms=None, interfaces=None):
-        key = (forms, interfaces)
-        if (formset := self.formsetcache.get(key)) is not None:
-            return formset
-
-        formset = set()
-
-        if forms:
-            for form in forms:
-                for cform in self.getChildForms(form):
-                    formset.add(self.form(cform))
-
-        if interfaces:
-            for iface in interfaces:
-                for form in self.formsbyiface.get(iface):
-                    formset.add(self.form(form))
-
-        formset = tuple(formset)
-        self.formsetcache[key] = formset
-        return formset
 
     def getChildForms(self, formname, depth=0):
         if depth == 0 and (forms := self.childformcache.get(formname)) is not None:
@@ -970,10 +825,10 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDefs(self):
+    def getModelDef(self):
         '''
         Returns:
-            A list of one model definition compatible with addDataModels that represents the current data model
+            A model definition dictionary representing the current data model.
         '''
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
@@ -981,7 +836,7 @@ class Model:
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
         mdef['edges'] = [e.pack() for e in self.edges.values()]
-        return [('all', mdef)]
+        return mdef
 
     def _getResolvedIfaces(self):
         '''Return a copy of interfaces with default template values resolved in docs and types.'''
@@ -1024,22 +879,14 @@ class Model:
 
     def convertPolyinfo(self, propdef):
 
-        forms = []
         types = []
         ifaces = []
         defaults = []
 
         for typename, typeinfo in propdef:
 
-            if typename in self.forminfos:
-                forms.append(typename)
-
-                if typeinfo.get('defnorm', True):
-                    defaults.append(typename)
-
-            elif typename in self.ifaces:
+            if typename in self.ifaces:
                 ifaces.append(typename)
-
             else:
                 types.append(typename)
 
@@ -1047,9 +894,6 @@ class Model:
                     defaults.append(typename)
 
         polyinfo = {}
-        if forms:
-            polyinfo['forms'] = tuple(forms)
-
         if ifaces:
             polyinfo['interfaces'] = tuple(ifaces)
 
@@ -1061,43 +905,43 @@ class Model:
 
         return polyinfo
 
-    def convertPropdef(self, propdef):
-        typename = propdef[0]
+    def convertTypedef(self, typedef):
+        typename = typedef[0]
 
         if not isinstance(typename, tuple):
             if isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
-                return propdef
+                return typedef
 
             if tobj is None and typename not in self.ifaces:
                 raise s_exc.NoSuchType(name=typename)
 
-            propdef = (propdef,)
+            typedef = (typedef,)
 
-        return ('poly', self.convertPolyinfo(propdef))
+        return ('poly', self.convertPolyinfo(typedef))
 
     def processPropdefs(self, propdefs):
 
         realdefs = []
 
-        for pname, propdef, propinfo in propdefs:
+        for pname, typedef, propinfo in propdefs:
 
-            realdefs.append((pname, self.convertPropdef(propdef), propinfo))
+            realdefs.append((pname, self.convertTypedef(typedef), propinfo))
 
         return tuple(realdefs)
 
-    def addDataModels(self, mods):
+    def addModelDefs(self, mods):
         '''
-        Add a list of (name, mdef) tuples.
+        Add a list of model definition dictionaries.
 
         A model definition (mdef) is structured as follows::
 
             {
-                "ctors":(
-                    ('name', 'class.path.ctor', {}, {'doc': 'The foo thing.'}),
-                ),
-
                 "types":(
                     ('name', ('basetype', {typeopts}), {info}),
+
+                    # Types with custom Python classes use None as the base
+                    # with the 'ctor' key specifying the class path:
+                    ('name', (None, {'ctor': 'class.path', ...typeopts}), {info}),
                 ),
 
                 "forms":(
@@ -1118,7 +962,7 @@ class Model:
             }
 
         Args:
-            mods (list):  The list of tuples.
+            mods (list):  The list of model definition dicts.
 
         Returns:
             None
@@ -1127,58 +971,13 @@ class Model:
 
         self.modeldefs.extend(mods)
 
-        ctors = {}
-
-        # load all the base type ctors in order...
-        for _, mdef in mods:
-
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
-                self.types[name] = item
-                ctors[name] = (name, ctor, opts, info)
-
-        # load all the types in order...
-        for _, mdef in mods:
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
-
-        # finish initializing types
-        for name, tobj in self.types.items():
-            tobj._initType()
-            if (info := ctors.get(name)) is not None:
-                self._modeldef['ctors'].append(info)
-            else:
-                self._modeldef['types'].append(tobj.getTypeDef())
-
-        # load all the interfaces...
-        for _, mdef in mods:
-            for name, info in mdef.get('interfaces', ()):
-                self.addIface(name, info)
-
-        # Load all the tagprops
-        for _, mdef in mods:
-            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
-                self.addTagProp(tpname, typedef, tpinfo)
-
-        formchildren = collections.defaultdict(list)
-        childforms = set()
-
         allforms = []
 
         # Gather all the forms first
-        for _, mdef in mods:
-
-            # Allow props declared directly on ctors to become forms...
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                if (props := info.get('props')) is not None:
-                    forminfo = {}
-                    if (ondef := info.get('on')) is not None:
-                        forminfo['on'] = ondef
-                    allforms.append((name, forminfo, props))
-                    self.forminfos[name] = forminfo
+        for mdef in mods:
 
             # Allow props declared directly on types to become forms...
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+            for typename, _, typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     forminfo = {}
                     if (ondef := typeinfo.get('on')) is not None:
@@ -1189,6 +988,57 @@ class Model:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 allforms.append((formname, forminfo, propdefs))
                 self.forminfos[formname] = forminfo
+
+        # load all the interfaces...
+        for mdef in mods:
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
+
+        ctors = {}
+
+        # first pass: load ctor-based types (base type is None)
+        for mdef in mods:
+            for typename, typedef, typeinfo in mdef.get('types', ()):
+                if typedef[0] is not None:
+                    continue
+
+                typeopts = dict(typedef[1])
+                ctor = typeopts.pop('ctor')
+                item = s_dyndeps.tryDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
+                self.types[typename] = item
+                ctors[typename] = ctor
+
+        # second pass: load all derived types
+        for mdef in mods:
+            for typename, typedef, typeinfo in mdef.get('types', ()):
+                if typedef[0] is None:
+                    continue
+
+                if isinstance(typedef[0], tuple):
+                    basename = 'poly'
+                    typeopts = self.convertPolyinfo(typedef)
+                else:
+                    basename, typeopts = typedef
+
+                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+
+        # finish initializing types
+        for name, tobj in self.types.items():
+            tobj._initType()
+            if (ctor := ctors.get(name)) is not None:
+                opts = dict(tobj.opts)
+                opts['ctor'] = ctor
+                self._modeldef['types'].append((name, (None, opts), dict(tobj.info)))
+            else:
+                self._modeldef['types'].append(tobj.getTypeDef())
+
+        # Load all the tagprops
+        for mdef in mods:
+            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                self.addTagProp(tpname, typedef, tpinfo)
+
+        formchildren = collections.defaultdict(list)
+        childforms = set()
 
         # Compute child form dependencies
         for formname, forminfo, propdefs in allforms:
@@ -1210,13 +1060,18 @@ class Model:
         addForms(allforms)
 
         # now we can load edge definitions...
-        for _, mdef in mods:
+        for mdef in mods:
             for etype, einfo in mdef.get('edges', ()):
                 self.addEdge(etype, einfo)
 
         # now we can check the forms display settings...
         for form in self.forms.values():
             self._checkFormDisplay(form)
+
+        # initialize metatypes if the time type is available
+        if self.types.get('time') is not None:
+            self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
+            self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def _getFormsMaybeIface(self, name):
 
@@ -1545,7 +1400,7 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
-        if self.forms.get(name) is not None:
+        if name in self.forminfos is not None:
             raise s_exc.DupName(mesg=f'Interface name conflicts with existing form: {name}')
 
         if self.ifaces.get(name) is not None:
@@ -1599,14 +1454,13 @@ class Model:
         # TODO - implement resolving tdef from inherited interfaces
         # if omitted from a prop or iface definition to allow doc edits
         (basename, typeinfo) = tdef
-        typelist = typeinfo.get('forms', ()) + typeinfo.get('types', ())
 
         if self.types.get(basename) is None:
             mesg = f'No type named {basename} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=basename)
 
         virts = []
-        for typename in typelist:
+        for typename in typeinfo.get('types', ()):
             _type = self.types.get(typename)
             if _type is None:
                 mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
@@ -1844,14 +1698,6 @@ class Model:
                 self.delFormProp(kid, propname)
 
         self.childpropcache.clear()
-
-    def addBaseType(self, item):
-        '''
-        Add a Type instance to the data model.
-        '''
-        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
-        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
-        self.types[item.name] = item
 
     def type(self, name):
         '''

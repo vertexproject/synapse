@@ -1696,6 +1696,43 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, fork2view.getEdgeCount(nid, n2=True))
             self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
 
+    async def test_lib_view_swapLayer(self):
+
+        async with self.getTestCore() as core:
+
+            # Create a node in the default view
+            nodes = await core.nodes('[ inet:fqdn=vertex.link ]')
+            self.len(1, nodes)
+
+            oldlayr = core.getLayer()
+            oldiden = oldlayr.iden
+
+            # Ensure the node is in the view's livenodes cache
+            view = core.getView()
+            buid = s_common.buid(('inet:fqdn', 'vertex.link'))
+            nid = core.getNidByBuid(buid)
+            self.nn(nid)
+            self.isin(nid, view.livenodes)
+
+            # Swap the layer
+            await view.swapLayer()
+
+            # Verify the layer was replaced
+            newlayr = core.getLayer()
+            self.ne(oldiden, newlayr.iden)
+
+            # Verify view cache was cleared
+            self.notin(nid, view.livenodes)
+
+            # Verify the old node is gone from the new layer
+            self.len(0, await core.nodes('inet:fqdn=vertex.link'))
+
+            # Verify creating the same node works without ReadOnlyProp error
+            nodes = await core.nodes('[ inet:fqdn=vertex.link ]')
+            self.len(1, nodes)
+            self.eq('vertex.link', nodes[0].ndef[1])
+            self.eq(('inet:fqdn', 'link'), nodes[0].get('domain'))
+
     async def test_view_runt_bad_cmpr(self):
         async with self.getTestCore() as core:
             prop = core.model.prop('syn:type')
