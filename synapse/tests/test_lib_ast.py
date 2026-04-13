@@ -3008,14 +3008,14 @@ class AstTest(s_test.SynTest):
         origprop = s_view.View.nodesByProp
         origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False, virts=None):
+        async def checkProp(self, name, reverse=False, virt=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name, reverse=reverse, virts=virts):
+            async for node in origprop(self, name, reverse=reverse, virt=virt):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu, reverse=False, virts=None):
+        async def checkValu(self, name, cmpr, valu, reverse=False, virt=None):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virts=virts):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virt=virt):
                 yield node
 
         with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):

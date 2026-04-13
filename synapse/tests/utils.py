@@ -2090,7 +2090,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
                 ptyp = mtyp
             else:
-                ptyp = ptyp.getVirtType(parts[1:])
+                ptyp = ptyp.getVirtType(parts[1])
 
         if valu is not None and pval is not None:
             if ptyp.ispoly:

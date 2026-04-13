@@ -1330,13 +1330,13 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchFunc):
                 await core.nodes('entity:campaign.created +:period.min@=({})')
 
-            self.eq(ival.getVirtType(['min']), model.types.get('time'))
+            self.eq(ival.getVirtType('min'), model.types.get('time'))
 
             with self.raises(s_exc.NoSuchVirt):
-                ival.getVirtType(['min', 'newp'])
+                ival.getVirtType('newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                ival.getVirtGetr(['min', 'newp'])
+                ival.getVirtGetr('newp')
 
             ityp = core.model.type('ival')
             styp = core.model.type('timeprecision').stortype
