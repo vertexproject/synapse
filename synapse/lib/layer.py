@@ -1023,18 +1023,8 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virt=None):
-        try:
-            if virt:
-                indxby = IndxByVirt(self.layr, form, prop, virt)
-            else:
-                indxby = IndxByPropArray(self.layr, form, prop)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
-            yield item
+    async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virt=None):  # pragma: no cover
+        raise NotImplementedError
 
     async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False, virt=None):
         try:
