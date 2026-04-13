@@ -804,6 +804,21 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.addForm('_test:newp', {}, (('name', ('str', {}), {}),))
 
+            # Test poly prop narrowing on subforms
+            await core.addType('_test:polyid', 'poly', {'types': ('str', 'int')}, {})
+            await core.addType('_test:polypar', 'guid', {}, {})
+            await core.addType('_test:polychild', '_test:polypar', {}, {})
+            await core.addType('_test:polybad', '_test:polypar', {}, {})
+
+            core.model.addForm('_test:polypar', {}, (('ident', ('_test:polyid', {}), {}),))
+
+            # Narrowing to a valid subset type works
+            core.model.addForm('_test:polychild', {}, (('ident', ('str', {}), {}),))
+
+            # Narrowing to a type not in the poly fails
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:polybad', {}, (('ident', ('float', {}), {}),))
+
             await core.nodes("$lib.model.ext.addForm(_test:ip, inet:ip, ({}), ({}))")
             await core.nodes("$lib.model.ext.addFormProp(it:host, _ip2, ('_test:ip', ({})), ({}))")
 

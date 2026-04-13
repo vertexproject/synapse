@@ -683,6 +683,13 @@ modeldefs = (
             ('it:host:windows:account', ('it:host:account', {}), {
                 'doc': 'A Windows account on a host.'}),
 
+            ('it:host:account:id', (
+                    ('it:os:windows:sid', {}),
+                    ('it:os:posix:id', {}),
+                    ('meta:id', {}),
+                ), {
+                'doc': 'A unique host account identifier.'}),
+
             ('it:host:group', ('guid', {}), {
                 'prevnames': ('it:group',),
                 'doc': 'A local group on a host.'}),
@@ -979,6 +986,10 @@ modeldefs = (
             # TODO
             # ('it:os:windows:task', ('guid', {}), {
             #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+
+            ('it:os:posix:id', ('int', {'min': 0}), {
+                'ex': '1001',
+                'doc': 'A POSIX user or group ID.'}),
 
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
@@ -1593,6 +1604,9 @@ modeldefs = (
 
             ('it:host:account', {}, (
 
+                ('id', ('it:host:account:id', {}), {
+                    'doc': 'The unique OS-level identifier for the account.'}),
+
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
 
@@ -1614,11 +1628,11 @@ modeldefs = (
 
             ('it:host:posix:account', {}, (
 
-                ('uid', ('int', {}), {
+                ('id', ('it:os:posix:id', {}), {
                     'ex': '1001',
-                    'doc': 'The user ID of the account.'}),
+                    'doc': 'The POSIX user ID of the account.'}),
 
-                ('gid', ('int', {}), {
+                ('gid', ('it:os:posix:id', {}), {
                     'ex': '1001',
                     'doc': 'The primary group ID of the account.'}),
 
@@ -1636,7 +1650,7 @@ modeldefs = (
 
             ('it:host:windows:account', {}, (
 
-                ('sid', ('it:os:windows:sid', {}), {
+                ('id', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the account.'}),
             )),
 
@@ -1651,9 +1665,9 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the group was created.'}),
 
-                ('posix:gid', ('int', {}), {
+                ('posix:gid', ('it:os:posix:id', {}), {
                     'ex': '1001',
-                    'doc': 'The primary group ID of the account.'}),
+                    'doc': 'The POSIX group ID of the group.'}),
 
                 ('windows:sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
