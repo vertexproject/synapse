@@ -402,6 +402,10 @@ class NexsRoot(s_base.Base):
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
 
+            # Clone the current scope to the applytask, so that log events in the scope
+            # would have access to any user / sess values which have been set.
+            s_scope.clone(self.applytask)
+
         except:
             self.cell.nexslock.release()
             raise
