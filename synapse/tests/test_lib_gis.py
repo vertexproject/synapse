@@ -163,7 +163,7 @@ class GisTest(s_t_utils.SynTest):
         self.raises(ValueError, s_gis.parseLatLong, '1 2 3E, 4 5 6E')
 
         # Error: conflicting prefix and suffix in a single part (propagates from parseDMS)
-        self.raises(ValueError, s_gis.parseLatLong, f'N 1 2 3S, E 3 4 5W')
+        self.raises(ValueError, s_gis.parseLatLong, 'N 1 2 3S, E 3 4 5W')
 
         # Error: unparseable
         self.raises(ValueError, s_gis.parseLatLong, 'not a lat long')
