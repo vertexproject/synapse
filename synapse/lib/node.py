@@ -25,23 +25,23 @@ class NodeBase:
 
     def repr(self, name=None, defv=None):
 
-        virts = None
+        virt = None
         if name is not None:
             parts = name.strip().split('.')
             if len(parts) > 1:
                 name = parts[0] or None
-                virts = parts[1:]
+                virt = parts[1]
 
         if name is None:
             typeitem = self.form.type
-            if virts is None:
+            if virt is None:
                 return typeitem.repr(self.valu())
 
-            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
-                return mtyp.repr(self.getMeta(virts[0]))
+            if (mtyp := self.view.core.model.metatypes.get(virt)) is not None:
+                return mtyp.repr(self.getMeta(virt))
 
-            virttype, virtgetr = typeitem.getVirtInfo(virts)
-            return virttype.repr(self.valu(virts=virtgetr))
+            virttype, virtgetr = typeitem.getVirtInfo(virt)
+            return virttype.repr(self.valu(getr=virtgetr))
 
         prop = self.form.props.get(name)
         if prop is None:
@@ -50,19 +50,19 @@ class NodeBase:
 
         typeitem = prop.type
 
-        if virts is None:
+        if virt is None:
             if (valu := self.get(name)) is None:
                 return defv
             return typeitem.repr(valu)
 
-        if typeitem.virts.get(virts[0]) is None:
+        if typeitem.virts.get(virt) is None:
             if (valu := self.get(name)) is None:
                 return defv
             typeitem = self.view.core.model.type(valu[0])
 
-        virttype, virtgetr = typeitem.getVirtInfo(virts)
+        virttype, virtgetr = typeitem.getVirtInfo(virt)
 
-        if (valu := self.get(name, virts=virtgetr)) is None:
+        if (valu := self.get(name, getr=virtgetr)) is None:
             return defv
         return virttype.repr(valu)
 
@@ -544,7 +544,7 @@ class Node(NodeBase):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.set(name, valu, norminfo=norminfo)
 
-    def has(self, name, virts=None):
+    def has(self, name, getr=None):
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
@@ -558,10 +558,8 @@ class Node(NodeBase):
                 continue
 
             if (valt := props.get(name)) is not None:
-                if virts:
-                    for virt in virts:
-                        if (valt := virt(valt)) is None:
-                            return False
+                if getr and getr(valt) is None:
+                    return False
                 return True
 
         return False
@@ -591,8 +589,8 @@ class Node(NodeBase):
 
         return False
 
-    def valu(self, defv=None, virts=None):
-        if virts is None:
+    def valu(self, defv=None, getr=None):
+        if getr is None:
             return self.ndef[1]
 
         for sode in self.sodes:
@@ -600,9 +598,7 @@ class Node(NodeBase):
                 return defv
 
             if (valu := sode.get('valu')) is not None:
-                for virt in virts:
-                    valu = virt(valu)
-                return valu
+                return getr(valu)
 
         return defv
 
@@ -616,7 +612,7 @@ class Node(NodeBase):
 
         return defv
 
-    def get(self, name, defv=None, virts=None):
+    def get(self, name, defv=None, getr=None):
         '''
         Return a secondary property or tag value from the Node.
 
@@ -632,19 +628,19 @@ class Node(NodeBase):
         elif '.' in name:
             parts = name.split('.')
             name = parts[0]
-            vnames = parts[1:]
+            vname = parts[1]
 
             if not name:
-                if (mtyp := self.view.core.model.metatypes.get(vnames[0])) is not None:
-                    return self.getMeta(vnames[0])
+                if (mtyp := self.view.core.model.metatypes.get(vname)) is not None:
+                    return self.getMeta(vname)
 
-                virtgetr = self.form.type.getVirtGetr(vnames)
-                return self.valu(virts=virtgetr)
+                getr = self.form.type.getVirtGetr(vname)
+                return self.valu(getr=getr)
             else:
                 if (prop := self.form.props.get(name)) is None:
                     raise s_exc.NoSuchProp.init(name)
 
-                virts = prop.type.getVirtGetr(vnames)
+                getr = prop.type.getVirtGetr(vname)
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
@@ -657,10 +653,8 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
-                if virts:
-                    for virt in virts:
-                        valt = virt(valt)
-                    return valt
+                if getr:
+                    return getr(valt)
                 return valt[0]
 
         return defv
@@ -690,7 +684,7 @@ class Node(NodeBase):
 
         return defv, None
 
-    def getWithLayer(self, name, defv=None, virts=None):
+    def getWithLayer(self, name, defv=None, getr=None):
         '''
         Return a secondary property value from the Node with the index of the sode.
 
@@ -712,10 +706,8 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
-                if virts:
-                    for virt in virts:
-                        valt = virt(valt)
-                    return valt, indx
+                if getr:
+                    return getr(valt), indx
                 return valt[0], indx
 
         return defv, None
@@ -1143,7 +1135,7 @@ class Node(NodeBase):
 
         return False
 
-    def getTagProp(self, tag, prop, defval=None, virts=None):
+    def getTagProp(self, tag, prop, defval=None, getr=None):
         '''
         Return the value (or defval) of the given tag property.
         '''
@@ -1162,10 +1154,8 @@ class Node(NodeBase):
                 continue
 
             if (valt := propvals.get(prop)) is not None:
-                if virts:
-                    for virt in virts:
-                        valt = virt(valt)
-                    return valt
+                if getr:
+                    return getr(valt)
                 return valt[0]
 
         return defval
@@ -1349,14 +1339,12 @@ class RuntNode(NodeBase):
             self._addPodeRepr(pode)
         return pode
 
-    def valu(self, defv=None, virts=None):
+    def valu(self, defv=None, getr=None):
         valu = self.ndef[1]
-        if virts is None:
+        if getr is None:
             return valu
 
-        for virt in virts:
-            valu = virt((valu,))
-        return valu
+        return getr((valu,))
 
     async def set(self, name, valu):
         prop = self._reqValidProp(name)

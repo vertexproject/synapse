@@ -1560,7 +1560,7 @@ class LibBase(Lib):
         try:
             typeitem = self._reqTypeByName(name)
             if len(parts) > 1:
-                typeitem = typeitem.getVirtType(parts[1:])
+                typeitem = typeitem.getVirtType(parts[1])
 
             return typeitem.repr(valu)
         except s_exc.SynErr:

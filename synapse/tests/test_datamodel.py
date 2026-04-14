@@ -1002,6 +1002,9 @@ class DataModelTest(s_t_utils.SynTest):
             # poly virtual on a form lift
             self.len(2, await core.nodes('test:str:poly.port=80'))
 
+            # poly virtual on a HasRelPropCond filter
+            self.len(2, await core.nodes('test:str:poly +:poly.ip'))
+
             await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
 
             # poly array virtual on a form lift
@@ -1073,10 +1076,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.newp.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.type.newp')
 
             with self.raises(s_exc.NoSuchType):
@@ -1165,21 +1168,21 @@ class DataModelTest(s_t_utils.SynTest):
             self.true(ptyp.ispoly)
 
             # getVirtType via getTypeSet path (ival's min virt)
-            vtyp = ptyp.getVirtType(('min',))
+            vtyp = ptyp.getVirtType('min')
             self.nn(vtyp)
 
             # getVirtType raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtType(('newp',))
+                ptyp.getVirtType('newp')
 
             # getVirtInfo via getTypeSet path (ival's min virt)
-            vinfo = ptyp.getVirtInfo(('min',))
+            vinfo = ptyp.getVirtInfo('min')
             self.nn(vinfo[0])
             self.nn(vinfo[1])
 
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtInfo(('newp',))
+                ptyp.getVirtInfo('newp')
 
             # invalid virtual prop with tryoper still raises NoSuchVirt
             with self.raises(s_exc.NoSuchVirt):
