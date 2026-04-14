@@ -523,6 +523,9 @@ modeldefs = (
 
             ('meta:usable', {
                 'template': {'title': 'item'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
             ('meta:matchish', {
@@ -635,9 +638,6 @@ modeldefs = (
 
             (('meta:rule', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
-
-            (('meta:rule', 'detects', 'meta:usable'), {
-                'doc': 'The rule is designed to detect the target node.'}),
 
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),

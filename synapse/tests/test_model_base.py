@@ -130,6 +130,7 @@ class BaseTest(s_t_utils.SynTest):
                     :type=foo.bar
                     :text="while TRUE { BAD }"
                     :id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
+                    :seen=(20200101, 20200201)
                     <(has)+ { meta:ruleset }
                     +(matches)> { [inet:ip=123.123.123.123] }
                 ]
@@ -145,6 +146,7 @@ class BaseTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'text', 'while TRUE { BAD }')
             self.propeq(nodes[0], 'url', 'https://vertex.link/rules/WOOT-20')
             self.propeq(nodes[0], 'id', 'WOOT-20')
+            self.nn(nodes[0].get('seen'))
 
             self.len(1, await core.nodes('meta:rule -> entity:contact'))
             self.len(1, await core.nodes('meta:rule -> meta:rule:type:taxonomy'))
