@@ -129,6 +129,12 @@ class GisTest(s_t_utils.SynTest):
         # Error: seconds >= 60
         self.raises(ValueError, s_gis.parseDMS, f'45{deg}46\'60"N')
 
+        # Error: conflicting prefix and suffix directions
+        self.raises(ValueError, s_gis.parseDMS, f'N45{deg}46\'52"S')
+        self.raises(ValueError, s_gis.parseDMS, f'E13{deg}30\'45"W')
+        self.raises(ValueError, s_gis.parseDMS, 'N 1 2 3 S')
+        self.raises(ValueError, s_gis.parseDMS, 'E 3 4 5 W')
+
     def test_lib_gis_parseLatLong(self):
         deg = '°'
 
@@ -151,6 +157,13 @@ class GisTest(s_t_utils.SynTest):
         lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"N; 13{deg}30\'45"E')
         self.eqish(lat, 45.78111111111111)
         self.eqish(lon, 13.5125)
+
+        # Error: same direction class in both parts (N/S in lon, or E/W in lat)
+        self.raises(ValueError, s_gis.parseLatLong, '1 2 3N, 4 5 6N')
+        self.raises(ValueError, s_gis.parseLatLong, '1 2 3E, 4 5 6E')
+
+        # Error: conflicting prefix and suffix in a single part (propagates from parseDMS)
+        self.raises(ValueError, s_gis.parseLatLong, f'N 1 2 3S, E 3 4 5W')
 
         # Error: unparseable
         self.raises(ValueError, s_gis.parseLatLong, 'not a lat long')

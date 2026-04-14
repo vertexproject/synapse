@@ -171,6 +171,9 @@ def parseDMS(text):
     secs = float(m.group('secs') or 0)
     dirsuf = m.group('dirsuf')
 
+    if dirpre and dirsuf:
+        raise ValueError(f'Conflicting prefix and suffix directions in: {text!r}')
+
     direction = (dirpre or dirsuf or '').upper()
 
     if neg and direction in ('S', 'W'):
@@ -188,6 +191,27 @@ def parseDMS(text):
         result = -result
 
     return result
+
+def _validateLatLonDirections(lattext, lontext):
+    '''
+    Validate that the direction letters in a lat/lon text pair are appropriate
+    for their respective coordinate types.  Raises ValueError if the lat part
+    contains an E/W indicator or the lon part contains an N/S indicator.
+    '''
+    latm = _dmsre.match(lattext)
+    lonm = _dmsre.match(lontext)
+
+    if latm is not None:
+        latdir = (latm.group('dirpre') or latm.group('dirsuf') or '').upper()
+        if latdir in ('E', 'W'):
+            raise ValueError(
+                f'Latitude part contains E/W direction indicator in: {lattext!r}')
+
+    if lonm is not None:
+        londir = (lonm.group('dirpre') or lonm.group('dirsuf') or '').upper()
+        if londir in ('N', 'S'):
+            raise ValueError(
+                f'Longitude part contains N/S direction indicator in: {lontext!r}')
 
 def parseLatLong(text):
     '''
@@ -210,7 +234,10 @@ def parseLatLong(text):
     for sep in (',', ';'):
         if sep in text:
             parts = text.split(sep, 1)
-            return parseDMS(parts[0].strip()), parseDMS(parts[1].strip())
+            lattext = parts[0].strip()
+            lontext = parts[1].strip()
+            _validateLatLonDirections(lattext, lontext)
+            return parseDMS(lattext), parseDMS(lontext)
 
     # No delimiter: scan for N/S direction as the split boundary
     upper = text.upper()
