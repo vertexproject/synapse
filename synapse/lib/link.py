@@ -45,7 +45,19 @@ async def unixconnect(path):
     return await Link.anit(reader, writer, info=info)
 
 async def unixwait(path):
+    '''
+    Wait for a unit socker path to be open and listening.
 
+    Args:
+        path: Path to the socket.
+
+    Notes:
+        This will loop forever. Callers should wrap this in ``asyncio.wait_for()``
+        with a known timeout value.
+
+    Returns:
+        None: Returns when the socket can be connected too.
+    '''
     while True:
         try:
 
