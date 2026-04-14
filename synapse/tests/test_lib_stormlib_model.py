@@ -46,7 +46,7 @@ class StormlibModelTest(s_test.SynTest):
 
             self.eq('entity:action', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n1form)'))
             self.eq('used', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).verb)'))
-            self.eq('meta:usable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
+            self.eq('meta:observable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
             self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
@@ -85,7 +85,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
-            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:usable'), {'doc':", mesgs)
+            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:observable'), {'doc':", mesgs)
 
             self.false(await core.callStorm('return($lib.model.type(int).mutable)'))
             self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
