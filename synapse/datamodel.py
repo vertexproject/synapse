@@ -1204,20 +1204,33 @@ class Model:
         return tuple(virts)
 
     def _isPolySubset(self, prop, newdef):
-        if not prop.type.ispoly:
-            return False
-
-        if not prop.type.typeset:
-            return False
-
         if newdef[0] != 'poly':
             return False
 
-        child_types = set(newdef[1].get('types', ()))
-        if not child_types:
-            return False
+        opts = newdef[1]
+        child_types = set(opts.get('types', ()))
+        child_ifaces = set(opts.get('interfaces', ()))
 
-        return child_types.issubset(prop.type.typeset)
+        parent_types = prop.type.typeset
+        parent_ifaces = prop.type.ifaces
+
+        if child_types:
+            if not child_types.issubset(parent_types):
+                if not parent_ifaces:
+                    return False
+
+                iface_forms = set()
+                for iface in parent_ifaces:
+                    iface_forms.update(self.formsbyiface.get(iface, ()))
+
+                if not child_types.issubset(parent_types | iface_forms):
+                    return False
+
+        if child_ifaces:
+            if not child_ifaces.issubset(parent_ifaces):
+                return False
+
+        return True
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
@@ -1261,10 +1274,9 @@ class Model:
                     continue
 
                 if (newdef := ptypes.get(prop.name)) is not None:
-                    if newdef != prop.typedef:
-                        if not self._isPolySubset(prop, newdef):
-                            mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
-                            raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
+                    if newdef != prop.typedef and not self._isPolySubset(prop, newdef):
+                        mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
+                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
                     continue
 
                 pprops.append((prop.name, prop.typedef, prop.info))

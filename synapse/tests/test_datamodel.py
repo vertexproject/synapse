@@ -819,6 +819,41 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadPropDef):
                 core.model.addForm('_test:polybad', {}, (('ident', ('float', {}), {}),))
 
+            # Overriding with a different named poly type fails
+            await core.addType('_test:polybad2', '_test:polypar', {}, {})
+            await core.addType('_test:otherpoly', 'poly', {'types': ('str',)}, {})
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:polybad2', {}, (('ident', ('_test:otherpoly', {}), {}),))
+
+            # Test poly prop interface narrowing on subforms
+            await core.addType('_test:ifacepar', 'guid', {}, {})
+            await core.addType('_test:ifacechild', '_test:ifacepar', {}, {})
+            await core.addType('_test:ifacebad', '_test:ifacepar', {}, {})
+
+            core.model.addForm('_test:ifacepar', {}, (('ref', ('entity:identifier', {}), {}),))
+
+            # Narrowing to a form implementing the parent's interface works
+            core.model.addForm('_test:ifacechild', {}, (('ref', ('meta:id', {}), {}),))
+
+            # Narrowing to a type not implementing the parent's interface fails
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:ifacebad', {}, (('ref', ('float', {}), {}),))
+
+            # Test interface subset narrowing
+            await core.addType('_test:ifacepoly', 'poly', {'types': ('str',), 'interfaces': ('entity:identifier',)}, {})
+            await core.addType('_test:ifsubpar', 'guid', {}, {})
+            await core.addType('_test:ifsubchild', '_test:ifsubpar', {}, {})
+            await core.addType('_test:ifsubbad', '_test:ifsubpar', {}, {})
+
+            core.model.addForm('_test:ifsubpar', {}, (('ref', ('_test:ifacepoly', {}), {}),))
+
+            # Narrowing to a valid interface subset works
+            core.model.addForm('_test:ifsubchild', {}, (('ref', ('entity:identifier', {}), {}),))
+
+            # Narrowing to an interface not in the parent poly fails
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:ifsubbad', {}, (('ref', ('meta:taxonomy', {}), {}),))
+
             await core.nodes("$lib.model.ext.addForm(_test:ip, inet:ip, ({}), ({}))")
             await core.nodes("$lib.model.ext.addFormProp(it:host, _ip2, ('_test:ip', ({})), ({}))")
 
