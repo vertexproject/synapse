@@ -85,7 +85,7 @@ class GisTest(s_t_utils.SynTest):
         self.eqish(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
 
     def test_lib_gis_parseDMS(self):
-        deg = '\u00b0'
+        deg = '°'
 
         # Standard symbol-based DMS
         self.eqish(s_gis.parseDMS(f'45{deg}46\'52"N'), 45.78111111111111)
@@ -130,7 +130,7 @@ class GisTest(s_t_utils.SynTest):
         self.raises(ValueError, s_gis.parseDMS, f'45{deg}46\'60"N')
 
     def test_lib_gis_parseLatLong(self):
-        deg = '\u00b0'
+        deg = '°'
 
         # Comma-separated
         lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"N, 13{deg}30\'45"E')

@@ -168,7 +168,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
             # DMS format tests
-            deg = '\u00b0'
+            deg = '°'
 
             result = await t.norm(f'45{deg}46\'52"N, 13{deg}30\'45"E')
             self.eqish(result[0][0], 45.78111111111111)

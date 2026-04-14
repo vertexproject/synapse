@@ -6,9 +6,9 @@ Synapse module with helpers for earth based geospatial calculations.
 '''
 
 # DMS (degrees/minutes/seconds) coordinate pattern.
-# Supports degree symbol (\u00b0), letter d, or implicit space separation.
-# Supports apostrophe/prime chars (\u2032/\u2019) or letter m for minutes.
-# Supports double-quote/double-prime chars (\u2033/\u201d) for seconds.
+# Supports degree symbol (°), letter d, or implicit space separation.
+# Supports apostrophe/prime chars (′/') or letter m for minutes.
+# Supports double-quote/double-prime chars (″/”) for seconds.
 # Handles optional N/S/E/W direction prefix or suffix, and negative sign.
 _dmsre = regex.compile(
     r'''^\s*
@@ -18,17 +18,17 @@ _dmsre = regex.compile(
     \s*
     (?P<degs>\d+(?:\.\d+)?)
     \s*
-    [\u00b0d]?
+    [°d]?
     \s*
     (?:
         (?P<mins>\d+(?:\.\d+)?)
         \s*
-        ['\u2032\u2019m]?
+        ['′’m]?
         \s*
         (?:
             (?P<secs>\d+(?:\.\d+)?)
             \s*
-            ["\u2033\u201d]?
+            ["″”]?
             \s*
         )?
     )?
@@ -144,12 +144,12 @@ def parseDMS(text):
     Parse a degrees/minutes/seconds coordinate string to decimal degrees.
 
     Supported formats include:
-        45\u00b046\'52"N   (degree symbol, apostrophe, double-quote with direction)
+        45°46\'52"N   (degree symbol, apostrophe, double-quote with direction)
         45d46m52N          (letter separators)
         45 46 52 N         (space separated)
-        N45\u00b046\'52"   (direction prefix)
-        -45\u00b046\'52"   (negative sign instead of direction)
-        45\u00b046\'N      (degrees and minutes only)
+        N45°46\'52"   (direction prefix)
+        -45°46\'52"   (negative sign instead of direction)
+        45°46\'N      (degrees and minutes only)
 
     Args:
         text (str): A DMS coordinate string.
@@ -197,7 +197,7 @@ def parseLatLong(text):
     on a N/S direction indicator when no delimiter is present.
 
     Args:
-        text (str): A DMS lat/long pair string (e.g. "45\u00b046\'52"N, 13\u00b030\'45"E").
+        text (str): A DMS lat/long pair string (e.g. "45°46\'52"N, 13°30\'45"E").
 
     Returns:
         ((float, float)): A (latitude, longitude) decimal degrees tuple.
