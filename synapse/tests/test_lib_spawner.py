@@ -51,7 +51,7 @@ class SpawnerTest(s_t_utils.SynTest):
             fut = loop.run_in_executor(None, s_spawner._ioWorkProc, todo, sockpath)
 
             with self.raises(s_exc.FatalErr) as cm:
-                await s_spawner._spawnerWait(sockpath, timeout=2)
+                await s_spawner._spawnerWait(sockpath, timeout=12)
 
             self.isin('within', cm.exception.errinfo.get('mesg', ''))
 
@@ -82,13 +82,9 @@ class SpawnerTest(s_t_utils.SynTest):
                 pass
 
             with mock.patch.object(s_base.Base, 'addSignalHandlers', _noopSignalHandlers):
-                with self.getAsyncLoggerStream('synapse.lib.spawner',
-                                               'IO worker failed to open listening socket') as stream:
+                with self.getLoggerStream('synapse.lib.spawner') as stream:
                     fut = loop.run_in_executor(None, s_spawner._ioWorkProc, todo, sockpath)
-                    await stream.wait(timeout=5)
-
-                stream.seek(0)
-                self.isin('IO worker failed to open listening socket', stream.read())
+                    await stream.expect('IO worker failed to open listening socket')
 
                 try:
                     await fut
@@ -103,7 +99,7 @@ class SpawnerTest(s_t_utils.SynTest):
             )
 
             with self.raises(s_exc.FatalErr) as cm:
-                await s_spawner._spawnerWait(sockpath, timeout=5)
+                await s_spawner._spawnerWait(sockpath, timeout=12)
             self.isin('within', cm.exception.errinfo.get('mesg', ''))
 
             with self.raises(s_exc.SynErr) as cm:
