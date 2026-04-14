@@ -260,12 +260,8 @@ class ThreeType(s_types.Type):
         return '3'
 
 testmodel = (
-    ('test', {
+    {
 
-        'ctors': (
-            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-        ),
         'interfaces': (
             ('test:interface', {
                 'doc': 'test interface',
@@ -285,8 +281,17 @@ testmodel = (
                     ('servers', ('array', {'type': 'inet:server'}), {}),
                 )
             }),
+            ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
+            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {}),
+            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {}),
+            ('test:ctoronstorm', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
             ('test:type10', ('test:type', {}), {
                 'doc': 'A fake type.'}),
 
@@ -352,6 +357,12 @@ testmodel = (
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
             ('test:onstorm', ('guid', {}), {}),
+            ('test:onstorm2', ('guid', {}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
         ),
         'forms': (
 
@@ -497,6 +508,7 @@ testmodel = (
                     ('inet:fqdn', {})
                 )}), {}),
                 ('polyint', ('test:interface', {}), {}),
+                ('polyempty', ('test:unused:iface', {}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -573,14 +585,11 @@ testmodel = (
                 'doc': 'The node matched on the target node.'}),
             ((None, 'test', None), {'doc': 'Test edge'}),
         ),
-    }),
+    },
 )
 
 deprmodel = (
-    ('depr', {
-        'ctors': (
-            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-        ),
+    {
         'interfaces': (
             ('test:deprinterface', {
                 'doc': 'test interface',
@@ -590,6 +599,7 @@ deprmodel = (
             }),
         ),
         'types': (
+            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {'deprecated': True}),
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
             ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
@@ -636,7 +646,7 @@ deprmodel = (
                 ('beep', ('test:dep:str', {}), {}),
             )),
         ),
-    }),
+    },
 )
 
 class TestCmd(s_storm.Cmd):
@@ -1439,7 +1449,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     if not hasattr(self, 'patched'):
                         self.patched = True
-                        await self._addDataModels(testmodel)
+                        await self._addModelDefs(testmodel)
 
                 with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
@@ -2090,7 +2100,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
                 ptyp = mtyp
             else:
-                ptyp = ptyp.getVirtType(parts[1:])
+                ptyp = ptyp.getVirtType(parts[1])
 
         if valu is not None and pval is not None:
             if ptyp.ispoly:

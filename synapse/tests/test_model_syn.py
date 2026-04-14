@@ -368,7 +368,7 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:form=syn:tag')
                 self.len(1, nodes)
 
-                await core._addDataModels(s_t_utils.testmodel)
+                await core._addModelDefs(s_t_utils.testmodel)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)

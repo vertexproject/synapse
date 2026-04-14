@@ -1245,10 +1245,24 @@ class Url(s_types.Str):
         return norm, {'subs': subs}
 
 modeldefs = (
-    ('inet', {
-        'ctors': (
+    {
+        'edges': (
+            (('inet:whois:iprecord', 'has', 'inet:ip'), {
+                'doc': 'The IP whois record describes the IP address.'}),
 
-            ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
+            (('inet:net', 'has', 'inet:ip'), {
+                'doc': 'The IP address range contains the IP address.'}),
+
+            (('inet:fqdn', 'uses', 'meta:technique'), {
+                'doc': 'The source FQDN was selected or created using the target technique.'}),
+
+            (('inet:url', 'uses', 'meta:technique'), {
+                'doc': 'The source URL was created using the target technique.'}),
+        ),
+
+        'types': (
+
+            ('inet:ip', (None, {'ctor': 'synapse.models.inet.IPAddr'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'IP address'}}),
                     ('geo:locatable', {'template': {'title': 'IP address'}}),
@@ -1256,7 +1270,7 @@ modeldefs = (
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
 
-            ('inet:net', 'synapse.models.inet.IPRange', {}, {
+            ('inet:net', (None, {'ctor': 'synapse.models.inet.IPRange'}), {
                 'ex': '1.2.3.4-1.2.3.8',
                 'virts': (
                     ('mask', ('int', {}), {
@@ -1269,7 +1283,7 @@ modeldefs = (
                 ),
                 'doc': 'An IPv4 or IPv6 address range.'}),
 
-            ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
+            ('inet:sockaddr', (None, {'ctor': 'synapse.models.inet.SockAddr'}), {
                 'ex': 'tcp://1.2.3.4:80',
                 'virts': (
                     ('ip', ('inet:ip', {}), {
@@ -1282,13 +1296,13 @@ modeldefs = (
                 ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
-            ('inet:email', 'synapse.models.inet.Email', {}, {
+            ('inet:email', (None, {'ctor': 'synapse.models.inet.Email'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'email address'}}),
                 ),
                 'doc': 'An email address.'}),
 
-            ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
+            ('inet:fqdn', (None, {'ctor': 'synapse.models.inet.Fqdn'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
@@ -1313,40 +1327,23 @@ modeldefs = (
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
-            ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
+            ('inet:rfc2822:addr', (None, {'ctor': 'synapse.models.inet.Rfc2822Addr'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'RFC 2822 address'}}),
                 ),
                 'ex': '"Visi Kenshoto" <visi@vertex.link>',
                 'doc': 'An RFC 2822 Address field.'}),
 
-            ('inet:url', 'synapse.models.inet.Url', {}, {
+            ('inet:url', (None, {'ctor': 'synapse.models.inet.Url'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'URL'}}),
                 ),
                 'ex': 'http://www.woot.com/files/index.html',
                 'doc': 'A Universal Resource Locator (URL).'}),
 
-            ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
+            ('inet:http:cookie', (None, {'ctor': 'synapse.models.inet.HttpCookie'}), {
                 'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
                 'doc': 'An individual HTTP cookie string.'}),
-        ),
-
-        'edges': (
-            (('inet:whois:iprecord', 'has', 'inet:ip'), {
-                'doc': 'The IP whois record describes the IP address.'}),
-
-            (('inet:net', 'has', 'inet:ip'), {
-                'doc': 'The IP address range contains the IP address.'}),
-
-            (('inet:fqdn', 'uses', 'meta:technique'), {
-                'doc': 'The source FQDN was selected or created using the target technique.'}),
-
-            (('inet:url', 'uses', 'meta:technique'), {
-                'doc': 'The source URL was created using the target technique.'}),
-        ),
-
-        'types': (
 
             ('inet:ipv4', ('inet:ip', {'version': 4}), {
                 'doc': 'An IPv4 address.'}),
@@ -1384,6 +1381,7 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'props': (
                     ('proto', ('str:lower', {}), {
@@ -1476,6 +1474,7 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'props': (
                     ('proto', ('str:lower', {}), {
@@ -1602,6 +1601,7 @@ modeldefs = (
             ('inet:service:platform', ('guid', {}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'platform'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A network platform which provides services.'}),
 
@@ -2698,12 +2698,8 @@ modeldefs = (
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str:lower', {}), {
+                ('encryption', ('base:name', {}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                # FIXME ownable interface? currently has :owner via meta:havable
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization that owns/operates the access point.'}),
             )),
 
             ('inet:wifi:ssid', {}, ()),
@@ -3193,5 +3189,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-    }),
+    },
 )

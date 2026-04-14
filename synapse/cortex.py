@@ -214,8 +214,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -750,7 +750,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
-        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -2496,12 +2497,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgState(name, verskey) is None:
+                        await self.setStormPkgState(name, verskey, -1)
 
                 else:
                     inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
+                    curvers = await self.getStormPkgState(name, verskey)
                     if curvers is None:
                         inaugural = True
                         curvers = -1
@@ -2515,7 +2516,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgState(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2552,9 +2553,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        curvers = max(vers, stored := await self.getStormPkgState(name, verskey, default=-1))
                         if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                            await self.setStormPkgState(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2844,6 +2845,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in pkgvars.items():
             yield item
 
+    # Storm package state APIs
+
+    def _getStormPkgStateKV(self, name):
+        if (pkgstate := self.stormpkgstate.get(name)) is None:
+            self.stormpkgstate[name] = pkgstate = self.cortexdata.getSubKeyVal(f'stormpkg:state:{name}:')
+        return pkgstate
+
+    async def getStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:pop')
+    async def popStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:set')
+    async def setStormPkgState(self, name, key, valu):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.set(key, valu)
+
+    async def iterStormPkgState(self, name):
+        pkgstate = self._getStormPkgStateKV(name)
+        for item in pkgstate.items():
+            yield item
+
     async def addStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -2939,10 +2966,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self.model.addModelDefs(mdefs)
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
@@ -3303,7 +3330,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        tdef = self.model.convertPropdef(tdef)
+        tdef = self.model.convertTypedef(tdef)
 
         self.model.getTypeClone(tdef)
 
@@ -4055,8 +4082,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''
@@ -4571,6 +4598,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             newlayers[oldlayers.index(oldiden)] = newiden
 
             await view._setLayerIdens(newlayers)
+            view.clearCache()
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):

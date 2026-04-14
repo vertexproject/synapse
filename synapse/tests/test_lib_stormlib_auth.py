@@ -1242,9 +1242,9 @@ class StormLibAuthTest(s_test.SynTest):
             # Objects are dynamic
             q = """
             $user = $lib.auth.users.add(bar)
-            $lib.print("old name={u}", u= $user.name)
+            $lib.print(`old name={$user.name}`)
             $user.name=sally
-            $lib.print("new name={u}", u=$user.name)"""
+            $lib.print(`new name={$user.name}`)"""
             msgs = await core.stormlist(q)
 
             self.stormIsInPrint('old name=bar', msgs)

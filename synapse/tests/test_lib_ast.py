@@ -43,9 +43,9 @@ foo_stormpkg = {
             'name': 'test',
             'storm': '''
             function pprint(arg1, arg2, arg3) {
-                $lib.print('arg1: {arg1}', arg1=$arg1)
-                $lib.print('arg2: {arg2}', arg2=$arg2)
-                $lib.print('arg3: {arg3}', arg3=$arg3)
+                $lib.print(`arg1: {$arg1}`)
+                $lib.print(`arg2: {$arg2}`)
+                $lib.print(`arg3: {$arg3}`)
                 return()
             }
             '''
@@ -66,7 +66,7 @@ foo_stormpkg = {
 
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
-                $lib.print('counter is {c}', c=$counter)
+                $lib.print(`counter is {$counter}`)
                 if $( $arg2 ) {
                     $retn = "foo"
                 } else {
@@ -80,7 +80,7 @@ foo_stormpkg = {
                 $reti = $inner($arg1, $add)
                 $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
-                $lib.print("foobar is {foobar}", foobar=$foobar)
+                $lib.print(`foobar is {$foobar}`)
                 return ($mesg)
             }
             ''',
@@ -918,9 +918,9 @@ class AstTest(s_test.SynTest):
             ]'''
             await core.nodes(q)
 
-            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity'))
-            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity:host'))
-            self.len(3, await core.nodes('it:log:event=(event,) :host -> it:host:activity:host'))
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:event'))
+            self.len(6, await core.nodes('it:host=(host,) -> it:host:event:host'))
+            self.len(6, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
 
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns*'))
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns:*'))
@@ -958,15 +958,15 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:*'))
             self.len(2, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:a*'))
 
-            await core.nodes('it:host=(host,) [ +(refs)> { it:host:activity:host } ]')
+            await core.nodes('it:host=(host,) [ +(refs)> { it:host:event:host } ]')
 
-            self.len(3, await core.nodes('it:host=(host,) -(refs)> it:host:activity'))
+            self.len(3, await core.nodes('it:host=(host,) -(refs)> it:host:event'))
 
-            await core.nodes('it:host=(host,) [ <(refs)+ { it:host:activity:host } ]')
+            await core.nodes('it:host=(host,) [ <(refs)+ { it:host:event:host } ]')
 
-            self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:activity'))
-            self.len(3, await core.nodes('it:host:activity +it:host:activity:host'))
-            self.len(3, await core.nodes('.created +it:host:activity:host=(host,)'))
+            self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:event'))
+            self.len(3, await core.nodes('it:host:event +it:host:event:host'))
+            self.len(3, await core.nodes('.created +it:host:event:host=(host,)'))
 
             self.len(0, await core.nodes('it:host +inet:fqdn:zone'))
             self.len(1, await core.nodes('.created +inet:fqdn:zone=vertex.link'))
@@ -996,10 +996,10 @@ class AstTest(s_test.SynTest):
             self.len(5, await core.nodes('inet:net=1.2.3.4/30', opts={'graph': {'refs': True}}))
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('it:host:activity +it:host:activity:host>5')
+                await core.nodes('it:host:event +it:host:event:host>5')
 
             with self.raises(s_exc.NoSuchForm):
-                await core.nodes('it:host:activity +newp:*')
+                await core.nodes('it:host:event +newp:*')
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:fqdn=vertex.link -> newp:*')
@@ -1038,18 +1038,18 @@ class AstTest(s_test.SynTest):
             ]'''
             await core.nodes(q)
 
-            self.len(4, await core.nodes('it:host:activity'))
-            self.len(4, await core.nodes('it:host:activity#foo'))
-            self.len(4, await core.nodes('it:host:activity#foo:score=5'))
-            self.len(3, await core.nodes('it:host:activity:host'))
-            self.len(3, await core.nodes('it:host:activity:host=(host,)'))
+            self.len(4, await core.nodes('it:host:event'))
+            self.len(4, await core.nodes('it:host:event#foo'))
+            self.len(4, await core.nodes('it:host:event#foo:score=5'))
+            self.len(6, await core.nodes('it:host:event:host'))
+            self.len(6, await core.nodes('it:host:event:host=(host,)'))
 
-            self.len(4, await core.nodes('.created +it:host:activity'))
-            self.len(3, await core.nodes('.created +it:host:activity:host'))
+            self.len(4, await core.nodes('.created +it:host:event'))
+            self.len(3, await core.nodes('.created +it:host:event:host'))
 
-            self.len(4, await core.nodes('it:host:activity.created'))
-            self.len(4, await core.nodes('it:host:activity.created>2000-01-01'))
-            self.len(0, await core.nodes('it:host:activity.created<2000-01-01'))
+            self.len(4, await core.nodes('it:host:event.created'))
+            self.len(4, await core.nodes('it:host:event.created>2000-01-01'))
+            self.len(0, await core.nodes('it:host:event.created<2000-01-01'))
 
             self.len(4, await core.nodes('inet:dns*'))
             self.len(4, await core.nodes('inet:dns:*'))
@@ -1691,7 +1691,7 @@ class AstTest(s_test.SynTest):
                 return ("hello")
             }
             $retn=$hello()
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: hello', msgs)
@@ -1703,7 +1703,7 @@ class AstTest(s_test.SynTest):
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: foo', msgs)
@@ -1713,13 +1713,13 @@ class AstTest(s_test.SynTest):
             # inside of the function
             q = '''
             function echo(arg) {
-                $lib.print('arg is {arg}', arg=$arg)
+                $lib.print(`arg is {$arg}`)
                 [(test:str=1234) (test:str=5678)]
                 return ($node.value())
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('arg is foo', msgs)
@@ -1736,7 +1736,7 @@ class AstTest(s_test.SynTest):
             }
             [(test:int=0) (test:int=1)]
             $retn=$cond($node.value())
-            $lib.print('retn is: {retn}', retn=$retn)
+            $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: $lib.null', msgs)
@@ -1789,7 +1789,7 @@ class AstTest(s_test.SynTest):
                 return ($woot($arg2))
             }
             $output = $squee(17)
-            $lib.print('output is {a}', a=$output)
+            $lib.print(`output is {$output}`)
             '''
 
             msgs = await core.stormlist(q)
@@ -1804,7 +1804,7 @@ class AstTest(s_test.SynTest):
                 return ($recurse( $($cond - 1), $($count + 1) ))
             }
             $output = $recurse(21, 0)
-            $lib.print('final recursive output is {out}', out=$output)
+            $lib.print(`final recursive output is {$output}`)
             '''
 
             msgs = await core.stormlist(q)
@@ -1814,7 +1814,7 @@ class AstTest(s_test.SynTest):
             q = '''
             function toreturn() {
                 $lib.time.sleep(1)
-                $lib.print('[{now}, "toreturn called"]', now=$($lib.time.now()))
+                $lib.print(`[{$lib.time.now()}, "toreturn called"]`)
                 $lib.time.sleep(1)
                 return ("foobar")
             }
@@ -1824,9 +1824,9 @@ class AstTest(s_test.SynTest):
             }
 
             $func = $wrapper()
-            $lib.print('[{now}, "this should be first"]', now=$($lib.time.now()))
+            $lib.print(`[{$lib.time.now()}, "this should be first"]`)
             $output = $func()
-            $lib.print('[{now}, "got {out}"]', now=$($lib.time.now()), out=$output)
+            $lib.print(`[{$lib.time.now()}, "got {$output}"]`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1863,7 +1863,7 @@ class AstTest(s_test.SynTest):
             }
             $lib.print($foo())
             $lib.print($boop())
-            $lib.print("biz is now {biz}", biz=$biz)
+            $lib.print(`biz is now {$biz}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1883,11 +1883,11 @@ class AstTest(s_test.SynTest):
             # make sure can set variables to the results of other functions in the same query
             q = '''
             function baz(arg1) {
-                $lib.print('arg1={a}', a=$arg1)
+                $lib.print(`arg1={$arg1}`)
                 return ($arg1)
             }
             function bar(arg2) {
-                $lib.print('arg2={a}', a=$arg2)
+                $lib.print(`arg2={$arg2}`)
                 $retn = $baz($arg2)
                 return ($retn)
             }
@@ -1908,7 +1908,7 @@ class AstTest(s_test.SynTest):
             $lib.print($hehe)
             $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c=$test.counter)
+            $lib.print(`counter is {$test.counter}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1942,7 +1942,7 @@ class AstTest(s_test.SynTest):
 
             yield $foo("bleeeergh")
             yield $foo("bloooop")
-            $lib.print("nodes added: {c}", c=$count)
+            $lib.print(`nodes added: {$count}`)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('nodes added: 1', msgs)
@@ -1953,7 +1953,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $global = $(346)
             function bar(arg1) {
-                $lib.print("arg1 is {arg}", arg=$arg1)
+                $lib.print(`arg1 is {$arg1}`)
                 return ($arg1)
             }
             function foo(arg2) {
@@ -1961,7 +1961,7 @@ class AstTest(s_test.SynTest):
                 $retn = $bar($wat)
                 return ($retn)
             }
-            $lib.print("retn is {ans}", ans=$( $foo($global)) )
+            $lib.print(`retn is {$($foo($global))}`)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -2228,7 +2228,7 @@ class AstTest(s_test.SynTest):
 
                 [ +#foo ]
 
-                fini { $lib.print('xfini: {x}', x=$x) }
+                fini { $lib.print(`xfini: {$x}`) }
             '''
 
             msgs = await core.stormlist(q)
@@ -3008,14 +3008,14 @@ class AstTest(s_test.SynTest):
         origprop = s_view.View.nodesByProp
         origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False, virts=None):
+        async def checkProp(self, name, reverse=False, virt=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name, reverse=reverse, virts=virts):
+            async for node in origprop(self, name, reverse=reverse, virt=virt):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu, reverse=False, virts=None):
+        async def checkValu(self, name, cmpr, valu, reverse=False, virt=None):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virts=virts):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virt=virt):
                 yield node
 
         with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
@@ -4127,6 +4127,44 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=newp :seen.precision?=day]')
             self.none(nodes[0].get('seen'))
+
+            await core.nodes('''[
+                (test:virtiface=(v1,) :server=tcp://1.2.3.4:80 :servers=(tcp://1.2.3.4:80, udp://2.3.4.5:90))
+                (test:virtiface=(v2,) :server=udp://5.6.7.8:90)
+                (test:virtiface=(v3,))
+                (test:virtiface2=(v4,) :server=tcp://9.10.11.12:100)
+                (test:str=piv1 :pivvirt=(v1,))
+                (test:arrayprop=* :ints=(10, 20, 30))
+                (test:pivcomp=(targ1, lulz1) :size=20)
+                (inet:server=tcp://1.2.3.4:80)
+                (inet:http:request=* :server=tcp://1.2.3.4:80)
+                (test:guid=* :server=tcp://1.2.3.4:80)
+            ]''')
+
+            # VirtPropValue.getTypeValu with variable virt name
+            valu = await core.callStorm('inet:server=tcp://1.2.3.4:80 $virt=ip return(.$virt)')
+            self.nn(valu)
+
+            # HasAbsPropCond for iface prop with virt, non-poly (Array) type
+            self.len(0, await core.nodes('test:str=piv1 +test:virtarray:servers.size'))
+            self.len(1, await core.nodes('test:virtiface=(v1,) +test:virtarray:servers.size'))
+            self.len(0, await core.nodes('test:virtiface=(v3,) +test:virtarray:servers.size'))
+
+            # AbsVirtPropCond non-poly (Array) prop with virt
+            await core.nodes('[test:arrayprop=*]')
+            self.len(1, await core.nodes('test:arrayprop +:ints +test:arrayprop:ints.size>1'))
+            self.len(0, await core.nodes('test:arrayprop -:ints +test:arrayprop:ints.size>1'))
+
+            # HasRelPropCond.hasProp NoSuchVirt exception when no allowed type has the virt
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface=(v1,) +:server.newp')
+
+            # PropPivot non-poly dest form with virt
+            self.ge(1, len(await core.nodes('inet:http:request :server.ip -> inet:server.ip')))
+
+            # Invalid cmpr on non-poly (Array) prop filter with virt
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

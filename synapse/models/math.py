@@ -1,5 +1,5 @@
 modeldefs = (
-    ('math', {
+    {
         'types': (
 
             ('math:algorithm', ('guid', {}), {
@@ -44,5 +44,5 @@ modeldefs = (
                     'doc': 'The time that the algorithm was authored.'}),
             )),
         ),
-    }),
+    },
 )

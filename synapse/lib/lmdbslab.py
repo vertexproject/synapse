@@ -1387,6 +1387,46 @@ class Slab(s_base.Base):
 
                 yield lkey
 
+    async def scanKeysByHierPref(self, byts, sepr=b'.', depth=0, db=None, nodup=False):
+
+        if len(sepr) != 1 or sepr == b'\xff':
+            mesg = f'Invalid sepr value {sepr} for scanKeysByHierPref, must be a single character < \xff.'
+            raise s_exc.BadArg(mesg=mesg, sepr=sepr)
+
+        if depth < 0:
+            mesg = f'Invalid depth value {depth} for scanKeysByHierPref, must be >= 0.'
+            raise s_exc.BadArg(mesg=mesg, depth=depth)
+
+        with ScanKeys(self, db, nodup=nodup) as scan:
+
+            if not scan.set_range(byts):
+                return
+
+            size = len(byts)
+            splitcnt = depth + 1
+            seprnext = (int.from_bytes(sepr, 'big') + 1).to_bytes(1, 'big')
+
+            for lkey in scan.iternext():
+
+                while True:
+                    await asyncio.sleep(0)
+
+                    if lkey[:size] != byts:
+                        return
+
+                    if len(parts := lkey[size:].split(sepr, splitcnt)) <= splitcnt:
+                        break
+
+                    taillen = len(parts[-1]) + 1
+                    nextvalu = lkey[:-taillen] + seprnext
+
+                    if not scan.set_range(nextvalu):
+                        return
+
+                    lkey = scan.atitem
+
+                yield lkey
+
     async def countByPref(self, byts, db=None, maxsize=None):
         '''
         Return the number of rows in the given db with the matching prefix bytes.

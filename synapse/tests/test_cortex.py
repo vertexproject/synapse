@@ -1495,13 +1495,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
 
                 layr = core.getLayer()
-                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
 
-                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
 
-                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
 
                 vals = []
@@ -1765,12 +1765,12 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([f'{pref}0', f'{pref}1', f'{pref}2'], await nodeVals(f'test:guid^={pref[:-1]}'))
             self.eq([f'{pref}2', f'{pref}1', f'{pref}0'], await nodeVals(f'reverse(test:guid^={pref[:-1]})'))
 
-            await core.nodes('for $x in $lib.range(5) {[ it:exec:proc=* :time=`202{$x}` ]}')
+            await core.nodes('for $x in $lib.range(5) {[ it:exec:proc:create=* :time=`202{$x}` ]}')
 
             self.eq((1609459200000000, 1640995200000000),
-                    await nodeVals('it:exec:proc:time@=(2021, 2023)', prop='time'))
+                    await nodeVals('it:exec:proc:create:time@=(2021, 2023)', prop='time'))
             self.eq((1640995200000000, 1609459200000000),
-                    await nodeVals('reverse(it:exec:proc:time@=(2021, 2023))', prop='time'))
+                    await nodeVals('reverse(it:exec:proc:create:time@=(2021, 2023))', prop='time'))
 
             await core.nodes('for $x in $lib.range(5) {[ test:str=$x :seen=`202{$x}` ]}')
 
@@ -3243,6 +3243,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'norm', 'foobar')
 
+        # Test on:add callback on a ctor-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:ctoronstorm=foobar]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
+        # Test on:add callback on a type-defined form
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:onstorm2=*]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('tick'))
+
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -4647,7 +4659,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core0:
 
-            await core0._addDataModels(s_t_utils.deprmodel)
+            await core0._addModelDefs(s_t_utils.deprmodel)
 
             podes = []
 
@@ -4675,7 +4687,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core1:
 
-            await core1._addDataModels(s_t_utils.deprmodel)
+            await core1._addModelDefs(s_t_utils.deprmodel)
 
             await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
@@ -6173,7 +6185,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.byname(dmon2)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:str=$item ]
-                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $lib.print(`made {$node.ndef()}`)
                     $q.cull($offs)
                 }
                 '''
@@ -7384,7 +7396,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=dirn) as core:
 
-                    await core._addDataModels(s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.deprmodel)
 
                     # Create a test:deprprop so it doesn't generate a warning
                     await core.callStorm('[test:dep:easy=foobar :guid=*]')
@@ -7405,7 +7417,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 here = stream.tell()
 
                 async with self.getTestCore(dirn=dirn) as core:
-                    await core._addDataModels(s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.deprmodel)
 
                 # Check that the warnings are gone now
                 stream.seek(here)

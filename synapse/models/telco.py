@@ -138,33 +138,29 @@ class Imei(s_types.Int):
                                 mesg='Failed to norm IMEI')
 
 modeldefs = (
-    ('tel', {
-        'ctors': (
+    {
+        'types': (
 
-            ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
+            ('tel:mob:imei', (None, {'ctor': 'synapse.models.telco.Imei'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'IMEI'}}),
                 ),
                 'ex': '490154203237518',
                 'doc': 'An International Mobile Equipment Id.'}),
 
-            ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
+            ('tel:mob:imsi', (None, {'ctor': 'synapse.models.telco.Imsi'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'IMSI'}}),
                 ),
                 'ex': '310150123456789',
                 'doc': 'An International Mobile Subscriber Id.'}),
 
-            ('tel:phone', 'synapse.models.telco.Phone', {}, {
+            ('tel:phone', (None, {'ctor': 'synapse.models.telco.Phone'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'phone number'}}),
                 ),
                 'ex': '+15558675309',
                 'doc': 'A phone number.'}),
-
-        ),
-
-        'types': (
 
             ('tel:call', ('guid', {}), {
                 'interfaces': (
@@ -179,6 +175,13 @@ modeldefs = (
                 'doc': 'A taxonomy of phone number types.'}),
 
             ('tel:mob:tac', ('int', {}), {
+                'interfaces': (
+                    ('meta:havable', {}),
+                ),
+                'props': (
+                    ('model', ('base:name', {}), {
+                        'doc': 'The TAC model name.'}),
+                ),
                 'ex': '49015420',
                 'doc': 'A mobile Type Allocation Code.'}),
 
@@ -269,22 +272,6 @@ modeldefs = (
 
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
-            )),
-            ('tel:mob:tac', {}, (
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org guid for the manufacturer.'}),
-
-                ('manu', ('str:lower', {}), {
-                    'doc': 'The TAC manufacturer name.'}),
-                # FIXME manufactured
-
-                ('model', ('meta:name', {}), {
-                    'doc': 'The TAC model name.'}),
-
-                ('internal', ('meta:name', {}), {
-                    'doc': 'The TAC internal model name.'}),
-
             )),
             ('tel:mob:imei', {}, (
 
@@ -407,11 +394,7 @@ modeldefs = (
                 # reporting related data
                 ('app', ('it:software', {}), {
                     'doc': 'The app used to report the mobile telemetry sample.'}),
-
-                ('data', ('data', {}), {
-                    'doc': 'Data from the mobile telemetry sample.'}),
-                # any other fields may be refs...
             )),
         )
-    }),
+    },
 )

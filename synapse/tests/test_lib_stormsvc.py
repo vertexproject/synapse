@@ -65,7 +65,7 @@ new_pkg = {
     'synapse_version': '>=3.0.0,<4.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
-                                        $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
+                                        $lib.print(`{$arg1}={$arg2}`)
                                         return ()
                                     }
                                   '''
@@ -134,7 +134,7 @@ class RealService(s_stormsvc.StormSvc):
                  'storm': '''
                  function asdf(x, y) { return ($($x + $y)) }
                  function printmodconf() {
-                     for ($k, $v) in $modconf { $lib.print('{k}={v}', k=$k, v=$v) }
+                     for ($k, $v) in $modconf { $lib.print(`{$k}={$v}`) }
                      return ( $lib.true )
                  }
                  ''',
@@ -315,9 +315,9 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
-                        $lib.print('DEBUG: fooz={fooz}', fooz=$fooz)
+                        $lib.print(`DEBUG: fooz={$fooz}`)
                     }
-                    $lib.print('my foo var is {f}', f=$fooz)
+                    $lib.print(`my foo var is {$fooz}`)
                     ''',
                 },
             ),
