@@ -52,13 +52,13 @@ class DemoteToolTest(s_test.SynTest):
                     with self.getLoggerStream('synapse') as stream:
                         argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
                         self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                    stream.expect('...error retrieving nexus index for')
+                        await stream.expect('...error retrieving nexus index for', timeout=1)
 
                 with mock.patch.object(cell00, 'promote', boom):
                     with self.getLoggerStream('synapse') as stream:
                         argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
                         self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                    stream.expect('...error promoting')
+                        await stream.expect('...error promoting', timeout=1)
 
                 with mock.patch.object(cell01, '_getDemotePeers', boom):
                     with self.getLoggerStream('synapse') as stream:
@@ -66,7 +66,7 @@ class DemoteToolTest(s_test.SynTest):
                         outp.clear()
                         self.eq(1, await s_tools_demote.main(argv, outp=outp))
                         outp.expect('Error while demoting service')
-                    stream.expect('error during task: demote')
+                        await stream.expect('error during task: demote', timeout=1)
 
                 self.false(cell00.isactive)
                 self.true(cell01.isactive)
@@ -85,7 +85,7 @@ class DemoteToolTest(s_test.SynTest):
                 with self.getLoggerStream('synapse') as stream:
                     argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
                     self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                stream.expect('...no suitable services discovered.')
+                    await stream.expect('...no suitable services discovered.', timeout=1)
 
     async def test_tool_demote_no_features(self):
 
@@ -107,8 +107,8 @@ class DemoteToolTest(s_test.SynTest):
 
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl()]
-                with self.getAsyncLoggerStream('synapse.daemon') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
                     self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')
+                    await stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1', timeout=1)
+
                 outp.expect('Error while demoting service')
-                outp.expect('AHA server does not support feature: getAhaSvcsByIden')

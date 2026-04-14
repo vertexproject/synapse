@@ -969,37 +969,37 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
-        try:
+        with s_scope.enter({'user': user}):
+            try:
 
-            async for item in self.eval(text, opts=opts):
-                await asyncio.sleep(0)  # pragma: no cover
+                async for item in self.eval(text, opts=opts):
+                    await asyncio.sleep(0)  # pragma: no cover
 
-        except s_stormctrl.StormReturn as e:
-            # Catch return( ... ) values and return the
-            # primitive version of that item.
-            return await s_stormtypes.toprim(e.item)
+            except s_stormctrl.StormReturn as e:
+                # Catch return( ... ) values and return the
+                # primitive version of that item.
+                return await s_stormtypes.toprim(e.item)
 
-        except asyncio.CancelledError:
-            logger.warning('callStorm cancelled',
-                           extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise
+            except asyncio.CancelledError:
+                extra = self.core.getLogExtra(text=text)
+                logger.warning('callStorm cancelled', extra=extra)
+                raise
 
-        except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
-            if isinstance(e, s_stormctrl.StormLoopCtrl):
-                mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
-            else:
-                mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
-            logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-            logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
+            except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
+                if isinstance(e, s_stormctrl.StormLoopCtrl):
+                    mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+                else:
+                    mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+                logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
+                logger.exception(logmesg, extra=self.core.getLogExtra(text=text))
+                raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
-        except Exception:
-            logger.exception(f'Error during callStorm execution for {{ {text} }}',
-                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise
-
-        # Any other exceptions will be raised to
-        # callers as expected.
+            except Exception:
+                logger.exception(f'Error during callStorm execution for {{ {text} }}',
+                                 extra=self.core.getLogExtra(text=text, view=self.iden))
+                # Any other exceptions will be raised to
+                # callers as expected.
+                raise
 
     async def nodes(self, text, opts=None):
         '''
@@ -1052,6 +1052,7 @@ class View(s_nexus.Pusher):  # type: ignore
             tick = s_common.now()
             abstick = s_common.mononow()
             count = 0
+
             try:
 
                 # Always start with an init message.
@@ -1064,37 +1065,35 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                with s_scope.enter({'user': user}):
+                async with await self.snap(user=user) as snap:
 
-                    async with await self.snap(user=user) as snap:
+                    if keepalive:
+                        snap.schedCoro(snap.keepalive(keepalive))
 
-                        if keepalive:
-                            snap.schedCoro(snap.keepalive(keepalive))
+                    if not show:
+                        snap.link(chan.put)
 
-                        if not show:
-                            snap.link(chan.put)
+                    else:
+                        [snap.on(n, chan.put) for n in show]
 
-                        else:
-                            [snap.on(n, chan.put) for n in show]
+                    if shownode:
+                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                            await chan.put(('node', pode))
+                            count += 1
 
-                        if shownode:
-                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                                await chan.put(('node', pode))
-                                count += 1
-
-                        else:
-                            info = opts.get('_loginfo', {})
-                            info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                            self.core._logStormQuery(text, user, info=info)
-                            async for item in snap.storm(text, opts=opts, user=user):
-                                count += 1
+                    else:
+                        info = opts.get('_loginfo', {})
+                        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                        self.core._logStormQuery(text, user, info=info)
+                        async for item in snap.storm(text, opts=opts, user=user):
+                            count += 1
 
             except s_stormctrl.StormExit:
                 pass
 
             except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.',
-                               extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                extra = self.core.getLogExtra(text=text)
+                logger.warning('Storm runtime cancelled.', extra=extra)
                 cancelled = True
                 raise
 
@@ -1109,7 +1108,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 logmesg = f'Error during storm execution for {{ {text} }}'
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
-                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+
+                logger.exception(logmesg, extra=self.core.getLogExtra(text=text, view=self.iden))
+
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
@@ -1122,43 +1123,45 @@ class View(s_nexus.Pusher):  # type: ignore
                     tock = tick + abstook
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
-        await synt.worker(runStorm(), name='runstorm')
+        with s_scope.enter({'user': user}):
 
-        editformat = opts.get('editformat', 'nodeedits')
+            await synt.worker(runStorm(), name='runstorm')
 
-        while True:
+            editformat = opts.get('editformat', 'nodeedits')
 
-            mesg = await chan.get()
-            kind = mesg[0]
+            while True:
 
-            if kind == 'node':
-                yield mesg
-                continue
+                mesg = await chan.get()
+                kind = mesg[0]
 
-            if kind == 'node:edits':
-                if editformat == 'nodeedits':
-
-                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
-                    mesg[1]['edits'] = nodeedits
+                if kind == 'node':
                     yield mesg
-
                     continue
 
-                if editformat == 'none':
+                if kind == 'node:edits':
+                    if editformat == 'nodeedits':
+
+                        nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
+                        mesg[1]['edits'] = nodeedits
+                        yield mesg
+
+                        continue
+
+                    if editformat == 'none':
+                        continue
+
+                    assert editformat == 'count'
+
+                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                    mesg = ('node:edits:count', {'count': count})
+                    yield mesg
                     continue
 
-                assert editformat == 'count'
+                if kind == 'fini':
+                    yield mesg
+                    break
 
-                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                mesg = ('node:edits:count', {'count': count})
                 yield mesg
-                continue
-
-            if kind == 'fini':
-                yield mesg
-                break
-
-            yield mesg
 
     async def iterStormPodes(self, text, opts=None):
 
