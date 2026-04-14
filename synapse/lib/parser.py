@@ -718,7 +718,7 @@ terminalClassMap = {
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
-    'JSONNUMBER': lambda astinfo, x: s_ast.Const(astinfo, float(x) if '.' in x else s_ast.parseNumber(x)),
+    'JSONNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'JSONHEX': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'JSONOCT': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
