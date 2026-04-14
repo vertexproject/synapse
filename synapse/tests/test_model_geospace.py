@@ -303,6 +303,17 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('geo:place:latlong=(34.1, -118.3215)')
             self.len(0, nodes)
 
+            # DMS string input for geo:place:latlong
+            opts = {'vars': {'latlong': '45°46\'52"N, 13°30\'45"E'}}
+            nodes = await core.nodes('[geo:place=* :name="DMS Place" :latlong=$latlong]', opts=opts)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'latlong', (45.78111111111111, 13.5125))
+
+            opts = {'vars': {'latlong': '45 46 52 N, 13 30 45 E'}}
+            nodes = await core.nodes('[geo:place=* :name="DMS Space" :latlong=$latlong]', opts=opts)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'latlong', (45.78111111111111, 13.5125))
+
     async def test_near(self):
 
         async with self.getTestCore() as core:
