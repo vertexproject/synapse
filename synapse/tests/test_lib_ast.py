@@ -4159,8 +4159,12 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:virtiface=(v1,) +:server.newp')
 
-            #  PropPivot non-poly dest form with virt
+            # PropPivot non-poly dest form with virt
             self.ge(1, len(await core.nodes('inet:http:request :server.ip -> inet:server.ip')))
+
+            # Invalid cmpr on non-poly (Array) prop filter with virt
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

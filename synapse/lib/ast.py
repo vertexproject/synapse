@@ -2267,7 +2267,7 @@ class LiftPropVirt(LiftProp):
         elif props[0].type.ispoly:
 
             def cmprkey(node):
-                if (valu := node.get(relname)) is None:
+                if (valu := node.get(relname)) is None:  # pragma: no cover
                     return None
 
                 vtyp = runt.model.type(valu[0])
@@ -3729,10 +3729,6 @@ class ArrayCond(Cond):
                 valu, vvals = realnode.getWithVirts(realprop)
                 if not valu:
                     return False
-
-                if isinstance(ptyp.virtindx.get(virt), str):
-                    if (valu := vvals.get(virt)) is None:
-                        return False
 
                 val2 = await valukid.compute(runt, path)
 
