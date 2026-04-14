@@ -203,15 +203,15 @@ def _validateLatLonDirections(lattext, lontext):
 
     if latm is not None:
         latdir = (latm.group('dirpre') or latm.group('dirsuf') or '').upper()
-        if latdir in ('E', 'W'):
+        if latdir not in ('N', 'S', ''):
             raise ValueError(
-                f'Latitude part contains E/W direction indicator in: {lattext!r}')
+                f'Latitude part does not contain N/S direction indicator in: {lattext!r}')
 
     if lonm is not None:
         londir = (lonm.group('dirpre') or lonm.group('dirsuf') or '').upper()
-        if londir in ('N', 'S'):
+        if londir not in ('E', 'W', ''):
             raise ValueError(
-                f'Longitude part contains N/S direction indicator in: {lontext!r}')
+                f'Longitude part does not contain E/ W direction indicator in: {lontext!r}')
 
 def parseLatLong(text):
     '''
