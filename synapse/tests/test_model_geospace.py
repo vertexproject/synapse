@@ -167,6 +167,27 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr((0, -0)), '0,0')
             self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
+            # DMS format tests
+            deg = '\u00b0'
+
+            result = await t.norm(f'45{deg}46\'52"N, 13{deg}30\'45"E')
+            self.eqish(result[0][0], 45.78111111111111)
+            self.eqish(result[0][1], 13.5125)
+
+            result = await t.norm(f'45{deg}46\'52"S, 13{deg}30\'45"W')
+            self.eqish(result[0][0], -45.78111111111111)
+            self.eqish(result[0][1], -13.5125)
+
+            result = await t.norm('45 46 52 N, 13 30 45 E')
+            self.eqish(result[0][0], 45.78111111111111)
+            self.eqish(result[0][1], 13.5125)
+
+            result = await t.norm(f'45{deg}46\'52"N 13{deg}30\'45"E')
+            self.eqish(result[0][0], 45.78111111111111)
+            self.eqish(result[0][1], 13.5125)
+
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('not valid dms'))
+
             # Geo-dist tests
             formname = 'geo:dist'
             t = core.model.type(formname)

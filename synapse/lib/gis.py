@@ -1,8 +1,41 @@
 import math
+import regex
 
 '''
 Synapse module with helpers for earth based geospatial calculations.
 '''
+
+# DMS (degrees/minutes/seconds) coordinate pattern.
+# Supports degree symbol (\u00b0), letter d, or implicit space separation.
+# Supports apostrophe/prime chars (\u2032/\u2019) or letter m for minutes.
+# Supports double-quote/double-prime chars (\u2033/\u201d) for seconds.
+# Handles optional N/S/E/W direction prefix or suffix, and negative sign.
+_dmsre = regex.compile(
+    r'''^\s*
+    (?P<dirpre>[NSEWnsew])?
+    \s*
+    (?P<neg>-)?
+    \s*
+    (?P<degs>\d+(?:\.\d+)?)
+    \s*
+    [\u00b0d]?
+    \s*
+    (?:
+        (?P<mins>\d+(?:\.\d+)?)
+        \s*
+        ['\u2032\u2019m]?
+        \s*
+        (?:
+            (?P<secs>\d+(?:\.\d+)?)
+            \s*
+            ["\u2033\u201d]?
+            \s*
+        )?
+    )?
+    (?P<dirsuf>[NSEWnsew])?
+    \s*$''',
+    regex.VERBOSE
+)
 
 # base earth geo distances will be in mm
 r_mm = 6371008800.0
@@ -105,3 +138,91 @@ def dms2dec(degs, mins, secs):
         (float): Degrees
     '''
     return degs + (mins / 60.0) + (secs / 3600.0)
+
+def parseDMS(text):
+    '''
+    Parse a degrees/minutes/seconds coordinate string to decimal degrees.
+
+    Supported formats include:
+        45\u00b046\'52"N   (degree symbol, apostrophe, double-quote with direction)
+        45d46m52N          (letter separators)
+        45 46 52 N         (space separated)
+        N45\u00b046\'52"   (direction prefix)
+        -45\u00b046\'52"   (negative sign instead of direction)
+        45\u00b046\'N      (degrees and minutes only)
+
+    Args:
+        text (str): A DMS coordinate string.
+
+    Returns:
+        (float): Decimal degrees.
+
+    Raises:
+        ValueError: If the string cannot be parsed as a DMS coordinate.
+    '''
+    m = _dmsre.match(text)
+    if m is None:
+        raise ValueError(f'Unable to parse DMS string: {text!r}')
+
+    dirpre = m.group('dirpre')
+    neg = m.group('neg')
+    degs = float(m.group('degs'))
+    mins = float(m.group('mins') or 0)
+    secs = float(m.group('secs') or 0)
+    dirsuf = m.group('dirsuf')
+
+    direction = (dirpre or dirsuf or '').upper()
+
+    if neg and direction in ('S', 'W'):
+        raise ValueError(f'Conflicting negative sign and S/W direction in: {text!r}')
+
+    if mins >= 60.0:
+        raise ValueError(f'Invalid minutes value {mins} in: {text!r}')
+
+    if secs >= 60.0:
+        raise ValueError(f'Invalid seconds value {secs} in: {text!r}')
+
+    result = dms2dec(degs, mins, secs)
+
+    if neg or direction in ('S', 'W'):
+        result = -result
+
+    return result
+
+def parseLatLong(text):
+    '''
+    Parse a DMS lat/long coordinate pair string into a (lat, lon) float tuple.
+
+    Supports comma or semicolon as delimiter between lat and lon, or splits
+    on a N/S direction indicator when no delimiter is present.
+
+    Args:
+        text (str): A DMS lat/long pair string (e.g. "45\u00b046\'52"N, 13\u00b030\'45"E").
+
+    Returns:
+        ((float, float)): A (latitude, longitude) decimal degrees tuple.
+
+    Raises:
+        ValueError: If the string cannot be parsed as a DMS lat/long pair.
+    '''
+    text = text.strip()
+
+    for sep in (',', ';'):
+        if sep in text:
+            parts = text.split(sep, 1)
+            return parseDMS(parts[0].strip()), parseDMS(parts[1].strip())
+
+    # No delimiter: scan for N/S direction as the split boundary
+    upper = text.upper()
+    for i, c in enumerate(upper):
+        if c in ('N', 'S') and i > 0:
+            rest = text[i + 1:].strip()
+            if rest:
+                try:
+                    lat = parseDMS(text[:i + 1].strip())
+                    lon = parseDMS(rest)
+                    return lat, lon
+                except ValueError:
+                    continue
+
+    raise ValueError(f'Unable to parse DMS lat/long pair: {text!r}')
