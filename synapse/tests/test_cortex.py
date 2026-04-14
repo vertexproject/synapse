@@ -1495,13 +1495,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
 
                 layr = core.getLayer()
-                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
 
-                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
 
-                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', ['port'])
+                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', 'port')
                 self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
 
                 vals = []
