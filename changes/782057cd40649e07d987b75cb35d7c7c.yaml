@@ -1,0 +1,7 @@
+---
+desc: Updated the Storm ``List.extend()`` method to treat ``(null)`` as a no-op, allowing
+  users to safely extend a list with a value that may be null.
+desc:literal: false
+prs: []
+type: feat
+...
