@@ -1616,7 +1616,8 @@ class LiftOper(Oper):
 
         return pivlifts
 
-    async def pivlift(self, runt, pivlifts, genr):
+    async def pivlift(self, runt, pivlifts, genr):  # pragma: no cover
+        # TODO: this needs updates to support pivot lifts through poly types so nothing can take this path currently.
 
         async def pivvals(props, virt, pivgenr):
             if len(props) == 1:
@@ -2265,20 +2266,14 @@ class LiftPropVirt(LiftProp):
 
         elif props[0].type.ispoly:
 
-            if (virtinfo := props[0].type.virts.get(virt)) is not None:
-                vgetr = virtinfo[1]
-                def cmprkey(node):
-                    return node.get(relname, getr=vgetr)
+            def cmprkey(node):
+                if (valu := node.get(relname)) is None:
+                    return None
 
-            else:
-                def cmprkey(node):
-                    if (valu := node.get(relname)) is None:
-                        return None
+                vtyp = runt.model.type(valu[0])
+                (vtyp, vgetr) = vtyp.getVirtInfo(virt)
 
-                    vtyp = runt.model.type(valu[0])
-                    (vtyp, vgetr) = vtyp.getVirtInfo(virt)
-
-                    return node.get(relname, getr=vgetr)
+                return node.get(relname, getr=vgetr)
         else:
             vgetr = props[0].type.getVirtGetr(virt)
             def cmprkey(node):

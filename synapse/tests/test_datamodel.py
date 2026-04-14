@@ -1002,6 +1002,9 @@ class DataModelTest(s_t_utils.SynTest):
             # poly virtual on a form lift
             self.len(2, await core.nodes('test:str:poly.port=80'))
 
+            # poly virtual on a HasRelPropCond filter
+            self.len(2, await core.nodes('test:str:poly +:poly.ip'))
+
             await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
 
             # poly array virtual on a form lift
