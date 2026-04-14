@@ -2514,6 +2514,7 @@ class Data(Type):
 
     async def norm(self, valu, view=None):
         try:
+            valu = await s_stormtypes.toprim(valu)
             s_json.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)

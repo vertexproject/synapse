@@ -63,6 +63,9 @@ terminalEnglishMap = {
     'FUNCTION': 'function',
     'HASH': '#',
     'HEXNUMBER': 'number',
+    'JSONHEX': 'number',
+    'JSONNUMBER': 'number',
+    'JSONOCT': 'number',
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '{',
@@ -226,8 +229,13 @@ class AstConverter(lark.Transformer):
                 self.raiseBadSyntax('Unexpected unquoted string in JSON expression', astinfo)
 
             return s_ast.Const(astinfo, valu)
-        else:
-            return self._convert_child(tokn)
+
+        if isinstance(tokn, lark.lexer.Token) and tokn.type in ('JSONNUMBER', 'JSONHEX', 'JSONOCT'):
+            astinfo = self.metaToAstInfo(tokn, isterm=True)
+            valu = float(tokn.value) if '.' in tokn.value else int(tokn.value, 0)
+            return s_ast.Const(astinfo, valu)
+
+        return self._convert_child(tokn)
 
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
