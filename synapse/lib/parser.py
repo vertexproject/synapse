@@ -230,11 +230,6 @@ class AstConverter(lark.Transformer):
 
             return s_ast.Const(astinfo, valu)
 
-        if isinstance(tokn, lark.lexer.Token) and tokn.type in ('JSONNUMBER', 'JSONHEX', 'JSONOCT'):
-            astinfo = self.metaToAstInfo(tokn, isterm=True)
-            valu = float(tokn.value) if '.' in tokn.value else int(tokn.value, 0)
-            return s_ast.Const(astinfo, valu)
-
         return self._convert_child(tokn)
 
     @lark.v_args(meta=True)
@@ -723,6 +718,9 @@ terminalClassMap = {
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'JSONNUMBER': lambda astinfo, x: s_ast.Const(astinfo, float(x) if '.' in x else int(x, 0)),
+    'JSONHEX': lambda astinfo, x: s_ast.Const(astinfo, int(x, 0)),
+    'JSONOCT': lambda astinfo, x: s_ast.Const(astinfo, int(x, 0)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
     'NOTIN': lambda astinfo, x: s_ast.Const(astinfo, 'not in'),
