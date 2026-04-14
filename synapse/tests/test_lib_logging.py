@@ -1,6 +1,7 @@
 import gc
 import asyncio
 import logging
+import contextlib
 
 import unittest.mock as mock
 
@@ -55,11 +56,12 @@ class LoggingTest(s_test.SynTest):
         evnt2 = asyncio.Event()
         async def collector():
             evnt0.set()
-            async for m in s_logging.watch(last=0):
-                evnt1.set()
-                msgs.append(m)
-                if m.get('params').get('fini'):
-                    break
+            async with contextlib.aclosing(s_logging.watch(last=0)) as agen:
+                async for m in agen:
+                    evnt1.set()
+                    msgs.append(m)
+                    if m.get('params').get('fini'):
+                        break
             evnt2.set()
             return True
 
@@ -83,17 +85,10 @@ class LoggingTest(s_test.SynTest):
 
         # Ensure that the ioloop can remove the empty Window.__aiter__ task,
         # which will release the Window ref and allow it to be GC'd.
-        # In Python 3.12+, the cleanup of nested async generators requires multiple
-        # event loop iterations to complete so we give it a few seconds to succeed.
-        try:
-            async with asyncio.timeout(6):
-                while True:
-                    await asyncio.sleep(0)
-                    gc.collect()
-                    if len(s_logging._log_wins) == 0:
-                        break
-        except asyncio.TimeoutError:
-            self.fail('Failed to cleanup s_logging._log_wins')
+        # Test runs gc.collect() as a safety for test stability.
+        await asyncio.sleep(0)
+        gc.collect()
+        self.len(0, s_logging._log_wins)
 
         s_logging.reset()
         self.none(s_logging.StreamHandler._pump_task)
