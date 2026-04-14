@@ -828,16 +828,12 @@ class DataModelTest(s_t_utils.SynTest):
             # Test poly prop interface narrowing on subforms
             await core.addType('_test:ifacepar', 'guid', {}, {})
             await core.addType('_test:ifacechild', '_test:ifacepar', {}, {})
-            await core.addType('_test:ifacebad', '_test:ifacepar', {}, {})
 
             core.model.addForm('_test:ifacepar', {}, (('ref', ('entity:identifier', {}), {}),))
 
-            # Narrowing to a form implementing the parent's interface works
-            core.model.addForm('_test:ifacechild', {}, (('ref', ('meta:id', {}), {}),))
-
-            # Narrowing to a type not implementing the parent's interface fails
+            # Narrowing a parent interface to a specific form type fails (cross-lane)
             with self.raises(s_exc.BadPropDef):
-                core.model.addForm('_test:ifacebad', {}, (('ref', ('float', {}), {}),))
+                core.model.addForm('_test:ifacechild', {}, (('ref', ('meta:id', {}), {}),))
 
             # Test interface subset narrowing
             await core.addType('_test:ifacepoly', 'poly', {'types': ('str',), 'interfaces': ('entity:identifier',)}, {})

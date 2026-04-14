@@ -1214,21 +1214,11 @@ class Model:
         parent_types = prop.type.typeset
         parent_ifaces = prop.type.ifaces
 
-        if child_types:
-            if not child_types.issubset(parent_types):
-                if not parent_ifaces:
-                    return False
+        if child_types and not child_types.issubset(parent_types):
+            return False
 
-                iface_forms = set()
-                for iface in parent_ifaces:
-                    iface_forms.update(self.formsbyiface.get(iface, ()))
-
-                if not child_types.issubset(parent_types | iface_forms):
-                    return False
-
-        if child_ifaces:
-            if not child_ifaces.issubset(parent_ifaces):
-                return False
+        if child_ifaces and not child_ifaces.issubset(parent_ifaces):
+            return False
 
         return True
 
