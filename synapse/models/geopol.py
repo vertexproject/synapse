@@ -161,7 +161,7 @@ modeldefs = (
             )),
             ('pol:election', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'ex': '2022 united states congressional midterm election',
                     'doc': 'The name of the election.'}),
 

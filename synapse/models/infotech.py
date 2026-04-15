@@ -343,7 +343,7 @@ class Cpe23Str(s_types.Str):
 
         self.cpe22 = self.modl.type('it:sec:cpe:v2_2')
         self.strtype = self.modl.type('str').clone({'lower': True})
-        self.metatype = self.modl.type('meta:name')
+        self.entname = self.modl.type('entity:name')
 
     async def _normPyStr(self, valu, view=None):
         text = valu.lower()
@@ -459,7 +459,7 @@ class Cpe23Str(s_types.Str):
 
         subs = {
             'part': (styp, parts[PART_IDX_PART], {}),
-            'vendor': (self.metatype.typehash, parts[PART_IDX_VENDOR], {}),
+            'vendor': (self.entname.typehash, parts[PART_IDX_VENDOR], {}),
             'product': (styp, parts[PART_IDX_PRODUCT], {}),
             'version': (styp, parts[PART_IDX_VERSION], {}),
             'update': (styp, parts[PART_IDX_UPDATE], {}),
@@ -640,8 +640,10 @@ modeldefs = (
                 'template': {'title': 'host'},
                 'interfaces': (
                     ('phys:object', {}),
-                    ('inet:service:object', {}),
+                    ('entity:created', {}),
+                    ('biz:manufactured', {}),
                     ('risk:exploitable', {}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -1508,7 +1510,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the volume.'}),
 
                 ('type', ('it:storage:volume:type:taxonomy', {}), {
@@ -1563,7 +1565,7 @@ modeldefs = (
             ('it:network:type:taxonomy', {}, ()),
             ('it:network', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the network.'}),
 
                 ('desc', ('text', {}), {
@@ -1629,7 +1631,7 @@ modeldefs = (
             )),
             ('it:host:group', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the group.'}),
 
                 ('desc', ('text', {}), {
@@ -1703,7 +1705,7 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
 
-                ('vendor', ('meta:name', {}), {
+                ('vendor', ('entity:name', {}), {
                     'computed': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
 
@@ -1917,7 +1919,7 @@ modeldefs = (
 
             ('it:dev:repo:remote', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'origin',
                     'doc': 'The name the repo is using for the remote repo.'}),
 
@@ -2088,9 +2090,6 @@ modeldefs = (
 
             ('it:hardware', {}, (
 
-                ('name', ('meta:name', {}), {
-                    'doc': 'The name of this hardware specification.'}),
-
                 ('type', ('it:hardware:type:taxonomy', {}), {
                     'doc': 'The type of hardware.'}),
 
@@ -2106,7 +2105,7 @@ modeldefs = (
                 ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
 
-                ('model', ('base:name', {}), {
+                ('model', ('biz:model', {}), {
                     'doc': 'The model name or number for this hardware specification.'}),
 
                 ('version', ('it:version', {}), {

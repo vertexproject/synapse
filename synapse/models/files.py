@@ -211,13 +211,13 @@ modeldefs = (
                     ('compiler', ('it:software', {}), {
                         'doc': 'The software used to compile the {executable}.'}),
 
-                    ('compiler:name', ('meta:name', {}), {
+                    ('compiler:name', ('it:softwarename', {}), {
                         'doc': 'The name of the software used to compile the {executable}.'}),
 
                     ('packer', ('it:software', {}), {
                         'doc': 'The software used to pack the {executable}.'}),
 
-                    ('packer:name', ('meta:name', {}), {
+                    ('packer:name', ('it:softwarename', {}), {
                         'doc': 'The name of the software used to pack the {executable}.'}),
                 ),
                 'interfaces': (

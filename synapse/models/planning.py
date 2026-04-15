@@ -48,7 +48,7 @@ modeldefs = (
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
