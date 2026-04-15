@@ -104,9 +104,6 @@ modeldefs = (
                     ('size', ('int', {}), {
                         'computed': True,
                         'doc': 'The number of elements in the array.'}),
-                    ('type', ('array', {'type': 'syn:type'}), {
-                        'computed': True,
-                        'doc': 'The type of value each element in the array references.'}),
                 ),
                 'doc': 'A typed array which indexes each field.'}),
 
