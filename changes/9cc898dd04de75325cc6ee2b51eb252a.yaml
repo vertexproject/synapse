@@ -1,0 +1,7 @@
+---
+desc: Updated the documentation for the ``layer.del`` permission to note that it is on the
+  Layer gate and not the Cortex.
+desc:literal: false
+prs: []
+type: doc
+...
