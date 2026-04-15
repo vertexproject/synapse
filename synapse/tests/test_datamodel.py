@@ -185,12 +185,11 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addIface('depr:iface', {'deprecated': True})
 
-        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+        with self.getLoggerStream('synapse.datamodel') as stream:
             modl.addType('foo:bar', 'int', {}, {'interfaces': (('depr:iface', {}),)})
             modl.addForm('foo:bar', {}, ())
 
-        dstream.seek(0)
-        self.isin('Form foo:bar depends on deprecated interface depr:iface', dstream.read())
+        self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.getvalue())
 
     async def test_datamodel_del_prop(self):
 
@@ -239,34 +238,34 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
-                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            with self.getLoggerStream('synapse.lib.types') as tstream, \
+                 self.getLoggerStream('synapse.datamodel') as dstream:
+
                 core = await s_cortex.Cortex.anit(dirn)
                 await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
 
-            dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
-            dstream.noexpect('type test:dep:comp field str uses a deprecated type test:dep:easy')
-            tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                await dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
+                await tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                self.notin('type test:dep:comp field str uses a deprecated type test:dep:easy', dstream.getvalue())
 
-            # Using deprecated forms and props is warned to the user
-            msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
-            self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
-            self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
+                # Using deprecated forms and props is warned to the user
+                msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+                self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
+                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
 
-            msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
-            self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
+                msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
+                self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
 
-            # Extended props and tagprops can all trigger deprecation notices
-            mesg = 'tag property depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+                # Extended props and tagprops can all trigger deprecation notices
+                mesg = 'tag property depr is using a deprecated type test:dep:easy'
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect('tag property depr is using a deprecated type test:dep:easy', timeout=6)
 
             # TODO: how do we want to warn for polyprops which allow deprecated types?
             # mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
-            # with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
-            #     await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-            #     self.true(await cstream.wait(6))
+            # with self.getLoggerStream('synapse.cortex') as cstream:
+            #    await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
+            #    await cstream.expect(mesg, timeout=6)
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -277,11 +276,11 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
                     await core._loadExtModel()
-                    # self.true(await cstream.wait(6))
+                    # await cstream.expect(mesg, timeout=6)
 
     async def test_datamodel_getmodeldefs(self):
         '''
@@ -421,7 +420,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.getBaseModel().addModelDefs([badmodel])
-        stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
+            await stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type', timeout=1)
 
         # Comp type not extended does not gen deprecated warning
         badmodel = {
@@ -442,7 +441,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.getBaseModel().addModelDefs([badmodel])
-        stream.noexpect('uses a deprecated type')
+        self.notin('uses a deprecated type', stream.getvalue())
 
     async def test_datamodel_edges(self):
 
@@ -1048,6 +1047,9 @@ class DataModelTest(s_t_utils.SynTest):
             # poly virtual on a form lift
             self.len(2, await core.nodes('test:str:poly.port=80'))
 
+            # poly virtual on a HasRelPropCond filter
+            self.len(2, await core.nodes('test:str:poly +:poly.ip'))
+
             await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
 
             # poly array virtual on a form lift
@@ -1119,10 +1121,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.newp.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.type.newp')
 
             with self.raises(s_exc.NoSuchType):
@@ -1211,21 +1213,21 @@ class DataModelTest(s_t_utils.SynTest):
             self.true(ptyp.ispoly)
 
             # getVirtType via getTypeSet path (ival's min virt)
-            vtyp = ptyp.getVirtType(('min',))
+            vtyp = ptyp.getVirtType('min')
             self.nn(vtyp)
 
             # getVirtType raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtType(('newp',))
+                ptyp.getVirtType('newp')
 
             # getVirtInfo via getTypeSet path (ival's min virt)
-            vinfo = ptyp.getVirtInfo(('min',))
+            vinfo = ptyp.getVirtInfo('min')
             self.nn(vinfo[0])
             self.nn(vinfo[1])
 
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtInfo(('newp',))
+                ptyp.getVirtInfo('newp')
 
             # invalid virtual prop with tryoper still raises NoSuchVirt
             with self.raises(s_exc.NoSuchVirt):

@@ -1560,7 +1560,7 @@ class LibBase(Lib):
         try:
             typeitem = self._reqTypeByName(name)
             if len(parts) > 1:
-                typeitem = typeitem.getVirtType(parts[1:])
+                typeitem = typeitem.getVirtType(parts[1])
 
             return typeitem.repr(valu)
         except s_exc.SynErr:
@@ -5201,10 +5201,10 @@ class List(Prim):
                   'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
 
         {'name': 'extend', 'desc': '''
-            Extend a list using another iterable.
+            Extend a list using another iterable. If ``(null)`` is provided, this is a no-op.
 
             Examples:
-                Populate a list by extending it with to other lists::
+                Populate a list by extending it with other lists::
 
                     $list = ()
 
@@ -5215,10 +5215,16 @@ class List(Prim):
                     $list.extend($bar)
 
                     // $list is now (f, o, o, b, a, r)
+
+                Safely extend a list with a value that may be null::
+
+                    $list = ()
+
+                    $list.extend($attrs.foo.bar.baz)
             ''',
          'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
-                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable. If ``(null)``, this is a no-op.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
@@ -5349,7 +5355,7 @@ class List(Prim):
         return self.valu[start:end]
 
     async def _methListExtend(self, valu):
-        async for item in toiter(valu):
+        async for item in toiter(valu, noneok=True):
             self.valu.append(item)
 
     async def value(self, use_list=False):

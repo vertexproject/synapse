@@ -1459,12 +1459,10 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
 
-            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+            with self.getLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('test:str | merge --apply', opts=altview)
 
-            stream.seek(0)
-            buf = stream.read()
-            self.notin("No form named None", buf)
+            self.notin("No form named None", stream.getvalue())
 
             await core.nodes('[ test:str=baz ]')
             await core.nodes('test:str=baz [ +#new.tag :seen=now ]', opts=altview)
@@ -1481,12 +1479,10 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('[ test:str=readonly ]')
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
-            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+            with self.getLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('test:str | merge --apply', opts=altview)
 
-            stream.seek(0)
-            buf = stream.read()
-            self.notin("Property is read only: test:str.created", buf)
+            self.notin("Property is read only: test:str.created", stream.getvalue())
 
             newn = await core.nodes('test:str=readonly')
             self.eq(oldn[0].get('.created'), newn[0].get('.created'))
@@ -1501,12 +1497,10 @@ class StormTest(s_t_utils.SynTest):
             q = 'test:str=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
             await core.nodes(q, opts=altview2)
 
-            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+            with self.getLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('test:str | merge --apply', opts=altview2)
 
-            stream.seek(0)
-            buf = stream.read()
-            self.notin("Property is read only: test:str.created", buf)
+            self.notin("Property is read only: test:str.created", stream.getvalue())
 
             newn = await core.nodes('test:str=readonly2', opts=altview)
             self.eq(oldn[0].get('.created'), newn[0].get('.created'))
@@ -2385,29 +2379,32 @@ class StormTest(s_t_utils.SynTest):
                                             name=hehedmon))'''
                 ddef0 = await asvisi.callStorm(q)
 
-            with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 await visi.setLocked(True)
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
-                self.true(await stream.wait(2))
+                await stream.expect('user is locked', timeout=2)
 
     async def test_storm_dmon_user_autobump(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('dmon', 'add')))
             async with core.getLocalProxy(user='visi') as asvisi:
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
                                                 name=hehedmon))'''
                     await asvisi.callStorm(q)
+                    await stream.expect('Dmon query exited', timeout=6)
 
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                    stream.clear()
+
                     await core.setUserLocked(visi.iden, True)
-                    self.true(await stream.wait(2))
+                    await stream.expect('user is locked', timeout=2)
 
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    stream.clear()
+
                     await core.setUserLocked(visi.iden, False)
-                    self.true(await stream.wait(2))
+                    await stream.expect('Dmon query exited', timeout=2)
 
     async def test_storm_dmon_caching(self):
 
@@ -2659,7 +2656,7 @@ class StormTest(s_t_utils.SynTest):
 
             with mock.patch('synapse.cortex.Cortex._runStormPkgOnload', new=_runStormPkgOnload):
 
-                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(dirn=dirn) as core:
 
                         self.len(0, core.stormdmons.getDmonDefs())
@@ -2668,14 +2665,14 @@ class StormTest(s_t_utils.SynTest):
 
                         await core.addStormPkg(pkg)
 
-                        self.true(await stream.wait(timeout=10))
+                        await stream.expect('testload finished onload')
 
-                with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(dirn=dirn) as core:
 
                         self.len(1, core.stormdmons.getDmonDefs())
 
-                        self.true(await stream.wait(timeout=10))
+                        await stream.expect('testload finished onload')
 
     async def test_storm_pkg_onload_active(self):
         pkg = {
@@ -2925,19 +2922,19 @@ class StormTest(s_t_utils.SynTest):
                 ])
 
                 mesg = 'testload init vers=4 output: (\'SynErr\''
-                with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     await loadPkg(core, pkg)
                     self.eq(3, await core.getStormPkgState('testload', 'storage:version'))
-                    await stream.wait(timeout=10)
+                    await stream.expect(mesg, timeout=10)
 
                 self.none(await core.getStormVar('init04'))
                 self.none(await core.getStormVar('init06'))
 
                 await core.setStormVar('dofail', False)
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
-                    await stream.wait(timeout=10)
+                    await stream.expect('testload finished onload', timeout=10)
 
                     # prior versions dont re-run, but a failed one does
 
@@ -2956,9 +2953,9 @@ class StormTest(s_t_utils.SynTest):
                         'query': '$lib.print("doing a print")',
                     })
 
-                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
+                    with self.getLoggerStream('synapse.cortex') as stream:
                         await loadPkg(core, pkg)
-                        await stream.wait(timeout=10)
+                        await stream.expect('doing a print', timeout=10)
                         self.eq(7, await core.getStormPkgState('testload', 'storage:version'))
 
                     pkg['version'] = '0.6.0'
@@ -2968,9 +2965,9 @@ class StormTest(s_t_utils.SynTest):
                         'query': '$lib.warn("doing a warn")',
                     })
 
-                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
+                    with self.getLoggerStream('synapse.cortex') as stream:
                         await loadPkg(core, pkg)
-                        await stream.wait(timeout=10)
+                        await stream.expect('doing a warn', timeout=10)
                         self.eq(8, await core.getStormPkgState('testload', 'storage:version'))
 
                     # inits run in order and advance the version
@@ -3391,15 +3388,15 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'[test:str=hehe] | iden {iq}')
             self.len(3, nodes)
 
-            q = 'iden newp'
-            with self.getLoggerStream('synapse.lib.storm', 'Failed to decode iden') as stream:
-                self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+            with self.getLoggerStream('synapse.lib.storm') as stream:
 
-            q = 'iden deadb33f'
-            with self.getLoggerStream('synapse.lib.storm', 'iden must be 32 bytes') as stream:
-                self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+                self.len(0, await core.nodes('iden newp'))
+                await stream.expect('Failed to decode iden', timeout=1)
+
+                stream.clear()
+
+                self.len(0, await core.nodes('iden deadb33f'))
+                await stream.expect('iden must be 32 bytes', timeout=1)
 
             # Runtsafety test
             q = 'test:str=hehe | iden $node.iden()'
