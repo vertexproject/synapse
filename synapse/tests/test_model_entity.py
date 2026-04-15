@@ -202,6 +202,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
                     :parent={[ meta:technique=* :name=metawoot ]}
+                    :seen=(20210101, 20210201)
                 ]
             ''')
             self.len(1, nodes)
@@ -215,6 +216,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'sophistication', 40)
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.nn(nodes[0].get('parent'))
+            self.nn(nodes[0].get('seen'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
             self.len(1, await core.nodes('meta:technique :reporter -> ou:org'))
