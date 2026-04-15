@@ -475,7 +475,6 @@ class Node(NodeBase):
 
                 if stortype & s_layer.STOR_FLAG_ARRAY:
                     embdnode[f'{relp}.size'] = len(valu)
-                    embdnode[f'{relp}.type'] = [v[0] for v in valu]
 
                 else:
                     embdnode[f'{relp}.type'] = valu[0]
@@ -928,7 +927,6 @@ class Node(NodeBase):
                         retn[f'{name}.{vname}'] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                     retn[f'{name}.size'] = len(valu)
-                    retn[f'{name}.type'] = [v[0] for v in valu]
 
                 else:
                     if vprops is not None:
