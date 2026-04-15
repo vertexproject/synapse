@@ -51,17 +51,17 @@ class StormlibModelTest(s_test.SynTest):
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name))')
-            self.stormIsInPrint("model:form: {'name': 'meta:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(entity:name))')
+            self.stormIsInPrint("model:form: {'name': 'entity:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name))')
-            self.stormIsInPrint("{'name': 'meta:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(entity:name))')
+            self.stormIsInPrint("{'name': 'entity:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name).type)')
-            self.stormIsInPrint("model:type: ('meta:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(entity:name).type)')
+            self.stormIsInPrint("model:type: ('entity:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name).type)')
-            self.stormIsInPrint("('meta:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(entity:name).type)')
+            self.stormIsInPrint("('entity:name'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.prop(entity:contact:name))')
             self.stormIsInPrint("model:property: {'name': 'name'", mesgs)

@@ -411,7 +411,7 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': '{$self}:id'}), {
+                    ('ids', ('array', {'type': 'meta:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {

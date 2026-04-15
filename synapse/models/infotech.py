@@ -640,7 +640,7 @@ modeldefs = (
                 'template': {'title': 'host'},
                 'interfaces': (
                     ('phys:object', {}),
-                    ('entity:created', {}),
+                    ('entity:creatable', {}),
                     ('biz:manufactured', {}),
                     ('risk:exploitable', {}),
                     ('inet:service:object', {}),
@@ -2089,6 +2089,9 @@ modeldefs = (
                 'prevnames': ('it:hardwaretype',)}, ()),
 
             ('it:hardware', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The name of this hardware specification.'}),
 
                 ('type', ('it:hardware:type:taxonomy', {}), {
                     'doc': 'The type of hardware.'}),

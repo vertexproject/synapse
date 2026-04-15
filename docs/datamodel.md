@@ -4,6 +4,7 @@
 
 - [Forms](#forms)
 - [Edges](#edges)
+- [Tag Properties](#tag-properties)
 - [Interfaces](#interfaces)
 
 ## Forms
@@ -25,25 +26,19 @@ A password string.
 | `:sha1` | `crypto:hash:sha1` | The SHA1 hash of the password. |
 | `:sha256` | `crypto:hash:sha256` | The SHA256 hash of the password. |
 
-### `belief:subscriber`
-
-A contact which subscribes to a belief system.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:contact` | `entity:individual` | The individual who subscribes to the belief system. |
-| `:period` | `ival` | The time period when the contact subscribed to the belief system. |
-| `:system` | `belief:system` | The belief system to which the contact subscribes. |
-
 ### `belief:system`
 
 A belief system such as an ideology, philosophy, or religion.
+
+| Interface |
+|-----------|
+| `meta:believable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:began` | `time` | The time that the belief system was first observed. |
 | `:desc` | `text` | A description of the belief system. |
-| `:name` | `meta:name` | The name of the belief system. |
+| `:name` | `base:name` | The name of the belief system. |
 | `:type` | `belief:system:type:taxonomy` | A taxonometric type for the belief system. |
 
 ### `belief:system:type:taxonomy`
@@ -67,30 +62,37 @@ A hierarchical taxonomy of belief system types.
 
 A concrete tenet potentially shared by multiple belief systems.
 
+| Interface |
+|-----------|
+| `meta:believable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the tenet. |
-| `:name` | `meta:name` | The name of the tenet. |
+| `:name` | `base:name` | The name of the tenet. |
 
 ### `biz:deal`
 
 A sales or procurement effort in pursuit of a purchase.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+| `meta:negotiable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:buyer` | `entity:actor` | The primary contact information for the buyer. |
-| `:buyer:budget` | `econ:price` | The buyers budget for the eventual purchase. |
-| `:buyer:deadline` | `time` | When the buyer intends to make a decision. |
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:buyer` | `entity:actor` | The buyer. |
+| `:buyer:name` | `entity:name` | The name of the buyer. |
 | `:contacted` | `time` | The last time the contacts communicated about the deal. |
-| `:currency` | `econ:currency` | The currency of econ:price values associated with the deal. |
-| `:id` | `meta:id` | An identifier for the deal. |
-| `:offer:expires` | `time` | When the offer expires. |
-| `:offer:price` | `econ:price` | The total price of the offered products. |
-| `:purchase` | `econ:purchase` | Records a purchase resulting from the deal. |
-| `:rfp` | `biz:rfp` | The RFP that the deal is in response to. |
-| `:seller` | `entity:actor` | The primary contact information for the seller. |
+| `:id` | `base:id` | An identifier for the deal. |
+| `:name` | `base:name` | The name of the deal. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:seller` | `entity:actor` | The seller. |
+| `:seller:name` | `entity:name` | The name of the seller. |
 | `:status` | `biz:deal:status:taxonomy` | The status of the deal. |
-| `:title` | `str` | A title for the deal. |
 | `:type` | `biz:deal:type:taxonomy` | The type of deal. |
 | `:updated` | `time` | The last time the deal had a significant update. |
 
@@ -130,32 +132,50 @@ A hierarchical taxonomy of deal types.
 
 ### `biz:listing`
 
-A product or service being listed for sale at a given price by a specific seller.
+A product or service being listed for sale.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this listing. |
+| `:actor` | `entity:actor` | The actor who carried out the listing. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the listing. |
 | `:count:remaining` | `int` | The current remaining number of instances for sale. |
 | `:count:total` | `int` | The number of instances for sale. |
-| `:currency` | `econ:currency` | The currency of the asking price. |
-| `:current` | `bool` | Set to true if the offer is still current. |
-| `:period` | `ival` | The period when the listing existed. |
+| `:name` | `base:name` | The name or title of the listing. |
+| `:period` | `ival` | The period over which the listing occurred. |
 | `:price` | `econ:price` | The asking price of the product or service. |
-| `:seller` | `entity:actor` | The contact information for the seller. |
+
+### `biz:model`
+
+A model name or number for a product.
 
 ### `biz:product`
 
-A product which is available for purchase.
+A type of product which is available for purchase.
+
+| Interface |
+|-----------|
+| `entity:creatable` |
+| `meta:havable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:created` | `time` | The time that the product was created. |
+| `:creator` | `entity:actor` | The primary actor which created the product. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the product. |
 | `:desc` | `text` | A description of the product. |
 | `:launched` | `time` | The time the product was first made available. |
-| `:manufacturer` | `entity:actor` | A contact for the manufacturer of the product. |
-| `:manufacturer:name` | `entity:name` | The name of the manufacturer of the product. |
 | `:name` | `base:name` | The name of the product. |
-| `:price:bottom` | `econ:price` | The minimum offered or observed price of the product. |
-| `:price:currency` | `econ:currency` | The currency of the retail and bottom price properties. |
-| `:price:retail` | `econ:price` | The MSRP price of the product. |
+| `:owner` | `entity:actor` | The current owner of the product. |
+| `:owner:name` | `entity:name` | The name of the current owner of the product. |
+| `:price` | `econ:price` | The price of the product. |
 | `:type` | `biz:product:type:taxonomy` | The type of product. |
 
 ### `biz:product:type:taxonomy`
@@ -183,28 +203,35 @@ An RFP (Request for Proposal) soliciting proposals.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `doc:published` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
 | `:body` | `text` | The text of the RFP. |
-| `:contact` | `entity:actor` | The contact information given for the org requesting offers. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the RFP was created. |
+| `:creator` | `entity:actor` | The primary actor which created the RFP. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the RFP. |
+| `:desc` | `text` | A description of the RFP. |
 | `:due:proposal` | `time` | The date/time that proposals are due. |
 | `:due:questions` | `time` | The date/time that questions are due. |
 | `:file` | `file:bytes` | The file containing the RFP contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the RFP contents. |
-| `:id` | `meta:id` | The document ID. |
-| `:posted` | `time` | The date/time that the RFP was posted. |
+| `:id` | `meta:id` | The RFP ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the RFP. |
+| `:public` | `bool` | Set to true if the RFP is publicly available. |
+| `:published` | `time` | The time the RFP was published. |
+| `:publisher` | `entity:actor` | The entity which published the RFP. |
+| `:publisher:name` | `entity:name` | The name of the entity which published the RFP. |
 | `:status` | `biz:deal:status:taxonomy` | The status of the RFP. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:supersedes` | `array of biz:rfp` | An array of RFP versions which are superseded by this RFP. |
 | `:title` | `str` | The title of the RFP. |
+| `:topics` | `array of meta:topic` | The topics discussed in the RFP. |
 | `:type` | `biz:rfp:type:taxonomy` | The type of RFP. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the RFP was last updated. |
+| `:url` | `inet:url` | The URL where the RFP is available. |
+| `:version` | `it:version` | The version of the RFP. |
 
 ### `biz:rfp:type:taxonomy`
 
@@ -225,15 +252,23 @@ A hierarchical taxonomy of RFP types.
 
 ### `biz:service`
 
-A service which is performed by a specific organization.
+A service offered by an actor.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this service offering. |
+| `:actor` | `entity:actor` | The actor who carried out the service offering. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the service offering. |
 | `:desc` | `text` | A description of the service. |
-| `:launched` | `time` | The time when the operator first made the service available. |
 | `:name` | `base:name` | The name of the service being performed. |
-| `:provider` | `entity:actor` | The entity which performs the service. |
-| `:provider:name` | `entity:name` | The name of the entity which performs the service. |
+| `:period` | `ival` | The period of time when the actor made the service available. |
 | `:type` | `biz:service:type:taxonomy` | A taxonomy of service types. |
 
 ### `biz:service:type:taxonomy`
@@ -309,8 +344,6 @@ An individual crypto currency transaction recorded on the blockchain.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:block` | `crypto:currency:block` | The block which records the transaction. |
-| `:block:coin` | `econ:currency` | The coin/blockchain of the block which records this transaction. |
-| `:block:offset` | `int` | The offset of the block which records this transaction. |
 | `:contract:input` | `file:bytes` | Input value to a smart contract call. |
 | `:contract:output` | `file:bytes` | Output value of a smart contract call. |
 | `:desc` | `str` | An analyst specified description of the transaction. |
@@ -404,9 +437,9 @@ A generic cryptographic key.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
-| `:private:hashes` | `array` | An array of hashes for the private key. |
-| `:public:hashes` | `array` | An array of hashes for the public key. |
+| `:bits` | `int:min1` | The number of bits of key material. |
+| `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
+| `:public:hashes` | `array of crypto:hash` | An array of hashes for the public key. |
 | `:seen` | `ival` | The key was observed during the time interval. |
 
 ### `crypto:key:dsa`
@@ -421,12 +454,12 @@ A DSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
+| `:bits` | `int:min1` | The number of bits of key material. |
 | `:private` | `hex` | The HEX encoded private portion of the DSA key. |
-| `:private:hashes` | `array` | An array of hashes for the private key. |
+| `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
 | `:public` | `hex` | The HEX encoded public portion of the DSA key. |
 | `:public:g` | `hex` | The HEX encoded generator or "G" component of the DSA key. |
-| `:public:hashes` | `array` | An array of hashes for the public key. |
+| `:public:hashes` | `array of crypto:hash` | An array of hashes for the public key. |
 | `:public:p` | `hex` | The HEX encoded public modulus or "P" component of the DSA key. |
 | `:public:q` | `hex` | The HEX encoded subgroup order or "Q" component of the DSA key. |
 | `:seen` | `ival` | The DSA key pair was observed during the time interval. |
@@ -443,17 +476,17 @@ An ECDSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
-| `:curve` | `str` | The curve standard in use. |
+| `:bits` | `int:min1` | The number of bits of key material. |
+| `:curve` | `base:name` | The curve standard in use. |
 | `:private` | `hex` | The HEX encoded private portion of the ECDSA key. |
-| `:private:hashes` | `array` | An array of hashes for the private key. |
+| `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
 | `:public` | `hex` | The HEX encoded public portion of the ECDSA key. |
 | `:public:a` | `hex` | The HEX encoded first coefficient or "a" component of the ECDSA key. |
 | `:public:b` | `hex` | The HEX encoded second coefficient or "b" component of the ECDSA key. |
 | `:public:gx` | `hex` | The HEX encoded x-coordinate of the generator or "Gx" component of the ECDSA key. |
 | `:public:gy` | `hex` | The HEX encoded y-coordinate of the generator or "Gy" component of the ECDSA key. |
 | `:public:h` | `hex` | The HEX encoded cofactor or "h" component of the ECDSA key. |
-| `:public:hashes` | `array` | An array of hashes for the public key. |
+| `:public:hashes` | `array of crypto:hash` | An array of hashes for the public key. |
 | `:public:n` | `hex` | The HEX encoded order of the generator or "n" component of the ECDSA key. |
 | `:public:p` | `hex` | The HEX encoded prime modulus or "p" component of the ECDSA key. |
 | `:public:x` | `hex` | The HEX encoded x-coordinate of the public key point or "x" component of the ECDSA key. |
@@ -472,13 +505,13 @@ An RSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
+| `:bits` | `int:min1` | The number of bits of key material. |
 | `:private:coefficient` | `hex` | The private coefficient of the RSA key. |
 | `:private:exponent` | `hex` | The private exponent of the RSA key. |
-| `:private:hashes` | `array` | An array of hashes for the private key. |
-| `:private:primes` | `array` | The prime number and exponent combinations used to generate the RSA key. |
+| `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
+| `:private:primes` | `array of crypto:key:rsa:prime` | The prime number and exponent combinations used to generate the RSA key. |
 | `:public:exponent` | `hex` | The public exponent of the RSA key. |
-| `:public:hashes` | `array` | An array of hashes for the public key. |
+| `:public:hashes` | `array of crypto:hash` | An array of hashes for the public key. |
 | `:public:modulus` | `hex` | The public modulus of the RSA key. |
 | `:seen` | `ival` | The RSA key pair was observed during the time interval. |
 
@@ -503,9 +536,9 @@ A secret key with an optional initialiation vector.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
+| `:bits` | `int:min1` | The number of bits of key material. |
 | `:iv` | `hex` | The hex encoded initialization vector. |
-| `:mode` | `str` | The algorithm specific mode in use. |
+| `:mode` | `base:name` | The algorithm specific mode in use. |
 | `:seed:algorithm` | `crypto:algorithm` | The algorithm used to generate the key from the seed password. |
 | `:seed:passwd` | `auth:passwd` | The seed password used to generate the key material. |
 | `:seen` | `ival` | The secret key was observed during the time interval. |
@@ -713,21 +746,21 @@ A unique X.509 certificate.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algo` | `iso:oid` | The X.509 signature algorithm OID. |
-| `:crl:urls` | `array` | The extracted URL values from the CRLs extension. |
-| `:ext:crls` | `array` | A list of Subject Alternate Names (SANs) for Distribution Points. |
-| `:ext:sans` | `array` | The Subject Alternate Names (SANs) listed in the certificate. |
+| `:crl:urls` | `array of inet:url` | The extracted URL values from the CRLs extension. |
+| `:ext:crls` | `array of crypto:x509:san` | A list of Subject Alternate Names (SANs) for Distribution Points. |
+| `:ext:sans` | `array of crypto:x509:san` | The Subject Alternate Names (SANs) listed in the certificate. |
 | `:file` | `file:bytes` | The file that the certificate metadata was parsed from. |
-| `:identities:emails` | `array` | The fused list of email addresses identified by the cert CN and SANs. |
-| `:identities:fqdns` | `array` | The fused list of FQDNs identified by the cert CN and SANs. |
-| `:identities:ips` | `array` | The fused list of IP addresses identified by the cert CN and SANs. |
-| `:identities:urls` | `array` | The fused list of URLs identified by the cert CN and SANs. |
+| `:identities:emails` | `array of inet:email` | The fused list of email addresses identified by the cert CN and SANs. |
+| `:identities:fqdns` | `array of inet:fqdn` | The fused list of FQDNs identified by the cert CN and SANs. |
+| `:identities:ips` | `array of inet:ip` | The fused list of IP addresses identified by the cert CN and SANs. |
+| `:identities:urls` | `array of inet:url` | The fused list of URLs identified by the cert CN and SANs. |
 | `:issuer` | `str` | The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate. |
 | `:issuer:cert` | `crypto:x509:cert` | The certificate used by the issuer to sign this certificate. |
-| `:key` | `crypto:pki:key` | The public key embedded in the certificate. |
+| `:key` | `crypto:key:dsa`, `crypto:key:rsa` | The public key embedded in the certificate. |
 | `:md5` | `crypto:hash:md5` | The MD5 fingerprint for the certificate. |
 | `:seen` | `ival` | The X.509 certificate was observed during the time interval. |
 | `:selfsigned` | `bool` | Whether this is a self-signed certificate. |
-| `:serial` | `hex` | The certificate serial number as a big endian hex value. |
+| `:serial` | `crypto:x509:serial` | The certificate serial number as a big endian hex value. |
 | `:sha1` | `crypto:hash:sha1` | The SHA1 fingerprint for the certificate. |
 | `:sha256` | `crypto:hash:sha256` | The SHA256 fingerprint for the certificate. |
 | `:signature` | `hex` | The hexadecimal representation of the digital signature. |
@@ -735,7 +768,7 @@ A unique X.509 certificate.
 | `:subject:cn` | `str` | The Common Name (CN) attribute of the x509 Subject. |
 | `:validity:notafter` | `time` | The timestamp for the end of the certificate validity period. |
 | `:validity:notbefore` | `time` | The timestamp for the beginning of the certificate validity period. |
-| `:version` | `int` | The version integer in the certificate. (ex. 2 == v3 ). |
+| `:version` | `crypto:x509:version` | The version integer in the certificate. (ex. 2 == v3 ). |
 
 ### `crypto:x509:crl`
 
@@ -770,32 +803,38 @@ A contract between multiple entities.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `doc:authorable` |
 | `doc:document` |
+| `doc:signable` |
+| `entity:action` |
+| `entity:activity` |
+| `entity:creatable` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
+| `:activity` | `meta:activity` | A parent activity which includes this contract. |
+| `:actor` | `entity:actor` | The actor who carried out the contract. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the contract. |
 | `:body` | `text` | The text of the contract. |
-| `:completed` | `time` | The date that the contract was completed. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the contract was created. |
+| `:creator` | `entity:actor` | The primary actor which created the contract. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the contract. |
+| `:desc` | `text` | A description of the contract. |
 | `:file` | `file:bytes` | The file containing the contract contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the contract contents. |
-| `:id` | `meta:id` | The document ID. |
-| `:issuer` | `entity:actor` | The contract sponsor. |
-| `:parties` | `array` | The entities bound by the contract. |
-| `:period` | `ival` | The time period when the contract is in effect. |
+| `:id` | `meta:id` | The contract ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the contract. |
+| `:period` | `ival` | The period over which the contract occurred. |
 | `:signed` | `time` | The date that the contract signing was complete. |
-| `:signers` | `array` | The individuals who signed the contract. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
-| `:terminated` | `time` | The date that the contract was terminated. |
+| `:supersedes` | `array of doc:contract` | An array of contract versions which are superseded by this contract. |
 | `:title` | `str` | The title of the contract. |
 | `:type` | `doc:contract:type:taxonomy` | The type of contract. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the contract was last updated. |
+| `:url` | `inet:url` | The URL where the contract is available. |
+| `:version` | `it:version` | The version of the contract. |
 
 ### `doc:contract:type:taxonomy`
 
@@ -822,23 +861,26 @@ Guiding principles used to reach a set of goals.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
 | `:body` | `text` | The text of the policy. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the policy was created. |
+| `:creator` | `entity:actor` | The primary actor which created the policy. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the policy. |
+| `:desc` | `text` | A description of the policy. |
 | `:file` | `file:bytes` | The file containing the policy contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the policy contents. |
-| `:id` | `meta:id` | The document ID. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:id` | `meta:id` | The policy ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the policy. |
+| `:supersedes` | `array of doc:policy` | An array of policy versions which are superseded by this policy. |
 | `:title` | `str` | The title of the policy. |
 | `:type` | `doc:policy:type:taxonomy` | The type of policy. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the policy was last updated. |
+| `:url` | `inet:url` | The URL where the policy is available. |
+| `:version` | `it:version` | The version of the policy. |
 
 ### `doc:policy:type:taxonomy`
 
@@ -865,7 +907,7 @@ A reference included in a source.
 |----------|------|-----|
 | `:doc` | `doc:document` | The document which the reference refers to. |
 | `:doc:url` | `inet:url` | A URL for the reference. |
-| `:source` | `ndef` | The source which contains the reference. |
+| `:source` | `doc:report`, `entity:campaign`, `meta:technique`, `plan:phase`, `risk:threat`, `risk:tool:software`, `risk:vuln` | The source which contains the reference. |
 | `:text` | `str` | A reference string included in the source. |
 
 ### `doc:report`
@@ -876,28 +918,32 @@ A report.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `doc:published` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
 | `:body` | `text` | The text of the report. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the report was created. |
+| `:creator` | `entity:actor` | The primary actor which created the report. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the report. |
+| `:desc` | `text` | A description of the report. |
 | `:file` | `file:bytes` | The file containing the report contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the report contents. |
-| `:id` | `meta:id` | The document ID. |
+| `:id` | `meta:id` | The report ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the report. |
 | `:public` | `bool` | Set to true if the report is publicly available. |
 | `:published` | `time` | The time the report was published. |
 | `:publisher` | `entity:actor` | The entity which published the report. |
 | `:publisher:name` | `entity:name` | The name of the entity which published the report. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:supersedes` | `array of doc:report` | An array of report versions which are superseded by this report. |
 | `:title` | `str` | The title of the report. |
-| `:topics` | `array` | The topics discussed in the report. |
+| `:topics` | `array of meta:topic` | The topics discussed in the report. |
 | `:type` | `doc:report:type:taxonomy` | The type of report. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the report was last updated. |
+| `:url` | `inet:url` | The URL where the report is available. |
+| `:version` | `it:version` | The version of the report. |
 
 ### `doc:report:type:taxonomy`
 
@@ -923,18 +969,20 @@ A single requirement, often defined by a standard.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the requirement. |
 | `:created` | `time` | The time that the requirement was created. |
+| `:creator` | `entity:actor` | The primary actor which created the requirement. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the requirement. |
 | `:desc` | `text` | A description of the requirement. |
 | `:id` | `meta:id` | The requirement ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the requirement. |
 | `:optional` | `bool` | Set to true if the requirement is optional as defined by the standard. |
 | `:priority` | `meta:score` | The priority of the requirement as defined by the standard. |
 | `:standard` | `doc:standard` | The standard which defined the requirement. |
-| `:supersedes` | `array` | An array of requirement versions which are superseded by this requirement. |
+| `:supersedes` | `array of doc:requirement` | An array of requirement versions which are superseded by this requirement. |
 | `:text` | `text` | The requirement definition. |
 | `:updated` | `time` | The time that the requirement was last updated. |
 | `:url` | `inet:url` | The URL where the requirement is available. |
@@ -948,29 +996,32 @@ A CV/resume document.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:achievements` | `array` | Achievements described in the resume. |
-| `:author` | `entity:actor` | The contact information of the primary author. |
+| `:achievements` | `array of entity:achieved` | Achievements described in the resume. |
 | `:body` | `text` | The text of the resume. |
 | `:contact` | `entity:individual` | Contact information for subject of the resume. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
-| `:education` | `array` | Education experience described in the resume. |
+| `:created` | `time` | The time that the resume was created. |
+| `:creator` | `entity:actor` | The primary actor which created the resume. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the resume. |
+| `:desc` | `text` | A description of the resume. |
+| `:education` | `array of entity:studied` | Education experience described in the resume. |
 | `:file` | `file:bytes` | The file containing the resume contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the resume contents. |
-| `:id` | `meta:id` | The document ID. |
-| `:skills` | `array` | The skills described in the resume. |
+| `:id` | `meta:id` | The resume ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the resume. |
+| `:skills` | `array of ps:skill` | The skills described in the resume. |
 | `:summary` | `text` | The summary of qualifications from the resume. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:supersedes` | `array of doc:resume` | An array of resume versions which are superseded by this resume. |
 | `:title` | `str` | The title of the resume. |
 | `:type` | `doc:resume:type:taxonomy` | The type of resume. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
-| `:workhist` | `array` | Work history described in the resume. |
+| `:updated` | `time` | The time that the resume was last updated. |
+| `:url` | `inet:url` | The URL where the resume is available. |
+| `:version` | `it:version` | The version of the resume. |
+| `:workhist` | `array of ps:workhist` | Work history described in the resume. |
 
 ### `doc:resume:type:taxonomy`
 
@@ -997,24 +1048,27 @@ A group of requirements which define how to implement a policy or goal.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
 | `:body` | `text` | The text of the standard. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the standard was created. |
+| `:creator` | `entity:actor` | The primary actor which created the standard. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the standard. |
+| `:desc` | `text` | A description of the standard. |
 | `:file` | `file:bytes` | The file containing the standard contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the standard contents. |
-| `:id` | `meta:id` | The document ID. |
+| `:id` | `meta:id` | The standard ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the standard. |
 | `:policy` | `doc:policy` | The policy which was used to derive the standard. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:supersedes` | `array of doc:standard` | An array of standard versions which are superseded by this standard. |
 | `:title` | `str` | The title of the standard. |
 | `:type` | `doc:standard:type:taxonomy` | The type of standard. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the standard was last updated. |
+| `:url` | `inet:url` | The URL where the standard is available. |
+| `:version` | `it:version` | The version of the standard. |
 
 ### `doc:standard:type:taxonomy`
 
@@ -1041,7 +1095,6 @@ The balance of funds available to a financial instrument at a specific time.
 |----------|------|-----|
 | `:account` | `econ:fin:account` | The financial account holding the balance. |
 | `:amount` | `econ:price` | The available funds at the time. |
-| `:currency` | `econ:currency` | The currency of the available funds. |
 | `:time` | `time` | The time the balance was recorded. |
 
 ### `econ:bank:aba:account`
@@ -1057,7 +1110,7 @@ An ABA routing number and bank account number.
 | `:account` | `econ:fin:account` | The financial account which stores currency for this ABA account number. |
 | `:issuer` | `entity:actor` | The bank which issued the account number. |
 | `:issuer:name` | `entity:name` | The name of the bank which issued the account number. |
-| `:number` | `str` | The account number. |
+| `:number` | `econ:invoice:number` | The account number. |
 | `:routing` | `econ:bank:aba:rtn` | The routing number. |
 | `:seen` | `ival` | The ABA account was observed during the time interval. |
 | `:type` | `econ:bank:aba:account:type:taxonomy` | The type of ABA account. |
@@ -1104,7 +1157,7 @@ A check written out to a recipient.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:account` | `econ:fin:account` | The account contains the funds used by the check. |
-| `:account:number` | `str` | The bank account number. |
+| `:account:number` | `econ:acct:number` | The bank account number. |
 | `:amount` | `econ:price` | The amount the check is written for. |
 | `:payto` | `entity:name` | The name of the intended recipient. |
 | `:routing` | `econ:bank:aba:rtn` | The ABA routing number on the check. |
@@ -1140,7 +1193,6 @@ A cash deposit event to a financial account.
 | `:account` | `econ:fin:account` | The account the cash was deposited to. |
 | `:actor` | `entity:actor` | The entity which deposited the cash. |
 | `:amount` | `econ:price` | The amount of cash deposited. |
-| `:currency` | `econ:currency` | The currency of the deposited cash. |
 | `:time` | `time` | The time the cash was deposited. |
 
 ### `econ:cash:withdrawal`
@@ -1152,7 +1204,6 @@ A cash withdrawal event from a financial account.
 | `:account` | `econ:fin:account` | The account the cash was withdrawn from. |
 | `:actor` | `entity:actor` | The entity which withdrew the cash. |
 | `:amount` | `econ:price` | The amount of cash withdrawn. |
-| `:currency` | `econ:currency` | The currency of the withdrawn cash. |
 | `:time` | `time` | The time the cash was withdrawn. |
 
 ### `econ:currency`
@@ -1174,8 +1225,6 @@ A financial account which contains a balance of funds.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:balance` | `econ:price` | The most recently known balance of the account. |
-| `:balance:time` | `time` | The time the balance was most recently updated. |
-| `:currency` | `econ:currency` | The currency of the account balance. |
 | `:holder` | `entity:contactable` | The contact information of the account holder. |
 | `:seen` | `ival` | The financial account was observed during the time interval. |
 | `:type` | `econ:fin:account:type:taxonomy` | The type of financial account. |
@@ -1217,7 +1266,7 @@ A financial exchange where securities are traded.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:currency` | `econ:currency` | The currency used for all transactions in the exchange. |
-| `:name` | `meta:name` | A simple name for the exchange. |
+| `:name` | `entity:name` | A simple name for the exchange. |
 | `:org` | `ou:org` | The organization that operates the exchange. |
 
 ### `econ:fin:security`
@@ -1228,7 +1277,7 @@ A financial security which is typically traded on an exchange.
 |----------|------|-----|
 | `:exchange` | `econ:fin:exchange` | The exchange on which the security is traded. |
 | `:price` | `econ:price` | The last known/available price of the security. |
-| `:ticker` | `str` | The identifier for this security within the exchange. |
+| `:ticker` | `str:lower` | The identifier for this security within the exchange. |
 | `:time` | `time` | The time of the last know price sample. |
 | `:type` | `econ:fin:security:type:taxonomy` | The type of security. |
 
@@ -1266,7 +1315,6 @@ An invoice issued requesting payment.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:amount` | `econ:price` | The balance due. |
-| `:currency` | `econ:currency` | The currency that the invoice specifies for payment. |
 | `:due` | `time` | The time by which the payment is due. |
 | `:issued` | `time` | The time that the invoice was issued to the recipient. |
 | `:issuer` | `entity:actor` | The contact information for the entity which issued the invoice. |
@@ -1281,7 +1329,7 @@ A line item included as part of a purchase.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:count` | `int` | The number of items included in this line item. |
-| `:item` | `biz:sellable` | The product or service. |
+| `:item` | `biz:service`, `meta:havable` | The product or service. |
 | `:price` | `econ:price` | The total cost of this receipt line item. |
 
 ### `econ:pay:card`
@@ -1324,20 +1372,25 @@ A payment, crypto currency transaction, or account withdrawal.
 
 | Interface |
 |-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
 | `geo:locatable` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this payment event. |
+| `:actor` | `entity:actor` | The actor who carried out the payment event. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the payment event. |
 | `:amount` | `econ:price` | The amount of money transferred in the payment. |
 | `:cash` | `bool` | The payment was made with physical currency. |
 | `:crypto:transaction` | `crypto:currency:transaction` | A crypto currency transaction that initiated the payment. |
-| `:currency` | `econ:currency` | The currency of the payment. |
 | `:fee` | `econ:price` | The transaction fee paid by the recipient to the payment processor. |
 | `:id` | `base:id` | A payment processor specific transaction ID. |
+| `:instrument` | `econ:pay:instrument` | The payment instrument used by the actor to make the payment. |
 | `:payee` | `entity:actor` | The entity which received the payment. |
 | `:payee:instrument` | `econ:pay:instrument` | The payment instrument used by the payee to receive payment. |
-| `:payer` | `entity:actor` | The entity which made the payment. |
-| `:payer:instrument` | `econ:pay:instrument` | The payment instrument used by the payer to make the payment. |
 | `:place` | `geo:place` | The place where the payment event was located. |
 | `:place:address` | `geo:address` | The postal address where the payment event was located. |
 | `:place:address:city` | `base:name` | The city where the payment event was located. |
@@ -1351,39 +1404,44 @@ A payment, crypto currency transaction, or account withdrawal.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the payment event was located. |
 | `:place:loc` | `loc` | The geopolitical location where the payment event was located. |
 | `:place:name` | `geo:name` | The name where the payment event was located. |
-| `:status` | `str` | The status of the payment. |
+| `:status` | `str:lower` | The status of the payment. |
 | `:time` | `time` | The time the payment was made. |
 
 ### `econ:purchase`
 
-A purchase event.
+An event where an actor made a purchase.
 
 | Interface |
 |-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
 | `geo:locatable` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:buyer` | `entity:actor` | The buyer which purchased the items. |
-| `:currency` | `econ:currency` | The econ:price of the purchase. |
-| `:paid` | `bool` | Set to True if the purchase has been paid in full. |
-| `:paid:time` | `time` | The point in time where the purchase was paid in full. |
-| `:place` | `geo:place` | The place where the purchase event was located. |
-| `:place:address` | `geo:address` | The postal address where the purchase event was located. |
-| `:place:address:city` | `base:name` | The city where the purchase event was located. |
-| `:place:altitude` | `geo:altitude` | The altitude where the purchase event was located. |
-| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the purchase event was located. |
-| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the purchase event was located. |
-| `:place:country` | `pol:country` | The country where the purchase event was located. |
-| `:place:country:code` | `iso:3166:alpha2` | The country code where the purchase event was located. |
-| `:place:geojson` | `geo:json` | A GeoJSON representation of where the purchase event was located. |
-| `:place:latlong` | `geo:latlong` | The latlong where the purchase event was located. |
-| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the purchase event was located. |
-| `:place:loc` | `loc` | The geopolitical location where the purchase event was located. |
-| `:place:name` | `geo:name` | The name where the purchase event was located. |
-| `:price` | `econ:price` | The econ:price of the purchase. |
-| `:seller` | `entity:actor` | The seller which sold the items. |
-| `:time` | `time` | The time of the purchase. |
+| `:activity` | `meta:activity` | A parent activity which includes this purchase. |
+| `:actor` | `entity:actor` | The actor who carried out the purchase. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the purchase. |
+| `:paid` | `time` | The time when the purchase was paid in full. |
+| `:place` | `geo:place` | The place where the purchase was located. |
+| `:place:address` | `geo:address` | The postal address where the purchase was located. |
+| `:place:address:city` | `base:name` | The city where the purchase was located. |
+| `:place:altitude` | `geo:altitude` | The altitude where the purchase was located. |
+| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the purchase was located. |
+| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the purchase was located. |
+| `:place:country` | `pol:country` | The country where the purchase was located. |
+| `:place:country:code` | `iso:3166:alpha2` | The country code where the purchase was located. |
+| `:place:geojson` | `geo:json` | A GeoJSON representation of where the purchase was located. |
+| `:place:latlong` | `geo:latlong` | The latlong where the purchase was located. |
+| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the purchase was located. |
+| `:place:loc` | `loc` | The geopolitical location where the purchase was located. |
+| `:place:name` | `geo:name` | The name where the purchase was located. |
+| `:price` | `econ:price` | The price of the purchase. |
+| `:seller` | `entity:actor` | The actor who sold the items. |
+| `:seller:name` | `entity:name` | The name of the actor who sold the items. |
+| `:time` | `time` | The time that the purchase occurred. |
 
 ### `econ:receipt`
 
@@ -1392,7 +1450,6 @@ A receipt issued as proof of payment.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:amount` | `econ:price` | The price that the receipt confirms was paid. |
-| `:currency` | `econ:currency` | The currency that the receipt uses to specify the price. |
 | `:issued` | `time` | The time the receipt was issued. |
 | `:issuer` | `entity:actor` | The contact information for the entity which issued the receipt. |
 | `:purchase` | `econ:purchase` | The purchase that the receipt confirms payment for. |
@@ -1405,10 +1462,9 @@ A statement of starting/ending balance and payments for a financial instrument o
 | Property | Type | Doc |
 |----------|------|-----|
 | `:account` | `econ:fin:account` | The financial account described by the statement. |
-| `:currency` | `econ:currency` | The currency used to store the balances. |
-| `:ending:balance` | `econ:price` | The balance at the end of the statement period. |
+| `:balance` | `econ:price` | The balance at the end of the statement period. |
 | `:period` | `ival` | The period that the statement includes. |
-| `:starting:balance` | `econ:price` | The balance at the beginning of the statement period. |
+| `:prev` | `econ:statement` | The statement for the previous period. |
 
 ### `edu:class`
 
@@ -1416,39 +1472,25 @@ An instance of an edu:course taught at a given time.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
-| `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
+| `base:activity` |
+| `entity:participable` |
+| `meta:causal` |
+| `meta:recordable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:assistants` | `array` | An array of assistant/co-instructor contacts. |
+| `:activity` | `meta:activity` | A parent activity which includes this class. |
+| `:assistants` | `array of entity:individual` | An array of assistant/co-instructor contacts. |
 | `:course` | `edu:course` | The course being taught in the class. |
-| `:desc` | `text` | A description of the event. |
+| `:desc` | `text` | A description of the class. |
 | `:instructor` | `entity:individual` | The primary instructor for the class. |
 | `:isvirtual` | `bool` | Set if the class is virtual. |
-| `:name` | `meta:name` | The name of the class. |
-| `:name:base` | `meta:name` | The base name of the class (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the class. |
-| `:owner` | `entity:actor` | The current owner of the item. |
-| `:owner:name` | `entity:name` | The name of the current owner of the item. |
-| `:parent` | `entity:attendable` | The parent event which hosts the event. |
+| `:name` | `base:name` | The name of the class. |
 | `:period` | `ival` | The period over which the class was run. |
-| `:place` | `geo:place` | The place where the item was located. |
-| `:place:address` | `geo:address` | The postal address where the item was located. |
-| `:place:address:city` | `base:name` | The city where the item was located. |
-| `:place:altitude` | `geo:altitude` | The altitude where the item was located. |
-| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the item was located. |
-| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the item was located. |
-| `:place:country` | `pol:country` | The country where the item was located. |
-| `:place:country:code` | `iso:3166:alpha2` | The country code where the item was located. |
-| `:place:geojson` | `geo:json` | A GeoJSON representation of where the item was located. |
-| `:place:latlong` | `geo:latlong` | The latlong where the item was located. |
-| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the item was located. |
-| `:place:loc` | `loc` | The geopolitical location where the item was located. |
-| `:place:name` | `geo:name` | The name where the item was located. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the class. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the class. |
+| `:type` | `meta:event:type:taxonomy` | The type of activity. |
 | `:virtual:provider` | `entity:actor` | Contact info for the virtual infrastructure provider. |
 | `:virtual:url` | `inet:url` | The URL a student would use to attend the virtual class. |
 
@@ -1459,32 +1501,101 @@ A course of study taught by an org.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the course. |
 | `:created` | `time` | The time that the course was created. |
+| `:creator` | `entity:actor` | The primary actor which created the course. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the course. |
 | `:desc` | `str` | A brief course description. |
 | `:id` | `meta:id` | The course catalog number or ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the course. |
 | `:institution` | `ou:org` | The org or department which teaches the course. |
-| `:name` | `meta:name` | The name of the course. |
-| `:prereqs` | `array` | The pre-requisite courses for taking this course. |
-| `:supersedes` | `array` | An array of course versions which are superseded by this course. |
+| `:name` | `base:name` | The name of the course. |
+| `:prereqs` | `array of edu:course` | The pre-requisite courses for taking this course. |
+| `:supersedes` | `array of edu:course` | An array of course versions which are superseded by this course. |
 | `:updated` | `time` | The time that the course was last updated. |
 | `:url` | `inet:url` | The URL where the course is available. |
 | `:version` | `it:version` | The version of the course. |
 
-### `entity:attendee`
+### `entity:achieved`
 
-A person attending an event.
+An event where an actor achieved a goal or was given an award.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:event` | `entity:attendable` | The event that the person attended. |
-| `:period` | `ival` | The time period when the person attended the event. |
-| `:person` | `entity:individual` | The person who attended the event. |
-| `:roles` | `array` | List of the roles the person had at the event. |
+| `:achievement` | `meta:achievable` | The achievement that the actor reached. |
+| `:activity` | `meta:activity` | A parent activity which includes this achieved. |
+| `:actor` | `entity:actor` | The actor who carried out the achieved. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the achieved. |
+| `:time` | `time` | The time that the achieved occurred. |
+
+### `entity:asked`
+
+An event where an actor made an ask as part of a negotiation.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `entity:stance` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:negotiable` | The negotiation activity this ask was part of. |
+| `:actor` | `entity:actor` | The actor who carried out the ask. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the ask. |
+| `:expires` | `time` | The time that the ask expires. |
+| `:time` | `time` | The time that the ask occurred. |
+| `:value` | `econ:price` | The value of the ask. |
+
+### `entity:attended`
+
+A period where an actor attended an event or activity.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | The activity attended by the actor. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:role` | `base:name` | The role the actor played in attending the activity. |
+
+### `entity:believed`
+
+A period where an actor held a belief.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this believed. |
+| `:actor` | `entity:actor` | The actor who carried out the believed. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the believed. |
+| `:belief` | `meta:believable` | The belief held by the actor. |
+| `:period` | `ival` | The period over which the believed occurred. |
 
 ### `entity:campaign`
 
@@ -1492,26 +1603,29 @@ Activity in pursuit of a goal.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `entity:action` |
+| `entity:activity` |
+| `entity:participable` |
+| `entity:supportable` |
+| `meta:causal` |
 | `meta:observable` |
 | `meta:reported` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this campaign. |
 | `:actor` | `entity:actor` | The actor who carried out the campaign. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the campaign. |
-| `:actors` | `array` | Actors who participated in the campaign. |
 | `:budget` | `econ:price` | The budget allocated to execute the campaign. |
-| `:conflict` | `entity:conflict` | The conflict in which this campaign is a primary participant. |
 | `:cost` | `econ:price` | The actual cost of the campaign. |
 | `:created` | `time` | The time when the campaign was created. |
-| `:currency` | `econ:currency` | The currency used to record econ:price properties. |
 | `:desc` | `text` | A description of the campaign. |
 | `:id` | `meta:id` | A unique ID given to the campaign. |
-| `:ids` | `array` | An array of alternate IDs given to the campaign. |
-| `:name` | `meta:name` | The primary name of the campaign. |
-| `:names` | `array` | A list of alternate names for the campaign. |
-| `:period` | `ival` | The time interval when the entity was running the campaign. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the campaign. |
+| `:name` | `base:name` | The primary name of the campaign. |
+| `:names` | `array of base:name` | A list of alternate names for the campaign. |
+| `:period` | `ival` | The period over which the campaign occurred. |
 | `:published` | `time` | The time when the reporter published the campaign. |
 | `:reporter` | `entity:actor` | The entity which reported on the campaign. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the campaign. |
@@ -1521,9 +1635,8 @@ Activity in pursuit of a goal.
 | `:sophistication` | `meta:score` | The assessed sophistication of the campaign. |
 | `:success` | `bool` | Set to true if the campaign achieved its goals. |
 | `:superseded` | `time` | The time when the campaign was superseded. |
-| `:supersedes` | `array` | An array of campaign nodes which are superseded by this campaign. |
+| `:supersedes` | `array of entity:campaign` | An array of campaign nodes which are superseded by this campaign. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes that are associated with the campaign. |
-| `:team` | `ou:team` | The org team responsible for carrying out the campaign. |
 | `:type` | `entity:campaign:type:taxonomy` | A type taxonomy entry for the campaign. |
 | `:updated` | `time` | The time when the campaign was last updated. |
 | `:url` | `inet:url` | The URL for the campaign. |
@@ -1549,11 +1662,17 @@ A hierarchical taxonomy of campaign types.
 
 Represents a conflict where two or more campaigns have mutually exclusive goals.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:adversaries` | `array` | The primary adversaries in conflict with one another. |
-| `:name` | `meta:name` | The name of the conflict. |
-| `:period` | `ival` | The period of time when the conflict was ongoing. |
+| `:activity` | `meta:activity` | A parent activity which includes this conflict. |
+| `:adversaries` | `array of entity:actor` | The primary adversaries in conflict with one another. |
+| `:name` | `event:name` | The name of the conflict. |
+| `:period` | `ival` | The period over which the conflict occurred. |
 
 ### `entity:contact`
 
@@ -1561,10 +1680,10 @@ A set of contact information which is used by an entity.
 
 | Interface |
 |-----------|
-| `entity:abstract` |
 | `entity:actor` |
 | `entity:contactable` |
 | `entity:multiple` |
+| `entity:resolvable` |
 | `entity:singular` |
 | `geo:locatable` |
 | `meta:observable` |
@@ -1586,8 +1705,8 @@ A set of contact information which is used by an entity.
 | `:birth:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the contact was born. |
 | `:birth:place:loc` | `loc` | The geopolitical location where the contact was born. |
 | `:birth:place:name` | `geo:name` | The name where the contact was born. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the contact. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the contact. |
 | `:death:place` | `geo:place` | The place where the contact died. |
 | `:death:place:address` | `geo:address` | The postal address where the contact died. |
 | `:death:place:address:city` | `base:name` | The city where the contact died. |
@@ -1603,18 +1722,18 @@ A set of contact information which is used by an entity.
 | `:death:place:name` | `geo:name` | The name where the contact died. |
 | `:desc` | `text` | A description of the contact. |
 | `:email` | `inet:email` | The primary email address for the contact. |
-| `:emails` | `array` | An array of alternate email addresses for the contact. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the contact. |
 | `:id` | `meta:id` | A type or source specific ID for the contact. |
-| `:identifiers` | `array` | Additional entity identifiers. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the contact. |
-| `:langs` | `array` | An array of alternate languages for the contact. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the contact. |
 | `:lifespan` | `ival` | The lifespan of the contact. |
 | `:name` | `entity:name` | The primary entity name of the contact. |
-| `:names` | `array` | An array of alternate entity names for the contact. |
+| `:names` | `array of entity:name` | An array of alternate entity names for the contact. |
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
 | `:phone` | `tel:phone` | The primary phone number for the contact. |
-| `:phones` | `array` | An array of alternate telephone numbers for the contact. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the contact. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this contact. |
 | `:place` | `geo:place` | The place where the contact was located. |
 | `:place:address` | `geo:address` | The postal address where the contact was located. |
@@ -1629,15 +1748,15 @@ A set of contact information which is used by an entity.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the contact was located. |
 | `:place:loc` | `loc` | The geopolitical location where the contact was located. |
 | `:place:name` | `geo:name` | The name where the contact was located. |
-| `:resolved` | `entity:resolved` | The resolved entity to which this contact belongs. |
+| `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this contact belongs. |
 | `:seen` | `ival` | The contact was observed during the time interval. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the contact. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the contact. |
 | `:title` | `entity:title` | The entity title or role for this contact. |
-| `:titles` | `array` | An array of alternate entity titles or roles for this contact. |
+| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this contact. |
 | `:type` | `entity:contact:type:taxonomy` | The contact type. |
 | `:user` | `inet:user` | The primary user name for the contact. |
-| `:users` | `array` | An array of alternate user names for the contact. |
-| `:websites` | `array` | Web sites listed for the contact. |
+| `:users` | `array of inet:user` | An array of alternate user names for the contact. |
+| `:websites` | `array of inet:url` | Web sites listed for the contact. |
 
 ### `entity:contact:type:taxonomy`
 
@@ -1663,7 +1782,7 @@ A list of contacts.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:name` | `base:name` | The name of the contact list. |
-| `:source` | `ndef` | The source that the contact list was extracted from. |
+| `:source` | `file:bytes`, `inet:service:account`, `it:host` | The source that the contact list was extracted from. |
 
 ### `entity:contribution`
 
@@ -1678,9 +1797,47 @@ Represents a specific instance of contributing material support to a campaign.
 | `:actor` | `entity:actor` | The actor who carried out the contribution. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the contribution. |
 | `:campaign` | `entity:campaign` | The campaign receiving the contribution. |
-| `:currency` | `econ:currency` | The currency used for the assessed value. |
 | `:time` | `time` | The time the contribution occurred. |
 | `:value` | `econ:price` | The assessed value of the contribution. |
+
+### `entity:created`
+
+An activity where an actor helped to create an item.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:item` | `entity:creatable` | The item which the actor helped to create. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:role` | `entity:title` | The role which the actor played in creating the item. |
+
+### `entity:discovered`
+
+An event where an entity made a discovery.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this discovery. |
+| `:actor` | `entity:actor` | The actor who carried out the discovery. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the discovery. |
+| `:item` | `meta:discoverable` | The item discovered by the actor. |
+| `:time` | `time` | The time that the discovery occurred. |
 
 ### `entity:discovery`
 
@@ -1698,6 +1855,7 @@ A stated or assessed goal.
 
 | Interface |
 |-----------|
+| `meta:achievable` |
 | `meta:reported` |
 
 | Property | Type | Doc |
@@ -1705,15 +1863,15 @@ A stated or assessed goal.
 | `:created` | `time` | The time when the goal was created. |
 | `:desc` | `text` | A description of the goal. |
 | `:id` | `meta:id` | A unique ID given to the goal. |
-| `:ids` | `array` | An array of alternate IDs given to the goal. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the goal. |
 | `:name` | `base:name` | A terse name for the goal. |
-| `:names` | `array` | Alternative names for the goal. |
+| `:names` | `array of base:name` | Alternative names for the goal. |
 | `:published` | `time` | The time when the reporter published the goal. |
 | `:reporter` | `entity:actor` | The entity which reported on the goal. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the goal. |
 | `:resolved` | `entity:goal` | The authoritative goal which this reporting is about. |
 | `:superseded` | `time` | The time when the goal was superseded. |
-| `:supersedes` | `array` | An array of goal nodes which are superseded by this goal. |
+| `:supersedes` | `array of entity:goal` | An array of goal nodes which are superseded by this goal. |
 | `:type` | `entity:goal:type:taxonomy` | A type taxonomy entry for the goal. |
 | `:updated` | `time` | The time when the goal was last updated. |
 | `:url` | `inet:url` | The URL for the goal. |
@@ -1777,21 +1935,21 @@ Historical contact information about another contact.
 |----------|------|-----|
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
 | `:bio` | `text` | A tagline or bio provided for the contact history. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the contact history. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the contact history. |
 | `:current` | `entity:contactable` | The current version of this historical contact. |
 | `:desc` | `text` | A description of the contact history. |
 | `:email` | `inet:email` | The primary email address for the contact history. |
-| `:emails` | `array` | An array of alternate email addresses for the contact history. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the contact history. |
 | `:id` | `meta:id` | A type or source specific ID for the contact history. |
-| `:identifiers` | `array` | Additional entity identifiers. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the contact history. |
-| `:langs` | `array` | An array of alternate languages for the contact history. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the contact history. |
 | `:lifespan` | `ival` | The lifespan of the contact history. |
 | `:name` | `entity:name` | The primary entity name of the contact history. |
-| `:names` | `array` | An array of alternate entity names for the contact history. |
+| `:names` | `array of entity:name` | An array of alternate entity names for the contact history. |
 | `:phone` | `tel:phone` | The primary phone number for the contact history. |
-| `:phones` | `array` | An array of alternate telephone numbers for the contact history. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the contact history. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this contact history. |
 | `:place` | `geo:place` | The place where the contact history was located. |
 | `:place:address` | `geo:address` | The postal address where the contact history was located. |
@@ -1806,22 +1964,113 @@ Historical contact information about another contact.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the contact history was located. |
 | `:place:loc` | `loc` | The geopolitical location where the contact history was located. |
 | `:place:name` | `geo:name` | The name where the contact history was located. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the contact history. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the contact history. |
 | `:user` | `inet:user` | The primary user name for the contact history. |
-| `:users` | `array` | An array of alternate user names for the contact history. |
-| `:websites` | `array` | Web sites listed for the contact history. |
+| `:users` | `array of inet:user` | An array of alternate user names for the contact history. |
+| `:websites` | `array of inet:url` | Web sites listed for the contact history. |
+
+### `entity:motive`
+
+A goal held by an actor for a period of time.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:goal` | `entity:goal` | The goal which motivated the actor. |
+| `:period` | `ival` | The period over which the activity occurred. |
 
 ### `entity:name`
 
 A name used to refer to an entity.
 
+### `entity:offered`
+
+An event where an actor made an offer as part of a negotiation.
+
 | Interface |
 |-----------|
-| `meta:observable` |
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `entity:stance` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
+| `:activity` | `meta:negotiable` | The negotiation activity this offer was part of. |
+| `:actor` | `entity:actor` | The actor who carried out the offer. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the offer. |
+| `:expires` | `time` | The time that the offer expires. |
+| `:time` | `time` | The time that the offer occurred. |
+| `:value` | `econ:price` | The value of the offer. |
+
+### `entity:participated`
+
+A period where an actor participated in an activity.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `entity:participable` | The activity which the actor participated in. |
+| `:actor` | `entity:actor` | The actor who carried out the participation. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the participation. |
+| `:period` | `ival` | The period over which the participation occurred. |
+| `:role` | `entity:title` | The role which the actor played in the activity. |
+
+### `entity:proficiency`
+
+A period of time where an actor had proficiency with a skill.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:level` | `meta:score` | The level of proficiency. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:skill` | `edu:learnable` | The topic or skill in which the contact is proficient. |
+
+### `entity:registered`
+
+An event where an actor registered for an event or activity.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `entity:participable` | The activity which the actor registered for. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:request` | `inet:proto:request` | The request which the actor sent in order to register. |
+| `:role` | `entity:title` | The role which the actor registered for. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `entity:relationship`
 
@@ -1836,9 +2085,9 @@ A directional relationship between two actor entities.
 | `:created` | `time` | The time when the relationship was created. |
 | `:desc` | `text` | A description of the relationship. |
 | `:id` | `meta:id` | A unique ID given to the relationship. |
-| `:ids` | `array` | An array of alternate IDs given to the relationship. |
-| `:name` | `meta:name` | The primary name of the relationship. |
-| `:names` | `array` | A list of alternate names for the relationship. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the relationship. |
+| `:name` | `base:name` | The primary name of the relationship. |
+| `:names` | `array of base:name` | A list of alternate names for the relationship. |
 | `:period` | `ival` | The time period when the relationship existed. |
 | `:published` | `time` | The time when the reporter published the relationship. |
 | `:reporter` | `entity:actor` | The entity which reported on the relationship. |
@@ -1846,7 +2095,7 @@ A directional relationship between two actor entities.
 | `:resolved` | `entity:relationship` | The authoritative relationship which this reporting is about. |
 | `:source` | `entity:actor` | The source entity in the relationship. |
 | `:superseded` | `time` | The time when the relationship was superseded. |
-| `:supersedes` | `array` | An array of relationship nodes which are superseded by this relationship. |
+| `:supersedes` | `array of entity:relationship` | An array of relationship nodes which are superseded by this relationship. |
 | `:target` | `entity:actor` | The target entity in the relationship. |
 | `:type` | `entity:relationship:type:taxonomy` | The type of relationship. |
 | `:updated` | `time` | The time when the relationship was last updated. |
@@ -1869,9 +2118,95 @@ A hierarchical taxonomy of entity relationship types.
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
 
+### `entity:said`
+
+A statement made by an actor.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+| `meta:recordable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this statement. |
+| `:actor` | `entity:actor` | The actor who carried out the statement. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the statement. |
+| `:period` | `ival` | The period over which the statement occurred. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the statement. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the statement. |
+| `:text` | `str` | The transcribed text of what the actor said. |
+
+### `entity:signed`
+
+An event where an actor signed a document.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this signed. |
+| `:actor` | `entity:actor` | The actor who carried out the signed. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the signed. |
+| `:doc` | `doc:signable` | The document which the actor signed. |
+| `:time` | `time` | The time that the signed occurred. |
+
+### `entity:studied`
+
+A period when an actor studied or was educated.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this studied. |
+| `:actor` | `entity:actor` | The actor who carried out the studied. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the studied. |
+| `:institution` | `ou:org` | The organization providing educational services. |
+| `:period` | `ival` | The period over which the studied occurred. |
+
+### `entity:supported`
+
+A period where an actor supported, sponsored, or materially contributed to an activity or cause.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `entity:supportable` | The activity which the actor supported. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:desc` | `text` | A description of the actors support of the activity. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:role` | `entity:title` | The role the actor played in supporting the activity. |
+| `:value` | `econ:price` | The financial value of the support given by the actor. |
+
 ### `entity:title`
 
 A title or position name used by an entity.
+
+| Interface |
+|-----------|
+| `risk:targetable` |
 
 ### `file:archive:entry`
 
@@ -1934,7 +2269,7 @@ A file.
 |----------|------|-----|
 | `:md5` | `crypto:hash:md5` | The MD5 hash of the file. |
 | `:mime` | `file:mime` | The "best" mime type name for the file. |
-| `:mimes` | `array` | An array of alternate mime types for the file. |
+| `:mimes` | `array of file:mime` | An array of alternate mime types for the file. |
 | `:name` | `file:base` | The best known base name for the file. |
 | `:seen` | `ival` | The file was observed during the time interval. |
 | `:sha1` | `crypto:hash:sha1` | The SHA1 hash of the file. |
@@ -1986,13 +2321,13 @@ Metadata about an ELF executable file.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:compiler` | `it:software` | The software used to compile the ELF executable. |
-| `:compiler:name` | `meta:name` | The name of the software used to compile the ELF executable. |
+| `:compiler:name` | `it:softwarename` | The name of the software used to compile the ELF executable. |
 | `:file` | `file:bytes` | The file that the mime info was parsed from. |
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:packer` | `it:software` | The software used to pack the ELF executable. |
-| `:packer:name` | `meta:name` | The name of the software used to pack the ELF executable. |
+| `:packer:name` | `it:softwarename` | The name of the software used to pack the ELF executable. |
 
 ### `file:mime:gif`
 
@@ -2016,7 +2351,7 @@ The GUID of a set of mime metadata for a .gif file.
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
-| `:text` | `str` | The text contained within the image. |
+| `:text` | `base:name` | The text contained within the image. |
 
 ### `file:mime:jpg`
 
@@ -2040,7 +2375,7 @@ The GUID of a set of mime metadata for a .jpg file.
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
-| `:text` | `str` | The text contained within the image. |
+| `:text` | `base:name` | The text contained within the image. |
 
 ### `file:mime:lnk`
 
@@ -2089,13 +2424,13 @@ Metadata about a Mach-O executable file.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:compiler` | `it:software` | The software used to compile the Mach-O executable. |
-| `:compiler:name` | `meta:name` | The name of the software used to compile the Mach-O executable. |
+| `:compiler:name` | `it:softwarename` | The name of the software used to compile the Mach-O executable. |
 | `:file` | `file:bytes` | The file that the mime info was parsed from. |
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:packer` | `it:software` | The software used to pack the Mach-O executable. |
-| `:packer:name` | `meta:name` | The name of the software used to pack the Mach-O executable. |
+| `:packer:name` | `it:softwarename` | The name of the software used to pack the Mach-O executable. |
 
 ### `file:mime:macho:loadcmd`
 
@@ -2111,7 +2446,7 @@ A generic load command pulled from the Mach-O headers.
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:type` | `int` | The type of the load command. |
+| `:type` | `file:macho:loadcmd:type` | The type of the load command. |
 
 ### `file:mime:macho:section`
 
@@ -2130,7 +2465,7 @@ A section inside a Mach-O binary denoting a named region of bytes inside a segme
 | `:name` | `str` | Name of the section. |
 | `:segment` | `file:mime:macho:segment` | The Mach-O segment that contains this section. |
 | `:sha256` | `crypto:hash:sha256` | The sha256 hash of the bytes of the Mach-O section. |
-| `:type` | `int` | The type of the section. |
+| `:type` | `file:macho:section:type` | The type of the section. |
 
 ### `file:mime:macho:segment`
 
@@ -2150,7 +2485,7 @@ A named region of bytes inside a Mach-O binary.
 | `:memsize` | `int` | The size of the segment in bytes, when resident in memory, according to the load command structure. |
 | `:name` | `str` | The name of the Mach-O segment. |
 | `:sha256` | `crypto:hash:sha256` | The sha256 hash of the bytes of the segment. |
-| `:type` | `int` | The type of the load command. |
+| `:type` | `file:macho:loadcmd:type` | The type of the load command. |
 
 ### `file:mime:macho:uuid`
 
@@ -2166,7 +2501,7 @@ A specific load command denoting a UUID used to uniquely identify the Mach-O bin
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:type` | `int` | The type of the load command. |
+| `:type` | `file:macho:loadcmd:type` | The type of the load command. |
 | `:uuid` | `guid` | The UUID of the Mach-O application (as defined in an LC_UUID load command). |
 
 ### `file:mime:macho:version`
@@ -2183,7 +2518,7 @@ A specific load command used to denote the version of the source used to build t
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:type` | `int` | The type of the load command. |
+| `:type` | `file:macho:loadcmd:type` | The type of the load command. |
 | `:version` | `str` | The version of the Mach-O file encoded in an LC_VERSION load command. |
 
 ### `file:mime:msdoc`
@@ -2269,7 +2604,7 @@ Metadata extracted from a Portable Document Format (PDF) file.
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:id` | `str` | The "DocumentID" field extracted from PDF metadata. |
-| `:keywords` | `array` | The "Keywords" field extracted from PDF metadata. |
+| `:keywords` | `array of meta:topic` | The "Keywords" field extracted from PDF metadata. |
 | `:language:name` | `lang:name` | The "Language" field extracted from PDF metadata. |
 | `:producer:name` | `it:softwarename` | The "Producer" field extracted from PDF metadata. |
 | `:subject` | `text` | The "Subject" field extracted from PDF metadata. |
@@ -2290,7 +2625,7 @@ Metadata about a Microsoft Portable Executable (PE) file.
 |----------|------|-----|
 | `:compiled` | `time` | The PE compile time of the file. |
 | `:compiler` | `it:software` | The software used to compile the PE executable. |
-| `:compiler:name` | `meta:name` | The name of the software used to compile the PE executable. |
+| `:compiler:name` | `it:softwarename` | The name of the software used to compile the PE executable. |
 | `:exports:libname` | `file:path` | The export library name according to the PE. |
 | `:exports:time` | `time` | The export time of the file. |
 | `:file` | `file:bytes` | The file that the mime info was parsed from. |
@@ -2299,11 +2634,11 @@ Metadata about a Microsoft Portable Executable (PE) file.
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:imphash` | `crypto:hash:md5` | The PE import hash of the file as calculated by pefile; https://github.com/erocarrera/pefile . |
 | `:packer` | `it:software` | The software used to pack the PE executable. |
-| `:packer:name` | `meta:name` | The name of the software used to pack the PE executable. |
+| `:packer:name` | `it:softwarename` | The name of the software used to pack the PE executable. |
 | `:pdbpath` | `file:path` | The PDB file path. |
 | `:richheader` | `crypto:hash:sha256` | The sha256 hash of the rich header bytes. |
 | `:size` | `int` | The size of the executable file according to the PE file header. |
-| `:versioninfo` | `array` | The VS_VERSIONINFO key/value data from the PE file. |
+| `:versioninfo` | `array of file:mime:pe:vsvers:keyval` | The VS_VERSIONINFO key/value data from the PE file. |
 
 ### `file:mime:pe:export`
 
@@ -2388,7 +2723,7 @@ The GUID of a set of mime metadata for a .png file.
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
-| `:text` | `str` | The text contained within the image. |
+| `:text` | `base:name` | The text contained within the image. |
 
 ### `file:mime:rar:entry`
 
@@ -2450,7 +2785,7 @@ The GUID of a set of mime metadata for a .tif file.
 | `:file:size` | `int` | The size of the metadata within the file. |
 | `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
-| `:text` | `str` | The text contained within the image. |
+| `:text` | `base:name` | The text contained within the image. |
 
 ### `file:mime:zip:entry`
 
@@ -2551,14 +2886,6 @@ A file entry contained by a host filesystem.
 
 An unstructured place name or address.
 
-| Interface |
-|-----------|
-| `meta:observable` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
-
 ### `geo:place`
 
 A geographic place.
@@ -2583,7 +2910,7 @@ A geographic place.
 | `:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the place was located. |
 | `:loc` | `loc` | The geopolitical location where the place was located. |
 | `:name` | `geo:name` | The name of the place. |
-| `:names` | `array` | An array of alternative place names. |
+| `:names` | `array of geo:name` | An array of alternative place names. |
 | `:photo` | `file:bytes` | The image file to use as the primary image of the place. |
 | `:type` | `geo:place:type:taxonomy` | The type of place. |
 
@@ -2611,15 +2938,12 @@ The geospatial position and physical characteristics of a node at a given time.
 | Interface |
 |-----------|
 | `geo:locatable` |
-| `meta:havable` |
-| `phys:object` |
+| `phys:tangible` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `str` | A description of the telemetry sample. |
-| `:node` | `ndef` | The node that was observed at the associated time and place. |
-| `:owner` | `entity:actor` | The current owner of the item. |
-| `:owner:name` | `entity:name` | The name of the current owner of the item. |
+| `:node` | `meta:observable` | The node that was observed at the associated time and place. |
 | `:phys:height` | `geo:dist` | The physical height of the object. |
 | `:phys:length` | `geo:dist` | The physical length of the object. |
 | `:phys:mass` | `mass` | The physical mass of the object. |
@@ -2667,15 +2991,15 @@ A Commercial and Government Entity (CAGE) code.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:cc` | `iso:3166:alpha2` | The country code in the CAGE code record. |
-| `:city` | `str` | The city in the CAGE code record. |
-| `:country` | `str` | The country in the CAGE code record. |
+| `:city` | `str:lower` | The city in the CAGE code record. |
+| `:country` | `str:lower` | The country in the CAGE code record. |
 | `:name0` | `entity:name` | The name of the organization. |
-| `:name1` | `str` | Name Part 1. |
+| `:name1` | `str:lower` | Name Part 1. |
 | `:org` | `ou:org` | The organization which was issued the CAGE code. |
 | `:phone0` | `tel:phone` | The primary phone number in the CAGE code record. |
 | `:phone1` | `tel:phone` | The alternate phone number in the CAGE code record. |
-| `:state` | `str` | The state in the CAGE code record. |
-| `:street` | `str` | The street in the CAGE code record. |
+| `:state` | `str:lower` | The state in the CAGE code record. |
+| `:street` | `str:lower` | The street in the CAGE code record. |
 | `:zip` | `gov:us:zip` | The zip code in the CAGE code record. |
 
 ### `gov:us:ssn`
@@ -2755,12 +3079,11 @@ A network client address.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:ip` | `inet:ip` | The IP of the client. |
-| `:port` | `inet:port` | The client tcp/udp port. |
-| `:proto` | `str` | The network protocol of the client. |
+| `:proto` | `str:lower` | The network protocol of the client. |
 | `:seen` | `ival` | The network client was observed during the time interval. |
 
 ### `inet:dns:a`
@@ -2798,7 +3121,7 @@ A single answer from within a DNS reply.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:mx:priority` | `int` | The DNS MX record priority. |
-| `:record` | `inet:dns:record` | The DNS record returned by the lookup. |
+| `:record` | `inet:dns:a`, `inet:dns:aaaa`, `inet:dns:cname`, `inet:dns:mx`, `inet:dns:ns`, `inet:dns:rev`, `inet:dns:soa`, `inet:dns:txt` | The DNS record returned by the lookup. |
 | `:request` | `inet:dns:request` | The DNS request that was answered. |
 | `:time` | `time` | The time that the DNS response was transmitted. |
 | `:ttl` | `int` | The time to live value of the DNS record in the response. |
@@ -2887,27 +3210,30 @@ A single instance of a DNS resolver request and optional reply info.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
 | `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the request. |
-| `:client:host` | `it:host` | The client host which initiated the request. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the request. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:query` | `inet:dns:query` | The DNS query contained in the request. |
 | `:query:name` | `inet:dns:name` | The DNS query name string in the request. |
 | `:query:name:fqdn` | `inet:fqdn` | The FQDN in the DNS query name string. |
 | `:query:name:ip` | `inet:ip` | The IP address in the DNS query name string. |
 | `:query:type` | `int` | The type of record requested in the query. |
-| `:reply:code` | `int` | The DNS server response code. |
+| `:reply:code` | `dns:reply:code` | The DNS server response code. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the request. |
-| `:server:host` | `it:host` | The server host which received the request. |
-| `:server:proc` | `it:exec:proc` | The server process which received the request. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:time` | `time` | The time the request was sent. |
 
 ### `inet:dns:rev`
@@ -3009,7 +3335,7 @@ An email address.
 |----------|------|-----|
 | `:base` | `inet:email` | The base email address which is populated if the email address contains a user with a +<tag>. |
 | `:fqdn` | `inet:fqdn` | The domain of the email address. |
-| `:plus` | `str` | The optional email address "tag". |
+| `:plus` | `str:lower` | The optional email address "tag". |
 | `:seen` | `ival` | The email address was observed during the time interval. |
 | `:user` | `inet:user` | The username of the email address. |
 
@@ -3033,30 +3359,21 @@ An individual email message delivered to an inbox.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:attachments` | `array` | An array of files attached to the email message. |
+| `:attachments` | `array of file:attachment` | An array of files attached to the email message. |
 | `:body` | `text` | The body of the email message. |
 | `:bytes` | `file:bytes` | The file bytes which contain the email message. |
-| `:cc` | `array` | Email addresses parsed from the "cc" header. |
+| `:cc` | `array of inet:email` | Email addresses parsed from the "cc" header. |
 | `:date` | `time` | The time the email message was delivered. |
 | `:flow` | `inet:flow` | The inet:flow which delivered the message. |
 | `:from` | `inet:email` | The email address of the sender. |
-| `:headers` | `array` | An array of email headers from the message. |
+| `:headers` | `array of inet:email:header` | An array of email headers from the message. |
 | `:id` | `meta:id` | The ID parsed from the "message-id" header. |
-| `:links` | `array` | An array of links embedded in the email message. |
+| `:links` | `array of inet:hyperlink` | An array of links embedded in the email message. |
 | `:received:from:fqdn` | `inet:fqdn` | The sending server FQDN, potentially from the Received: header. |
 | `:received:from:ip` | `inet:ip` | The sending SMTP server IP, potentially from the Received: header. |
 | `:replyto` | `inet:email` | The email address parsed from the "reply-to" header. |
 | `:subject` | `str` | The email message subject parsed from the "subject" header. |
 | `:to` | `inet:email` | The email address of the recipient. |
-
-### `inet:email:message:link`
-
-A url/link embedded in an email message.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:text` | `str` | The displayed hyperlink text if it was not the URL. |
-| `:url` | `inet:url` | The url contained within the email message. |
 
 ### `inet:flow`
 
@@ -3064,36 +3381,38 @@ A network connection between a client and server.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `inet:proto:link` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this network flow. |
 | `:capture:host` | `it:host` | The host which captured the flow. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:cpes` | `array` | An array of NIST CPEs identified on the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the flow. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the network flow. |
 | `:client:handshake` | `text` | A text representation of the initial handshake sent by the client. |
-| `:client:host` | `it:host` | The client host which initiated the flow. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the flow. |
-| `:client:softnames` | `array` | An array of software names identified on the client. |
+| `:client:host` | `it:host` | The client host which initiated the network flow. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the network flow. |
+| `:client:software:cpes` | `array of it:sec:cpe` | An array of NIST CPEs identified on the client. |
+| `:client:software:names` | `array of it:softwarename` | An array of software names identified on the client. |
 | `:client:txbytes` | `int` | The number of bytes sent by the client. |
 | `:client:txcount` | `int` | The number of packets sent by the client. |
-| `:client:txfiles` | `array` | An array of files sent by the client. |
-| `:flow` | `inet:flow` | The network flow which contained the flow. |
+| `:client:txfiles` | `array of file:attachment` | An array of files sent by the client. |
 | `:ip:proto` | `int` | The IP protocol number of the flow. |
 | `:ip:tcp:flags` | `int` | An aggregation of observed TCP flags commonly provided by flow APIs. |
-| `:period` | `ival` | The period when the flow was active. |
+| `:period` | `ival` | The period over which the network flow occurred. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:cpes` | `array` | An array of NIST CPEs identified on the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the flow. |
+| `:server:exe` | `file:bytes` | The server executable which received the network flow. |
 | `:server:handshake` | `text` | A text representation of the initial handshake sent by the server. |
-| `:server:host` | `it:host` | The server host which received the flow. |
-| `:server:proc` | `it:exec:proc` | The server process which received the flow. |
-| `:server:softnames` | `array` | An array of software names identified on the server. |
+| `:server:host` | `it:host` | The server host which received the network flow. |
+| `:server:proc` | `it:exec:proc` | The server process which received the network flow. |
+| `:server:software:cpes` | `array of it:sec:cpe` | An array of NIST CPEs identified on the server. |
+| `:server:software:names` | `array of it:softwarename` | An array of software names identified on the server. |
 | `:server:txbytes` | `int` | The number of bytes sent by the server. |
 | `:server:txcount` | `int` | The number of packets sent by the server. |
-| `:server:txfiles` | `array` | An array of files sent by the server. |
+| `:server:txfiles` | `array of file:attachment` | An array of files sent by the server. |
 | `:tot:txbytes` | `int` | The number of bytes sent in both directions. |
 | `:tot:txcount` | `int` | The number of packets sent in both directions. |
 
@@ -3108,7 +3427,7 @@ A Fully Qualified Domain Name (FQDN).
 | Property | Type | Doc |
 |----------|------|-----|
 | `:domain` | `inet:fqdn` | The parent domain for the FQDN. |
-| `:host` | `str` | The host part of the FQDN. |
+| `:host` | `str:lower` | The host part of the FQDN. |
 | `:issuffix` | `bool` | True if the FQDN is considered a suffix. |
 | `:iszone` | `bool` | True if the FQDN is considered a zone. |
 | `:seen` | `ival` | The FQDN was observed during the time interval. |
@@ -3129,7 +3448,7 @@ An HTTP request path query parameter.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `str` | The name of the HTTP query parameter. |
+| `:name` | `str:lower` | The name of the HTTP query parameter. |
 | `:value` | `str` | The value of the HTTP query parameter. |
 
 ### `inet:http:request`
@@ -3138,34 +3457,37 @@ A single HTTP request.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
 | `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:body` | `file:bytes` | The body of the HTTP request. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the request. |
-| `:client:host` | `it:host` | The client host which initiated the request. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the request. |
-| `:cookies` | `array` | An array of HTTP cookie values parsed from the "Cookies:" header in the request. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:cookies` | `array of inet:http:cookie` | An array of HTTP cookie values parsed from the "Cookies:" header in the request. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:header:host` | `inet:fqdn` | The FQDN parsed from the "Host:" header in the request. |
 | `:header:referer` | `inet:url` | The referer URL parsed from the "Referer:" header in the request. |
-| `:headers` | `array` | An array of HTTP headers from the request. |
+| `:headers` | `array of inet:http:request:header` | An array of HTTP headers from the request. |
 | `:method` | `str` | The HTTP request method string. |
 | `:path` | `str` | The requested HTTP path (without query parameters). |
 | `:query` | `str` | The HTTP query string which optionally follows the path. |
 | `:response:body` | `file:bytes` | The HTTP response body received. |
 | `:response:code` | `int` | The HTTP response code received. |
-| `:response:headers` | `array` | An array of HTTP headers from the response. |
+| `:response:headers` | `array of inet:http:response:header` | An array of HTTP headers from the response. |
 | `:response:reason` | `str` | The HTTP response reason phrase received. |
 | `:response:time` | `time` | The time a response to the request was received. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the request. |
-| `:server:host` | `it:host` | The server host which received the request. |
-| `:server:proc` | `it:exec:proc` | The server process which received the request. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:session` | `inet:http:session` | The HTTP session this request was part of. |
 | `:time` | `time` | The time the request was sent. |
 | `:url` | `inet:url` | The reconstructed URL for the request if known. |
@@ -3200,7 +3522,16 @@ An HTTP session.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:contact` | `entity:contact` | The entity contact which owns the session. |
-| `:cookies` | `array` | An array of cookies used to identify this specific session. |
+| `:cookies` | `array of inet:http:cookie` | An array of cookies used to identify this specific session. |
+
+### `inet:hyperlink`
+
+A URL link embedded in a message.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:title` | `str` | The displayed hyperlink text if it was not the URL. |
+| `:url` | `inet:url` | The URL target of the hyperlink. |
 
 ### `inet:iface`
 
@@ -3264,10 +3595,10 @@ An IPv4 or IPv6 address.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the IP address was located. |
 | `:place:loc` | `loc` | The geopolitical location where the IP address was located. |
 | `:place:name` | `geo:name` | The name where the IP address was located. |
-| `:scope` | `str` | The IPv6 scope of the address (e.g., global, link-local, etc.). |
+| `:scope` | `inet:ipscope` | The IPv6 scope of the address (e.g., global, link-local, etc.). |
 | `:seen` | `ival` | The IP address was observed during the time interval. |
 | `:type` | `str` | The type of IP address (e.g., private, multicast, etc.). |
-| `:version` | `int` | The IP version of the address. |
+| `:version` | `inet:ipversion` | The IP version of the address. |
 
 ### `inet:mac`
 
@@ -3306,23 +3637,26 @@ An instance of an RDP handshake between a client and server.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
 | `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the request. |
-| `:client:host` | `it:host` | The client host which initiated the request. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:hostname` | `it:hostname` | The hostname sent by the client as part of an RDP session setup. |
-| `:client:keyboard:layout` | `str` | The keyboard layout sent by the client as part of an RDP session setup. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the request. |
+| `:client:keyboard:layout` | `base:name` | The keyboard layout sent by the client as part of an RDP session setup. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the request. |
-| `:server:host` | `it:host` | The server host which received the request. |
-| `:server:proc` | `it:exec:proc` | The server process which received the request. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:time` | `time` | The time the request was sent. |
 
 ### `inet:rfc2822:addr`
@@ -3378,8 +3712,8 @@ A single result from a web search.
 |----------|------|-----|
 | `:query` | `inet:search:query` | The search query that produced the result. |
 | `:rank` | `int` | The rank/order of the query result. |
-| `:text` | `str` | Extracted/matched text from the matched content. |
-| `:title` | `str` | The title of the matching web page. |
+| `:text` | `str:lower` | Extracted/matched text from the matched content. |
+| `:title` | `str:lower` | The title of the matching web page. |
 | `:url` | `inet:url` | The URL hosting the matching content. |
 
 ### `inet:server`
@@ -3389,12 +3723,11 @@ A network server address.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:ip` | `inet:ip` | The IP of the server. |
-| `:port` | `inet:port` | The server tcp/udp port. |
-| `:proto` | `str` | The network protocol of the server. |
+| `:proto` | `str:lower` | The network protocol of the server. |
 | `:seen` | `ival` | The network server was observed during the time interval. |
 
 ### `inet:serverfile`
@@ -3439,7 +3772,7 @@ Represents a user access request to a service resource.
 | `:session` | `inet:service:session` | The session which initiated the action. |
 | `:success` | `bool` | Set to true if the action was successful. |
 | `:time` | `time` | The time that the account initiated the action. |
-| `:type` | `int` | The type of access requested. |
+| `:type` | `inet:svcaccess:type` | The type of access requested. |
 
 ### `inet:service:account`
 
@@ -3448,9 +3781,9 @@ An account within a service platform. Accounts may be instance specific.
 | Interface |
 |-----------|
 | `econ:pay:instrument` |
-| `entity:abstract` |
 | `entity:actor` |
 | `entity:multiple` |
+| `entity:resolvable` |
 | `entity:singular` |
 | `geo:locatable` |
 | `inet:service:base` |
@@ -3475,7 +3808,7 @@ An account within a service platform. Accounts may be instance specific.
 | `:birth:place:loc` | `loc` | The geopolitical location where the service account was born. |
 | `:birth:place:name` | `geo:name` | The name where the service account was born. |
 | `:creator` | `inet:service:account` | The service account which created the service account. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
 | `:death:place` | `geo:place` | The place where the service account died. |
 | `:death:place:address` | `geo:address` | The postal address where the service account died. |
 | `:death:place:address:city` | `base:name` | The city where the service account died. |
@@ -3499,13 +3832,13 @@ An account within a service platform. Accounts may be instance specific.
 | `:platform` | `inet:service:platform` | The platform which defines the service account. |
 | `:profile` | `entity:contact` | Current detailed contact information for the service account. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the service account. |
-| `:resolved` | `entity:resolved` | The resolved entity to which this service account belongs. |
-| `:rules` | `array` | An array of rules associated with this account. |
+| `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this service account belongs. |
+| `:rules` | `array of inet:service:rule` | An array of rules associated with this account. |
 | `:seen` | `ival` | The service account was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the service account. |
 | `:tenant` | `inet:service:tenant` | The tenant which contains the account. |
 | `:title` | `entity:title` | The entity title or role for this service account. |
-| `:titles` | `array` | An array of alternate entity titles or roles for this service account. |
+| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this service account. |
 | `:url` | `inet:url` | The primary URL associated with the service account. |
 | `:user` | `inet:user` | The primary user name for the service account. |
 
@@ -3515,6 +3848,7 @@ An instance of a deployed agent or software integration which is part of the ser
 
 | Interface |
 |-----------|
+| `entity:actor` |
 | `inet:service:base` |
 | `inet:service:object` |
 | `meta:observable` |
@@ -3524,8 +3858,8 @@ An instance of a deployed agent or software integration which is part of the ser
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:desc` | `str` | A description of the deployed service agent instance. |
 | `:id` | `meta:id` | A platform specific ID which identifies the node. |
-| `:name` | `str` | The name of the service agent instance. |
-| `:names` | `array` | An array of alternate names for the service agent instance. |
+| `:name` | `base:name` | The name of the service agent instance. |
+| `:names` | `array of base:name` | An array of alternate names for the service agent instance. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the object. |
@@ -3549,7 +3883,7 @@ A file/blob storage object within a service architecture.
 | `:creator` | `inet:service:account` | The service account which created the bucket. |
 | `:desc` | `text` | A description of the service resource. |
 | `:id` | `meta:id` | A platform specific ID which identifies the bucket. |
-| `:name` | `str` | The name of the service resource. |
+| `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the bucket existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the bucket. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the bucket. |
@@ -3576,7 +3910,7 @@ An individual file stored within a bucket.
 | `:file` | `file:bytes` | The bytes stored within the bucket item. |
 | `:file:name` | `file:path` | The name of the file stored in the bucket item. |
 | `:id` | `meta:id` | A platform specific ID which identifies the bucket item. |
-| `:name` | `str` | The name of the service resource. |
+| `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the bucket item existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the bucket item. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the bucket item. |
@@ -3600,7 +3934,7 @@ A channel used to distribute messages.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the channel. |
 | `:id` | `meta:id` | A platform specific ID which identifies the channel. |
-| `:name` | `str` | The name of the channel. |
+| `:name` | `base:name` | The name of the channel. |
 | `:period` | `ival` | The time period where the channel was available. |
 | `:platform` | `inet:service:platform` | The platform which defines the channel. |
 | `:profile` | `entity:contact` | Current detailed contact information for this channel. |
@@ -3649,7 +3983,7 @@ A login event for a service account.
 | `:client` | `inet:client` | The network address of the client which initiated the action. |
 | `:client:host` | `it:host` | The client host which initiated the action. |
 | `:client:software` | `it:software` | The client software used to initiate the action. |
-| `:creds` | `array` | The credentials that were used to login. |
+| `:creds` | `array of auth:credential` | The credentials that were used to login. |
 | `:error:code` | `str` | The platform specific error code if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
 | `:id` | `meta:id` | A platform specific ID which identifies the node. |
@@ -3716,21 +4050,21 @@ A message or post created by an account.
 |----------|------|-----|
 | `:account` | `inet:service:account` | The account which sent the message. |
 | `:agent` | `inet:service:agent` | The service agent which performed the action potentially on behalf of an account. |
-| `:attachments` | `array` | An array of files attached to the message. |
+| `:attachments` | `array of file:attachment` | An array of files attached to the message. |
 | `:channel` | `inet:service:channel` | The channel that the message was sent to. |
 | `:client` | `inet:client` | The network address of the client which initiated the action. |
 | `:client:host` | `it:host` | The client host which initiated the action. |
 | `:client:software` | `it:software` | The client software version used to send the message. |
-| `:client:software:name` | `meta:name` | The name of the client software used to send the message. |
+| `:client:software:name` | `it:softwarename` | The name of the client software used to send the message. |
 | `:error:code` | `str` | The platform specific error code if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
 | `:file` | `file:bytes` | The raw file that the message was extracted from. |
-| `:hashtags` | `array` | An array of hashtags mentioned within the message. |
+| `:hashtags` | `array of lang:hashtag` | An array of hashtags mentioned within the message. |
 | `:id` | `meta:id` | A platform specific ID which identifies the node. |
-| `:links` | `array` | An array of links contained within the message. |
-| `:mentions` | `array` | Contactable entities mentioned within the message. |
+| `:links` | `array of inet:hyperlink` | An array of links contained within the message. |
+| `:mentions` | `array of inet:service:account, inet:service:role` | Contactable entities mentioned within the message. |
 | `:place` | `geo:place` | The place that the message was sent from. |
-| `:place:name` | `meta:name` | The name of the place that the message was sent from. |
+| `:place:name` | `geo:name` | The name of the place that the message was sent from. |
 | `:platform` | `inet:service:platform` | The platform where the action was initiated. |
 | `:public` | `bool` | Set to true if the message is publicly visible. |
 | `:replyto` | `inet:service:message` | The message that this message was sent in reply to. Used for message threading. |
@@ -3745,19 +4079,10 @@ A message or post created by an account.
 | `:text` | `text` | The text body of the message. |
 | `:thread` | `inet:service:thread` | The thread which contains the message. |
 | `:time` | `time` | The time that the account initiated the action. |
-| `:title` | `str` | The message title. |
+| `:title` | `base:name` | The message title. |
 | `:to` | `inet:service:account` | The destination account. Used for direct messages. |
 | `:type` | `inet:service:message:type:taxonomy` | The type of message. |
 | `:url` | `inet:url` | The URL where the message may be viewed. |
-
-### `inet:service:message:link`
-
-A URL link included within a message.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:title` | `str` | The displayed hyperlink text if it was not the URL. |
-| `:url` | `inet:url` | The URL contained within the message. |
 
 ### `inet:service:message:type:taxonomy`
 
@@ -3790,7 +4115,7 @@ A permission which may be granted to a service account or role.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the permission. |
 | `:id` | `meta:id` | A platform specific ID which identifies the permission. |
-| `:name` | `str` | The name of the permission. |
+| `:name` | `base:name` | The name of the permission. |
 | `:period` | `ival` | The period when the permission existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the permission. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the permission. |
@@ -3823,15 +4148,16 @@ A network platform which provides services.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the platform. |
 | `:desc` | `text` | A description of the service platform. |
-| `:family` | `str` | A family designation for use with instanced platforms such as Slack, Discord, or Mastodon. |
+| `:family` | `base:name` | A family designation for use with instanced platforms such as Slack, Discord, or Mastodon. |
 | `:id` | `meta:id` | An ID which identifies the platform. |
-| `:name` | `meta:name` | A friendly name for the platform. |
-| `:names` | `array` | An array of alternate names for the platform. |
+| `:name` | `base:name` | A friendly name for the platform. |
+| `:names` | `array of base:name` | An array of alternate names for the platform. |
 | `:parent` | `inet:service:platform` | A parent platform which owns this platform. |
 | `:period` | `ival` | The period when the platform existed. |
 | `:provider` | `ou:org` | The organization which operates the platform. |
@@ -3842,9 +4168,9 @@ A network platform which provides services.
 | `:status` | `inet:service:object:status` | The status of the platform. |
 | `:type` | `inet:service:platform:type:taxonomy` | The type of service platform. |
 | `:url` | `inet:url` | The primary URL of the platform. |
-| `:urls` | `array` | An array of alternate URLs for the platform. |
+| `:urls` | `array of inet:url` | An array of alternate URLs for the platform. |
 | `:zone` | `inet:fqdn` | The primary zone for the platform. |
-| `:zones` | `array` | An array of alternate zones for the platform. |
+| `:zones` | `array of inet:fqdn` | An array of alternate zones for the platform. |
 
 ### `inet:service:platform:type:taxonomy`
 
@@ -3919,7 +4245,7 @@ A generic resource provided by the service architecture.
 | `:creator` | `inet:service:account` | The service account which created the resource. |
 | `:desc` | `text` | A description of the service resource. |
 | `:id` | `meta:id` | A platform specific ID which identifies the resource. |
-| `:name` | `str` | The name of the service resource. |
+| `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the resource existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the resource. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the resource. |
@@ -3965,7 +4291,7 @@ A role which contains member accounts.
 | `:platform` | `inet:service:platform` | The platform which defines the service role. |
 | `:profile` | `entity:contact` | Current detailed contact information for this role. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the service role. |
-| `:rules` | `array` | An array of rules associated with this role. |
+| `:rules` | `array of inet:service:rule` | An array of rules associated with this role. |
 | `:seen` | `ival` | The service role was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the service role. |
 | `:url` | `inet:url` | The primary URL associated with the service role. |
@@ -3984,9 +4310,9 @@ A rule which grants or denies a permission to a service account or role.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the rule. |
 | `:denied` | `bool` | Set to (true) to denote that the rule is an explicit deny. |
-| `:grantee` | `ndef` | The user or role which is granted the permission. |
+| `:grantee` | `inet:service:account`, `inet:service:role` | The user or role which is granted the permission. |
 | `:id` | `meta:id` | A platform specific ID which identifies the rule. |
-| `:object` | `ndef` | The object that the permission controls access to. |
+| `:object` | `inet:service:object` | The object that the permission controls access to. |
 | `:period` | `ival` | The period when the rule existed. |
 | `:permission` | `inet:service:permission` | The permission which is granted. |
 | `:platform` | `inet:service:platform` | The platform which defines the rule. |
@@ -4064,8 +4390,8 @@ A tenant which groups accounts and instances.
 
 | Interface |
 |-----------|
-| `entity:abstract` |
 | `entity:actor` |
+| `entity:resolvable` |
 | `inet:service:base` |
 | `inet:service:object` |
 | `inet:service:subscriber` |
@@ -4074,7 +4400,7 @@ A tenant which groups accounts and instances.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the tenant. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
 | `:email` | `inet:email` | The primary email address for the tenant. |
 | `:id` | `meta:id` | A platform specific ID which identifies the tenant. |
 | `:name` | `entity:name` | The primary entity name of the tenant. |
@@ -4082,7 +4408,7 @@ A tenant which groups accounts and instances.
 | `:platform` | `inet:service:platform` | The platform which defines the tenant. |
 | `:profile` | `entity:contact` | Current detailed contact information for the tenant. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the tenant. |
-| `:resolved` | `entity:resolved` | The resolved entity to which this tenant belongs. |
+| `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this tenant belongs. |
 | `:seen` | `ival` | The tenant was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the tenant. |
 | `:url` | `inet:url` | The primary URL associated with the tenant. |
@@ -4109,7 +4435,7 @@ A message thread.
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the thread. |
 | `:seen` | `ival` | The thread was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the thread. |
-| `:title` | `str` | The title of the thread. |
+| `:title` | `base:name` | The title of the thread. |
 | `:url` | `inet:url` | The primary URL associated with the thread. |
 
 ### `inet:ssh:handshake`
@@ -4118,23 +4444,26 @@ An instance of an SSH handshake between a client and server.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
 | `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the request. |
-| `:client:host` | `it:host` | The client host which initiated the request. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:key` | `crypto:key` | The key used by the SSH client. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the request. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the request. |
-| `:server:host` | `it:host` | The server host which received the request. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
 | `:server:key` | `crypto:key` | The key used by the SSH server. |
-| `:server:proc` | `it:exec:proc` | The server process which received the request. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:time` | `time` | The time the request was sent. |
 
 ### `inet:tls:clientcert`
@@ -4157,28 +4486,31 @@ An instance of a TLS handshake between a client and server.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
 | `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:client` | `inet:client` | The socket address of the client. |
 | `:client:cert` | `crypto:x509:cert` | The x509 certificate sent by the client during the handshake. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the request. |
-| `:client:host` | `it:host` | The client host which initiated the request. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:ja3` | `crypto:hash:md5` | The JA3 fingerprint of the client request. |
 | `:client:ja4` | `inet:tls:ja4` | The JA4 fingerprint of the client request. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the request. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
 | `:server:cert` | `crypto:x509:cert` | The x509 certificate sent by the server during the handshake. |
-| `:server:exe` | `file:bytes` | The server executable which received the request. |
-| `:server:host` | `it:host` | The server host which received the request. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the link. |
 | `:server:ja3s` | `crypto:hash:md5` | The JA3S fingerprint of the server response. |
 | `:server:ja4s` | `inet:tls:ja4s` | The JA4S fingerprint of the server response. |
 | `:server:jarmhash` | `inet:tls:jarmhash` | The JARM hash computed from the server response. |
-| `:server:proc` | `it:exec:proc` | The server process which received the request. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:time` | `time` | The time the request was sent. |
 
 ### `inet:tls:ja3:sample`
@@ -4271,8 +4603,8 @@ A TLS JARM fingerprint hash.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:ciphers` | `str` | The encoded cipher and TLS version of the server. |
-| `:extensions` | `str` | The truncated SHA256 of the TLS server extensions. |
+| `:ciphers` | `inet:jarm:ciphers` | The encoded cipher and TLS version of the server. |
+| `:extensions` | `inet:jarm:extensions` | The truncated SHA256 of the TLS server extensions. |
 | `:seen` | `ival` | The JARM fingerprint was observed during the time interval. |
 
 ### `inet:tls:jarmsample`
@@ -4354,7 +4686,7 @@ A Universal Resource Locator (URL).
 | `:passwd` | `auth:passwd` | The optional password used to access the URL. |
 | `:path` | `str` | The path in the URL w/o parameters. |
 | `:port` | `inet:port` | The port of the URL. URLs prefixed with http will be set to port 80 and URLs prefixed with https will be set to port 443 unless otherwise specified. |
-| `:proto` | `str` | The protocol in the URL. |
+| `:proto` | `str:lower` | The protocol in the URL. |
 | `:seen` | `ival` | The URL was observed during the time interval. |
 | `:user` | `inet:user` | The optional username used to access the URL. |
 
@@ -4436,19 +4768,19 @@ An IPv4/IPv6 block registration record.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:asn` | `inet:asn` | The associated Autonomous System Number (ASN). |
-| `:contacts` | `array` | The whois registration contacts. |
+| `:contacts` | `array of entity:contact` | The whois registration contacts. |
 | `:country` | `iso:3166:alpha2` | The ISO 3166 Alpha-2 country code. |
 | `:created` | `time` | The "created" time from the record. |
 | `:desc` | `text` | The description of the network from the whois record. |
 | `:id` | `meta:id` | The registry unique identifier (e.g. NET-74-0-0-0-1). |
-| `:links` | `array` | URLs provided with the record. |
+| `:links` | `array of inet:url` | URLs provided with the record. |
 | `:name` | `meta:id` | The name ID assigned to the network by the registrant. |
 | `:net` | `inet:net` | The IP address range assigned. |
 | `:parentid` | `meta:id` | The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0). |
 | `:seen` | `ival` | The registration record was observed during the time interval. |
-| `:status` | `str` | The state of the registered network. |
-| `:text` | `text` | The full text of the record. |
-| `:type` | `str` | The classification of the registered network (e.g. direct allocation). |
+| `:status` | `str:lower` | The state of the registered network. |
+| `:text` | `text:lower` | The full text of the record. |
+| `:type` | `str:lower` | The classification of the registered network (e.g. direct allocation). |
 | `:updated` | `time` | The "last updated" time from the record. |
 
 ### `inet:whois:record`
@@ -4461,15 +4793,15 @@ An FQDN whois registration record.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contacts` | `array` | The whois registration contacts. |
+| `:contacts` | `array of entity:contact` | The whois registration contacts. |
 | `:created` | `time` | The "created" time from the whois record. |
 | `:expires` | `time` | The "expires" time from the whois record. |
 | `:fqdn` | `inet:fqdn` | The domain associated with the whois record. |
-| `:nameservers` | `array` | The DNS nameserver FQDNs for the registered FQDN. |
+| `:nameservers` | `array of inet:fqdn` | The DNS nameserver FQDNs for the registered FQDN. |
 | `:registrant` | `entity:name` | The registrant name from the whois record. |
 | `:registrar` | `entity:name` | The registrar name from the whois record. |
 | `:seen` | `ival` | The registration record was observed during the time interval. |
-| `:text` | `text` | The full text of the whois record. |
+| `:text` | `text:lower` | The full text of the whois record. |
 | `:updated` | `time` | The "last updated" time from the whois record. |
 
 ### `inet:wifi:ap`
@@ -4486,8 +4818,7 @@ An SSID/MAC address combination for a wireless access point.
 |----------|------|-----|
 | `:bssid` | `inet:mac` | The MAC address for the wireless access point. |
 | `:channel` | `int` | The WIFI channel that the AP was last observed operating on. |
-| `:encryption` | `str` | The type of encryption used by the WIFI AP such as "wpa2". |
-| `:org` | `ou:org` | The organization that owns/operates the access point. |
+| `:encryption` | `base:name` | The type of encryption used by the WIFI AP such as "wpa2". |
 | `:owner` | `entity:actor` | The current owner of the Wi-Fi access point. |
 | `:owner:name` | `entity:name` | The name of the current owner of the Wi-Fi access point. |
 | `:place` | `geo:place` | The place where the Wi-Fi access point was located. |
@@ -4517,6 +4848,18 @@ A Wi-Fi service set identifier (SSID) name.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:seen` | `ival` | The Wi-Fi SSID was observed during the time interval. |
+
+### `iso:3166:alpha2`
+
+An ISO 3166 Alpha-2 country code.
+
+### `iso:3166:alpha3`
+
+An ISO 3166 Alpha-3 country code.
+
+### `iso:3166:numeric3`
+
+An ISO 3166 Numeric-3 country code.
 
 ### `iso:oid`
 
@@ -4554,7 +4897,7 @@ An instance of a snort rule hit.
 | `:matched` | `time` | The time that the rule was evaluated to generate the match. |
 | `:rule` | `it:app:snort:rule` | The rule which matched the target node. |
 | `:sensor` | `it:host` | The sensor host node that produced the match. |
-| `:target` | `ndef` | The node which matched the snort rule. |
+| `:target` | `inet:flow` | The target node which matched the Snort rule. |
 | `:version` | `it:version` | The most recent version of the rule evaluated as a match. |
 
 ### `it:app:snort:rule`
@@ -4564,24 +4907,25 @@ A snort rule.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the snort rule. |
 | `:created` | `time` | The time that the snort rule was created. |
+| `:creator` | `entity:actor` | The primary actor which created the snort rule. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the snort rule. |
 | `:desc` | `text` | A description of the snort rule. |
 | `:enabled` | `bool` | The enabled status of the snort rule. |
 | `:engine` | `int` | The snort engine ID which can parse and evaluate the rule text. |
 | `:id` | `meta:id` | The snort rule ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the snort rule. |
 | `:name` | `base:id` | The rule name. |
-| `:supersedes` | `array` | An array of snort rule versions which are superseded by this snort rule. |
+| `:supersedes` | `array of it:app:snort:rule` | An array of snort rule versions which are superseded by this snort rule. |
 | `:text` | `text` | The text of the snort rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the snort rule was last updated. |
 | `:url` | `inet:url` | The URL where the snort rule is available. |
-| `:used` | `ival` | The time interval when the item was being used. |
 | `:version` | `it:version` | The version of the snort rule. |
 
 ### `it:app:yara:match`
@@ -4596,7 +4940,7 @@ A YARA rule which can match files, processes, or network traffic.
 |----------|------|-----|
 | `:matched` | `time` | The time that the rule was evaluated to generate the match. |
 | `:rule` | `it:app:yara:rule` | The rule which matched the target node. |
-| `:target` | `ndef` | The node which matched the YARA rule. |
+| `:target` | `it:app:yara:target` | The target node which matched the YARA rule. |
 | `:version` | `it:version` | The most recent version of the rule evaluated as a match. |
 
 ### `it:app:yara:rule`
@@ -4606,23 +4950,24 @@ A YARA rule unique identifier.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the YARA rule. |
 | `:created` | `time` | The time that the YARA rule was created. |
+| `:creator` | `entity:actor` | The primary actor which created the YARA rule. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the YARA rule. |
 | `:desc` | `text` | A description of the YARA rule. |
 | `:enabled` | `bool` | The enabled status of the YARA rule. |
 | `:id` | `meta:id` | The YARA rule ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the YARA rule. |
 | `:name` | `base:id` | The rule name. |
-| `:supersedes` | `array` | An array of YARA rule versions which are superseded by this YARA rule. |
+| `:supersedes` | `array of it:app:yara:rule` | An array of YARA rule versions which are superseded by this YARA rule. |
 | `:text` | `text` | The text of the YARA rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the YARA rule was last updated. |
 | `:url` | `inet:url` | The URL where the YARA rule is available. |
-| `:used` | `ival` | The time interval when the item was being used. |
 | `:version` | `it:version` | The version of the YARA rule. |
 
 ### `it:av:scan:result`
@@ -4631,7 +4976,7 @@ The result of running an antivirus scanner.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:categories` | `array` | A list of categories for the result returned by the scanner. |
+| `:categories` | `array of base:name` | A list of categories for the result returned by the scanner. |
 | `:multi:count` | `int` | The total number of scanners which were run by a multi-scanner. |
 | `:multi:count:benign` | `int` | The number of scanners which returned a benign verdict. |
 | `:multi:count:malicious` | `int` | The number of scanners which returned a malicious verdict. |
@@ -4641,21 +4986,13 @@ The result of running an antivirus scanner.
 | `:scanner` | `it:software` | The scanner software used to produce the result. |
 | `:scanner:name` | `it:softwarename` | The name of the scanner software. |
 | `:signame` | `it:av:signame` | The name of the signature returned by the scanner. |
-| `:target` | `ndef` | The target of the scan. |
+| `:target` | `file:bytes`, `inet:fqdn`, `inet:ip`, `inet:url`, `it:exec:proc`, `it:host` | The target of the scan. |
 | `:time` | `time` | The time the scan was run. |
-| `:verdict` | `int` | The scanner provided verdict for the scan. |
+| `:verdict` | `it:av:verdict` | The scanner provided verdict for the scan. |
 
 ### `it:av:signame`
 
 An antivirus signature name.
-
-| Interface |
-|-----------|
-| `meta:observable` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
 
 ### `it:cmd`
 
@@ -4678,7 +5015,7 @@ A command line session with multiple commands run over time.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:account` | `ndef` | The account which executed the commands in the session. |
+| `:account` | `inet:service:account`, `it:host:account` | The account which executed the commands in the session. |
 | `:file` | `file:bytes` | The file containing the command history such as a .bash_history file. |
 | `:host` | `it:host` | The host where the command line session was executed. |
 | `:period` | `ival` | The period over which the command line session was running. |
@@ -4692,9 +5029,9 @@ A function defined by code.
 |----------|------|-----|
 | `:desc` | `text` | A description of the function. |
 | `:id` | `meta:id` | An identifier for the function. |
-| `:impcalls` | `array` | Calls to imported library functions within the scope of the function. |
+| `:impcalls` | `array of str:lower` | Calls to imported library functions within the scope of the function. |
 | `:name` | `it:dev:str` | The name of the function. |
-| `:strings` | `array` | An array of strings referenced within the function. |
+| `:strings` | `array of it:dev:str` | An array of strings referenced within the function. |
 
 ### `it:dev:function:sample`
 
@@ -4706,7 +5043,7 @@ An instance of a function in an executable.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:calls` | `array` | Other function calls within the scope of the function. |
+| `:calls` | `array of it:dev:function:sample` | Other function calls within the scope of the function. |
 | `:complexity` | `meta:score` | The complexity of the function. |
 | `:file` | `file:bytes` | The file which contains the function. |
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
@@ -4734,13 +5071,13 @@ A version control system instance.
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:desc` | `text` | A free-form description of the repository. |
 | `:id` | `meta:id` | A platform specific ID which identifies the node. |
-| `:name` | `str` | The name of the repository. |
+| `:name` | `str:lower` | The name of the repository. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the object. |
 | `:seen` | `ival` | The node was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the object. |
-| `:submodules` | `array` | An array of other repos that this repo has as submodules, pinned at specific commits. |
+| `:submodules` | `array of it:dev:repo:commit` | An array of other repos that this repo has as submodules, pinned at specific commits. |
 | `:type` | `it:dev:repo:type:taxonomy` | The type of the version control system used. |
 | `:url` | `inet:url` | The URL where the repository is hosted. |
 
@@ -4785,7 +5122,7 @@ A commit to a repository.
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:id` | `meta:id` | The version control system specific commit identifier. |
 | `:mesg` | `text` | The commit message describing the changes in the commit. |
-| `:parents` | `array` | The commit or commits this commit is immediately based on. |
+| `:parents` | `array of it:dev:repo:commit` | The commit or commits this commit is immediately based on. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the object. |
@@ -4863,7 +5200,7 @@ An issue raised in a repository.
 | `:repo` | `it:dev:repo` | The repo where the issue was logged. |
 | `:seen` | `ival` | The node was observed during the time interval. |
 | `:status` | `inet:service:object:status` | The status of the object. |
-| `:title` | `str` | The title of the issue. |
+| `:title` | `str:lower` | The title of the issue. |
 | `:updated` | `time` | The time the issue was updated. |
 | `:url` | `inet:url` | The URL where the issue is hosted. |
 
@@ -4923,7 +5260,7 @@ A developer selected label.
 |----------|------|-----|
 | `:desc` | `text` | The description of the label. |
 | `:id` | `meta:id` | The ID of the label. |
-| `:title` | `str` | The human friendly name of the label. |
+| `:title` | `str:lower` | The human friendly name of the label. |
 
 ### `it:dev:repo:remote`
 
@@ -4931,7 +5268,7 @@ A remote repo that is tracked for changes/branches/etc.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name the repo is using for the remote repo. |
+| `:name` | `base:name` | The name the repo is using for the remote repo. |
 | `:remote` | `it:dev:repo` | The instance of the remote repo. |
 | `:repo` | `it:dev:repo` | The repo that is tracking the remote repo. |
 | `:url` | `inet:url` | The URL the repo is using to access the remote repo. |
@@ -4963,8 +5300,22 @@ A developer selected string.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:norm` | `str` | Lower case normalized version of the it:dev:str. |
+| `:norm` | `str:lower` | Lower case normalized version of the it:dev:str. |
 | `:seen` | `ival` | The string was observed during the time interval. |
+
+### `it:dns:resolver`
+
+A server configured to resolve DNS requests.
+
+| Interface |
+|-----------|
+| `meta:observable` |
+| `risk:exploitable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:proto` | `str:lower` | The network protocol of the server. |
+| `:seen` | `ival` | The network server was observed during the time interval. |
 
 ### `it:exec:bind`
 
@@ -4972,16 +5323,20 @@ An instance of a host binding a listening port.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this bind event. |
 | `:exe` | `file:bytes` | The specific file containing code that bound the listening port. |
 | `:host` | `it:host` | The host running the process that bound the listening port. |
 | `:proc` | `it:exec:proc` | The main process executing code that bound the listening port. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server when binding the port. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the bind event. |
 | `:time` | `time` | The time the port was bound. |
 
 ### `it:exec:fetch`
@@ -4990,10 +5345,14 @@ An instance of a host requesting a URL using any protocol scheme.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this fetch event. |
 | `:browser` | `it:software` | The software version of the browser. |
 | `:client` | `inet:client` | The address of the client during the URL retrieval. |
 | `:exe` | `file:bytes` | The specific file containing code that requested the URL. |
@@ -5004,7 +5363,7 @@ An instance of a host requesting a URL using any protocol scheme.
 | `:page:pdf` | `file:bytes` | The rendered DOM saved as a PDF file. |
 | `:proc` | `it:exec:proc` | The main process executing code that requested the URL. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the fetch event. |
 | `:time` | `time` | The time the URL was requested. |
 | `:url` | `inet:url` | The URL that was requested. |
 
@@ -5014,17 +5373,21 @@ An instance of a host adding a file to a filesystem.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this file add event. |
 | `:exe` | `file:bytes` | The specific file containing code that created the new file. |
 | `:file` | `file:bytes` | The file that was created. |
 | `:host` | `it:host` | The host running the process that created the new file. |
 | `:path` | `file:path` | The path where the file was created. |
 | `:proc` | `it:exec:proc` | The main process executing code that created the new file. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the file add event. |
 | `:time` | `time` | The time the file was created. |
 
 ### `it:exec:file:del`
@@ -5033,17 +5396,21 @@ An instance of a host deleting a file from a filesystem.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this file delete event. |
 | `:exe` | `file:bytes` | The specific file containing code that deleted the file. |
 | `:file` | `file:bytes` | The file that was deleted. |
 | `:host` | `it:host` | The host running the process that deleted the file. |
 | `:path` | `file:path` | The path where the file was deleted. |
 | `:proc` | `it:exec:proc` | The main process executing code that deleted the file. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the file delete event. |
 | `:time` | `time` | The time the file was deleted. |
 
 ### `it:exec:file:read`
@@ -5052,17 +5419,21 @@ An instance of a host reading a file from a filesystem.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this file read event. |
 | `:exe` | `file:bytes` | The specific file containing code that read the file. |
 | `:file` | `file:bytes` | The file that was read. |
 | `:host` | `it:host` | The host running the process that read the file. |
 | `:path` | `file:path` | The path where the file was read. |
 | `:proc` | `it:exec:proc` | The main process executing code that read the file. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the file read event. |
 | `:time` | `time` | The time the file was read. |
 
 ### `it:exec:file:write`
@@ -5071,130 +5442,215 @@ An instance of a host writing a file to a filesystem.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this file write event. |
 | `:exe` | `file:bytes` | The specific file containing code that wrote to the file. |
 | `:file` | `file:bytes` | The file that was modified. |
 | `:host` | `it:host` | The host running the process that wrote to the file. |
 | `:path` | `file:path` | The path where the file was written to/modified. |
 | `:proc` | `it:exec:proc` | The main process executing code that wrote to / modified the existing file. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the file write event. |
 | `:time` | `time` | The time the file was written to/modified. |
 
-### `it:exec:loadlib`
+### `it:exec:lib:load`
 
 A library load event in a process.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:activity` | `meta:activity` | A parent activity which includes this library load event. |
+| `:exe` | `file:bytes` | The executable file which caused the library load event. |
 | `:file` | `file:bytes` | The library file that was loaded. |
-| `:host` | `it:host` | The host on which the activity occurred. |
+| `:host` | `it:host` | The host on which the library load event occurred. |
 | `:loaded` | `time` | The time the library was loaded. |
 | `:path` | `file:path` | The path that the library was loaded from. |
 | `:proc` | `it:exec:proc` | The process where the library was loaded. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:thread` | `it:exec:thread` | The thread which caused the library load event. |
+| `:time` | `time` | The time that the library load event occurred. |
 | `:unloaded` | `time` | The time the library was unloaded. |
 | `:va` | `int` | The base memory address where the library was loaded in the process. |
 
-### `it:exec:mmap`
+### `it:exec:mmap:add`
 
 A memory mapped segment located in a process.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this memory map event. |
 | `:created` | `time` | The time the memory map was created. |
 | `:deleted` | `time` | The time the memory map was deleted. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:exe` | `file:bytes` | The executable file which caused the memory map event. |
 | `:hash:sha256` | `crypto:hash:sha256` | A SHA256 hash of the memory map. |
-| `:host` | `it:host` | The host on which the activity occurred. |
-| `:path` | `file:path` | The file path if the mmap is a mapped view of a file. |
-| `:perms:execute` | `bool` | True if the mmap is mapped with execute permissions. |
-| `:perms:read` | `bool` | True if the mmap is mapped with read permissions. |
-| `:perms:write` | `bool` | True if the mmap is mapped with write permissions. |
+| `:host` | `it:host` | The host on which the memory map event occurred. |
+| `:path` | `file:path` | The file path if the memory is a mapped view of a file. |
+| `:perms:execute` | `bool` | True if the memory is mapped with execute permissions. |
+| `:perms:read` | `bool` | True if the memory is mapped with read permissions. |
+| `:perms:write` | `bool` | True if the memory is mapped with write permissions. |
 | `:proc` | `it:exec:proc` | The process where the memory was mapped. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:size` | `int` | The size of the memory map in bytes. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:thread` | `it:exec:thread` | The thread which caused the memory map event. |
+| `:time` | `time` | The time that the memory map event occurred. |
 | `:va` | `int` | The base memory address where the map was created in the process. |
 
-### `it:exec:mutex`
+### `it:exec:mutex:add`
 
-A mutex created by a process at runtime.
+An event where a process created a mutex.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this mutex creation event. |
 | `:exe` | `file:bytes` | The specific file containing code that created the mutex. |
 | `:host` | `it:host` | The host running the process that created the mutex. |
 | `:name` | `it:dev:str` | The mutex string. |
-| `:proc` | `it:exec:proc` | The main process executing code that created the mutex. |
+| `:proc` | `it:exec:proc` | The process that created the mutex. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the mutex creation event. |
 | `:time` | `time` | The time the mutex was created. |
 
-### `it:exec:pipe`
+### `it:exec:pipe:add`
 
 A named pipe created by a process at runtime.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this pipe creation event. |
 | `:exe` | `file:bytes` | The specific file containing code that created the named pipe. |
 | `:host` | `it:host` | The host running the process that created the named pipe. |
 | `:name` | `it:dev:str` | The named pipe string. |
 | `:proc` | `it:exec:proc` | The main process executing code that created the named pipe. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the pipe creation event. |
 | `:time` | `time` | The time the named pipe was created. |
 
 ### `it:exec:proc`
 
-A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.
+A process executing on a host.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `it:host:activity` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:account` | `it:host:account` | The account of the process owner. |
-| `:cmd` | `it:cmd` | The command string used to launch the process, including any command line parameters. |
+| `:activity` | `meta:activity` | A parent activity which includes this process. |
+| `:cmd` | `it:cmd` | The command string used to launch the process. |
 | `:cmd:history` | `it:cmd:history` | The command history entry which caused this process to be run. |
-| `:exe` | `file:bytes` | The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program. |
+| `:exe` | `file:bytes` | The main executable file for the process. |
 | `:exitcode` | `int` | The exit code for the process. |
-| `:exited` | `time` | The time the process exited. |
-| `:host` | `it:host` | The host that executed the process. May be an actual or a virtual / notional host. |
-| `:killedby` | `it:exec:proc` | The process which killed this process. |
+| `:host` | `it:host` | The host that executed the process. |
 | `:name` | `str` | The display name specified by the process. |
 | `:path` | `file:path` | The path to the executable of the process. |
+| `:period` | `ival` | The period over which the process occurred. |
 | `:pid` | `int` | The process ID. |
-| `:proc` | `it:exec:proc` | The host process which caused the activity. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:src:proc` | `it:exec:proc` | The process which created the process. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The start time for the process. |
-| `:windows:service` | `it:os:windows:service` | The Microsoft Windows service responsible for starting the process. |
+
+### `it:exec:proc:create`
+
+A process creation event.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this process creation event. |
+| `:exe` | `file:bytes` | The executable file which caused the process creation event. |
+| `:host` | `it:host` | The host on which the process creation event occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the process creation event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:exec:proc` | The process which was created. |
+| `:thread` | `it:exec:thread` | The thread which caused the process creation event. |
+| `:time` | `time` | The time that the process creation event occurred. |
+
+### `it:exec:proc:signal`
+
+An event where a process was sent a POSIX signal.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this process signal event. |
+| `:exe` | `file:bytes` | The executable file which caused the process signal event. |
+| `:host` | `it:host` | The host on which the process signal event occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the process signal event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:signal` | `int` | The POSIX signal which was sent to the target process. |
+| `:target` | `it:exec:proc` | The process which was sent the signal. |
+| `:thread` | `it:exec:thread` | The thread which caused the process signal event. |
+| `:time` | `time` | The time that the process signal event occurred. |
+
+### `it:exec:proc:terminate`
+
+A process termination event.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this process termination event. |
+| `:exe` | `file:bytes` | The executable file which caused the process termination event. |
+| `:host` | `it:host` | The host on which the process termination event occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the process termination event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:exec:proc` | The process which was terminated. |
+| `:thread` | `it:exec:thread` | The thread which caused the process termination event. |
+| `:time` | `time` | The time that the process termination event occurred. |
 
 ### `it:exec:query`
 
@@ -5202,23 +5658,27 @@ An instance of an executed query.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:account` | `ndef` | The account which executed the query. |
+| `:account` | `inet:service:account`, `it:host:account`, `syn:user` | The account which executed the query. |
+| `:activity` | `meta:activity` | A parent activity which includes this query event. |
 | `:api:url` | `inet:url` | The URL of the API endpoint the query was sent to. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
-| `:host` | `it:host` | The host on which the activity occurred. |
-| `:language` | `str` | The name of the language that the query is expressed in. |
+| `:exe` | `file:bytes` | The executable file which caused the query event. |
+| `:host` | `it:host` | The host on which the query event occurred. |
+| `:language` | `base:name` | The name of the language that the query is expressed in. |
 | `:offset` | `int` | The offset of the last record consumed from the query. |
 | `:opts` | `data` | An opaque JSON object containing query parameters and options. |
 | `:platform` | `inet:service:platform` | The service platform which was queried. |
-| `:proc` | `it:exec:proc` | The host process which caused the activity. |
+| `:proc` | `it:exec:proc` | The process which caused the query event. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:text` | `it:query` | The query string that was executed. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:thread` | `it:exec:thread` | The thread which caused the query event. |
+| `:time` | `time` | The time that the query event occurred. |
 
 ### `it:exec:screenshot`
 
@@ -5226,18 +5686,22 @@ A screenshot of a host.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this screenshot event. |
 | `:desc` | `text` | A brief description of the screenshot. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
-| `:host` | `it:host` | The host on which the activity occurred. |
+| `:exe` | `file:bytes` | The executable file which caused the screenshot event. |
+| `:host` | `it:host` | The host on which the screenshot event occurred. |
 | `:image` | `file:bytes` | The image file. |
-| `:proc` | `it:exec:proc` | The host process which caused the activity. |
+| `:proc` | `it:exec:proc` | The process which caused the screenshot event. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:thread` | `it:exec:thread` | The thread which caused the screenshot event. |
+| `:time` | `time` | The time that the screenshot event occurred. |
 
 ### `it:exec:thread`
 
@@ -5245,21 +5709,64 @@ A thread executing in a process.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `it:host:activity` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:created` | `time` | The time the thread was created. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:activity` | `meta:activity` | A parent activity which includes this thread. |
+| `:exe` | `file:bytes` | The executable file which caused the thread. |
 | `:exitcode` | `int` | The exit code or return value for the thread. |
-| `:exited` | `time` | The time the thread exited. |
-| `:host` | `it:host` | The host on which the activity occurred. |
+| `:host` | `it:host` | The host on which the thread occurred. |
+| `:period` | `ival` | The period over which the thread occurred. |
 | `:proc` | `it:exec:proc` | The process which contains the thread. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:src:proc` | `it:exec:proc` | An external process which created the thread. |
-| `:src:thread` | `it:exec:thread` | The thread which created this thread. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+
+### `it:exec:thread:create`
+
+A thread creation event.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this thread creation event. |
+| `:exe` | `file:bytes` | The executable file which caused the thread creation event. |
+| `:host` | `it:host` | The host on which the thread creation event occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the thread creation event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:exec:thread` | The thread which was created. |
+| `:thread` | `it:exec:thread` | The thread which caused the thread creation event. |
+| `:time` | `time` | The time that the thread creation event occurred. |
+
+### `it:exec:thread:terminate`
+
+A thread termination event.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this thread termination event. |
+| `:exe` | `file:bytes` | The executable file which caused the thread termination event. |
+| `:host` | `it:host` | The host on which the thread termination event occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the thread termination event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:exec:thread` | The thread which was terminated. |
+| `:thread` | `it:exec:thread` | The thread which caused the thread termination event. |
+| `:time` | `time` | The time that the thread termination event occurred. |
 
 ### `it:exec:windows:registry:del`
 
@@ -5267,16 +5774,20 @@ An instance of a host deleting a registry key.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this registry delete event. |
 | `:entry` | `it:os:windows:registry:entry` | The registry entry that was deleted. |
 | `:exe` | `file:bytes` | The specific file containing code that deleted data from the registry. |
 | `:host` | `it:host` | The host running the process that deleted data from the registry. |
 | `:proc` | `it:exec:proc` | The main process executing code that deleted data from the registry. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the registry delete event. |
 | `:time` | `time` | The time the data from the registry was deleted. |
 
 ### `it:exec:windows:registry:get`
@@ -5285,16 +5796,20 @@ An instance of a host getting a registry key.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this registry get event. |
 | `:entry` | `it:os:windows:registry:entry` | The registry key or value that was read. |
 | `:exe` | `file:bytes` | The specific file containing code that read the registry. |
 | `:host` | `it:host` | The host running the process that read the registry. |
 | `:proc` | `it:exec:proc` | The main process executing code that read the registry. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the registry get event. |
 | `:time` | `time` | The time the registry was read. |
 
 ### `it:exec:windows:registry:set`
@@ -5303,16 +5818,20 @@ An instance of a host creating or setting a registry key.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this registry set event. |
 | `:entry` | `it:os:windows:registry:entry` | The registry key or value that was written to. |
 | `:exe` | `file:bytes` | The specific file containing code that wrote to the registry. |
 | `:host` | `it:host` | The host running the process that wrote to the registry. |
 | `:proc` | `it:exec:proc` | The main process executing code that wrote to the registry. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
+| `:thread` | `it:exec:thread` | The thread which caused the registry set event. |
 | `:time` | `time` | The time the registry was written to. |
 
 ### `it:hardware`
@@ -5322,6 +5841,7 @@ A specification for a piece of IT hardware.
 | Interface |
 |-----------|
 | `meta:usable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -5329,12 +5849,10 @@ A specification for a piece of IT hardware.
 | `:desc` | `text` | A brief description of the hardware. |
 | `:manufacturer` | `entity:actor` | The organization that manufactures this hardware. |
 | `:manufacturer:name` | `entity:name` | The name of the organization that manufactures this hardware. |
-| `:model` | `base:name` | The model name or number for this hardware specification. |
-| `:name` | `meta:name` | The name of this hardware specification. |
-| `:parts` | `array` | An array of it:hardware parts included in this hardware specification. |
+| `:model` | `biz:model` | The model name or number for this hardware specification. |
+| `:parts` | `array of it:hardware` | An array of it:hardware parts included in this hardware specification. |
 | `:released` | `time` | The initial release date for this hardware. |
 | `:type` | `it:hardware:type:taxonomy` | The type of hardware. |
-| `:used` | `ival` | The time interval when the item was being used. |
 | `:version` | `it:version` | Version string associated with this hardware specification. |
 
 ### `it:hardware:type:taxonomy`
@@ -5360,23 +5878,30 @@ A GUID that represents a host or system.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `inet:service:base` |
 | `inet:service:object` |
 | `meta:havable` |
 | `meta:observable` |
 | `phys:object` |
+| `phys:tangible` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:creator` | `inet:service:account` | The service account which created the host. |
+| `:created` | `time` | The time that the host was created. |
+| `:creator` | `entity:actor` | The primary actor which created the host. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the host. |
 | `:desc` | `str` | A free-form description of the host. |
 | `:hardware` | `it:hardware` | The hardware specification for this host. |
 | `:id` | `str` | An external identifier for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
 | `:ip` | `inet:ip` | The last known IP address for the host. |
 | `:keyboard:language` | `lang:language` | The primary keyboard input language configured on the host. |
-| `:keyboard:layout` | `str` | The primary keyboard layout configured on the host. |
+| `:keyboard:layout` | `base:name` | The primary keyboard layout configured on the host. |
+| `:model` | `biz:model` | The model number or name of the host. |
 | `:name` | `it:hostname` | The name of the host or system. |
 | `:operator` | `entity:contact` | The operator of the host. |
 | `:org` | `ou:org` | The org that operates the given host. |
@@ -5417,7 +5942,7 @@ A local account on a host.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:contact` | `entity:contact` | Additional contact information associated with this account. |
-| `:groups` | `array` | Groups that the account is a member of. |
+| `:groups` | `array of it:host:group` | Groups that the account is a member of. |
 | `:host` | `it:host` | The host where the account is registered. |
 | `:period` | `ival` | The period where the account existed. |
 | `:posix:gecos` | `int` | The GECOS field for the POSIX account. |
@@ -5446,9 +5971,9 @@ A local group on a host.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A brief description of the group. |
-| `:groups` | `array` | Groups that are a member of this group. |
+| `:groups` | `array of it:host:group` | Groups that are a member of this group. |
 | `:host` | `it:host` | The host where the group was created. |
-| `:name` | `meta:name` | The name of the group. |
+| `:name` | `base:name` | The name of the group. |
 | `:posix:gid` | `int` | The primary group ID of the account. |
 | `:service:role` | `inet:service:role` | The optional service role which the local group maps to. |
 | `:windows:sid` | `it:os:windows:sid` | The Microsoft Windows Security Identifier of the group. |
@@ -5481,13 +6006,24 @@ Software installed on a specific host.
 
 A host specific login session.
 
+| Interface |
+|-----------|
+| `inet:proto:link` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:account` | `it:host:account` | The account that logged in. |
-| `:creds` | `array` | The credentials that were used to login. |
-| `:flow` | `inet:flow` | The network flow which initiated the login. |
-| `:host` | `it:host` | The host on which the activity occurred. |
+| `:client` | `inet:client` | The socket address of the client. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
+| `:client:host` | `it:host` | The client host which initiated the link. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:creds` | `array of auth:credential` | The credentials that were used to login. |
 | `:period` | `ival` | The period when the login session was active. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:server` | `inet:server` | The socket address of the server. |
+| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:host` | `it:host` | The server host which received the login. |
+| `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:success` | `bool` | Set to false to indicate an unsuccessful logon attempt. |
 
 ### `it:host:tenancy`
@@ -5531,23 +6067,27 @@ A GUID representing an individual log event.
 
 | Interface |
 |-----------|
-| `it:host:activity` |
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this log event. |
 | `:data` | `data` | A raw JSON record of the log event. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
-| `:host` | `it:host` | The host on which the activity occurred. |
+| `:exe` | `file:bytes` | The executable file which caused the log event. |
+| `:host` | `it:host` | The host on which the log event occurred. |
 | `:id` | `str` | An external id that uniquely identifies this log entry. |
 | `:mesg` | `str` | The log message text. |
-| `:proc` | `it:exec:proc` | The host process which caused the activity. |
+| `:proc` | `it:exec:proc` | The process which caused the log event. |
 | `:product` | `it:software` | The software which produced the log entry. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:service:account` | `inet:service:account` | The service account which generated the log event. |
 | `:service:platform` | `inet:service:platform` | The service platform which generated the log event. |
-| `:severity` | `int` | A log level integer that increases with severity. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:severity` | `it:log:severity` | A log level integer that increases with severity. |
+| `:thread` | `it:exec:thread` | The thread which caused the log event. |
+| `:time` | `time` | The time that the log event occurred. |
 | `:type` | `it:log:event:type:taxonomy` | The type of log event. |
 
 ### `it:log:event:type:taxonomy`
@@ -5619,13 +6159,18 @@ A MITRE ATT&CK Technique ID.
 
 A GUID that represents a logical network.
 
+| Interface |
+|-----------|
+| `meta:havable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A brief description of the network. |
-| `:dns:resolvers` | `array` | An array of DNS servers configured to resolve requests for hosts on the network. |
-| `:name` | `meta:name` | The name of the network. |
+| `:dns:resolvers` | `array of it:dns:resolver` | An array of DNS servers configured to resolve requests for hosts on the network. |
+| `:name` | `base:name` | The name of the network. |
 | `:net` | `inet:net` | The optional contiguous IP address range of this network. |
-| `:org` | `ou:org` | The org that owns/operates the network. |
+| `:owner` | `entity:actor` | The current owner of the item. |
+| `:owner:name` | `entity:name` | The name of the current owner of the item. |
 | `:period` | `ival` | The period when the network existed. |
 | `:type` | `it:network:type:taxonomy` | The type of network. |
 
@@ -5694,7 +6239,7 @@ A Windows registry key, name, and value.
 | `:key` | `it:os:windows:registry:key` | The Windows registry key. |
 | `:name` | `it:dev:str` | The name of the registry value within the key. |
 | `:seen` | `ival` | The registry entry was observed during the time interval. |
-| `:value` | `ndef` | The value assigned to the name within the key. |
+| `:value` | `file:bytes`, `it:dev:int`, `it:dev:str` | The value assigned to the name within the key. |
 
 ### `it:os:windows:registry:key`
 
@@ -5713,16 +6258,71 @@ A Windows registry key.
 
 A Microsoft Windows service configuration on a host.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `it:host:activity` |
+| `it:host:exec` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
 | `:description` | `text` | The description of the service from the Description registry key. |
-| `:displayname` | `str` | The friendly name of the service from the DisplayName registry key. |
+| `:displayname` | `base:name` | The friendly name of the service from the DisplayName registry key. |
 | `:errorcontrol` | `int` | The service error handling behavior from the ErrorControl registry key. |
+| `:exe` | `file:bytes` | The executable file which caused the activity. |
 | `:host` | `it:host` | The host that the service was configured on. |
 | `:imagepath` | `file:path` | The path to the service binary from the ImagePath registry key. |
-| `:name` | `str` | The name of the service from the registry key within Services. |
+| `:name` | `base:name` | The name of the service from the registry key within Services. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:start` | `int` | The start configuration of the service from the Start registry key. |
 | `:type` | `int` | The type of service from the Type registry key. |
+
+### `it:os:windows:service:add`
+
+An event where a Microsoft Windows service configuration was added to a host.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
+| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:host` | `it:host` | The host on which the activity occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:os:windows:service` | The service which was added. |
+| `:thread` | `it:exec:thread` | The thread which caused the event. |
+| `:time` | `time` | The time that the event occurred. |
+
+### `it:os:windows:service:del`
+
+An event where a Microsoft Windows service configuration was removed from a host.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
+| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:host` | `it:host` | The host on which the activity occurred. |
+| `:proc` | `it:exec:proc` | The process which caused the event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:target` | `it:os:windows:service` | The service which was removed. |
+| `:thread` | `it:exec:thread` | The thread which caused the event. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `it:query`
 
@@ -5738,16 +6338,16 @@ An extracted C2 config from an executable.
 | `:connect:delay` | `duration` | The time delay from first execution to connecting to the C2 server. |
 | `:connect:interval` | `duration` | The configured duration to sleep between connections to the C2 server. |
 | `:crypto:key` | `crypto:key` | Static key material used to encrypt C2 communications. |
-| `:decoys` | `array` | An array of URLs used as decoy connections to obfuscate the C2 servers. |
-| `:dns:resolvers` | `array` | An array of inet:servers to use when resolving DNS names. |
+| `:decoys` | `array of inet:url` | An array of URLs used as decoy connections to obfuscate the C2 servers. |
+| `:dns:resolvers` | `array of inet:server` | An array of inet:servers to use when resolving DNS names. |
 | `:family` | `it:softwarename` | The name of the software family which uses the config. |
 | `:file` | `file:bytes` | The file that the C2 config was extracted from. |
-| `:http:headers` | `array` | An array of HTTP headers that the sample should transmit to the C2 server. |
-| `:listens` | `array` | An array of listen URLs that the software should bind. |
+| `:http:headers` | `array of inet:http:header` | An array of HTTP headers that the sample should transmit to the C2 server. |
+| `:listens` | `array of inet:url` | An array of listen URLs that the software should bind. |
 | `:mutex` | `it:dev:str` | The mutex that the software uses to prevent multiple-installations. |
-| `:proxies` | `array` | An array of proxy URLs used to communicate with the C2 server. |
+| `:proxies` | `array of inet:url` | An array of proxy URLs used to communicate with the C2 server. |
 | `:raw` | `data` | A JSON blob containing the raw config extracted from the binary. |
-| `:servers` | `array` | An array of connection URLs built from host/port/passwd combinations. |
+| `:servers` | `array of inet:url` | An array of connection URLs built from host/port/passwd combinations. |
 
 ### `it:sec:cpe`
 
@@ -5755,18 +6355,18 @@ A NIST CPE 2.3 Formatted String.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:edition` | `str` | The "edition" field from the CPE 2.3 string. |
-| `:language` | `str` | The "language" field from the CPE 2.3 string. |
-| `:other` | `str` | The "other" field from the CPE 2.3 string. |
-| `:part` | `str` | The "part" field from the CPE 2.3 string. |
-| `:product` | `str` | The "product" field from the CPE 2.3 string. |
-| `:sw_edition` | `str` | The "sw_edition" field from the CPE 2.3 string. |
-| `:target_hw` | `str` | The "target_hw" field from the CPE 2.3 string. |
-| `:target_sw` | `str` | The "target_sw" field from the CPE 2.3 string. |
-| `:update` | `str` | The "update" field from the CPE 2.3 string. |
+| `:edition` | `str:lower` | The "edition" field from the CPE 2.3 string. |
+| `:language` | `str:lower` | The "language" field from the CPE 2.3 string. |
+| `:other` | `str:lower` | The "other" field from the CPE 2.3 string. |
+| `:part` | `str:lower` | The "part" field from the CPE 2.3 string. |
+| `:product` | `str:lower` | The "product" field from the CPE 2.3 string. |
+| `:sw_edition` | `str:lower` | The "sw_edition" field from the CPE 2.3 string. |
+| `:target_hw` | `str:lower` | The "target_hw" field from the CPE 2.3 string. |
+| `:target_sw` | `str:lower` | The "target_sw" field from the CPE 2.3 string. |
+| `:update` | `str:lower` | The "update" field from the CPE 2.3 string. |
 | `:v2_2` | `it:sec:cpe:v2_2` | The CPE 2.2 string which is equivalent to the primary property. |
-| `:vendor` | `meta:name` | The "vendor" field from the CPE 2.3 string. |
-| `:version` | `str` | The "version" field from the CPE 2.3 string. |
+| `:vendor` | `entity:name` | The "vendor" field from the CPE 2.3 string. |
+| `:version` | `str:lower` | The "version" field from the CPE 2.3 string. |
 
 ### `it:sec:cve`
 
@@ -5780,7 +6380,7 @@ NIST NVD Common Weaknesses Enumeration Specification.
 |----------|------|-----|
 | `:desc` | `text` | The CWE description field. |
 | `:name` | `str` | The CWE description field. |
-| `:parents` | `array` | An array of ChildOf CWE Relationships. |
+| `:parents` | `array of it:sec:cwe` | An array of ChildOf CWE Relationships. |
 | `:url` | `inet:url` | A URL linking this CWE to a full description. |
 
 ### `it:sec:metrics`
@@ -5822,10 +6422,10 @@ A STIX indicator pattern.
 | `:created` | `time` | The time that the indicator pattern was first created. |
 | `:desc` | `str` | The description field from the STIX indicator. |
 | `:id` | `meta:id` | The STIX id field from the indicator pattern. |
-| `:labels` | `array` | The label strings embedded in the STIX indicator pattern. |
+| `:labels` | `array of str` | The label strings embedded in the STIX indicator pattern. |
 | `:name` | `str` | The name of the STIX indicator pattern. |
 | `:pattern` | `str` | The STIX indicator pattern text. |
-| `:pattern_type` | `str` | The STIX indicator pattern type. |
+| `:pattern_type` | `it:av:pattern:type` | The STIX indicator pattern type. |
 | `:revoked` | `bool` | The revoked field from the STIX indicator. |
 | `:updated` | `time` | The time that the indicator pattern was last modified. |
 | `:valid_from` | `time` | The valid_from field from the STIX indicator. |
@@ -5851,7 +6451,7 @@ A vulnerability scan result for an asset.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:asset` | `ndef` | The node which is vulnerable. |
+| `:asset` | `risk:exploitable` | The node which is vulnerable. |
 | `:desc` | `str` | A description of the vulnerability and how it was detected in the asset. |
 | `:ext:url` | `inet:url` | An external URL which documents the scan result. |
 | `:id` | `str` | An externally generated ID for the scan result. |
@@ -5886,33 +6486,34 @@ A software product, tool, or script.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 | `meta:reported` |
 | `meta:usable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the software. |
 | `:cpe` | `it:sec:cpe` | The NIST CPE 2.3 string specifying this software version. |
-| `:created` | `time` | The time when the item was created. |
-| `:desc` | `text` | A description of the item. |
-| `:id` | `meta:id` | A unique ID given to the item. |
-| `:ids` | `array` | An array of alternate IDs given to the item. |
+| `:created` | `time` | The time when the software was created. |
+| `:creator` | `entity:actor` | The primary actor which created the software. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the software. |
+| `:desc` | `text` | A description of the software. |
+| `:id` | `meta:id` | A unique ID given to the software. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the software. |
 | `:name` | `it:softwarename` | The name of the software. |
-| `:names` | `array` | Observed/variant names for this software version. |
+| `:names` | `array of it:softwarename` | Observed/variant names for this software version. |
 | `:parent` | `it:software` | The parent software version or family. |
-| `:published` | `time` | The time when the reporter published the item. |
+| `:published` | `time` | The time when the reporter published the software. |
 | `:released` | `time` | Timestamp for when the software was released. |
-| `:reporter` | `entity:actor` | The entity which reported on the item. |
-| `:reporter:name` | `entity:name` | The name of the entity which reported on the item. |
-| `:resolved` | `it:software` | The authoritative item which this reporting is about. |
+| `:reporter` | `entity:actor` | The entity which reported on the software. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the software. |
+| `:resolved` | `it:software` | The authoritative software which this reporting is about. |
 | `:risk:score` | `meta:score` | The risk posed by the software. |
-| `:superseded` | `time` | The time when the item was superseded. |
-| `:supersedes` | `array` | An array of item nodes which are superseded by this item. |
+| `:superseded` | `time` | The time when the software was superseded. |
+| `:supersedes` | `array of it:software` | An array of software nodes which are superseded by this software. |
 | `:type` | `it:software:type:taxonomy` | The type of software. |
-| `:updated` | `time` | The time when the item was last updated. |
-| `:url` | `inet:url` | The URL for the item. |
-| `:used` | `ival` | The time interval when the item was being used. |
+| `:updated` | `time` | The time when the software was last updated. |
+| `:url` | `inet:url` | The URL for the software. |
 | `:version` | `it:version` | The version of the software. |
 
 ### `it:software:image`
@@ -5930,7 +6531,7 @@ The base image used to create a container or OS.
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:id` | `meta:id` | A platform specific ID which identifies the node. |
 | `:name` | `it:softwarename` | The name of the image. |
-| `:parents` | `array` | An array of parent images in precedence order. |
+| `:parents` | `array of it:software:image` | An array of parent images in precedence order. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 | `:published` | `time` | The time the image was published. |
@@ -5979,14 +6580,6 @@ A hierarchical taxonomy of software types.
 
 The name of a software product or tool.
 
-| Interface |
-|-----------|
-| `meta:observable` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
-
 ### `it:storage:mount`
 
 A storage volume that has been attached to an image.
@@ -6004,7 +6597,7 @@ A physical or logical storage volume that can be attached to a physical/virtual 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:id` | `meta:id` | The unique volume ID. |
-| `:name` | `meta:name` | The name of the volume. |
+| `:name` | `base:name` | The name of the volume. |
 | `:size` | `int` | The size of the volume in bytes. |
 | `:type` | `it:storage:volume:type:taxonomy` | The type of storage volume. |
 
@@ -6058,35 +6651,15 @@ A specific written or spoken language.
 |----------|------|-----|
 | `:code` | `lang:code` | The language code for this language. |
 | `:name` | `lang:name` | The primary name of the language. |
-| `:names` | `array` | An array of alternative names for the language. |
+| `:names` | `array of lang:name` | An array of alternative names for the language. |
 
 ### `lang:name`
 
 A name used to refer to a language.
 
-| Interface |
-|-----------|
-| `meta:observable` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
-
 ### `lang:phrase`
 
 A small group of words which stand together as a concept.
-
-### `lang:statement`
-
-A single statement which is part of a transcript.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:speaker` | `entity:actor` | The entity making the statement. |
-| `:text` | `str` | The transcribed text of the statement. |
-| `:time` | `time` | The time that the speaker made the statement. |
-| `:transcript` | `lang:transcript` | The transcript where the statement was recorded. |
-| `:transcript:offset` | `duration` | The time offset of the statement within the transcript. |
 
 ### `lang:translation`
 
@@ -6112,17 +6685,18 @@ A GUID assigned to a material object.
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the material item. |
+| `:name` | `base:name` | The name of the material item. |
 | `:owner` | `entity:actor` | The current owner of the item. |
 | `:owner:name` | `entity:name` | The name of the current owner of the item. |
-| `:phys:height` | `geo:dist` | The physical height of the item. |
-| `:phys:length` | `geo:dist` | The physical length of the item. |
-| `:phys:mass` | `mass` | The physical mass of the item. |
-| `:phys:volume` | `geo:dist` | The physical volume of the item. |
-| `:phys:width` | `geo:dist` | The physical width of the item. |
+| `:phys:height` | `geo:dist` | The physical height of the object. |
+| `:phys:length` | `geo:dist` | The physical length of the object. |
+| `:phys:mass` | `mass` | The physical mass of the object. |
+| `:phys:volume` | `geo:dist` | The physical volume of the object. |
+| `:phys:width` | `geo:dist` | The physical width of the object. |
 | `:place` | `geo:place` | The place where the item was located. |
 | `:place:address` | `geo:address` | The postal address where the item was located. |
 | `:place:address:city` | `base:name` | The city where the item was located. |
@@ -6145,7 +6719,7 @@ A GUID assigned to a material specification.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the material specification. |
+| `:name` | `base:name` | The name of the material specification. |
 | `:type` | `mat:item:type:taxonomy` | The taxonomy type for the specification. |
 
 ### `math:algorithm`
@@ -6156,7 +6730,7 @@ A mathematical algorithm.
 |----------|------|-----|
 | `:created` | `time` | The time that the algorithm was authored. |
 | `:desc` | `text` | A description of the algorithm. |
-| `:name` | `meta:name` | The name of the algorithm. |
+| `:name` | `base:name` | The name of the algorithm. |
 | `:type` | `math:algorithm:type:taxonomy` | The type of algorithm. |
 
 ### `math:algorithm:type:taxonomy`
@@ -6175,6 +6749,23 @@ A hierarchical taxonomy of algorithm types.
 | `:parent` | `math:algorithm:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
+
+### `meta:activity`
+
+Analytically relevant activity.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:desc` | `text` | A description of the activity. |
+| `:name` | `base:name` | The name of the activity. |
+| `:period` | `ival` | The period over which the activity occurred. |
+| `:type` | `meta:event:type:taxonomy` | The type of activity. |
 
 ### `meta:aggregate`
 
@@ -6203,16 +6794,40 @@ A type of item being counted in aggregate.
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
 
-### `meta:event`
+### `meta:award`
 
-An analytically relevant event in a curated timeline.
+An award.
+
+| Interface |
+|-----------|
+| `meta:achievable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:desc` | `text` | A description of the award. |
+| `:issuer` | `entity:actor` | The entity which issues the award. |
+| `:issuer:name` | `entity:name` | The name of the entity which issues the award. |
+| `:name` | `base:name` | The name of the award. |
+| `:names` | `array of base:name` | An array of alternate names for the award. |
+| `:period` | `ival` | The period of time when the issuer gave out the award. |
+| `:type` | `meta:award:type:taxonomy` | The type of award. |
+
+### `meta:event`
+
+An analytically relevant event.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
 | `:desc` | `text` | A description of the event. |
-| `:period` | `ival` | The period over which the event occurred. |
+| `:time` | `time` | The time that the event occurred. |
 | `:title` | `str` | A title for the event. |
-| `:type` | `meta:event:type:taxonomy` | Type of event. |
+| `:type` | `meta:event:type:taxonomy` | The type of event. |
 
 ### `meta:event:type:taxonomy`
 
@@ -6240,7 +6855,7 @@ A data feed provided by a specific source.
 | `:cursor` | `str` | A cursor used to track ingest offset within the feed. |
 | `:id` | `meta:id` | An identifier for the feed. |
 | `:latest` | `time` | The time of the last record consumed from the feed. |
-| `:name` | `meta:name` | A name for the feed. |
+| `:name` | `base:name` | A name for the feed. |
 | `:offset` | `int` | The offset of the last record consumed from the feed. |
 | `:opts` | `data` | An opaque JSON object containing feed parameters and options. |
 | `:period` | `ival` | The time window over which results have been ingested. |
@@ -6273,18 +6888,6 @@ A case sensitive identifier string.
 | Interface |
 |-----------|
 | `entity:identifier` |
-
-### `meta:name`
-
-A name used to refer to an entity or event.
-
-| Interface |
-|-----------|
-| `meta:observable` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:seen` | `ival` | The name was observed during the time interval. |
 
 ### `meta:note`
 
@@ -6323,23 +6926,24 @@ A generic rule linked to matches with -(matches)> edges.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the rule. |
 | `:created` | `time` | The time that the rule was created. |
+| `:creator` | `entity:actor` | The primary actor which created the rule. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the rule. |
 | `:desc` | `text` | A description of the rule. |
 | `:enabled` | `bool` | The enabled status of the rule. |
 | `:id` | `meta:id` | The rule ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the rule. |
 | `:name` | `base:id` | The rule name. |
-| `:supersedes` | `array` | An array of rule versions which are superseded by this rule. |
+| `:supersedes` | `array of meta:rule` | An array of rule versions which are superseded by this rule. |
 | `:text` | `text` | The text of the rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the rule was last updated. |
 | `:url` | `inet:url` | A URL which documents the rule. |
-| `:used` | `ival` | The time interval when the item was being used. |
 | `:version` | `it:version` | The version of the rule. |
 
 ### `meta:rule:type:taxonomy`
@@ -6366,16 +6970,18 @@ A set of rules linked with -(has)> edges.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the ruleset. |
 | `:created` | `time` | The time that the ruleset was created. |
+| `:creator` | `entity:actor` | The primary actor which created the ruleset. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the ruleset. |
 | `:desc` | `text` | A description of the ruleset. |
 | `:id` | `meta:id` | The ruleset ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the ruleset. |
 | `:name` | `base:id` | A name for the ruleset. |
-| `:supersedes` | `array` | An array of ruleset versions which are superseded by this ruleset. |
+| `:supersedes` | `array of meta:ruleset` | An array of ruleset versions which are superseded by this ruleset. |
 | `:type` | `meta:ruleset:type:taxonomy` | The ruleset type. |
 | `:updated` | `time` | The time that the ruleset was last updated. |
 | `:url` | `inet:url` | The URL where the ruleset is available. |
@@ -6390,7 +6996,7 @@ A data source unique identifier.
 | `:ingest:cursor` | `str` | Used by ingest logic to capture the current ingest cursor within a feed. |
 | `:ingest:latest` | `time` | Used by ingest logic to capture the last time a feed ingest ran. |
 | `:ingest:offset` | `int` | Used by ingest logic to capture the current ingest offset within a feed. |
-| `:name` | `meta:name` | A human friendly name for the source. |
+| `:name` | `base:name` | A human friendly name for the source. |
 | `:type` | `meta:source:type:taxonomy` | The type of source. |
 | `:url` | `inet:url` | A URL which documents the meta source. |
 
@@ -6426,9 +7032,9 @@ A specific technique used to achieve a goal.
 | `:created` | `time` | The time when the technique was created. |
 | `:desc` | `text` | A description of the technique. |
 | `:id` | `meta:id` | A unique ID given to the technique. |
-| `:ids` | `array` | An array of alternate IDs given to the technique. |
-| `:name` | `meta:name` | The primary name of the technique. |
-| `:names` | `array` | A list of alternate names for the technique. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the technique. |
+| `:name` | `base:name` | The primary name of the technique. |
+| `:names` | `array of base:name` | A list of alternate names for the technique. |
 | `:parent` | `meta:technique` | The parent technique for the technique. |
 | `:published` | `time` | The time when the reporter published the technique. |
 | `:reporter` | `entity:actor` | The entity which reported on the technique. |
@@ -6436,12 +7042,11 @@ A specific technique used to achieve a goal.
 | `:resolved` | `meta:technique` | The authoritative technique which this reporting is about. |
 | `:sophistication` | `meta:score` | The assessed sophistication of the technique. |
 | `:superseded` | `time` | The time when the technique was superseded. |
-| `:supersedes` | `array` | An array of technique nodes which are superseded by this technique. |
+| `:supersedes` | `array of meta:technique` | An array of technique nodes which are superseded by this technique. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes where the technique was employed. |
 | `:type` | `meta:technique:type:taxonomy` | The taxonomy classification of the technique. |
 | `:updated` | `time` | The time when the technique was last updated. |
 | `:url` | `inet:url` | The URL for the technique. |
-| `:used` | `ival` | The time interval when the technique was being used. |
 
 ### `meta:technique:type:taxonomy`
 
@@ -6493,22 +7098,25 @@ A topic string.
 
 | Interface |
 |-----------|
-| `meta:observable` |
+| `risk:targetable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the topic. |
-| `:seen` | `ival` | The name was observed during the time interval. |
 
 ### `ou:asset`
 
 A node for tracking assets which belong to an organization.
 
+| Interface |
+|-----------|
+| `risk:exploitable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:id` | `meta:id` | The ID of the asset. |
-| `:name` | `str` | The name of the assset. |
-| `:node` | `ndef` | The node which represents the asset. |
+| `:name` | `base:name` | The name of the assset. |
+| `:node` | `meta:havable` | The node which represents the asset. |
 | `:operator` | `entity:contact` | The contact information of the user or operator of the asset. |
 | `:org` | `ou:org` | The organization which owns the asset. |
 | `:owner` | `entity:contact` | The contact information of the owner or administrator of the asset. |
@@ -6555,33 +7163,6 @@ An asset type taxonomy.
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
 
-### `ou:award`
-
-An award issued by an organization.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:name` | `meta:name` | The name of the award. |
-| `:org` | `ou:org` | The organization which issues the award. |
-| `:type` | `ou:award:type:taxonomy` | The type of award. |
-
-### `ou:award:type:taxonomy`
-
-A hierarchical taxonomy of award types.
-
-| Interface |
-|-----------|
-| `meta:taxonomy` |
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:base` | `taxon` | The base taxon. |
-| `:depth` | `int` | The depth indexed from 0. |
-| `:desc` | `text` | A definition of the taxonomy entry. |
-| `:parent` | `ou:award:type:taxonomy` | The taxonomy parent. |
-| `:sort` | `int` | A display sort order for siblings. |
-| `:title` | `str` | A brief title of the definition. |
-
 ### `ou:candidate`
 
 A candidate being considered for a role within an organization.
@@ -6589,7 +7170,7 @@ A candidate being considered for a role within an organization.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:agent` | `entity:contact` | The contact information of an agent who advocates for the candidate. |
-| `:attachments` | `array` | An array of additional files submitted by the candidate. |
+| `:attachments` | `array of file:attachment` | An array of additional files submitted by the candidate. |
 | `:contact` | `entity:contact` | The contact information of the candidate. |
 | `:intro` | `str` | An introduction or cover letter text submitted by the candidate. |
 | `:method` | `ou:candidate:method:taxonomy` | The method by which the candidate came under consideration. |
@@ -6633,25 +7214,21 @@ A conference.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
+| `base:activity` |
+| `entity:participable` |
+| `entity:supportable` |
 | `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
-| `ou:sponsored` |
+| `meta:causal` |
+| `meta:recordable` |
+| `ou:promotable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | Contact information for the conference. |
-| `:desc` | `text` | A description of the conference. |
-| `:name` | `meta:name` | The name of the conference. |
-| `:name:base` | `meta:name` | The base name of the conference (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the conference. |
-| `:organizers` | `array` | An array of conference organizers. |
-| `:owner` | `entity:actor` | The current owner of the conference. |
-| `:owner:name` | `entity:name` | The name of the current owner of the conference. |
-| `:parent` | `entity:attendable` | The parent event which hosts the conference. |
-| `:period` | `ival` | The period of time over which the conference occurred. |
+| `:activity` | `meta:activity` | A parent activity which includes this conference. |
+| `:family` | `event:name` | The family name of the conference used to group recurring events. |
+| `:name` | `event:name` | The name of the conference. |
+| `:names` | `array of event:name` | An array of alternate names for the conference. |
+| `:period` | `ival` | The period over which the conference occurred. |
 | `:place` | `geo:place` | The place where the conference was located. |
 | `:place:address` | `geo:address` | The postal address where the conference was located. |
 | `:place:address:city` | `base:name` | The city where the conference was located. |
@@ -6665,8 +7242,11 @@ A conference.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the conference was located. |
 | `:place:loc` | `loc` | The geopolitical location where the conference was located. |
 | `:place:name` | `geo:name` | The name where the conference was located. |
-| `:sponsors` | `array` | The entities which sponsored the conference. |
-| `:website` | `inet:url` | The URL of the conference website. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the conference. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the conference. |
+| `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the conference. |
+| `:website` | `inet:url` | The website of the conference website. |
 
 ### `ou:contest`
 
@@ -6674,25 +7254,20 @@ A competitive event resulting in a ranked set of participants.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
+| `base:activity` |
+| `entity:participable` |
+| `entity:supportable` |
 | `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
-| `ou:sponsored` |
+| `meta:causal` |
+| `meta:recordable` |
+| `ou:promotable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | Contact information for the contest. |
-| `:desc` | `text` | A description of the contest. |
-| `:name` | `meta:name` | The name of the contest. |
-| `:name:base` | `meta:name` | The base name of the contest (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the contest. |
-| `:organizers` | `array` | An array of contest organizers. |
-| `:owner` | `entity:actor` | The current owner of the contest. |
-| `:owner:name` | `entity:name` | The name of the current owner of the contest. |
-| `:parent` | `entity:attendable` | The parent event which hosts the contest. |
-| `:period` | `ival` | The period of time over which the contest occurred. |
+| `:activity` | `meta:activity` | A parent activity which includes this contest. |
+| `:name` | `event:name` | The name of the contest. |
+| `:names` | `array of event:name` | An array of alternate names for the contest. |
+| `:period` | `ival` | The period over which the contest occurred. |
 | `:place` | `geo:place` | The place where the contest was located. |
 | `:place:address` | `geo:address` | The postal address where the contest was located. |
 | `:place:address:city` | `base:name` | The city where the contest was located. |
@@ -6706,9 +7281,12 @@ A competitive event resulting in a ranked set of participants.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the contest was located. |
 | `:place:loc` | `loc` | The geopolitical location where the contest was located. |
 | `:place:name` | `geo:name` | The name where the contest was located. |
-| `:sponsors` | `array` | The entities which sponsored the contest. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the contest. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the contest. |
+| `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the contest. |
 | `:type` | `ou:contest:type:taxonomy` | The type of contest. |
-| `:website` | `inet:url` | The URL of the contest website. |
+| `:website` | `inet:url` | The website of the contest website. |
 
 ### `ou:contest:result`
 
@@ -6763,7 +7341,7 @@ An organization enacting a document.
 
 | Interface |
 |-----------|
-| `proj:doable` |
+| `meta:task` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -6771,16 +7349,15 @@ An organization enacting a document.
 | `:completed` | `time` | The time the adoption task was completed. |
 | `:created` | `time` | The time the adoption task was created. |
 | `:creator` | `entity:actor` | The actor who created the adoption task. |
-| `:doc` | `ndef` | The document enacted by the organization. |
+| `:doc` | `doc:policy`, `doc:requirement`, `doc:standard` | The document enacted by the organization. |
 | `:due` | `time` | The time the adoption task must be complete. |
-| `:id` | `meta:id` | The ID of the adoption task. |
+| `:id` | `base:id` | The ID of the adoption task. |
 | `:org` | `ou:org` | The organization which is enacting the document. |
-| `:parent` | `proj:doable` | The parent task which includes this adoption task. |
+| `:parent` | `meta:task` | The parent task which includes this adoption task. |
 | `:priority` | `meta:score` | The priority of the adoption task. |
 | `:project` | `proj:project` | The project containing the adoption task. |
-| `:scope` | `ndef` | The scope of responsbility for the assignee to enact the document. |
-| `:sprint` | `proj:sprint` | The sprint that contains the adoption task. |
-| `:status` | `int` | The status of the adoption task. |
+| `:scope` | `ou:org`, `ou:team` | The scope of responsbility for the assignee to enact the document. |
+| `:status` | `meta:task:status` | The status of the adoption task. |
 | `:updated` | `time` | The time the adoption task was last updated. |
 
 ### `ou:enacted:status:taxonomy`
@@ -6806,25 +7383,20 @@ An generic organized event.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
+| `base:activity` |
+| `entity:participable` |
+| `entity:supportable` |
 | `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
-| `ou:sponsored` |
+| `meta:causal` |
+| `meta:recordable` |
+| `ou:promotable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | Contact information for the event. |
-| `:desc` | `text` | A description of the event. |
-| `:name` | `meta:name` | The name of the event. |
-| `:name:base` | `meta:name` | The base name of the event (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the event. |
-| `:organizers` | `array` | An array of event organizers. |
-| `:owner` | `entity:actor` | The current owner of the event. |
-| `:owner:name` | `entity:name` | The name of the current owner of the event. |
-| `:parent` | `entity:attendable` | The parent event which hosts the event. |
-| `:period` | `ival` | The period of time over which the event occurred. |
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
+| `:name` | `event:name` | The name of the event. |
+| `:names` | `array of event:name` | An array of alternate names for the event. |
+| `:period` | `ival` | The period over which the event occurred. |
 | `:place` | `geo:place` | The place where the event was located. |
 | `:place:address` | `geo:address` | The postal address where the event was located. |
 | `:place:address:city` | `base:name` | The city where the event was located. |
@@ -6838,9 +7410,29 @@ An generic organized event.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the event was located. |
 | `:place:loc` | `loc` | The geopolitical location where the event was located. |
 | `:place:name` | `geo:name` | The name where the event was located. |
-| `:sponsors` | `array` | The entities which sponsored the event. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the event. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the event. |
+| `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the event. |
 | `:type` | `ou:event:type:taxonomy` | The type of event. |
-| `:website` | `inet:url` | The URL of the event website. |
+| `:website` | `inet:url` | The website of the event website. |
+
+### `ou:event:type:taxonomy`
+
+A hierarchical taxonomy of event types.
+
+| Interface |
+|-----------|
+| `meta:taxonomy` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:base` | `taxon` | The base taxon. |
+| `:depth` | `int` | The depth indexed from 0. |
+| `:desc` | `text` | A definition of the taxonomy entry. |
+| `:parent` | `ou:event:type:taxonomy` | The taxonomy parent. |
+| `:sort` | `int` | A display sort order for siblings. |
+| `:title` | `str` | A brief title of the definition. |
 
 ### `ou:id`
 
@@ -6921,18 +7513,18 @@ An industry classification type.
 | `:created` | `time` | The time when the industry was created. |
 | `:desc` | `text` | A description of the industry. |
 | `:id` | `meta:id` | A unique ID given to the industry. |
-| `:ids` | `array` | An array of alternate IDs given to the industry. |
-| `:isic` | `array` | An array of ISIC codes that map to the industry. |
-| `:naics` | `array` | An array of NAICS codes that map to the industry. |
-| `:name` | `meta:name` | The primary name of the industry. |
-| `:names` | `array` | A list of alternate names for the industry. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the industry. |
+| `:isic` | `array of ou:isic` | An array of ISIC codes that map to the industry. |
+| `:naics` | `array of ou:naics` | An array of NAICS codes that map to the industry. |
+| `:name` | `base:name` | The primary name of the industry. |
+| `:names` | `array of base:name` | A list of alternate names for the industry. |
 | `:published` | `time` | The time when the reporter published the industry. |
 | `:reporter` | `entity:actor` | The entity which reported on the industry. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the industry. |
 | `:resolved` | `ou:industry` | The authoritative industry which this reporting is about. |
-| `:sic` | `array` | An array of SIC codes that map to the industry. |
+| `:sic` | `array of ou:sic` | An array of SIC codes that map to the industry. |
 | `:superseded` | `time` | The time when the industry was superseded. |
-| `:supersedes` | `array` | An array of industry nodes which are superseded by this industry. |
+| `:supersedes` | `array of ou:industry` | An array of industry nodes which are superseded by this industry. |
 | `:type` | `ou:industry:type:taxonomy` | A taxonomy entry for the industry. |
 | `:updated` | `time` | The time when the industry was last updated. |
 | `:url` | `inet:url` | The URL for the industry. |
@@ -6977,36 +7569,33 @@ A meeting.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
+| `base:activity` |
+| `entity:participable` |
 | `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
+| `meta:causal` |
+| `meta:recordable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:desc` | `text` | A description of the event. |
-| `:hosts` | `array` | The contacts who hosted or called the meeting. |
-| `:name` | `meta:name` | The name of the meeting. |
-| `:name:base` | `meta:name` | The base name of the meeting (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the meeting. |
-| `:owner` | `entity:actor` | The current owner of the item. |
-| `:owner:name` | `entity:name` | The name of the current owner of the item. |
-| `:parent` | `entity:attendable` | The parent event which hosts the event. |
-| `:period` | `ival` | The period of time over which the event occurred. |
-| `:place` | `geo:place` | The place where the item was located. |
-| `:place:address` | `geo:address` | The postal address where the item was located. |
-| `:place:address:city` | `base:name` | The city where the item was located. |
-| `:place:altitude` | `geo:altitude` | The altitude where the item was located. |
-| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the item was located. |
-| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the item was located. |
-| `:place:country` | `pol:country` | The country where the item was located. |
-| `:place:country:code` | `iso:3166:alpha2` | The country code where the item was located. |
-| `:place:geojson` | `geo:json` | A GeoJSON representation of where the item was located. |
-| `:place:latlong` | `geo:latlong` | The latlong where the item was located. |
-| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the item was located. |
-| `:place:loc` | `loc` | The geopolitical location where the item was located. |
-| `:place:name` | `geo:name` | The name where the item was located. |
+| `:activity` | `meta:activity` | A parent activity which includes this meeting. |
+| `:name` | `event:name` | The name of the meeting. |
+| `:period` | `ival` | The period over which the meeting occurred. |
+| `:place` | `geo:place` | The place where the meeting was located. |
+| `:place:address` | `geo:address` | The postal address where the meeting was located. |
+| `:place:address:city` | `base:name` | The city where the meeting was located. |
+| `:place:altitude` | `geo:altitude` | The altitude where the meeting was located. |
+| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the meeting was located. |
+| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the meeting was located. |
+| `:place:country` | `pol:country` | The country where the meeting was located. |
+| `:place:country:code` | `iso:3166:alpha2` | The country code where the meeting was located. |
+| `:place:geojson` | `geo:json` | A GeoJSON representation of where the meeting was located. |
+| `:place:latlong` | `geo:latlong` | The latlong where the meeting was located. |
+| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the meeting was located. |
+| `:place:loc` | `loc` | The geopolitical location where the meeting was located. |
+| `:place:name` | `geo:name` | The name where the meeting was located. |
+| `:recording:file` | `file:bytes` | A file containing a recording of the meeting. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the meeting. |
 
 ### `ou:opening`
 
@@ -7021,12 +7610,11 @@ A job/work opening within an org.
 | `:org` | `ou:org` | The org which has the opening. |
 | `:org:fqdn` | `inet:fqdn` | The FQDN of the organization as listed in the opening. |
 | `:org:name` | `entity:name` | The name of the organization as listed in the opening. |
-| `:pay:currency` | `econ:currency` | The currency used for payment. |
 | `:pay:max` | `econ:price` | The maximum pay for the job. |
 | `:pay:min` | `econ:price` | The minimum pay for the job. |
 | `:pay:pertime` | `duration` | The duration over which the position pays. |
 | `:period` | `ival` | The time period when the opening existed. |
-| `:postings` | `array` | URLs where the opening is listed. |
+| `:postings` | `array of inet:url` | URLs where the opening is listed. |
 | `:remote` | `bool` | Set to true if the opening will allow a fully remote worker. |
 | `:title` | `entity:title` | The title of the opening. |
 
@@ -7047,28 +7635,28 @@ An organization, such as a company or military unit.
 |----------|------|-----|
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
 | `:bio` | `text` | A tagline or bio provided for the organization. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the organization. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the organization. |
 | `:desc` | `text` | A description of the organization. |
-| `:dns:mx` | `array` | An array of MX domains used by email addresses issued by the org. |
+| `:dns:mx` | `array of inet:fqdn` | An array of MX domains used by email addresses issued by the org. |
 | `:email` | `inet:email` | The primary email address for the organization. |
-| `:emails` | `array` | An array of alternate email addresses for the organization. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the organization. |
 | `:id` | `meta:id` | A type or source specific ID for the organization. |
-| `:identifiers` | `array` | Additional entity identifiers. |
-| `:industries` | `array` | The industries associated with the org. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
+| `:industries` | `array of ou:industry` | The industries associated with the org. |
 | `:lang` | `lang:language` | The primary language of the organization. |
-| `:langs` | `array` | An array of alternate languages for the organization. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the organization. |
 | `:lifespan` | `ival` | The lifespan of the organization. |
 | `:logo` | `file:bytes` | An image file representing the logo for the organization. |
 | `:motto` | `lang:phrase` | The motto used by the organization. |
 | `:name` | `entity:name` | The primary entity name of the organization. |
-| `:names` | `array` | An array of alternate entity names for the organization. |
+| `:names` | `array of entity:name` | An array of alternate entity names for the organization. |
 | `:orgchart` | `ou:position` | The root node for an orgchart made up ou:position nodes. |
 | `:owner` | `entity:actor` | The current owner of the organization. |
 | `:owner:name` | `entity:name` | The name of the current owner of the organization. |
 | `:parent` | `ou:org` | The parent organization. |
 | `:phone` | `tel:phone` | The primary phone number for the organization. |
-| `:phones` | `array` | An array of alternate telephone numbers for the organization. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the organization. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this organization. |
 | `:place` | `geo:place` | The place where the organization was located. |
 | `:place:address` | `geo:address` | The postal address where the organization was located. |
@@ -7083,13 +7671,13 @@ An organization, such as a company or military unit.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the organization was located. |
 | `:place:loc` | `loc` | The geopolitical location where the organization was located. |
 | `:place:name` | `geo:name` | The name where the organization was located. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the organization. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the organization. |
 | `:tag` | `syn:tag` | A base tag used to encode assessments made by the organization. |
 | `:type` | `ou:org:type:taxonomy` | The type of organization. |
 | `:user` | `inet:user` | The primary user name for the organization. |
-| `:users` | `array` | An array of alternate user names for the organization. |
+| `:users` | `array of inet:user` | An array of alternate user names for the organization. |
 | `:vitals` | `ou:vitals` | The most recent/accurate ou:vitals for the org. |
-| `:websites` | `array` | Web sites listed for the organization. |
+| `:websites` | `array of inet:url` | Web sites listed for the organization. |
 
 ### `ou:org:type:taxonomy`
 
@@ -7126,7 +7714,7 @@ A position within an org which can be organized into an org chart with replaceab
 |----------|------|-----|
 | `:contact` | `entity:individual` | The contact info for the person who holds the position. |
 | `:org` | `ou:org` | The org which has the position. |
-| `:reports` | `array` | An array of positions which report to this position. |
+| `:reports` | `array of ou:position` | An array of positions which report to this position. |
 | `:team` | `ou:team` | The team that the position is a member of. |
 | `:title` | `entity:title` | The title of the position. |
 
@@ -7136,46 +7724,41 @@ A webinar, conference talk, or other type of presentation.
 
 | Interface |
 |-----------|
-| `entity:attendable` |
+| `base:activity` |
+| `entity:participable` |
+| `entity:supportable` |
 | `geo:locatable` |
-| `lang:transcript` |
-| `meta:havable` |
-| `ou:attendable` |
-| `ou:sponsored` |
+| `meta:causal` |
+| `meta:recordable` |
+| `ou:promotable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this presentation. |
 | `:attendee:url` | `inet:url` | The URL visited by live attendees of the presentation. |
-| `:contact` | `entity:contact` | Contact information for the presentation. |
 | `:deck:file` | `file:bytes` | A file containing the presentation materials. |
 | `:deck:url` | `inet:url` | The URL hosting a copy of the presentation materials. |
-| `:desc` | `text` | A description of the event. |
-| `:name` | `meta:name` | The name of the event. |
-| `:name:base` | `meta:name` | The base name of the event (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the event. |
-| `:organizers` | `array` | An array of presentation organizers. |
-| `:owner` | `entity:actor` | The current owner of the item. |
-| `:owner:name` | `entity:name` | The name of the current owner of the item. |
-| `:parent` | `entity:attendable` | The parent event which hosts the event. |
-| `:period` | `ival` | The period of time over which the event occurred. |
-| `:place` | `geo:place` | The place where the item was located. |
-| `:place:address` | `geo:address` | The postal address where the item was located. |
-| `:place:address:city` | `base:name` | The city where the item was located. |
-| `:place:altitude` | `geo:altitude` | The altitude where the item was located. |
-| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the item was located. |
-| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the item was located. |
-| `:place:country` | `pol:country` | The country where the item was located. |
-| `:place:country:code` | `iso:3166:alpha2` | The country code where the item was located. |
-| `:place:geojson` | `geo:json` | A GeoJSON representation of where the item was located. |
-| `:place:latlong` | `geo:latlong` | The latlong where the item was located. |
-| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the item was located. |
-| `:place:loc` | `loc` | The geopolitical location where the item was located. |
-| `:place:name` | `geo:name` | The name where the item was located. |
-| `:presenters` | `array` | An array of individuals who gave the presentation. |
+| `:name` | `event:name` | The name of the presentation. |
+| `:names` | `array of event:name` | An array of alternate names for the presentation. |
+| `:period` | `ival` | The period over which the presentation occurred. |
+| `:place` | `geo:place` | The place where the presentation was located. |
+| `:place:address` | `geo:address` | The postal address where the presentation was located. |
+| `:place:address:city` | `base:name` | The city where the presentation was located. |
+| `:place:altitude` | `geo:altitude` | The altitude where the presentation was located. |
+| `:place:altitude:accuracy` | `geo:dist` | The accuracy of the altitude where the presentation was located. |
+| `:place:bbox` | `geo:bbox` | A bounding box which encompasses where the presentation was located. |
+| `:place:country` | `pol:country` | The country where the presentation was located. |
+| `:place:country:code` | `iso:3166:alpha2` | The country code where the presentation was located. |
+| `:place:geojson` | `geo:json` | A GeoJSON representation of where the presentation was located. |
+| `:place:latlong` | `geo:latlong` | The latlong where the presentation was located. |
+| `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the presentation was located. |
+| `:place:loc` | `loc` | The geopolitical location where the presentation was located. |
+| `:place:name` | `geo:name` | The name where the presentation was located. |
 | `:recording:file` | `file:bytes` | A file containing a recording of the presentation. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
 | `:recording:url` | `inet:url` | The URL hosting a recording of the presentation. |
-| `:sponsors` | `array` | The entities which sponsored the presentation. |
-| `:website` | `inet:url` | The URL of the presentation website. |
+| `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the presentation. |
+| `:website` | `inet:url` | The website of the presentation website. |
 
 ### `ou:team`
 
@@ -7183,7 +7766,7 @@ A GUID for a team within an organization.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the team. |
+| `:name` | `entity:name` | The name of the team. |
 | `:org` | `ou:org` | The organization that the team is associated with. |
 
 ### `ou:vitals`
@@ -7194,7 +7777,6 @@ Vital statistics about an org for a given time period.
 |----------|------|-----|
 | `:budget` | `econ:price` | The budget allocated for the period. |
 | `:costs` | `econ:price` | The costs/expenditures over the period. |
-| `:currency` | `econ:currency` | The currency of the econ:price values. |
 | `:delta:costs` | `econ:price` | The change in costs over last period. |
 | `:delta:population` | `int` | The change in population over last period. |
 | `:delta:profit` | `econ:price` | The change in profit over last period. |
@@ -7245,16 +7827,18 @@ A phase within a planning system which may be used to group steps within a proce
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the phase. |
 | `:created` | `time` | The time that the phase was created. |
+| `:creator` | `entity:actor` | The primary actor which created the phase. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the phase. |
 | `:desc` | `text` | A description of the definition of the phase. |
 | `:id` | `meta:id` | The phase ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the phase. |
 | `:index` | `int` | The index of this phase within the phases of the system. |
-| `:supersedes` | `array` | An array of phase versions which are superseded by this phase. |
+| `:supersedes` | `array of plan:phase` | An array of phase versions which are superseded by this phase. |
 | `:system` | `plan:system` | The planning system which defines this phase. |
 | `:title` | `str` | The title of the phase. |
 | `:updated` | `time` | The time that the phase was last updated. |
@@ -7269,26 +7853,29 @@ A procedure consisting of steps.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
 | `:body` | `text` | The text of the procedure. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
-| `:desc` | `text` | A description of the document. |
+| `:created` | `time` | The time that the procedure was created. |
+| `:creator` | `entity:actor` | The primary actor which created the procedure. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the procedure. |
+| `:desc` | `text` | A description of the procedure. |
 | `:file` | `file:bytes` | The file containing the procedure contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the procedure contents. |
 | `:firststep` | `plan:procedure:step` | The first step in the procedure. |
-| `:id` | `meta:id` | The document ID. |
-| `:inputs` | `array` | An array of inputs required to execute the procedure. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:id` | `meta:id` | The procedure ID. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the procedure. |
+| `:inputs` | `array of plan:procedure:variable` | An array of inputs required to execute the procedure. |
+| `:supersedes` | `array of plan:procedure` | An array of procedure versions which are superseded by this procedure. |
 | `:system` | `plan:system` | The planning system which defines this procedure. |
 | `:title` | `str` | The title of the procedure. |
 | `:type` | `plan:procedure:type:taxonomy` | A type classification for the procedure. |
-| `:updated` | `time` | The time that the document was last updated. |
-| `:url` | `inet:url` | The URL where the document is available. |
-| `:version` | `it:version` | The version of the document. |
+| `:updated` | `time` | The time that the procedure was last updated. |
+| `:url` | `inet:url` | The URL where the procedure is available. |
+| `:version` | `it:version` | The version of the procedure. |
 
 ### `plan:procedure:link`
 
@@ -7307,8 +7894,8 @@ A step within a procedure.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the tasks executed within the step. |
-| `:links` | `array` | An array of links to subsequent steps. |
-| `:outputs` | `array` | An array of variables defined in this step. |
+| `:links` | `array of plan:procedure:link` | An array of links to subsequent steps. |
+| `:outputs` | `array of plan:procedure:variable` | An array of variables defined in this step. |
 | `:phase` | `plan:phase` | The phase that the step belongs within. |
 | `:procedure` | `plan:procedure` | The procedure which defines the step. |
 | `:title` | `str` | The title of the step. |
@@ -7348,16 +7935,19 @@ A planning or behavioral analysis system that defines phases and procedures.
 | Interface |
 |-----------|
 | `doc:authorable` |
+| `entity:creatable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:author` | `entity:actor` | The contact of the person or organization which authored the system. |
-| `:contributors` | `array` | An array of contacts which contributed to the planning system. |
 | `:created` | `time` | The time the planning system was first created. |
+| `:creator` | `entity:actor` | The primary actor which created the planning system. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the planning system. |
 | `:desc` | `text` | A description of the planning system. |
 | `:id` | `meta:id` | The planning system ID. |
-| `:name` | `meta:name` | The name of the planning system. |
-| `:supersedes` | `array` | An array of planning system versions which are superseded by this planning system. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the planning system. |
+| `:name` | `base:name` | The name of the planning system. |
+| `:supersedes` | `array of plan:system` | An array of planning system versions which are superseded by this planning system. |
 | `:updated` | `time` | The time the planning system was last updated. |
 | `:url` | `inet:url` | The primary URL which documents the planning system. |
 | `:version` | `it:version` | The version of the planning system. |
@@ -7366,14 +7956,25 @@ A planning or behavioral analysis system that defines phases and procedures.
 
 A candidate for office in a specific race.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this candidacy. |
+| `:actor` | `entity:actor` | The actor who carried out the candidacy. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the candidacy. |
 | `:campaign` | `entity:campaign` | The official campaign to elect the candidate. |
-| `:contact` | `entity:contact` | The contact information of the candidate. |
 | `:id` | `meta:id` | A unique ID for the candidate issued by an election authority. |
 | `:incumbent` | `bool` | Set to true if the candidate is an incumbent in this race. |
 | `:party` | `ou:org` | The declared political party of the candidate. |
+| `:period` | `ival` | The period over which the candidacy occurred. |
 | `:race` | `pol:race` | The race the candidate is participating in. |
+| `:votes` | `int` | The total number of votes received by the candidate. |
 | `:winner` | `bool` | Records the outcome of the race. |
 
 ### `pol:country`
@@ -7386,14 +7987,15 @@ A GUID for a country.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:code` | `iso:3166:alpha2` | The ISO 3166 Alpha-2 country code. |
-| `:currencies` | `array` | The official currencies used in the country. |
+| `:code` | `pol:country:code` | The country code. |
+| `:codes` | `array of pol:country:code` | An array of country codes. |
+| `:currencies` | `array of econ:currency` | The official currencies used in the country. |
 | `:flag` | `file:bytes` | A thumbnail image of the flag of the country. |
 | `:government` | `ou:org` | The government of the country. |
 | `:iso:3166:alpha3` | `iso:3166:alpha3` | The ISO 3166 Alpha-3 country code. |
 | `:iso:3166:numeric3` | `iso:3166:numeric3` | The ISO 3166 Numeric-3 country code. |
 | `:name` | `geo:name` | The name of the country. |
-| `:names` | `array` | An array of alternate or localized names for the country. |
+| `:names` | `array of geo:name` | An array of alternate or localized names for the country. |
 | `:period` | `ival` | The period over which the country existed. |
 | `:place` | `geo:place` | The geospatial properties of the country. |
 | `:tld` | `inet:fqdn` | The top-level domain for the country. |
@@ -7403,9 +8005,16 @@ A GUID for a country.
 
 An election involving one or more races for office.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the election. |
+| `:activity` | `meta:activity` | A parent activity which includes this election. |
+| `:name` | `event:name` | The name of the election. |
+| `:period` | `ival` | The period over which the election occurred. |
 | `:time` | `time` | The date of the election. |
 
 ### `pol:immigration:status`
@@ -7417,7 +8026,7 @@ A node which tracks the immigration status of a contact.
 | `:contact` | `entity:contact` | The contact information for the immigration status record. |
 | `:country` | `pol:country` | The country that the contact is/has immigrated to. |
 | `:period` | `ival` | The time period when the contact was granted the status. |
-| `:state` | `str` | The state of the immigration status. |
+| `:state` | `pol:immigration:state` | The state of the immigration status. |
 | `:type` | `pol:immigration:status:type:taxonomy` | A taxonomy entry for the immigration status type. |
 
 ### `pol:immigration:status:type:taxonomy`
@@ -7466,10 +8075,17 @@ An official place where ballots may be cast for a specific election.
 
 An individual race for office.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this political race. |
 | `:election` | `pol:election` | The election that includes the race. |
 | `:office` | `pol:office` | The political office that the candidates in the race are running for. |
+| `:period` | `ival` | The period over which the political race occurred. |
 | `:turnout` | `int` | The number of individuals who voted in this race. |
 | `:voters` | `int` | The number of eligible voters for this race. |
 
@@ -7477,12 +8093,21 @@ An individual race for office.
 
 A term in office held by a specific individual.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | The contact information of the person who held office during the term. |
+| `:activity` | `meta:activity` | A parent activity which includes this term. |
+| `:actor` | `entity:actor` | The actor who carried out the term. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the term. |
 | `:office` | `pol:office` | The office held for the term. |
 | `:party` | `ou:org` | The political party of the person who held office during the term. |
-| `:period` | `ival` | The time period of the term of office. |
+| `:period` | `ival` | The period over which the term occurred. |
 | `:race` | `pol:race` | The race that determined who held office during the term. |
 
 ### `pol:vitals`
@@ -7494,7 +8119,6 @@ A set of vital statistics about a country.
 | `:area` | `geo:area` | The area of the country. |
 | `:country` | `pol:country` | The country that the statistics are about. |
 | `:currency` | `econ:currency` | The national currency. |
-| `:econ:currency` | `econ:currency` | The currency used to record price properties. |
 | `:econ:gdp` | `econ:price` | The gross domestic product of the country. |
 | `:population` | `int` | The total number of people living in the country. |
 | `:time` | `time` | The time that the vitals were measured. |
@@ -7541,37 +8165,36 @@ A timeboxed period to complete a set amount of work.
 | `:name` | `str` | The name of the sprint. |
 | `:period` | `ival` | The interval for the sprint. |
 | `:project` | `proj:project` | The project containing the sprint. |
-| `:status` | `str` | The sprint status. |
+| `:status` | `proj:sprint:status` | The sprint status. |
 
-### `proj:task`
+### `proj:ticket`
 
-A task.
+A ticket in a project management system.
 
 | Interface |
 |-----------|
-| `proj:doable` |
+| `meta:task` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:assignee` | `entity:actor` | The actor who is assigned to complete the task. |
-| `:completed` | `time` | The time the task was completed. |
-| `:created` | `time` | The time the task was created. |
-| `:creator` | `entity:actor` | The actor who created the task. |
+| `:assignee` | `entity:actor` | The actor who is assigned to complete the ticket. |
+| `:completed` | `time` | The time the ticket was completed. |
+| `:created` | `time` | The time the ticket was created. |
+| `:creator` | `entity:actor` | The actor who created the ticket. |
 | `:desc` | `text` | A description of the task. |
-| `:due` | `time` | The time the task must be complete. |
-| `:id` | `meta:id` | The ID of the task. |
+| `:due` | `time` | The time the ticket must be complete. |
+| `:id` | `base:id` | The ID of the ticket. |
 | `:name` | `str` | The name of the task. |
-| `:parent` | `proj:doable` | The parent task which includes this task. |
+| `:parent` | `meta:task` | The parent task which includes this ticket. |
 | `:points` | `int` | Optional SCRUM style story points value. |
-| `:priority` | `meta:score` | The priority of the task. |
-| `:project` | `proj:project` | The project containing the task. |
-| `:sprint` | `proj:sprint` | The sprint that contains the task. |
-| `:status` | `int` | The status of the task. |
-| `:type` | `proj:task:type:taxonomy` | The type of task. |
-| `:updated` | `time` | The time the task was last updated. |
+| `:priority` | `meta:score` | The priority of the ticket. |
+| `:project` | `proj:project` | The project containing the ticket. |
+| `:status` | `meta:task:status` | The status of the ticket. |
+| `:type` | `proj:ticket:type:taxonomy` | The type of task. |
+| `:updated` | `time` | The time the ticket was last updated. |
 | `:url` | `inet:url` | A URL which contains details about the task. |
 
-### `proj:task:type:taxonomy`
+### `proj:ticket:type:taxonomy`
 
 A hierarchical taxonomy of project task types.
 
@@ -7584,32 +8207,9 @@ A hierarchical taxonomy of project task types.
 | `:base` | `taxon` | The base taxon. |
 | `:depth` | `int` | The depth indexed from 0. |
 | `:desc` | `text` | A definition of the taxonomy entry. |
-| `:parent` | `proj:task:type:taxonomy` | The taxonomy parent. |
+| `:parent` | `proj:ticket:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
-
-### `ps:achievement`
-
-An instance of an individual receiving an award.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:award` | `ou:award` | The award bestowed on the awardee. |
-| `:awarded` | `time` | The date the award was granted to the awardee. |
-| `:awardee` | `entity:individual` | The recipient of the award. |
-| `:expires` | `time` | The date the award or certification expires. |
-| `:revoked` | `time` | The date the award was revoked by the org. |
-
-### `ps:education`
-
-A period of education for an individual.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:achievement` | `ps:achievement` | The degree or certificate awarded to the individual. |
-| `:institution` | `ou:org` | The organization providing educational services. |
-| `:period` | `ival` | The period of time when the student attended the institution. |
-| `:student` | `entity:individual` | The student who attended the educational institution. |
 
 ### `ps:person`
 
@@ -7639,8 +8239,8 @@ A person or persona.
 | `:birth:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the person was born. |
 | `:birth:place:loc` | `loc` | The geopolitical location where the person was born. |
 | `:birth:place:name` | `geo:name` | The name where the person was born. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the person. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the person. |
 | `:death:place` | `geo:place` | The place where the person died. |
 | `:death:place:address` | `geo:address` | The postal address where the person died. |
 | `:death:place:address:city` | `base:name` | The city where the person died. |
@@ -7656,18 +8256,18 @@ A person or persona.
 | `:death:place:name` | `geo:name` | The name where the person died. |
 | `:desc` | `text` | A description of the person. |
 | `:email` | `inet:email` | The primary email address for the person. |
-| `:emails` | `array` | An array of alternate email addresses for the person. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the person. |
 | `:id` | `meta:id` | A type or source specific ID for the person. |
-| `:identifiers` | `array` | Additional entity identifiers. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the person. |
-| `:langs` | `array` | An array of alternate languages for the person. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the person. |
 | `:lifespan` | `ival` | The lifespan of the person. |
 | `:name` | `entity:name` | The primary entity name of the person. |
-| `:names` | `array` | An array of alternate entity names for the person. |
+| `:names` | `array of entity:name` | An array of alternate entity names for the person. |
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
 | `:phone` | `tel:phone` | The primary phone number for the person. |
-| `:phones` | `array` | An array of alternate telephone numbers for the person. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the person. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this person. |
 | `:place` | `geo:place` | The place where the person was located. |
 | `:place:address` | `geo:address` | The postal address where the person was located. |
@@ -7682,22 +8282,13 @@ A person or persona.
 | `:place:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the person was located. |
 | `:place:loc` | `loc` | The geopolitical location where the person was located. |
 | `:place:name` | `geo:name` | The name where the person was located. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the person. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the person. |
 | `:title` | `entity:title` | The entity title or role for this person. |
-| `:titles` | `array` | An array of alternate entity titles or roles for this person. |
+| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this person. |
 | `:user` | `inet:user` | The primary user name for the person. |
-| `:users` | `array` | An array of alternate user names for the person. |
+| `:users` | `array of inet:user` | An array of alternate user names for the person. |
 | `:vitals` | `ps:vitals` | The most recent vitals for the person. |
-| `:websites` | `array` | Web sites listed for the person. |
-
-### `ps:proficiency`
-
-The assessment that a given contact possesses a specific skill.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:contact` | `entity:actor` | The entity which is proficient in the skill. |
-| `:skill` | `edu:learnable` | The topic or skill in which the contact is proficient. |
+| `:websites` | `array of inet:url` | Web sites listed for the person. |
 
 ### `ps:skill`
 
@@ -7709,7 +8300,7 @@ A specific skill which a person or organization may have.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `str` | The name of the skill. |
+| `:name` | `base:name` | The name of the skill. |
 | `:type` | `ps:skill:type:taxonomy` | The type of skill as a taxonomy. |
 
 ### `ps:skill:type:taxonomy`
@@ -7736,17 +8327,13 @@ Statistics and demographic data about a person.
 | Interface |
 |-----------|
 | `geo:locatable` |
-| `meta:havable` |
-| `phys:object` |
+| `phys:tangible` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:econ:annual:income` | `econ:price` | The yearly income of the contact. |
-| `:econ:currency` | `econ:currency` | The currency that the price values are recorded using. |
 | `:econ:net:worth` | `econ:price` | The net worth of the contact. |
 | `:individual` | `entity:individual` | The individual that the vitals are about. |
-| `:owner` | `entity:actor` | The current owner of the person. |
-| `:owner:name` | `entity:name` | The name of the current owner of the person. |
 | `:phys:height` | `geo:dist` | The physical height of the person. |
 | `:phys:length` | `geo:dist` | The physical length of the person. |
 | `:phys:mass` | `mass` | The physical mass of the person. |
@@ -7781,7 +8368,6 @@ An entry in a contact's work history.
 | `:org:fqdn` | `inet:fqdn` | The reported fqdn of the org the contact worked for. |
 | `:org:name` | `entity:name` | The reported name of the org the contact worked for. |
 | `:pay` | `econ:price` | The average yearly income paid to the contact. |
-| `:pay:currency` | `econ:currency` | The currency of the pay. |
 | `:period` | `ival` | The period of time that the contact worked for the organization. |
 | `:title` | `entity:title` | The title held by the contact. |
 
@@ -7789,26 +8375,35 @@ An entry in a contact's work history.
 
 An alert which indicates the presence of a risk.
 
+| Interface |
+|-----------|
+| `meta:causal` |
+| `meta:task` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:assignee` | `entity:actor` | The actor who is assigned to investigate the alert. |
+| `:account` | `inet:service:account`, `it:host:account` | The account which generated the alert. |
+| `:assignee` | `entity:actor` | The actor who is assigned to complete the alert. |
 | `:benign` | `bool` | Set to true if the alert has been confirmed benign. Set to false if malicious. |
+| `:completed` | `time` | The time the alert was completed. |
+| `:created` | `time` | The time the alert was created. |
+| `:creator` | `entity:actor` | The actor who created the alert. |
 | `:desc` | `text` | A free-form description / overview of the alert. |
-| `:detected` | `time` | The time the alerted condition was detected. |
+| `:due` | `time` | The time the alert must be complete. |
 | `:engine` | `it:software` | The software that generated the alert. |
 | `:host` | `it:host` | The host which generated the alert. |
-| `:id` | `base:id` | An external identifier for the alert. |
+| `:id` | `base:id` | The ID of the alert. |
 | `:name` | `base:name` | A brief name for the alert. |
-| `:priority` | `meta:score` | A priority rank for the alert. |
-| `:service:account` | `inet:service:account` | The service account which generated the alert. |
-| `:service:platform` | `inet:service:platform` | The service platform which generated the alert. |
+| `:parent` | `meta:task` | The parent task which includes this alert. |
+| `:platform` | `inet:service:platform` | The service platform which generated the alert. |
+| `:priority` | `meta:score` | The priority of the alert. |
+| `:project` | `proj:project` | The project containing the alert. |
 | `:severity` | `meta:score` | A severity rank for the alert. |
-| `:status` | `int` | The status of the alert. |
+| `:status` | `risk:alert:status` | The status of the alert. |
 | `:type` | `risk:alert:type:taxonomy` | A type for the alert, as a taxonomy entry. |
-| `:updated` | `time` | The time the alert was most recently modified. |
+| `:updated` | `time` | The time the alert was last updated. |
 | `:url` | `inet:url` | A URL which documents the alert. |
 | `:verdict` | `risk:alert:verdict:taxonomy` | A verdict about why the alert is malicious or benign, as a taxonomy entry. |
-| `:vuln` | `risk:vuln` | The optional vulnerability that the alert indicates. |
 
 ### `risk:alert:type:taxonomy`
 
@@ -7850,22 +8445,28 @@ An instance of an actor attacking a target.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+| `meta:discoverable` |
 | `meta:reported` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this attack. |
 | `:actor` | `entity:actor` | The actor who carried out the attack. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the attack. |
-| `:campaign` | `entity:campaign` | Set if the attack was part of a larger campaign. |
 | `:compromise` | `risk:compromise` | A compromise that this attack contributed to. |
 | `:created` | `time` | The time when the attack was created. |
 | `:desc` | `text` | A description of the attack. |
 | `:detected` | `time` | The first confirmed detection time of the attack. |
+| `:discovered` | `time` | The earliest known time when the attack was discovered. |
+| `:discoverer` | `entity:actor` | The earliest known actor which discovered the attack. |
 | `:id` | `meta:id` | A unique ID given to the attack. |
-| `:ids` | `array` | An array of alternate IDs given to the attack. |
-| `:name` | `meta:name` | The primary name of the attack. |
-| `:names` | `array` | A list of alternate names for the attack. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the attack. |
+| `:name` | `base:name` | The primary name of the attack. |
+| `:names` | `array of base:name` | A list of alternate names for the attack. |
 | `:prev` | `risk:attack` | The previous/parent attack in a list or hierarchy. |
 | `:published` | `time` | The time when the reporter published the attack. |
 | `:reporter` | `entity:actor` | The entity which reported on the attack. |
@@ -7875,7 +8476,7 @@ An instance of an actor attacking a target.
 | `:sophistication` | `meta:score` | The assessed sophistication of the attack. |
 | `:success` | `bool` | Set if the attack was known to have succeeded or not. |
 | `:superseded` | `time` | The time when the attack was superseded. |
-| `:supersedes` | `array` | An array of attack nodes which are superseded by this attack. |
+| `:supersedes` | `array of risk:attack` | An array of attack nodes which are superseded by this attack. |
 | `:time` | `time` | Set if the time of the attack is known. |
 | `:type` | `risk:attack:type:taxonomy` | A type for the attack, as a taxonomy entry. |
 | `:updated` | `time` | The time when the attack was last updated. |
@@ -7921,44 +8522,46 @@ A compromise and its aggregate impact. The compromise is the result of a success
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+| `meta:discoverable` |
 | `meta:reported` |
+| `risk:victimized` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this compromise. |
 | `:actor` | `entity:actor` | The actor who carried out the compromise. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the compromise. |
-| `:campaign` | `entity:campaign` | The campaign that this compromise is part of. |
+| `:cost` | `econ:price` | The total cost of the compromise, response, and mitigation efforts. |
 | `:created` | `time` | The time when the compromise was created. |
 | `:desc` | `text` | A description of the compromise. |
-| `:detected` | `time` | The first confirmed detection time of the compromise. |
-| `:econ:currency` | `econ:currency` | The currency type for the econ:price fields. |
+| `:discovered` | `time` | The earliest known time when the compromise was discovered. |
+| `:discoverer` | `entity:actor` | The earliest known actor which discovered the compromise. |
 | `:id` | `meta:id` | A unique ID given to the compromise. |
-| `:ids` | `array` | An array of alternate IDs given to the compromise. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the compromise. |
 | `:loss:bytes` | `int` | An estimate of the volume of data compromised. |
-| `:loss:econ` | `econ:price` | The total economic cost of the compromise. |
 | `:loss:life` | `int` | The total loss of life due to the compromise. |
 | `:loss:pii` | `int` | The number of records compromised which contain PII. |
-| `:name` | `meta:name` | The primary name of the compromise. |
-| `:names` | `array` | A list of alternate names for the compromise. |
-| `:period` | `ival` | The period over which the target was compromised. |
+| `:name` | `base:name` | The primary name of the compromise. |
+| `:names` | `array of base:name` | A list of alternate names for the compromise. |
+| `:period` | `ival` | The period over which the compromise occurred. |
 | `:published` | `time` | The time when the reporter published the compromise. |
-| `:ransom:paid` | `econ:price` | The value of the ransom paid by the target. |
-| `:ransom:price` | `econ:price` | The value of the ransom demanded by the attacker. |
 | `:reporter` | `entity:actor` | The entity which reported on the compromise. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the compromise. |
 | `:resolved` | `risk:compromise` | The authoritative compromise which this reporting is about. |
-| `:response:cost` | `econ:price` | The economic cost of the response and mitigation efforts. |
 | `:severity` | `meta:score` | A severity rank for the compromise. |
 | `:superseded` | `time` | The time when the compromise was superseded. |
-| `:supersedes` | `array` | An array of compromise nodes which are superseded by this compromise. |
+| `:supersedes` | `array of risk:compromise` | An array of compromise nodes which are superseded by this compromise. |
 | `:tag` | `syn:tag` | A tag used to associate nodes with the compromise. |
-| `:target` | `entity:actor` | Contact information representing the target. |
-| `:theft:price` | `econ:price` | The total value of the theft of assets. |
 | `:type` | `risk:compromise:type:taxonomy` | A type for the compromise, as a taxonomy entry. |
 | `:updated` | `time` | The time when the compromise was last updated. |
 | `:url` | `inet:url` | The URL for the compromise. |
 | `:vector` | `risk:attack` | The attack assessed to be the initial compromise vector. |
+| `:victim` | `entity:actor` | The victim of the compromise. |
+| `:victim:name` | `entity:name` | The name of the victim of the compromise. |
 
 ### `risk:compromise:type:taxonomy`
 
@@ -7979,31 +8582,33 @@ A hierarchical taxonomy of compromise types.
 
 ### `risk:extortion`
 
-An event where an attacker attempted to extort a victim.
+Activity where an attacker attempted to extort a victim.
 
 | Interface |
 |-----------|
+| `base:activity` |
 | `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+| `meta:negotiable` |
 | `meta:reported` |
+| `risk:victimized` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this extortion. |
 | `:actor` | `entity:actor` | The actor who carried out the extortion. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the extortion. |
 | `:compromise` | `risk:compromise` | The compromise which allowed the attacker to extort the target. |
 | `:created` | `time` | The time when the extortion was created. |
-| `:deadline` | `time` | The time that the demand must be met. |
-| `:demanded` | `time` | The time that the attacker made their demands. |
-| `:demanded:payment:currency` | `econ:currency` | The currency in which payment was demanded. |
-| `:demanded:payment:price` | `econ:price` | The payment price which was demanded. |
 | `:desc` | `text` | A description of the extortion. |
 | `:enacted` | `bool` | Set to true if attacker carried out the threat. |
 | `:id` | `meta:id` | A unique ID given to the extortion. |
-| `:ids` | `array` | An array of alternate IDs given to the extortion. |
-| `:name` | `meta:name` | The primary name of the extortion. |
-| `:names` | `array` | A list of alternate names for the extortion. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the extortion. |
+| `:name` | `base:name` | The primary name of the extortion. |
+| `:names` | `array of base:name` | A list of alternate names for the extortion. |
 | `:paid:price` | `econ:price` | The total price paid by the target of the extortion. |
-| `:payments` | `array` | Payments made from the target to the attacker. |
+| `:period` | `ival` | The period over which the extortion occurred. |
 | `:public` | `bool` | Set to true if the attacker publicly announced the extortion. |
 | `:public:url` | `inet:url` | The URL where the attacker publicly announced the extortion. |
 | `:published` | `time` | The time when the reporter published the extortion. |
@@ -8012,11 +8617,13 @@ An event where an attacker attempted to extort a victim.
 | `:resolved` | `risk:extortion` | The authoritative extortion which this reporting is about. |
 | `:success` | `bool` | Set to true if the victim met the attacker's demands. |
 | `:superseded` | `time` | The time when the extortion was superseded. |
-| `:supersedes` | `array` | An array of extortion nodes which are superseded by this extortion. |
+| `:supersedes` | `array of risk:extortion` | An array of extortion nodes which are superseded by this extortion. |
 | `:target` | `entity:actor` | The extortion target identity. |
 | `:type` | `risk:extortion:type:taxonomy` | A type taxonomy for the extortion event. |
 | `:updated` | `time` | The time when the extortion was last updated. |
 | `:url` | `inet:url` | The URL for the extortion. |
+| `:victim` | `entity:actor` | The victim of the extortion. |
+| `:victim:name` | `entity:name` | The name of the victim of the extortion. |
 
 ### `risk:extortion:type:taxonomy`
 
@@ -8041,25 +8648,25 @@ An event where information was disclosed without permission.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `entity:action` |
+| `entity:event` |
+| `meta:causal` |
 | `meta:reported` |
+| `risk:victimized` |
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this leak. |
 | `:actor` | `entity:actor` | The actor who carried out the leak. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the leak. |
-| `:compromise` | `risk:compromise` | The compromise which allowed the leaker access to the information. |
 | `:created` | `time` | The time when the leak was created. |
 | `:desc` | `text` | A description of the leak. |
-| `:disclosed` | `time` | The time the leaked information was disclosed. |
-| `:extortion` | `risk:extortion` | The extortion event which used the threat of the leak as leverage. |
 | `:id` | `meta:id` | A unique ID given to the leak. |
-| `:ids` | `array` | An array of alternate IDs given to the leak. |
-| `:name` | `meta:name` | The primary name of the leak. |
-| `:names` | `array` | A list of alternate names for the leak. |
-| `:owner` | `entity:actor` | The owner of the leaked information. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the leak. |
+| `:name` | `base:name` | The primary name of the leak. |
+| `:names` | `array of base:name` | A list of alternate names for the leak. |
 | `:public` | `bool` | Set to true if the leaked information was made publicly available. |
-| `:public:urls` | `array` | The URL where the leaked information was made publicly available. |
 | `:published` | `time` | The time when the reporter published the leak. |
 | `:recipient` | `entity:actor` | The identity which received the leaked information. |
 | `:reporter` | `entity:actor` | The entity which reported on the leak. |
@@ -8069,10 +8676,14 @@ An event where information was disclosed without permission.
 | `:size:count` | `int` | The number of files included in the leaked data. |
 | `:size:percent` | `int` | The total percent of the data leaked. |
 | `:superseded` | `time` | The time when the leak was superseded. |
-| `:supersedes` | `array` | An array of leak nodes which are superseded by this leak. |
+| `:supersedes` | `array of risk:leak` | An array of leak nodes which are superseded by this leak. |
+| `:time` | `time` | The time that the leak occurred. |
 | `:type` | `risk:leak:type:taxonomy` | A type taxonomy for the leak. |
 | `:updated` | `time` | The time when the leak was last updated. |
 | `:url` | `inet:url` | The URL for the leak. |
+| `:urls` | `array of inet:url` | URLs where the leaked information was made available. |
+| `:victim` | `entity:actor` | The victim of the leak. |
+| `:victim:name` | `entity:name` | The name of the victim of the leak. |
 
 ### `risk:leak:type:taxonomy`
 
@@ -8106,9 +8717,9 @@ A mitigation for a specific vulnerability or technique.
 | `:created` | `time` | The time when the mitigation was created. |
 | `:desc` | `text` | A description of the mitigation. |
 | `:id` | `meta:id` | A unique ID given to the mitigation. |
-| `:ids` | `array` | An array of alternate IDs given to the mitigation. |
-| `:name` | `meta:name` | The primary name of the mitigation. |
-| `:names` | `array` | A list of alternate names for the mitigation. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the mitigation. |
+| `:name` | `base:name` | The primary name of the mitigation. |
+| `:names` | `array of base:name` | A list of alternate names for the mitigation. |
 | `:parent` | `meta:technique` | The parent technique for the technique. |
 | `:published` | `time` | The time when the reporter published the mitigation. |
 | `:reporter` | `entity:actor` | The entity which reported on the mitigation. |
@@ -8116,12 +8727,11 @@ A mitigation for a specific vulnerability or technique.
 | `:resolved` | `risk:mitigation` | The authoritative mitigation which this reporting is about. |
 | `:sophistication` | `meta:score` | The assessed sophistication of the technique. |
 | `:superseded` | `time` | The time when the mitigation was superseded. |
-| `:supersedes` | `array` | An array of mitigation nodes which are superseded by this mitigation. |
+| `:supersedes` | `array of risk:mitigation` | An array of mitigation nodes which are superseded by this mitigation. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes where the technique was employed. |
 | `:type` | `meta:technique:type:taxonomy` | The taxonomy classification of the technique. |
 | `:updated` | `time` | The time when the mitigation was last updated. |
 | `:url` | `inet:url` | The URL for the mitigation. |
-| `:used` | `ival` | The time interval when the mitigation was being used. |
 
 ### `risk:outage`
 
@@ -8138,9 +8748,9 @@ An outage event which affected resource availability.
 | `:created` | `time` | The time when the outage was created. |
 | `:desc` | `text` | A description of the outage. |
 | `:id` | `meta:id` | A unique ID given to the outage. |
-| `:ids` | `array` | An array of alternate IDs given to the outage. |
-| `:name` | `meta:name` | The primary name of the outage. |
-| `:names` | `array` | A list of alternate names for the outage. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the outage. |
+| `:name` | `base:name` | The primary name of the outage. |
+| `:names` | `array of base:name` | A list of alternate names for the outage. |
 | `:period` | `ival` | The time period where the outage impacted availability. |
 | `:provider` | `ou:org` | The organization which experienced the outage event. |
 | `:provider:name` | `entity:name` | The name of the organization which experienced the outage event. |
@@ -8149,7 +8759,7 @@ An outage event which affected resource availability.
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the outage. |
 | `:resolved` | `risk:outage` | The authoritative outage which this reporting is about. |
 | `:superseded` | `time` | The time when the outage was superseded. |
-| `:supersedes` | `array` | An array of outage nodes which are superseded by this outage. |
+| `:supersedes` | `array of risk:outage` | An array of outage nodes which are superseded by this outage. |
 | `:type` | `risk:outage:type:taxonomy` | The type of outage. |
 | `:updated` | `time` | The time when the outage was last updated. |
 | `:url` | `inet:url` | The URL for the outage. |
@@ -8188,15 +8798,52 @@ An outage type taxonomy.
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
 
+### `risk:theft`
+
+An event where an actor stole from a victim.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+| `meta:reported` |
+| `risk:victimized` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this theft. |
+| `:actor` | `entity:actor` | The actor who carried out the theft. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the theft. |
+| `:created` | `time` | The time when the theft was created. |
+| `:desc` | `text` | A description of the theft. |
+| `:id` | `meta:id` | A unique ID given to the theft. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the theft. |
+| `:name` | `base:name` | The primary name of the theft. |
+| `:names` | `array of base:name` | A list of alternate names for the theft. |
+| `:published` | `time` | The time when the reporter published the theft. |
+| `:reporter` | `entity:actor` | The entity which reported on the theft. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the theft. |
+| `:resolved` | `risk:theft` | The authoritative theft which this reporting is about. |
+| `:superseded` | `time` | The time when the theft was superseded. |
+| `:supersedes` | `array of risk:theft` | An array of theft nodes which are superseded by this theft. |
+| `:time` | `time` | The time that the theft occurred. |
+| `:updated` | `time` | The time when the theft was last updated. |
+| `:url` | `inet:url` | The URL for the theft. |
+| `:value` | `econ:price` | The total value of the stolen items. |
+| `:victim` | `entity:actor` | The victim of the theft. |
+| `:victim:name` | `entity:name` | The name of the victim of the theft. |
+
 ### `risk:threat`
 
 A threat cluster or subgraph of threat activity, as defined by a specific source.
 
 | Interface |
 |-----------|
-| `entity:abstract` |
 | `entity:actor` |
 | `entity:contactable` |
+| `entity:resolvable` |
 | `geo:locatable` |
 | `meta:discoverable` |
 | `meta:reported` |
@@ -8208,23 +8855,23 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
 | `:bio` | `text` | A tagline or bio provided for the threat. |
 | `:created` | `time` | The time when the threat was created. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the threat. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the threat. |
 | `:desc` | `text` | A description of the threat. |
 | `:discovered` | `time` | The earliest known time when the threat was discovered. |
 | `:discoverer` | `entity:actor` | The earliest known actor which discovered the threat. |
 | `:email` | `inet:email` | The primary email address for the threat. |
-| `:emails` | `array` | An array of alternate email addresses for the threat. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the threat. |
 | `:id` | `meta:id` | A unique ID given to the threat. |
-| `:identifiers` | `array` | Additional entity identifiers. |
-| `:ids` | `array` | An array of alternate IDs given to the threat. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the threat. |
 | `:lang` | `lang:language` | The primary language of the threat. |
-| `:langs` | `array` | An array of alternate languages for the threat. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the threat. |
 | `:lifespan` | `ival` | The lifespan of the threat. |
 | `:name` | `entity:name` | The primary name of the threat according to the source. |
-| `:names` | `array` | A list of alternate names for the threat according to the source. |
+| `:names` | `array of entity:name` | A list of alternate names for the threat according to the source. |
 | `:phone` | `tel:phone` | The primary phone number for the threat. |
-| `:phones` | `array` | An array of alternate telephone numbers for the threat. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the threat. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this threat. |
 | `:place` | `geo:place` | The place where the threat was located. |
 | `:place:address` | `geo:address` | The postal address where the threat was located. |
@@ -8243,16 +8890,17 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:reporter` | `entity:actor` | The entity which reported on the threat. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the threat. |
 | `:resolved` | `risk:threat` | The authoritative threat which this reporting is about. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the threat. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the threat. |
 | `:sophistication` | `meta:score` | The sources's assessed sophistication of the threat cluster. |
 | `:superseded` | `time` | The time when the threat was superseded. |
-| `:supersedes` | `array` | An array of threat nodes which are superseded by this threat. |
+| `:supersedes` | `array of risk:threat` | An array of threat nodes which are superseded by this threat. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes that are associated with the threat cluster. |
 | `:type` | `risk:threat:type:taxonomy` | A type for the threat, as a taxonomy entry. |
 | `:updated` | `time` | The time when the threat was last updated. |
+| `:url` | `inet:url` | The URL for the threat. |
 | `:user` | `inet:user` | The primary user name for the threat. |
-| `:users` | `array` | An array of alternate user names for the threat. |
-| `:websites` | `array` | Web sites listed for the threat. |
+| `:users` | `array of inet:user` | An array of alternate user names for the threat. |
+| `:websites` | `array of inet:url` | Web sites listed for the threat. |
 
 ### `risk:threat:type:taxonomy`
 
@@ -8286,9 +8934,9 @@ A software tool used in threat activity, as defined by a specific source.
 | `:created` | `time` | The time when the tool was created. |
 | `:desc` | `text` | A description of the tool. |
 | `:id` | `meta:id` | A unique ID given to the tool. |
-| `:ids` | `array` | An array of alternate IDs given to the tool. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the tool. |
 | `:name` | `it:softwarename` | The primary name of the tool according to the source. |
-| `:names` | `array` | A list of alternate names for the tool according to the source. |
+| `:names` | `array of it:softwarename` | A list of alternate names for the tool according to the source. |
 | `:published` | `time` | The time when the reporter published the tool. |
 | `:reporter` | `entity:actor` | The entity which reported on the tool. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the tool. |
@@ -8296,12 +8944,11 @@ A software tool used in threat activity, as defined by a specific source.
 | `:software` | `it:software` | The authoritative software family for the tool. |
 | `:sophistication` | `meta:score` | The source's assessed sophistication of the tool. |
 | `:superseded` | `time` | The time when the tool was superseded. |
-| `:supersedes` | `array` | An array of tool nodes which are superseded by this tool. |
+| `:supersedes` | `array of risk:tool:software` | An array of tool nodes which are superseded by this tool. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes that are associated with the tool. |
 | `:type` | `risk:tool:software:type:taxonomy` | A type for the tool, as a taxonomy entry. |
 | `:updated` | `time` | The time when the tool was last updated. |
 | `:url` | `inet:url` | The URL for the tool. |
-| `:used` | `ival` | The source's assessed interval for when the tool has been deployed. |
 
 ### `risk:tool:software:type:taxonomy`
 
@@ -8335,31 +8982,21 @@ A unique vulnerability.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:created` | `time` | The time when the vulnerability was created. |
-| `:cve` | `it:sec:cve` | The CVE ID assigned to the vulnerability. |
-| `:cvss:v2` | `cvss:v2` | The CVSS v2 vector for the vulnerability. |
+| `:cvss:v2` | `it:sec:cvss:v2` | The CVSS v2 vector for the vulnerability. |
 | `:cvss:v2_0:score` | `float` | The CVSS v2.0 overall score for the vulnerability. |
-| `:cvss:v2_0:score:base` | `float` | The CVSS v2.0 base score for the vulnerability. |
-| `:cvss:v2_0:score:environmental` | `float` | The CVSS v2.0 environmental score for the vulnerability. |
-| `:cvss:v2_0:score:temporal` | `float` | The CVSS v2.0 temporal score for the vulnerability. |
-| `:cvss:v3` | `cvss:v3` | The CVSS v3 vector for the vulnerability. |
+| `:cvss:v3` | `it:sec:cvss:v3` | The CVSS v3 vector for the vulnerability. |
 | `:cvss:v3_0:score` | `float` | The CVSS v3.0 overall score for the vulnerability. |
-| `:cvss:v3_0:score:base` | `float` | The CVSS v3.0 base score for the vulnerability. |
-| `:cvss:v3_0:score:environmental` | `float` | The CVSS v3.0 environmental score for the vulnerability. |
-| `:cvss:v3_0:score:temporal` | `float` | The CVSS v3.0 temporal score for the vulnerability. |
 | `:cvss:v3_1:score` | `float` | The CVSS v3.1 overall score for the vulnerability. |
-| `:cvss:v3_1:score:base` | `float` | The CVSS v3.1 base score for the vulnerability. |
-| `:cvss:v3_1:score:environmental` | `float` | The CVSS v3.1 environmental score for the vulnerability. |
-| `:cvss:v3_1:score:temporal` | `float` | The CVSS v3.1 temporal score for the vulnerability. |
-| `:cwes` | `array` | MITRE CWE values that apply to the vulnerability. |
+| `:cwes` | `array of it:sec:cwe` | MITRE CWE values that apply to the vulnerability. |
 | `:desc` | `text` | A description of the vulnerability. |
 | `:discovered` | `time` | The earliest known time when the vulnerability was discovered. |
 | `:discoverer` | `entity:actor` | The earliest known actor which discovered the vulnerability. |
 | `:exploited` | `time` | The earliest known time when the vulnerability was exploited in the wild. |
-| `:id` | `meta:id` | A unique ID given to the vulnerability. |
-| `:ids` | `array` | An array of alternate IDs given to the vulnerability. |
+| `:id` | `risk:vuln:id` | A unique ID given to the vulnerability. |
+| `:ids` | `array of risk:vuln:id` | An array of alternate IDs given to the vulnerability. |
 | `:mitigated` | `bool` | Set to true if a mitigation/fix is available for the vulnerability. |
-| `:name` | `meta:name` | The primary name of the vulnerability. |
-| `:names` | `array` | A list of alternate names for the vulnerability. |
+| `:name` | `base:name` | The primary name of the vulnerability. |
+| `:names` | `array of base:name` | A list of alternate names for the vulnerability. |
 | `:priority` | `meta:score` | The priority of the vulnerability. |
 | `:published` | `time` | The earliest known time the vulnerability was published. |
 | `:reporter` | `entity:actor` | The entity which reported on the vulnerability. |
@@ -8367,12 +9004,11 @@ A unique vulnerability.
 | `:resolved` | `risk:vuln` | The authoritative vulnerability which this reporting is about. |
 | `:severity` | `meta:score` | The severity of the vulnerability. |
 | `:superseded` | `time` | The time when the vulnerability was superseded. |
-| `:supersedes` | `array` | An array of vulnerability nodes which are superseded by this vulnerability. |
+| `:supersedes` | `array of risk:vuln` | An array of vulnerability nodes which are superseded by this vulnerability. |
 | `:tag` | `syn:tag` | A tag used to annotate the presence or use of the vulnerability. |
 | `:type` | `risk:vuln:type:taxonomy` | A taxonomy type entry for the vulnerability. |
 | `:updated` | `time` | The time when the vulnerability was last updated. |
 | `:url` | `inet:url` | The URL for the vulnerability. |
-| `:used` | `ival` | The time interval when the vulnerability was being used. |
 | `:vendor` | `entity:actor` | The vendor whose product contains the vulnerability. |
 | `:vendor:fixed` | `time` | The earliest known time the vendor issued a fix for the vulnerability. |
 | `:vendor:name` | `entity:name` | The name of the vendor whose product contains the vulnerability. |
@@ -8402,11 +9038,10 @@ Indicates that a node is susceptible to a vulnerability.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:mitigated` | `bool` | Set to true if the vulnerable node has been mitigated. |
-| `:mitigations` | `array` | The mitigations which were used to address the vulnerable node. |
-| `:node` | `ndef` | The node which is vulnerable. |
+| `:mitigations` | `array of meta:technique` | The mitigations which were used to address the vulnerable node. |
+| `:node` | `risk:exploitable` | The node which is vulnerable. |
 | `:period` | `ival` | The time window where the node was vulnerable. |
-| `:technique` | `meta:technique` | The technique that the node is susceptible to. |
-| `:vuln` | `risk:vuln` | The vulnerability that the node is susceptible to. |
+| `:to` | `risk:mitigatable` | The thing which the node is vulnerable to. |
 
 ### `sci:evidence`
 
@@ -8415,7 +9050,7 @@ An assessment of how an observation supports or refutes a hypothesis.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of how the observation supports or refutes the hypothesis. |
-| `:hypothesis` | `sci:experiment` | The hypothesis which the evidence supports or refutes. |
+| `:hypothesis` | `sci:hypothesis` | The hypothesis which the evidence supports or refutes. |
 | `:observation` | `sci:observation` | The observation which supports or refutes the hypothesis. |
 | `:refutes` | `bool` | Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis. |
 
@@ -8423,10 +9058,20 @@ An assessment of how an observation supports or refutes a hypothesis.
 
 An instance of running an experiment.
 
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:desc` | `text` | A description of the experiment. |
-| `:name` | `meta:name` | The name of the experiment. |
+| `:name` | `base:name` | The name of the experiment. |
 | `:period` | `ival` | The time period when the experiment was run. |
 | `:type` | `sci:experiment:type:taxonomy` | The type of experiment as a user defined taxonomy. |
 
@@ -8451,10 +9096,14 @@ A taxonomy of experiment types.
 
 A hypothesis or theory.
 
+| Interface |
+|-----------|
+| `meta:believable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the hypothesis. |
-| `:name` | `meta:name` | The name of the hypothesis. |
+| `:name` | `base:name` | The name of the hypothesis. |
 | `:type` | `sci:hypothesis:type:taxonomy` | The type of hypothesis as a user defined taxonomy. |
 
 ### `sci:hypothesis:type:taxonomy`
@@ -8478,8 +9127,18 @@ A taxonomy of hypothesis types.
 
 An observation which may have resulted from an experiment.
 
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+
 | Property | Type | Doc |
 |----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:desc` | `text` | A description of the observation. |
 | `:experiment` | `sci:experiment` | The experiment which produced the observation. |
 | `:time` | `time` | The time that the observation occurred. |
@@ -8504,8 +9163,10 @@ A node present below the write layer which has been deleted.
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:form` | `str` | The form for the node that was deleted. |
 | `:nid` | `int` | The nid for the node that was deleted. |
 | `:sodes` | `data` | The layer storage nodes for the node that was deleted. |
+| `:value` | `data` | The primary property value for the node that was deleted. |
 
 ### `syn:form`
 
@@ -8716,12 +9377,15 @@ ITU Mobile Country Code.
 
 A mobile Type Allocation Code.
 
+| Interface |
+|-----------|
+| `meta:havable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
-| `:internal` | `meta:name` | The TAC internal model name. |
-| `:manu` | `str` | The TAC manufacturer name. |
-| `:model` | `meta:name` | The TAC model name. |
-| `:org` | `ou:org` | The org guid for the manufacturer. |
+| `:model` | `biz:model` | The TAC model name. |
+| `:owner` | `entity:actor` | The current owner of the item. |
+| `:owner:name` | `entity:name` | The name of the current owner of the item. |
 
 ### `tel:mob:tadig`
 
@@ -8745,7 +9409,6 @@ A single mobile telemetry measurement.
 | `:adid` | `it:adid` | The advertising ID of the mobile telemetry sample. |
 | `:app` | `it:software` | The app used to report the mobile telemetry sample. |
 | `:cell` | `tel:mob:cell` | The mobile cell site where the telemetry sample was taken. |
-| `:data` | `data` | Data from the mobile telemetry sample. |
 | `:email` | `inet:email` | The email address associated with the mobile telemetry sample. |
 | `:host` | `it:host` | The host that generated the mobile telemetry data. |
 | `:http:request` | `inet:http:request` | The HTTP request that the telemetry was extracted from. |
@@ -8808,23 +9471,27 @@ An individual aircraft.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 | `transport:vehicle` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the aircraft was built. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the aircraft. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the aircraft. |
+| `:created` | `time` | The time that the aircraft was created. |
+| `:creator` | `entity:actor` | The primary actor which created the aircraft. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the aircraft. |
 | `:max:cargo:mass` | `mass` | The maximum mass the aircraft can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the aircraft can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the aircraft can hold. |
-| `:model` | `base:name` | The model of the aircraft. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the aircraft can hold. |
+| `:model` | `biz:model` | The model of the aircraft. |
+| `:name` | `base:name` | The name of the aircraft. |
 | `:operator` | `entity:actor` | The contact information of the operator of the aircraft. |
-| `:owner` | `entity:actor` | The contact information of the owner of the aircraft. |
+| `:owner` | `entity:actor` | The current owner of the aircraft. |
 | `:owner:name` | `entity:name` | The name of the current owner of the aircraft. |
 | `:phys:height` | `geo:dist` | The physical height of the aircraft. |
 | `:phys:length` | `geo:dist` | The physical length of the aircraft. |
@@ -8886,7 +9553,7 @@ An individual instance of a flight.
 | `:departed:point` | `transport:point` | The actual departure point. |
 | `:duration` | `duration` | The actual duration. |
 | `:num` | `transport:air:flightnum` | The flight number of this flight. |
-| `:occupants` | `int` | The number of occupants of the aircraft on this flight. |
+| `:occupants` | `int:min0` | The number of occupants of the aircraft on this flight. |
 | `:operator` | `entity:actor` | The contact information of the operator of the flight. |
 | `:scheduled:arrival` | `time` | The scheduled arrival time. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
@@ -8895,7 +9562,7 @@ An individual instance of a flight.
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
 | `:scheduled:departure:point` | `transport:point` | The scheduled departure point. |
 | `:scheduled:duration` | `duration` | The scheduled duration. |
-| `:status` | `str` | The status of the flight. |
+| `:status` | `transport:trip:status` | The status of the flight. |
 | `:tailnum` | `transport:air:tailnum` | The tail/registration number at the time the aircraft flew this flight. |
 | `:vehicle` | `transport:vehicle` | The aircraft which traveled the flight. |
 
@@ -8907,7 +9574,7 @@ A commercial flight designator including airline and serial.
 |----------|------|-----|
 | `:carrier` | `ou:org` | The org which operates the given flight number. |
 | `:from:port` | `transport:air:port` | The most recently registered origin for the flight number. |
-| `:stops` | `array` | An ordered list of aiport codes for the flight segments. |
+| `:stops` | `array of transport:air:port` | An ordered list of aiport codes for the flight segments. |
 | `:to:port` | `transport:air:port` | The most recently registered destination for the flight number. |
 
 ### `transport:air:port`
@@ -8916,7 +9583,7 @@ An IATA assigned airport code.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `meta:name` | The name of the airport. |
+| `:name` | `geo:name` | The name of the airport. |
 | `:place` | `geo:place` | The place where the IATA airport code is assigned. |
 
 ### `transport:air:tailnum`
@@ -8974,7 +9641,7 @@ A telemetry sample from an aircraft in transit.
 | `:place:name` | `geo:name` | The name where the telemetry sample was located. |
 | `:speed` | `velocity` | The ground speed of the aircraft at the time. |
 | `:time` | `time` | The time the telemetry sample was taken. |
-| `:verticalspeed` | `velocity` | The relative vertical speed of the aircraft at the time. |
+| `:verticalspeed` | `velocity:relative` | The relative vertical speed of the aircraft at the time. |
 
 ### `transport:cargo`
 
@@ -9012,7 +9679,7 @@ A drive taken by a land vehicle.
 | `:departed:place` | `geo:place` | The actual departure place. |
 | `:departed:point` | `transport:point` | The actual departure point. |
 | `:duration` | `duration` | The actual duration. |
-| `:occupants` | `int` | The number of occupants of the vehicle on this drive. |
+| `:occupants` | `int:min0` | The number of occupants of the vehicle on this drive. |
 | `:operator` | `entity:actor` | The contact information of the operator of the drive. |
 | `:scheduled:arrival` | `time` | The scheduled arrival time. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
@@ -9021,7 +9688,7 @@ A drive taken by a land vehicle.
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
 | `:scheduled:departure:point` | `transport:point` | The scheduled departure point. |
 | `:scheduled:duration` | `duration` | The scheduled duration. |
-| `:status` | `str` | The status of the drive. |
+| `:status` | `transport:trip:status` | The status of the drive. |
 | `:vehicle` | `transport:vehicle` | The vehicle which traveled the drive. |
 
 ### `transport:land:license`
@@ -9058,24 +9725,28 @@ An individual land based vehicle.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 | `transport:vehicle` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the vehicle was built. |
+| `:created` | `time` | The time that the vehicle was created. |
+| `:creator` | `entity:actor` | The primary actor which created the vehicle. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the vehicle. |
 | `:desc` | `str` | A description of the vehicle. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the vehicle. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the vehicle. |
 | `:max:cargo:mass` | `mass` | The maximum mass the vehicle can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the vehicle can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the vehicle can hold. |
-| `:model` | `base:name` | The model of the vehicle. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the vehicle can hold. |
+| `:model` | `biz:model` | The model of the vehicle. |
+| `:name` | `base:name` | The name of the vehicle. |
 | `:operator` | `entity:actor` | The contact information of the operator of the vehicle. |
-| `:owner` | `entity:actor` | The contact information of the owner of the vehicle. |
+| `:owner` | `entity:actor` | The current owner of the vehicle. |
 | `:owner:name` | `entity:name` | The name of the current owner of the vehicle. |
 | `:phys:height` | `geo:dist` | The physical height of the vehicle. |
 | `:phys:length` | `geo:dist` | The physical length of the vehicle. |
@@ -9156,21 +9827,25 @@ An individual train car.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the train car was built. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the train car. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the train car. |
+| `:created` | `time` | The time that the train car was created. |
+| `:creator` | `entity:actor` | The primary actor which created the train car. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the train car. |
 | `:max:cargo:mass` | `mass` | The maximum mass the train car can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the train car can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the train car can hold. |
-| `:model` | `base:name` | The model of the train car. |
-| `:owner` | `entity:actor` | The contact information of the owner of the train car. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the train car can hold. |
+| `:model` | `biz:model` | The model of the train car. |
+| `:name` | `base:name` | The name of the train car. |
+| `:owner` | `entity:actor` | The current owner of the train car. |
 | `:owner:name` | `entity:name` | The name of the current owner of the train car. |
 | `:phys:height` | `geo:dist` | The physical height of the train car. |
 | `:phys:length` | `geo:dist` | The physical length of the train car. |
@@ -9216,24 +9891,28 @@ A group of rail cars and locomotives connected together.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 | `transport:vehicle` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the train was built. |
-| `:cars` | `array` | The rail cars, including locomotives, which compose the consist. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the train. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the train. |
+| `:cars` | `array of transport:rail:car` | The rail cars, including locomotives, which compose the consist. |
+| `:created` | `time` | The time that the train was created. |
+| `:creator` | `entity:actor` | The primary actor which created the train. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the train. |
 | `:max:cargo:mass` | `mass` | The maximum mass the train can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the train can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the train can hold. |
-| `:model` | `base:name` | The model of the train. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the train can hold. |
+| `:model` | `biz:model` | The model of the train. |
+| `:name` | `base:name` | The name of the train. |
 | `:operator` | `entity:actor` | The contact information of the operator of the train. |
-| `:owner` | `entity:actor` | The contact information of the owner of the train. |
+| `:owner` | `entity:actor` | The current owner of the train. |
 | `:owner:name` | `entity:name` | The name of the current owner of the train. |
 | `:phys:height` | `geo:dist` | The physical height of the train. |
 | `:phys:length` | `geo:dist` | The physical length of the train. |
@@ -9276,7 +9955,7 @@ An individual instance of a consist of train cars running a route.
 | `:departed:point` | `transport:point` | The actual departure point. |
 | `:duration` | `duration` | The actual duration. |
 | `:id` | `meta:id` | The ID assigned to the train. |
-| `:occupants` | `int` | The number of occupants of the train on this train trip. |
+| `:occupants` | `int:min0` | The number of occupants of the train on this train trip. |
 | `:operator` | `entity:actor` | The contact information of the operator of the train trip. |
 | `:scheduled:arrival` | `time` | The scheduled arrival time. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
@@ -9285,7 +9964,7 @@ An individual instance of a consist of train cars running a route.
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
 | `:scheduled:departure:point` | `transport:point` | The scheduled departure point. |
 | `:scheduled:duration` | `duration` | The scheduled duration. |
-| `:status` | `str` | The status of the train trip. |
+| `:status` | `transport:trip:status` | The status of the train trip. |
 | `:vehicle` | `transport:vehicle` | The train which traveled the train trip. |
 
 ### `transport:sea:telem`
@@ -9328,28 +10007,31 @@ An individual sea vessel.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 | `transport:vehicle` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the vessel was built. |
 | `:callsign` | `meta:id` | The callsign of the vessel. |
+| `:created` | `time` | The time that the vessel was created. |
+| `:creator` | `entity:actor` | The primary actor which created the vessel. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the vessel. |
 | `:flag` | `iso:3166:alpha2` | The country the vessel is flagged to. |
 | `:imo` | `transport:sea:imo` | The International Maritime Organization number for the vessel. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the vessel. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the vessel. |
 | `:max:cargo:mass` | `mass` | The maximum mass the vessel can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the vessel can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the vessel can hold. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the vessel can hold. |
 | `:mmsi` | `transport:sea:mmsi` | The Maritime Mobile Service Identifier assigned to the vessel. |
-| `:model` | `base:name` | The model of the vessel. |
-| `:name` | `meta:name` | The name of the vessel. |
+| `:model` | `biz:model` | The model of the vessel. |
+| `:name` | `base:name` | The name of the vessel. |
 | `:operator` | `entity:actor` | The contact information of the operator. |
-| `:owner` | `entity:actor` | The contact information of the owner of the vessel. |
+| `:owner` | `entity:actor` | The current owner of the vessel. |
 | `:owner:name` | `entity:name` | The name of the current owner of the vessel. |
 | `:phys:height` | `geo:dist` | The physical height of the vessel. |
 | `:phys:length` | `geo:dist` | The physical length of the vessel. |
@@ -9395,21 +10077,25 @@ An individual shipping container.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
+| `entity:creatable` |
 | `geo:locatable` |
 | `meta:havable` |
 | `phys:object` |
+| `phys:tangible` |
 | `transport:container` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the shipping container was built. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the shipping container. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the shipping container. |
+| `:created` | `time` | The time that the shipping container was created. |
+| `:creator` | `entity:actor` | The primary actor which created the shipping container. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the shipping container. |
 | `:max:cargo:mass` | `mass` | The maximum mass the shipping container can carry as cargo. |
 | `:max:cargo:volume` | `geo:dist` | The maximum volume the shipping container can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the shipping container can hold. |
-| `:model` | `base:name` | The model of the shipping container. |
-| `:owner` | `entity:actor` | The contact information of the owner of the shipping container. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the shipping container can hold. |
+| `:model` | `biz:model` | The model of the shipping container. |
+| `:name` | `base:name` | The name of the shipping container. |
+| `:owner` | `entity:actor` | The current owner of the shipping container. |
 | `:owner:name` | `entity:name` | The name of the current owner of the shipping container. |
 | `:phys:height` | `geo:dist` | The physical height of the shipping container. |
 | `:phys:length` | `geo:dist` | The physical length of the shipping container. |
@@ -9461,29 +10147,35 @@ A stop made by a vehicle on a trip.
 
 | Source | Verb | Target | Doc |
 |--------|------|--------|-----|
-| `\*` | `linked` | `\*` | The source node is linked to the target node. |
-| `\*` | `refs` | `\*` | The source node contains a reference to the target node. |
-| `belief:subscriber` | `follows` | `belief:tenet` | The subscriber is assessed to generally adhere to the specific tenet. |
+| `*` | `linked` | `*` | The source node is linked to the target node. |
+| `*` | `refs` | `*` | The source node contains a reference to the target node. |
 | `belief:system` | `has` | `belief:tenet` | The belief system includes the tenet. |
 | `biz:deal` | `has` | `econ:lineitem` | The deal includes the line item. |
+| `biz:deal` | `ledto` | `econ:purchase` | The deal led to the purchase. |
 | `biz:listing` | `has` | `econ:lineitem` | The listing offers the line item. |
+| `biz:listing` | `ledto` | `econ:purchase` | The listing led to the purchase. |
 | `biz:rfp` | `has` | `doc:requirement` | The RFP lists the requirement. |
+| `biz:rfp` | `ledto` | `biz:deal` | The RFP led to the deal being proposed. |
 | `crypto:key:secret` | `decrypts` | `file:bytes` | The key is used to decrypt the file. |
 | `doc:contract` | `has` | `doc:requirement` | The contract contains the requirement. |
 | `econ:purchase` | `has` | `econ:lineitem` | The purchase included the line item. |
+| `econ:purchase` | `ledto` | `econ:payment` | The purchase led to the payment. |
 | `econ:receipt` | `has` | `econ:lineitem` | The receipt included the line item. |
 | `econ:statement` | `has` | `econ:payment` | The financial statement includes the payment. |
 | `entity:action` | `had` | `entity:goal` | The action was taken in pursuit of the goal. |
 | `entity:action` | `targeted` | `risk:targetable` | The action represents the actor targeting based on the target node. |
 | `entity:action` | `used` | `meta:observable` | The action was taken using the target node. |
 | `entity:action` | `used` | `meta:usable` | The action was taken using the target node. |
-| `entity:actor` | `had` | `entity:goal` | The actor had the goal. |
 | `entity:actor` | `targeted` | `risk:targetable` | The actor targets based on the target node. |
 | `entity:actor` | `used` | `meta:observable` | The actor used the target node. |
 | `entity:actor` | `used` | `meta:usable` | The actor used the target node. |
+| `entity:believed` | `followed` | `belief:tenet` | The actor followed the tenet during the period. |
+| `entity:campaign` | `ledto` | `econ:purchase` | The campaign led to the purchase. |
 | `entity:contactlist` | `has` | `entity:contact` | The contact list contains the contact. |
 | `entity:contribution` | `had` | `econ:lineitem` | The contribution includes the line item. |
 | `entity:contribution` | `had` | `econ:payment` | The contribution includes the payment. |
+| `entity:studied` | `included` | `edu:class` | The class was taken by the student as part of their studies. |
+| `entity:studied` | `included` | `edu:learnable` | The target node was included by the actor as part of their studies. |
 | `file:bytes` | `refs` | `it:dev:str` | The source file contains the target string. |
 | `file:bytes` | `uses` | `math:algorithm` | The file uses the algorithm. |
 | `file:bytes` | `uses` | `meta:technique` | The source file uses the target technique. |
@@ -9505,9 +10197,10 @@ A stop made by a vehicle on a trip.
 | `it:app:yara:rule` | `detects` | `risk:vuln` | The YARA rule detects the vulnerability. |
 | `it:dev:repo` | `has` | `inet:url` | The repo has content hosted at the URL. |
 | `it:dev:repo:commit` | `has` | `it:dev:repo:entry` | The file entry is present in the commit version of the repository. |
-| `it:exec:query` | `found` | `\*` | The target node was returned as a result of running the query. |
-| `it:log:event` | `about` | `\*` | The it:log:event is about the target node. |
-| `it:sec:stix:indicator` | `detects` | `\*` | The STIX indicator can detect evidence of the target node. |
+| `it:exec:query` | `found` | `*` | The target node was returned as a result of running the query. |
+| `it:log:event` | `about` | `*` | The it:log:event is about the target node. |
+| `it:os:windows:service` | `ledto` | `it:exec:proc` | The service configuration caused the process to be created. |
+| `it:sec:stix:indicator` | `detects` | `*` | The STIX indicator can detect evidence of the target node. |
 | `it:sec:stix:indicator` | `detects` | `entity:campaign` | The STIX indicator detects the campaign. |
 | `it:sec:stix:indicator` | `detects` | `entity:contact` | The STIX indicator detects the entity. |
 | `it:sec:stix:indicator` | `detects` | `it:software` | The STIX indicator detects the software. |
@@ -9519,25 +10212,27 @@ A stop made by a vehicle on a trip.
 | `it:software` | `has` | `it:software` | The source software directly includes the target software. |
 | `it:software` | `runson` | `it:hardware` | The source software can be run on the target hardware. |
 | `it:software` | `runson` | `it:software` | The source software can be run within the target software. |
+| `it:software` | `uses` | `inet:service:platform` | The software uses the platform. |
 | `it:software` | `uses` | `it:software` | The source software uses the target software. |
 | `it:software` | `uses` | `math:algorithm` | The software uses the algorithm. |
 | `it:software` | `uses` | `meta:technique` | The software uses the technique. |
 | `it:software` | `uses` | `risk:vuln` | The software uses the vulnerability. |
-| `math:algorithm` | `generates` | `\*` | The target node was generated by the algorithm. |
-| `meta:event` | `about` | `\*` | The event is about the target node. |
-| `meta:event` | `caused` | `risk:outage` | The event caused the outage. |
-| `meta:feed` | `found` | `\*` | The meta:feed produced the target node. |
-| `meta:note` | `about` | `\*` | The meta:note is about the target node. |
+| `math:algorithm` | `generates` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `ledto` | `meta:causal` | The source event led to the target event. |
+| `meta:event` | `about` | `*` | The event is about the target node. |
+| `meta:feed` | `found` | `*` | The meta:feed produced the target node. |
+| `meta:note` | `about` | `*` | The meta:note is about the target node. |
 | `meta:note` | `has` | `file:attachment` | The note includes the file attachment. |
 | `meta:observable` | `resembles` | `meta:observable` | The source node resembles the target node. |
 | `meta:rule` | `detects` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `detects` | `meta:usable` | The rule is designed to detect the target node. |
 | `meta:rule` | `generated` | `it:log:event` | The meta:rule generated the it:log:event node. |
 | `meta:rule` | `generated` | `risk:alert` | The meta:rule generated the risk:alert node. |
-| `meta:rule` | `matches` | `\*` | The rule matched on the target node. |
+| `meta:rule` | `matches` | `*` | The rule matched on the target node. |
 | `meta:rule` | `shows` | `ou:enacted` | The source rule shows the status of the enacted document. |
 | `meta:ruleset` | `has` | `meta:rule` | The ruleset includes the rule. |
-| `meta:source` | `seen` | `\*` | The meta:source observed the target node. |
+| `meta:source` | `seen` | `*` | The meta:source observed the target node. |
+| `meta:task` | `has` | `file:attachment` | The task includes the file attachment. |
 | `meta:technique` | `addresses` | `meta:technique` | The technique addresses the technique. |
 | `meta:technique` | `addresses` | `risk:vuln` | The technique addresses the vulnerability. |
 | `meta:technique` | `meets` | `doc:requirement` | Use of the source technique meets the target requirement. |
@@ -9545,21 +10240,21 @@ A stop made by a vehicle on a trip.
 | `meta:usable` | `uses` | `meta:usable` | The source node uses the target node. |
 | `plan:phase` | `uses` | `meta:usable` | The plan phase makes use of the target node. |
 | `plan:procedure:step` | `uses` | `meta:usable` | The step in the procedure makes use of the target node. |
-| `proj:doable` | `has` | `file:attachment` | The task includes the file attachment. |
-| `ps:education` | `included` | `edu:class` | The class was taken by the student as part of their education process. |
-| `risk:alert` | `about` | `\*` | The alert is about the target node. |
-| `risk:attack` | `caused` | `risk:alert` | The attack caused the alert. |
-| `risk:attack` | `caused` | `risk:outage` | The attack caused the outage. |
-| `risk:compromise` | `stole` | `meta:observable` | The target node was stolen or copied as a result of the compromise. |
-| `risk:compromise` | `stole` | `phys:object` | The target node was stolen as a result of the compromise. |
+| `proj:sprint` | `has` | `meta:task` | The task was worked on during the sprint. |
+| `risk:alert` | `about` | `*` | The alert is about the target node. |
+| `risk:attack` | `ledto` | `risk:outage` | The attack led to the outage. |
+| `risk:extortion` | `ledto` | `econ:payment` | The attack led to the outage. |
 | `risk:extortion` | `leveraged` | `meta:observable` | The extortion event was based on attacker access to the target node. |
-| `risk:leak` | `enabled` | `risk:leak` | The source leak enabled the target leak to occur. |
 | `risk:leak` | `leaked` | `meta:observable` | The leak included the disclosure of the target node. |
-| `risk:outage` | `impacted` | `\*` | The outage event impacted the availability of the target node. |
+| `risk:outage` | `impacted` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `stole` | `meta:observable` | The target node was stolen during the theft. |
+| `risk:theft` | `stole` | `phys:object` | The target node was stolen during the theft. |
 | `risk:tool:software` | `uses` | `math:algorithm` | The tool uses the algorithm. |
-| `sci:evidence` | `has` | `\*` | The evidence includes observations from the target nodes. |
-| `sci:experiment` | `used` | `\*` | The experiment used the target nodes when it was run. |
-| `sci:observation` | `has` | `\*` | The observations are summarized from the target nodes. |
+| `sci:evidence` | `has` | `*` | The evidence includes observations from the target nodes. |
+| `sci:experiment` | `used` | `*` | The experiment used the target nodes when it was run. |
+| `sci:observation` | `has` | `*` | The observations are summarized from the target nodes. |
+
+## Tag Properties
 
 ## Interfaces
 
@@ -9571,6 +10266,51 @@ An interface inherited by authentication credential forms.
 |------|
 | `auth:passwd` |
 | `crypto:salthash` |
+
+### `base:activity`
+
+Properties common to activity which occurs over a period.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this activity. |
+| `:period` | `ival` | The period over which the activity occurred. |
+
+| Form |
+|------|
+| `biz:deal` |
+| `edu:class` |
+| `entity:conflict` |
+| `inet:flow` |
+| `meta:activity` |
+| `pol:election` |
+| `pol:race` |
+
+### `base:event`
+
+Properties common to an event.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:activity` | A parent activity which includes this event. |
+| `:time` | `time` | The time that the event occurred. |
+
+| Form |
+|------|
+| `meta:event` |
+
+### `biz:manufactured`
+
+Properties common to items being manufactured.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:model` | `biz:model` | The model number or name of the item. |
+| `:name` | `base:name` | The name of the item. |
+
+| Form |
+|------|
+| `it:host` |
 
 ### `crypto:hash`
 
@@ -9599,7 +10339,7 @@ An interface inherited by all cryptographic keys.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `crypto:algorithm` | The cryptographic algorithm which uses the key material. |
-| `:bits` | `int` | The number of bits of key material. |
+| `:bits` | `int:min1` | The number of bits of key material. |
 
 | Form |
 |------|
@@ -9635,12 +10375,10 @@ Properties common to authorable forms.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:author` | `entity:actor` | The contact information of the primary author. |
-| `:contributors` | `array` | An array of contacts which contributed to the document. |
-| `:created` | `time` | The time that the document was created. |
 | `:desc` | `text` | A description of the document. |
 | `:id` | `meta:id` | The document ID. |
-| `:supersedes` | `array` | An array of document versions which are superseded by this document. |
+| `:ids` | `array of meta:id` | An array of alternate IDs for the document. |
+| `:supersedes` | `array of doc:authorable` | An array of document versions which are superseded by this document. |
 | `:updated` | `time` | The time that the document was last updated. |
 | `:url` | `inet:url` | The URL where the document is available. |
 | `:version` | `it:version` | The version of the document. |
@@ -9665,6 +10403,7 @@ A common interface for documents.
 |----------|------|-----|
 | `:body` | `text` | The text of the document. |
 | `:file` | `file:bytes` | The file containing the document contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the document contents. |
 | `:title` | `str` | The title of the document. |
 | `:type` | `doc:document:type:taxonomy` | The type of document. |
@@ -9678,6 +10417,35 @@ A common interface for documents.
 | `doc:resume` |
 | `doc:standard` |
 | `plan:procedure` |
+
+### `doc:published`
+
+Properties common to published documents.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:public` | `bool` | Set to true if the report is publicly available. |
+| `:published` | `time` | The time the report was published. |
+| `:publisher` | `entity:actor` | The entity which published the report. |
+| `:publisher:name` | `entity:name` | The name of the entity which published the report. |
+| `:topics` | `array of meta:topic` | The topics discussed in the report. |
+
+| Form |
+|------|
+| `biz:rfp` |
+| `doc:report` |
+
+### `doc:signable`
+
+An interface implemented by documents which can be signed by actors.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:signed` | `time` | The date that the document signing was complete. |
+
+| Form |
+|------|
+| `doc:contract` |
 
 ### `econ:pay:instrument`
 
@@ -9703,19 +10471,6 @@ An interface inherited by nodes which represent a skill which can be learned.
 | `lang:language` |
 | `ps:skill` |
 
-### `entity:abstract`
-
-An abstract entity which can be resolved to an organization or person.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:resolved` | `entity:resolved` | The resolved entity to which this entity belongs. |
-
-| Form |
-|------|
-| `entity:contact` |
-| `risk:threat` |
-
 ### `entity:action`
 
 Properties which are common to actions taken by entities.
@@ -9727,12 +10482,32 @@ Properties which are common to actions taken by entities.
 
 | Form |
 |------|
-| `entity:campaign` |
 | `entity:contribution` |
-| `risk:attack` |
+
+### `entity:activity`
+
+Properties common to activity carried out by an actor.
+
+| Form |
+|------|
+| `biz:listing` |
+| `biz:service` |
+| `doc:contract` |
+| `entity:attended` |
+| `entity:believed` |
+| `entity:campaign` |
+| `entity:created` |
+| `entity:motive` |
+| `entity:participated` |
+| `entity:proficiency` |
+| `entity:said` |
+| `entity:studied` |
+| `entity:supported` |
+| `pol:candidate` |
+| `pol:term` |
 | `risk:compromise` |
 | `risk:extortion` |
-| `risk:leak` |
+| `sci:experiment` |
 
 ### `entity:actor`
 
@@ -9741,20 +10516,12 @@ An interface for entities which have initiative to act.
 | Form |
 |------|
 | `entity:contact` |
+| `inet:service:account` |
+| `inet:service:agent` |
 | `ou:org` |
 | `ps:person` |
 | `risk:threat` |
 | `syn:user` |
-
-### `entity:attendable`
-
-Properties common to events which individuals may attend.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:desc` | `text` | A description of the event. |
-| `:parent` | `entity:attendable` | The parent event which hosts the event. |
-| `:period` | `ival` | The period of time over which the event occurred. |
 
 ### `entity:contactable`
 
@@ -9764,23 +10531,25 @@ An interface for forms which contain contact info.
 |----------|------|-----|
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
 | `:bio` | `text` | A tagline or bio provided for the entity. |
-| `:creds` | `array` | An array of non-ephemeral credentials. |
-| `:crypto:currency:addresses` | `array` | Crypto currency addresses listed for the entity. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
+| `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the entity. |
+| `:desc` | `text` | A description of the entity. |
 | `:email` | `inet:email` | The primary email address for the entity. |
-| `:emails` | `array` | An array of alternate email addresses for the entity. |
+| `:emails` | `array of inet:email` | An array of alternate email addresses for the entity. |
 | `:id` | `meta:id` | A type or source specific ID for the entity. |
-| `:identifiers` | `array` | Additional entity identifiers. |
+| `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
+| `:lang` | `lang:language` | The primary language of the entity. |
+| `:langs` | `array of lang:language` | An array of alternate languages for the entity. |
 | `:lifespan` | `ival` | The lifespan of the entity. |
 | `:name` | `entity:name` | The primary entity name of the entity. |
-| `:names` | `array` | An array of alternate entity names for the entity. |
+| `:names` | `array of entity:name` | An array of alternate entity names for the entity. |
 | `:phone` | `tel:phone` | The primary phone number for the entity. |
-| `:phones` | `array` | An array of alternate telephone numbers for the entity. |
+| `:phones` | `array of tel:phone` | An array of alternate telephone numbers for the entity. |
 | `:photo` | `file:bytes` | The profile picture or avatar for this entity. |
-| `:social:accounts` | `array` | Social media or other online accounts listed for the entity. |
-| `:url` | `inet:url` | The primary url for the entity. |
+| `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the entity. |
 | `:user` | `inet:user` | The primary user name for the entity. |
-| `:users` | `array` | An array of alternate user names for the entity. |
-| `:websites` | `array` | Web sites listed for the entity. |
+| `:users` | `array of inet:user` | An array of alternate user names for the entity. |
+| `:websites` | `array of inet:url` | Web sites listed for the entity. |
 
 | Form |
 |------|
@@ -9789,6 +10558,38 @@ An interface for forms which contain contact info.
 | `ou:org` |
 | `ps:person` |
 | `risk:threat` |
+
+### `entity:creatable`
+
+An interface implemented by forms which represent things made or created by an actor.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:created` | `time` | The time that the item was created. |
+| `:creator` | `entity:actor` | The primary actor which created the item. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the item. |
+
+| Form |
+|------|
+| `biz:product` |
+| `it:host` |
+
+### `entity:event`
+
+Properties common to events carried out by an actor.
+
+| Form |
+|------|
+| `econ:payment` |
+| `econ:purchase` |
+| `entity:achieved` |
+| `entity:discovered` |
+| `entity:registered` |
+| `entity:signed` |
+| `risk:attack` |
+| `risk:leak` |
+| `risk:theft` |
+| `sci:observation` |
 
 ### `entity:identifier`
 
@@ -9825,6 +10626,33 @@ Properties which apply to entities which may represent a group or organization.
 | `inet:service:account` |
 | `ou:org` |
 
+### `entity:participable`
+
+An interface implemented by activities which an actor may participate in.
+
+| Form |
+|------|
+| `edu:class` |
+| `entity:campaign` |
+| `ou:conference` |
+| `ou:contest` |
+| `ou:event` |
+| `ou:meeting` |
+| `ou:preso` |
+
+### `entity:resolvable`
+
+An abstract entity which can be resolved to an organization or person.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this entity belongs. |
+
+| Form |
+|------|
+| `entity:contact` |
+| `risk:threat` |
+
 ### `entity:singular`
 
 Properties which apply to entities which may represent a person.
@@ -9834,13 +10662,40 @@ Properties which apply to entities which may represent a person.
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
 | `:title` | `entity:title` | The entity title or role for this item. |
-| `:titles` | `array` | An array of alternate entity titles or roles for this item. |
+| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this item. |
 
 | Form |
 |------|
 | `entity:contact` |
 | `inet:service:account` |
 | `ps:person` |
+
+### `entity:stance`
+
+An interface for asks/offers in a negotiation.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `meta:negotiable` | The negotiation activity this stance was part of. |
+| `:expires` | `time` | The time that the stance expires. |
+| `:value` | `econ:price` | The value of the stance. |
+
+| Form |
+|------|
+| `entity:asked` |
+| `entity:offered` |
+
+### `entity:supportable`
+
+An interface implemented by activities which may be supported in by an actor.
+
+| Form |
+|------|
+| `entity:campaign` |
+| `ou:conference` |
+| `ou:contest` |
+| `ou:event` |
+| `ou:preso` |
 
 ### `file:mime:exe`
 
@@ -9849,9 +10704,9 @@ Properties common to executable file formats.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:compiler` | `it:software` | The software used to compile the executable. |
-| `:compiler:name` | `meta:name` | The name of the software used to compile the executable. |
+| `:compiler:name` | `it:softwarename` | The name of the software used to compile the executable. |
 | `:packer` | `it:software` | The software used to pack the executable. |
-| `:packer:name` | `meta:name` | The name of the software used to pack the executable. |
+| `:packer:name` | `it:softwarename` | The name of the software used to pack the executable. |
 
 | Form |
 |------|
@@ -9872,7 +10727,7 @@ Properties common to image file formats.
 | `:desc` | `str` | MIME specific description field extracted from metadata. |
 | `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
-| `:text` | `str` | The text contained within the image. |
+| `:text` | `base:name` | The text contained within the image. |
 
 | Form |
 |------|
@@ -9954,6 +10809,11 @@ Properties common to items and events which may be geolocated.
 | `geo:telem` |
 | `inet:ip` |
 | `inet:wifi:ap` |
+| `ou:conference` |
+| `ou:contest` |
+| `ou:event` |
+| `ou:meeting` |
+| `ou:preso` |
 | `tel:mob:cell` |
 | `tel:mob:telem` |
 | `transport:air:telem` |
@@ -9969,7 +10829,6 @@ Properties common to network protocol requests and transports.
 | `:client:exe` | `file:bytes` | The client executable which initiated the link. |
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
-| `:flow` | `inet:flow` | The network flow which contained the link. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
@@ -9979,6 +10838,7 @@ Properties common to network protocol requests and transports.
 | Form |
 |------|
 | `inet:flow` |
+| `it:host:login` |
 
 ### `inet:proto:request`
 
@@ -9986,6 +10846,7 @@ Properties common to network protocol requests and responses.
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:time` | `time` | The time the request was sent. |
 
 | Form |
@@ -10087,7 +10948,7 @@ Properties common to the nodes which subscribe to services.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:creds` | `array` | An array of non-ephemeral credentials. |
+| `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
 | `:email` | `inet:email` | The primary email address for the subscriber. |
 | `:name` | `entity:name` | The primary entity name of the subscriber. |
 | `:profile` | `entity:contact` | Current detailed contact information for the subscriber. |
@@ -10100,16 +10961,22 @@ Properties common to the nodes which subscribe to services.
 
 ### `it:host:activity`
 
-Properties common to instances of activity on a host.
+Activity which occurred on a host.
+
+| Form |
+|------|
+| `it:exec:proc` |
+| `it:exec:thread` |
+| `it:os:windows:service` |
+
+### `it:host:event`
+
+An event which occurred on a host.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
-| `:host` | `it:host` | The host on which the activity occurred. |
-| `:proc` | `it:exec:proc` | The host process which caused the activity. |
-| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:thread` | `it:exec:thread` | The host thread which caused the activity. |
-| `:time` | `time` | The time that the activity started. |
+| `:proc` | `it:exec:proc` | The process which caused the event. |
+| `:thread` | `it:exec:thread` | The thread which caused the event. |
 
 | Form |
 |------|
@@ -10119,18 +10986,33 @@ Properties common to instances of activity on a host.
 | `it:exec:file:del` |
 | `it:exec:file:read` |
 | `it:exec:file:write` |
-| `it:exec:loadlib` |
-| `it:exec:mmap` |
-| `it:exec:mutex` |
-| `it:exec:pipe` |
-| `it:exec:proc` |
+| `it:exec:lib:load` |
+| `it:exec:mmap:add` |
+| `it:exec:mutex:add` |
+| `it:exec:pipe:add` |
+| `it:exec:proc:create` |
+| `it:exec:proc:signal` |
+| `it:exec:proc:terminate` |
 | `it:exec:query` |
 | `it:exec:screenshot` |
-| `it:exec:thread` |
+| `it:exec:thread:create` |
+| `it:exec:thread:terminate` |
 | `it:exec:windows:registry:del` |
 | `it:exec:windows:registry:get` |
 | `it:exec:windows:registry:set` |
 | `it:log:event` |
+| `it:os:windows:service:add` |
+| `it:os:windows:service:del` |
+
+### `it:host:exec`
+
+Properties common to runtime events and activity on a host.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:host` | `it:host` | The host on which the activity occurred. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 
 ### `lang:transcript`
 
@@ -10139,6 +11021,33 @@ An interface which applies to forms containing speech.
 | Form |
 |------|
 | `tel:call` |
+
+### `meta:achievable`
+
+An interface implemented by forms which are achievable.
+
+| Form |
+|------|
+| `entity:goal` |
+| `meta:award` |
+
+### `meta:believable`
+
+An interface implemented by forms which may be believed in by an actor.
+
+| Form |
+|------|
+| `belief:system` |
+| `belief:tenet` |
+| `sci:hypothesis` |
+
+### `meta:causal`
+
+Implemented by events and activities which can lead to effects.
+
+| Form |
+|------|
+| `risk:alert` |
 
 ### `meta:discoverable`
 
@@ -10151,6 +11060,8 @@ An interface for items which can be discovered by an actor.
 
 | Form |
 |------|
+| `risk:attack` |
+| `risk:compromise` |
 | `risk:threat` |
 | `risk:vuln` |
 
@@ -10165,8 +11076,11 @@ An interface used to describe items that can be possessed by an entity.
 
 | Form |
 |------|
+| `biz:product` |
 | `inet:wifi:ap` |
+| `it:network` |
 | `ou:org` |
+| `tel:mob:tac` |
 
 ### `meta:matchish`
 
@@ -10176,13 +11090,22 @@ Properties which are common to matches based on rules.
 |----------|------|-----|
 | `:matched` | `time` | The time that the rule was evaluated to generate the match. |
 | `:rule` | `rule:type` | The rule which matched the target node. |
-| `:target` | `ndef` | The target node which matched the rule. |
+| `:target` | `` | The target node which matched the rule. |
 | `:version` | `it:version` | The most recent version of the rule evaluated as a match. |
 
 | Form |
 |------|
 | `it:app:snort:match` |
 | `it:app:yara:match` |
+
+### `meta:negotiable`
+
+An interface implemented by activities which involve negotiation.
+
+| Form |
+|------|
+| `biz:deal` |
+| `risk:extortion` |
 
 ### `meta:observable`
 
@@ -10215,7 +11138,6 @@ Properties common to forms which can be observed.
 | `econ:pay:card` |
 | `entity:campaign` |
 | `entity:contact` |
-| `entity:name` |
 | `file:archive:entry` |
 | `file:attachment` |
 | `file:base` |
@@ -10228,7 +11150,6 @@ Properties common to forms which can be observed.
 | `file:stored:entry` |
 | `file:subfile:entry` |
 | `file:system:entry` |
-| `geo:name` |
 | `inet:asn` |
 | `inet:asnet` |
 | `inet:asnip` |
@@ -10278,24 +11199,40 @@ Properties common to forms which can be observed.
 | `inet:wifi:ap` |
 | `inet:wifi:ssid` |
 | `it:adid` |
-| `it:av:signame` |
 | `it:dev:str` |
+| `it:dns:resolver` |
 | `it:host:hosted:url` |
 | `it:hostname` |
 | `it:os:windows:registry:entry` |
 | `it:os:windows:registry:key` |
 | `it:softid` |
-| `it:softwarename` |
 | `lang:hashtag` |
-| `lang:name` |
-| `meta:name` |
-| `meta:topic` |
 | `ou:id` |
 | `tel:mob:imei` |
 | `tel:mob:imid` |
 | `tel:mob:imsi` |
 | `tel:mob:imsiphone` |
 | `tel:phone` |
+
+### `meta:recordable`
+
+Properties common to activities which may be recorded or transcribed.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:recording:file` | `file:bytes` | A file containing a recording of the event. |
+| `:recording:offset` | `duration` | The time offset of the activity within the recording. |
+| `:recording:url` | `inet:url` | The URL hosting a recording of the event. |
+
+| Form |
+|------|
+| `edu:class` |
+| `entity:said` |
+| `ou:conference` |
+| `ou:contest` |
+| `ou:event` |
+| `ou:meeting` |
+| `ou:preso` |
 
 ### `meta:reported`
 
@@ -10306,15 +11243,15 @@ Properties common to forms which are created on a per-source basis.
 | `:created` | `time` | The time when the item was created. |
 | `:desc` | `text` | A description of the item. |
 | `:id` | `meta:id` | A unique ID given to the item. |
-| `:ids` | `array` | An array of alternate IDs given to the item. |
-| `:name` | `meta:name` | The primary name of the item. |
-| `:names` | `array` | A list of alternate names for the item. |
+| `:ids` | `array of meta:id` | An array of alternate IDs given to the item. |
+| `:name` | `base:name` | The primary name of the item. |
+| `:names` | `array of base:name` | A list of alternate names for the item. |
 | `:published` | `time` | The time when the reporter published the item. |
 | `:reporter` | `entity:actor` | The entity which reported on the item. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the item. |
 | `:resolved` | `meta:reported` | The authoritative item which this reporting is about. |
 | `:superseded` | `time` | The time when the item was superseded. |
-| `:supersedes` | `array` | An array of item nodes which are superseded by this item. |
+| `:supersedes` | `array of meta:reported` | An array of item nodes which are superseded by this item. |
 | `:updated` | `time` | The time when the item was last updated. |
 | `:url` | `inet:url` | The URL for the item. |
 
@@ -10332,9 +11269,34 @@ Properties common to forms which are created on a per-source basis.
 | `risk:leak` |
 | `risk:mitigation` |
 | `risk:outage` |
+| `risk:theft` |
 | `risk:threat` |
 | `risk:tool:software` |
 | `risk:vuln` |
+
+### `meta:task`
+
+A common interface for tasks.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:assignee` | `entity:actor` | The actor who is assigned to complete the task. |
+| `:completed` | `time` | The time the task was completed. |
+| `:created` | `time` | The time the task was created. |
+| `:creator` | `entity:actor` | The actor who created the task. |
+| `:due` | `time` | The time the task must be complete. |
+| `:id` | `base:id` | The ID of the task. |
+| `:parent` | `meta:task` | The parent task which includes this task. |
+| `:priority` | `meta:score` | The priority of the task. |
+| `:project` | `proj:project` | The project containing the task. |
+| `:status` | `meta:task:status` | The status of the task. |
+| `:updated` | `time` | The time the task was last updated. |
+
+| Form |
+|------|
+| `ou:enacted` |
+| `proj:ticket` |
+| `risk:alert` |
 
 ### `meta:taxonomy`
 
@@ -10398,11 +11360,11 @@ Properties common to taxonomies.
 | `meta:timeline:type:taxonomy` |
 | `ou:asset:status:taxonomy` |
 | `ou:asset:type:taxonomy` |
-| `ou:award:type:taxonomy` |
 | `ou:candidate:method:taxonomy` |
 | `ou:contest:type:taxonomy` |
 | `ou:employment:type:taxonomy` |
 | `ou:enacted:status:taxonomy` |
+| `ou:event:type:taxonomy` |
 | `ou:id:status:taxonomy` |
 | `ou:id:type:taxonomy` |
 | `ou:industry:type:taxonomy` |
@@ -10412,7 +11374,7 @@ Properties common to taxonomies.
 | `plan:procedure:type:taxonomy` |
 | `pol:immigration:status:type:taxonomy` |
 | `proj:project:type:taxonomy` |
-| `proj:task:type:taxonomy` |
+| `proj:ticket:type:taxonomy` |
 | `ps:skill:type:taxonomy` |
 | `risk:alert:type:taxonomy` |
 | `risk:alert:verdict:taxonomy` |
@@ -10439,11 +11401,7 @@ Properties common to taxonomies.
 
 ### `meta:usable`
 
-An interface for forms which can be used by an actor.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:used` | `ival` | The time interval when the item was being used. |
+An interface implemented by forms which can be used by an actor.
 
 | Form |
 |------|
@@ -10457,31 +11415,16 @@ An interface for forms which can be used by an actor.
 | `risk:tool:software` |
 | `risk:vuln` |
 
-### `ou:attendable`
+### `ou:promotable`
 
-An interface which is inherited by all organized events.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:name` | `meta:name` | The name of the event. |
-| `:name:base` | `meta:name` | The base name of the event (for a recurring event). |
-| `:names` | `array` | An array of alternate names for the event. |
-
-| Form |
-|------|
-| `edu:class` |
-| `ou:meeting` |
-
-### `ou:sponsored`
-
-Properties which are common to events which are hosted or sponsored by organizations.
+Properties which are common to activities which are promoted by an organization.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:contact` | `entity:contact` | Contact information for the event. |
-| `:organizers` | `array` | An array of event organizers. |
-| `:sponsors` | `array` | The entities which sponsored the event. |
-| `:website` | `inet:url` | The URL of the event website. |
+| `:name` | `event:name` | The name of the event. |
+| `:names` | `array of event:name` | An array of alternate names for the event. |
+| `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the event. |
+| `:website` | `inet:url` | The website of the event website. |
 
 | Form |
 |------|
@@ -10492,7 +11435,16 @@ Properties which are common to events which are hosted or sponsored by organizat
 
 ### `phys:object`
 
-Properties common to all physical objects.
+Properties common to physical objects.
+
+| Form |
+|------|
+| `it:host` |
+| `mat:item` |
+
+### `phys:tangible`
+
+Properties common to nodes which have or capture physical characteristics.
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -10505,33 +11457,22 @@ Properties common to all physical objects.
 | Form |
 |------|
 | `geo:telem` |
-| `it:host` |
-| `mat:item` |
 | `ps:vitals` |
 
-### `proj:doable`
+### `risk:exploitable`
 
-A common interface for tasks.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:assignee` | `entity:actor` | The actor who is assigned to complete the task. |
-| `:completed` | `time` | The time the task was completed. |
-| `:created` | `time` | The time the task was created. |
-| `:creator` | `entity:actor` | The actor who created the task. |
-| `:due` | `time` | The time the task must be complete. |
-| `:id` | `meta:id` | The ID of the task. |
-| `:parent` | `proj:doable` | The parent task which includes this task. |
-| `:priority` | `meta:score` | The priority of the task. |
-| `:project` | `proj:project` | The project containing the task. |
-| `:sprint` | `proj:sprint` | The sprint that contains the task. |
-| `:status` | `int` | The status of the task. |
-| `:updated` | `time` | The time the task was last updated. |
+An interface implemented by forms which may be exploited by an actor.
 
 | Form |
 |------|
-| `ou:enacted` |
-| `proj:task` |
+| `inet:client` |
+| `inet:server` |
+| `inet:service:platform` |
+| `it:dns:resolver` |
+| `it:hardware` |
+| `it:host` |
+| `it:software` |
+| `ou:asset` |
 
 ### `risk:mitigatable`
 
@@ -10545,14 +11486,32 @@ A common interface for risks which may be mitigated.
 
 ### `risk:targetable`
 
-A common interface for nodes which may target selection criteria for threats.
+An interface implemented by forms which are targets of threats.
 
 | Form |
 |------|
+| `entity:title` |
+| `meta:topic` |
 | `ou:industry` |
 | `ou:org` |
 | `pol:country` |
 | `risk:vuln` |
+
+### `risk:victimized`
+
+An interface for malicious acts which directly impact a victim.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:victim` | `entity:actor` | The victim of the event. |
+| `:victim:name` | `entity:name` | The name of the victim of the event. |
+
+| Form |
+|------|
+| `risk:compromise` |
+| `risk:extortion` |
+| `risk:leak` |
+| `risk:theft` |
 
 ### `transport:container`
 
@@ -10560,15 +11519,11 @@ Properties common to a container used to transport cargo or people.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:built` | `time` | The date when the object was built. |
-| `:manufacturer` | `entity:actor` | The organization which manufactured the object. |
-| `:manufacturer:name` | `entity:name` | The name of the organization which manufactured the object. |
-| `:max:cargo:mass` | `mass` | The maximum mass the object can carry as cargo. |
-| `:max:cargo:volume` | `geo:dist` | The maximum volume the object can carry as cargo. |
-| `:max:occupants` | `int` | The maximum number of occupants the object can hold. |
-| `:model` | `base:name` | The model of the object. |
-| `:owner` | `entity:actor` | The contact information of the owner of the object. |
-| `:serial` | `base:id` | The manufacturer assigned serial number of the object. |
+| `:max:cargo:mass` | `mass` | The maximum mass the item can carry as cargo. |
+| `:max:cargo:volume` | `geo:dist` | The maximum volume the item can carry as cargo. |
+| `:max:occupants` | `int:min0` | The maximum number of occupants the item can hold. |
+| `:model` | `biz:model` | The model of the item. |
+| `:serial` | `base:id` | The manufacturer assigned serial number of the item. |
 
 | Form |
 |------|
@@ -10608,9 +11563,9 @@ Properties common to a specific trip taken by a vehicle.
 |----------|------|-----|
 | `:cargo:mass` | `mass` | The cargo mass carried by the vehicle on this trip. |
 | `:cargo:volume` | `geo:dist` | The cargo volume carried by the vehicle on this trip. |
-| `:occupants` | `int` | The number of occupants of the vehicle on this trip. |
+| `:occupants` | `int:min0` | The number of occupants of the vehicle on this trip. |
 | `:operator` | `entity:actor` | The contact information of the operator of the trip. |
-| `:status` | `str` | The status of the trip. |
+| `:status` | `transport:trip:status` | The status of the trip. |
 | `:vehicle` | `transport:vehicle` | The vehicle which traveled the trip. |
 
 | Form |
@@ -10625,7 +11580,7 @@ Properties common to a vehicle.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:operator` | `entity:actor` | The contact information of the operator of the object. |
+| `:operator` | `entity:actor` | The contact information of the operator of the item. |
 
 | Form |
 |------|

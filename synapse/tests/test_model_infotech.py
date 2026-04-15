@@ -438,8 +438,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :period=(20210314,202103140201)
                         :account=$acct
                         :server:host=$host
-                        :creds={[ auth:passwd=cool ]}
-                        :flow={[ inet:flow=(foo,) ]})
+                        :creds={[ auth:passwd=cool ]})
                 ]
             ''')
             self.len(2, nodes)
@@ -487,7 +486,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
-            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
+            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login'))
 
             # test inet:proto:link interface properties on it:host:login
             nodes = await core.nodes('''
@@ -740,7 +739,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :parts = (*, *)
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
-            self.propeq(nodes[0], 'model', 'xps13')
+            self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
             self.propeq(nodes[0], 'version.semver', 1099513724931)
             self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')

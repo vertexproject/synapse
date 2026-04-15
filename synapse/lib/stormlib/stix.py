@@ -686,10 +686,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(base:name, $object.name)
                 if $ok {
 
-                    meta:name=$name -> ou:org
+                    ou:org:name=$name
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 
@@ -711,7 +711,7 @@ stixingest = {
         },
         'tool': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
@@ -752,7 +752,7 @@ stixingest = {
         },
         'malware': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
