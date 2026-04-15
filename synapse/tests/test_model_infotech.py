@@ -549,7 +549,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             # Test it:host:posix:account with all props
             nodes = await core.nodes('''
-                init { $host = $lib.guid() }
+                $host = $lib.guid()
                 [
                     it:host:posix:account=*
                         :user=visi
@@ -580,7 +580,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             # Test it:host:windows:account with all props
             nodes = await core.nodes('''
-                init { $host = $lib.guid() }
+                $host = $lib.guid()
                 [
                     it:host:windows:account=*
                         :user=admin
@@ -620,6 +620,69 @@ class InfotechModelTest(s_t_utils.SynTest):
             # Test negative integer rejected by it:os:posix:id
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[it:host:posix:account=* :id=-1]')
+
+    async def test_it_host_group_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:posix:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:posix:group=*
+                        :id=1001
+                        :name=developers
+                        :desc="the developers group"
+                        :host=$host
+                        :service:role={[ inet:service:role=* ]}
+                        :groups={[ it:host:group=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:posix:group')
+            self.propeq(node, 'id', 1001, form='it:os:posix:id')
+            self.propeq(node, 'name', 'developers')
+            self.propeq(node, 'desc', 'the developers group')
+            self.nn(node.get('host'))
+            self.nn(node.get('service:role'))
+
+            # Test it:host:windows:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:windows:group=*
+                        :id=S-1-5-32-544
+                        :name=administrators
+                        :host=$host
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:windows:group')
+            self.propeq(node, 'id', 'S-1-5-32-544', form='it:os:windows:sid')
+            self.propeq(node, 'name', 'administrators')
+            self.nn(node.get('host'))
+
+            # Test :id on parent it:host:group with meta:id value
+            nodes = await core.nodes('[it:host:group=* :id=grp-12345]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'grp-12345', form='meta:id')
+
+            # Verify querying it:host:group returns parent and child form nodes
+            nodes = await core.nodes('it:host:group')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:group']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:group']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:posix:group :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:group :host -> it:host'))
+
+            # Test negative integer rejected by it:os:posix:id
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:host:posix:group=* :id=-1]')
 
     async def test_it_software(self):
         # Test all prodsoft and prodsoft associated linked forms

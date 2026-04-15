@@ -683,16 +683,15 @@ modeldefs = (
             ('it:host:windows:account', ('it:host:account', {}), {
                 'doc': 'A Windows account on a host.'}),
 
-            ('it:host:account:id', (
-                    ('it:os:windows:sid', {}),
-                    ('it:os:posix:id', {}),
-                    ('meta:id', {}),
-                ), {
-                'doc': 'A unique host account identifier.'}),
-
             ('it:host:group', ('guid', {}), {
                 'prevnames': ('it:group',),
                 'doc': 'A local group on a host.'}),
+
+            ('it:host:posix:group', ('it:host:group', {}), {
+                'doc': 'A POSIX group on a host.'}),
+
+            ('it:host:windows:group', ('it:host:group', {}), {
+                'doc': 'A Windows group on a host.'}),
 
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
@@ -1604,7 +1603,7 @@ modeldefs = (
 
             ('it:host:account', {}, (
 
-                ('id', ('it:host:account:id', {}), {
+                ('id', (('it:os:windows:sid', {}), ('it:os:posix:id', {}), ('meta:id', {})), {
                     'doc': 'The unique OS-level identifier for the account.'}),
 
                 ('user', ('inet:user', {}), {
@@ -1656,6 +1655,9 @@ modeldefs = (
 
             ('it:host:group', {}, (
 
+                ('id', (('it:os:windows:sid', {}), ('it:os:posix:id', {}), ('meta:id', {})), {
+                    'doc': 'The unique OS-level identifier for the group.'}),
+
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the group.'}),
 
@@ -1665,18 +1667,24 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the group was created.'}),
 
-                ('posix:gid', ('it:os:posix:id', {}), {
-                    'ex': '1001',
-                    'doc': 'The POSIX group ID of the group.'}),
-
-                ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
-
                 ('service:role', ('inet:service:role', {}), {
                     'doc': 'The optional service role which the local group maps to.'}),
 
                 ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that are a member of this group.'}),
+            )),
+
+            ('it:host:posix:group', {}, (
+
+                ('id', ('it:os:posix:id', {}), {
+                    'ex': '1001',
+                    'doc': 'The POSIX ID of the group.'}),
+            )),
+
+            ('it:host:windows:group', {}, (
+
+                ('id', ('it:os:windows:sid', {}), {
+                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
             )),
             ('it:host:login', {}, (
 
