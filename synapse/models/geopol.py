@@ -13,7 +13,7 @@ modeldefs = (
                     ('iso:3166:alpha2', {}),
                     ('iso:3166:numeric3', {}),
                     ('iso:3166:alpha3', {}),
-                    ('meta:id', {}),
+                    ('base:id', {}),
                 ), {
                 'doc': 'A country code.'}),
 
@@ -208,7 +208,7 @@ modeldefs = (
             )),
             ('pol:candidate', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
 
                 ('votes', ('int', {}), {
