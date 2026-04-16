@@ -461,6 +461,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'Moldy cheese')
 
             self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
+            self.len(3, await core.nodes('ou:industry -> ou:industryname'))
 
             self.len(1, nodes := await core.nodes('[ ou:industry=({"name": "faz"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
