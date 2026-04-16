@@ -106,10 +106,15 @@ modeldefs = (
                     ),
                 }}),
 
+            ('ou:industryname', ('base:name', {}), {
+                'props': (),
+                'doc': 'A name of an industry.'}),
+
             ('ou:industry', ('guid', {}), {
+                'template': {'title': 'industry'},
                 'interfaces': (
+                    ('meta:reported', {}),
                     ('risk:targetable', {}),
-                    ('meta:reported', {'template': {'title': 'industry'}}),
                 ),
                 'display': {
                     'columns': (
@@ -669,6 +674,13 @@ modeldefs = (
 
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
+
+                ('name', ('ou:industryname', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the industry.'}),
+
+                ('names', ('array', {'type': 'ou:industryname'}), {
+                    'doc': 'An array of alternative names for the industry.'}),
 
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
