@@ -1599,11 +1599,11 @@ class Model:
         for subname, subinfo in iface.get('interfaces', ()):
 
             if ifaceparents is None:
-                ifaceparents = [name]
+                subparents = [name]
             else:
-                ifaceparents.append(name)
+                subparents = ifaceparents + [name]
 
-            self._addFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
+            self._addFormIface(form, subname, subinfo, ifaceparents=subparents)
 
     def _delFormIface(self, form, name, ifinfo, ifaceparents=None):
 
@@ -1627,11 +1627,11 @@ class Model:
         for subname, subinfo in iface.get('interfaces', ()):
 
             if ifaceparents is None:
-                ifaceparents = [name]
+                subparents = [name]
             else:
-                ifaceparents.append(name)
+                subparents = ifaceparents + [name]
 
-            self._delFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
+            self._delFormIface(form, subname, subinfo, ifaceparents=subparents)
 
     def delTagProp(self, name):
         if (prop := self.tagprops.pop(name, None)) is not None:

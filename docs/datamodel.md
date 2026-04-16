@@ -3234,7 +3234,7 @@ A single instance of a DNS resolver request and optional reply info.
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
-| `:time` | `time` | The time the request was sent. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `inet:dns:rev`
 
@@ -3489,7 +3489,7 @@ A single HTTP request.
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
 | `:session` | `inet:http:session` | The HTTP session this request was part of. |
-| `:time` | `time` | The time the request was sent. |
+| `:time` | `time` | The time that the event occurred. |
 | `:url` | `inet:url` | The reconstructed URL for the request if known. |
 
 ### `inet:http:request:header`
@@ -3657,7 +3657,7 @@ An instance of an RDP handshake between a client and server.
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
-| `:time` | `time` | The time the request was sent. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `inet:rfc2822:addr`
 
@@ -4464,7 +4464,7 @@ An instance of an SSH handshake between a client and server.
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:key` | `crypto:key` | The key used by the SSH server. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
-| `:time` | `time` | The time the request was sent. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `inet:tls:clientcert`
 
@@ -4511,7 +4511,7 @@ An instance of a TLS handshake between a client and server.
 | `:server:ja4s` | `inet:tls:ja4s` | The JA4S fingerprint of the server response. |
 | `:server:jarmhash` | `inet:tls:jarmhash` | The JARM hash computed from the server response. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
-| `:time` | `time` | The time the request was sent. |
+| `:time` | `time` | The time that the event occurred. |
 
 ### `inet:tls:ja3:sample`
 
@@ -5850,6 +5850,7 @@ A specification for a piece of IT hardware.
 | `:manufacturer` | `entity:actor` | The organization that manufactures this hardware. |
 | `:manufacturer:name` | `entity:name` | The name of the organization that manufactures this hardware. |
 | `:model` | `biz:model` | The model name or number for this hardware specification. |
+| `:name` | `base:name` | The name of this hardware specification. |
 | `:parts` | `array of it:hardware` | An array of it:hardware parts included in this hardware specification. |
 | `:released` | `time` | The initial release date for this hardware. |
 | `:type` | `it:hardware:type:taxonomy` | The type of hardware. |
@@ -10847,7 +10848,6 @@ Properties common to network protocol requests and responses.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:flow` | `inet:flow` | The network flow which contained the request. |
-| `:time` | `time` | The time the request was sent. |
 
 | Form |
 |------|

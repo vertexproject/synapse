@@ -919,8 +919,8 @@ class AstTest(s_test.SynTest):
             await core.nodes(q)
 
             self.len(3, await core.nodes('it:host=(host,) -> it:host:event'))
-            self.len(6, await core.nodes('it:host=(host,) -> it:host:event:host'))
-            self.len(6, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:event:host'))
+            self.len(3, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
 
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns*'))
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns:*'))
@@ -1041,8 +1041,8 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('it:host:event'))
             self.len(4, await core.nodes('it:host:event#foo'))
             self.len(4, await core.nodes('it:host:event#foo:score=5'))
-            self.len(6, await core.nodes('it:host:event:host'))
-            self.len(6, await core.nodes('it:host:event:host=(host,)'))
+            self.len(3, await core.nodes('it:host:event:host'))
+            self.len(3, await core.nodes('it:host:event:host=(host,)'))
 
             self.len(4, await core.nodes('.created +it:host:event'))
             self.len(3, await core.nodes('.created +it:host:event:host'))

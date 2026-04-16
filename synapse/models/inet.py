@@ -1917,9 +1917,6 @@ modeldefs = (
 
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The network flow which contained the {title}.'}),
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time the {title} was sent.'}),
                 ),
                 'doc': 'Properties common to network protocol requests and responses.'}),
 
