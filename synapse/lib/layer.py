@@ -117,15 +117,14 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
-        self.readperm = ('layer', 'read', self.layr.iden)
-        self.writeperm = ('layer', 'write', self.layr.iden)
+        self.readperm = ('layer', 'read')
+        self.writeperm = ('layer', 'write')
 
     async def iterLayerNodeEdits(self, *, meta=False):
         '''
         Scan the full layer and yield artificial nodeedit sets.
         '''
-
-        await self._reqUserAllowed(self.readperm)
+        self.user.confirm(self.readperm, gateiden=self.layr.iden)
         async for item in self.layr.iterLayerNodeEdits(meta=meta):
             yield item
             await asyncio.sleep(0)
@@ -140,7 +139,7 @@ class LayerApi(s_cell.CellApi):
 
     async def storNodeEdits(self, nodeedits, *, meta=None):
 
-        await self._reqUserAllowed(self.writeperm)
+        self.user.confirm(self.writeperm, gateiden=self.layr.iden)
 
         if meta is None:
             meta = {'time': s_common.now(), 'user': self.user.iden}
@@ -149,7 +148,7 @@ class LayerApi(s_cell.CellApi):
 
     async def storNodeEditsNoLift(self, nodeedits, *, meta=None):
 
-        await self._reqUserAllowed(self.writeperm)
+        self.user.confirm(self.writeperm, gateiden=self.layr.iden)
 
         if meta is None:
             meta = {'time': s_common.now(), 'user': self.user.iden}
@@ -162,7 +161,7 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.readperm)
+        self.user.confirm(self.readperm, gateiden=self.layr.iden)
 
         async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
@@ -172,11 +171,11 @@ class LayerApi(s_cell.CellApi):
         '''
         Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        await self._reqUserAllowed(self.readperm)
+        self.user.confirm(self.readperm, gateiden=self.layr.iden)
         return self.layr.getEditIndx()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.readperm)
+        self.user.confirm(self.readperm, gateiden=self.layr.iden)
         return self.layr.iden
 
 NID_CACHE_SIZE = 10000

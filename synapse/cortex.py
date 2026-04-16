@@ -535,7 +535,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -553,7 +553,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -570,7 +570,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
@@ -589,7 +589,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
                                                     startvalu=startvalu):
             yield item
@@ -1084,12 +1084,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls all layer permissions.'},
             {'perm': ('layer', 'add'), 'gate': 'cortex',
              'desc': 'Controls the ability to add Layers to the cortex.'},
-            {'perm': ('layer', 'del'), 'gate': 'cortex',
-             'desc': 'Controls the ability to remove Layers from the cortex.'},
+            {'perm': ('layer', 'del'), 'gate': 'layer',
+             'desc': 'Controls the ability to delete a Layer.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
-            {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
-             'desc': 'Controls the ability to read/lift from a specific Layer.'},
 
             {'perm': ('layer', 'set'), 'gate': 'layer',
              'desc': 'Controls setting any layer property.'},
@@ -1102,8 +1100,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('layer', 'write'), 'gate': 'layer',
              'desc': 'Controls the ability to write to a Layer.'},
-            {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
-             'desc': 'Controls the ability to write to a specific Layer.'},
 
             {'perm': ('model', 'admin'), 'gate': 'cortex',
              'desc': 'Controls the ability to modify the extended data model.'},

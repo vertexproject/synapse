@@ -4590,7 +4590,6 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('layer', 'read')))
 
             layr0 = core.getLayer()
             ldef1 = await core.addLayer()

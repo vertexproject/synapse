@@ -803,6 +803,21 @@ class LayerTest(s_t_utils.SynTest):
                 sode = layer0.getStorNode(s_common.int64en(nid))
                 self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
 
+            user = await core0.auth.addUser('lowuser')
+            url = core0.getLocalUrl(user='lowuser', share='*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEdits(nodeedits)
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEditsNoLift(nodeedits)
+
+                await user.addRule((True, ('layer', 'write')), gateiden=layer0.iden)
+
+                await layrprox.storNodeEdits(nodeedits)
+                await layrprox.storNodeEditsNoLift(nodeedits)
+
     async def test_layer_tombstone(self):
 
         async with self.getTestCore() as core:
