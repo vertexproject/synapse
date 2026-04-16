@@ -37,6 +37,7 @@ class CryptoModule(s_module.CoreModule):
 
                         # TODO: 3.0 this should become econ:currency
                         ('symbol', ('crypto:currency:coin', {}), {
+                            'ex': 'eth',
                             'doc': 'The symbol associated with the native currency of the chain.'}),
                     ),
                     'doc': 'A crypto currency chain.'}),
