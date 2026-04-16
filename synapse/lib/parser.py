@@ -63,6 +63,9 @@ terminalEnglishMap = {
     'FUNCTION': 'function',
     'HASH': '#',
     'HEXNUMBER': 'number',
+    'JSONHEX': 'number',
+    'JSONNUMBER': 'number',
+    'JSONOCT': 'number',
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '{',
@@ -226,8 +229,8 @@ class AstConverter(lark.Transformer):
                 self.raiseBadSyntax('Unexpected unquoted string in JSON expression', astinfo)
 
             return s_ast.Const(astinfo, valu)
-        else:
-            return self._convert_child(tokn)
+
+        return self._convert_child(tokn)
 
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
@@ -715,6 +718,9 @@ terminalClassMap = {
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'JSONNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'JSONHEX': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'JSONOCT': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
     'NOTIN': lambda astinfo, x: s_ast.Const(astinfo, 'not in'),

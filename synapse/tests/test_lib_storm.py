@@ -106,6 +106,32 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return(({"foo": "bar", "baz": foo}))')
 
+            # float and negative number literals in JSON expressions
+            retn = await core.callStorm('return(([4.5, 5.6]))')
+            self.eq(retn, (4.5, 5.6))
+
+            retn = await core.callStorm('return(([-4, 8]))')
+            self.eq(retn, (-4, 8))
+
+            retn = await core.callStorm('return(([-4.349, 40.435]))')
+            self.eq(retn, (-4.349, 40.435))
+
+            retn = await core.callStorm('return(({"x": 4.5, "y": -5.6}))')
+            self.eq(retn, {'x': 4.5, 'y': -5.6})
+
+            retn = await core.callStorm('return(([0xFF, 0x10]))')
+            self.eq(retn, (255, 16))
+
+            # parenthesized number expressions (dollarexpr) inside JSON collections
+            retn = await core.callStorm('return(([(-4.349), (40.435)]))')
+            self.eq(retn, (-4.349, 40.435))
+
+            # setting a data-typed property with float coordinates
+            async with self.getTestCore() as core2:
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [4.5, 5.6] }) ]')
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [-4, 8] }) ]')
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [(-4.349), (40.435)] }) ]')
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
