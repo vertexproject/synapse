@@ -67,7 +67,7 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A type or source specific ID for the {title}.'}),
 
                     ('bio', ('text', {}), {

@@ -609,7 +609,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which owns the asset.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
                 ('name', ('base:name', {}), {

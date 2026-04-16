@@ -129,9 +129,6 @@ modeldefs = (
             ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
-            ('meta:id', ('base:id', {}), {
-                'interfaces': (('entity:identifier', {}), ),
-                'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
                 'doc': 'A base type for case insensitive names.'}),
@@ -407,11 +404,11 @@ modeldefs = (
                 },
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -658,7 +655,7 @@ modeldefs = (
         ),
         'forms': (
 
-            ('meta:id', {}, ()),
+
             ('meta:topic', {}, (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the topic.'}),
@@ -688,7 +685,7 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An identifier for the feed.'}),
 
                 ('name', ('base:name', {}), {

@@ -174,7 +174,7 @@ modeldefs = (
             ('file:mime:image', {
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'prevnames': ('imageid',),
                         'doc': 'MIME specific unique identifier extracted from metadata.'}),
 

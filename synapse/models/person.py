@@ -119,7 +119,7 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'doc': 'A brief course description.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'ex': 'chem101',
                     'prevnames': ('code',),
                     'doc': 'The course catalog number or ID.'}),

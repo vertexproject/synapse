@@ -309,7 +309,7 @@ modeldefs = (
 
             ('transport:land:license', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The license ID.'}),
 
                 # TODO type ( drivers license, commercial trucking, etc? )
@@ -330,7 +330,7 @@ modeldefs = (
             )),
             ('transport:land:registration', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The vehicle registration ID or license plate.'}),
 
                 ('contact', ('entity:actor', {}), {
@@ -455,7 +455,7 @@ modeldefs = (
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
-                ('callsign', ('meta:id', {}), {
+                ('callsign', ('base:id', {}), {
                     'doc': 'The callsign of the vessel.'}),
 
                 ('flag', ('iso:3166:alpha2', {}), {
@@ -510,7 +510,7 @@ modeldefs = (
 
             ('transport:rail:train', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID assigned to the train.'}),
             )),
 
