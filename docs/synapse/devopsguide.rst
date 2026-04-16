@@ -196,8 +196,9 @@ When a Synapse release contains a data migration for a part of the Synapse data 
 what component is being migrated and why. This will be made under the ``Automated Migrations`` header, at the
 top of the changelog.
 
-Automatic data migrations may cause additional startup times on the first boot of the version. When beginning a data
-migration, a WARNING level log message will be printed for each stage of the migration::
+Automatic data model migrations may cause additional load on the on the first boot of the version, as the migrations
+are run in the background. When beginning a data migration, a WARNING level log message will be printed for each stage
+of the migration::
 
      beginning model migration -> (0, 2, 8)
 
@@ -343,49 +344,100 @@ to the ``docker`` container::
     SYN_LOG_STRUCT=true
 
 These structured logs are designed to be easy to ingest into third party log collection platforms. They contain the log
-message, level, time, and metadata about where the log message came from::
+message, level, time, and metadata about where the log message came from. The structure contains the following keys:
+
+``service``
+  The full AHA service name is present when the service is registered with AHA. Logs from early in the boot process of
+  a service may not have this field populated.
+
+``message``
+  The log message text.
+
+``logger``
+  Metadata about the logger which created the log message.
+
+``time``
+  Timestamp when the log message was emitted.
+
+``user`` and ``username``
+  User information appears at the top level of each log entry when an authenticated user context is active.
+
+``params``
+  Extra log metadata which recorded with the logging call. This includes additional data about the log event,
+  represented in a structured way for inspection.
+
+``error``
+  Exception information is recorded under the ``error`` key (previously this was ``err``). The ``error`` object
+  contains a ``code`` (exception class name), ``traceback`` (list of frames), ``mesg`` (human-readable message), and an
+  ``info`` dictionary for ``SynErr`` subclasses. Chained exceptions are included via ``cause`` and ``context``
+  sub-keys, corresponding to the Python ``__cause__`` and ``__context__`` attributes on Exception classes. Exception
+  groups are included via a ``group`` list.
+
+The following is an example of a the log event for a user executing a Storm query::
 
     {
-      "message": "log level set to INFO",
+      "service": "00.cortex.synapse",
+      "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
       "logger": {
-        "name": "synapse.lib.cell",
+        "name": "synapse.storm",
+        "func": "_logStormQuery",
         "process": "MainProcess",
-        "filename": "common.py",
-        "func": "setlogging"
+        "thread": "MainThread"
       },
       "level": "INFO",
-      "time": "2021-06-28 15:47:54,825"
+      "time": "2026-02-13 10:38:24,545",
+      "user": "e3532bc88fa66afb592e6a1474a98675",
+      "username": "someUsername",
+      "params": {  # Param
+        "mode": "storm",
+        "view": "715a5c9ae37e4045795ea3f3cabb44fb",
+        "text": "[inet:asn=1234]",
+        "hash": "ef94e89eb3bc309a40242876f6c5f296"
+      }
     }
 
-When exceptions are logged with structured logging, we capture additional information about the exception, including the
-entire traceback. In the event that the error is a Synapse Err class, we also capture additional metadata which was
-attached to the error. In the following example, we also have the query text, username and user iden available in the
-log message pretty-printed log message::
+While a human friendly ``message`` key is present, the ``params`` captures additional structured data, such as the raw
+query text and the view that the query was executed in.
+
+The following error example shows an example of a exception raised during the execution of a Storm query. The execption
+``info`` is present, showing the ``key=valu`` data that was captured; and the query text is also captured in ``params``
+by the this particular error handler. ::
 
     {
-      "message": "Error during storm execution for { || }",
+      "service": "00.cortex.synapse",
+      "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
+        "func": "runStorm",
         "process": "MainProcess",
-        "filename": "view.py",
-        "func": "runStorm"
+        "thread": "MainThread"
       },
       "level": "ERROR",
-      "time": "2021-06-28 15:49:34,401",
-      "err": {
-        "efile": "coro.py",
-        "eline": 233,
-        "esrc": "return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)",
-        "ename": "forked",
-        "at": 1,
-        "text": "||",
-        "mesg": "No terminal defined for '|' at line 1 col 2.  Expecting one of: #, $, (, *, + or -, -(, -+>, -->, ->, :, <(, <+-, <-, <--, [, break, command name, continue, fini, for, function, if, init, property name, return, switch, while, whitespace or comment, yield, {",
-        "etb": ".... long traceback ...",
-        "errname": "BadSyntax"
+      "time": "2026-02-13 11:24:06,853",
+      "user": "e3532bc88fa66afb592e6a1474a98675",
+      "username": "someUsername"
+      "error": {
+        "code": "StormRaise",
+        "traceback": [
+          ... list of traceback frames ...
+          [
+            "/home/epiphyte/PycharmProjects/synapse/synapse/lib/stormtypes.py",
+            1751,
+            "_raise",
+            "raise s_exc.StormRaise(**info)"
+          ]
+        ],
+        "info": {
+          "key": "valu",
+          "errname": "Newp",
+          ... additional error information ...
+          }
+        },
+        "mesg": "ruh roh"
       },
-      "text": "||",
-      "username": "root",
-      "user": "3189065f95d3ab0a6904e604260c0be2"
+      "params": {
+        "text": "$lib.raise(Newp, 'ruh roh', key=valu)",
+      }
     }
 
 Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFORMAT`` string. This is expected to be a

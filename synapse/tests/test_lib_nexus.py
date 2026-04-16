@@ -221,6 +221,8 @@ class NexusTest(s_t_utils.SynTest):
         with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
             slabsize00 = s_common.getDirSize(regrdirn)
             async with self.getTestCore(dirn=regrdirn) as core00:
+                await self.waitForActiveMigration(core00)
+
                 slabsize01 = s_common.getDirSize(regrdirn)
                 # Ensure that realsize hasn't grown wildly. That would be indicative
                 # of a sparse file copy and not a directory move.
@@ -228,7 +230,7 @@ class NexusTest(s_t_utils.SynTest):
 
                 nexsindx = await core00.getNexsIndx()
                 layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.gt(nexsindx, layrindx)
+                self.ge(nexsindx, layrindx)
 
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
@@ -727,7 +729,7 @@ class NexusTest(s_t_utils.SynTest):
 
                             # After promotion we should not have any stray connect timeouts
                             await core01.promote(graceful=True)
-                            await asyncio.sleep(0.1)
+                            await s_common.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)
                             self.false(core01.nexsroot.readonly)

@@ -22,6 +22,7 @@ class Task(s_base.Base):
             info = {}
 
         self.boss = boss
+        self.protected = False
         self.background = False
 
         task._syn_task = self
@@ -96,7 +97,9 @@ class Task(s_base.Base):
 
         self.kids[synt.iden] = synt
 
-    async def kill(self):
+    async def kill(self, safe=True):
+        if safe and self.protected:
+            raise s_exc.SynErr(mesg=f'Task {self.name} is protected.', iden=self.iden)
         # task kill and fini are the same...
         await self.fini()
 
@@ -124,6 +127,8 @@ class Task(s_base.Base):
             'tick': self.tick,
             'user': self.user.iden,
             'username': self.user.name,
+            'protected': self.protected,
+            'background': self.background,
             'kids': {i: k.packv2() for i, k in self.kids.items()},
         }
 

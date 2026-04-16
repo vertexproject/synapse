@@ -35,6 +35,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
@@ -411,6 +412,19 @@ class CoreApi(s_cell.CellApi):
             BadSyntaxError: If the query is invalid.
         '''
         return await self.cell.reqValidStorm(text, opts)
+
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts)
 
     async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
         '''
@@ -930,6 +944,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -970,7 +985,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 
@@ -1029,6 +1044,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1063,7 +1079,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
+            logger.warning(mesg)
         for roleiden in ag.gateroles.keys():
             role = self.auth.role(roleiden)
             if role is None:
@@ -1071,7 +1087,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
+            logger.warning(mesg)
 
         self._initVaults()
 
@@ -1447,8 +1463,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls all layer permissions.'},
             {'perm': ('layer', 'add'), 'gate': 'cortex',
              'desc': 'Controls the ability to add Layers to the cortex.'},
-            {'perm': ('layer', 'del'), 'gate': 'cortex',
-             'desc': 'Controls the ability to remove Layers from the cortex.'},
+            {'perm': ('layer', 'del'), 'gate': 'layer',
+             'desc': 'Controls the ability to delete a Layer.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
             {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
@@ -1706,13 +1722,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreMods()
 
-        if self.isactive:
-            await self._checkLayerModels()
-
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1725,6 +1736,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
@@ -1741,11 +1754,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
+            self._migration_evnt.set()
+
         await self.initStormPool()
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -3072,7 +3089,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 name = cdef.get('name')
                 mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
                        f"in 3.0.0 (command {name} in package {pkgname})"
-                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
+                logger.warning(mesg, extra=self.getLogExtra(name=name, pkgname=pkgname))
 
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
@@ -3141,7 +3158,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 await self.fire('core:pkg:onload:start', pkg=name)
 
-                logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
+                logextra = self.getLogExtra(pkg=name, vers=pkgvers)
 
                 verskey = 'storage:version'
 
@@ -3175,7 +3192,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             await self.setStormPkgVar(name, verskey, vers)
                             continue
 
-                        logextra['synapse']['initvers'] = vers
+                        logextra['params']['initvers'] = vers
 
                         logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
 
@@ -4835,6 +4852,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -6213,7 +6231,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -6281,21 +6299,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return proxy
 
                 mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                logger.warning(mesg, extra=self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
 
             except s_exc.ShuttingDown:
                 mesg = f'Proxy for pool mirror [{proxyname}] is shutting down. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except s_exc.IsFini:
                 mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except TimeoutError:
                 mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
-        logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
+        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
         return None
 
     async def storm(self, text, opts=None):
@@ -6307,7 +6325,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -6341,7 +6359,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -6371,7 +6389,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -6498,8 +6516,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormEval(self, text):
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{text}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         astvalu.init(self)
@@ -6508,8 +6526,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
@@ -6551,6 +6569,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except Exception as e:
+            return s_common.retnexc(e)
+
     def _logStormQuery(self, text, user, info=None):
         '''
         Log a storm query.
@@ -6559,11 +6594,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+                            extra=self.getLogExtra(**info))
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
@@ -7054,7 +7087,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
-        logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+        logger.info(f'Enabled cron job {iden}', extra=self.getLogExtra(iden=iden, status='MODIFY'))
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -7067,7 +7100,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.agenda.disable(iden)
         await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
-        logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+        logger.info(f'Disabled cron job {iden}', extra=self.getLogExtra(iden=iden, status='MODIFY'))
 
     async def killCronTask(self, iden):
         if self.agenda.appts.get(iden) is None:

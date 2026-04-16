@@ -3023,20 +3023,47 @@ class LibLift(Lib):
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        snap = self.runt.snap
+        async for name in snap.view.getTagsByPref(prefix, depth=depth):
+            if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
@@ -5431,10 +5458,10 @@ class List(Prim):
                   'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
 
         {'name': 'extend', 'desc': '''
-            Extend a list using another iterable.
+            Extend a list using another iterable. If ``(null)`` is provided, this is a no-op.
 
             Examples:
-                Populate a list by extending it with to other lists::
+                Populate a list by extending it with other lists::
 
                     $list = ()
 
@@ -5445,10 +5472,16 @@ class List(Prim):
                     $list.extend($bar)
 
                     // $list is now (f, o, o, b, a, r)
+
+                Safely extend a list with a value that may be null::
+
+                    $list = ()
+
+                    $list.extend($attrs.foo.bar.baz)
             ''',
          'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
-                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable. If ``(null)``, this is a no-op.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
@@ -5583,7 +5616,7 @@ class List(Prim):
         return self.valu[start:end]
 
     async def _methListExtend(self, valu):
-        async for item in toiter(valu):
+        async for item in toiter(valu, noneok=True):
             self.valu.append(item)
 
     async def value(self, use_list=False):
@@ -9923,6 +9956,8 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        loglevel = kwargs.get('loglevel', 'WARNING')
+
         period = kwargs.get('period')
         if not period:
             # TODO: Deprecated, remove in 3.x.x
@@ -10032,7 +10067,8 @@ class LibCron(Lib):
                 'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')
@@ -10060,6 +10096,8 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         affinity = kwargs.get('affinity')
         if affinity is not None:
@@ -10112,6 +10150,7 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
