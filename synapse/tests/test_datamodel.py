@@ -1197,3 +1197,6 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=foobar')
             s_json.reqjsonsafe(nodes[0].pack(virts=True))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str=asdf :hehe={[tel:mob:mcc=123]}]')

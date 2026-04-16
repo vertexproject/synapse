@@ -2156,7 +2156,7 @@ class Poly(Type):
     def typefilter(self, tobj):
         if not self.typeset:
             return False
-        return any(t in self.typeset for t in tobj.types)
+        return tobj.name in self.typeset
 
     def ifacefilter(self, form):
         if not self.ifaces:
@@ -2299,7 +2299,7 @@ class Poly(Type):
         valu = valu.lower().strip()
 
         if (tobj := self.modl.type(valu)) is None or not self.typefilter(tobj):
-            if (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
+            if (form := self.modl.form(valu)) is None or not self.formfilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2323,7 +2323,7 @@ class Poly(Type):
 
         if isinstance(valu, s_node.Node):
             if cmpr == '=':
-                if self.typefilter(valu.form.type) or self.ifacefilter(valu.form):
+                if self.formfilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2335,7 +2335,7 @@ class Poly(Type):
                 if self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
+                elif (form := self.modl.form(typename)) is not None and self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2436,7 +2436,7 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if not self.typefilter(valu.form.type) and not self.ifacefilter(valu.form):
+        if not self.formfilter(valu.form):
             self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
@@ -2451,7 +2451,7 @@ class Poly(Type):
         tobj = self.modl.type(typename)
         form = self.modl.form(typename)
 
-        if not self.typefilter(tobj) and (form is None or not self.ifacefilter(form)):
+        if not self.typefilter(tobj) and (form is None or not self.formfilter(form)):
             self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
