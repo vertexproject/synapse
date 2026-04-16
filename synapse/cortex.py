@@ -36,6 +36,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
@@ -787,7 +788,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 
@@ -2490,7 +2491,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 await self.fire('core:pkg:onload:start', pkg=name)
 
-                logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
+                logextra = self.getLogExtra(pkg=name, vers=pkgvers)
 
                 verskey = 'storage:version'
 
@@ -2519,7 +2520,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             await self.setStormPkgState(name, verskey, vers)
                             continue
 
-                        logextra['synapse']['initvers'] = vers
+                        logextra['params']['initvers'] = vers
 
                         logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
 
@@ -5234,7 +5235,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5302,21 +5303,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return proxy
 
                 mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                logger.warning(mesg, extra=self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
 
             except s_exc.ShuttingDown:
                 mesg = f'Proxy for pool mirror [{proxyname}] is shutting down. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except s_exc.IsFini:
                 mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except TimeoutError:
                 mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
-        logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
+        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
         return None
 
     async def storm(self, text, opts=None):
@@ -5328,7 +5329,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5362,7 +5363,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5392,7 +5393,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5579,8 +5580,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormEval(self, text):
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{text}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         astvalu.init(self)
@@ -5589,8 +5590,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
@@ -5664,11 +5665,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+                            extra=self.getLogExtra(**info))
 
     async def getCoreInfoV2(self):
         return {
