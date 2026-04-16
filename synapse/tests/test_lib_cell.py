@@ -1492,7 +1492,6 @@ class CellTest(s_t_utils.SynTest):
                     # Verify currduration is a positive ms value while a backup is running
                     core.backmonostart = time.monotonic() - 5.0
                     info = await proxy.getBackupInfo()
-                    self.nn(info['currduration'])
                     self.isinstance(info['currduration'], int)
                     self.ge(info['currduration'], 5000)
                     core.backmonostart = None
