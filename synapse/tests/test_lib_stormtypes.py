@@ -588,6 +588,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))
 
             self.eq(('f', 'o', 'o'), await core.callStorm('$x = () $x.extend((f, o, o)) return($x)'))
+            self.eq(('f', 'o', 'o'), await core.callStorm('$x = (f, o, o) $x.extend((null)) return($x)'))
+            self.eq(('f', 'o', 'o', None, 'b'), await core.callStorm('$x = (f, o, o) $x.extend(((null), b)) return($x)'))
             self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = (f, o, o, b, a, r) return($x.slice(1, 5))'))
             self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = (f, o, o, b, a, r) return($x.slice(1))'))
 

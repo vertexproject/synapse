@@ -6,6 +6,31 @@
 Synapse Changelog
 *****************
 
+v2.239.0 - 2026-04-14
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the Synapse logging infrastructure and output formatting.
+  Log output now uses an async pump task so that logging never blocks the
+  asyncio event loop. Structured logging output is now consistently formatted
+  and user provided information cannot overwrite system provided information.
+  The ``SYN_LOG_LEVEL``, ``SYN_LOG_STRUCT``, and ``SYN_LOG_DATEFORMAT``
+  environment variables continue to work as before.
+
+  Administrators can retrieve the last 100 structured log entries or stream
+  live log events via the new ``logs()`` and ``watch()`` admin APIs on
+  Synapse services.
+  (`#4686 <https://github.com/vertexproject/synapse/pull/4686>`_)
+- Updated the Storm ``List.extend()`` method to treat ``(null)`` as a no-op,
+  allowing users to safely extend a list with a value that may be null.
+  (`#4886 <https://github.com/vertexproject/synapse/pull/4886>`_)
+
+Notes
+-----
+- Updated the pinned version of the ``lark`` library to ``1.3.1``.
+  (`#4875 <https://github.com/vertexproject/synapse/pull/4875>`_)
+
 v2.238.0 - 2026-04-10
 =====================
 
