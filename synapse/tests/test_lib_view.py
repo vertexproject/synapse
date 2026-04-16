@@ -487,7 +487,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
-            self.eq(virts['type'], ['test:str', 'test:str'])
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']

@@ -1283,7 +1283,6 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
             self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[2][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[2][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             self.eq(nodes[3][1]['props']['seen'], ('ival', (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe)))
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
@@ -1306,7 +1305,6 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0][1]['props'].get('seen.duration'))
             self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[0][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[0][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -2202,7 +2200,6 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
             self.eq(2, embeds['gprop::name']['polyarry.size'])
-            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.type'])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}

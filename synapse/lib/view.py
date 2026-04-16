@@ -239,7 +239,6 @@ class View(s_nexus.Pusher):  # type: ignore
                                     virts[key] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                             virts['size'] = len(valu)
-                            virts['type'] = [v[0] for v in valu]
 
                             if (svirts := s_node.storvirts.get(stype & s_layer.STOR_MASK_ARRAY)) is not None:
                                 for vname, getr in svirts.items():
