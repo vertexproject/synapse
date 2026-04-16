@@ -2791,7 +2791,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Gets information about recent backup activity
         '''
-        running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
+        running = int((time.monotonic() - self.backmonostart) * 1000) if self.backmonostart is not None else None
 
         retn = {
             'currduration': running,
