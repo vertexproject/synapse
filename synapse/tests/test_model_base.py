@@ -291,6 +291,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
                     :type=foo.bar
+                    :status=disabled.falsepos
                     :text="while TRUE { BAD }"
                     :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
@@ -301,6 +302,7 @@ class BaseTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('author'))
             self.eq(nodes[0].get('type'), 'foo.bar.')
+            self.eq(nodes[0].get('status'), 'disabled.falsepos.')
             self.eq(nodes[0].get('created'), 1580601600000)
             self.eq(nodes[0].get('updated'), 1648771200000)
             self.eq(nodes[0].get('name'), 'my rule')
