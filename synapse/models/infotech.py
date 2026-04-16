@@ -730,39 +730,40 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
-            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+            ('it:mitre:attack:group:id', ('base:id', {'regex': r'^G[0-9]{4}$'}), {
+                'interfaces': (('entity:identifier', {}),),
                 'doc': 'A MITRE ATT&CK Group ID.',
                 'ex': 'G0100',
             }),
 
-            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+            ('it:mitre:attack:tactic:id', ('base:id', {'regex': r'^TA[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Tactic ID.',
                 'ex': 'TA0040',
             }),
 
-            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+            ('it:mitre:attack:technique:id', ('base:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
                 'doc': 'A MITRE ATT&CK Technique ID.',
                 'ex': 'T1548',
             }),
 
-            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+            ('it:mitre:attack:mitigation:id', ('base:id', {'regex': r'^M[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Mitigation ID.',
                 'ex': 'M1036',
             }),
 
-            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+            ('it:mitre:attack:software:id', ('base:id', {'regex': r'^S[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Software ID.',
                 'ex': 'S0154',
             }),
 
-            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+            ('it:mitre:attack:campaign:id', ('base:id', {'regex': r'^C[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Campaign ID.',
                 'ex': 'C0028',
             }),
 
             ('it:dev:function', ('guid', {}), {
                 'props': (
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'An identifier for the function.'}),
 
                     ('name', ('it:dev:str', {}), {
@@ -939,7 +940,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of IT hardware types.'}),
 
-            ('it:adid', ('meta:id', {}), {
+            ('it:adid', ('base:id', {}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                     ('meta:observable', {'template': {'title': 'advertising ID'}}),
@@ -1508,7 +1509,7 @@ modeldefs = (
             ('it:storage:volume:type:taxonomy', {}, ()),
             ('it:storage:volume', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
                 ('name', ('base:name', {}), {
@@ -1966,7 +1967,7 @@ modeldefs = (
                 ('mesg', ('text', {}), {
                     'doc': 'The commit message describing the changes in the commit.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The version control system specific commit identifier.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2017,13 +2018,13 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the issue is hosted.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the issue in the repository system.'}),
             )),
 
             ('it:dev:repo:label', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the label.'}),
 
                 ('title', ('str:lower', {}), {
@@ -2126,7 +2127,7 @@ modeldefs = (
                 ('hardware', ('it:hardware', {}), {
                     'doc': 'The hardware specification of this component.'}),
 
-                ('serial', ('meta:id', {}), {
+                ('serial', ('base:id', {}), {
                     'doc': 'The serial number of this component.'}),
 
                 ('host', ('it:host', {}), {
@@ -2135,7 +2136,7 @@ modeldefs = (
 
             ('it:softid', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID issued by the software to the host.'}),
 
                 ('host', ('it:host', {}), {
@@ -2723,13 +2724,13 @@ modeldefs = (
             )),
 
             ('it:sec:stix:bundle', {}, (
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The id field from the STIX bundle.'}),
             )),
 
             ('it:sec:stix:indicator', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The STIX id field from the indicator pattern.'}),
 
                 ('name', ('str', {}), {

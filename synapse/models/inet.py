@@ -1925,7 +1925,7 @@ modeldefs = (
                 'template': {'title': 'node'},
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A platform specific ID which identifies the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -2050,7 +2050,7 @@ modeldefs = (
 
             ('inet:email:message', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID parsed from the "message-id" header.'}),
 
                 ('to', ('inet:email', {}), {
@@ -2658,13 +2658,13 @@ modeldefs = (
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The associated Autonomous System Number (ASN).'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
 
-                ('parentid', ('meta:id', {}), {
+                ('parentid', ('base:id', {}), {
                     'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
 
-                ('name', ('meta:id', {}), {
+                ('name', ('base:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
                 ('country', ('iso:3166:alpha2', {}), {
@@ -2831,7 +2831,7 @@ modeldefs = (
             ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An ID which identifies the platform.'}),
 
                 ('url', ('inet:url', {}), {

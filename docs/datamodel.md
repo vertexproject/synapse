@@ -218,8 +218,8 @@ An RFP (Request for Proposal) soliciting proposals.
 | `:file` | `file:bytes` | The file containing the RFP contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the RFP contents. |
-| `:id` | `meta:id` | The RFP ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the RFP. |
+| `:id` | `base:id` | The RFP ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the RFP. |
 | `:public` | `bool` | Set to true if the RFP is publicly available. |
 | `:published` | `time` | The time the RFP was published. |
 | `:publisher` | `entity:actor` | The entity which published the RFP. |
@@ -825,8 +825,8 @@ A contract between multiple entities.
 | `:file` | `file:bytes` | The file containing the contract contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the contract contents. |
-| `:id` | `meta:id` | The contract ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the contract. |
+| `:id` | `base:id` | The contract ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the contract. |
 | `:period` | `ival` | The period over which the contract occurred. |
 | `:signed` | `time` | The date that the contract signing was complete. |
 | `:supersedes` | `array of doc:contract` | An array of contract versions which are superseded by this contract. |
@@ -873,8 +873,8 @@ Guiding principles used to reach a set of goals.
 | `:file` | `file:bytes` | The file containing the policy contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the policy contents. |
-| `:id` | `meta:id` | The policy ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the policy. |
+| `:id` | `base:id` | The policy ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the policy. |
 | `:supersedes` | `array of doc:policy` | An array of policy versions which are superseded by this policy. |
 | `:title` | `str` | The title of the policy. |
 | `:type` | `doc:policy:type:taxonomy` | The type of policy. |
@@ -931,8 +931,8 @@ A report.
 | `:file` | `file:bytes` | The file containing the report contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the report contents. |
-| `:id` | `meta:id` | The report ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the report. |
+| `:id` | `base:id` | The report ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the report. |
 | `:public` | `bool` | Set to true if the report is publicly available. |
 | `:published` | `time` | The time the report was published. |
 | `:publisher` | `entity:actor` | The entity which published the report. |
@@ -977,8 +977,8 @@ A single requirement, often defined by a standard.
 | `:creator` | `entity:actor` | The primary actor which created the requirement. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the requirement. |
 | `:desc` | `text` | A description of the requirement. |
-| `:id` | `meta:id` | The requirement ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the requirement. |
+| `:id` | `base:id` | The requirement ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the requirement. |
 | `:optional` | `bool` | Set to true if the requirement is optional as defined by the standard. |
 | `:priority` | `meta:score` | The priority of the requirement as defined by the standard. |
 | `:standard` | `doc:standard` | The standard which defined the requirement. |
@@ -1011,8 +1011,8 @@ A CV/resume document.
 | `:file` | `file:bytes` | The file containing the resume contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the resume contents. |
-| `:id` | `meta:id` | The resume ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the resume. |
+| `:id` | `base:id` | The resume ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the resume. |
 | `:skills` | `array of ps:skill` | The skills described in the resume. |
 | `:summary` | `text` | The summary of qualifications from the resume. |
 | `:supersedes` | `array of doc:resume` | An array of resume versions which are superseded by this resume. |
@@ -1060,8 +1060,8 @@ A group of requirements which define how to implement a policy or goal.
 | `:file` | `file:bytes` | The file containing the standard contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the standard contents. |
-| `:id` | `meta:id` | The standard ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the standard. |
+| `:id` | `base:id` | The standard ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the standard. |
 | `:policy` | `doc:policy` | The policy which was used to derive the standard. |
 | `:supersedes` | `array of doc:standard` | An array of standard versions which are superseded by this standard. |
 | `:title` | `str` | The title of the standard. |
@@ -1509,8 +1509,8 @@ A course of study taught by an org.
 | `:creator` | `entity:actor` | The primary actor which created the course. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the course. |
 | `:desc` | `str` | A brief course description. |
-| `:id` | `meta:id` | The course catalog number or ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the course. |
+| `:id` | `base:id` | The course catalog number or ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the course. |
 | `:institution` | `ou:org` | The org or department which teaches the course. |
 | `:name` | `base:name` | The name of the course. |
 | `:prereqs` | `array of edu:course` | The pre-requisite courses for taking this course. |
@@ -1621,8 +1621,8 @@ Activity in pursuit of a goal.
 | `:cost` | `econ:price` | The actual cost of the campaign. |
 | `:created` | `time` | The time when the campaign was created. |
 | `:desc` | `text` | A description of the campaign. |
-| `:id` | `meta:id` | A unique ID given to the campaign. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the campaign. |
+| `:id` | `base:id` | A unique ID given to the campaign. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the campaign. |
 | `:name` | `base:name` | The primary name of the campaign. |
 | `:names` | `array of base:name` | A list of alternate names for the campaign. |
 | `:period` | `ival` | The period over which the campaign occurred. |
@@ -1723,7 +1723,7 @@ A set of contact information which is used by an entity.
 | `:desc` | `text` | A description of the contact. |
 | `:email` | `inet:email` | The primary email address for the contact. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the contact. |
-| `:id` | `meta:id` | A type or source specific ID for the contact. |
+| `:id` | `base:id` | A type or source specific ID for the contact. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the contact. |
 | `:langs` | `array of lang:language` | An array of alternate languages for the contact. |
@@ -1862,8 +1862,8 @@ A stated or assessed goal.
 |----------|------|-----|
 | `:created` | `time` | The time when the goal was created. |
 | `:desc` | `text` | A description of the goal. |
-| `:id` | `meta:id` | A unique ID given to the goal. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the goal. |
+| `:id` | `base:id` | A unique ID given to the goal. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the goal. |
 | `:name` | `base:name` | A terse name for the goal. |
 | `:names` | `array of base:name` | Alternative names for the goal. |
 | `:published` | `time` | The time when the reporter published the goal. |
@@ -1941,7 +1941,7 @@ Historical contact information about another contact.
 | `:desc` | `text` | A description of the contact history. |
 | `:email` | `inet:email` | The primary email address for the contact history. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the contact history. |
-| `:id` | `meta:id` | A type or source specific ID for the contact history. |
+| `:id` | `base:id` | A type or source specific ID for the contact history. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the contact history. |
 | `:langs` | `array of lang:language` | An array of alternate languages for the contact history. |
@@ -2084,8 +2084,8 @@ A directional relationship between two actor entities.
 |----------|------|-----|
 | `:created` | `time` | The time when the relationship was created. |
 | `:desc` | `text` | A description of the relationship. |
-| `:id` | `meta:id` | A unique ID given to the relationship. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the relationship. |
+| `:id` | `base:id` | A unique ID given to the relationship. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the relationship. |
 | `:name` | `base:name` | The primary name of the relationship. |
 | `:names` | `array of base:name` | A list of alternate names for the relationship. |
 | `:period` | `ival` | The time period when the relationship existed. |
@@ -2349,7 +2349,7 @@ The GUID of a set of mime metadata for a .gif file.
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
+| `:id` | `base:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
 | `:text` | `base:name` | The text contained within the image. |
 
@@ -2373,7 +2373,7 @@ The GUID of a set of mime metadata for a .jpg file.
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
+| `:id` | `base:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
 | `:text` | `base:name` | The text contained within the image. |
 
@@ -2721,7 +2721,7 @@ The GUID of a set of mime metadata for a .png file.
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
+| `:id` | `base:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
 | `:text` | `base:name` | The text contained within the image. |
 
@@ -2783,7 +2783,7 @@ The GUID of a set of mime metadata for a .tif file.
 | `:file:data` | `data` | A mime specific arbitrary data structure for non-indexed data. |
 | `:file:offs` | `int` | The offset of the metadata within the file. |
 | `:file:size` | `int` | The size of the metadata within the file. |
-| `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
+| `:id` | `base:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
 | `:text` | `base:name` | The text contained within the image. |
 
@@ -2905,7 +2905,7 @@ A geographic place.
 | `:country:code` | `iso:3166:alpha2` | The country code where the place was located. |
 | `:desc` | `text` | A description of the place. |
 | `:geojson` | `geo:json` | A GeoJSON representation of where the place was located. |
-| `:id` | `meta:id` | A type specific identifier such as an airport ID. |
+| `:id` | `base:id` | A type specific identifier such as an airport ID. |
 | `:latlong` | `geo:latlong` | The latlong where the place was located. |
 | `:latlong:accuracy` | `geo:dist` | The accuracy of the latlong where the place was located. |
 | `:loc` | `loc` | The geopolitical location where the place was located. |
@@ -3367,7 +3367,7 @@ An individual email message delivered to an inbox.
 | `:flow` | `inet:flow` | The inet:flow which delivered the message. |
 | `:from` | `inet:email` | The email address of the sender. |
 | `:headers` | `array of inet:email:header` | An array of email headers from the message. |
-| `:id` | `meta:id` | The ID parsed from the "message-id" header. |
+| `:id` | `base:id` | The ID parsed from the "message-id" header. |
 | `:links` | `array of inet:hyperlink` | An array of links embedded in the email message. |
 | `:received:from:fqdn` | `inet:fqdn` | The sending server FQDN, potentially from the Received: header. |
 | `:received:from:ip` | `inet:ip` | The sending SMTP server IP, potentially from the Received: header. |
@@ -3693,7 +3693,7 @@ An instance of a search query issued to a search engine.
 | `:error:code` | `str` | The platform specific error code if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
 | `:host` | `it:host` | The host that issued the query. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:platform` | `inet:service:platform` | The platform where the action was initiated. |
 | `:request` | `inet:http:request` | The HTTP request used to issue the query. |
 | `:rule` | `inet:service:rule` | The rule which allowed or denied the action. |
@@ -3763,7 +3763,7 @@ Represents a user access request to a service resource.
 | `:client:software` | `it:software` | The client software used to initiate the action. |
 | `:error:code` | `str` | The platform specific error code if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:platform` | `inet:service:platform` | The platform where the action was initiated. |
 | `:resource` | `inet:service:resource` | The resource which the account attempted to access. |
 | `:rule` | `inet:service:rule` | The rule which allowed or denied the action. |
@@ -3823,7 +3823,7 @@ An account within a service platform. Accounts may be instance specific.
 | `:death:place:loc` | `loc` | The geopolitical location where the service account died. |
 | `:death:place:name` | `geo:name` | The name where the service account died. |
 | `:email` | `inet:email` | The primary email address for the service account. |
-| `:id` | `meta:id` | A platform specific ID which identifies the service account. |
+| `:id` | `base:id` | A platform specific ID which identifies the service account. |
 | `:name` | `entity:name` | The primary entity name of the service account. |
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
@@ -3857,7 +3857,7 @@ An instance of a deployed agent or software integration which is part of the ser
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:desc` | `str` | A description of the deployed service agent instance. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:name` | `base:name` | The name of the service agent instance. |
 | `:names` | `array of base:name` | An array of alternate names for the service agent instance. |
 | `:period` | `ival` | The period when the object existed. |
@@ -3882,7 +3882,7 @@ A file/blob storage object within a service architecture.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the bucket. |
 | `:desc` | `text` | A description of the service resource. |
-| `:id` | `meta:id` | A platform specific ID which identifies the bucket. |
+| `:id` | `base:id` | A platform specific ID which identifies the bucket. |
 | `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the bucket existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the bucket. |
@@ -3909,7 +3909,7 @@ An individual file stored within a bucket.
 | `:desc` | `text` | A description of the service resource. |
 | `:file` | `file:bytes` | The bytes stored within the bucket item. |
 | `:file:name` | `file:path` | The name of the file stored in the bucket item. |
-| `:id` | `meta:id` | A platform specific ID which identifies the bucket item. |
+| `:id` | `base:id` | A platform specific ID which identifies the bucket item. |
 | `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the bucket item existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the bucket item. |
@@ -3933,7 +3933,7 @@ A channel used to distribute messages.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the channel. |
-| `:id` | `meta:id` | A platform specific ID which identifies the channel. |
+| `:id` | `base:id` | A platform specific ID which identifies the channel. |
 | `:name` | `base:name` | The name of the channel. |
 | `:period` | `ival` | The time period where the channel was available. |
 | `:platform` | `inet:service:platform` | The platform which defines the channel. |
@@ -3958,7 +3958,7 @@ An emote or reaction by an account.
 |----------|------|-----|
 | `:about` | `inet:service:object` | The node that the emote is about. |
 | `:creator` | `inet:service:account` | The service account which created the emote. |
-| `:id` | `meta:id` | A platform specific ID which identifies the emote. |
+| `:id` | `base:id` | A platform specific ID which identifies the emote. |
 | `:period` | `ival` | The period when the emote existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the emote. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the emote. |
@@ -3986,7 +3986,7 @@ A login event for a service account.
 | `:creds` | `array of auth:credential` | The credentials that were used to login. |
 | `:error:code` | `str` | The platform specific error code if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:method` | `inet:service:login:method:taxonomy` | The type of authentication used for the login. For example "password" or "multifactor.sms". |
 | `:platform` | `inet:service:platform` | The platform where the action was initiated. |
 | `:rule` | `inet:service:rule` | The rule which allowed or denied the action. |
@@ -4028,7 +4028,7 @@ Represents a service account being a member of a channel or group.
 |----------|------|-----|
 | `:account` | `inet:service:account` | The account that was a member of the channel or group. |
 | `:creator` | `inet:service:account` | The service account which created the membership. |
-| `:id` | `meta:id` | A platform specific ID which identifies the membership. |
+| `:id` | `base:id` | A platform specific ID which identifies the membership. |
 | `:of` | `inet:service:joinable` | The channel or group that the account was a member of. |
 | `:period` | `ival` | The time period where the account was a member. |
 | `:platform` | `inet:service:platform` | The platform which defines the membership. |
@@ -4060,7 +4060,7 @@ A message or post created by an account.
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
 | `:file` | `file:bytes` | The raw file that the message was extracted from. |
 | `:hashtags` | `array of lang:hashtag` | An array of hashtags mentioned within the message. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:links` | `array of inet:hyperlink` | An array of links contained within the message. |
 | `:mentions` | `array of inet:service:account, inet:service:role` | Contactable entities mentioned within the message. |
 | `:place` | `geo:place` | The place that the message was sent from. |
@@ -4114,7 +4114,7 @@ A permission which may be granted to a service account or role.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the permission. |
-| `:id` | `meta:id` | A platform specific ID which identifies the permission. |
+| `:id` | `base:id` | A platform specific ID which identifies the permission. |
 | `:name` | `base:name` | The name of the permission. |
 | `:period` | `ival` | The period when the permission existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the permission. |
@@ -4155,7 +4155,7 @@ A network platform which provides services.
 | `:creator` | `inet:service:account` | The service account which created the platform. |
 | `:desc` | `text` | A description of the service platform. |
 | `:family` | `base:name` | A family designation for use with instanced platforms such as Slack, Discord, or Mastodon. |
-| `:id` | `meta:id` | An ID which identifies the platform. |
+| `:id` | `base:id` | An ID which identifies the platform. |
 | `:name` | `base:name` | A friendly name for the platform. |
 | `:names` | `array of base:name` | An array of alternate names for the platform. |
 | `:parent` | `inet:service:platform` | A parent platform which owns this platform. |
@@ -4202,7 +4202,7 @@ A relationship between two service objects.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the relationship. |
-| `:id` | `meta:id` | A platform specific ID which identifies the relationship. |
+| `:id` | `base:id` | A platform specific ID which identifies the relationship. |
 | `:period` | `ival` | The period when the relationship existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the relationship. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the relationship. |
@@ -4244,7 +4244,7 @@ A generic resource provided by the service architecture.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the resource. |
 | `:desc` | `text` | A description of the service resource. |
-| `:id` | `meta:id` | A platform specific ID which identifies the resource. |
+| `:id` | `base:id` | A platform specific ID which identifies the resource. |
 | `:name` | `base:name` | The name of the service resource. |
 | `:period` | `ival` | The period when the resource existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the resource. |
@@ -4285,7 +4285,7 @@ A role which contains member accounts.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the service role. |
-| `:id` | `meta:id` | A platform specific ID which identifies the service role. |
+| `:id` | `base:id` | A platform specific ID which identifies the service role. |
 | `:name` | `base:name` | The name of the role on this platform. |
 | `:period` | `ival` | The period when the service role existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the service role. |
@@ -4311,7 +4311,7 @@ A rule which grants or denies a permission to a service account or role.
 | `:creator` | `inet:service:account` | The service account which created the rule. |
 | `:denied` | `bool` | Set to (true) to denote that the rule is an explicit deny. |
 | `:grantee` | `inet:service:account`, `inet:service:role` | The user or role which is granted the permission. |
-| `:id` | `meta:id` | A platform specific ID which identifies the rule. |
+| `:id` | `base:id` | A platform specific ID which identifies the rule. |
 | `:object` | `inet:service:object` | The object that the permission controls access to. |
 | `:period` | `ival` | The period when the rule existed. |
 | `:permission` | `inet:service:permission` | The permission which is granted. |
@@ -4335,7 +4335,7 @@ An authenticated session.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The account which authenticated to create the session. |
 | `:http:session` | `inet:http:session` | The HTTP session associated with the service session. |
-| `:id` | `meta:id` | A platform specific ID which identifies the session. |
+| `:id` | `base:id` | A platform specific ID which identifies the session. |
 | `:period` | `ival` | The period where the session was valid. |
 | `:platform` | `inet:service:platform` | The platform which defines the session. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the session. |
@@ -4356,7 +4356,7 @@ A subscription to a service platform or instance.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the subscription. |
-| `:id` | `meta:id` | A platform specific ID which identifies the subscription. |
+| `:id` | `base:id` | A platform specific ID which identifies the subscription. |
 | `:level` | `inet:service:subscription:level:taxonomy` | A platform specific subscription level. |
 | `:pay:instrument` | `econ:pay:instrument` | The primary payment instrument used to pay for the subscription. |
 | `:period` | `ival` | The period when the subscription existed. |
@@ -4402,7 +4402,7 @@ A tenant which groups accounts and instances.
 | `:creator` | `inet:service:account` | The service account which created the tenant. |
 | `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
 | `:email` | `inet:email` | The primary email address for the tenant. |
-| `:id` | `meta:id` | A platform specific ID which identifies the tenant. |
+| `:id` | `base:id` | A platform specific ID which identifies the tenant. |
 | `:name` | `entity:name` | The primary entity name of the tenant. |
 | `:period` | `ival` | The period when the tenant existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the tenant. |
@@ -4428,7 +4428,7 @@ A message thread.
 |----------|------|-----|
 | `:channel` | `inet:service:channel` | The channel that contains the thread. |
 | `:creator` | `inet:service:account` | The service account which created the thread. |
-| `:id` | `meta:id` | A platform specific ID which identifies the thread. |
+| `:id` | `base:id` | A platform specific ID which identifies the thread. |
 | `:message` | `inet:service:message` | The message which initiated the thread. |
 | `:period` | `ival` | The period when the thread existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the thread. |
@@ -4772,11 +4772,11 @@ An IPv4/IPv6 block registration record.
 | `:country` | `iso:3166:alpha2` | The ISO 3166 Alpha-2 country code. |
 | `:created` | `time` | The "created" time from the record. |
 | `:desc` | `text` | The description of the network from the whois record. |
-| `:id` | `meta:id` | The registry unique identifier (e.g. NET-74-0-0-0-1). |
+| `:id` | `base:id` | The registry unique identifier (e.g. NET-74-0-0-0-1). |
 | `:links` | `array of inet:url` | URLs provided with the record. |
-| `:name` | `meta:id` | The name ID assigned to the network by the registrant. |
+| `:name` | `base:id` | The name ID assigned to the network by the registrant. |
 | `:net` | `inet:net` | The IP address range assigned. |
-| `:parentid` | `meta:id` | The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0). |
+| `:parentid` | `base:id` | The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0). |
 | `:seen` | `ival` | The registration record was observed during the time interval. |
 | `:status` | `str:lower` | The state of the registered network. |
 | `:text` | `text:lower` | The full text of the record. |
@@ -4908,6 +4908,7 @@ A snort rule.
 |-----------|
 | `doc:authorable` |
 | `entity:creatable` |
+| `meta:observable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
@@ -4918,9 +4919,10 @@ A snort rule.
 | `:desc` | `text` | A description of the snort rule. |
 | `:enabled` | `bool` | The enabled status of the snort rule. |
 | `:engine` | `int` | The snort engine ID which can parse and evaluate the rule text. |
-| `:id` | `meta:id` | The snort rule ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the snort rule. |
+| `:id` | `base:id` | The snort rule ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the snort rule. |
 | `:name` | `base:id` | The rule name. |
+| `:seen` | `ival` | The snort rule was observed during the time interval. |
 | `:supersedes` | `array of it:app:snort:rule` | An array of snort rule versions which are superseded by this snort rule. |
 | `:text` | `text` | The text of the snort rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
@@ -4951,6 +4953,7 @@ A YARA rule unique identifier.
 |-----------|
 | `doc:authorable` |
 | `entity:creatable` |
+| `meta:observable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
@@ -4960,9 +4963,10 @@ A YARA rule unique identifier.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the YARA rule. |
 | `:desc` | `text` | A description of the YARA rule. |
 | `:enabled` | `bool` | The enabled status of the YARA rule. |
-| `:id` | `meta:id` | The YARA rule ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the YARA rule. |
+| `:id` | `base:id` | The YARA rule ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the YARA rule. |
 | `:name` | `base:id` | The rule name. |
+| `:seen` | `ival` | The YARA rule was observed during the time interval. |
 | `:supersedes` | `array of it:app:yara:rule` | An array of YARA rule versions which are superseded by this YARA rule. |
 | `:text` | `text` | The text of the YARA rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
@@ -5028,7 +5032,7 @@ A function defined by code.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the function. |
-| `:id` | `meta:id` | An identifier for the function. |
+| `:id` | `base:id` | An identifier for the function. |
 | `:impcalls` | `array of str:lower` | Calls to imported library functions within the scope of the function. |
 | `:name` | `it:dev:str` | The name of the function. |
 | `:strings` | `array of it:dev:str` | An array of strings referenced within the function. |
@@ -5070,7 +5074,7 @@ A version control system instance.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:desc` | `text` | A free-form description of the repository. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:name` | `str:lower` | The name of the repository. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
@@ -5094,7 +5098,7 @@ A branch in a version control system instance.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:merged` | `time` | The time this branch was merged back into its parent. |
 | `:name` | `str` | The name of the branch. |
 | `:parent` | `it:dev:repo:branch` | The branch this branch was branched from. |
@@ -5120,7 +5124,7 @@ A commit to a repository.
 |----------|------|-----|
 | `:branch` | `it:dev:repo:branch` | The name of the branch the commit was made to. |
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | The version control system specific commit identifier. |
+| `:id` | `base:id` | The version control system specific commit identifier. |
 | `:mesg` | `text` | The commit message describing the changes in the commit. |
 | `:parents` | `array of it:dev:repo:commit` | The commit or commits this commit is immediately based on. |
 | `:period` | `ival` | The period when the object existed. |
@@ -5156,7 +5160,7 @@ A comment on a diff in a repository.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:diff` | `it:dev:repo:diff` | The diff the comment is being added to. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:line` | `int` | The line in the file that is being commented on. |
 | `:offset` | `int` | The offset in the line in the file that is being commented on. |
 | `:period` | `ival` | The period when the object existed. |
@@ -5193,7 +5197,7 @@ An issue raised in a repository.
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
 | `:desc` | `text` | The text describing the issue. |
-| `:id` | `meta:id` | The ID of the issue in the repository system. |
+| `:id` | `base:id` | The ID of the issue in the repository system. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 | `:remover` | `inet:service:account` | The service account which removed or decommissioned the object. |
@@ -5217,7 +5221,7 @@ A comment on an issue in a repository.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:issue` | `it:dev:repo:issue` | The issue thread that the comment was made in. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
@@ -5242,7 +5246,7 @@ A label applied to a repository issue.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:issue` | `it:dev:repo:issue` | The issue the label was applied to. |
 | `:label` | `it:dev:repo:label` | The label that was applied to the issue. |
 | `:period` | `ival` | The period when the object existed. |
@@ -5259,7 +5263,7 @@ A developer selected label.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | The description of the label. |
-| `:id` | `meta:id` | The ID of the label. |
+| `:id` | `base:id` | The ID of the label. |
 | `:title` | `str:lower` | The human friendly name of the label. |
 
 ### `it:dev:repo:remote`
@@ -5840,6 +5844,7 @@ A specification for a piece of IT hardware.
 
 | Interface |
 |-----------|
+| `meta:observable` |
 | `meta:usable` |
 | `risk:exploitable` |
 
@@ -5853,6 +5858,7 @@ A specification for a piece of IT hardware.
 | `:name` | `base:name` | The name of this hardware specification. |
 | `:parts` | `array of it:hardware` | An array of it:hardware parts included in this hardware specification. |
 | `:released` | `time` | The initial release date for this hardware. |
+| `:seen` | `ival` | The node was observed during the time interval. |
 | `:type` | `it:hardware:type:taxonomy` | The type of hardware. |
 | `:version` | `it:version` | Version string associated with this hardware specification. |
 
@@ -5963,7 +5969,7 @@ Hardware components which are part of a host.
 |----------|------|-----|
 | `:hardware` | `it:hardware` | The hardware specification of this component. |
 | `:host` | `it:host` | The it:host which has this component installed. |
-| `:serial` | `meta:id` | The serial number of this component. |
+| `:serial` | `base:id` | The serial number of this component. |
 
 ### `it:host:group`
 
@@ -6046,7 +6052,7 @@ A time window where a host was a tenant run by another host.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:lessor` | `it:host` | The host which provides runtime resources to the tenant host. |
 | `:period` | `ival` | The period when the object existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
@@ -6118,10 +6124,6 @@ A hierarchical taxonomy of log event types.
 
 A MITRE ATT&CK Campaign ID.
 
-| Interface |
-|-----------|
-| `entity:identifier` |
-
 ### `it:mitre:attack:group:id`
 
 A MITRE ATT&CK Group ID.
@@ -6134,33 +6136,17 @@ A MITRE ATT&CK Group ID.
 
 A MITRE ATT&CK Mitigation ID.
 
-| Interface |
-|-----------|
-| `entity:identifier` |
-
 ### `it:mitre:attack:software:id`
 
 A MITRE ATT&CK Software ID.
-
-| Interface |
-|-----------|
-| `entity:identifier` |
 
 ### `it:mitre:attack:tactic:id`
 
 A MITRE ATT&CK Tactic ID.
 
-| Interface |
-|-----------|
-| `entity:identifier` |
-
 ### `it:mitre:attack:technique:id`
 
 A MITRE ATT&CK Technique ID.
-
-| Interface |
-|-----------|
-| `entity:identifier` |
 
 ### `it:network`
 
@@ -6417,7 +6403,7 @@ A STIX bundle.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:id` | `meta:id` | The id field from the STIX bundle. |
+| `:id` | `base:id` | The id field from the STIX bundle. |
 
 ### `it:sec:stix:indicator`
 
@@ -6428,7 +6414,7 @@ A STIX indicator pattern.
 | `:confidence` | `int` | The confidence field from the STIX indicator. |
 | `:created` | `time` | The time that the indicator pattern was first created. |
 | `:desc` | `str` | The description field from the STIX indicator. |
-| `:id` | `meta:id` | The STIX id field from the indicator pattern. |
+| `:id` | `base:id` | The STIX id field from the indicator pattern. |
 | `:labels` | `array of str` | The label strings embedded in the STIX indicator pattern. |
 | `:name` | `str` | The name of the STIX indicator pattern. |
 | `:pattern` | `str` | The STIX indicator pattern text. |
@@ -6481,7 +6467,7 @@ An identifier issued to a given host by a specific software application.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:host` | `it:host` | The host which was issued the ID by the software. |
-| `:id` | `meta:id` | The ID issued by the software to the host. |
+| `:id` | `base:id` | The ID issued by the software to the host. |
 | `:seen` | `ival` | The software identifier was observed during the time interval. |
 | `:software` | `it:software` | The software which issued the ID to the host. |
 | `:software:name` | `it:softwarename` | The name of the software which issued the ID to the host. |
@@ -6494,6 +6480,7 @@ A software product, tool, or script.
 |-----------|
 | `doc:authorable` |
 | `entity:creatable` |
+| `meta:observable` |
 | `meta:reported` |
 | `meta:usable` |
 | `risk:exploitable` |
@@ -6505,8 +6492,8 @@ A software product, tool, or script.
 | `:creator` | `entity:actor` | The primary actor which created the software. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the software. |
 | `:desc` | `text` | A description of the software. |
-| `:id` | `meta:id` | A unique ID given to the software. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the software. |
+| `:id` | `base:id` | A unique ID given to the software. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the software. |
 | `:name` | `it:softwarename` | The name of the software. |
 | `:names` | `array of it:softwarename` | Observed/variant names for this software version. |
 | `:parent` | `it:software` | The parent software version or family. |
@@ -6516,6 +6503,7 @@ A software product, tool, or script.
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the software. |
 | `:resolved` | `it:software` | The authoritative software which this reporting is about. |
 | `:risk:score` | `meta:score` | The risk posed by the software. |
+| `:seen` | `ival` | The software was observed during the time interval. |
 | `:superseded` | `time` | The time when the software was superseded. |
 | `:supersedes` | `array of it:software` | An array of software nodes which are superseded by this software. |
 | `:type` | `it:software:type:taxonomy` | The type of software. |
@@ -6536,7 +6524,7 @@ The base image used to create a container or OS.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:creator` | `inet:service:account` | The service account which created the object. |
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:name` | `it:softwarename` | The name of the image. |
 | `:parents` | `array of it:software:image` | An array of parent images in precedence order. |
 | `:period` | `ival` | The period when the object existed. |
@@ -6603,7 +6591,7 @@ A physical or logical storage volume that can be attached to a physical/virtual 
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:id` | `meta:id` | The unique volume ID. |
+| `:id` | `base:id` | The unique volume ID. |
 | `:name` | `base:name` | The name of the volume. |
 | `:size` | `int` | The size of the volume in bytes. |
 | `:type` | `it:storage:volume:type:taxonomy` | The type of storage volume. |
@@ -6860,7 +6848,7 @@ A data feed provided by a specific source.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:cursor` | `str` | A cursor used to track ingest offset within the feed. |
-| `:id` | `meta:id` | An identifier for the feed. |
+| `:id` | `base:id` | An identifier for the feed. |
 | `:latest` | `time` | The time of the last record consumed from the feed. |
 | `:name` | `base:name` | A name for the feed. |
 | `:offset` | `int` | The offset of the last record consumed from the feed. |
@@ -6887,14 +6875,6 @@ A data feed type taxonomy.
 | `:parent` | `meta:feed:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 | `:title` | `str` | A brief title of the definition. |
-
-### `meta:id`
-
-A case sensitive identifier string.
-
-| Interface |
-|-----------|
-| `entity:identifier` |
 
 ### `meta:note`
 
@@ -6934,6 +6914,7 @@ A generic rule linked to matches with -(matches)> edges.
 |-----------|
 | `doc:authorable` |
 | `entity:creatable` |
+| `meta:observable` |
 | `meta:usable` |
 
 | Property | Type | Doc |
@@ -6943,9 +6924,10 @@ A generic rule linked to matches with -(matches)> edges.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the rule. |
 | `:desc` | `text` | A description of the rule. |
 | `:enabled` | `bool` | The enabled status of the rule. |
-| `:id` | `meta:id` | The rule ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the rule. |
+| `:id` | `base:id` | The rule ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the rule. |
 | `:name` | `base:id` | The rule name. |
+| `:seen` | `ival` | The rule was observed during the time interval. |
 | `:supersedes` | `array of meta:rule` | An array of rule versions which are superseded by this rule. |
 | `:text` | `text` | The text of the rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
@@ -6985,8 +6967,8 @@ A set of rules linked with -(has)> edges.
 | `:creator` | `entity:actor` | The primary actor which created the ruleset. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the ruleset. |
 | `:desc` | `text` | A description of the ruleset. |
-| `:id` | `meta:id` | The ruleset ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the ruleset. |
+| `:id` | `base:id` | The ruleset ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the ruleset. |
 | `:name` | `base:id` | A name for the ruleset. |
 | `:supersedes` | `array of meta:ruleset` | An array of ruleset versions which are superseded by this ruleset. |
 | `:type` | `meta:ruleset:type:taxonomy` | The ruleset type. |
@@ -7030,6 +7012,7 @@ A specific technique used to achieve a goal.
 
 | Interface |
 |-----------|
+| `meta:observable` |
 | `meta:reported` |
 | `meta:usable` |
 | `risk:mitigatable` |
@@ -7038,8 +7021,8 @@ A specific technique used to achieve a goal.
 |----------|------|-----|
 | `:created` | `time` | The time when the technique was created. |
 | `:desc` | `text` | A description of the technique. |
-| `:id` | `meta:id` | A unique ID given to the technique. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the technique. |
+| `:id` | `base:id` | A unique ID given to the technique. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the technique. |
 | `:name` | `base:name` | The primary name of the technique. |
 | `:names` | `array of base:name` | A list of alternate names for the technique. |
 | `:parent` | `meta:technique` | The parent technique for the technique. |
@@ -7047,6 +7030,7 @@ A specific technique used to achieve a goal.
 | `:reporter` | `entity:actor` | The entity which reported on the technique. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the technique. |
 | `:resolved` | `meta:technique` | The authoritative technique which this reporting is about. |
+| `:seen` | `ival` | The technique was observed during the time interval. |
 | `:sophistication` | `meta:score` | The assessed sophistication of the technique. |
 | `:superseded` | `time` | The time when the technique was superseded. |
 | `:supersedes` | `array of meta:technique` | An array of technique nodes which are superseded by this technique. |
@@ -7121,7 +7105,7 @@ A node for tracking assets which belong to an organization.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:id` | `meta:id` | The ID of the asset. |
+| `:id` | `base:id` | The ID of the asset. |
 | `:name` | `base:name` | The name of the assset. |
 | `:node` | `meta:havable` | The node which represents the asset. |
 | `:operator` | `entity:contact` | The contact information of the user or operator of the asset. |
@@ -7519,8 +7503,8 @@ An industry classification type.
 |----------|------|-----|
 | `:created` | `time` | The time when the industry was created. |
 | `:desc` | `text` | A description of the industry. |
-| `:id` | `meta:id` | A unique ID given to the industry. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the industry. |
+| `:id` | `base:id` | A unique ID given to the industry. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the industry. |
 | `:isic` | `array of ou:isic` | An array of ISIC codes that map to the industry. |
 | `:naics` | `array of ou:naics` | An array of NAICS codes that map to the industry. |
 | `:name` | `base:name` | The primary name of the industry. |
@@ -7648,7 +7632,7 @@ An organization, such as a company or military unit.
 | `:dns:mx` | `array of inet:fqdn` | An array of MX domains used by email addresses issued by the org. |
 | `:email` | `inet:email` | The primary email address for the organization. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the organization. |
-| `:id` | `meta:id` | A type or source specific ID for the organization. |
+| `:id` | `base:id` | A type or source specific ID for the organization. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:industries` | `array of ou:industry` | The industries associated with the org. |
 | `:lang` | `lang:language` | The primary language of the organization. |
@@ -7842,8 +7826,8 @@ A phase within a planning system which may be used to group steps within a proce
 | `:creator` | `entity:actor` | The primary actor which created the phase. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the phase. |
 | `:desc` | `text` | A description of the definition of the phase. |
-| `:id` | `meta:id` | The phase ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the phase. |
+| `:id` | `base:id` | The phase ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the phase. |
 | `:index` | `int` | The index of this phase within the phases of the system. |
 | `:supersedes` | `array of plan:phase` | An array of phase versions which are superseded by this phase. |
 | `:system` | `plan:system` | The planning system which defines this phase. |
@@ -7873,8 +7857,8 @@ A procedure consisting of steps.
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the procedure contents. |
 | `:firststep` | `plan:procedure:step` | The first step in the procedure. |
-| `:id` | `meta:id` | The procedure ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the procedure. |
+| `:id` | `base:id` | The procedure ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the procedure. |
 | `:inputs` | `array of plan:procedure:variable` | An array of inputs required to execute the procedure. |
 | `:supersedes` | `array of plan:procedure` | An array of procedure versions which are superseded by this procedure. |
 | `:system` | `plan:system` | The planning system which defines this procedure. |
@@ -7951,8 +7935,8 @@ A planning or behavioral analysis system that defines phases and procedures.
 | `:creator` | `entity:actor` | The primary actor which created the planning system. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the planning system. |
 | `:desc` | `text` | A description of the planning system. |
-| `:id` | `meta:id` | The planning system ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the planning system. |
+| `:id` | `base:id` | The planning system ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the planning system. |
 | `:name` | `base:name` | The name of the planning system. |
 | `:supersedes` | `array of plan:system` | An array of planning system versions which are superseded by this planning system. |
 | `:updated` | `time` | The time the planning system was last updated. |
@@ -7976,7 +7960,7 @@ A candidate for office in a specific race.
 | `:actor` | `entity:actor` | The actor who carried out the candidacy. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the candidacy. |
 | `:campaign` | `entity:campaign` | The official campaign to elect the candidate. |
-| `:id` | `meta:id` | A unique ID for the candidate issued by an election authority. |
+| `:id` | `base:id` | A unique ID for the candidate issued by an election authority. |
 | `:incumbent` | `bool` | Set to true if the candidate is an incumbent in this race. |
 | `:party` | `ou:org` | The declared political party of the candidate. |
 | `:period` | `ival` | The period over which the candidacy occurred. |
@@ -8264,7 +8248,7 @@ A person or persona.
 | `:desc` | `text` | A description of the person. |
 | `:email` | `inet:email` | The primary email address for the person. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the person. |
-| `:id` | `meta:id` | A type or source specific ID for the person. |
+| `:id` | `base:id` | A type or source specific ID for the person. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the person. |
 | `:langs` | `array of lang:language` | An array of alternate languages for the person. |
@@ -8470,8 +8454,8 @@ An instance of an actor attacking a target.
 | `:detected` | `time` | The first confirmed detection time of the attack. |
 | `:discovered` | `time` | The earliest known time when the attack was discovered. |
 | `:discoverer` | `entity:actor` | The earliest known actor which discovered the attack. |
-| `:id` | `meta:id` | A unique ID given to the attack. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the attack. |
+| `:id` | `base:id` | A unique ID given to the attack. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the attack. |
 | `:name` | `base:name` | The primary name of the attack. |
 | `:names` | `array of base:name` | A list of alternate names for the attack. |
 | `:prev` | `risk:attack` | The previous/parent attack in a list or hierarchy. |
@@ -8547,8 +8531,8 @@ A compromise and its aggregate impact. The compromise is the result of a success
 | `:desc` | `text` | A description of the compromise. |
 | `:discovered` | `time` | The earliest known time when the compromise was discovered. |
 | `:discoverer` | `entity:actor` | The earliest known actor which discovered the compromise. |
-| `:id` | `meta:id` | A unique ID given to the compromise. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the compromise. |
+| `:id` | `base:id` | A unique ID given to the compromise. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the compromise. |
 | `:loss:bytes` | `int` | An estimate of the volume of data compromised. |
 | `:loss:life` | `int` | The total loss of life due to the compromise. |
 | `:loss:pii` | `int` | The number of records compromised which contain PII. |
@@ -8610,8 +8594,8 @@ Activity where an attacker attempted to extort a victim.
 | `:created` | `time` | The time when the extortion was created. |
 | `:desc` | `text` | A description of the extortion. |
 | `:enacted` | `bool` | Set to true if attacker carried out the threat. |
-| `:id` | `meta:id` | A unique ID given to the extortion. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the extortion. |
+| `:id` | `base:id` | A unique ID given to the extortion. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the extortion. |
 | `:name` | `base:name` | The primary name of the extortion. |
 | `:names` | `array of base:name` | A list of alternate names for the extortion. |
 | `:paid:price` | `econ:price` | The total price paid by the target of the extortion. |
@@ -8669,8 +8653,8 @@ An event where information was disclosed without permission.
 | `:actor:name` | `entity:name` | The name of the actor who carried out the leak. |
 | `:created` | `time` | The time when the leak was created. |
 | `:desc` | `text` | A description of the leak. |
-| `:id` | `meta:id` | A unique ID given to the leak. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the leak. |
+| `:id` | `base:id` | A unique ID given to the leak. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the leak. |
 | `:name` | `base:name` | The primary name of the leak. |
 | `:names` | `array of base:name` | A list of alternate names for the leak. |
 | `:public` | `bool` | Set to true if the leaked information was made publicly available. |
@@ -8715,6 +8699,7 @@ A mitigation for a specific vulnerability or technique.
 
 | Interface |
 |-----------|
+| `meta:observable` |
 | `meta:reported` |
 | `meta:usable` |
 | `risk:mitigatable` |
@@ -8723,8 +8708,8 @@ A mitigation for a specific vulnerability or technique.
 |----------|------|-----|
 | `:created` | `time` | The time when the mitigation was created. |
 | `:desc` | `text` | A description of the mitigation. |
-| `:id` | `meta:id` | A unique ID given to the mitigation. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the mitigation. |
+| `:id` | `base:id` | A unique ID given to the mitigation. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the mitigation. |
 | `:name` | `base:name` | The primary name of the mitigation. |
 | `:names` | `array of base:name` | A list of alternate names for the mitigation. |
 | `:parent` | `meta:technique` | The parent technique for the technique. |
@@ -8732,6 +8717,7 @@ A mitigation for a specific vulnerability or technique.
 | `:reporter` | `entity:actor` | The entity which reported on the mitigation. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the mitigation. |
 | `:resolved` | `risk:mitigation` | The authoritative mitigation which this reporting is about. |
+| `:seen` | `ival` | The mitigation was observed during the time interval. |
 | `:sophistication` | `meta:score` | The assessed sophistication of the technique. |
 | `:superseded` | `time` | The time when the mitigation was superseded. |
 | `:supersedes` | `array of risk:mitigation` | An array of mitigation nodes which are superseded by this mitigation. |
@@ -8754,8 +8740,8 @@ An outage event which affected resource availability.
 | `:cause` | `risk:outage:cause:taxonomy` | The outage cause type. |
 | `:created` | `time` | The time when the outage was created. |
 | `:desc` | `text` | A description of the outage. |
-| `:id` | `meta:id` | A unique ID given to the outage. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the outage. |
+| `:id` | `base:id` | A unique ID given to the outage. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the outage. |
 | `:name` | `base:name` | The primary name of the outage. |
 | `:names` | `array of base:name` | A list of alternate names for the outage. |
 | `:period` | `ival` | The time period where the outage impacted availability. |
@@ -8825,8 +8811,8 @@ An event where an actor stole from a victim.
 | `:actor:name` | `entity:name` | The name of the actor who carried out the theft. |
 | `:created` | `time` | The time when the theft was created. |
 | `:desc` | `text` | A description of the theft. |
-| `:id` | `meta:id` | A unique ID given to the theft. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the theft. |
+| `:id` | `base:id` | A unique ID given to the theft. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the theft. |
 | `:name` | `base:name` | The primary name of the theft. |
 | `:names` | `array of base:name` | A list of alternate names for the theft. |
 | `:published` | `time` | The time when the reporter published the theft. |
@@ -8869,9 +8855,9 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:discoverer` | `entity:actor` | The earliest known actor which discovered the threat. |
 | `:email` | `inet:email` | The primary email address for the threat. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the threat. |
-| `:id` | `meta:id` | A unique ID given to the threat. |
+| `:id` | `base:id` | A unique ID given to the threat. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the threat. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the threat. |
 | `:lang` | `lang:language` | The primary language of the threat. |
 | `:langs` | `array of lang:language` | An array of alternate languages for the threat. |
 | `:lifespan` | `ival` | The lifespan of the threat. |
@@ -8932,6 +8918,7 @@ A software tool used in threat activity, as defined by a specific source.
 
 | Interface |
 |-----------|
+| `meta:observable` |
 | `meta:reported` |
 | `meta:usable` |
 
@@ -8940,14 +8927,15 @@ A software tool used in threat activity, as defined by a specific source.
 | `:availability` | `risk:availability` | The source's assessed availability of the tool. |
 | `:created` | `time` | The time when the tool was created. |
 | `:desc` | `text` | A description of the tool. |
-| `:id` | `meta:id` | A unique ID given to the tool. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the tool. |
+| `:id` | `base:id` | A unique ID given to the tool. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the tool. |
 | `:name` | `it:softwarename` | The primary name of the tool according to the source. |
 | `:names` | `array of it:softwarename` | A list of alternate names for the tool according to the source. |
 | `:published` | `time` | The time when the reporter published the tool. |
 | `:reporter` | `entity:actor` | The entity which reported on the tool. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the tool. |
 | `:resolved` | `risk:tool:software` | The authoritative tool which this reporting is about. |
+| `:seen` | `ival` | The tool was observed during the time interval. |
 | `:software` | `it:software` | The authoritative software family for the tool. |
 | `:sophistication` | `meta:score` | The source's assessed sophistication of the tool. |
 | `:superseded` | `time` | The time when the tool was superseded. |
@@ -8981,6 +8969,7 @@ A unique vulnerability.
 | Interface |
 |-----------|
 | `meta:discoverable` |
+| `meta:observable` |
 | `meta:reported` |
 | `meta:usable` |
 | `risk:mitigatable` |
@@ -9009,6 +8998,7 @@ A unique vulnerability.
 | `:reporter` | `entity:actor` | The entity which reported on the vulnerability. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the vulnerability. |
 | `:resolved` | `risk:vuln` | The authoritative vulnerability which this reporting is about. |
+| `:seen` | `ival` | The vulnerability was observed during the time interval. |
 | `:severity` | `meta:score` | The severity of the vulnerability. |
 | `:superseded` | `time` | The time when the vulnerability was superseded. |
 | `:supersedes` | `array of risk:vuln` | An array of vulnerability nodes which are superseded by this vulnerability. |
@@ -9706,7 +9696,7 @@ A license to operate a land vehicle issued to a contact.
 |----------|------|-----|
 | `:contact` | `entity:actor` | The contact info of the licensee. |
 | `:expires` | `time` | The time the license expires. |
-| `:id` | `meta:id` | The license ID. |
+| `:id` | `base:id` | The license ID. |
 | `:issued` | `time` | The time the license was issued. |
 | `:issuer` | `ou:org` | The org which issued the license. |
 | `:issuer:name` | `entity:name` | The name of the org which issued the license. |
@@ -9719,7 +9709,7 @@ Registration issued to a contact for a land vehicle.
 |----------|------|-----|
 | `:contact` | `entity:actor` | The contact info of the registrant. |
 | `:expires` | `time` | The time the vehicle registration expires. |
-| `:id` | `meta:id` | The vehicle registration ID or license plate. |
+| `:id` | `base:id` | The vehicle registration ID or license plate. |
 | `:issued` | `time` | The time the vehicle registration was issued. |
 | `:issuer` | `ou:org` | The org which issued the registration. |
 | `:issuer:name` | `entity:name` | The name of the org which issued the registration. |
@@ -9961,7 +9951,7 @@ An individual instance of a consist of train cars running a route.
 | `:departed:place` | `geo:place` | The actual departure place. |
 | `:departed:point` | `transport:point` | The actual departure point. |
 | `:duration` | `duration` | The actual duration. |
-| `:id` | `meta:id` | The ID assigned to the train. |
+| `:id` | `base:id` | The ID assigned to the train. |
 | `:occupants` | `int:min0` | The number of occupants of the train on this train trip. |
 | `:operator` | `entity:actor` | The contact information of the operator of the train trip. |
 | `:scheduled:arrival` | `time` | The scheduled arrival time. |
@@ -10025,7 +10015,7 @@ An individual sea vessel.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:callsign` | `meta:id` | The callsign of the vessel. |
+| `:callsign` | `base:id` | The callsign of the vessel. |
 | `:created` | `time` | The time that the vessel was created. |
 | `:creator` | `entity:actor` | The primary actor which created the vessel. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the vessel. |
@@ -10172,10 +10162,8 @@ A stop made by a vehicle on a trip.
 | `entity:action` | `had` | `entity:goal` | The action was taken in pursuit of the goal. |
 | `entity:action` | `targeted` | `risk:targetable` | The action represents the actor targeting based on the target node. |
 | `entity:action` | `used` | `meta:observable` | The action was taken using the target node. |
-| `entity:action` | `used` | `meta:usable` | The action was taken using the target node. |
 | `entity:actor` | `targeted` | `risk:targetable` | The actor targets based on the target node. |
 | `entity:actor` | `used` | `meta:observable` | The actor used the target node. |
-| `entity:actor` | `used` | `meta:usable` | The actor used the target node. |
 | `entity:believed` | `followed` | `belief:tenet` | The actor followed the tenet during the period. |
 | `entity:campaign` | `ledto` | `econ:purchase` | The campaign led to the purchase. |
 | `entity:contactlist` | `has` | `entity:contact` | The contact list contains the contact. |
@@ -10232,7 +10220,6 @@ A stop made by a vehicle on a trip.
 | `meta:note` | `has` | `file:attachment` | The note includes the file attachment. |
 | `meta:observable` | `resembles` | `meta:observable` | The source node resembles the target node. |
 | `meta:rule` | `detects` | `meta:observable` | The rule is designed to detect the target node. |
-| `meta:rule` | `detects` | `meta:usable` | The rule is designed to detect the target node. |
 | `meta:rule` | `generated` | `it:log:event` | The meta:rule generated the it:log:event node. |
 | `meta:rule` | `generated` | `risk:alert` | The meta:rule generated the risk:alert node. |
 | `meta:rule` | `matches` | `*` | The rule matched on the target node. |
@@ -10383,8 +10370,8 @@ Properties common to authorable forms.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | A description of the document. |
-| `:id` | `meta:id` | The document ID. |
-| `:ids` | `array of meta:id` | An array of alternate IDs for the document. |
+| `:id` | `base:id` | The document ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the document. |
 | `:supersedes` | `array of doc:authorable` | An array of document versions which are superseded by this document. |
 | `:updated` | `time` | The time that the document was last updated. |
 | `:url` | `inet:url` | The URL where the document is available. |
@@ -10543,7 +10530,7 @@ An interface for forms which contain contact info.
 | `:desc` | `text` | A description of the entity. |
 | `:email` | `inet:email` | The primary email address for the entity. |
 | `:emails` | `array of inet:email` | An array of alternate email addresses for the entity. |
-| `:id` | `meta:id` | A type or source specific ID for the entity. |
+| `:id` | `base:id` | A type or source specific ID for the entity. |
 | `:identifiers` | `array of entity:identifier` | Additional entity identifiers. |
 | `:lang` | `lang:language` | The primary language of the entity. |
 | `:langs` | `array of lang:language` | An array of alternate languages for the entity. |
@@ -10613,13 +10600,7 @@ An interface which is inherited by entity identifier forms.
 | `gov:us:cage` |
 | `gov:us:ssn` |
 | `it:adid` |
-| `it:mitre:attack:campaign:id` |
 | `it:mitre:attack:group:id` |
-| `it:mitre:attack:mitigation:id` |
-| `it:mitre:attack:software:id` |
-| `it:mitre:attack:tactic:id` |
-| `it:mitre:attack:technique:id` |
-| `meta:id` |
 | `tel:mob:carrier` |
 | `tel:mob:tadig` |
 
@@ -10732,7 +10713,7 @@ Properties common to image file formats.
 | `:comment` | `str` | MIME specific comment field extracted from metadata. |
 | `:created` | `time` | MIME specific creation timestamp extracted from metadata. |
 | `:desc` | `str` | MIME specific description field extracted from metadata. |
-| `:id` | `meta:id` | MIME specific unique identifier extracted from metadata. |
+| `:id` | `base:id` | MIME specific unique identifier extracted from metadata. |
 | `:latlong` | `geo:latlong` | MIME specific lat/long information extracted from metadata. |
 | `:text` | `base:name` | The text contained within the image. |
 
@@ -10897,7 +10878,7 @@ Properties common to most forms within a service platform.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:id` | `meta:id` | A platform specific ID which identifies the node. |
+| `:id` | `base:id` | A platform specific ID which identifies the node. |
 | `:platform` | `inet:service:platform` | The platform which defines the node. |
 
 ### `inet:service:joinable`
@@ -11248,8 +11229,8 @@ Properties common to forms which are created on a per-source basis.
 |----------|------|-----|
 | `:created` | `time` | The time when the item was created. |
 | `:desc` | `text` | A description of the item. |
-| `:id` | `meta:id` | A unique ID given to the item. |
-| `:ids` | `array of meta:id` | An array of alternate IDs given to the item. |
+| `:id` | `base:id` | A unique ID given to the item. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the item. |
 | `:name` | `base:name` | The primary name of the item. |
 | `:names` | `array of base:name` | A list of alternate names for the item. |
 | `:published` | `time` | The time when the reporter published the item. |
@@ -11594,3 +11575,4 @@ Properties common to a vehicle.
 | `transport:land:vehicle` |
 | `transport:rail:consist` |
 | `transport:sea:vessel` |
+

@@ -64,7 +64,7 @@ modeldefs = (
 
             ('risk:vuln:id', (
                     ('it:sec:cve', {}),
-                    ('meta:id', {})
+                    ('base:id', {})
                 ), {
                 'doc': 'A unique ID given to a vulnerability.'}),
 

@@ -36,17 +36,17 @@ class GeoPolModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('pol:country [ :code=137 ]')
             self.propeq(nodes[0], 'code', '137', form='iso:3166:numeric3')
 
-            # test poly code with meta:id
+            # test poly code with base:id
             nodes = await core.nodes('pol:country [ :code=" MYID001" ]')
-            self.propeq(nodes[0], 'code', 'MYID001', form='meta:id')
+            self.propeq(nodes[0], 'code', 'MYID001', form='base:id')
 
             # test codes array with mixed types
             nodes = await core.nodes('pol:country [ :codes=(vi, vis, 137, " MYID001") ]')
             self.eq(nodes[0].get('codes'), (
+                ('base:id', 'MYID001'),
                 ('iso:3166:alpha2', 'vi'),
                 ('iso:3166:alpha3', 'vis'),
                 ('iso:3166:numeric3', '137'),
-                ('meta:id', 'MYID001'),
             ))
             self.len(1, await core.nodes('pol:country:codes*[=vi]'))
             self.len(1, await core.nodes('pol:country:codes*[=vis]'))
