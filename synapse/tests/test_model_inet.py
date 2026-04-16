@@ -377,6 +377,8 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:flow=*
 
+                    :period=(20250701, 20250702)
+
                     :server=1.2.3.4:443
                     :server:host=*
                     :server:proc=*
@@ -409,6 +411,7 @@ class InetModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
+            self.propeq(nodes[0], 'period', (1751328000000000, 1751414400000000, 86400000000))
             self.propeq(nodes[0], 'client', 'tcp://5.5.5.5')
             self.propeq(nodes[0], 'client:txcount', 30)
             self.propeq(nodes[0], 'client:txbytes', 1)

@@ -685,8 +685,9 @@ modeldefs = (
 
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
+                'template': {'title': 'login'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'login'}}),
+                    ('inet:proto:request', {}),
                 ),
                 'doc': 'A host specific login session.'}),
 

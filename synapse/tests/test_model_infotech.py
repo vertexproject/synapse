@@ -438,7 +438,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :period=(20210314,202103140201)
                         :account=$acct
                         :server:host=$host
-                        :creds={[ auth:passwd=cool ]})
+                        :creds={[ auth:passwd=cool ]}
+                        :flow={[ inet:flow=(foo,) ]})
                 ]
             ''')
             self.len(2, nodes)
@@ -486,7 +487,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
-            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login'))
+            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
 
             # test inet:proto:link interface properties on it:host:login
             nodes = await core.nodes('''

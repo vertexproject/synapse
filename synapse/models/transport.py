@@ -452,7 +452,6 @@ modeldefs = (
                 ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                     'doc': 'The type of vessel.'}),
 
-                # FIXME is this an "entity name"?
                 ('name', ('base:name', {}), {
                     'doc': 'The name of the vessel.'}),
 

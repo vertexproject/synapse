@@ -686,10 +686,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(base:name, $object.name)
+                ($ok, $name) = $lib.trycast(entity:name, $object.name)
                 if $ok {
 
-                    ou:org:name=$name
+                    entity:name=$name -> ou:org
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 

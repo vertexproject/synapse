@@ -6009,23 +6009,29 @@ A host specific login session.
 
 | Interface |
 |-----------|
+| `base:event` |
 | `inet:proto:link` |
+| `inet:proto:request` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
 | `:account` | `it:host:account` | The account that logged in. |
+| `:activity` | `meta:activity` | A parent activity which includes this login. |
 | `:client` | `inet:client` | The socket address of the client. |
-| `:client:exe` | `file:bytes` | The client executable which initiated the link. |
-| `:client:host` | `it:host` | The client host which initiated the link. |
-| `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:exe` | `file:bytes` | The client executable which initiated the login. |
+| `:client:host` | `it:host` | The client host which initiated the login. |
+| `:client:proc` | `it:exec:proc` | The client process which initiated the login. |
 | `:creds` | `array of auth:credential` | The credentials that were used to login. |
+| `:flow` | `inet:flow` | The network flow which contained the login. |
 | `:period` | `ival` | The period when the login session was active. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
-| `:server:exe` | `file:bytes` | The server executable which received the link. |
+| `:server:exe` | `file:bytes` | The server executable which received the login. |
 | `:server:host` | `it:host` | The server host which received the login. |
-| `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:proc` | `it:exec:proc` | The server process which received the login. |
 | `:success` | `bool` | Set to false to indicate an unsuccessful logon attempt. |
+| `:time` | `time` | The time that the login occurred. |
 
 ### `it:host:tenancy`
 
@@ -10839,7 +10845,6 @@ Properties common to network protocol requests and transports.
 | Form |
 |------|
 | `inet:flow` |
-| `it:host:login` |
 
 ### `inet:proto:request`
 
@@ -10856,6 +10861,7 @@ Properties common to network protocol requests and responses.
 | `inet:rdp:handshake` |
 | `inet:ssh:handshake` |
 | `inet:tls:handshake` |
+| `it:host:login` |
 
 ### `inet:service:action`
 
