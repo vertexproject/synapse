@@ -80,7 +80,12 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:rule:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for meta:rule types.'}),
+                    'doc': 'A taxonomy for rule types.'}),
+
+                ('meta:rule:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'props': (),
+                    'doc': 'A taxonomy for rule status values.'}),
 
                 ('meta:rule', ('guid', {}), {
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
@@ -381,6 +386,8 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A name for the rule.'}),
                     ('type', ('meta:rule:type:taxonomy', {}), {
                         'doc': 'The rule type.'}),
+                    ('status', ('meta:rule:status:taxonomy', {}), {
+                        'doc': 'The status of the rule.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the rule.'}),

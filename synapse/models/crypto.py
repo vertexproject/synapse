@@ -22,6 +22,25 @@ class CryptoModule(s_module.CoreModule):
 
             'types': (
 
+                ('crypto:currency:chain', ('guid', {}), {
+                    'props': (
+
+                        # TODO: 3.0 this should become base:id
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'eip155:8453',
+                            'doc': 'An ID for the chain.'}),
+
+                        # TODO: 3.0 this should become base:name
+                        ('name', ('str', {'strip': True, 'lower': True}), {
+                            'ex': 'ethereum',
+                            'doc': 'The name of the chain.'}),
+
+                        # TODO: 3.0 this should become econ:currency
+                        ('symbol', ('crypto:currency:coin', {}), {
+                            'doc': 'The symbol associated with the native currency of the chain.'}),
+                    ),
+                    'doc': 'A crypto currency chain.'}),
+
                 ('crypto:currency:transaction', ('guid', {}), {
                     'doc': 'An individual crypto currency transaction recorded on the blockchain.',
                 }),
@@ -178,6 +197,8 @@ class CryptoModule(s_module.CoreModule):
             'forms': (
 
                 ('crypto:payment:input', {}, (
+                    ('index', ('int', {}), {
+                        'doc': 'The index of this input in the array of inputs for the transaction.'}),
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was input to.'}),
                     ('address', ('crypto:currency:address', {}), {
@@ -186,6 +207,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The value of the currency paid into the transaction.'}),
                 )),
                 ('crypto:payment:output', {}, (
+                    ('index', ('int', {}), {
+                        'doc': 'The index of this output in the array of outputs for the transaction.'}),
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was output from.'}),
                     ('address', ('crypto:currency:address', {}), {
@@ -374,6 +397,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
+                    ('chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the address is defined.'}),
                 )),
 
                 ('crypto:algorithm', {}, ()),

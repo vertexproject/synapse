@@ -179,6 +179,8 @@ class PolModule(s_module.CoreModule):
                     ('pol:candidate', {}, (
                         ('id', ('str', {'strip': True}), {
                             'doc': 'A unique ID for the candidate issued by an election authority.'}),
+                        ('votes', ('int', {}), {
+                            'doc': 'The total number of votes received by the candidate.'}),
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information of the candidate.'}),
                         ('race', ('pol:race', {}), {
