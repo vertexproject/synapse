@@ -386,6 +386,7 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A name for the rule.'}),
                     ('type', ('meta:rule:type:taxonomy', {}), {
                         'doc': 'The rule type.'}),
+                    # TODO: 3.0 this moves to the interface
                     ('status', ('meta:rule:status:taxonomy', {}), {
                         'doc': 'The status of the rule.'}),
                     ('desc', ('str', {}), {
