@@ -104,9 +104,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz requirement', timeout=1)
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -118,9 +118,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz optional requirement', timeout=1)
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -240,15 +240,14 @@ class StormLibPkgTest(s_test.SynTest):
             # because the pkg hasn't changed so no loading occurs
             waiter = core.waiter(1, 'core:pkg:onload:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-            stream.seek(0)
-            buf = stream.read()
+            buf = stream.getvalue()
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)

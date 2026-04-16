@@ -487,7 +487,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
-            self.eq(virts['type'], ['test:str', 'test:str'])
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
@@ -624,12 +623,11 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadArg) as cm:
                     await prox.saveNodeEdits(nodeedits, {})
                 self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
-                with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
+
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     for edit in nodeedits:
                         await prox.saveNodeEdits(edit, {'time': s_common.now(), 'user': guid})
-                    self.true(await stream.wait(6))
-                valu = stream.getvalue().strip()
-                self.isin(f'u={guid}', valu)
+                    await stream.expect(f'u={guid}', timeout=6)
 
             self.len(1, await core.nodes('test:guid#foo', opts={'view': view}))
             self.len(1, await core.nodes('test:str=foo', opts={'view': view}))

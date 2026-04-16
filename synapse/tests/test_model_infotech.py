@@ -556,6 +556,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :version=V1.0.1-beta+exp.sha.5114f85
                     :released="2018-04-03 08:44:22"
                     :risk:score=highest
+                    :seen=(20180101, 20190101)
                     +(runson)> {[ it:software=({"name": "linux"}) ]}
                     +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
             ]''')
@@ -568,6 +569,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'released', 1522745062000000)
             self.propeq(node, 'version', 'V1.0.1-beta+exp.sha.5114f85')
             self.propeq(node, 'risk:score', 50)
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
             self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
@@ -737,10 +739,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :released=20220202
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
+                    :seen=20220101
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
             self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
+            self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'version.semver', 1099513724931)
             self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')
             self.propeq(nodes[0], 'released', 1643760000000000)

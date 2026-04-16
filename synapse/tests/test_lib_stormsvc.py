@@ -799,9 +799,9 @@ class StormSvcTest(s_test.SynTest):
 
                     curl = f'tcp://root:root@127.0.0.1:{port}/olds'
 
-                    with self.getAsyncLoggerStream('synapse.lib.stormsvc', 'running Synapse (2, 0, 0)') as stream:
+                    with self.getLoggerStream('synapse.lib.stormsvc') as stream:
                         await core.nodes(f'service.add olds {curl}')
-                        self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                        await stream.expect('running Synapse (2, 0, 0)', timeout=12)
 
     async def test_storm_svc_restarts(self):
 

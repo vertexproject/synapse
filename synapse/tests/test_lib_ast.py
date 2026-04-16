@@ -3008,14 +3008,14 @@ class AstTest(s_test.SynTest):
         origprop = s_view.View.nodesByProp
         origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False, virts=None):
+        async def checkProp(self, name, reverse=False, virt=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name, reverse=reverse, virts=virts):
+            async for node in origprop(self, name, reverse=reverse, virt=virt):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu, reverse=False, virts=None):
+        async def checkValu(self, name, cmpr, valu, reverse=False, virt=None):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virts=virts):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virt=virt):
                 yield node
 
         with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
@@ -4127,6 +4127,44 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=newp :seen.precision?=day]')
             self.none(nodes[0].get('seen'))
+
+            await core.nodes('''[
+                (test:virtiface=(v1,) :server=tcp://1.2.3.4:80 :servers=(tcp://1.2.3.4:80, udp://2.3.4.5:90))
+                (test:virtiface=(v2,) :server=udp://5.6.7.8:90)
+                (test:virtiface=(v3,))
+                (test:virtiface2=(v4,) :server=tcp://9.10.11.12:100)
+                (test:str=piv1 :pivvirt=(v1,))
+                (test:arrayprop=* :ints=(10, 20, 30))
+                (test:pivcomp=(targ1, lulz1) :size=20)
+                (inet:server=tcp://1.2.3.4:80)
+                (inet:http:request=* :server=tcp://1.2.3.4:80)
+                (test:guid=* :server=tcp://1.2.3.4:80)
+            ]''')
+
+            # VirtPropValue.getTypeValu with variable virt name
+            valu = await core.callStorm('inet:server=tcp://1.2.3.4:80 $virt=ip return(.$virt)')
+            self.nn(valu)
+
+            # HasAbsPropCond for iface prop with virt, non-poly (Array) type
+            self.len(0, await core.nodes('test:str=piv1 +test:virtarray:servers.size'))
+            self.len(1, await core.nodes('test:virtiface=(v1,) +test:virtarray:servers.size'))
+            self.len(0, await core.nodes('test:virtiface=(v3,) +test:virtarray:servers.size'))
+
+            # AbsVirtPropCond non-poly (Array) prop with virt
+            await core.nodes('[test:arrayprop=*]')
+            self.len(1, await core.nodes('test:arrayprop +:ints +test:arrayprop:ints.size>1'))
+            self.len(0, await core.nodes('test:arrayprop -:ints +test:arrayprop:ints.size>1'))
+
+            # HasRelPropCond.hasProp NoSuchVirt exception when no allowed type has the virt
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface=(v1,) +:server.newp')
+
+            # PropPivot non-poly dest form with virt
+            self.ge(1, len(await core.nodes('inet:http:request :server.ip -> inet:server.ip')))
+
+            # Invalid cmpr on non-poly (Array) prop filter with virt
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

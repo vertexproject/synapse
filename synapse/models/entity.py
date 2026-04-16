@@ -579,17 +579,11 @@ modeldefs = (
 
         'edges': (
 
-            (('entity:actor', 'used', 'meta:usable'), {
-                'doc': 'The actor used the target node.'}),
-
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
 
             (('entity:contactlist', 'has', 'entity:contact'), {
                 'doc': 'The contact list contains the contact.'}),
-
-            (('entity:action', 'used', 'meta:usable'), {
-                'doc': 'The action was taken using the target node.'}),
 
             (('entity:action', 'used', 'meta:observable'), {
                 'doc': 'The action was taken using the target node.'}),

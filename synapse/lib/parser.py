@@ -851,7 +851,7 @@ ruleClassMap = {
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'virtpropcond': s_ast.VirtPropCond,
-    'virtprops': s_ast.VirtProps,
+    'virtprop': s_ast.VirtProp,
     'virtpropvalue': s_ast.VirtPropValue,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))

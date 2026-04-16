@@ -46,7 +46,7 @@ class StormlibModelTest(s_test.SynTest):
 
             self.eq('entity:action', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n1form)'))
             self.eq('used', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).verb)'))
-            self.eq('meta:usable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
+            self.eq('meta:observable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
             self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
@@ -85,7 +85,7 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
-            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:usable'), {'doc':", mesgs)
+            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:observable'), {'doc':", mesgs)
 
             self.false(await core.callStorm('return($lib.model.type(int).mutable)'))
             self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
@@ -140,13 +140,12 @@ class StormlibModelTest(s_test.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[test:deprprop=newp]')
 
-                with self.getAsyncLoggerStream('synapse.lib.view',
-                                               'Prop test:deprform:deprprop2 is locked due to deprecation') as stream:
+                with self.getLoggerStream('synapse.lib.view') as stream:
                     data = (
                         (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
                     )
                     await core.addFeedData(data)
-                    self.true(await stream.wait(1))
+                    await stream.expect('Prop test:deprform:deprprop2 is locked due to deprecation', timeout=1)
                     nodes = await core.nodes('test:deprform=depr')
                     self.none(nodes[0].get('deprprop2'))
 
