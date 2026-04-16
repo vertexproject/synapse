@@ -3,7 +3,24 @@ Model elements related to sales / bizdev / procurement
 '''
 modeldefs = (
     {
+        'interfaces': (
+            ('biz:manufactured', {
+                'template': {'title': 'item'},
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('model', ('biz:model', {}), {
+                        'doc': 'The model number or name of the {title}.'}),
+                ),
+                'doc': 'Properties common to items being manufactured.'}),
+        ),
+
         'types': (
+
+            ('biz:model', ('base:id', {}), {
+                'props': (),
+                'doc': 'A model name or number for a product.'}),
 
             ('biz:rfp:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (

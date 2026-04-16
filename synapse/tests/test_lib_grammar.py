@@ -1761,7 +1761,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('column'), 31)
         self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression"))
 
-        query = '''meta:name="foo\x00bar"'''
+        query = '''entity:name="foo\x00bar"'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             _ = parser.query()

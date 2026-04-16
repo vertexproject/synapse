@@ -139,12 +139,14 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :race={pol:race}
                     :actor={[entity:contact=* :name=whippit]}
                     :winner=$lib.true
+                    :votes=42000
                     :campaign={[entity:campaign=* :name=whippit4prez ]}
                     :party={[ou:org=* :name=vertex]}
                 ]
             ''')
             self.propeq(nodes[0], 'winner', 1)
             self.propeq(nodes[0], 'id', 'P00009423')
+            self.propeq(nodes[0], 'votes', 42000)
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:candidate :actor -> entity:contact +:name=whippit'))

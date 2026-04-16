@@ -1685,12 +1685,12 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr2)
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr2)
 
-            await core.nodes('[ meta:name=test ]')
+            await core.nodes('[ entity:name=test ]')
 
             await core.nodes('''
                 [ entity:contact=*
                     :name=test0
-                    +(refs)> { meta:name=test }
+                    +(refs)> { entity:name=test }
                     +#test1.foo=now
                     +#test2
                     +#test3:score=42

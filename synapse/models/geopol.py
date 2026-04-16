@@ -161,7 +161,7 @@ modeldefs = (
             )),
             ('pol:election', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'ex': '2022 united states congressional midterm election',
                     'doc': 'The name of the election.'}),
 
@@ -210,6 +210,9 @@ modeldefs = (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
+
+                ('votes', ('int', {}), {
+                    'doc': 'The total number of votes received by the candidate.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),

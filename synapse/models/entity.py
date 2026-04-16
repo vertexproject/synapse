@@ -727,7 +727,7 @@ modeldefs = (
 
             ('entity:conflict', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'doc': 'The name of the conflict.'}),
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {

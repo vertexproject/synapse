@@ -1508,98 +1508,98 @@ class ViewTest(s_t_utils.SynTest):
             view00 = core.getView()
             view01 = core.getView((await view00.fork())['iden'])
 
-            await core.nodes('[meta:name=foo meta:name=bar meta:name=baz meta:name=faz]')
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((meta:name,), valu="ba", cmpr="^=")')
+            await core.nodes('[entity:name=foo entity:name=bar entity:name=baz entity:name=faz]')
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:name,), valu="ba", cmpr="^=")')
             self.len(2, nodes)
 
             forkopts = {'view': view01.iden}
-            await core.nodes('[meta:name=foo2 meta:name=bar2 meta:name=baz2 meta:name=faz2]', opts=forkopts)
-            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="ba", cmpr="^=")', opts=forkopts)
+            await core.nodes('[entity:name=foo2 entity:name=bar2 entity:name=baz2 entity:name=faz2]', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="ba", cmpr="^=")', opts=forkopts)
             self.len(4, nodes)
 
             await core.nodes('''[
-                (inet:service:platform=* :names=(bar, baz))
-                (transport:sea:vessel=* :name="bad ship")
-                (transport:sea:vessel=* :name="baz ship")
+                (entity:contact=* :names=(bar, baz))
+                (ou:org=* :name="bad ship")
+                (ou:org=* :name="baz ship")
             ]''')
 
             await core.nodes('''[
-                (inet:service:platform=* :name=foo)
-                (inet:service:platform=* :name=bar)
-                (inet:service:platform=* :names=(foo, baz))
-                (inet:service:platform=* :names=(bar, bar2))
-                (transport:sea:vessel=* :name=bar)
-                (transport:sea:vessel=* :name="bad ship")
-                (transport:sea:vessel=* :name="awesome ship")
+                (entity:contact=* :name=foo)
+                (entity:contact=* :name=bar)
+                (entity:contact=* :names=(foo, baz))
+                (entity:contact=* :names=(bar, bar2))
+                (ou:org=* :name=bar)
+                (ou:org=* :name="bad ship")
+                (ou:org=* :name="awesome ship")
             ]''', opts=forkopts)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             long1 = 'bar' * 100 + 'a'
             long2 = 'bar' * 100 + 'b'
             await core.nodes(f'''[
-                (inet:service:platform=* :names=({long1},))
-                (transport:sea:vessel=* :name={long2})
+                (entity:contact=* :names=({long1},))
+                (ou:org=* :name={long2})
             ]''')
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="az", cmpr="~=")', opts=forkopts)
             self.len(2, nodes)
             self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="^bar", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="^bar", cmpr="~=")', opts=forkopts)
             self.len(4, nodes)
             self.eq(['bar', 'bar2', long1, long2], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             # Rip prop values out of sodes to make them undecodable for coverage
             layr = core.getLayer()
-            nodes = await core.nodes(f'inet:service:platform:names*[={long1}]')
+            nodes = await core.nodes(f'entity:contact:names*[={long1}]')
             nid = nodes[0].nid
 
             sode = layr.getStorNode(nid)
             sode['props'].pop('names')
             layr.dirty[nid] = sode
 
-            nodes = await core.nodes(f'transport:sea:vessel:name={long2}')
+            nodes = await core.nodes(f'ou:org:name={long2}')
             nid = nodes[0].nid
 
             sode = layr.getStorNode(nid)
             sode['props'].pop('name')
             layr.dirty[nid] = sode
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             with self.raises(s_exc.BadTypeValu):
-                async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
+                async for item in view00.iterPropValuesWithCmpr('entity:name', 'newp', 'newp', array=True):
                     pass
 
             with self.raises(s_exc.NoSuchCmpr):
-                form = core.model.form('meta:name')
+                form = core.model.form('entity:name')
                 cmprvals = (('newp', None, form.type.stortype),)
-                async for item in view00.wlyr.iterPropValuesWithCmpr('meta:name', None, cmprvals):
+                async for item in view00.wlyr.iterPropValuesWithCmpr('entity:name', None, cmprvals):
                     pass
 
             async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):

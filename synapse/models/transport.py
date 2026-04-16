@@ -179,12 +179,13 @@ modeldefs = (
                 'interfaces': (
                     ('phys:object', {}),
                     ('meta:havable', {}),
+                    ('biz:manufactured', {}),
                     ('entity:creatable', {}),
                 ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
 
-                    ('model', ('base:name', {}), {
+                    ('model', ('biz:model', {}), {
                         'doc': 'The model of the {title}.'}),
 
                     ('serial', ('base:id', {}), {
@@ -381,7 +382,7 @@ modeldefs = (
             )),
             ('transport:air:port', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'doc': 'The name of the airport.'}),
 
                 ('place', ('geo:place', {}), {
@@ -451,7 +452,7 @@ modeldefs = (
                 ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                     'doc': 'The type of vessel.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
                 ('callsign', ('meta:id', {}), {

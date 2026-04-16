@@ -743,7 +743,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :seen=20220101
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
-            self.propeq(nodes[0], 'model', 'xps13')
+            self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
             self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'version.semver', 1099513724931)
