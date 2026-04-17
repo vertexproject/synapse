@@ -1,4 +1,7 @@
 import math
+
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.gis as s_gis
@@ -118,22 +121,22 @@ class GisTest(s_t_utils.SynTest):
         self.eqish(s_gis.parseDMS(f'45{deg}46\'52.5"N'), 45.78125)
 
         # Error: unparseable
-        self.raises(ValueError, s_gis.parseDMS, 'not a coordinate')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'not a coordinate')
 
         # Error: conflicting negative sign and S/W direction
-        self.raises(ValueError, s_gis.parseDMS, f'-45{deg}46\'52"S')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'-45{deg}46\'52"S')
 
         # Error: minutes >= 60
-        self.raises(ValueError, s_gis.parseDMS, f'45{deg}60\'0"N')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'45{deg}60\'0"N')
 
         # Error: seconds >= 60
-        self.raises(ValueError, s_gis.parseDMS, f'45{deg}46\'60"N')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'45{deg}46\'60"N')
 
         # Error: conflicting prefix and suffix directions
-        self.raises(ValueError, s_gis.parseDMS, f'N45{deg}46\'52"S')
-        self.raises(ValueError, s_gis.parseDMS, f'E13{deg}30\'45"W')
-        self.raises(ValueError, s_gis.parseDMS, 'N 1 2 3 S')
-        self.raises(ValueError, s_gis.parseDMS, 'E 3 4 5 W')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'N45{deg}46\'52"S')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'E13{deg}30\'45"W')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'N 1 2 3 S')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'E 3 4 5 W')
 
     def test_lib_gis_parseLatLong(self):
         deg = '°'
@@ -159,14 +162,14 @@ class GisTest(s_t_utils.SynTest):
         self.eqish(lon, 13.5125)
 
         # Error: same direction class in both parts (N/S in lon, or E/W in lat)
-        self.raises(ValueError, s_gis.parseLatLong, '1 2 3N, 4 5 6N')
-        self.raises(ValueError, s_gis.parseLatLong, '1 2 3E, 4 5 6E')
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, '1 2 3N, 4 5 6N')
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, '1 2 3E, 4 5 6E')
 
         # Error: conflicting prefix and suffix in a single part (propagates from parseDMS)
-        self.raises(ValueError, s_gis.parseLatLong, 'N 1 2 3S, E 3 4 5W')
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, 'N 1 2 3S, E 3 4 5W')
 
         # Error: unparseable
-        self.raises(ValueError, s_gis.parseLatLong, 'not a lat long')
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, 'not a lat long')
 
     def test_lib_gis_bbox(self):
         lbox = s_gis.bbox(gchq[0], gchq[1], 1 * km)

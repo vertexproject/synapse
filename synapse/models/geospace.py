@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.gis as s_gis
 import synapse.lib.layer as s_layer
@@ -371,8 +372,9 @@ class LatLong(s_types.Type):
         try:
             latv, lonv = s_gis.parseLatLong(valu)
         except ValueError:
+            trim = s_common.trimText(repr(valu))
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Valu is not a valid lat,lon or DMS string') from None
+                                    mesg=f'Valu is not a valid lat,lon or DMS string: {trim}') from None
 
         return await self._normPyTuple((latv, lonv))
 

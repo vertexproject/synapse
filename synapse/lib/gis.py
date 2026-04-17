@@ -1,6 +1,8 @@
 import math
 import regex
 
+import synapse.exc as s_exc
+
 '''
 Synapse module with helpers for earth based geospatial calculations.
 '''
@@ -158,11 +160,11 @@ def parseDMS(text):
         (float): Decimal degrees.
 
     Raises:
-        ValueError: If the string cannot be parsed as a DMS coordinate.
+        s_exc.BadTypeValu: If the string cannot be parsed as a DMS coordinate.
     '''
     m = _dmsre.match(text)
     if m is None:
-        raise ValueError(f'Unable to parse DMS string: {text!r}')
+        raise s_exc.BadTypeValu(mesg=f'Unable to parse DMS string: {text!r}', text=text)
 
     dirpre = m.group('dirpre')
     neg = m.group('neg')
@@ -172,18 +174,18 @@ def parseDMS(text):
     dirsuf = m.group('dirsuf')
 
     if dirpre and dirsuf:
-        raise ValueError(f'Conflicting prefix and suffix directions in: {text!r}')
+        raise s_exc.BadTypeValu(mesg=f'Conflicting prefix and suffix directions in: {text!r}', text=text)
 
     direction = (dirpre or dirsuf or '').upper()
 
     if neg and direction in ('S', 'W'):
-        raise ValueError(f'Conflicting negative sign and S/W direction in: {text!r}')
+        raise s_exc.BadTypeValu(mesg=f'Conflicting negative sign and S/W direction in: {text!r}', text=text)
 
     if mins >= 60.0:
-        raise ValueError(f'Invalid minutes value {mins} in: {text!r}')
+        raise s_exc.BadTypeValu(mesg=f'Invalid minutes value {mins} in: {text!r}', text=text)
 
     if secs >= 60.0:
-        raise ValueError(f'Invalid seconds value {secs} in: {text!r}')
+        raise s_exc.BadTypeValu(mesg=f'Invalid seconds value {secs} in: {text!r}', text=text)
 
     result = dms2dec(degs, mins, secs)
 
@@ -195,8 +197,7 @@ def parseDMS(text):
 def _validateLatLonDirections(lattext, lontext):
     '''
     Validate that the direction letters in a lat/lon text pair are appropriate
-    for their respective coordinate types.  Raises ValueError if the lat part
-    contains an E/W indicator or the lon part contains an N/S indicator.
+    for their respective coordinate types.
     '''
     latm = _dmsre.match(lattext)
     lonm = _dmsre.match(lontext)
@@ -204,14 +205,12 @@ def _validateLatLonDirections(lattext, lontext):
     if latm is not None:
         latdir = (latm.group('dirpre') or latm.group('dirsuf') or '').upper()
         if latdir not in ('N', 'S', ''):
-            raise ValueError(
-                f'Latitude part does not contain N/S direction indicator in: {lattext!r}')
+            raise s_exc.BadTypeValu(mesg=f'Latitude part contains invalid direction indicator in: {lattext!r}')
 
     if lonm is not None:
         londir = (lonm.group('dirpre') or lonm.group('dirsuf') or '').upper()
         if londir not in ('E', 'W', ''):
-            raise ValueError(
-                f'Longitude part does not contain E/ W direction indicator in: {lontext!r}')
+            raise s_exc.BadTypeValu(mesg=f'Longitude part contains invalid direction indicator in: {lontext!r}')
 
 def parseLatLong(text):
     '''
@@ -227,7 +226,7 @@ def parseLatLong(text):
         ((float, float)): A (latitude, longitude) decimal degrees tuple.
 
     Raises:
-        ValueError: If the string cannot be parsed as a DMS lat/long pair.
+        s_exc.BadTypeValu: If the string cannot be parsed as a DMS lat/long pair.
     '''
     text = text.strip()
 
@@ -249,7 +248,7 @@ def parseLatLong(text):
                     lat = parseDMS(text[:i + 1].strip())
                     lon = parseDMS(rest)
                     return lat, lon
-                except ValueError:
+                except s_exc.BadTypeValu:
                     continue
 
-    raise ValueError(f'Unable to parse DMS lat/long pair: {text!r}')
+    raise s_exc.BadTypeValu(mesg=f'Unable to parse DMS lat/long pair: {text!r}', text=text)
