@@ -92,6 +92,11 @@ class DnsName(s_types.Str):
 modeldefs = (
     {
 
+        'interfaces': (
+            ('inet:dns:record', {
+                'doc': 'An interface for DNS records.'}),
+        ),
+
         'types': (
 
             ('inet:dns:name', (None, {'ctor': 'synapse.models.dns.DnsName'}), {
@@ -99,62 +104,75 @@ modeldefs = (
                 'doc': 'A DNS query name string. Likely an FQDN but not always.'}),
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
+                'template': {'title': 'DNS A record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS A record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(vertex.link,1.2.3.4)',
                 'doc': 'The result of a DNS A record lookup.'}),
 
             ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv6'))}), {
+                'template': {'title': 'DNS AAAA record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS AAAA record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
                 'doc': 'The result of a DNS AAAA record lookup.'}),
 
             ('inet:dns:rev', ('comp', {'fields': (('ip', 'inet:ip'), ('fqdn', 'inet:fqdn'))}), {
+                'template': {'title': 'Reverse DNS record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'Reverse DNS record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(1.2.3.4,vertex.link)',
                 'doc': 'The transformed result of a DNS PTR record lookup.'}),
 
             ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
+                'template': {'title': 'DNS NS record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS NS record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(vertex.link,ns.dnshost.com)',
                 'doc': 'The result of a DNS NS record lookup.'}),
 
             ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
+                'template': {'title': 'DNS CNAME record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS CNAME record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(foo.vertex.link,vertex.link)',
                 'doc': 'The result of a DNS CNAME record lookup.'}),
 
             ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
+                'template': {'title': 'DNS MX record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS MX record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(vertex.link,mail.vertex.link)',
                 'doc': 'The result of a DNS MX record lookup.'}),
 
             ('inet:dns:soa', ('guid', {}), {
+                'template': {'title': 'DNS SOA record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS SOA record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'doc': 'The result of a DNS SOA record lookup.'}),
 
             ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
+                'template': {'title': 'DNS TXT record'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'DNS TXT record'}}),
+                    ('meta:observable', {}),
+                    ('inet:dns:record', {}),
                 ),
                 'ex': '(hehe.vertex.link,"fancy TXT record")',
                 'doc': 'The result of a DNS TXT record lookup.'}),
-
-            ('inet:dns:type', ('int', {}), {
-                'doc': 'A DNS query/answer type integer.'}),
 
             ('inet:dns:query',
                 ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
@@ -168,10 +186,56 @@ modeldefs = (
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
+                'props': (
+
+                    ('query:name', ('inet:dns:name', {}), {
+                        'doc': 'The DNS query name string in the request.'}),
+
+                    ('query:type', ('int', {}), {
+                        'doc': 'The type of record requested in the query.'}),
+
+                    ('response', ('inet:dns:response', {}), {
+                        'doc': 'The response sent by the DNS server.'}),
+                ),
+                'doc': 'A DNS protocol request.'}),
+
+            ('inet:dns:response', {
+                'interfaces': (
+                    ('inet:proto:response', {}),
+                ),
+                'props': (
+
+                    ('code', ('dns:reply:code', {}), {
+                        'doc': 'The DNS server reply code.'}),
+
+                    ('answers', ('inet:dns:answers', {}), {
+                        'doc': 'The DNS answers included in the response.'}),
+                ),
+                'doc': 'A DNS protocol response.'}),
 
             ('inet:dns:answer', ('guid', {}), {
+                'props': (
+
+                    ('ttl', ('int', {}), {
+                        'doc': 'The time to live value of the DNS record in the response.'}),
+
+                    ('record', ('inet:dns:record', {}), {
+                        'doc': 'The DNS record contained in the answer.'}),
+                ),
                 'doc': 'A single answer from within a DNS reply.'}),
+
+            ('inet:dns:mx:answer', ('inet:dns:answer', {}), {
+                'props': (
+                    ('record', ('inet:dns:mx', {}), {
+                        'doc': 'The MX record in the answer.'}),
+
+                    ('priority', ('int', {}), {
+                        'doc': 'The DNS MX record priority.'}),
+                ),
+                'doc': 'A single MX answer from within a DNS reply.'}),
+
+            ('inet:dns:answers', ('array', {'type': 'inet:dns:answer'}), {
+                'doc': 'An array of DNS answers.'}),
 
             ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
                 'interfaces': (
@@ -257,6 +321,7 @@ modeldefs = (
             )),
 
             ('inet:dns:query', {}, (
+
                 ('client', ('inet:client', {}), {
                     'computed': True,
                     'doc': 'The client that performed the DNS query.'}),
@@ -265,68 +330,9 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The DNS query name string.'}),
 
-                ('name:ip', ('inet:ip', {}), {
-                    'computed': True,
-                    'doc': 'The IP address in the DNS query name string.',
-                    'prevnames': ('name:ipv4', 'name:ipv6')}),
-
-                ('name:fqdn', ('inet:fqdn', {}), {
-                    'computed': True,
-                    'doc': 'The FQDN in the DNS query name string.'}),
-
                 ('type', ('int', {}), {
                     'computed': True,
                     'doc': 'The type of record that was queried.'}),
-            )),
-
-            ('inet:dns:request', {}, (
-
-                ('query', ('inet:dns:query', {}), {
-                    'doc': 'The DNS query contained in the request.'}),
-
-                ('query:name', ('inet:dns:name', {}), {
-                    'doc': 'The DNS query name string in the request.'}),
-
-                ('query:name:ip', ('inet:ip', {}), {
-                    'doc': 'The IP address in the DNS query name string.',
-                    'prevnames': ('query:name:ipv4', 'query:name:ipv6')}),
-
-                ('query:name:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN in the DNS query name string.'}),
-
-                ('query:type', ('int', {}), {
-                    'doc': 'The type of record requested in the query.'}),
-
-                ('reply:code', ('dns:reply:code', {}), {
-                    'doc': 'The DNS server response code.'}),
-            )),
-
-            ('inet:dns:answer', {}, (
-
-                ('ttl', ('int', {}), {
-                    'doc': 'The time to live value of the DNS record in the response.'}),
-
-                ('request', ('inet:dns:request', {}), {
-                    'doc': 'The DNS request that was answered.'}),
-
-                ('record', (
-                        ('inet:dns:a', {}),
-                        ('inet:dns:aaaa', {}),
-                        ('inet:dns:cname', {}),
-                        ('inet:dns:mx', {}),
-                        ('inet:dns:ns', {}),
-                        ('inet:dns:rev', {}),
-                        ('inet:dns:soa', {}),
-                        ('inet:dns:txt', {}),
-                    ), {
-                    'doc': 'The DNS record returned by the lookup.',
-                    'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
-
-                ('mx:priority', ('int', {}), {
-                    'doc': 'The DNS MX record priority.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the DNS response was transmitted.'}),
             )),
 
             ('inet:dns:wild:a', {}, (

@@ -1918,7 +1918,21 @@ modeldefs = (
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The network flow which contained the {title}.'}),
                 ),
-                'doc': 'Properties common to network protocol requests and responses.'}),
+                'doc': 'Properties common to network protocol requests.'}),
+
+            ('inet:proto:response', {
+
+                'template': {'title': 'response'},
+                'interfaces': (
+                    ('base:event', {}),
+                    ('inet:proto:link', {}),
+                ),
+                'props': (
+
+                    ('flow', ('inet:flow', {}), {
+                        'doc': 'The network flow which contained the {title}.'}),
+                ),
+                'doc': 'Properties common to network protocol responses.'}),
 
             ('inet:service:base', {
                 'doc': 'Properties common to most forms within a service platform.',
