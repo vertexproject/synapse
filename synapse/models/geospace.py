@@ -369,12 +369,7 @@ class LatLong(s_types.Type):
             except ValueError:
                 pass
 
-        try:
-            latv, lonv = s_gis.parseLatLong(valu)
-        except ValueError:
-            trim = s_common.trimText(repr(valu))
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=f'Valu is not a valid lat,lon or DMS string: {trim}') from None
+        latv, lonv = s_gis.parseLatLong(valu)
 
         return await self._normPyTuple((latv, lonv))
 
