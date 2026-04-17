@@ -18,6 +18,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.slabseqn as s_slabseqn
@@ -2225,7 +2226,7 @@ class Slab(s_base.Base):
             }
 
             mesg = f'Commit with {xactopslen} items in {self!r} took {delta} microseconds - performance may be degraded.'
-            logger.warning(mesg, extra={'synapse': extra})
+            logger.warning(mesg, extra=s_logging.getLogExtra(**extra))
 
         self._initCoXact()
         return True

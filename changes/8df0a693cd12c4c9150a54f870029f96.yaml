@@ -1,0 +1,7 @@
+---
+desc: Updated the ``layer.read`` and ``layer.write`` perms to always be checked on the Layer
+  gate.
+desc:literal: false
+prs: []
+type: feat
+...

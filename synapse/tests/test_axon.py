@@ -1267,6 +1267,6 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             with mock.patch.object(axon, 'getCellInfo', oldCellInfo):
                 url = axon.getLocalUrl()
 
-                with self.getAsyncLoggerStream('synapse.cortex', 'running Synapse (2, 0, 0)') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(conf={'axon': url}) as core:
-                        self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                        await stream.expect('running Synapse (2, 0, 0)', timeout=12)
