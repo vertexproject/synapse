@@ -46,7 +46,7 @@ async def unixconnect(path):
 
 async def unixwait(path):
     '''
-    Wait for a unit socker path to be open and listening.
+    Wait for a unix socket path to be open and listening.
 
     Args:
         path: Path to the socket.
