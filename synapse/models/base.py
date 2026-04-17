@@ -134,6 +134,11 @@ modeldefs = (
                 'doc': 'A base type for case insensitive names.'}),
 
             ('event:name', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'doc': 'A name used to refer to a specific event or activity.'}),
 
             ('meta:topic', ('base:name', {}), {

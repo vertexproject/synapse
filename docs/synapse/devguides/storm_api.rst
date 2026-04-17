@@ -510,27 +510,20 @@ Example:
 mode
 ----
 
-This is the mode that a Storm query is parsed in. This value can be specified to ``lookup``, ``autoadd``, and
-``search`` modes to get different behaviors.
+This is the mode that a Storm query is parsed in. Specifying ``lookup`` mode enables unified text
+input that combines scraping, lifting, and datamodel hint-based lookups.
 
 Example:
 
     .. code:: python3
 
-        # Using lookup mode, the query text, before switching to command mode with a | character,
-        # will have its text scrapped for simple values such as FQDNs, IP Addresses, and Hashes
-        # and attempt to lift any matching nodes.
+        # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
+        # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
+        # any matching nodes. A look:miss message is fired for any scraped value that is not found
+        # in the current View. Any text that remains after scraping is matched against forms and
+        # properties that define lookup mode hints in the data model (via the modes.lookup info key),
+        # using the comparator specified by each hint (e.g. ^= for prefix matching).
         opts = {'mode': 'lookup'}
-
-        # Using autoadds mode, the query text is scrapped like in lookup mode; and for any
-        # values which we try to lift that do not produce nodes, those nodes will be added
-        # in the current view.
-        opts = {'mode': 'autoadd'}
-
-        # Using search mode, the query will be run through the Storm search interface.
-        # This will lift nodes based on searching, which is enabled by the
-        # Synapse-Search Advanced Power-up.
-        opts = {'mode': 'search'}
 
 ndefs
 -----

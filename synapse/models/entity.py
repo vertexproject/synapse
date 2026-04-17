@@ -212,6 +212,11 @@ modeldefs = (
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'doc': 'A name used to refer to an entity.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
