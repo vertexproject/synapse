@@ -557,6 +557,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :version=V1.0.1-beta+exp.sha.5114f85
                     :released="2018-04-03 08:44:22"
                     :risk:score=highest
+                    :seen=(20180101, 20190101)
                     +(runson)> {[ it:software=({"name": "linux"}) ]}
                     +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
             ]''')
@@ -569,6 +570,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'released', 1522745062000000)
             self.propeq(node, 'version', 'V1.0.1-beta+exp.sha.5114f85')
             self.propeq(node, 'risk:score', 50)
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
             self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
@@ -738,10 +740,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :released=20220202
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
+                    :seen=20220101
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
-            self.propeq(nodes[0], 'model', 'xps13')
+            self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
+            self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'version.semver', 1099513724931)
             self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')
             self.propeq(nodes[0], 'released', 1643760000000000)
@@ -1964,34 +1968,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('G0100', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=G0100'))
 
             nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
             self.len(1, nodes)
             self.eq('TA0040', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=TA0040'))
 
             nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
             self.len(1, nodes)
             self.eq('T1548.123', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=T1548.123'))
 
             nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
             self.len(1, nodes)
             self.eq('M1036', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=M1036'))
 
             nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
             self.len(1, nodes)
             self.eq('S0154', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=S0154'))
 
             nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
             self.len(1, nodes)
             self.eq('C0028', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=C0028'))

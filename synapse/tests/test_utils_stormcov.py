@@ -73,7 +73,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             stormcov.findStormFiles(stormdir)
 
         badstorm = s_files.getAssetPath('stormcov/badstorm.storm')
-        stream.expect(f'Skipping invalid storm file: {badstorm}')
+        await stream.expect(f'Skipping invalid storm file: {badstorm}', timeout=1)
 
         self.sorteq(list(stormcov.guid_map.values()), stormfiles)
         stormcov.reset()
@@ -118,10 +118,10 @@ class TestUtilsStormcov(s_utils.SynTest):
         embdexp = map(splitpair, embdpairs)
 
         for last, first in embdexp:
-            stream.expect(f'Duplicate embedquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}')
+            await stream.expect(f'Duplicate embedquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}', timeout=1)
 
         for last, first in argvexp:
-            stream.expect(f'Duplicate argvquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}')
+            await stream.expect(f'Duplicate argvquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}', timeout=1)
 
     async def test_stormcov_coverage(self):
         basedir = pathlib.Path(s_files.ASSETS)

@@ -179,7 +179,7 @@ modeldefs = (
                     ('meta:havable', {}),
                 ),
                 'props': (
-                    ('model', ('base:name', {}), {
+                    ('model', ('biz:model', {}), {
                         'doc': 'The TAC model name.'}),
                 ),
                 'ex': '49015420',

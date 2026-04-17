@@ -163,13 +163,13 @@ class Type:
     def getStorType(self, valu):
         return self.stortype
 
-    async def getStorCmprs(self, cmpr, valu, virts=None):
+    async def getStorCmprs(self, cmpr, valu, virt=None):
 
         lifts = self.storlifts
 
-        if virts:
-            if (lifts := self.virtlifts.get(virts[0])) is None:
-                return await self.getVirtType(virts).getStorCmprs(cmpr, valu)
+        if virt is not None:
+            if (lifts := self.virtlifts.get(virt)) is None:
+                return await self.getVirtType(virt).getStorCmprs(cmpr, valu)
 
         func = lifts.get(cmpr)
         if func is None:
@@ -178,46 +178,30 @@ class Type:
 
         return await func(cmpr, valu)
 
-    def getVirtIndx(self, virts):
-        name = virts[0]
-        if len(virts) > 1:
-            if (virt := self.virts.get(name)) is None:
-                raise s_exc.NoSuchVirt.init(name, self)
-            return virt[0].getVirtIndx(virts[1:])
-
-        indx = self.virtindx.get(name, s_common.novalu)
+    def getVirtIndx(self, virt):
+        indx = self.virtindx.get(virt, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchVirt.init(name, self)
+            raise s_exc.NoSuchVirt.init(virt, self)
 
         return indx
 
-    def getVirtType(self, virts):
-        name = virts[0]
-        if (virt := self.virts.get(name)) is None:
-            raise s_exc.NoSuchVirt.init(name, self)
+    def getVirtType(self, virt):
+        if (info := self.virts.get(virt)) is None:
+            raise s_exc.NoSuchVirt.init(virt, self)
 
-        if len(virts) > 1:
-            return virt[0].getVirtType(virts[1:])
-        return virt[0]
+        return info[0]
 
-    def getVirtGetr(self, virts):
-        name = virts[0]
-        if (virt := self.virts.get(name)) is None:
-            raise s_exc.NoSuchVirt.init(name, self)
+    def getVirtGetr(self, virt):
+        if (info := self.virts.get(virt)) is None:
+            raise s_exc.NoSuchVirt.init(virt, self)
 
-        if len(virts) > 1:
-            return (virt[1],) + virt[0].getVirtGetr(virts[1:])
-        return (virt[1],)
+        return info[1]
 
-    def getVirtInfo(self, virts):
-        name = virts[0]
-        if (virt := self.virts.get(name)) is None:
-            raise s_exc.NoSuchVirt.init(name, self)
+    def getVirtInfo(self, virt):
+        if (info := self.virts.get(virt)) is None:
+            raise s_exc.NoSuchVirt.init(virt, self)
 
-        if len(virts) > 1:
-            vinfo = virt[0].getVirtInfo(virts[1:])
-            return vinfo[0], (virt[1],) + vinfo[1]
-        return virt[0], (virt[1],)
+        return info[0], info[1]
 
     async def normVirt(self, name, valu, newvirt, oldvirts=None):
         func = self.virtstor.get(name, s_common.novalu)
@@ -1723,9 +1707,9 @@ class Ival(Type):
         for oper in ('=', '<', '>', '<=', '>='):
             self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
-    async def getStorCmprs(self, cmpr, valu, virts=None):
-        if virts:
-            cmpr = f'{virts[0]}{cmpr}'
+    async def getStorCmprs(self, cmpr, valu, virt=None):
+        if virt is not None:
+            cmpr = f'{virt}{cmpr}'
 
         func = self.storlifts.get(cmpr)
         if func is None:
@@ -1942,11 +1926,10 @@ class Ival(Type):
         prec = (await self.prectype.norm(newprec))[0]
         return await self._normPyIter(valu, prec=prec)
 
-    def getTagVirtIndx(self, virts):
-        name = virts[0]
-        indx = self.tagvirtindx.get(name, s_common.novalu)
+    def getTagVirtIndx(self, virt):
+        indx = self.tagvirtindx.get(virt, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchVirt.init(name, self)
+            raise s_exc.NoSuchVirt.init(virt, self)
 
         return indx
 
@@ -2156,7 +2139,7 @@ class Poly(Type):
     def typefilter(self, tobj):
         if not self.typeset:
             return False
-        return any(t in self.typeset for t in tobj.types)
+        return tobj.name in self.typeset
 
     def ifacefilter(self, form):
         if not self.ifaces:
@@ -2233,56 +2216,44 @@ class Poly(Type):
         mesg = f'No editable virtual prop named {name} on type {self.name}.'
         raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
 
-    def getVirtIndx(self, virts):
-        name = virts[0]
-
-        if len(virts) > 1:
-            if (virt := self.virts.get(name)) is None:
-                raise s_exc.NoSuchVirt.init(name, self)
-            return virt[0].getVirtIndx(virts[1:])
-
+    def getVirtIndx(self, virt):
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
-            if (indx := ntyp.virtindx.get(name, s_common.novalu)) is not s_common.novalu:
+            if (indx := ntyp.virtindx.get(virt, s_common.novalu)) is not s_common.novalu:
                 return indx
         else:
-            mesg = f'Virtual prop {name} is not valid for any types supported by {self.name}.'
-            raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
+            mesg = f'Virtual prop {virt} is not valid for any types supported by {self.name}.'
+            raise s_exc.NoSuchVirt.init(virt, self, mesg=mesg)
 
-    def getVirtType(self, vnames):
-        name = vnames[0]
-        if (virt := self.virts.get(name)) is not None:
-            return virt[0]
-
-        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
-            if name in ntyp.virts:
-                virt = ntyp.virts[name]
-                return virt[0]
-
-        raise s_exc.NoSuchVirt.init(name, self)
-
-    def getVirtGetr(self, vnames):
-        name = vnames[0]
-        if (virt := self.virts.get(name)) is not None:
-            return (virt[1],)
+    def getVirtType(self, virt):
+        if (info := self.virts.get(virt)) is not None:
+            return info[0]
 
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
-            if name in ntyp.virts:
-                virt = ntyp.virts[name]
-                return (virt[1],)
+            if virt in ntyp.virts:
+                return ntyp.virts[virt][0]
 
-        raise s_exc.NoSuchVirt.init(name, self)
+        raise s_exc.NoSuchVirt.init(virt, self)
 
-    def getVirtInfo(self, vnames):
-        name = vnames[0]
-        if (virt := self.virts.get(name)) is not None:
-            return virt[0], (virt[1],)
+    def getVirtGetr(self, virt):
+        if (info := self.virts.get(virt)) is not None:
+            return info[1]
 
         for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
-            if name in ntyp.virts:
-                virt = ntyp.virts[name]
-                return virt[0], (virt[1],)
+            if virt in ntyp.virts:
+                return ntyp.virts[virt][1]
 
-        raise s_exc.NoSuchVirt.init(name, self)
+        raise s_exc.NoSuchVirt.init(virt, self)
+
+    def getVirtInfo(self, virt):
+        if (info := self.virts.get(virt)) is not None:
+            return info[0], info[1]
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if virt in ntyp.virts:
+                info = ntyp.virts[virt]
+                return info[0], info[1]
+
+        raise s_exc.NoSuchVirt.init(virt, self)
 
     def _raiseBadTypeValu(self, valu):
         mesg = f'Value of type {valu} is not allowed for {self.name}'
@@ -2299,7 +2270,7 @@ class Poly(Type):
         valu = valu.lower().strip()
 
         if (tobj := self.modl.type(valu)) is None or not self.typefilter(tobj):
-            if (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
+            if (form := self.modl.form(valu)) is None or not self.formfilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2314,16 +2285,16 @@ class Poly(Type):
         tobj = self.modl.reqType(valu[0])
         return s_layer.STOR_FLAG_POLY | tobj.stortype
 
-    async def getStorCmprs(self, cmpr, valu, virts=None):
+    async def getStorCmprs(self, cmpr, valu, virt=None):
 
-        if virts is not None:
-            if (vlifts := self.virtlifts.get(virts[0])) is not None:
+        if virt is not None:
+            if (vlifts := self.virtlifts.get(virt)) is not None:
                 if (func := vlifts.get(cmpr)) is not None:
                     return await func(cmpr, valu)
 
         if isinstance(valu, s_node.Node):
             if cmpr == '=':
-                if self.typefilter(valu.form.type) or self.ifacefilter(valu.form):
+                if self.formfilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2335,7 +2306,7 @@ class Poly(Type):
                 if self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
+                elif (form := self.modl.form(typename)) is not None and self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2356,7 +2327,7 @@ class Poly(Type):
 
         for ntyp in typeset:
             try:
-                for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virts=virts):
+                for ncmpr in await ntyp.getStorCmprs(cmpr, valu, virt=virt):
                     cmprs[ncmpr] = True
                 isvalid = True
             except s_exc.NoSuchVirt:
@@ -2371,8 +2342,8 @@ class Poly(Type):
                 mesg = f'Value {s_common.trimText(repr(valu))} is not valid for any types supported by {self.name}.'
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, cmpr=cmpr, mesg=mesg)
             elif novirts:
-                mesg = f'Virtual prop {virts[0]} is not valid for any types supported by {self.name}.'
-                raise s_exc.NoSuchVirt.init(virts[0], self, mesg=mesg)
+                mesg = f'Virtual prop {virt} is not valid for any types supported by {self.name}.'
+                raise s_exc.NoSuchVirt.init(virt, self, mesg=mesg)
             else:
                 mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
                 raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
@@ -2436,7 +2407,7 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if not self.typefilter(valu.form.type) and not self.ifacefilter(valu.form):
+        if not self.formfilter(valu.form):
             self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
@@ -2451,7 +2422,7 @@ class Poly(Type):
         tobj = self.modl.type(typename)
         form = self.modl.form(typename)
 
-        if not self.typefilter(tobj) and (form is None or not self.ifacefilter(form)):
+        if not self.typefilter(tobj) and (form is None or not self.formfilter(form)):
             self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
@@ -2514,6 +2485,7 @@ class Data(Type):
 
     async def norm(self, valu, view=None):
         try:
+            valu = await s_stormtypes.toprim(valu)
             s_json.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)

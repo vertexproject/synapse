@@ -803,6 +803,21 @@ class LayerTest(s_t_utils.SynTest):
                 sode = layer0.getStorNode(s_common.int64en(nid))
                 self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
 
+            user = await core0.auth.addUser('lowuser')
+            url = core0.getLocalUrl(user='lowuser', share='*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEdits(nodeedits)
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEditsNoLift(nodeedits)
+
+                await user.addRule((True, ('layer', 'write')), gateiden=layer0.iden)
+
+                await layrprox.storNodeEdits(nodeedits)
+                await layrprox.storNodeEditsNoLift(nodeedits)
+
     async def test_layer_tombstone(self):
 
         async with self.getTestCore() as core:
@@ -2417,7 +2432,7 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:str=serv :poly={[ inet:server=1.2.3.4:80 ]} ]')
 
-            indxby = s_layer.IndxByPolyVirt(layr, 'test:str', 'poly', ['port'], s_layer.STOR_TYPE_I64)
+            indxby = s_layer.IndxByPolyVirt(layr, 'test:str', 'poly', 'port', s_layer.STOR_TYPE_I64)
             self.eq(str(indxby), 'IndxByPolyVirt: test:str:poly.port')
 
     async def test_layer_virt_indexes(self):
@@ -2570,6 +2585,17 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
             self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
+            # repr with poly prop virt where prop is not set returns None
+            nodes = await core.nodes('[ test:guid=* ]')
+            self.none(nodes[0].repr('server.ip'))
+
+            # getWithLayer with getr
+            nodes = await core.nodes('inet:http:request:server.ip=127.0.0.4')
+            prop = core.model.prop('inet:http:request:server')
+            getr = prop.type.getVirtGetr('ip')
+            valu, layr = nodes[0].getWithLayer('server', getr=getr)
+            self.nn(valu)
+
             await core.nodes('inet:http:request:server.ip | [ -:server ]')
             self.len(0, await core.nodes('inet:http:request:server.ip'))
 
@@ -2592,7 +2618,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:server.ip=127.0.0.4'))
 
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
-            self.none(node.valu(virts='foo'))
+            self.none(node.valu(getr='foo'))
             self.none(node.valuvirts())
 
             await core.nodes('[ inet:server=tcp://127.0.0.4:12344 +(refs)> { inet:server=tcp://127.0.0.4:12344 }]', opts=viewopts2)
@@ -2604,21 +2630,21 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:str=foo | delnode')
 
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
-            self.none(node.valu(virts='foo'))
+            self.none(node.valu(getr='foo'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('inet:server +.ip*newp=newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.newp.ip')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.ip.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.newp.ip=127.0.0.1')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server +.ip.newp=127.0.0.1')
 
             await core.nodes('inet:server.ip | delnode')
@@ -2648,7 +2674,7 @@ class LayerTest(s_t_utils.SynTest):
             # with self.raises(s_exc.NoSuchVirt):
             #    await core.nodes('test:guid +test:guid:server.newp*newp=newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:guid +.created.newp*newp=newp')
 
             with self.raises(s_exc.NoSuchProp):
@@ -2677,14 +2703,24 @@ class LayerTest(s_t_utils.SynTest):
 
             self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
 
+            # getVirtIndx with invalid virt name
+            ival = core.model.type('ival')
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtIndx('newp')
+
+            # RuntNode.valu with getr
+            nodes = await core.nodes('syn:form=inet:server')
+            runtnode = nodes[0]
+            self.eq(runtnode.valu(getr=lambda x: x[0]), 'inet:server')
+
             layr = core.getLayer()
-            indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', 'ip')
             self.eq(str(indxby), 'IndxByVirt: inet:http:request:server.ip')
 
-            indxby = s_layer.IndxByVirt(layr, 'test:guid', 'server', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'test:guid', 'server', 'ip')
             self.eq(str(indxby), 'IndxByVirt: test:guid:server.ip')
 
-            indxby = s_layer.IndxByVirt(layr, 'test:virtiface', 'servers', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'test:virtiface', 'servers', 'ip')
             self.eq(str(indxby), 'IndxByVirt: test:virtiface:servers.ip')
 
             indxby = s_layer.IndxByProp(layr, 'test:guid', 'server')

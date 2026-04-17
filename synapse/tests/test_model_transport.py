@@ -85,14 +85,13 @@ class TransportTest(s_test.SynTest):
             self.propeq(vessel, 'name', 'slice of life')
             self.propeq(vessel, 'callsign', 'V123')
             self.propeq(vessel, 'type', 'cargo.tanker.oil.')
-            self.propeq(vessel, 'model', 'speed boat 9000')
+            self.propeq(vessel, 'model', 'Speed Boat 9000')
             self.propeq(vessel, 'flag', 'us')
             self.propeq(vessel, 'imo', 'imo1234567')
             self.propeq(vessel, 'created', 1577836800000000)
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
-            self.len(1, await core.nodes('transport:sea:vessel :name -> meta:name'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[
@@ -288,7 +287,7 @@ class TransportTest(s_test.SynTest):
             self.propeq(nodes[0], 'type', 'engine.diesel.')
             self.propeq(nodes[0], 'created', 1670803200000000)
             self.propeq(nodes[0], 'creator:name', 'acme')
-            self.propeq(nodes[0], 'model', 'engine that could')
+            self.propeq(nodes[0], 'model', 'Engine That Could')
             self.propeq(nodes[0], 'max:occupants', 2)
             self.propeq(nodes[0], 'max:cargo:mass', '1000000')
             self.propeq(nodes[0], 'max:cargo:volume', 1000000)

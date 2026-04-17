@@ -129,19 +129,9 @@ modeldefs = (
             ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
-            ('meta:id', ('base:id', {}), {
-                'interfaces': (('entity:identifier', {}), ),
-                'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
                 'doc': 'A base type for case insensitive names.'}),
-
-            ('meta:name', ('base:name', {}), {
-                'prevnames': ('ou:name', 'ou:industryname',
-                              'ou:campname', 'ou:goalname', 'lang:name',
-                              'risk:vulnname', 'meta:name', 'entity:name',
-                              'geo:name'),
-                'doc': 'A name used to refer to an entity or event.'}),
 
             ('event:name', ('base:name', {}), {
                 'doc': 'A name used to refer to a specific event or activity.'}),
@@ -414,21 +404,21 @@ modeldefs = (
                 },
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL for the {title}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('base:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'base:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -523,6 +513,9 @@ modeldefs = (
 
             ('meta:usable', {
                 'template': {'title': 'item'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
             ('meta:matchish', {
@@ -636,9 +629,6 @@ modeldefs = (
             (('meta:rule', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
 
-            (('meta:rule', 'detects', 'meta:usable'), {
-                'doc': 'The rule is designed to detect the target node.'}),
-
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
@@ -665,8 +655,7 @@ modeldefs = (
         ),
         'forms': (
 
-            ('meta:id', {}, ()),
-            ('meta:name', {}, ()),
+
             ('meta:topic', {}, (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the topic.'}),
@@ -675,7 +664,7 @@ modeldefs = (
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'A human friendly name for the source.'}),
 
                 ('type', ('meta:source:type:taxonomy', {}), {
@@ -696,10 +685,10 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An identifier for the feed.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'A name for the feed.'}),
 
                 ('type', ('meta:feed:type:taxonomy', {}), {

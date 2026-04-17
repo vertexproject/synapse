@@ -36,17 +36,17 @@ class GeoPolModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('pol:country [ :code=137 ]')
             self.propeq(nodes[0], 'code', '137', form='iso:3166:numeric3')
 
-            # test poly code with meta:id
+            # test poly code with base:id
             nodes = await core.nodes('pol:country [ :code=" MYID001" ]')
-            self.propeq(nodes[0], 'code', 'MYID001', form='meta:id')
+            self.propeq(nodes[0], 'code', 'MYID001', form='base:id')
 
             # test codes array with mixed types
             nodes = await core.nodes('pol:country [ :codes=(vi, vis, 137, " MYID001") ]')
             self.eq(nodes[0].get('codes'), (
+                ('base:id', 'MYID001'),
                 ('iso:3166:alpha2', 'vi'),
                 ('iso:3166:alpha3', 'vis'),
                 ('iso:3166:numeric3', '137'),
-                ('meta:id', 'MYID001'),
             ))
             self.len(1, await core.nodes('pol:country:codes*[=vi]'))
             self.len(1, await core.nodes('pol:country:codes*[=vis]'))
@@ -139,12 +139,14 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :race={pol:race}
                     :actor={[entity:contact=* :name=whippit]}
                     :winner=$lib.true
+                    :votes=42000
                     :campaign={[entity:campaign=* :name=whippit4prez ]}
                     :party={[ou:org=* :name=vertex]}
                 ]
             ''')
             self.propeq(nodes[0], 'winner', 1)
             self.propeq(nodes[0], 'id', 'P00009423')
+            self.propeq(nodes[0], 'votes', 42000)
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:candidate :actor -> entity:contact +:name=whippit'))
