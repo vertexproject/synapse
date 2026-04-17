@@ -146,7 +146,8 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
                     'ex': ex_md5
                 }),
-                ('hash:ssdeep', ('ssdeep', {}), {
+                ('hash:ssdeep', ('str', {'strip': True,
+                                         'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{0,64}:[A-Za-z0-9+/]{0,32}$'}), {
                     'doc': 'A fuzzy hash of a file in ssdeep format.',
                     'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
                 }),

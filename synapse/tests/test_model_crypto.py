@@ -419,16 +419,38 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             t = core.model.type('hash:ssdeep')
 
-            h = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
-            valu, subs = t.norm(h)
-            self.eq(valu, h)
-            self.eq(subs, {})
+            # Valid hashes norm cleanly; leading/trailing whitespace is stripped
+            testvectors = [
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs'),
+                ('24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK',
+                 '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'),
+                ('3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS',
+                 '3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS'),
+                ('  98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL  ',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+            ]
 
-            with self.raises(s_exc.BadTypeValu):
-                t.norm('notanssdeep')
+            for valu, expected in testvectors:
+                norm, subs = t.norm(valu)
+                self.eq(norm, expected, f'{valu=}')
 
-            with self.raises(s_exc.BadTypeValu):
-                t.norm('0:hash1:hash2')
+            # Invalid hashes raise BadTypeValu
+            badvectors = [
+                'notanssdeep',
+                'abc:hash1:hash2',
+                '98304:hash1',
+                '0:PYZd:iglL',
+                '2:PYZd:iglL',
+                '98304:PYZd!VAlXLL:iglL',
+                '98304:' + 'A' * 65 + ':iglL',
+                '98304:iglL:' + 'A' * 33,
+            ]
+
+            for valu in badvectors:
+                self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_forms_crypto_simple(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

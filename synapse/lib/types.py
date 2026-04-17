@@ -793,30 +793,6 @@ class Hex(Type):
     def _normPyBytes(self, valu):
         return self._normPyStr(s_common.ehex(valu))
 
-SSDEEP_RE = regex.compile(r'^(\d+):([A-Za-z0-9+/]{0,64}):([A-Za-z0-9+/]{0,32})$')
-
-class SsDeep(Type):
-    '''
-    A fuzzy hash in ssdeep format (<blocksize>:<hash1>:<hash2>).
-    '''
-
-    stortype = s_layer.STOR_TYPE_UTF8
-
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-
-    def _normPyStr(self, valu):
-        valu = valu.strip()
-        m = SSDEEP_RE.match(valu)
-        if m is None:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Expected ssdeep format: <blocksize>:<hash1>:<hash2>')
-        blocksize = int(m.group(1))
-        if blocksize < 3:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='ssdeep blocksize must be >= 3')
-        return valu, {}
-
 intstors = {
     (1, True): s_layer.STOR_TYPE_I8,
     (2, True): s_layer.STOR_TYPE_I16,
