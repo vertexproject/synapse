@@ -199,7 +199,7 @@ modeldefs = (
                 ),
                 'doc': 'A DNS protocol request.'}),
 
-            ('inet:dns:response', {
+            ('inet:dns:response', ('guid', {}), {
                 'interfaces': (
                     ('inet:proto:response', {}),
                 ),
