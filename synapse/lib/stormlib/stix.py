@@ -49,16 +49,16 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'description': '+:desc return(:desc)',
-                        'objective': '-(had)> entity:goal +:name return(:name)',
+                        'objective': ':actor -> entity:motive:actor :goal -> entity:goal +:name return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
                     },
                     'rels': (
                         ('attributed-to', 'threat-actor', ':actor -> ou:org'),
                         ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack -(targeted)> ou:org'),
-                        ('targets', 'identity', '-> risk:attack -(targeted)> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack:activity -(used)> risk:vuln'),
                     ),
                 },
             },
@@ -96,8 +96,8 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', '-> geo:place'),
-                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targeted)> ou:org'),
-                        ('targets', 'vulnerability', '-> entity:campaign -> risk:attack -(used)> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack:activity -(targeted)> ou:org'),
+                        ('targets', 'vulnerability', '-> risk:attack:activity -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -686,10 +686,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(entity:name, $object.name)
                 if $ok {
 
-                    meta:name=$name -> ou:org
+                    entity:name=$name -> ou:org
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 
@@ -711,7 +711,7 @@ stixingest = {
         },
         'tool': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
@@ -752,7 +752,7 @@ stixingest = {
         },
         'malware': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
@@ -1171,8 +1171,8 @@ class LibStixExport(s_stormtypes.Lib):
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
                                         ("originates-from", "location", ":org -> ou:org -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack -(targeted)> ou:org"),
-                                        ("targets", "identity", "-> risk:attack -(targeted)> ps:person"),
+                                        ("targets", "identity", "-> risk:attack:activity -(targeted)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack:activity -(targeted)> ps:person"),
                                     ),
                                 },
                             },

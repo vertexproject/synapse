@@ -7,9 +7,121 @@ scoreenums = (
     (50, 'highest'),
 )
 
+taskstatusenums = (
+    (0, 'new'),
+    (10, 'in validation'),
+    (20, 'in backlog'),
+    (30, 'in sprint'),
+    (40, 'in progress'),
+    (50, 'in review'),
+    (60, 'completed'),
+    (70, 'done'),
+    (80, 'blocked'),
+)
+
 modeldefs = (
-    ('base', {
+    {
         'types': (
+
+            ('int', (None, {'ctor': 'synapse.lib.types.Int'}), {
+                'doc': 'The base 64 bit signed integer type.'}),
+
+            ('float', (None, {'ctor': 'synapse.lib.types.Float'}), {
+                'doc': 'The base floating point type.'}),
+
+            ('range', (None, {'ctor': 'synapse.lib.types.Range', 'type': ('int', {})}), {
+                'doc': 'A base range type.'}),
+
+            ('str', (None, {'ctor': 'synapse.lib.types.Str'}), {
+                'doc': 'The base string type.'}),
+
+            ('hex', (None, {'ctor': 'synapse.lib.types.Hex'}), {
+                'doc': 'The base hex type.'}),
+
+            ('bool', (None, {'ctor': 'synapse.lib.types.Bool'}), {
+                'doc': 'The base boolean type.'}),
+
+            ('timeprecision', (None, {'ctor': 'synapse.lib.types.TimePrecision'}), {
+                'doc': 'A time precision value.'}),
+
+            ('time', (None, {'ctor': 'synapse.lib.types.Time'}), {
+                'virts': (
+                    ('precision', ('timeprecision', {}), {
+                        'doc': 'The precision for display and rounding the time.'}),
+                ),
+                'doc': 'A date/time value.'}),
+
+            ('duration', (None, {'ctor': 'synapse.lib.types.Duration'}), {
+                'doc': 'A duration value.'}),
+
+            ('ival', (None, {'ctor': 'synapse.lib.types.Ival'}), {
+                'virts': (
+
+                    ('min', ('time', {}), {
+                        'doc': 'The starting time of the interval.'}),
+
+                    ('max', ('time', {}), {
+                        'doc': 'The ending time of the interval.'}),
+
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the interval.'}),
+
+                    ('precision', ('timeprecision', {}), {
+                        'doc': 'The precision for display and rounding the times.'}),
+                ),
+                'doc': 'A time window or interval.'}),
+
+            ('guid', (None, {'ctor': 'synapse.lib.types.Guid'}), {
+                'doc': 'The base GUID type.'}),
+
+            ('syn:tag:part', (None, {'ctor': 'synapse.lib.types.TagPart'}), {
+                'doc': 'A tag component string.'}),
+
+            ('syn:tag', (None, {'ctor': 'synapse.lib.types.Tag'}), {
+                'doc': 'The base type for a synapse tag.'}),
+
+            ('comp', (None, {'ctor': 'synapse.lib.types.Comp'}), {
+                'doc': 'The base type for compound node fields.'}),
+
+            ('loc', (None, {'ctor': 'synapse.lib.types.Loc'}), {
+                'doc': 'The base geopolitical location type.'}),
+
+            ('poly', (None, {'ctor': 'synapse.lib.types.Poly'}), {
+                'virts': (
+                    ('type', ('syn:type', {}), {
+                        'computed': True,
+                        'doc': 'The type of value which is referenced.'}),
+
+                    ('value', ('data', {}), {
+                        'computed': True,
+                        'display': {'hidden': True},
+                        'doc': 'The value which is referenced.'}),
+                ),
+                'doc': 'A prop which can be of one or more types.'}),
+
+            ('array', (None, {'ctor': 'synapse.lib.types.Array', 'type': 'int'}), {
+                'virts': (
+                    ('size', ('int', {}), {
+                        'computed': True,
+                        'doc': 'The number of elements in the array.'}),
+                ),
+                'doc': 'A typed array which indexes each field.'}),
+
+            ('data', (None, {'ctor': 'synapse.lib.types.Data'}), {
+                'doc': 'Arbitrary json compatible data.'}),
+
+            ('hugenum', (None, {'ctor': 'synapse.lib.types.HugeNum'}), {
+                'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
+                       'precision of 24 decimal digits.'}),
+
+            ('taxon', (None, {'ctor': 'synapse.lib.types.Taxon'}), {
+                'doc': 'A component of a hierarchical taxonomy.'}),
+
+            ('taxonomy', (None, {'ctor': 'synapse.lib.types.Taxonomy'}), {
+                'doc': 'A hierarchical taxonomy.'}),
+
+            ('velocity', (None, {'ctor': 'synapse.lib.types.Velocity'}), {
+                'doc': 'A velocity with base units in mm/sec.'}),
 
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
@@ -17,22 +129,9 @@ modeldefs = (
             ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
-            ('meta:id', ('base:id', {}), {
-                'interfaces': (('entity:identifier', {}), ),
-                'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'name'}}),
-                ),
                 'doc': 'A base type for case insensitive names.'}),
-
-            ('meta:name', ('base:name', {}), {
-                'prevnames': ('ou:name', 'ou:industryname',
-                              'ou:campname', 'ou:goalname', 'lang:name',
-                              'risk:vulnname', 'meta:name', 'entity:name',
-                              'geo:name'),
-                'doc': 'A name used to refer to an entity or event.'}),
 
             ('event:name', ('base:name', {}), {
                 'modes': {
@@ -138,8 +237,9 @@ modeldefs = (
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
+                'template': {'title': 'ruleset'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -150,14 +250,18 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
+                'template': {'title': 'rule', 'syntax': ''},
                 'interfaces': (
                     ('meta:usable', {}),
-                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
             ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                 'doc': 'A generic score enumeration.'}),
+
+            ('meta:task:status', ('int', {'enums': taskstatusenums}), {
+                'doc': 'A task status.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -305,21 +409,21 @@ modeldefs = (
                 },
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL for the {title}.'}),
 
-                    ('name', ('meta:name', {}), {
+                    ('name', ('base:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name'}), {
+                    ('names', ('array', {'type': 'base:name'}), {
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -414,11 +518,10 @@ modeldefs = (
 
             ('meta:usable', {
                 'template': {'title': 'item'},
-                'props': (
-                    ('used', ('ival', {}), {
-                        'doc': 'The time interval when the {title} was being used.'}),
+                'interfaces': (
+                    ('meta:observable', {}),
                 ),
-                'doc': 'An interface for forms which can be used by an actor.'}),
+                'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',
@@ -443,10 +546,51 @@ modeldefs = (
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
 
+            ('meta:task', {
+                'doc': 'A common interface for tasks.',
+                'template': {'title': 'task'},
+                'props': (
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the {title}.'}),
+
+                    ('parent', ('meta:task', {}), {
+                        'doc': 'The parent task which includes this {title}.'}),
+
+                    ('project', ('proj:project', {}), {
+                        'doc': 'The project containing the {title}.'}),
+
+                    ('status', ('meta:task:status', {}), {
+                        'doc': 'The status of the {title}.'}),
+
+                    ('priority', ('meta:score', {}), {
+                        'doc': 'The priority of the {title}.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the {title} was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the {title} was last updated.'}),
+
+                    ('due', ('time', {}), {
+                        'doc': 'The time the {title} must be complete.'}),
+
+                    ('completed', ('time', {}), {
+                        'doc': 'The time the {title} was completed.'}),
+
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The actor who created the {title}.'}),
+
+                    ('assignee', ('entity:actor', {}), {
+                        'doc': 'The actor who is assigned to complete the {title}.'}),
+                ),
+            }),
+
             ('meta:negotiable', {
                 'doc': 'An interface implemented by activities which involve negotiation.'}),
 
             ('meta:recordable', {
+                'template': {'title': 'event'},
                 'props': (
                     ('recording:url', ('inet:url', {}), {
                         'doc': 'The URL hosting a recording of the {title}.'}),
@@ -490,9 +634,6 @@ modeldefs = (
             (('meta:rule', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
 
-            (('meta:rule', 'detects', 'meta:usable'), {
-                'doc': 'The rule is designed to detect the target node.'}),
-
             (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
@@ -513,11 +654,13 @@ modeldefs = (
 
             (('meta:causal', 'ledto', 'meta:causal'), {
                 'doc': 'The source event led to the target event.'}),
+
+            (('meta:task', 'has', 'file:attachment'), {
+                'doc': 'The task includes the file attachment.'}),
         ),
         'forms': (
 
-            ('meta:id', {}, ()),
-            ('meta:name', {}, ()),
+
             ('meta:topic', {}, (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the topic.'}),
@@ -526,7 +669,7 @@ modeldefs = (
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'A human friendly name for the source.'}),
 
                 ('type', ('meta:source:type:taxonomy', {}), {
@@ -547,10 +690,10 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An identifier for the feed.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'A name for the feed.'}),
 
                 ('type', ('meta:feed:type:taxonomy', {}), {
@@ -684,5 +827,5 @@ modeldefs = (
             ('meta:technique:type:taxonomy', {}, ()),
 
         ),
-    }),
+    },
 )

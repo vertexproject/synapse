@@ -9,7 +9,7 @@ contracttypes = (
 )
 
 modeldefs = (
-    ('ou', {
+    {
 
         'interfaces': (
 
@@ -94,6 +94,9 @@ modeldefs = (
                 'doc': 'An asset status taxonomy.'}),
 
             ('ou:asset', ('guid', {}), {
+                'interfaces': (
+                    ('risk:exploitable', {}),
+                ),
                 'doc': 'A node for tracking assets which belong to an organization.',
                 'display': {
                     'columns': (
@@ -103,10 +106,15 @@ modeldefs = (
                     ),
                 }}),
 
+            ('ou:industryname', ('base:name', {}), {
+                'props': (),
+                'doc': 'A name of an industry.'}),
+
             ('ou:industry', ('guid', {}), {
+                'template': {'title': 'industry'},
                 'interfaces': (
+                    ('meta:reported', {}),
                     ('risk:targetable', {}),
-                    ('meta:reported', {'template': {'title': 'industry'}}),
                 ),
                 'display': {
                     'columns': (
@@ -336,10 +344,9 @@ modeldefs = (
                 'doc': 'A taxonomy of enacted statuses.'}),
 
             ('ou:enacted', ('guid', {}), {
+                'template': {'title': 'adoption task'},
                 'interfaces': (
-                    ('proj:doable', {
-                        'template': {
-                            'task': 'adoption task'}}),
+                    ('meta:task', {}),
                 ),
                 'doc': 'An organization enacting a document.'}),
         ),
@@ -441,11 +448,6 @@ modeldefs = (
 
                 ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of additional files submitted by the candidate.'}),
-
-                # TODO: doc:questionare / responses
-                # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
-                # TODO: proj:task to track evaluation of the candidate?
-
             )),
 
             ('ou:candidate:referral', {}, (
@@ -612,7 +614,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which owns the asset.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
                 ('name', ('base:name', {}), {
@@ -672,6 +674,13 @@ modeldefs = (
 
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
+
+                ('name', ('ou:industryname', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the industry.'}),
+
+                ('names', ('array', {'type': 'ou:industryname'}), {
+                    'doc': 'An array of alternative names for the industry.'}),
 
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
@@ -751,5 +760,5 @@ modeldefs = (
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
         ),
-    }),
+    },
 )

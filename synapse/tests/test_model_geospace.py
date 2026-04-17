@@ -4,7 +4,7 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 geotestmodel = (
-    ('geo:test', {
+    {
 
         'types': (
             ('test:latlong', ('geo:latlong', {}), {}),
@@ -20,7 +20,7 @@ geotestmodel = (
             )),
             ('test:distoff', {}, ()),
         ),
-    }),
+    },
 )
 
 geojson0 = {
@@ -359,7 +359,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(geotestmodel)
+            await core._addModelDefs(geotestmodel)
 
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
@@ -416,7 +416,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(geotestmodel)
+            await core._addModelDefs(geotestmodel)
             nodes = await core.nodes('[ test:distoff=-3cm ]')
             self.eq(970, nodes[0].ndef[1])
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))

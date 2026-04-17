@@ -1,5 +1,5 @@
 modeldefs = (
-    ('belief', {
+    {
         'types': (
 
             ('belief:system', ('guid', {}), {
@@ -27,7 +27,7 @@ modeldefs = (
 
             ('belief:system', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the belief system.'}),
 
                 ('desc', ('text', {}), {
@@ -45,7 +45,7 @@ modeldefs = (
 
             ('belief:tenet', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the tenet.'}),
 
                 ('desc', ('text', {}), {
@@ -58,5 +58,5 @@ modeldefs = (
                 'doc': 'The belief system includes the tenet.'}),
 
         ),
-    }),
+    },
 )

@@ -48,18 +48,18 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu]
           | "+" "?" tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu] -> edittagtryadd
 
-edittagvirtset: "+" tagnamevirt virtprops (EQSPACE | EQNOSPACE | TRYSET) _valu
-              | "+" "?" tagnamevirt virtprops (EQSPACE | EQNOSPACE | TRYSET) _valu -> edittagvirttryset
+edittagvirtset: "+" tagnamevirt virtprop (EQSPACE | EQNOSPACE | TRYSET) _valu
+              | "+" "?" tagnamevirt virtprop (EQSPACE | EQNOSPACE | TRYSET) _valu -> edittagvirttryset
 
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: relprop condsetoper _valu
-editvirtpropset: relprop virtprops (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editvirtpropset: relprop virtprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
-edittagpropvirtset: "+" tagprop virtprops (EQSPACE | EQNOSPACE | TRYSET) _valu
+edittagpropvirtset: "+" tagprop virtprop (EQSPACE | EQNOSPACE | TRYSET) _valu
 edittagpropdel: EXPRMINUS tagprop
 
 EQSPACE: /((?<=\s)=|=(?=\s))/
@@ -181,9 +181,9 @@ operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pi
            | pivotprop _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
            | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
 
-pivotprop: relprop virtprops? -> relpropvalue
+pivotprop: relprop virtprop? -> relpropvalue
 pivottarg: PROPS | WILDPROPS | _varvalu
-         | (PROPS | "(" _varvalu ")") virtprops -> pivottargvirt
+         | (PROPS | "(" _varvalu ")") virtprop -> pivottargvirt
 pivottarglist: "(" pivottarg ("," | ("," pivottarg)*) ")"
 
 rawpivot: _RIGHTPIVOT "{" query "}"
@@ -253,28 +253,28 @@ liftreverse: _REVERSE "(" (liftmetareverse
     | lifttagtag | liftbytag | liftbytagvalu | liftbytagvirt | liftbytagvirtvalu
     | liftbytagprop | liftbyformtagprop) ")"
 
-liftmetareverse: (virtprops | barevirtprops) [_cmpr _valu] -> liftmeta
+liftmetareverse: (virtprop | barevirtprop) [_cmpr _valu] -> liftmeta
 
 _DEREF.3:  /\*(?=\(?\$)/
 
 liftformtag: (PROPS | WILDPROPS | derefprops) tagname
 liftformtagvalu: (PROPS | WILDPROPS | derefprops) tagname _cmpr _valu
-liftformtagvirt: (PROPS | WILDPROPS | derefprops) tagnamevirt virtprops
-liftformtagvirtvalu: (PROPS | WILDPROPS | derefprops) tagnamevirt virtprops _cmpr _valu
-liftmeta: barevirtprops [_cmpr _valu]
+liftformtagvirt: (PROPS | WILDPROPS | derefprops) tagnamevirt virtprop
+liftformtagvirtvalu: (PROPS | WILDPROPS | derefprops) tagnamevirt virtprop _cmpr _valu
+liftmeta: barevirtprop [_cmpr _valu]
 liftprop: (PROPS | WILDPROPS | derefprops)
 liftpropby: (PROPS | EMBEDPROPS | derefprops) _cmpr _valu
-liftpropvirt: (PROPS | derefparensprops) virtprops
-liftpropvirtby: (PROPS | EMBEDPROPS | derefparensprops) virtprops _cmpr _valu
+liftpropvirt: (PROPS | derefparensprops) virtprop
+liftpropvirtby: (PROPS | EMBEDPROPS | derefparensprops) virtprop _cmpr _valu
 liftbyarray: (PROPS | EMBEDPROPS | derefprops) "*[" _safe_cmpr _valu "]"
-liftbyarrayvirt: (PROPS | EMBEDPROPS | derefprops) "*[" virtprops _cmpr _valu "]"
+liftbyarrayvirt: (PROPS | EMBEDPROPS | derefprops) "*[" virtprop _cmpr _valu "]"
 lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace)
 liftbytagvalu: (tagname | tagnamewithspace) _cmpr _valu
-liftbytagvirt: (tagnamevirt | tagnamevirtwithspace) virtprops
-liftbytagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprops _cmpr _valu
-liftbytagprop: (tagprop | tagpropwithspace) virtprops? [_cmpr _valu]
-liftbyformtagprop: formtagprop virtprops? [_cmpr _valu]
+liftbytagvirt: (tagnamevirt | tagnamevirtwithspace) virtprop
+liftbytagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprop _cmpr _valu
+liftbytagprop: (tagprop | tagpropwithspace) virtprop? [_cmpr _valu]
+liftbyformtagprop: formtagprop virtprop? [_cmpr _valu]
 
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
@@ -370,8 +370,15 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
-exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
+exprdict: "{" ((_jsonexprval | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN))* ","? )? "}"
+exprlist: "[" ((_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN))* ","? )? "]"
+
+// Like _exprvalu, but with JSONNUMBER/JSONHEX/JSONOCT in place of NUMBER/HEXNUMBER/OCTNUMBER.
+// These JSON-specific terminals match float and negative literals without the unquoted-string
+// lookahead restriction. Only used in exprlist/exprdict so the contextual lexer limits their scope.
+_jsonexprval: JSONNUMBER | JSONHEX | JSONOCT | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue | exprvirtpropvalue
+    | exprtagvalu | exprtagvirtvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs | embedquery
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
 _exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue | exprvirtpropvalue
@@ -389,11 +396,11 @@ innerdollarexpr: "(" expror ")" -> dollarexpr
 exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom | _COLONPAREN _exprvarvalu ")") -> relprop
 EXPRRELNAME: /(?<!\w):[a-z0-9_]+(?:(\:\:|\:)[a-z0-9_]+)*/
 
-exprrelpropvalue: exprrelprop virtprops? -> relpropvalue
-exprvirtpropvalue: virtprops -> virtpropvalue
+exprrelpropvalue: exprrelprop virtprop? -> relpropvalue
+exprvirtpropvalue: virtprop -> virtpropvalue
 
 exprtagvalu: (exprtagname | exprtagnamewithspace) -> tagvalu
-exprtagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprops -> tagvirtvalu
+exprtagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprop -> tagvirtvalu
 
 exprformatstring: _EXPRBACKTICK (_formatexpr | FORMATTEXT)* _BACKTICK -> formatstring
 _EXPRBACKTICK: "`"
@@ -403,7 +410,7 @@ exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
 _exprtagsegs: (EXPRTAGSEGNOVAR | exprformatstring) (_DOTNOSPACE (EXPRTAGSEGNOVAR | "$" exprvarvalue | exprformatstring))*
 EXPRTAGSEGNOVAR: /[\w]+/
 
-exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprops? -> tagpropvalu
+exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprop? -> tagpropvalu
 exprtagprop: exprtagname _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 exprtagpropwithspace: exprtagnamewithspace _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 _EXPRCOLONNOSPACE.2: /(?<!\s):/
@@ -430,15 +437,14 @@ looklist: _lookvalu*
 
 valulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")"
 tagvalu: (tagname | tagnamewithspace)
-tagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprops
-tagpropvalu: (tagprop | tagpropwithspace) virtprops?
+tagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprop
+tagpropvalu: (tagprop | tagpropwithspace) virtprop?
 
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
 _COLONPAREN: /(?<!\w|\'|\"):\(/
 
-virtprops: _virtprop+
-barevirtprops: _DOTSPACE VIRTNAME _virtprop* -> virtprops
-_virtprop: _DOTNOSPACE (VIRTNAME | _varvalu)
+virtprop: _DOTNOSPACE (VIRTNAME | _varvalu)
+barevirtprop: _DOTSPACE VIRTNAME -> virtprop
 _DOTNOSPACE: /(?<!\s)\./
 _DOTSPACE: /(?<=[\s{]|^)\./
 VIRTNAME: /[a-zA-Z]\w*/
@@ -484,27 +490,27 @@ _cond: notcond | "(" _condexpr ")"
 _NOT: "not"
 notcond: _NOT _cond
 
-hasrelpropcond: relprop virtprops?
+hasrelpropcond: relprop virtprop?
 relpropcond: relpropvalue _cmpr _valu
-relpropvalue: relprop virtprops?
+relpropvalue: relprop virtprop?
 
-hasvirtpropcond: (virtprops | barevirtprops)
+hasvirtpropcond: (virtprop | barevirtprop)
 virtpropcond: virtpropvalue _cmpr _valu
-virtpropvalue: (virtprops | barevirtprops)
+virtpropvalue: (virtprop | barevirtprop)
 
 abspropcond: PROPS _cmpr _valu
-absvirtpropcond: PROPS virtprops _cmpr _valu
-hasabspropcond: (PROPS | WILDPROPS) virtprops?
+absvirtpropcond: PROPS virtprop _cmpr _valu
+hasabspropcond: (PROPS | WILDPROPS) virtprop?
 
-tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprops? _cmpr _valu
-hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprops?
+tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprop? _cmpr _valu
+hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprop?
 
 tagcond: tagmatch
 tagvalucond: tagmatch _cmpr _valu
-tagvirtcond: tagmatchvirt virtprops _cmpr _valu
+tagvirtcond: tagmatchvirt virtprop _cmpr _valu
 
 condsubq: "{" query "}" [ _cmpr _valu]
-arraycond: relprop _ARRAYCONDSTART (virtprops _cmpr | _safe_cmpr) _valu "]"
+arraycond: relprop _ARRAYCONDSTART (virtprop _cmpr | _safe_cmpr) _valu "]"
 _ARRAYCONDSTART.3: "*["
 
 // Filter boolean conditions
@@ -564,6 +570,22 @@ EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRMODULO.2: "%"
 EXPRPOW.2: "**"
+
+// JSON-specific number terminals used in exprlist/exprdict (via _jsonexprval).
+// These intentionally omit the unquoted-string lookahead of NUMBER/HEXNUMBER/OCTNUMBER because
+// exprlist/exprdict are always delimited by brackets/braces, so there is no ambiguity with
+// unquoted strings. Higher priority (3) ensures they match before EXPRMINUS (2) and NUMBER (1).
+JSONHEX.4: /-?0x[0-9a-fA-F]+/
+JSONOCT.4: /-?0o[0-7]+/
+JSONNUMBER.3: /
+    -?
+    (                                           # start capture group
+        0+\d*(?=\.)                         |   # zero-leading numbers ending with .
+        (?<!\d)[1-9]\d*                     |   # non-zero-leading numbers
+        0+(?![1-9\.])                           # one or more zeroes
+    )                                           # end capture group
+    (\.\d*)?                                    # decimal point and any following digits
+/x
 
 // Each of NUMBER, HEXNUMBER, and OCTNUMBER below have some very gnarly regular expressions. To make
 // them a little more palatable, they've been broken out and commented. All of these regex patterns

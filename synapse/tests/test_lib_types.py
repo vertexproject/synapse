@@ -16,7 +16,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_type(self):
         # Base type tests, mainly sad paths
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('bool')
         self.eq(t.info.get('bases'), ('base',))
         with self.raises(s_exc.NoSuchCmpr):
@@ -47,7 +47,7 @@ class TypesTest(s_t_utils.SynTest):
                 await mass.norm('newps')
 
     async def test_velocity(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         velo = model.type('velocity')
 
         with self.raises(s_exc.BadTypeValu):
@@ -93,7 +93,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_hugenum(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
@@ -131,7 +131,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_taxonomy(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         taxo = model.type('taxonomy')
         self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz'))[0])
         self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz.'))[0])
@@ -222,7 +222,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
 
     async def test_duration(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('duration')
 
         self.eq('2D 00:00:00', t.repr(172800000000))
@@ -249,7 +249,7 @@ class TypesTest(s_t_utils.SynTest):
             await t.norm('1:a:b')
 
     async def test_bool(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('bool')
 
         self.eq(await t.norm(-1), (1, {}))
@@ -300,7 +300,7 @@ class TypesTest(s_t_utils.SynTest):
                 await typ.norm((123, 'haha', 'newp'))
 
     async def test_guid(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
 
         guid = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
         self.eq(guid.lower(), (await model.type('guid').norm(guid))[0])
@@ -940,7 +940,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_int(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('int')
 
         # test ranges
@@ -1063,7 +1063,7 @@ class TypesTest(s_t_utils.SynTest):
             model.type('int').clone({'ismin': True, 'ismax': True})
 
     async def test_float(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('float')
 
         self.nn((await t.norm(1.2345))[0])
@@ -1114,7 +1114,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
 
     async def test_ival(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         ival = model.types.get('ival')
 
         self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
@@ -1330,13 +1330,13 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchFunc):
                 await core.nodes('entity:campaign.created +:period.min@=({})')
 
-            self.eq(ival.getVirtType(['min']), model.types.get('time'))
+            self.eq(ival.getVirtType('min'), model.types.get('time'))
 
             with self.raises(s_exc.NoSuchVirt):
-                ival.getVirtType(['min', 'newp'])
+                ival.getVirtType('newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                ival.getVirtGetr(['min', 'newp'])
+                ival.getVirtGetr('newp')
 
             ityp = core.model.type('ival')
             styp = core.model.type('timeprecision').stortype
@@ -1447,7 +1447,7 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str:seen@=(1, 2, 3, 4)')
 
     async def test_loc(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         loctype = model.types.get('loc')
 
         self.eq('us.va', (await loctype.norm('US.    VA'))[0])
@@ -1515,7 +1515,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(0, await core.count('test:int:loc^=23'))
 
     async def test_range(self):
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         t = model.type('range')
 
         await self.asyncraises(s_exc.BadTypeValu, t.norm(1))
@@ -1590,7 +1590,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_str(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
 
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', (await lowr.norm('FOO'))[0])
@@ -1663,7 +1663,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_syntag(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         tagtype = model.type('syn:tag')
 
         self.eq('foo.bar', (await tagtype.norm(('FOO', ' BAR')))[0])
@@ -1715,7 +1715,7 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_time(self):
 
-        model = s_datamodel.Model()
+        model = s_datamodel.getBaseModel()
         ttime = model.types.get('time')
 
         with self.raises(s_exc.BadTypeValu):
@@ -2122,7 +2122,7 @@ class TypesTest(s_t_utils.SynTest):
         }
         async with self.getTestCore() as core:
 
-            core.model.addDataModels([('asdf', mdef)])
+            core.model.addModelDefs([mdef])
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})

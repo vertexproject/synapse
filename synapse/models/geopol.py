@@ -1,5 +1,5 @@
 modeldefs = (
-    ('pol', {
+    {
 
         'types': (
 
@@ -8,6 +8,14 @@ modeldefs = (
                     ('risk:targetable', {}),
                 ),
                 'doc': 'A GUID for a country.'}),
+
+            ('pol:country:code', (
+                    ('iso:3166:alpha2', {}),
+                    ('iso:3166:numeric3', {}),
+                    ('iso:3166:alpha3', {}),
+                    ('base:id', {}),
+                ), {
+                'doc': 'A country code.'}),
 
             ('pol:immigration:status', ('guid', {}), {
                 'doc': 'A node which tracks the immigration status of a contact.'}),
@@ -66,22 +74,12 @@ modeldefs = (
                 ('flag', ('file:bytes', {}), {
                     'doc': 'A thumbnail image of the flag of the country.'}),
 
-                ('code', (
-                        ('iso:3166:alpha2', {}),
-                        ('iso:3166:numeric3', {}),
-                        ('iso:3166:alpha3', {}),
-                        ('meta:id', {})
-                    ), {
+                ('code', ('pol:country:code', {}), {
                     'alts': ('codes',),
                     'prevnames': ('iso2',),
                     'doc': 'The country code.'}),
 
-                ('codes', ('array', {'type': (
-                        ('iso:3166:alpha2', {}),
-                        ('iso:3166:numeric3', {}),
-                        ('iso:3166:alpha3', {}),
-                        ('meta:id', {})
-                    )}), {
+                ('codes', ('array', {'type': 'pol:country:code'}), {
                     'doc': 'An array of country codes.'}),
 
                 ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
@@ -163,7 +161,7 @@ modeldefs = (
             )),
             ('pol:election', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'ex': '2022 united states congressional midterm election',
                     'doc': 'The name of the election.'}),
 
@@ -210,8 +208,11 @@ modeldefs = (
             )),
             ('pol:candidate', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
+
+                ('votes', ('int', {}), {
+                    'doc': 'The total number of votes received by the candidate.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),
@@ -253,5 +254,5 @@ modeldefs = (
             )),
         ),
 
-    }),
+    },
 )

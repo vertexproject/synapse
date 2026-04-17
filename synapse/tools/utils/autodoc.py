@@ -642,10 +642,15 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
 
 async def docModel(outp,
                    core):
-    modeldefs = await core.getModelDefs()
-    _, model = modeldefs[0]
+    model = await core.getModelDef()
 
-    ctors = model.get('ctors')
+    ctors = []
+    for typename, typedef, typeinfo in model.get('types', ()):
+        if typedef[0] is None:
+            typeopts = dict(typedef[1])
+            ctor = typeopts.pop('ctor')
+            ctors.append((typename, ctor, typeopts, dict(typeinfo)))
+
     forms = model.get('forms')
     edges = model.get('edges')
     props = collections.defaultdict(list)
@@ -983,5 +988,4 @@ def getArgParser(outp):
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
     s_cmd.exitmain(main)

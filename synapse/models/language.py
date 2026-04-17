@@ -1,5 +1,5 @@
 modeldefs = (
-    ('lang', {
+    {
 
         'interfaces': (
             ('lang:transcript', {
@@ -101,5 +101,5 @@ modeldefs = (
             )),
         ),
 
-    }),
+    },
 )

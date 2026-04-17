@@ -10,13 +10,13 @@ class TransportTest(s_test.SynTest):
                 transport:air:craft=*
                     :tailnum=FF023
                     :type=helicopter
-                    :built=202002
+                    :created=202002
                     :model=747
                     :serial=1234
                     :operator={[ entity:contact=* ]}
             ]'''))[0]
             self.propeq(craft, 'type', 'helicopter.')
-            self.propeq(craft, 'built', 1580515200000000)
+            self.propeq(craft, 'created', 1580515200000000)
             self.propeq(craft, 'model', '747')
             self.propeq(craft, 'serial', '1234')
             self.nn(craft.get('operator'))
@@ -77,7 +77,7 @@ class TransportTest(s_test.SynTest):
                     :flag=us
                     :type=cargo.tanker.oil
                     :imo="IMO 1234567"
-                    :built=2020
+                    :created=2020
                     :model="Speed Boat 9000"
                     :operator={[ entity:contact=* ]}
                 ]'''))[0]
@@ -85,14 +85,13 @@ class TransportTest(s_test.SynTest):
             self.propeq(vessel, 'name', 'slice of life')
             self.propeq(vessel, 'callsign', 'V123')
             self.propeq(vessel, 'type', 'cargo.tanker.oil.')
-            self.propeq(vessel, 'model', 'speed boat 9000')
+            self.propeq(vessel, 'model', 'Speed Boat 9000')
             self.propeq(vessel, 'flag', 'us')
             self.propeq(vessel, 'imo', 'imo1234567')
-            self.propeq(vessel, 'built', 1577836800000000)
+            self.propeq(vessel, 'created', 1577836800000000)
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
-            self.len(1, await core.nodes('transport:sea:vessel :name -> meta:name'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[
@@ -155,7 +154,7 @@ class TransportTest(s_test.SynTest):
 
                     :vehicle={[ transport:land:vehicle=*
                         :serial=V-31337
-                        :built=2005
+                        :created=2005
                         :model=elise
                         :registration=$regid
                         :type=car
@@ -188,7 +187,7 @@ class TransportTest(s_test.SynTest):
             self.propeq(nodes[0], 'type', 'car.')
             self.propeq(nodes[0], 'model', 'elise')
             self.propeq(nodes[0], 'serial', 'V-31337')
-            self.propeq(nodes[0], 'built', 1104537600000000)
+            self.propeq(nodes[0], 'created', 1104537600000000)
             self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('registration'))
             self.len(1, await core.nodes('transport:land:vehicle -> transport:land:vehicle:type:taxonomy'))
@@ -247,9 +246,9 @@ class TransportTest(s_test.SynTest):
                                 transport:rail:car=*
                                 :serial=001
                                 :type=engine.diesel
-                                :built=20221212
-                                :manufacturer:name=acme
-                                :manufacturer={[ ou:org=({"name": "acme"}) ]}
+                                :created=20221212
+                                :creator:name=acme
+                                :creator={[ ou:org=({"name": "acme"}) ]}
                                 :model="Engine That Could"
                                 :max:occupants=2
                                 :max:cargo:mass=1000kg
@@ -286,9 +285,9 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:rail:car')
             self.propeq(nodes[0], 'serial', '001')
             self.propeq(nodes[0], 'type', 'engine.diesel.')
-            self.propeq(nodes[0], 'built', 1670803200000000)
-            self.propeq(nodes[0], 'manufacturer:name', 'acme')
-            self.propeq(nodes[0], 'model', 'engine that could')
+            self.propeq(nodes[0], 'created', 1670803200000000)
+            self.propeq(nodes[0], 'creator:name', 'acme')
+            self.propeq(nodes[0], 'model', 'Engine That Could')
             self.propeq(nodes[0], 'max:occupants', 2)
             self.propeq(nodes[0], 'max:cargo:mass', '1000000')
             self.propeq(nodes[0], 'max:cargo:volume', 1000000)

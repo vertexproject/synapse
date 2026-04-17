@@ -386,8 +386,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:txbytes=2
                     :server:handshake="OHai!"
                     :server:txfiles={[ file:attachment=* :path=bar.exe ]}
-                    :server:softnames=(FooBar, bazfaz)
-                    :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                    :server:software:names=(FooBar, bazfaz)
+                    :server:software:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
                     :client=5.5.5.5
                     :client:host=*
@@ -396,8 +396,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :client:txbytes=1
                     :client:handshake="Hello There"
                     :client:txfiles={[ file:attachment=* :path=foo.exe ]}
-                    :client:softnames=(HeHe, haha)
-                    :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                    :client:software:names=(HeHe, haha)
+                    :client:software:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
                     :tot:txcount=63
                     :tot:txbytes=3
@@ -411,19 +411,20 @@ class InetModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
+            self.propeq(nodes[0], 'period', (1751328000000000, 1751414400000000, 86400000000))
             self.propeq(nodes[0], 'client', 'tcp://5.5.5.5')
             self.propeq(nodes[0], 'client:txcount', 30)
             self.propeq(nodes[0], 'client:txbytes', 1)
             self.propeq(nodes[0], 'client:handshake', 'Hello There')
-            self.propeq(nodes[0], 'client:softnames', ('haha', 'hehe'))
-            self.propeq(nodes[0], 'client:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.propeq(nodes[0], 'client:software:names', ('haha', 'hehe'))
+            self.propeq(nodes[0], 'client:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:443')
             self.propeq(nodes[0], 'server:txcount', 33)
             self.propeq(nodes[0], 'server:txbytes', 2)
             self.propeq(nodes[0], 'server:handshake', 'OHai!')
-            self.propeq(nodes[0], 'server:softnames', ('bazfaz', 'foobar'))
-            self.propeq(nodes[0], 'server:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.propeq(nodes[0], 'server:software:names', ('bazfaz', 'foobar'))
+            self.propeq(nodes[0], 'server:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'tot:txcount', 63)
             self.propeq(nodes[0], 'tot:txbytes', 3)
@@ -1428,7 +1429,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            namesub = (t.metatype.typehash, 'foo bar', {})
+            namesub = (t.nametype.typehash, 'foo bar', {})
             emailsub = (t.emailtype.typehash, 'visi@vertex.link', {'subs': {
                             'fqdn': (t.emailtype.fqdntype.typehash, 'vertex.link', {'subs': {
                                 'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {}),

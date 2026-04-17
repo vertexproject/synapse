@@ -1,5 +1,5 @@
 modeldefs = (
-    ('entity', {
+    {
 
         'interfaces': (
 
@@ -45,6 +45,20 @@ modeldefs = (
             ('entity:supportable', {
                 'doc': 'An interface implemented by activities which may be supported in by an actor.'}),
 
+            ('entity:creatable', {
+                'template': {'title': 'item'},
+                'props': (
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the {title} was created.'}),
+
+                    ('creator', ('entity:actor', {}), {
+                        'doc': 'The primary actor which created the {title}.'}),
+
+                    ('creator:name', ('entity:name', {}), {
+                        'doc': 'The name of the primary actor which created the {title}.'}),
+                ),
+                'doc': 'An interface implemented by forms which represent things made or created by an actor.'}),
+
             ('entity:contactable', {
 
                 'template': {'title': 'entity'},
@@ -53,7 +67,7 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A type or source specific ID for the {title}.'}),
 
                     ('bio', ('text', {}), {
@@ -85,8 +99,6 @@ modeldefs = (
                                 'doc': 'The duration of the lifespan of the individual or organziation.'}),
                         ),
                         'doc': 'The lifespan of the {title}.'}),
-
-                    # FIXME place of birth / death?
 
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
@@ -192,7 +204,11 @@ modeldefs = (
 
         'types': (
 
-            ('entity:individual', ('poly', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
+            ('entity:individual', (
+                    ('ps:person', {}),
+                    ('entity:contact', {}),
+                    ('inet:service:account', {})
+                ), {
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
@@ -202,8 +218,6 @@ modeldefs = (
                     ]
                 },
                 'doc': 'A name used to refer to an entity.'}),
-
-            # FIXME syn:user is an actor...
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
                 'interfaces': (
@@ -280,9 +294,6 @@ modeldefs = (
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
 
-            # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
-            # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
-            # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
             ('entity:goal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -307,6 +318,16 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A stated or assessed goal.'}),
+
+            ('entity:motive', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('goal', ('entity:goal', {}), {
+                        'doc': 'The goal which motivated the actor.'}),
+                ),
+                'doc': 'A goal held by an actor for a period of time.'}),
 
             ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -532,31 +553,42 @@ modeldefs = (
                 'props': (
 
                     # this will eventually grow to include additional interfaces
-                    ('item', ('doc:authorable', {}), {
-                        'doc': 'The item which the actor created or helped to create.'}),
+                    ('item', ('entity:creatable', {}), {
+                        'doc': 'The item which the actor helped to create.'}),
 
                     ('role', ('entity:title', {}), {
                         'ex': 'illustrator',
                         'doc': 'The role which the actor played in creating the item.'}),
                 ),
-                'doc': 'An activity where an actor created or helped create an item.'}),
+                'doc': 'An activity where an actor helped to create an item.'}),
+
+            ('entity:proficiency', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
+                        {'type': 'prop', 'opts': {'name': 'skill::name'}},
+                    ),
+                },
+                'props': (
+                    ('level', ('meta:score', {}), {
+                        'doc': 'The level of proficiency.'}),
+
+                    ('skill', ('edu:learnable', {}), {
+                        'doc': 'The topic or skill in which the contact is proficient.'}),
+                ),
+                'doc': 'A period of time where an actor had proficiency with a skill.'}),
         ),
 
         'edges': (
-            (('entity:actor', 'had', 'entity:goal'), {
-                'doc': 'The actor had the goal.'}),
-
-            (('entity:actor', 'used', 'meta:usable'), {
-                'doc': 'The actor used the target node.'}),
 
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
 
             (('entity:contactlist', 'has', 'entity:contact'), {
                 'doc': 'The contact list contains the contact.'}),
-
-            (('entity:action', 'used', 'meta:usable'), {
-                'doc': 'The action was taken using the target node.'}),
 
             (('entity:action', 'used', 'meta:observable'), {
                 'doc': 'The action was taken using the target node.'}),
@@ -700,7 +732,7 @@ modeldefs = (
 
             ('entity:conflict', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'doc': 'The name of the conflict.'}),
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {
@@ -711,7 +743,6 @@ modeldefs = (
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
 
-                # FIXME - :price / :price:currency ( and the interface )
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
 
@@ -732,5 +763,5 @@ modeldefs = (
             )),
 
         ),
-    }),
+    },
 )

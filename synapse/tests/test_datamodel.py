@@ -81,32 +81,32 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.reqType('newp:newp')
 
     async def test_datamodel_formname(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         mods = (
-            ('hehe', {
+            {
                 'types': (
                     ('derp', ('int', {}), {}),
                 ),
                 'forms': (
                     ('derp', {}, ()),
                 ),
-            }),
+            },
         )
 
         with self.raises(s_exc.BadFormDef):
-            modl.addDataModels(mods)
+            modl.addModelDefs(mods)
 
     async def test_datamodel_virtstor(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         modl.addType('test:virt', 'int', {}, {})
         modl.types['test:virt'].virtstor['fake'] = lambda: None
         with self.raises(s_exc.BadFormDef):
             modl.addForm('test:virt', {}, ())
 
     async def test_datamodel_no_interface(self):
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         mods = (
-            ('hehe', {
+            {
                 'types': (
                     ('test:derp', ('int', {}), {
                         'interfaces': (('foo:bar', {}),),
@@ -115,15 +115,15 @@ class DataModelTest(s_t_utils.SynTest):
                 'forms': (
                     ('test:derp', {}, ()),
                 ),
-            }),
+            },
         )
 
         with self.raises(s_exc.NoSuchIface):
-            modl.addDataModels(mods)
+            modl.addModelDefs(mods)
 
     async def test_datamodel_dynamics(self):
 
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
 
         with self.raises(s_exc.NoSuchType):
             modl.addType('he:he', 'ha:ha', {}, {})
@@ -185,16 +185,15 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addIface('depr:iface', {'deprecated': True})
 
-        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+        with self.getLoggerStream('synapse.datamodel') as stream:
             modl.addType('foo:bar', 'int', {}, {'interfaces': (('depr:iface', {}),)})
             modl.addForm('foo:bar', {}, ())
 
-        dstream.seek(0)
-        self.isin('Form foo:bar depends on deprecated interface depr:iface', dstream.read())
+        self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.getvalue())
 
     async def test_datamodel_del_prop(self):
 
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
 
         modl.addType('foo:bar', 'int', {}, {})
         modl.addForm('foo:bar', {}, (('x', ('int', {}), {}), ))
@@ -239,34 +238,34 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
-                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            with self.getLoggerStream('synapse.lib.types') as tstream, \
+                 self.getLoggerStream('synapse.datamodel') as dstream:
+
                 core = await s_cortex.Cortex.anit(dirn)
-                await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
 
-            dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
-            dstream.noexpect('type test:dep:comp field str uses a deprecated type test:dep:easy')
-            tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                await dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
+                await tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                self.notin('type test:dep:comp field str uses a deprecated type test:dep:easy', dstream.getvalue())
 
-            # Using deprecated forms and props is warned to the user
-            msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
-            self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
-            self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
+                # Using deprecated forms and props is warned to the user
+                msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+                self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
+                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
 
-            msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
-            self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
+                msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
+                self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
 
-            # Extended props and tagprops can all trigger deprecation notices
-            mesg = 'tag property depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+                # Extended props and tagprops can all trigger deprecation notices
+                mesg = 'tag property depr is using a deprecated type test:dep:easy'
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect('tag property depr is using a deprecated type test:dep:easy', timeout=6)
 
             # TODO: how do we want to warn for polyprops which allow deprecated types?
             # mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
-            # with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
-            #     await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-            #     self.true(await cstream.wait(6))
+            # with self.getLoggerStream('synapse.cortex') as cstream:
+            #    await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
+            #    await cstream.expect(mesg, timeout=6)
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -277,23 +276,23 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn) as core:
-                    await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                    await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
                     await core._loadExtModel()
-                    # self.true(await cstream.wait(6))
+                    # await cstream.expect(mesg, timeout=6)
 
     async def test_datamodel_getmodeldefs(self):
         '''
-        Make sure you can make a new model with the output of datamodel.getModelDefs
+        Make sure you can make a new model with the output of datamodel.getModelDef
         '''
-        modl = s_datamodel.Model()
+        modl = s_datamodel.getBaseModel()
         modl.addIface('test:iface', {})
         modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
         modl.addForm('foo:foo', {}, ())
-        mdef = modl.getModelDefs()
-        modl2 = s_datamodel.Model()
-        modl2.addDataModels(mdef)
+        mdef = modl.getModelDef()
+        modl2 = s_datamodel.getBaseModel()
+        modl2.addModelDefs([mdef])
 
     async def test_model_comp_readonly_props(self):
         async with self.getTestCore() as core:
@@ -316,7 +315,7 @@ class DataModelTest(s_t_utils.SynTest):
         mutmesg = 'Comp types with mutable fields (_bad:comp:hehe) are not allowed'
 
         # Comp type with a direct data field
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'data'),
@@ -329,14 +328,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('_bad:comp', ('comp', {'fields': (
                     ('hehe', 'bad:data'),
@@ -350,14 +349,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('bad:data00', ('data', {}), {}),
                 ('bad:data01', ('bad:data00', {}), {}),
@@ -372,10 +371,10 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addDataModels([badmodel])
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # API direct
@@ -387,7 +386,7 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
+            s_datamodel.getBaseModel().addType('_bad:comp', 'comp', typeopts, {})
         self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Non-existent types
@@ -399,11 +398,11 @@ class DataModelTest(s_t_utils.SynTest):
         }
 
         with self.raises(s_exc.BadTypeDef) as cm:
-            s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
+            s_datamodel.getBaseModel().addType('_bad:comp', 'comp', typeopts, {})
         self.isin('Type newp is not present in datamodel.', cm.exception.get('mesg'))
 
         # deprecated types
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('depr:type', ('int', {}), {'deprecated': True}),
                 ('_bad:comp', ('comp', {'fields': (
@@ -417,14 +416,14 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.Model().addDataModels([badmodel])
-        stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
+            await stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type', timeout=1)
 
         # Comp type not extended does not gen deprecated warning
-        badmodel = ('badmodel', {
+        badmodel = {
             'types': (
                 ('depr:type', ('int', {}), {'deprecated': True}),
                 ('bad:comp', ('comp', {'fields': (
@@ -438,11 +437,11 @@ class DataModelTest(s_t_utils.SynTest):
                     ('haha', ('int', {}), {}),
                 )),
             ),
-        })
+        }
 
         with self.getLoggerStream('synapse.lib.types') as stream:
-            s_datamodel.Model().addDataModels([badmodel])
-        stream.noexpect('uses a deprecated type')
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
+        self.notin('uses a deprecated type', stream.getvalue())
 
     async def test_datamodel_edges(self):
 
@@ -500,7 +499,7 @@ class DataModelTest(s_t_utils.SynTest):
             taxprops = {p[0]: p for p in taxinfo['props']}
             self.eq(taxprops['parent'][1][0], 'meta:taxonomy')
 
-            model = (await core.getModelDefs())[0][1]
+            model = await core.getModelDef()
             self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
             self.nn(core.model.edge(('test:interface', 'matches', None)))
@@ -569,7 +568,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core._addDataModels(s_t_utils.deprmodel)
+            await core._addModelDefs(s_t_utils.deprmodel)
 
             nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
             self.propeq(nodes[0], 'range:min', 1)
@@ -602,7 +601,7 @@ class DataModelTest(s_t_utils.SynTest):
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
         # in sync with the default s_datamodel.Datamodel().types
-        basetypes = list(s_datamodel.Model().types)
+        basetypes = list(s_datamodel.getBaseModel().types)
         self.sorteq(s_schemas.datamodel_basetypes, basetypes)
 
     async def test_datamodel_virts(self):
@@ -616,7 +615,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
-            self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
+            self.eq(core.model.prop('it:exec:proc:create:time').info['virts'][0], vdef)
 
             # poly value virt type has `hidden` set in `display`
             self.eq(core.model.type('poly').info['virts'][1][0], 'value')
@@ -885,18 +884,8 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:_ip2'))
 
             # Handling for lift/pivot where children have more restrictive norming
-            core.model.addType('_test:cve', 'meta:id', {'upper': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}, {})
+            core.model.addType('_test:cve', 'base:id', {'upper': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}, {})
             core.model.addForm('_test:cve', {}, ())
-
-            await core.nodes('[ meta:rule=* :id={[ meta:id=foo ]} ]')
-
-            self.len(1, await core.nodes('meta:id=foo'))
-            self.len(1, await core.nodes('meta:id=foo -> meta:rule'))
-            self.len(1, await core.nodes('meta:id=foo -> meta:rule:id'))
-            self.len(1, await core.nodes('meta:rule -> *'))
-            self.len(1, await core.nodes('meta:rule :id -> *'))
-            self.len(1, await core.nodes('meta:rule -> meta:id'))
-            self.len(1, await core.nodes('meta:rule :id -> meta:id'))
 
             core.model.addFormProp('test:str', 'cve', ('_test:cve', {}), {})
             core.model.addFormProp('test:str', 'cves', ('array', {'type': '_test:cve'}), {})
@@ -906,18 +895,13 @@ class DataModelTest(s_t_utils.SynTest):
                 (test:str=bararry :cves=(cve-2020-1234, cve-2021-1234))
             ]''')
 
-            msgs = await core.stormlist('meta:id -> test:str:cve')
+            msgs = await core.stormlist('_test:cve -> test:str:cve')
             self.stormHasNoWarnErr(msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-            msgs = await core.stormlist('meta:id -> test:str:cves')
+            msgs = await core.stormlist('_test:cve -> test:str:cves')
             self.stormHasNoWarnErr(msgs)
             self.len(2, [m for m in msgs if m[0] == 'node'])
-
-            await core.nodes('[ meta:rule=* :id={[ _test:cve=cve-2020-1234 ] }]')
-            msgs = await core.stormlist('meta:rule:id :id -> test:str:cves')
-            self.stormHasNoWarnErr(msgs)
-            self.len(1, [m for m in msgs if m[0] == 'node'])
 
     async def test_datamodel_polyprop(self):
 
@@ -1057,6 +1041,9 @@ class DataModelTest(s_t_utils.SynTest):
             # poly virtual on a form lift
             self.len(2, await core.nodes('test:str:poly.port=80'))
 
+            # poly virtual on a HasRelPropCond filter
+            self.len(2, await core.nodes('test:str:poly +:poly.ip'))
+
             await core.nodes('[ test:str=iparry :polyarry={[inet:server=tcp://1.2.3.4:80 inet:server=tcp://1.2.3.4:90 inet:server=tcp://1.2.3.5:80]} ]')
 
             # poly array virtual on a form lift
@@ -1128,10 +1115,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.newp.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str:poly.type.newp')
 
             with self.raises(s_exc.NoSuchType):
@@ -1220,21 +1207,31 @@ class DataModelTest(s_t_utils.SynTest):
             self.true(ptyp.ispoly)
 
             # getVirtType via getTypeSet path (ival's min virt)
-            vtyp = ptyp.getVirtType(('min',))
+            vtyp = ptyp.getVirtType('min')
             self.nn(vtyp)
 
             # getVirtType raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtType(('newp',))
+                ptyp.getVirtType('newp')
 
             # getVirtInfo via getTypeSet path (ival's min virt)
-            vinfo = ptyp.getVirtInfo(('min',))
+            vinfo = ptyp.getVirtInfo('min')
             self.nn(vinfo[0])
             self.nn(vinfo[1])
 
             # getVirtInfo raise for unknown virt
             with self.raises(s_exc.NoSuchVirt):
-                ptyp.getVirtInfo(('newp',))
+                ptyp.getVirtInfo('newp')
+
+            # invalid virtual prop with tryoper still raises NoSuchVirt
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:flow:server.newp?=1.2.3.4')
+
+            # handling for poly with no valid types
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:polyempty=newp')
+
+            self.len(0, await core.nodes('test:str:polyempty?=okay'))
 
             msgs = await core.stormlist('[test:str=foobar :polyarry++={[inet:server=tcp://1.2.3.4:9000]}]')
             for m in msgs:
@@ -1242,3 +1239,6 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=foobar')
             s_json.reqjsonsafe(nodes[0].pack(virts=True))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str=asdf :hehe={[tel:mob:mcc=123]}]')

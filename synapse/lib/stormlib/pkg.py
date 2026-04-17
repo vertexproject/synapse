@@ -255,10 +255,19 @@ class LibPkg(s_stormtypes.Lib):
                        'desc': 'A Storm Package name to access Queues for.', },
                   ),
                   'returns': {'type': 'pkg:queues', 'desc': 'An object for accessing the package Queues.', }}},
+        {'name': 'state',
+         'desc': "Get a read-only dictionary representing the package's persistent state.",
+         'type': {'type': 'function', '_funcname': '_libPkgState',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get state for.'},
+                  ),
+                  'returns': {'type': 'pkg:state',
+                              'desc': 'A read-only dictionary representing the package state.'}}},
     )
     _storm_lib_perms = (
         {'perm': ('power-ups', '<power-up>', 'admin'), 'gate': 'cortex',
-         'desc': 'Controls the ability to interact with the vars or Queues for a Storm Package by name.'},
+         'desc': 'Controls the ability to interact with the vars, state, or Queues for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)
 
@@ -272,6 +281,7 @@ class LibPkg(s_stormtypes.Lib):
             'deps': self._libPkgDeps,
             'vars': self._libPkgVars,
             'queues': self._libPkgQueues,
+            'state': self._libPkgState,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -321,6 +331,11 @@ class LibPkg(s_stormtypes.Lib):
         s_stormtypes.confirm(('power-ups', name, 'admin'))
         return PkgQueues(self.runt, name)
 
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libPkgState(self, name):
+        name = await s_stormtypes.tostr(name)
+        return PkgState(self.runt, name)
+
 @s_stormtypes.registry.registerType
 class PkgVars(s_stormtypes.Prim):
     '''
@@ -357,6 +372,29 @@ class PkgVars(s_stormtypes.Prim):
     async def iter(self):
         self._reqPkgAdmin()
         async for name, valu in self.runt.view.core.iterStormPkgVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
+
+@s_stormtypes.registry.registerType
+class PkgState(s_stormtypes.Prim):
+    '''
+    A read-only Storm interface for accessing package state information.
+    '''
+    _storm_typename = 'pkg:state'
+    _ismutable = False
+
+    def __init__(self, runt, valu, path=None):
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def deref(self, name):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.view.core.getStormPkgState(self.valu, name)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def iter(self):
+        async for name, valu in self.runt.view.core.iterStormPkgState(self.valu):
             yield name, valu
             await asyncio.sleep(0)
 

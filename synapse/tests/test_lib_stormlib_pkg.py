@@ -104,9 +104,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz requirement', timeout=1)
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -118,9 +118,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz optional requirement', timeout=1)
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -240,15 +240,14 @@ class StormLibPkgTest(s_test.SynTest):
             # because the pkg hasn't changed so no loading occurs
             waiter = core.waiter(1, 'core:pkg:onload:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-            stream.seek(0)
-            buf = stream.read()
+            buf = stream.getvalue()
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
@@ -454,3 +453,61 @@ class StormLibPkgTest(s_test.SynTest):
 
                 self.eq((4, '11'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop(4))'))
                 self.none(await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
+
+    async def test_stormlib_pkg_state(self):
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                lowuser = await core.addUser('lowuser')
+                aslow = {'user': lowuser.get('iden')}
+                await core.callStorm('auth.user.addrule lowuser node')
+
+                # basic read
+
+                self.none(await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq([], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                # set state internally (not via Storm)
+                await core.setStormPkgState('pkg0', 'bar', 'cat')
+                await core.setStormPkgState('pkg0', 'baz', 'dog')
+                await core.setStormPkgState('pkg1', 'bar', 'emu')
+                await core.setStormPkgState('pkg1', 'baz', 'groot')
+
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
+
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                # state is read-only from Storm: assignment must raise an error
+                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval'))
+
+                # perms: any user can get the state object, deref, and iter
+                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.state(pkg0))', opts=aslow))
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)', opts=aslow))
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                ''', opts=aslow))
+
+                # state write is still denied from Storm
+                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval', opts=aslow))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # data persists
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))

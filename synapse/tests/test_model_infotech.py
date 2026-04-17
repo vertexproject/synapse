@@ -34,25 +34,19 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 it:exec:thread=*
                     :proc=*
-                    :created=20210202
-                    :exited=20210203
+                    :period=(20210202, 20210203)
                     :exitcode=0
-                    :src:proc=*
-                    :src:thread=*
                     :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
-            self.propeq(nodes[0], 'created', 1612224000000000)
-            self.propeq(nodes[0], 'exited', 1612310400000000)
+            self.propeq(nodes[0], 'period', (1612224000000000, 1612310400000000, 86400000000))
             self.propeq(nodes[0], 'exitcode', 0)
-            self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:thread:created :src:thread -> it:exec:thread'))
-            self.len(1, await core.nodes('it:exec:thread:created :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:thread :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
-                it:exec:loadlib=*
+                it:exec:lib:load=*
                     :proc=*
                     :va=0x00a000
                     :loaded=20210202
@@ -67,13 +61,13 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'va', 0x00a000)
             self.propeq(nodes[0], 'loaded', 1612224000000000)
             self.propeq(nodes[0], 'unloaded', 1612310400000000)
-            self.len(1, await core.nodes('it:exec:loadlib :file -> file:bytes'))
-            self.len(1, await core.nodes('it:exec:loadlib :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:loadlib -> file:path +file:path=/home/invisigoth/rootkit.so'))
-            self.len(1, await core.nodes('it:exec:loadlib :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:load :file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:load :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:lib:load -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:lib:load :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
-                it:exec:mmap=*
+                it:exec:mmap:add=*
                     :proc=*
                     :va=0x00a000
                     :size=4096
@@ -97,29 +91,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'created', 1612224000000000)
             self.propeq(nodes[0], 'deleted', 1612310400000000)
             self.propeq(nodes[0], 'hash:sha256', 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
-            self.len(1, await core.nodes('it:exec:mmap -> crypto:hash:sha256'))
-            self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
-            self.len(1, await core.nodes('it:exec:mmap -> file:path +file:path=/home/invisigoth/rootkit.so'))
-            self.len(1, await core.nodes('it:exec:mmap :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:mmap:add -> crypto:hash:sha256'))
+            self.len(1, await core.nodes('it:exec:mmap:add :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:mmap:add -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:mmap:add :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
-                    :killedby=*
                     :exitcode=0
-                    :exited=20210202
                     :sandbox:file=*
                     :name=RunDLL32
                     :path=c:/windows/system32/rundll32.exe
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
-            self.nn(nodes[0].get('killedby'))
             self.propeq(nodes[0], 'exitcode', 0)
-            self.propeq(nodes[0], 'exited', 1612224000000000)
             self.propeq(nodes[0], 'name', 'RunDLL32')
             self.propeq(nodes[0], 'path', 'c:/windows/system32/rundll32.exe')
             self.len(1, await core.nodes('it:exec:proc:path.base=rundll32.exe'))
-            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 
             # FIXME host:activity interface?
@@ -169,7 +158,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :desc="Vertex Project Operations LAN"
                 :name="opslan.lax.vertex.link"
                 :net="10.1.0.0/16"
-                :org={ gen.ou.org "Vertex Project" }
+                :owner={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
                 :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
             ]
@@ -568,6 +557,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :version=V1.0.1-beta+exp.sha.5114f85
                     :released="2018-04-03 08:44:22"
                     :risk:score=highest
+                    :seen=(20180101, 20190101)
                     +(runson)> {[ it:software=({"name": "linux"}) ]}
                     +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
             ]''')
@@ -580,6 +570,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'released', 1522745062000000)
             self.propeq(node, 'version', 'V1.0.1-beta+exp.sha.5114f85')
             self.propeq(node, 'risk:score', 50)
+            self.nn(node.get('seen'))
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
             self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
@@ -749,10 +740,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :released=20220202
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
+                    :seen=20220101
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
-            self.propeq(nodes[0], 'model', 'xps13')
+            self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
+            self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'version.semver', 1099513724931)
             self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')
             self.propeq(nodes[0], 'released', 1643760000000000)
@@ -811,11 +804,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'account': '*',
                 'path': raw_path,
-                'src:proc': src_proc,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host :time=$p.time
-                :account=$p.account :path=$p.path :src:proc=$p."src:proc"
+            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host
+                :account=$p.account :path=$p.path
                 :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
             self.len(1, nodes)
@@ -825,9 +817,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'pid', pid)
             self.propeq(node, 'cmd', cmd0)
             self.propeq(node, 'host', host)
-            self.propeq(node, 'time', tick)
             self.propeq(node, 'path', norm_path)
-            self.propeq(node, 'src:proc', src_proc)
             self.propeq(node, 'sandbox:file', sandfile)
             self.nn(node.get('account'))
             self.len(1, await core.nodes('it:exec:proc -> it:host:account'))
@@ -904,12 +894,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:mutex=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+            q = '''[(it:exec:mutex:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
                     :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': mprops}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:exec:mutex', m0))
+            self.eq(node.ndef, ('it:exec:mutex:add', m0))
             self.propeq(node, 'exe', exe)
             self.propeq(node, 'proc', proc)
             self.propeq(node, 'host', host)
@@ -926,12 +916,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:pipe=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+            q = '''[(it:exec:pipe:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
                     :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': p0, 'p': pipeprops}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:exec:pipe', p0))
+            self.eq(node.ndef, ('it:exec:pipe:add', p0))
             self.propeq(node, 'exe', exe)
             self.propeq(node, 'proc', proc)
             self.propeq(node, 'host', host)
@@ -1184,9 +1174,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/yara-lolz/V-31337
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk
-                    :author={[ entity:contact=* ]}
+                    :creator={[ entity:contact=* ]}
                     :name=foo :version=1.2.3
-                    +(detects)> {[ it:softwarename=woot :seen=2022 ]}
+                    +(detects)> {[ it:softwarename=woot ]}
                 ]
             ''')
 
@@ -1202,7 +1192,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'version.semver', 0x10000200003)
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
-            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename +:seen'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
 
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
@@ -1228,7 +1218,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :engine=1
                 :text=gronk
                 :name=foo
-                :author = {[ entity:contact=* :name=visi ]}
+                :creator = {[ entity:contact=* :name=visi ]}
                 :created = 20120101
                 :updated = 20220101
                 :enabled=1
@@ -1246,7 +1236,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'version', '1.2.3')
             self.propeq(nodes[0], 'created', 1325376000000000)
             self.propeq(nodes[0], 'updated', 1640995200000000)
-            self.nn(nodes[0].get('author'))
+            self.nn(nodes[0].get('creator'))
 
             self.len(1, await core.nodes('it:app:snort:rule -(detects)> it:softwarename'))
 
@@ -1951,7 +1941,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> it:host'))
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
-            self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
+            self.len(1, await core.nodes('[ it:exec:proc=* <(ledto)+ { it:os:windows:service } ]'))
 
             nodes = await core.nodes('''[
                 it:os:windows:registry:entry=*
@@ -1978,34 +1968,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('G0100', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=G0100'))
 
             nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
             self.len(1, nodes)
             self.eq('TA0040', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=TA0040'))
 
             nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
             self.len(1, nodes)
             self.eq('T1548.123', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=T1548.123'))
 
             nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
             self.len(1, nodes)
             self.eq('M1036', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=M1036'))
 
             nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
             self.len(1, nodes)
             self.eq('S0154', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=S0154'))
 
             nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
             self.len(1, nodes)
             self.eq('C0028', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=C0028'))

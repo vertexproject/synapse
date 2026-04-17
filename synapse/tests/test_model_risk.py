@@ -23,13 +23,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :type=foo.bar
                     :severity=10
                     :desc=wootwoot
-                    :campaign=*
                     :prev=*
                     :actor = {[ entity:contact=* ]}
                     :sophistication=high
                     :url=https://vertex.link/attacks/CASE-2022-03
                     :id=CASE-2022-03
-                    +(had)> {[ entity:goal=* ]}
             ]''')
             self.eq(nodes[0].ndef, ('risk:attack', '17eb16247855525d6f9cb1585a59877f'))
             self.propeq(nodes[0], 'time', 1580601600000000)
@@ -45,9 +43,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('reporter'))
 
-            self.len(1, await core.nodes('risk:attack -(had)> entity:goal'))
             self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
-            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f -> entity:campaign'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :prev -> risk:attack'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :actor -> entity:contact'))
 
@@ -99,27 +95,19 @@ class RiskModelTest(s_t_utils.SynTest):
                     :discoverer={[ entity:contact=({"name": "visi"}) ]}
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
+                    :seen=(20200101, 20200601)
 
                     :id = CVE-2013-0000
                     :ids = (VISI-B-0000,)
 
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
                     :cvss:v2_0:score=1.0
-                    :cvss:v2_0:score:base=1.1
-                    :cvss:v2_0:score:temporal=1.2
-                    :cvss:v2_0:score:environmental=1.3
 
                     :cvss:v3 = AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N
 
                     :cvss:v3_0:score=2.0
-                    :cvss:v3_0:score:base=2.1
-                    :cvss:v3_0:score:temporal=2.2
-                    :cvss:v3_0:score:environmental=2.3
 
                     :cvss:v3_1:score=3.0
-                    :cvss:v3_1:score:base=3.1
-                    :cvss:v3_1:score:temporal=3.2
-                    :cvss:v3_1:score:environmental=3.3
             ]''')
             self.propeq(nodes[0], 'name', 'my vuln is cool')
             self.propeq(nodes[0], 'names', ('haha', 'hehe'))
@@ -135,6 +123,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'vendor:notified', 1578960000000000)
             self.propeq(nodes[0], 'vendor:fixed', 1578960000000000)
             self.propeq(nodes[0], 'published', 1578960000000000)
+            self.nn(nodes[0].get('seen'))
 
             self.propeq(nodes[0], 'id', 'CVE-2013-0000', form='it:sec:cve')
             self.propeq(nodes[0], 'ids', ('VISI-B-0000',))
@@ -144,19 +133,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'cvss:v3', cvssv3)
 
             self.propeq(nodes[0], 'cvss:v2_0:score', 1.0)
-            self.propeq(nodes[0], 'cvss:v2_0:score:base', 1.1)
-            self.propeq(nodes[0], 'cvss:v2_0:score:temporal', 1.2)
-            self.propeq(nodes[0], 'cvss:v2_0:score:environmental', 1.3)
 
             self.propeq(nodes[0], 'cvss:v3_0:score', 2.0)
-            self.propeq(nodes[0], 'cvss:v3_0:score:base', 2.1)
-            self.propeq(nodes[0], 'cvss:v3_0:score:temporal', 2.2)
-            self.propeq(nodes[0], 'cvss:v3_0:score:environmental', 2.3)
 
             self.propeq(nodes[0], 'cvss:v3_1:score', 3.0)
-            self.propeq(nodes[0], 'cvss:v3_1:score:base', 3.1)
-            self.propeq(nodes[0], 'cvss:v3_1:score:temporal', 3.2)
-            self.propeq(nodes[0], 'cvss:v3_1:score:environmental', 3.3)
 
             self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> it:sec:cve'))
             self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 :id -> it:sec:cve'))
@@ -172,8 +152,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :type=BazFaz
                     :name=FooBar
                     :desc=BlahBlah
-                    :detected=20501217
-                    :vuln=*
+                    :created=20501217
                     :status=todo
                     :assignee={[ syn:user=root ]}
                     :url=https://vertex.link/alerts/WOOT-20
@@ -182,8 +161,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :host=*
                     :priority=high
                     :severity=highest
-                    :service:platform=*
-                    :service:account=*
+                    :platform=*
+                    :account={[ inet:service:account=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -193,16 +172,15 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'type', 'bazfaz.')
             self.propeq(nodes[0], 'name', 'foobar')
             self.propeq(nodes[0], 'desc', 'BlahBlah')
-            self.propeq(nodes[0], 'detected', 2554848000000000)
+            self.propeq(nodes[0], 'created', 2554848000000000)
             self.propeq(nodes[0], 'id', 'WOOT-20')
             self.propeq(nodes[0], 'url', 'https://vertex.link/alerts/WOOT-20')
             self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, form='syn:user')
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
-            self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert :engine -> it:software'))
-            self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
-            self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('risk:alert :account -> inet:service:account'))
+            self.len(1, await core.nodes('risk:alert :platform -> inet:service:platform'))
 
             opts = {'vars': {'ndef': nodes[0].ndef[1]}}
             nodes = await core.nodes('risk:alert=$ndef [ :updated=20251003 ]', opts=opts)
@@ -283,7 +261,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :place:loc=cn.shanghai
                     :place:country={gen.pol.country cn}
                     :place:country:code=cn
-                    +(had)> {[ entity:goal=* ]}
                 ]
                 $threat = $node
                 $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
@@ -309,7 +286,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'published', 1675209600000000)
             self.nn(nodes[0].get('resolved'))
 
-            self.len(1, await core.nodes('risk:threat:name=apt1 -(had)> entity:goal'))
             self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
             self.len(1, await core.nodes('risk:threat:name=apt1 -> doc:reference'))
 
@@ -338,7 +314,6 @@ class RiskModelTest(s_t_utils.SynTest):
                 :size:bytes=99
                 :size:count=33
                 :size:percent=12
-                +(had)> {[ entity:goal=({"name": "publicity"}) ]}
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'wikileaks acme leak')
@@ -356,7 +331,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:leak :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:leak :actor -> ou:org +:name=wikileaks'))
             self.len(1, await core.nodes('risk:leak :recipient -> ou:org +:name=everyone'))
-            self.len(1, await core.nodes('risk:leak -(had)> entity:goal +:name=publicity'))
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''[ risk:extortion=*
@@ -396,9 +370,7 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:vulnerable=*
                     :period=(2022, ?)
-                    :node={[ inet:fqdn=vertex.link ]}
-                    :vuln={[ risk:vuln=* :name=redtree ]}
-                    :technique={[ meta:technique=* :name=foo ]}
+                    :to={[ risk:vuln=* :name=redtree ]}
                     :mitigated=true
                     :mitigations={[
                         ( risk:mitigation=* :name=patchstuff )
@@ -408,17 +380,71 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('vuln'))
+            self.nn(nodes[0].get('to'))
             self.propeq(nodes[0], 'mitigated', True)
             self.propeq(nodes[0], 'period', (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.propeq(nodes[0], 'node', 'vertex.link')
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
-            self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
-            self.len(1, await core.nodes('risk:vulnerable :technique -> meta:technique'))
             self.len(1, await core.nodes('risk:vulnerable <(shows)- inet:flow'))
 
             nodes = await core.nodes('risk:vulnerable :mitigations -> *')
             self.sorteq(['meta:technique', 'risk:mitigation'], [n.ndef[0] for n in nodes])
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:software=* :name=vulnsoft ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('node'))
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:software +:name=vulnsoft'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:server=tcp://1.2.3.4:80 ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:server'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ ou:asset=* :name=myasset ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> ou:asset +:name=myasset'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:host=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:host'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:client=tcp://5.6.7.8:12345 ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:client'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ inet:service:platform=* :name=myplatform ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:platform +:name=myplatform'))
+
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :node={[ it:hardware=* :name=myhardware ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('risk:vulnerable :node -> it:hardware +:name=myhardware'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
