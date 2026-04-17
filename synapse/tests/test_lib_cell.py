@@ -1159,6 +1159,13 @@ class CellTest(s_t_utils.SynTest):
                     self.none(info['lastupload'])
                     self.none(info['lastexception'])
 
+                    # Verify currduration is a positive ms value while a backup is running
+                    core.backmonostart = time.monotonic() - 5.0
+                    info = await proxy.getBackupInfo()
+                    self.isinstance(info['currduration'], int)
+                    self.ge(info['currduration'], 5000)
+                    core.backmonostart = None
+
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
 
