@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.drive as s_drive
 import synapse.lib.config as s_config
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -370,3 +371,36 @@ class DriveTest(s_t_utils.SynTest):
 
             drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
             self.true(os.path.isfile(drivepath))
+
+    async def test_drive_cell_migration_crash_recovery(self):
+        with self.getTestDir() as dirn:
+            celldirn = s_common.gendir(dirn, 'cell')
+            item_iden = s_common.guid()
+
+            async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
+                rootuser_iden = cell.auth.rootuser.iden
+
+            drivepath = s_common.genpath(celldirn, 'slabs', 'drive.lmdb')
+            cellslabpath = s_common.genpath(celldirn, 'slabs', 'cell.lmdb')
+
+            self.true(os.path.isdir(drivepath))
+
+            # Rollback version, simulate pre-crash state
+            async with await s_lmdbslab.Slab.anit(cellslabpath) as slab:
+                slab.getSafeKeyVal('cell:vers').set('drive:storage', 1)
+
+                olddrive = await s_drive.Drive.anit(slab, 'celldrive')
+                await olddrive.addItemInfo({
+                    'name': 'crashtest',
+                    'iden': item_iden,
+                    'created': s_common.now(),
+                    'creator': rootuser_iden,
+                })
+                await olddrive.fini()
+
+            # retry _driveCellMigration
+            async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
+                self.eq(2, cell.cellvers.get('drive:storage'))
+                items = await cell.getDrivePath('crashtest')
+                self.len(1, items)
+                self.eq(item_iden, items[0]['iden'])
