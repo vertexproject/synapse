@@ -261,7 +261,6 @@ class Lookup(Query):
             # build joined text and record each original token's char span within it
             tokn_spans = []
             pos = 0
-            pos = 0
             for tokn in tokns:
                 tokn_spans.append((tokn, pos, pos + len(tokn)))
                 pos += len(tokn) + 1
