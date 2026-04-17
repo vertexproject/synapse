@@ -126,6 +126,10 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
                     'ex': ex_md5
                 }),
+                ('hash:ssdeep', ('ssdeep', {}), {
+                    'doc': 'A fuzzy hash of a file in ssdeep format.',
+                    'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                }),
 
                 ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
                     'doc': 'An RSA keypair modulus and public exponent.'
@@ -443,6 +447,7 @@ class CryptoModule(s_module.CoreModule):
                 ('hash:sha256', {}, ()),
                 ('hash:sha384', {}, ()),
                 ('hash:sha512', {}, ()),
+                ('hash:ssdeep', {}, ()),
                 # TODO deprecate rsa:key and add fields to crypto:key
                 ('rsa:key', {}, (
                     ('mod', ('hex', {}), {'ro': True,

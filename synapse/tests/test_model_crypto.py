@@ -410,6 +410,22 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(subs, {})
             self.raises(s_exc.BadTypeValu, ntlm.norm, TEST_SHA256)
 
+    async def test_norm_ssdeep(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            t = core.model.type('hash:ssdeep')
+
+            h = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            valu, subs = t.norm(h)
+            self.eq(valu, h)
+            self.eq(subs, {})
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('notanssdeep')
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('0:hash1:hash2')
+
     async def test_forms_crypto_simple(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
@@ -442,6 +458,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('hash:sha512', TEST_SHA512))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[(hash:sha512=$valu)]', opts={'vars': {'valu': TEST_MD5}})
+
+            ssdeep_hash = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            nodes = await core.nodes('[(hash:ssdeep=$valu)]', opts={'vars': {'valu': ssdeep_hash}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:ssdeep', ssdeep_hash))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:ssdeep=$valu)]', opts={'vars': {'valu': 'notanssdeep'}})
 
     async def test_form_rsakey(self):
         props = {

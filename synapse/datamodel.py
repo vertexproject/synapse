@@ -547,6 +547,10 @@ class Model:
         item = s_types.Hex(self, 'hex', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A fuzzy hash in ssdeep format.'}
+        item = s_types.SsDeep(self, 'ssdeep', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The base boolean type.'}
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)

@@ -1,0 +1,8 @@
+---
+desc: Added the ``hash:ssdeep`` form and type to allow users to record ssdeep fuzzy hashes
+  as nodes. Added the ``file:bytes:ssdeeps`` array property to allow users to capture
+  one or more ssdeep fuzzy hashes for a given file.
+desc:literal: false
+prs: []
+type: model
+...

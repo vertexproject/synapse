@@ -578,6 +578,65 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:zeropad=00000000000000000444'))  # len=20
             self.len(0, await core.nodes('test:zeropad=0000000000000000000444'))  # len=22
 
+    async def test_ssdeep(self):
+
+        async with self.getTestCore() as core:
+
+            t = core.model.type('test:ssdeep')
+
+            # Valid ssdeep hashes
+            testvectors = [
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs'),
+                ('24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK',
+                 '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'),
+                ('3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS',
+                 '3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS'),
+                # Leading/trailing whitespace is stripped
+                ('  98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL  ',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+            ]
+
+            for valu, expected in testvectors:
+                norm, subs = t.norm(valu)
+                self.isinstance(norm, str)
+                self.eq(subs, {})
+                self.eq(norm, expected, f'{valu=}')
+
+            # Invalid ssdeep hashes
+            badvectors = [
+                ('', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                ('notanssdeep', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                ('abc:hash1:hash2', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                ('98304:hash1', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                ('0:PYZd:iglL', 'ssdeep blocksize must be >= 3'),
+                ('2:PYZd:iglL', 'ssdeep blocksize must be >= 3'),
+                # Non-base64 characters in hash segments
+                ('98304:PYZd!VAlXLL:iglL', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                # hash1 > 64 chars
+                ('98304:' + 'A' * 65 + ':iglL', 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+                # hash2 > 32 chars
+                ('98304:iglL:' + 'A' * 33, 'Expected ssdeep format: <blocksize>:<hash1>:<hash2>'),
+            ]
+
+            for valu, mesg in badvectors:
+                with self.raises(s_exc.BadTypeValu) as exc:
+                    t.norm(valu)
+                self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
+
+            # Non-str inputs are rejected
+            with self.raises(s_exc.BadTypeValu):
+                t.norm(12345)
+
+            # Node creation and lifting
+            h1 = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            nodes = await core.nodes('[test:ssdeep=$h]', opts={'vars': {'h': h1}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:ssdeep', h1))
+            self.len(1, await core.nodes('test:ssdeep=$h', opts={'vars': {'h': h1}}))
+
     def test_int(self):
 
         model = s_datamodel.Model()

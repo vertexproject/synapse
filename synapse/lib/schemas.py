@@ -652,6 +652,7 @@ datamodel_basetypes = [
     'range',
     'str',
     'hex',
+    'ssdeep',
     'bool',
     'time',
     'duration',
