@@ -123,8 +123,8 @@ class GisTest(s_t_utils.SynTest):
         # Error: unparseable
         self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'not a coordinate')
 
-        # Error: conflicting negative sign and S/W direction
-        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'-45{deg}46\'52"S')
+        # Error: conflicting negative sign and N/E direction
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'-45{deg}46\'52"N')
 
         # Error: minutes >= 60
         self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'45{deg}60\'0"N')

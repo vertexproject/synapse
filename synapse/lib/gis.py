@@ -178,8 +178,8 @@ def parseDMS(text):
 
     direction = (dirpre or dirsuf or '').upper()
 
-    if neg and direction in ('S', 'W'):
-        raise s_exc.BadTypeValu(mesg=f'Conflicting negative sign and S/W direction in: {text!r}', text=text)
+    if neg and direction in ('N', 'E'):
+        raise s_exc.BadTypeValu(mesg=f'Conflicting negative sign and N/E direction in: {text!r}', text=text)
 
     if mins >= 60.0:
         raise s_exc.BadTypeValu(mesg=f'Invalid minutes value {mins} in: {text!r}', text=text)
