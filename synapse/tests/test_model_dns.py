@@ -80,88 +80,92 @@ class DnsModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             file0 = s_common.guid()
+            flow0 = s_common.guid()
             props = {
                 'time': '2018',
-                'query': ('1.2.3.4', 'vertex.link', 255),
+                'query:name': 'vertex.link',
+                'query:type': 255,
+                'client': 'tcp://1.2.3.4',
                 'server': 'udp://5.6.7.8:53',
-                'reply:code': 0,
+                'flow': flow0,
                 'sandbox:file': file0,
             }
-            q = '''[(inet:dns:request=$valu :time=$p.time :query=$p.query :server=$p.server
-                :reply:code=$p."reply:code" :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(inet:dns:request=$valu :time=$p.time
+                :query:name=$p."query:name" :query:type=$p."query:type"
+                :client=$p.client :server=$p.server :flow=$p.flow
+                :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
             self.len(1, nodes)
-            node = nodes[0]
-            req_ndef = node.ndef
-            self.propeq(node, 'time', 1514764800000000)
-            self.propeq(node, 'reply:code', 0)
-            self.propeq(node, 'server', 'udp://5.6.7.8:53')
-            self.propeq(node, 'query', ('tcp://1.2.3.4', 'vertex.link', 255))
-            self.propeq(node, 'query:name', 'vertex.link')
-            self.propeq(node, 'query:name:fqdn', 'vertex.link')
-            self.propeq(node, 'query:type', 255)
-            self.propeq(node, 'sandbox:file', file0)
-            self.none(node.get('query:client'))
+            req = nodes[0]
+            self.propeq(req, 'time', 1514764800000000)
+            self.propeq(req, 'client', 'tcp://1.2.3.4')
+            self.propeq(req, 'server', 'udp://5.6.7.8:53')
+            self.propeq(req, 'flow', flow0)
+            self.propeq(req, 'query:name', 'vertex.link')
+            self.propeq(req, 'query:type', 255)
+            self.propeq(req, 'sandbox:file', file0)
             self.len(1, await core.nodes('inet:server="udp://5.6.7.8:53"'))
-            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
+            self.len(1, await core.nodes('inet:flow=$valu', opts={'vars': {'valu': flow0}}))
             self.len(1, await core.nodes('file:bytes=$valu', opts={'vars': {'valu': file0}}))
-            # Ensure some remaining inet:dns:query:name:* props are broken out
-            nodes = await core.nodes('[(inet:dns:request=* :query:name=4.3.2.1.in-addr.arpa)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.none(node.get('query:name:fqdn'))
-            self.propeq(node, 'query:name:ip', (4, 0x01020304))
-            self.propeq(node, 'query:name', '4.3.2.1.in-addr.arpa')
-            # A bit of a bunk example but sometimes people query for raw ipv4/ipv6 addresses
-            # and we'll try to extract them if possible :)
-            nodes = await core.nodes('[(inet:dns:request=* :query:name="::ffff:1.2.3.4")]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.none(node.get('query:name:fqdn'))
-            self.propeq(node, 'query:name', '::ffff:1.2.3.4')
-            self.propeq(node, 'query:name:ip', (6, 0xffff01020304))
+
             # Ensure that lift via prefix for inet:dns:name type works
             self.len(1, await core.nodes('inet:dns:request:query:name^=vertex'))
-            # Ensure that subs are broken out for inet:dns:query
-            nodes = await core.nodes('inet:dns:query=("tcp://1.2.3.4", vertex.link, 255)')
+
+            # inet:dns:query form still exists independently
+            nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, 255)]')
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'client', 'tcp://1.2.3.4')
             self.propeq(node, 'name', 'vertex.link')
-            self.propeq(node, 'name:fqdn', 'vertex.link')
             self.propeq(node, 'type', 255)
 
-            nodes = await core.nodes('[inet:dns:request=* :reply:code=NXDOMAIN]')
-            self.propeq(nodes[0], 'reply:code', 3)
-            self.eq(nodes[0].repr('reply:code'), 'NXDOMAIN')
-
-            nodes = await core.nodes('[inet:dns:request=* :reply:code=1138]')
-            self.propeq(nodes[0], 'reply:code', 1138)
-            self.eq(nodes[0].repr('reply:code'), '1138')
-
-            nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", 4.3.2.1.in-addr.arpa, 255)]')
+            # inet:dns:response with code values
+            nodes = await core.nodes('[inet:dns:response=* :code=NOERROR]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.propeq(node, 'name', '4.3.2.1.in-addr.arpa')
-            self.none(node.get('name:fqdn'))
-            self.propeq(node, 'name:ip', (4, 0x01020304))
+            self.propeq(nodes[0], 'code', 0)
+            self.eq(nodes[0].repr('code'), 'NOERROR')
 
-            valu = ('tcp://1.2.3.4',
-                    '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa',
-                    255)
-            nodes = await core.nodes('[inet:dns:query=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[inet:dns:response=* :code=NXDOMAIN]')
+            self.propeq(nodes[0], 'code', 3)
+            self.eq(nodes[0].repr('code'), 'NXDOMAIN')
+
+            nodes = await core.nodes('[inet:dns:response=* :code=1138]')
+            self.propeq(nodes[0], 'code', 1138)
+            self.eq(nodes[0].repr('code'), '1138')
+
+            # Link a request to a response with answers
+            ans0 = s_common.guid()
+            ans1 = s_common.guid()
+            q = '''[
+                (inet:dns:answer=$a0 :ttl=300 :record={[ inet:dns:a=(vertex.link, 2.3.4.5) ]})
+                (inet:dns:answer=$a1 :ttl=300 :record={[ inet:dns:a=(vertex.link, 2.3.4.6) ]})
+            ]'''
+            await core.nodes(q, opts={'vars': {'a0': ans0, 'a1': ans1}})
+
+            resp_iden = s_common.guid()
+            q = '''[ inet:dns:response=$r
+                :time=2018
+                :server=udp://5.6.7.8:53
+                :client=tcp://1.2.3.4
+                :flow=$f
+                :code=NOERROR
+                :answers=($a0, $a1)
+            ]'''
+            nodes = await core.nodes(q, opts={'vars': {'r': resp_iden, 'f': flow0, 'a0': ans0, 'a1': ans1}})
             self.len(1, nodes)
-            node = nodes[0]
-            self.none(node.get('name:fqdn'))
-            self.propeq(node, 'name:ip', (6, 0xffff01020304))
-            # Try inet:dns:answer now
-            nodes = await core.nodes('[inet:dns:answer=* :request=$valu :record={[ inet:dns:a=(vertex.link, 2.3.4.5) ]} ]',
-                                     opts={'vars': {'valu': req_ndef[1]}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.propeq(node, 'request', req_ndef[1])
-            self.propeq(node, 'record', ('vertex.link', (4, 0x02030405)), form='inet:dns:a')
-            self.len(1, await core.nodes('inet:dns:a=(vertex.link, 2.3.4.5)'))
+            resp = nodes[0]
+            self.propeq(resp, 'time', 1514764800000000)
+            self.propeq(resp, 'code', 0)
+            self.propeq(resp, 'server', 'udp://5.6.7.8:53')
+            self.propeq(resp, 'client', 'tcp://1.2.3.4')
+            self.propeq(resp, 'flow', flow0)
+            self.propeq(resp, 'answers', (ans0, ans1))
+
+            q = 'inet:dns:request [ :response=$r ]'
+            nodes = await core.nodes(q, opts={'vars': {'r': resp_iden}})
+            self.propeq(nodes[0], 'response', resp_iden)
+            self.len(1, await core.nodes('inet:dns:request :response -> inet:dns:response'))
+
             # It is also possible for us to record a request from imperfect data
             # An example of that is dns data from a malware sandbox where the client
             # IP is unknown
@@ -176,17 +180,9 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
-            self.none(node.get('query'))
             self.propeq(node, 'client:exe', "a" * 32)
             self.propeq(node, 'query:name', 'notac2.someone.com')
             self.propeq(node, 'sandbox:file', "b" * 32)
-
-            nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8.7.6.5"]')
-            self.len(1, nodes)
-            expected_nodes = (
-                ('inet:ip', (6, 0xffff08070605)),
-            )
-            await self.checkNodes(core, expected_nodes)
 
             # DNS queries can be quite complex or awkward since the protocol
             # allows for nearly anything to be asked about. This can lead to
@@ -313,7 +309,6 @@ class DnsModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:dns:aaaa=(foo.com, ([4, 1]))]')
             self.isin('got 4 expected 6', cm.exception.get('mesg'))
 
-    # The inet:dns:answer form has a large number of properties on it,
     async def test_model_inet_dns_answer(self):
         ip0 = (4, 0x01010101)
         ip1 = (6, 2)
@@ -323,9 +318,10 @@ class DnsModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             # a record
-            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:a=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip0)}})
+            nodes = await core.nodes('[inet:dns:answer=* :ttl=300 :record={[ inet:dns:a=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip0)}})
             self.len(1, nodes)
             node = nodes[0]
+            self.propeq(node, 'ttl', 300)
             self.propeq(node, 'record', (fqdn0, ip0), form='inet:dns:a')
             # ns record
             nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:ns=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
@@ -352,11 +348,6 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:cname')
-            # mx record
-            nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:mx=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:mx')
             # soa record
             guid = s_common.guid((fqdn0, fqdn1, email0))
             nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:soa=$valu ]} ]', opts={'vars': {'valu': guid}})
@@ -368,11 +359,18 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'record', (fqdn0, 'Oh my!'), form='inet:dns:txt')
-            # time prop
-            nodes = await core.nodes('[inet:dns:answer=* :time=2018]')
+
+            # inet:dns:mx:answer extends inet:dns:answer with MX-specific props
+            nodes = await core.nodes('''[ inet:dns:mx:answer=*
+                :ttl=600
+                :priority=10
+                :record={[ inet:dns:mx=$valu ]}
+            ]''', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'time', 1514764800000000)
+            self.propeq(node, 'ttl', 600)
+            self.propeq(node, 'priority', 10)
+            self.propeq(node, 'record', (fqdn0, fqdn1), form='inet:dns:mx')
 
     async def test_model_dns_wild(self):
 
