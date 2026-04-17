@@ -258,7 +258,15 @@ class Lookup(Query):
             if not tokns:
                 return
 
-            text = ' '.join(tokns)
+            # build joined text and record each original token's char span within it
+            tokn_spans = []
+            pos = 0
+            parts = []
+            for tokn in tokns:
+                tokn_spans.append((tokn, pos, pos + len(tokn)))
+                parts.append(tokn)
+                pos += len(tokn) + 1
+            text = ' '.join(parts)
 
             rawscrapes = []
             async for form, valu, info in view.scrapeIface(text):
@@ -292,15 +300,9 @@ class Lookup(Query):
                     continue
                 covered.update(range(offset, offset + len(match)))
 
-            # remainder tokens are whitespace-split tokens with no character in a covered range
-            remtokns = []
-            pos = 0
-            for tokn in text.split():
-                start = text.index(tokn, pos)
-                end = start + len(tokn)
-                if not covered.intersection(range(start, end)):
-                    remtokns.append(tokn)
-                pos = end
+            # remainder: original tokens with no character in a covered scrape range
+            remtokns = [tokn for tokn, start, end in tokn_spans
+                        if not covered.intersection(range(start, end))]
 
             if not remtokns:
                 return

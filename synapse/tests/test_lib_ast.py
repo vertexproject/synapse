@@ -170,6 +170,12 @@ class AstTest(s_test.SynTest):
             ndefs = {n.ndef for n in nodes}
             self.notin(('entity:name', 'vertex project'), ndefs)
 
+            # a quoted token containing whitespace must be treated as a single
+            # remainder token, not split on the internal space
+            nodes = await core.nodes('"Vertex Project"', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+
     async def test_try_set(self):
         '''
         Test ?= assignment
