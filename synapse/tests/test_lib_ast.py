@@ -161,6 +161,15 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
             core.model._lookup_hints = None
 
+            # a scrape match that covers only part of a whitespace-token must not
+            # leave a partial fragment as a remainder for hints-based search
+            # "1.2.3.4Vertex" -> scraper pulls "1.2.3.4" but the whole token is
+            # covered so "Vertex" must not bleed through to the hints path
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
+            nodes = await core.nodes('1.2.3.4Vertex', opts={'mode': 'lookup'})
+            ndefs = {n.ndef for n in nodes}
+            self.notin(('entity:name', 'vertex project'), ndefs)
+
     async def test_try_set(self):
         '''
         Test ?= assignment

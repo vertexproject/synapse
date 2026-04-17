@@ -283,34 +283,43 @@ class Lookup(Query):
 
                 yield node, runt.initPath(node)
 
-            # compute remainder by removing all scraped match spans from the text
-            remainder = text
-            for _, _, info in sorted(scrapes, key=lambda x: x[2].get('offset', 0), reverse=True):
+            # collect covered character ranges from accepted scrapes
+            covered = set()
+            for _, _, info in scrapes:
                 match = info.get('match')
                 offset = info.get('offset')
                 if match is None or offset is None:
                     continue
-                remainder = remainder[:offset] + remainder[offset + len(match):]
+                covered.update(range(offset, offset + len(match)))
 
-            remainder = remainder.strip()
-            if not remainder:
+            # remainder tokens are whitespace-split tokens with no character in a covered range
+            remtokns = []
+            pos = 0
+            for tokn in text.split():
+                start = text.index(tokn, pos)
+                end = start + len(tokn)
+                if not covered.intersection(range(start, end)):
+                    remtokns.append(tokn)
+                pos = end
+
+            if not remtokns:
                 return
 
             hints = runt.model.getLookupHints()
             if not hints:
                 return
 
-            async with await s_spooled.Set.anit(dirn=view.core.dirn, cell=view.core) as buidset:
+            async with await s_spooled.Set.anit(dirn=view.core.dirn, cell=view.core) as nidset:
 
-                for tokn in remainder.split():
+                for tokn in remtokns:
                     for prop_name, cmpr in hints:
                         try:
                             async for node in view.nodesByPropValu(prop_name, cmpr, tokn):
-                                if node.buid in buidset:
+                                if node.nid in nidset:
                                     await asyncio.sleep(0)
                                     continue
 
-                                await buidset.add(node.buid)
+                                await nidset.add(node.nid)
                                 yield node, runt.initPath(node)
 
                         except (s_exc.BadTypeValu, s_exc.BadCmprValu, s_exc.NoSuchCmpr):
