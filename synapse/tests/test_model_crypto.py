@@ -44,6 +44,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
+                [ :chain={[ crypto:currency:chain=* :id=ABC-123 :name="Vertex Coin" :symbol=VTX ]} ]
                 [ :seed={
                     [ crypto:key=*
                         :algorithm=aes256
@@ -67,6 +68,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 }]
             ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
+            self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:id=ABC-123 +:name="vertex coin" +:symbol=VTX'))
             self.len(1, await core.nodes('crypto:algorithm=aes256'))
             self.len(1, await core.nodes('''
                     crypto:key:algorithm=aes256
@@ -109,12 +111,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
 
-            payors = await core.nodes('[ crypto:payment:input=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payors = await core.nodes('[ crypto:payment:input=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payors[0].get('value'), '30')
+            self.eq(payors[0].get('index'), 0)
             self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
-            payees = await core.nodes('[ crypto:payment:output=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payees = await core.nodes('[ crypto:payment:output=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payees[0].get('value'), '30')
+            self.eq(payees[0].get('index'), 0)
             self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
             payor = payors[0].ndef[1]
