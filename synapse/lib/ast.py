@@ -264,9 +264,8 @@ class Lookup(Query):
             pos = 0
             for tokn in tokns:
                 tokn_spans.append((tokn, pos, pos + len(tokn)))
-                parts.append(tokn)
                 pos += len(tokn) + 1
-            text = ' '.join(parts)
+            text = ' '.join(tokns)
 
             rawscrapes = []
             async for form, valu, info in view.scrapeIface(text):
