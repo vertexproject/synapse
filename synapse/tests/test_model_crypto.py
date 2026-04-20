@@ -429,8 +429,12 @@ class CryptoModelTest(s_t_utils.SynTest):
                  '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'),
                 ('3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS',
                  '3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS'),
+                # Leading/trailing whitespace is stripped
                 ('  98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL  ',
                  '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+                # Spec boundary: hash1 max 64 chars (SPAMSUM_LENGTH), hash2 max 32 chars (SPAMSUM_LENGTH/2)
+                ('6:' + 'A' * 64 + ':' + 'B' * 32,
+                 '6:' + 'A' * 64 + ':' + 'B' * 32),
             ]
 
             for valu, expected in testvectors:
@@ -444,9 +448,18 @@ class CryptoModelTest(s_t_utils.SynTest):
                 '98304:hash1',
                 '0:PYZd:iglL',
                 '2:PYZd:iglL',
+                # Empty hash segments
+                '3::',
+                '3:A:',
+                '3::A',
+                # Invalid characters in hash segments
                 '98304:PYZd!VAlXLL:iglL',
+                # hash1 exceeds SPAMSUM_LENGTH (64)
                 '98304:' + 'A' * 65 + ':iglL',
+                # hash2 exceeds SPAMSUM_LENGTH/2 (32)
                 '98304:iglL:' + 'A' * 33,
+                # Extra segment
+                '98304:A:B:C',
             ]
 
             for valu in badvectors:
