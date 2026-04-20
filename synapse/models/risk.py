@@ -68,24 +68,6 @@ modeldefs = (
                 ), {
                 'doc': 'A unique ID given to a vulnerability.'}),
 
-            ('risk:threat:id', (
-                    ('it:mitre:attack:group:id', {}),
-                    ('base:id', {})
-                ), {
-                'doc': 'A unique ID given to a threat cluster.'}),
-
-            ('risk:tool:software:id', (
-                    ('it:mitre:attack:software:id', {}),
-                    ('base:id', {})
-                ), {
-                'doc': 'A unique ID given to a software tool.'}),
-
-            ('risk:mitigation:id', (
-                    ('it:mitre:attack:mitigation:id', {}),
-                    ('base:id', {})
-                ), {
-                'doc': 'A unique ID given to a mitigation.'}),
-
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -450,11 +432,14 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
-                ('id', ('risk:threat:id', {}), {
+                ('id', (
+                    ('it:mitre:attack:group:id', {}),
+                    ('base:id', {}),
+                ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the threat.'}),
 
-                ('ids', ('array', {'type': 'risk:threat:id'}), {
+                ('ids', ('array', {'type': (('it:mitre:attack:group:id', {}), ('base:id', {}))}), {
                     'doc': 'An array of alternate IDs given to the threat.'}),
 
                 ('name', ('entity:name', {}), {
@@ -487,11 +472,14 @@ modeldefs = (
             # FIXME extend it:software form?
             ('risk:tool:software', {}, (
 
-                ('id', ('risk:tool:software:id', {}), {
+                ('id', (
+                    ('it:mitre:attack:software:id', {}),
+                    ('base:id', {}),
+                ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the tool.'}),
 
-                ('ids', ('array', {'type': 'risk:tool:software:id'}), {
+                ('ids', ('array', {'type': (('it:mitre:attack:software:id', {}), ('base:id', {}))}), {
                     'doc': 'An array of alternate IDs given to the tool.'}),
 
                 ('name', ('it:softwarename', {}), {
@@ -520,11 +508,14 @@ modeldefs = (
             )),
             ('risk:mitigation', {}, (
 
-                ('id', ('risk:mitigation:id', {}), {
+                ('id', (
+                    ('it:mitre:attack:mitigation:id', {}),
+                    ('base:id', {}),
+                ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the mitigation.'}),
 
-                ('ids', ('array', {'type': 'risk:mitigation:id'}), {
+                ('ids', ('array', {'type': (('it:mitre:attack:mitigation:id', {}), ('base:id', {}))}), {
                     'doc': 'An array of alternate IDs given to the mitigation.'}),
             )),
 

@@ -294,12 +294,6 @@ modeldefs = (
             ('int:min1', ('int', {'min': 1}), {
                 'doc': 'A positive integer.'}),
 
-            ('meta:technique:id', (
-                    ('it:mitre:attack:technique:id', {}),
-                    ('base:id', {})
-                ), {
-                'doc': 'A unique ID given to a technique.'}),
-
             ('meta:technique', ('guid', {}), {
                 'template': {'title': 'technique'},
                 'doc': 'A specific technique used to achieve a goal.',
@@ -817,11 +811,14 @@ modeldefs = (
 
             ('meta:technique', {}, (
 
-                ('id', ('meta:technique:id', {}), {
+                ('id', (
+                    ('it:mitre:attack:technique:id', {}),
+                    ('base:id', {}),
+                ), {
                     'alts': ('ids',),
                     'doc': 'A unique ID given to the technique.'}),
 
-                ('ids', ('array', {'type': 'meta:technique:id'}), {
+                ('ids', ('array', {'type': (('it:mitre:attack:technique:id', {}), ('base:id', {}))}), {
                     'doc': 'An array of alternate IDs given to the technique.'}),
 
                 ('type', ('meta:technique:type:taxonomy', {}), {
