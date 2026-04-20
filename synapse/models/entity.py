@@ -341,6 +341,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
+            ('entity:campaign:id', (
+                    ('it:mitre:attack:campaign:id', {}),
+                    ('base:id', {})
+                ), {
+                'doc': 'A unique ID given to a campaign.'}),
+
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
@@ -706,6 +712,13 @@ modeldefs = (
                 'prevnames': ('ou:camptype',)}, ()),
 
             ('entity:campaign', {}, (
+
+                ('id', ('entity:campaign:id', {}), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the campaign.'}),
+
+                ('ids', ('array', {'type': 'entity:campaign:id'}), {
+                    'doc': 'An array of alternate IDs given to the campaign.'}),
 
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),

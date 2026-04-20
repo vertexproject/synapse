@@ -34,6 +34,12 @@ modeldefs = (
             ('plan:procedure:step', ('guid', {}), {
                 'doc': 'A step within a procedure.'}),
 
+            ('plan:phase:id', (
+                    ('it:mitre:attack:tactic:id', {}),
+                    ('base:id', {})
+                ), {
+                'doc': 'A unique ID given to a phase.'}),
+
             ('plan:procedure:link', ('guid', {}), {
                 'doc': 'A link between steps in a procedure.'}),
         ),
@@ -71,6 +77,13 @@ modeldefs = (
                     'doc': 'The primary URL which documents the planning system.'}),
             )),
             ('plan:phase', {}, (
+
+                ('id', ('plan:phase:id', {}), {
+                    'alts': ('ids',),
+                    'doc': 'The phase ID.'}),
+
+                ('ids', ('array', {'type': 'plan:phase:id'}), {
+                    'doc': 'An array of alternate IDs for the phase.'}),
 
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',

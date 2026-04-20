@@ -1993,3 +1993,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('C0028', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
+
+            # Test that MITRE ATT&CK IDs can be set on :id properties of related forms
+            nodes = await core.nodes('[ risk:threat=* :id=G0100 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'G0100', form='it:mitre:attack:group:id')
+
+            nodes = await core.nodes('[ entity:campaign=* :id=C0028 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'C0028', form='it:mitre:attack:campaign:id')
+
+            nodes = await core.nodes('[ risk:tool:software=* :id=S0154 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'S0154', form='it:mitre:attack:software:id')
+
+            nodes = await core.nodes('[ meta:technique=* :id=T1548 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'T1548', form='it:mitre:attack:technique:id')
+
+            nodes = await core.nodes('[ risk:mitigation=* :id=M1036 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'M1036', form='it:mitre:attack:mitigation:id')
+
+            nodes = await core.nodes('[ plan:phase=* :id=TA0040 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'TA0040', form='it:mitre:attack:tactic:id')

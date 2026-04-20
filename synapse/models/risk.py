@@ -68,6 +68,24 @@ modeldefs = (
                 ), {
                 'doc': 'A unique ID given to a vulnerability.'}),
 
+            ('risk:threat:id', (
+                    ('it:mitre:attack:group:id', {}),
+                    ('base:id', {})
+                ), {
+                'doc': 'A unique ID given to a threat cluster.'}),
+
+            ('risk:tool:software:id', (
+                    ('it:mitre:attack:software:id', {}),
+                    ('base:id', {})
+                ), {
+                'doc': 'A unique ID given to a software tool.'}),
+
+            ('risk:mitigation:id', (
+                    ('it:mitre:attack:mitigation:id', {}),
+                    ('base:id', {})
+                ), {
+                'doc': 'A unique ID given to a mitigation.'}),
+
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -432,6 +450,13 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
+                ('id', ('risk:threat:id', {}), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the threat.'}),
+
+                ('ids', ('array', {'type': 'risk:threat:id'}), {
+                    'doc': 'An array of alternate IDs given to the threat.'}),
+
                 ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'doc': 'The primary name of the threat according to the source.'}),
@@ -462,6 +487,13 @@ modeldefs = (
             # FIXME extend it:software form?
             ('risk:tool:software', {}, (
 
+                ('id', ('risk:tool:software:id', {}), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the tool.'}),
+
+                ('ids', ('array', {'type': 'risk:tool:software:id'}), {
+                    'doc': 'An array of alternate IDs given to the tool.'}),
+
                 ('name', ('it:softwarename', {}), {
                     'alts': ('names',),
                     'doc': 'The primary name of the tool according to the source.'}),
@@ -486,7 +518,15 @@ modeldefs = (
                     'prevnames': ('soft',),
                     'doc': 'The authoritative software family for the tool.'}),
             )),
-            ('risk:mitigation', {}, ()),
+            ('risk:mitigation', {}, (
+
+                ('id', ('risk:mitigation:id', {}), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the mitigation.'}),
+
+                ('ids', ('array', {'type': 'risk:mitigation:id'}), {
+                    'doc': 'An array of alternate IDs given to the mitigation.'}),
+            )),
 
             ('risk:vuln:type:taxonomy', {}, ()),
 
