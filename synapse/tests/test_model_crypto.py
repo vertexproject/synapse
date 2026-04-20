@@ -432,9 +432,13 @@ class CryptoModelTest(s_t_utils.SynTest):
                 # Leading/trailing whitespace is stripped
                 ('  98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL  ',
                  '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
-                # Spec boundary: hash1 max 64 chars (SPAMSUM_LENGTH), hash2 max 32 chars (SPAMSUM_LENGTH/2)
+                # Spec boundary: hash1 max 64 chars (SPAMSUM_LENGTH)
+                # hash2 max 64 chars (SPAMSUM_LENGTH) when FUZZY_FLAG_NOTRUNC is set,
+                # or 32 chars (SPAMSUM_LENGTH/2) in default truncated mode
                 ('6:' + 'A' * 64 + ':' + 'B' * 32,
                  '6:' + 'A' * 64 + ':' + 'B' * 32),
+                ('6:' + 'A' * 64 + ':' + 'B' * 64,
+                 '6:' + 'A' * 64 + ':' + 'B' * 64),
             ]
 
             for valu, expected in testvectors:
@@ -456,8 +460,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                 '98304:PYZd!VAlXLL:iglL',
                 # hash1 exceeds SPAMSUM_LENGTH (64)
                 '98304:' + 'A' * 65 + ':iglL',
-                # hash2 exceeds SPAMSUM_LENGTH/2 (32)
-                '98304:iglL:' + 'A' * 33,
+                # hash2 exceeds SPAMSUM_LENGTH (64)
+                '98304:iglL:' + 'A' * 65,
                 # Extra segment
                 '98304:A:B:C',
             ]
