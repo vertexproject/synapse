@@ -811,6 +811,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model(core=self)
+        self._localmodeldefs = []
 
         await self._loadModels()
         await self._loadExtModel()
@@ -1297,6 +1298,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.finiMergeTask()
 
         await self.finiStormPool()
+
+    async def _execCellUpdates(self):
+        await super()._execCellUpdates()
+
+        newhash = s_common.guid(s_common.flatten(self._mainlinemdefs))
+        oldhash = self.cellinfo.get('cortex:model:hash')
+
+        if newhash != oldhash:
+            await self._push('model:set', self._mainlinemdefs)
 
     async def initStormPool(self):
 
@@ -2963,12 +2973,38 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
+        self._mainlinemdefs = mdefs
         self.model.addModelDefs(mdefs)
+
+        # If a persisted model exists and differs from the code-derived one, rebuild
+        # self.model from the persisted version. Mirrors hold the cluster's current model
+        # until the leader issues model:set after a code change. The hash is stored separately.
+        if (persisted := self.cellinfo.get('cortex:model')) is not None:
+            newhash = s_common.guid(s_common.flatten(mdefs))
+            oldhash = self.cellinfo.get('cortex:model:hash')
+            if newhash != oldhash:
+                self.model = s_datamodel.Model(core=self)
+                self.model.addModelDefs(persisted)
 
     async def _addModelDefs(self, mods):
         self.model.addModelDefs(mods)
+        self._localmodeldefs.append(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
+
+    @s_nexus.Pusher.onPush('model:set')
+    async def _setModel(self, mdefs):
+        model = s_datamodel.Model(core=self)
+        model.addModelDefs(mdefs)
+        for localmods in self._localmodeldefs:
+            model.addModelDefs(localmods)
+        self._applyExtModel(model)
+        self.model = model
+        modelhash = s_common.guid(s_common.flatten(mdefs))
+        self.cellinfo.set('cortex:model:hash', modelhash)
+        self.cellinfo.set('cortex:model', mdefs)
+        await self._initDeprLocks()
+        await self.feedBeholder('model:set', {'hash': modelhash})
 
     async def _loadExtModel(self):
 
@@ -2978,9 +3014,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
+        self._applyExtModel(self.model)
+
+    def _applyExtModel(self, model):
+        '''Apply persisted extended model elements to the given DataModel instance.'''
+
         for typename, basetype, typeopts, typeinfo in self.exttypes.values():
             try:
-                self.model.addType(typename, basetype, typeopts, typeinfo)
+                model.addType(typename, basetype, typeopts, typeinfo)
             except Exception as e:
                 logger.warning(f'Extended type ({typename}) error: {e}')
 
@@ -2989,12 +3030,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def addForms(infos):
             for formname, basetype, typeopts, typeinfo in infos:
                 try:
-                    if self.model.type(basetype) is None:
+                    if model.type(basetype) is None:
                         formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
                         continue
 
-                    self.model.addType(formname, basetype, typeopts, typeinfo)
-                    form = self.model.addForm(formname, {}, ())
+                    model.addType(formname, basetype, typeopts, typeinfo)
+                    form = model.addForm(formname, {}, ())
 
                     if (cinfos := formchildren.pop(formname, None)) is not None:
                         addForms(cinfos)
@@ -3011,7 +3052,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for form, prop, tdef, info in self.extprops.values():
             try:
-                prop = self.model.addFormProp(form, prop, tdef, info)
+                prop = model.addFormProp(form, prop, tdef, info)
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
             else:
@@ -3022,13 +3063,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for prop, tdef, info in self.exttagprops.values():
             try:
-                self.model.addTagProp(prop, tdef, info)
+                model.addTagProp(prop, tdef, info)
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
         for edge, info in self.extedges.values():
             try:
-                self.model.addEdge(edge, info)
+                model.addEdge(edge, info)
             except Exception as e:
                 logger.warning(f'ext edge ({edge}) error: {e}')
 

@@ -13,7 +13,9 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.models as s_models
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
@@ -23,6 +25,7 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
@@ -8792,3 +8795,92 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid=(d0,) $node.props.raw.list.rem(listval0)')
             self.len(1, nodes)
             self.propeq(nodes[0], 'raw', data)
+
+    async def test_cortex_model_nexusify(self):
+        '''
+        Test that mainline model changes are routed through the nexus (model:set event).
+        Covers: first-boot seed, hash-stable no-op, idempotence, beholder event, mirror sync.
+        '''
+        with self.getTestDir() as dirn:
+
+            # First boot: model:set fires and cellinfo is seeded
+            async with self.getTestCore(dirn=dirn) as core:
+                stored_hash = core.cellinfo.get('cortex:model:hash')
+                stored_mdefs = core.cellinfo.get('cortex:model')
+                self.nn(stored_hash)
+                self.nn(stored_mdefs)
+
+                # Hash must match code-derived model
+                mdefs = []
+                for path in s_models.modeldefs:
+                    if (defs := s_dyndeps.getDynLocal(path)) is not None:
+                        mdefs.extend(defs)
+
+                expected_hash = s_common.guid(s_common.flatten(mdefs))
+                self.eq(stored_hash, expected_hash)
+
+                # model has the expected forms
+                self.nn(core.model.forms.get('inet:asn'))
+
+                # beholder event fires with the hash
+                events = [{'event': 'model:set', 'info': {'hash': stored_hash}}]
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                await core._push('model:set', core._mainlinemdefs)
+                await asyncio.wait_for(task, timeout=5)
+
+            # Second boot (code unchanged): no new model:set event
+            nexus_index_before = None
+            async with self.getTestCore(dirn=dirn) as core:
+                nexus_index_before = core.nexsroot.nexslog.index()
+                # hash should still match; no new model:set
+                self.eq(core.cellinfo.get('cortex:model:hash'), expected_hash)
+
+            # nexus log did not increment on clean restart
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(core.nexsroot.nexslog.index(), nexus_index_before)
+
+    async def test_cortex_model_nexusify_idempotence(self):
+        '''
+        Verify that firing model:set twice with the same mdefs is a no-op
+        (same hash, same beholder hash both times).
+        '''
+        with self.withNexusReplay(replay=True):
+            async with self.getTestCore() as core:
+                hash1 = core.cellinfo.get('cortex:model:hash')
+                self.nn(hash1)
+
+                # Replay: fire model:set again with same mdefs
+                await core._push('model:set', core._mainlinemdefs)
+
+                hash2 = core.cellinfo.get('cortex:model:hash')
+                self.eq(hash1, hash2)
+                self.nn(core.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_mirror(self):
+        '''
+        Mirror receives model:set from leader and both cells agree on getModelDef() after sync.
+        '''
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+                url = core00.getLocalUrl()
+                async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
+                    await core01.sync()
+
+                    # Both leader and mirror have the same persisted model hash
+                    self.eq(
+                        core00.cellinfo.get('cortex:model:hash'),
+                        core01.cellinfo.get('cortex:model:hash'),
+                    )
+
+                    # Both can resolve the same form
+                    self.nn(core00.model.forms.get('inet:asn'))
+                    self.nn(core01.model.forms.get('inet:asn'))
