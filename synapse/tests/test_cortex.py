@@ -8846,3 +8846,41 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # Both can resolve the same form
                     self.nn(core00.model.forms.get('inet:asn'))
                     self.nn(core01.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_hash_mismatch(self):
+        '''
+        When the persisted model hash differs from the code-derived hash on boot
+        (mirror with stale persisted model), _loadModels rebuilds self.model from the
+        persisted dict rather than from local code.
+        '''
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                good_hash = core.cellinfo.get('cortex:model:hash')
+                self.nn(good_hash)
+
+                # Corrupt the stored hash to simulate a mirror whose hash is different
+                # than the cluster's current persisted model.
+                core.cellinfo.set('cortex:model:hash', 'deadbeef')
+
+            # _execCellUpdates then re-fires model:set to correct the hash.
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(core.cellinfo.get('cortex:model:hash'), good_hash)
+                self.nn(core.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_ext_resilience(self):
+        '''
+        A broken extended model definition (ext prop referencing a nonexistent form)
+        must not wedge boot — _applyExtModel logs a warning and skips the bad entry.
+        '''
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                # Inject a bad extprop directly into storage: form does not exist.
+                core.extprops.set('noexist:form:_test:extprop',
+                                  ('noexist:form', '_test:extprop', ('str', {}), {}))
+
+            with self.getLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    # Boot must succeed and the valid model must be intact.
+                    self.nn(core.model.forms.get('inet:asn'))
+
+                await stream.expect('ext prop (noexist:form:_test:extprop) error')
