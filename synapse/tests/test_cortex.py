@@ -15,7 +15,6 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.models as s_models
 import synapse.telepath as s_telepath
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
