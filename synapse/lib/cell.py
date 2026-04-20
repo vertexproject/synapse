@@ -1570,21 +1570,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _driveCellMigration(self):
         logger.warning('Migrating Drive Slabs')
 
-        olddrive = await s_drive.Drive.anit(self.slab, 'celldrive')
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
 
-        dbname = olddrive.dbname
-        newpath = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+            dbname = olddrive.dbname
+            newpath = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
 
-        if os.path.exists(newpath):
-            shutil.rmtree(newpath)
+            if os.path.exists(newpath):
+                shutil.rmtree(newpath)
 
-        async with await s_lmdbslab.Slab.anit(newpath) as newslab:
-            rows = await self.slab.copydb(dbname, newslab, dbname)
-            logger.warning(f"Migrated {rows} rows")
-            newslab.forcecommit()
+            async with await s_lmdbslab.Slab.anit(newpath) as newslab:
+                rows = await self.slab.copydb(dbname, newslab, dbname)
+                logger.warning(f"Migrated {rows} rows")
+                newslab.forcecommit()
 
-        await olddrive.fini()
-        self.slab.dropdb(dbname)
+            self.slab.dropdb(dbname)
 
         logger.warning('...Drive migration complete!')
 
