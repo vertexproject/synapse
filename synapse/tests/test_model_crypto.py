@@ -419,7 +419,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             t = core.model.type('hash:ssdeep')
 
-            # Valid hashes norm cleanly; leading/trailing whitespace is stripped
+            # Valid hashes norm cleanly; leading/trailing whitespace is stripped and case sensitivity is maintained
             testvectors = [
                 ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
                  '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),

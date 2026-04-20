@@ -2,6 +2,7 @@ import gc
 import os
 import ssl
 import copy
+import stat
 import time
 import fcntl
 import shutil
@@ -1188,6 +1189,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
+        self.sockdirn = s_common.gendir(dirn, 'sockets')
+
         self.runid = s_common.guid()
 
         self.auth = None
@@ -1554,14 +1557,35 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
     async def _drivePermMigration(self):
-        for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
-            info = s_msgpack.un(lval)
-            perm = info.pop('perm', None)
-            if perm is not None:
-                perm.setdefault('users', {})
-                perm.setdefault('roles', {})
-                info['permissions'] = perm
-                self.slab.put(lkey, s_msgpack.en(info), db=self.drive.dbname)
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
+            for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=olddrive.dbname):
+                info = s_msgpack.un(lval)
+                perm = info.pop('perm', None)
+                if perm is not None:
+                    perm.setdefault('users', {})
+                    perm.setdefault('roles', {})
+                    info['permissions'] = perm
+                    self.slab.put(lkey, s_msgpack.en(info), db=olddrive.dbname)
+
+    async def _driveCellMigration(self):
+        logger.warning('Migrating Drive Slabs')
+
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
+
+            dbname = olddrive.dbname
+            newpath = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+
+            if os.path.exists(newpath):
+                shutil.rmtree(newpath)
+
+            async with await s_lmdbslab.Slab.anit(newpath) as newslab:
+                rows = await self.slab.copydb(dbname, newslab, dbname)
+                logger.warning(f"Migrated {rows} rows")
+                newslab.forcecommit()
+
+            self.slab.dropdb(dbname)
+
+        logger.warning('...Drive migration complete!')
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1725,22 +1749,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         tdir = s_common.gendir(self.dirn, 'tmp')
 
         names = os.listdir(tdir)
-        if not names:
-            return
+        if names:
+            logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
 
-        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+            for name in names:
 
-        for name in names:
+                path = os.path.join(tdir, name)
 
-            path = os.path.join(tdir, name)
+                if os.path.isfile(path):
+                    os.unlink(path)
+                    continue
 
-            if os.path.isfile(path):
-                os.unlink(path)
-                continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                    continue
 
-            if os.path.isdir(path):
-                shutil.rmtree(path, ignore_errors=True)
-                continue
+        names = os.listdir(self.sockdirn)
+        if names:
+            logger.info(f'Removing {len(names)} old sockets in: {self.sockdirn}')
+            for name in names:
+                path = os.path.join(self.sockdirn, name)
+                try:
+                    if stat.S_ISSOCK(os.stat(path).st_mode):
+                        os.unlink(path)
+                except OSError: # pragma: no cover
+                    pass
+
+        shutil.rmtree(self.sockdirn, ignore_errors=True)
+        self.sockdirn = s_common.gendir(self.dirn, 'sockets')
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
@@ -1952,10 +1988,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initCellStorage(self):
-        self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
         await self._bumpCellVers('drive:storage', (
             (1, self._drivePermMigration),
+            (2, self._driveCellMigration),
         ), nexs=False)
+
+        path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+        sockpath = s_common.genpath(self.sockdirn, 'drive')
+
+        spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
+        self.drive = await spawner(path)
 
         self.onfini(self.drive.fini)
 
@@ -1975,7 +2017,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # replay safety...
         iden = info.get('iden')
-        if self.drive.hasItemInfo(iden): # pragma: no cover
+        if await self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
         # TODO: Remove this in synapse-3xx
@@ -1988,10 +2030,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
     async def getDriveInfo(self, iden, typename=None):
-        return self.drive.getItemInfo(iden, typename=typename)
+        return await self.drive.getItemInfo(iden, typename=typename)
 
-    def reqDriveInfo(self, iden, typename=None):
-        return self.drive.reqItemInfo(iden, typename=typename)
+    async def reqDriveInfo(self, iden, typename=None):
+        return await self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
@@ -2014,15 +2056,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         tick = s_common.now()
         user = self.auth.rootuser.iden
-        path = self.drive.getPathNorm(path)
+        path = await self.drive.getPathNorm(path)
 
         if perm is None:
             perm = {'users': {}, 'roles': {}}
 
         for name in path:
 
-            info = self.drive.getStepInfo(reldir, name)
-            await asyncio.sleep(0)
+            info = await self.drive.getStepInfo(reldir, name)
 
             if info is not None:
                 reldir = info.get('iden')
@@ -2045,7 +2086,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Return the data associated with the drive item by iden.
         If vers is specified, return that specific version.
         '''
-        return self.drive.getItemData(iden, vers=vers)
+        return await self.drive.getItemData(iden, vers=vers)
 
     async def getDriveDataVersions(self, iden):
         async for item in self.drive.getItemDataVersions(iden):
@@ -2053,12 +2094,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:del')
     async def delDriveInfo(self, iden):
-        if self.drive.getItemInfo(iden) is not None:
+        if await self.drive.getItemInfo(iden) is not None:
             await self.drive.delItemInfo(iden)
 
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
-        return self.drive.setItemPerm(iden, perm)
+        return await self.drive.setItemPerm(iden, perm)
 
     @s_nexus.Pusher.onPushAuto('drive:data:path:set')
     async def setDriveItemProp(self, iden, vers, path, valu):
@@ -2107,9 +2148,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
 
-        path = self.drive.getPathNorm(path)
+        path = await self.drive.getPathNorm(path)
         pathinfo = await self.drive.getItemPath(iden)
-        if path == [p.get('name') for p in pathinfo]:
+        if [str(p) for p in path] == [p.get('name', '') for p in pathinfo]:
             return pathinfo
 
         return await self.drive.setItemPath(iden, path)
@@ -2120,13 +2161,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def delDriveData(self, iden, vers=None):
         if vers is None:
-            info = self.drive.reqItemInfo(iden)
+            info = await self.drive.reqItemInfo(iden)
             vers = info.get('version')
         return await self._push('drive:data:del', iden, vers)
 
     @s_nexus.Pusher.onPush('drive:data:del')
     async def _delDriveData(self, iden, vers):
-        return self.drive.delItemData(iden, vers)
+        return await self.drive.delItemData(iden, vers)
 
     async def getDriveKids(self, iden):
         async for info in self.drive.getItemKids(iden):
@@ -2828,6 +2869,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async with self.nexslock:
 
                 logger.debug('Syncing LMDB Slabs')
+
+                await self.drive.sync()
 
                 while True:
                     await s_lmdbslab.Slab.syncLoopOnce()
@@ -5409,6 +5452,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             logger.warning('...committing pending transactions.')
+
+            await self.drive.sync()
             await self.slab.syncLoopOnce()
 
             logger.warning('...flushing dirty buffers to disk.')
