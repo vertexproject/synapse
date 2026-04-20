@@ -718,11 +718,11 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(core0.auth.rootuser.iden, meta.get('user'))
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(5, offs)
+                self.eq(6, offs)
                 self.eq(['test:str', 'bar'], nodeedits[0][:2])
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(6, offs)
+                self.eq(7, offs)
                 self.eq(['test:str', 'baz'], nodeedits[0][:2])
 
                 # Once we've caught back up to the end of the nexus log, we shouldn't get a duplicate from the window
@@ -730,7 +730,7 @@ class LayerTest(s_t_utils.SynTest):
                 await core0.nodes('[ test:str=faz ]')
 
                 offs, nodeedits, meta = await task
-                self.eq(7, offs)
+                self.eq(8, offs)
                 self.eq(['test:str', 'faz'], nodeedits[0][:2])
 
                 await genr.aclose()
