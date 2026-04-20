@@ -72,6 +72,16 @@ modeldefs = (
             )),
             ('plan:phase', {}, (
 
+                ('id', (
+                    ('it:mitre:attack:tactic:id', {}),
+                    ('base:id', {}),
+                ), {
+                    'alts': ('ids',),
+                    'doc': 'The phase ID.'}),
+
+                ('ids', ('array', {'type': (('it:mitre:attack:tactic:id', {}), ('base:id', {}))}), {
+                    'doc': 'An array of alternate IDs for the phase.'}),
+
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),

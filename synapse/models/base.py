@@ -811,6 +811,16 @@ modeldefs = (
 
             ('meta:technique', {}, (
 
+                ('id', (
+                    ('it:mitre:attack:technique:id', {}),
+                    ('base:id', {}),
+                ), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the technique.'}),
+
+                ('ids', ('array', {'type': (('it:mitre:attack:technique:id', {}), ('base:id', {}))}), {
+                    'doc': 'An array of alternate IDs given to the technique.'}),
+
                 ('type', ('meta:technique:type:taxonomy', {}), {
                     'doc': 'The taxonomy classification of the technique.'}),
 
