@@ -444,6 +444,9 @@ class FileModule(s_module.CoreModule):
 
                     ('sha512', ('hash:sha512', {}), {'doc': 'The sha512 hash of the file.'}),
 
+                    ('ssdeeps', ('array', {'type': 'hash:ssdeep', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The ssdeep fuzzy hashes of the file.'}),
+
                     ('name', ('file:base', {}), {
                         'doc': 'The best known base name for the file.'}),
 
