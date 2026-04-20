@@ -509,6 +509,61 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.delEdge(('test:interface', 'matches', None))
 
+    async def test_getLookupHints(self):
+        async with self.getTestCore() as core:
+
+            hints = core.model.getLookupHints()
+            self.isinstance(hints, list)
+            self.gt(len(hints), 0)
+
+            # all entries are (prop_full_name, cmpr) tuples
+            for pname, cmpr in hints:
+                self.isinstance(pname, str)
+                self.isinstance(cmpr, str)
+
+            # known hints from the model are present
+            self.isin(('entity:name', '^='), hints)
+            self.isin(('it:softwarename', '^='), hints)
+            self.isin(('syn:tag:base', '^='), hints)
+
+            # second call returns the cached result
+            hints2 = core.model.getLookupHints()
+            self.true(hints is hints2)
+
+            # cache is invalidated when a form with a lookup hint is added
+            core.model.addType('test:lookupform', 'base:name', {}, {
+                'modes': {'lookup': [{'cmpr': '^='}]},
+                'doc': 'test lookup form',
+            })
+            core.model.addForm('test:lookupform', {}, ())
+            hints3 = core.model.getLookupHints()
+            self.false(hints3 is hints2)
+            self.isin(('test:lookupform', '^='), hints3)
+
+            # hint entries with no cmpr key are skipped for both forms and props
+            core.model.addType('test:nocmprform', 'base:name', {}, {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr form',
+            })
+            core.model.addForm('test:nocmprform', {}, ())
+            core.model.addFormProp('entity:name', 'testnocmpr', ('str', {}), {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr prop',
+            })
+            hints4 = core.model.getLookupHints()
+            self.notin(('test:nocmprform', None), hints4)
+            self.notin(('entity:name:testnocmpr', None), hints4)
+
+            # cache is invalidated when a form is removed
+            core.model.delForm('test:lookupform')
+            hints5 = core.model.getLookupHints()
+            self.notin(('test:lookupform', '^='), hints5)
+
+            # cache is invalidated when a prop with lookup hint is removed
+            core.model.delFormProp('entity:name', 'testnocmpr')
+            hints6 = core.model.getLookupHints()
+            self.false(hints5 is hints6)
+
     async def test_datamodel_locked_subs(self):
 
         async with self.getTestCore() as core:

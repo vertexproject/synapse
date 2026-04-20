@@ -212,6 +212,11 @@ modeldefs = (
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'doc': 'A name used to refer to an entity.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
@@ -701,6 +706,16 @@ modeldefs = (
                 'prevnames': ('ou:camptype',)}, ()),
 
             ('entity:campaign', {}, (
+
+                ('id', (
+                    ('it:mitre:attack:campaign:id', {}),
+                    ('base:id', {}),
+                ), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the campaign.'}),
+
+                ('ids', ('array', {'type': (('it:mitre:attack:campaign:id', {}), ('base:id', {}))}), {
+                    'doc': 'An array of alternate IDs given to the campaign.'}),
 
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),

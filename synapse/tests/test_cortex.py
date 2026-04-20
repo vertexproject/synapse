@@ -401,55 +401,23 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, core.modsbyiface.get('lookup'))
 
     async def test_cortex_lookup_search_dedup(self):
-        pkgdef = {
-            'name': 'foobar',
-            'modules': [
-                {'name': 'foobar',
-                 'interfaces': ['search'],
-                 'storm': '''
-                    function getBuid(form, valu) {
-                        *$form?=$valu
-                        return($lib.hex.decode($node.iden()))
-                    }
-                    function search(tokens) {
-                        $score = (0)
-                        for $tok in $tokens {
-                            $buid = $getBuid("inet:email", $tok)
-                            if $buid { emit ($score, $buid) }
-                            $buid = $getBuid("test:str", $tok)
-                            if $buid { emit ($score, $buid) }
-                            $score = ($score + 10)
-                        }
-                    }
-                 '''
-                 },
-            ]
-        }
 
         async with self.getTestCore() as core:
 
             await core.nodes('[ inet:email=foo@bar.com ]')
 
             nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            buid = nodes[0].buid
             self.eq(['inet:email'], [n.ndef[0] for n in nodes])
 
             # scrape results are not deduplicated
             nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
             self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
 
-            core.loadStormPkg(pkgdef)
-            self.len(1, await core.getStormIfaces('search'))
+            await core.nodes('[ entity:name="vertex project" ]')
 
-            todo = s_common.todo('search', ('foo@bar.com',))
-            vals = [r async for r in core.view.mergeStormIface('search', todo)]
-            self.eq(((0, buid),), vals)
-
-            await core.nodes('[ test:str=hello ]')
-
-            # search iface results *are* deduplicated against themselves
-            nodes = await core.nodes('hello hello', opts={'mode': 'search'})
-            self.eq(['test:str'], [n.ndef[0] for n in nodes])
+            # hint-based results *are* deduplicated against themselves via lookup remainder
+            nodes = await core.nodes('vertex vertex', opts={'mode': 'lookup'})
+            self.eq(['entity:name'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
@@ -3403,13 +3371,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test reqValidStorm
             self.true(await proxy.reqValidStorm('test:str=test'))
             self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'}))
-            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'}))
+            with self.raises(s_exc.BadArg):
+                await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('1.2.3.4 ')
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
-            with self.raises(s_exc.BadSyntax):
-                await proxy.reqValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
 
             # test isValidStorm
             ok, info = await proxy.isValidStorm('test:str=test')
@@ -3421,8 +3388,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(info, {})
 
             ok, info = await proxy.isValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'})
-            self.true(ok)
-            self.eq(info, {})
+            self.false(ok)
+            self.eq(info[0], 'BadArg')
 
             ok, info = await proxy.isValidStorm('1.2.3.4 ')
             self.false(ok)
@@ -3430,10 +3397,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('mesg', info[1])
 
             ok, info = await proxy.isValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
-            self.false(ok)
-            self.eq(info[0], 'BadSyntax')
-
-            ok, info = await proxy.isValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
             self.false(ok)
             self.eq(info[0], 'BadSyntax')
 

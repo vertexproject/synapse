@@ -905,6 +905,11 @@ modeldefs = (
                 'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'prevnames': ('it:prod:softname',),
                 'doc': 'The name of a software product or tool.'}),
 
