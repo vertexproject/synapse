@@ -58,7 +58,7 @@ commands:
           name: run tests
           command: |
             . venv/bin/activate
-            mkdir test-reports
+            mkdir -p test-reports
             circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | \
               circleci tests run \
                 --timings-type=name \
@@ -455,7 +455,8 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse --cov-append
+          COVERAGE_PROCESS_START: .coveragerc
+          COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main --cov-append
 
     working_directory: ~/repo
 
@@ -471,7 +472,8 @@ jobs:
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
+          COVERAGE_PROCESS_START: .coveragerc
+          COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main
           SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
