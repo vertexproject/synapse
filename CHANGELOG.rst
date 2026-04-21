@@ -5,6 +5,41 @@
 *****************
 Synapse Changelog
 *****************
+v2.240.0 - 2026-04-21
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated cell drive data into a dedicated slab.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added the ``hash:ssdeep`` form and type to allow users to record ssdeep fuzzy
+  hashes as nodes. Added the ``file:bytes:ssdeeps`` array property to allow
+  users to capture one or more ssdeep fuzzy hashes for a given file.
+  (`#4901 <https://github.com/vertexproject/synapse/pull/4901>`_)
+- See :ref:`userguide_model_v2_240_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a dedicated IO worker for the drive subsystem to offload operations
+  into a separate process.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+
+Bugfixes
+--------
+- Fixed a bug in ``Cell.getBackupInfo()`` where ``currduration`` could be a
+  negative value while a backup was in progress, due to operator precedence in
+  the elapsed-time calculation.
+  (`#4898 <https://github.com/vertexproject/synapse/pull/4898>`_)
+
+Improved documentation
+----------------------
+- Updated the documentation for the ``layer.del`` permission to note that it is
+  on the Layer gate and not the Cortex.
+  (`#4892 <https://github.com/vertexproject/synapse/pull/4892>`_)
 
 v2.239.0 - 2026-04-14
 =====================

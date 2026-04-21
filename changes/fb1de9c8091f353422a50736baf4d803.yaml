@@ -1,7 +1,0 @@
----
-desc: Added a dedicated IO worker for the drive subsystem to offload operations into
-  a separate process.
-desc:literal: false
-prs: []
-type: feat
-...
