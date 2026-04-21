@@ -686,139 +686,52 @@ class UserProfile(s_stormtypes.Prim):
 @s_stormtypes.registry.registerType
 class UserJson(s_stormtypes.Prim):
     '''
-    Implements per-user JSON storage.
+    Implements the Storm deref/setitem/iter convention on top of per-user JSON storage.
     '''
     _storm_typename = 'auth:user:json'
-    _ismutable = False
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
-         'type': {'type': 'function', '_funcname': 'get',
-                   'args': (
-                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
-                    ),
-                    'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
+    _ismutable = True
 
-        {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
-         'type': {'type': 'function', '_funcname': 'set',
-                  'args': (
-                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
-                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
-                   ),
-                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
-
-        {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
-         'type': {'type': 'function', '_funcname': '_del',
-                  'args': (
-                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
-                   ),
-                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
-
-        {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
-         'type': {'type': 'function', '_funcname': 'iter',
-                  'args': (
-                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
-                   ),
-                   'returns': {'name': 'yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
-    )
-
-    def __init__(self, runt, valu):
-        s_stormtypes.Prim.__init__(self, valu)
+    def __init__(self, runt, useriden):
+        s_stormtypes.Prim.__init__(self, useriden)
         self.runt = runt
-        self.locls.update({
-            'get': self.get,
-            'set': self.set,
-            'has': self.has,
-            'del': self._del,
-            'iter': self.iter,
-        })
+
+    def _fullpath(self, extra=()):
+        return ('users', self.valu, 'json') + extra
+
+    def _confirm(self, action):
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'json', action))
+
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        self._confirm('get')
+        return await self.runt.view.core.hasJsonObj(self._fullpath((item,)))
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def has(self, path):
+    async def deref(self, name):
+        name = await s_stormtypes.tostr(name)
+        self._confirm('get')
+        return await self.runt.view.core.getJsonObj(self._fullpath((name,)))
 
-        path = await s_stormtypes.toprim(path)
-        if isinstance(path, str):
-            path = tuple(path.split('/'))
+    async def setitem(self, name, valu):
+        name = await s_stormtypes.tostr(name)
+        fullpath = self._fullpath((name,))
 
-        fullpath = ('users', self.valu, 'json') + path
-        if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
-
-        return await self.runt.view.core.hasJsonObj(fullpath)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def get(self, path, prop=None):
-        path = await s_stormtypes.toprim(path)
-        prop = await s_stormtypes.toprim(prop)
-
-        if isinstance(path, str):
-            path = tuple(path.split('/'))
-
-        fullpath = ('users', self.valu, 'json') + path
-
-        if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
-
-        if prop is None:
-            return await self.runt.view.core.getJsonObj(fullpath)
-
-        return await self.runt.view.core.getJsonObjProp(fullpath, prop=prop)
-
-    async def set(self, path, valu, prop=None):
-        path = await s_stormtypes.toprim(path)
-        valu = await s_stormtypes.toprim(valu)
-        prop = await s_stormtypes.toprim(prop)
-
-        if isinstance(path, str):
-            path = tuple(path.split('/'))
-
-        fullpath = ('users', self.valu, 'json') + path
-
-        if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'set'))
-
-        if prop is None:
-            await self.runt.view.core.setJsonObj(fullpath, valu)
-            return True
-
-        return await self.runt.view.core.setJsonObjProp(fullpath, prop, valu)
-
-    async def _del(self, path, prop=None):
-        path = await s_stormtypes.toprim(path)
-        prop = await s_stormtypes.toprim(prop)
-
-        if isinstance(path, str):
-            path = tuple(path.split('/'))
-
-        fullpath = ('users', self.valu, 'json') + path
-
-        if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'set'))
-
-        if prop is None:
+        if valu is s_stormtypes.undef:
+            self._confirm('del')
             await self.runt.view.core.delJsonObj(fullpath)
-            return True
+            return
 
-        return await self.runt.view.core.delJsonObjProp(fullpath, prop=prop)
+        valu = await s_stormtypes.toprim(valu)
+        self._confirm('set')
+        await self.runt.view.core.setJsonObj(fullpath, valu)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def iter(self, path=None):
-
-        path = await s_stormtypes.toprim(path)
-
-        if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
-
-        fullpath = ('users', self.valu, 'json')
-        if path is not None:
-            if isinstance(path, str):
-                path = tuple(path.split('/'))
-            fullpath += path
-
-        async for path, item in self.runt.view.core.getJsonObjs(fullpath):
-            yield path, item
+    async def iter(self):
+        self._confirm('get')
+        async for path, item in self.runt.view.core.getJsonObjs(self._fullpath()):
+            yield path, s_msgpack.deepcopy(item, use_list=True)
+            await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType
 class UserVars(s_stormtypes.Prim):
@@ -1684,6 +1597,15 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'profile', 'set', '<varname>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
          'ex': 'auth.user.profile.set.fullname'},
+        {'perm': ('auth', 'user', 'json', 'get'), 'gate': 'cortex',
+         'desc': 'Permits a user to retrieve another user\'s JSON storage.',
+         'ex': 'auth.user.json.get'},
+        {'perm': ('auth', 'user', 'json', 'del'), 'gate': 'cortex',
+         'desc': 'Permits a user to remove another user\'s JSON storage.',
+         'ex': 'auth.user.json.del'},
+        {'perm': ('auth', 'user', 'json', 'set'), 'gate': 'cortex',
+         'desc': 'Permits a user to set another user\'s JSON storage.',
+         'ex': 'auth.user.json.set'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
         {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',

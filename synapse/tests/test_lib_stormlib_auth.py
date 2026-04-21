@@ -457,7 +457,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(
-                    'for $item in $lib.auth.users.byname(root).json.iter() { $lib.print($item) }',
+                    'for $item in $lib.auth.users.byname(root).json { $lib.print($item) }',
                     opts=asuser
                 )
 
@@ -548,56 +548,65 @@ class StormLibAuthTest(s_test.SynTest):
     async def test_stormlib_auth_userjson(self):
 
         async with self.getTestCore() as core:
-            self.none(await core.callStorm('return($lib.auth.users.get().json.get(foo))'))
-            self.none(await core.callStorm('return($lib.auth.users.get().json.get(foo, prop=bar))'))
-            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hi, ({"foo": "bar", "baz": "faz"})))'))
-            self.true(await core.callStorm('return($lib.auth.users.get().json.set(bye/bye, ({"zip": "zop", "bip": "bop"})))'))
-            self.eq('bar', await core.callStorm('return($lib.auth.users.get().json.get(hi, prop=foo))'))
-            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.auth.users.get().json.get(hi))'))
+            # unset key returns None
+            self.none(await core.callStorm('return($lib.auth.users.get().json.foo)'))
 
-            await core.callStorm('$lib.auth.users.get().json.set(hi, hehe, prop=foo)')
+            # set a blob at a top-level key and read it back
+            await core.callStorm('$lib.auth.users.get().json.hi = ({"foo": "bar", "baz": "faz"})')
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.auth.users.get().json.hi)'))
+
+            # nested read via dict deref on the returned blob
+            self.eq('bar', await core.callStorm('return($lib.auth.users.get().json.hi.foo)'))
+
+            # set another key
+            await core.callStorm('$lib.auth.users.get().json.bye = ({"zip": "zop", "bip": "bop"})')
+            self.eq({'zip': 'zop', 'bip': 'bop'}, await core.callStorm('return($lib.auth.users.get().json.bye)'))
+
+            # containment check via `in` operator
+            self.true(await core.callStorm("return(('hi' in $lib.auth.users.get().json))"))
+            self.false(await core.callStorm("return(('missing' in $lib.auth.users.get().json))"))
+
+            # iterate — yields (relative_path, blob) for every stored entry
             items = await core.callStorm('''
             $list = ()
-            for $item in $lib.auth.users.get().json.iter() { $list.append($item) }
+            for $item in $lib.auth.users.get().json { $list.append($item) }
             return($list)
             ''')
             self.eq(items, (
-                (('bye', 'bye'), {'zip': 'zop', 'bip': 'bop'}),
-                (('hi',), {'baz': 'faz', 'foo': 'hehe'}),
+                (('bye',), {'bip': 'bop', 'zip': 'zop'}),
+                (('hi',), {'baz': 'faz', 'foo': 'bar'}),
             ))
 
-            items = await core.callStorm('''
-            $list = ()
-            for $item in $lib.auth.users.get().json.iter(path=bye) { $list.append($item) }
-            return($list)
-            ''')
-            self.eq(items, (
-                (('bye',), {'zip': 'zop', 'bip': 'bop'}),
-            ))
-
-            self.eq('zop', await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))'))
+            # delete a key via $lib.undef
+            await core.callStorm('$lib.auth.users.get().json.hi = $lib.undef')
+            self.none(await core.callStorm('return($lib.auth.users.get().json.hi)'))
+            self.false(await core.callStorm("return(('hi' in $lib.auth.users.get().json))"))
 
             visi = await core.auth.addUser('visi')
-
             asvisi = {'user': visi.iden}
+
+            # cross-user read denied without perm
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))', opts=asvisi)
+                await core.callStorm('return($lib.auth.users.byname(root).json.bye)', opts=asvisi)
 
-            self.none(await core.callStorm('return($lib.auth.users.get().json.get(hi))', opts=asvisi))
-            await core.callStorm('if (not $lib.auth.users.get().json.has(hehe)) { $lib.auth.users.get().json.set(hehe, ({})) }', opts=asvisi)
+            # cross-user containment denied without perm
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm("return(('bye' in $lib.auth.users.byname(root).json))", opts=asvisi)
 
-            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hehe, haha, prop=foo))', opts=asvisi))
-            self.true(await core.callStorm('return($lib.auth.users.get().json.set(hehe, haha, prop=foo))', opts=asvisi))
-            self.eq('haha', await core.callStorm('return($lib.auth.users.get().json.get(hehe, prop=foo))', opts=asvisi))
+            # visi can manage their own json freely
+            await core.callStorm('$lib.auth.users.get().json.hehe = ({"foo": "haha"})', opts=asvisi)
+            self.eq({'foo': 'haha'}, await core.callStorm('return($lib.auth.users.get().json.hehe)', opts=asvisi))
+            self.true(await core.callStorm("return(('hehe' in $lib.auth.users.get().json))", opts=asvisi))
 
-            self.eq('haha', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
-            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.set(hehe, lolz, prop=foo))'))
-            self.eq('lolz', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
-            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe, prop=foo))'))
-            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
-            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe))'))
-            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe))'))
-            self.false(await core.callStorm('return($lib.auth.users.byname(visi).json.has(hehe))'))
+            # root can read and write visi's json using auth.user.json perms
+            self.eq({'foo': 'haha'}, await core.callStorm('return($lib.auth.users.byname(visi).json.hehe)'))
+            await core.callStorm('$lib.auth.users.byname(visi).json.hehe = ({"foo": "lolz"})')
+            self.eq({'foo': 'lolz'}, await core.callStorm('return($lib.auth.users.byname(visi).json.hehe)'))
+
+            # delete visi's key as root
+            await core.callStorm('$lib.auth.users.byname(visi).json.hehe = $lib.undef')
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.hehe)'))
+            self.false(await core.callStorm("return(('hehe' in $lib.auth.users.byname(visi).json))"))
 
     async def test_stormlib_auth_uservars(self):
 
