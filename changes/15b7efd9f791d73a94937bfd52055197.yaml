@@ -1,8 +1,0 @@
----
-desc: Fixed a bug in ``Cell.getBackupInfo()`` where ``currduration`` could be a negative
-  value while a backup was in progress, due to operator precedence in the elapsed-time
-  calculation.
-desc:literal: false
-prs: []
-type: bug
-...
