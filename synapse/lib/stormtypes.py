@@ -6206,16 +6206,16 @@ class Node(Prim):
     '''
     _storm_locals = (
         {'name': 'nid', 'desc': 'Get the node id of the Node.',
-         'type': {'type': 'gtor', '_gtorfunc': '_methNodeNid',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeNid',
                   'returns': {'type': ['int', 'null'], 'desc': 'The integer node id, or null if the node has no nid.', }}},
         {'name': 'form', 'desc': 'Get the form of the Node.',
-         'type': {'type': 'gtor', '_gtorfunc': '_methNodeForm',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeForm',
                   'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
         {'name': 'iden', 'desc': 'Get the iden of the Node.',
-         'type': {'type': 'gtor', '_gtorfunc': '_methNodeIden',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeIden',
                   'returns': {'type': 'str', 'desc': 'The nodes iden.', }}},
         {'name': 'ndef', 'desc': 'Get the form and primary property of the Node.',
-         'type': {'type': 'gtor', '_gtorfunc': '_methNodeNdef',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeNdef',
                   'returns': {'type': 'list', 'desc': 'A tuple of the form and primary property.', }}},
         {'name': 'pack', 'desc': 'Return the serializable/packed version of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodePack',
@@ -6307,7 +6307,7 @@ class Node(Prim):
                               'type': 'boolean'}}},
 
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
-         'type': {'type': 'gtor', '_gtorfunc': '_methNodeValue',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
 
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
@@ -6329,11 +6329,11 @@ class Node(Prim):
         self.ctors['props'] = self._ctorNodeProps
 
         self.gtors |= {
-            'nid': self._methNodeNid,
-            'form': self._methNodeForm,
-            'iden': self._methNodeIden,
-            'ndef': self._methNodeNdef,
-            'value': self._methNodeValue,
+            'nid': self._gtorNodeNid,
+            'form': self._gtorNodeForm,
+            'iden': self._gtorNodeIden,
+            'ndef': self._gtorNodeNdef,
+            'value': self._gtorNodeValue,
         }
 
         self.locls.update(self.getObjLocals())
@@ -6530,33 +6530,29 @@ class Node(Prim):
 
         return {'adds': adds, 'dels': dels}
 
-   @stormfunc(readonly=True)
-    async def _methNodeNid(self):
+    @stormfunc(readonly=True)
+    async def _gtorNodeNid(self):
         if self.valu.nid is None:
             return None
         return s_common.int64un(self.valu.nid)
 
-    @stormfunc(readonly=True)
-    async def _methNodeValue(self):
+    async def _gtorNodeValue(self):
         return self.valu.ndef[1]
 
-    @stormfunc(readonly=True)
-    async def _methNodeForm(self):
+    async def _gtorNodeForm(self):
         return self.valu.ndef[0]
 
-    @stormfunc(readonly=True)
-    async def _methNodeNdef(self):
+    async def _gtorNodeNdef(self):
         return self.valu.ndef
+
+    async def _gtorNodeIden(self):
+        return self.valu.iden()
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):
         name = await toprim(name)
         defv = await toprim(defv)
         return self.valu.repr(name=name, defv=defv)
-
-    @stormfunc(readonly=True)
-    async def _methNodeIden(self):
-        return self.valu.iden()
 
 @registry.registerType
 class PathMeta(Prim):

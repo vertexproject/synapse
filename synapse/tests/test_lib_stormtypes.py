@@ -6034,9 +6034,10 @@ class StormTypesTest(s_test.SynTest):
             iden42 = s_common.ehex(s_common.buid(('test:int', 42)))
             self.eq(iden42, await core.callStorm('[ test:int=42 ] return($node.iden)'))
 
-            # $node.nid returns an integer node id (or null for nodes without one)
+            # $node.nid returns an integer node id (or null for runt nodes without one)
             nid42 = await core.callStorm('[ test:int=42 ] return($node.nid)')
             self.isinstance(nid42, int)
+            self.none(await core.callStorm('syn:form=test:int return($node.nid)'))
 
             # old method-call form raises — returned value is not callable
             with self.raises(s_exc.StormRuntimeError):
