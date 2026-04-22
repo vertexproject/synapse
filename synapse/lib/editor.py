@@ -17,12 +17,12 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, editor, ndef, form, valu, node, norminfo):
+    def __init__(self, editor, form, valu, node, norminfo):
         self.editor = editor
         self.model = editor.view.core.model
         self.form = form
         self.valu = valu
-        self.ndef = ndef
+        self.ndef = (form.name, valu)
         self.node = node
         self.virts = norminfo.get('virts') if norminfo is not None else None
 
@@ -1008,14 +1008,13 @@ class NodeEditor:
                 if not (adds or subs):
                     return ()
 
-                protonode = ProtoNode(self, ndef, form, norm, node, norminfo)
+                protonode = ProtoNode(self, self.view.core.model.form(name), norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
         else:
-            ndef = (form.name, norm)
-            protonode = ProtoNode(self, ndef, form, norm, node, norminfo)
-            self.protonodes[ndef] = protonode
+            protonode = ProtoNode(self, form, norm, node, norminfo)
+            self.protonodes[(form.name, norm)] = protonode
 
         ops = []
 
@@ -1040,7 +1039,7 @@ class NodeEditor:
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
             norminfo = node.valuvirts()
-            protonode = ProtoNode(self, node.ndef, node.form, node.ndef[1], node, norminfo)
+            protonode = ProtoNode(self, node.form, node.ndef[1], node, norminfo)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -1052,14 +1051,13 @@ class NodeEditor:
                 break
 
             if (node := await self.view.getNodeByNdef(ndef, tombs=True)) is not None:
-                protonode = ProtoNode(self, ndef, form, norm, node, norminfo)
+                protonode = ProtoNode(self, self.view.core.model.form(name), norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
         else:
-            ndef = (form.name, norm)
-            protonode = ProtoNode(self, ndef, form, norm, node, norminfo)
-            self.protonodes[ndef] = protonode
+            protonode = ProtoNode(self, form, norm, node, norminfo)
+            self.protonodes[(form.name, norm)] = protonode
 
         ops = collections.deque()
 
