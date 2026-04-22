@@ -705,7 +705,7 @@ If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp
 attachment used in a phishing attack), you want to pivot to the technique (``meta:technique``) represented by the tag (e.g., 
 "Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
 
-.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * yield $lib.cortex.getNodeByNid($auto.opts.n2nid) -> # -> meta:technique:tag [ <(uses)+ { yield $attack } ] } }
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * yield $auto.opts.n2nid -> # -> meta:technique:tag [ <(uses)+ { yield $attack } ] } }
 
 .. TIP::
   
@@ -723,7 +723,7 @@ The Storm for this trigger is broken down below (with comments) for clarity:
   $attack=$node | spin |
 
   // Lift the n2node that was just linked
-  yield $lib.cortex.getNodeByNid($auto.opts.n2nid)
+  yield $auto.opts.n2nid
 
   // Pivot to the syn:tag nodes associated with any tags on n2
   -> #
