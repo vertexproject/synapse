@@ -1008,7 +1008,7 @@ class NodeEditor:
                 if not (adds or subs):
                     return ()
 
-                protonode = ProtoNode(self, self.view.core.model.form(name), norm, node, norminfo)
+                protonode = ProtoNode(self, node.form, norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
@@ -1051,7 +1051,7 @@ class NodeEditor:
                 break
 
             if (node := await self.view.getNodeByNdef(ndef, tombs=True)) is not None:
-                protonode = ProtoNode(self, self.view.core.model.form(name), norm, node, norminfo)
+                protonode = ProtoNode(self, node.form, norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
