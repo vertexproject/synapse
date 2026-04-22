@@ -6531,9 +6531,7 @@ class Node(Prim):
         return {'adds': adds, 'dels': dels}
 
     async def _gtorNodeNid(self):
-        if self.valu.nid is None:
-            return None
-        return s_common.int64un(self.valu.nid)
+        return self.valu.intnid()
 
     async def _gtorNodeValue(self):
         return self.valu.ndef[1]
