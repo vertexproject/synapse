@@ -711,7 +711,7 @@ class UserJson(s_stormtypes.Prim):
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         self._confirm('get')
-        return await self.runt.view.core.getJsonObj(self._fullpath((name,)))
+        return s_msgpack.deepcopy(await self.runt.view.core.getJsonObj(self._fullpath((name,))), use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
