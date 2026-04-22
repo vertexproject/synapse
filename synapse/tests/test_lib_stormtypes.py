@@ -17,6 +17,7 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
@@ -7133,6 +7134,22 @@ words\tword\twrd'''
             nodes = await core.nodes('inet:ip=5.6.7.8')
             nid = await s_stormtypes.toedgenid(nodes[0], core)
             self.eq(nid, nodes[0].nid)
+
+            # toedgenid with a stormtypes Node wrapping a real node
+            stnode = s_stormtypes.Node(nodes[0])
+            nid = await s_stormtypes.toedgenid(stnode, core)
+            self.eq(nid, nodes[0].nid)
+
+            # toedgenid with a stormtypes Node wrapping a runt node (nid=None)
+            pode = (('test:str', 'runtfake'), {'props': {}, 'tags': {}, 'tagprops': {}})
+            runtnode = s_node.RuntNode(core.view, pode)
+            stnode = s_stormtypes.Node(runtnode)
+            with self.raises(s_exc.BadArg):
+                await s_stormtypes.toedgenid(stnode, core)
+
+            # toedgenid with an int nid that has no matching node
+            with self.raises(s_exc.BadArg):
+                await s_stormtypes.toedgenid(0xdeadbeefcafebabe, core)
 
     async def test_storm_layer_lift(self):
 

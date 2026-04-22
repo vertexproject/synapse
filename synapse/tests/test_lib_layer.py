@@ -770,6 +770,25 @@ class LayerTest(s_t_utils.SynTest):
             self.nn(etime)
             self.gt(etime, s_time.parse('2020-01-01'))
 
+            # test remoteToLocalEdits with a non-node-add first edit for an unknown node
+            rnodeedits = [
+                ('test:str', 'remotenewp', [(s_layer.EDIT_PROP_SET, ('tick', 0, s_layer.STOR_TYPE_I64, None))]),
+            ]
+            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            self.len(1, ledits)
+            self.nn(ledits[0][0])
+
+            # test remoteToLocalEdits with an edge edit referencing an existing n2 node
+            rnodeedits = [
+                ('test:str', 'remotenewp2', [
+                    (s_layer.EDIT_NODE_ADD, (1, s_layer.STOR_TYPE_UTF8, None)),
+                    (s_layer.EDIT_EDGE_ADD, ('refs', ('test:str', 'foo'))),
+                ]),
+            ]
+            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            self.len(1, ledits)
+            self.len(2, ledits[0][2])
+
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
 
