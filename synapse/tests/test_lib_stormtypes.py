@@ -3267,7 +3267,7 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.rfc2822))')
             self.eq(valu, '02 Oct 2025 00:00:00 UT')
 
-            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.synapse))')
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.legacy))')
             self.eq(valu, '2025/10/02 00:00:00.000000')
 
     async def test_storm_lib_time_ticker(self):

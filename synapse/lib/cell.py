@@ -873,11 +873,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
             'hideconf': True,
         },
-        'cell:ctor': {
-            'description': 'An optional python path to the Cell class.  Used by stemcell.',
-            'type': 'string',
-            'hideconf': True,
-        },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': ['string', 'null'],
