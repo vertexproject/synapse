@@ -416,6 +416,37 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(1706832000000, nodes[0].get('time'))
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
 
+    async def test_model_cluster(self):
+
+        async with self.getTestCore() as core:
+
+            org0 = s_common.guid()
+
+            nodes = await core.nodes('''[
+                meta:cluster=*
+                    :id=" 1234-5678 "
+                    :ids=(" alt-id-1 ", " alt-id-2 ")
+                    :name="activity cluster 1"
+                    :names=("cluster one", "cluster alpha")
+                    :type=chainalysis.scam
+                    :desc="A cluster of scam-related addresses."
+                    :tag=rep.chainalysis.cluster.1234
+                    :reporter=$org
+                    :reporter:name=chainalysis
+            ]''', opts={'vars': {'org': org0}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), '1234-5678')
+            self.eq(node.get('ids'), ('alt-id-1', 'alt-id-2'))
+            self.eq(node.get('name'), 'activity cluster 1')
+            self.eq(node.get('names'), ('cluster alpha', 'cluster one'))
+            self.eq(node.get('type'), 'chainalysis.scam.')
+            self.eq(node.get('desc'), 'A cluster of scam-related addresses.')
+            self.eq(node.get('tag'), 'rep.chainalysis.cluster.1234')
+            self.eq(node.get('reporter'), org0)
+            self.eq(node.get('reporter:name'), 'chainalysis')
+            self.len(1, await core.nodes('meta:cluster -> meta:cluster:type:taxonomy'))
+
     async def test_model_feed(self):
 
         async with self.getTestCore() as core:
