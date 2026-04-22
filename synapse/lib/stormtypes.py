@@ -6530,6 +6530,7 @@ class Node(Prim):
 
         return {'adds': adds, 'dels': dels}
 
+   @stormfunc(readonly=True)
     async def _methNodeNid(self):
         if self.valu.nid is None:
             return None
