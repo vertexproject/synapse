@@ -760,8 +760,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.libroot = (None, {}, {})
         self.stormlibs = []
 
-        self.bldgnids = {}  # nid -> (Node, Event)  Nodes under construction
-
         self.axon = None  # type: s_axon.AxonApi
         self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
@@ -1925,8 +1923,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.v3stor.has(nid, db=self.nid2ndef)
 
     def setNidNdef(self, nid, ndef):
-        ndefhash = s_common.buid(ndef)
-        self.v3stor._put(ndefhash, nid, db=self.ndef2nid)
+        self.v3stor._put(s_common.buid(ndef), nid, db=self.ndef2nid)
         self.v3stor._put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         if (nid := s_common.int64un(nid)) >= self.nextnid:
@@ -1936,8 +1933,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.v3stor.get(s_common.buid(ndef), db=self.ndef2nid)
 
     async def genNdefNid(self, ndef):
-        ndefhash = s_common.buid(ndef)
-        nid = self.v3stor.get(ndefhash, db=self.ndef2nid)
+        nid = self.v3stor.get(s_common.buid(ndef), db=self.ndef2nid)
         if nid is not None:
             return nid
         return await self._push('nid:gen', ndef)
@@ -4819,6 +4815,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             ndef = (form, valu)
             if (nid := self.getNidByNdef(ndef)) is None:
                 if redits[0][0] != 0:
+                    # If we don't know this buid and the first edit isn't
+                    # a node add, this is an edit to a node we won't have
+                    # and we need to use a nexus event to generate the NID
                     nid = s_common.int64un(await self.genNdefNid(ndef))
             else:
                 nid = s_common.int64un(nid)

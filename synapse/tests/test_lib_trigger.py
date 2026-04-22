@@ -594,7 +594,7 @@ class TrigTest(s_t_utils.SynTest):
             tdef = {
                 'cond': 'edge:add',
                 'verb': 'refs',
-                'storm': '[ +#neato ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [ +#other ] | [ <(seen)+ { [ meta:source=* :name=$auto.opts.verb ] } ]',
+                'storm': '[ +#neato ] | spin | yield $auto.opts.n2nid | [ +#other ] | [ <(seen)+ { [ meta:source=* :name=$auto.opts.verb ] } ]',
                 'view': view,
             }
             await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only verb
@@ -689,7 +689,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
             # edge:del triggers
-            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | yield $auto.opts.n2nid | [ +#milk ] }', opts=opts)  # only edge
             await core.nodes('trigger.add edge:del --verb refs --form test:int { [ +#cupcake ] }', opts=opts) # n1 form + edge
             await core.nodes('trigger.add edge:del --verb refs --n2form test:int { [ +#icecream ] }', opts=opts) # edge + n2 form
             await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
@@ -786,7 +786,7 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [+#other] }')
+            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | yield $auto.opts.n2nid | [+#other] }')
             await core.nodes('trigger.add edge:add --verb _see* --form test:int { [ +#n1 ] }')
             await core.nodes('trigger.add edge:add --verb _r* --n2form test:int { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str { [ +#both ] }')
@@ -846,7 +846,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
-            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | yield $auto.opts.n2nid | [+#del.other] }')
             await core.nodes('trigger.add edge:del --verb _see* --form test:int { [ +#del.one ] }')
             await core.nodes('trigger.add edge:del --verb _r* --n2form test:int { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#del.all ] }')

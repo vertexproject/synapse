@@ -7073,17 +7073,17 @@ words\tword\twrd'''
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.addEdge(refs, $nid) -(refs)> ou:industry', opts=opts)
             self.eq(nodes[0].intnid(), nid)
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $lib.cortex.getNodeByNid($n2nid) } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $n2nid } }')
             self.len(1, nodes)
             self.eq('inet:ip', nodes[0].ndef[0])
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(0)) { -> { yield $lib.cortex.getNodeByNid($n2nid) } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(0)) { -> { yield $n2nid } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $lib.cortex.getNodeByNid($n2nid) } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $n2nid } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges() { -> { yield $lib.cortex.getNodeByNid($n2nid) } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges() { -> { yield $n2nid } }')
             self.len(1, nodes)
             self.eq('ou:industry', nodes[0].ndef[0])
 
