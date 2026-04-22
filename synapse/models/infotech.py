@@ -2169,6 +2169,9 @@ class ItModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An ID for the software.'}),
 
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are associated with the software.'}),
+
                     ('name', ('it:prod:softname', {}), {
                         'alts': ('names',),
                         'doc': 'Name of the software.',
