@@ -1612,7 +1612,7 @@ modeldefs = (
 
             ('it:host:account', {}, (
 
-                ('id', (('it:os:windows:sid', {}), ('it:os:posix:id', {}), ('base:id', {})), {
+                ('id', ('base:id', {}), {
                     'doc': 'The unique OS-level identifier for the account.'}),
 
                 ('user', ('inet:user', {}), {
@@ -1664,7 +1664,7 @@ modeldefs = (
 
             ('it:host:group', {}, (
 
-                ('id', (('it:os:windows:sid', {}), ('it:os:posix:id', {}), ('base:id', {})), {
+                ('id', ('base:id', {}), {
                     'doc': 'The unique OS-level identifier for the group.'}),
 
                 ('name', ('base:name', {}), {
