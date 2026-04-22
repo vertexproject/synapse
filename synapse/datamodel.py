@@ -1242,25 +1242,6 @@ class Model:
 
         return tuple(virts)
 
-    def _isPolySubset(self, prop, newdef):
-        if newdef[0] != 'poly':
-            return False
-
-        opts = newdef[1]
-        child_types = set(opts.get('types', ()))
-        child_ifaces = set(opts.get('interfaces', ()))
-
-        parent_types = prop.type.typeset
-        parent_ifaces = prop.type.ifaces
-
-        if child_types and not child_types.issubset(parent_types):
-            return False
-
-        if child_ifaces and not child_ifaces.issubset(parent_ifaces):
-            return False
-
-        return True
-
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
         self.forminfos[formname] = forminfo
@@ -1291,24 +1272,13 @@ class Model:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo
 
-            pprops = []
-            ptypes = {}
+            child_propnames = {pdef[0] for pdef in propdefs}
 
-            polydefs = self.processPropdefs(propdefs)
-            for propdef in polydefs:
-                ptypes[propdef[0]] = propdef[1]
-
-            for prop in pform.props.values():
-                if prop.ifaces:
-                    continue
-
-                if (newdef := ptypes.get(prop.name)) is not None:
-                    if newdef != prop.typedef and not self._isPolySubset(prop, newdef):
-                        mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
-                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
-                    continue
-
-                pprops.append((prop.name, prop.typedef, prop.info))
+            pprops = [
+                (prop.name, prop.typedef, prop.info)
+                for prop in pform.props.values()
+                if not prop.ifaces and prop.name not in child_propnames
+            ]
 
             propdefs = tuple(pprops) + propdefs
 

@@ -601,10 +601,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('contact'))
             self.nn(node.get('service:account'))
 
-            # Test :id on parent it:host:account with meta:id value
+            # Test :id on parent it:host:account with base:id value
             nodes = await core.nodes('[it:host:account=* :id=acct-12345]')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'id', 'acct-12345', form='meta:id')
+            self.propeq(nodes[0], 'id', 'acct-12345', form='base:id')
 
             # Verify querying it:host:account returns parent and child form nodes
             nodes = await core.nodes('it:host:account')
@@ -664,10 +664,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'name', 'administrators')
             self.nn(node.get('host'))
 
-            # Test :id on parent it:host:group with meta:id value
+            # Test :id on parent it:host:group with base:id value
             nodes = await core.nodes('[it:host:group=* :id=grp-12345]')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'id', 'grp-12345', form='meta:id')
+            self.propeq(nodes[0], 'id', 'grp-12345', form='base:id')
 
             # Verify querying it:host:group returns parent and child form nodes
             nodes = await core.nodes('it:host:group')
