@@ -2014,6 +2014,14 @@ class StormTest(s_t_utils.SynTest):
             await nodes[0].getEmbeds({'newp::newp': {}})
             await nodes[0].getEmbeds({'asn::name::foo': {}})
 
+            # getEmbeds with an ndef that has no nid mapping
+            node = nodes[0]
+            save = node.sodes[0]['props']['asn']
+            node.sodes[0]['props']['asn'] = (('inet:asn', (4, 999)), 0)
+            embd = await node.getEmbeds({'asn': {}})
+            self.eq(embd, {})
+            node.sodes[0]['props']['asn'] = save
+
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('owner:name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
 

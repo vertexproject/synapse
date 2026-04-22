@@ -896,6 +896,21 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(node2, node)
             self.nn(node2.get('hehe'))
 
+            # addNodes with an invalid edge verb to an existing n2 node (covers edge error logging)
+            await view.addNode('inet:fqdn', 'vertex.link')
+            ndefs = (
+                (('test:str', 'edgetest1'), {'edges': (('_badverb', ('inet:fqdn', 'vertex.link')),)}),
+            )
+            result = await alist(view.addNodes(ndefs))
+            self.len(1, result)
+
+            # addNodes with an invalid edge verb to a non-existent n2 node (covers n2adds error logging)
+            ndefs = (
+                (('test:str', 'edgetest2'), {'edges': (('_badverb', ('inet:fqdn', 'newp.link')),)}),
+            )
+            result = await alist(view.addNodes(ndefs))
+            self.len(1, result)
+
     async def test_addNodesAuto(self):
         '''
         Secondary props that are forms when set make nodes
@@ -1299,6 +1314,16 @@ class ViewTest(s_t_utils.SynTest):
                     await news.delTagProp('newp', 'newp')
 
             self.len(1, await core.nodes('test:guid -(_pwns)> *'))
+
+            # test protonode flushEdits for a new node (node=None path)
+            async with core.view.getEditor() as editor:
+                newnode = await editor.addNode('test:str', 'flushtest')
+                self.none(newnode.node)
+                await newnode.set('tick', '2020')
+                await newnode.flushEdits()
+                self.nn(newnode.node)
+
+            self.len(1, await core.nodes('test:str=flushtest'))
 
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
