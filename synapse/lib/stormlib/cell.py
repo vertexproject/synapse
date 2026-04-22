@@ -73,8 +73,8 @@ storm_migrate_riskhasvuln = '''
 for $view in $lib.view.list(deporder=$lib.true) {
     view.exec $view.iden {
         $layer = $lib.layer.get()
-        for ($buid, $sode) in $layer.getStorNodesByForm(risk:hasvuln) {
-            yield $buid
+        for ($nid, $sode) in $layer.getStorNodesByForm(risk:hasvuln) {
+            yield $nid
             $lib.model.migration.s.riskHasVulnToVulnerable($node)
         }
     }

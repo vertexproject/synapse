@@ -14,7 +14,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.nid) }')
 
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
@@ -41,8 +41,8 @@ class TrigTest(s_t_utils.SynTest):
                 trigiden = await core.callStorm('return($lib.view.get().triggers.0.iden)')
                 self.nn(trigiden)
 
-                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': trigiden})
-                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': s_common.guid()})
+                await core.view.addTrigQueue({'nid': 1, 'trig': trigiden})
+                await core.view.addTrigQueue({'nid': 1, 'trig': s_common.guid()})
 
                 nodes = await core.nodes('[ inet:ip=9.9.9.9 ]')
                 self.none(nodes[0].get('#foo'))
@@ -80,7 +80,7 @@ class TrigTest(s_t_utils.SynTest):
                 await view.finiTrigTask()
 
                 opts = {'view': viewiden}
-                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.nid) }', opts=opts)
                 nodes = await core.nodes('[ inet:ip=123.123.123.123 ]', opts=opts)
 
                 with self.raises(s_exc.CantMergeView):
@@ -99,7 +99,7 @@ class TrigTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.nid) }')
 
                 await core00.view.finiTrigTask()
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
@@ -594,7 +594,7 @@ class TrigTest(s_t_utils.SynTest):
             tdef = {
                 'cond': 'edge:add',
                 'verb': 'refs',
-                'storm': '[ +#neato ] | spin | iden $auto.opts.n2iden | [ +#other ] | [ <(seen)+ { [ meta:source=* :name=$auto.opts.verb ] } ]',
+                'storm': '[ +#neato ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [ +#other ] | [ <(seen)+ { [ meta:source=* :name=$auto.opts.verb ] } ]',
                 'view': view,
             }
             await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only verb
@@ -689,7 +689,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
             # edge:del triggers
-            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [ +#milk ] }', opts=opts)  # only edge
             await core.nodes('trigger.add edge:del --verb refs --form test:int { [ +#cupcake ] }', opts=opts) # n1 form + edge
             await core.nodes('trigger.add edge:del --verb refs --n2form test:int { [ +#icecream ] }', opts=opts) # edge + n2 form
             await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
@@ -786,7 +786,7 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
+            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [+#other] }')
             await core.nodes('trigger.add edge:add --verb _see* --form test:int { [ +#n1 ] }')
             await core.nodes('trigger.add edge:add --verb _r* --n2form test:int { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str { [ +#both ] }')
@@ -846,7 +846,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
-            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | yield $lib.cortex.getNodeByNid($auto.opts.n2nid) | [+#del.other] }')
             await core.nodes('trigger.add edge:del --verb _see* --form test:int { [ +#del.one ] }')
             await core.nodes('trigger.add edge:del --verb _r* --n2form test:int { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#del.all ] }')
@@ -954,7 +954,7 @@ class TrigTest(s_t_utils.SynTest):
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
             pack = node2.pack()
-            pack[1]['edges'] = (('refs', node1.iden()), )
+            pack[1]['edges'] = (('refs', node1.ndef), )
             podes.append(pack)
 
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]

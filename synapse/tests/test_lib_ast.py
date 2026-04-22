@@ -136,13 +136,13 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
-            nodeiden = nodes[0].iden()
+            nodenid = s_common.int64un(nodes[0].nid)
             self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
             nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)
 
-            nodes = await core.nodes('| uniq', opts={'mode': 'lookup', 'idens': [nodeiden]})
+            nodes = await core.nodes('| uniq', opts={'mode': 'lookup', 'nids': [nodenid]})
             self.len(1, nodes)
 
             with self.raises(s_exc.BadSyntax):
@@ -2553,8 +2553,8 @@ class AstTest(s_test.SynTest):
                 [test:int=12345]
             }
             '''
-            idens = [nodes[0][1]['iden']]
-            msgs = await core.stormlist(q, opts={'idens': idens})
+            nids = [nodes[0][1]['nid']]
+            msgs = await core.stormlist(q, opts={'nids': nids})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
             self.eq(('test:int', 1000), nodes[0][0])

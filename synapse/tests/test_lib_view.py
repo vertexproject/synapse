@@ -1242,7 +1242,7 @@ class ViewTest(s_t_utils.SynTest):
                 fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
                 news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
-                self.true(s_common.isbuidhex(fqdn.iden()))
+                self.nn(fqdn.ndef)
 
                 self.false(await news.addEdge('refs', fqdn.nid))
                 self.len(0, editor.getNodeEdits())
@@ -1327,7 +1327,7 @@ class ViewTest(s_t_utils.SynTest):
             n2nid = n2node.nid
 
             async with view2.getEditor() as editor:
-                node = await editor.getNodeByBuid(nodes[0].buid)
+                node = await editor.getNodeByNdef(nodes[0].ndef)
                 self.true(await node.delEdge('_foo', n2nid))
                 self.true(await node.addEdge('_foo', n2nid))
                 self.true(await node.delEdge('_foo', n2nid))
@@ -1363,7 +1363,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
             async with view2.getEditor() as editor:
-                node = await editor.getNodeByBuid(nodes[0].buid)
+                node = await editor.getNodeByNdef(nodes[0].ndef)
                 self.false(await node.delEdge('_foo', n2nid))
                 await node.delEdgesN2()
 
@@ -1707,8 +1707,7 @@ class ViewTest(s_t_utils.SynTest):
 
             # Ensure the node is in the view's livenodes cache
             view = core.getView()
-            buid = s_common.buid(('inet:fqdn', 'vertex.link'))
-            nid = core.getNidByBuid(buid)
+            nid = core.getNidByNdef(('inet:fqdn', 'vertex.link'))
             self.nn(nid)
             self.isin(nid, view.livenodes)
 

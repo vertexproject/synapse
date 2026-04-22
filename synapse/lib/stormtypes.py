@@ -6211,9 +6211,6 @@ class Node(Prim):
         {'name': 'form', 'desc': 'Get the form of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeForm',
                   'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
-        {'name': 'iden', 'desc': 'Get the iden of the Node.',
-         'type': {'type': 'function', '_funcname': '_methNodeIden',
-                  'returns': {'type': 'str', 'desc': 'The nodes iden.', }}},
         {'name': 'ndef', 'desc': 'Get the form and primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeNdef',
                   'returns': {'type': 'list', 'desc': 'A tuple of the form and primary property.', }}},
@@ -6252,7 +6249,7 @@ class Node(Prim):
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
                               'If a glob match is provided, only matching tags are returned.', }}},
-        {'name': 'edges', 'desc': 'Yields the (verb, iden) tuples for this nodes edges.',
+        {'name': 'edges', 'desc': 'Yields the (verb, nid) tuples for this nodes edges.',
          'type': {'type': 'function', '_funcname': '_methNodeEdges',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.',
@@ -6261,19 +6258,19 @@ class Node(Prim):
                        'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
+                              'desc': 'A tuple of (verb, nid) values for this nodes edges.', }}},
         {'name': 'addEdge', 'desc': 'Add a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node.'},
+                      {'name': 'dest', 'type': 'prim', 'desc': 'The destination node. May be a Node object, ndef tuple, or nid integer.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node to remove.'},
+                      {'name': 'dest', 'type': 'prim', 'desc': 'The destination node to remove. May be a Node object, ndef tuple, or nid integer.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
@@ -6331,7 +6328,7 @@ class Node(Prim):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu.iden))
+        return hash((self._storm_typename, self.valu.ndef))
 
     async def _storm_copy(self):
         return self
@@ -6345,7 +6342,6 @@ class Node(Prim):
         return {
             'nid': nid,
             'form': self._methNodeForm,
-            'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
             'pack': self._methNodePack,
             'repr': self._methNodeRepr,
@@ -6386,39 +6382,27 @@ class Node(Prim):
 
         if reverse:
             async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
-                n1iden = s_common.ehex(self.valu.view.core.getBuidByNid(n1nid))
-                yield (verb, n1iden)
+                yield (verb, s_common.int64un(n1nid))
         else:
             async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
-                n2iden = s_common.ehex(self.valu.view.core.getBuidByNid(n2nid))
-                yield (verb, n2iden)
+                yield (verb, s_common.int64un(n2nid))
 
-    async def _methNodeAddEdge(self, verb, iden):
+    async def _methNodeAddEdge(self, verb, dest):
         verb = await tostr(verb)
-        iden = await tobuidhex(iden)
 
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
-        if nid is None:
-            mesg = f'No node with iden: {iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
+        nid = await toedgenid(dest, self.valu.view.core)
         await self.valu.addEdge(verb, nid)
 
-    async def _methNodeDelEdge(self, verb, iden):
+    async def _methNodeDelEdge(self, verb, dest):
         verb = await tostr(verb)
-        iden = await tobuidhex(iden)
 
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
-        if nid is None:
-            mesg = f'No node with iden: {iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
+        nid = await toedgenid(dest, self.valu.view.core)
         await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
@@ -6549,10 +6533,6 @@ class Node(Prim):
         name = await toprim(name)
         defv = await toprim(defv)
         return self.valu.repr(name=name, defv=defv)
-
-    @stormfunc(readonly=True)
-    async def _methNodeIden(self):
-        return self.valu.iden()
 
 @registry.registerType
 class PathMeta(Prim):
@@ -7073,16 +7053,16 @@ class Layer(Prim):
                               'desc': 'True if the edge exists in the layer, False if it is a tombstone, or None if not present.'}}},
 
         {'name': 'getEdges', 'desc': '''
-            Yield (n1iden, verb, n2iden, istombstone) tuples for any light edges in the layer.
+            Yield (n1nid, verb, n2nid, istombstone) tuples for any light edges in the layer.
 
             Example:
                 Iterate the light edges in ``$layer``::
 
-                    for ($n1iden, $verb, $n2iden, $tomb) in $layer.getEdges() {
+                    for ($n1nid, $verb, $n2nid, $tomb) in $layer.getEdges() {
                         if $tomb {
-                            $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                            $lib.print(`{$n1nid} -({$verb})> {$n2nid}`)
                         } else {
-                            $lib.print(`{$n1iden} +({$verb})> {$n2iden}`)
+                            $lib.print(`{$n1nid} +({$verb})> {$n2nid}`)
                         }
                     }
 
@@ -7090,7 +7070,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getEdges',
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
+                              'desc': 'Yields (<n1nid>, <verb>, <n2nid>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
             Yield (verb, n2nid, istombstone) tuples for any light edges in the layer for the source node id.
@@ -7163,12 +7143,12 @@ class Layer(Prim):
                   'returns': {'type': 'boolean',
                               'desc': 'True if the tombstone was deleted, False if not.'}}},
         {'name': 'getNodeData', 'desc': '''
-            Yield (name, valu, istombstone) tuples for any node data in the layer for the target node iden.
+            Yield (name, valu, istombstone) tuples for any node data in the layer for the target node nid.
 
             Example:
                 Iterate the node data for ``$node``::
 
-                    for ($name, $valu, $tomb) in $layer.getNodeData($node.iden()) {
+                    for ($name, $valu, $tomb) in $layer.getNodeData($node.nid) {
                         if $tomb {
                             $lib.print(`{$name} DELETED`)
                         } else {
@@ -7992,7 +7972,7 @@ class View(Prim):
                        'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
+                              'desc': 'Yields tuples containing the source nid, verb, and destination nid.', }}},
         {'name': 'wipeLayer', 'desc': 'Delete all nodes and nodedata from the write layer. Triggers will be run.',
          'type': {'type': 'function', '_funcname': '_methWipeLayer',
                   'returns': {'type': 'null', }}},
@@ -8344,16 +8324,12 @@ class View(Prim):
 
         if verb is not None:
             async for n1nid, _, n2nid in view.getEdges(verb=verb):
-                n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
-                n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
-                yield (n1buid, verb, n2buid)
+                yield (s_common.int64un(n1nid), verb, s_common.int64un(n2nid))
             return
 
         async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
-            n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
             verb = self.runt.view.core.getAbrvIndx(vabrv)[0]
-            n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
-            yield (n1buid, verb, n2buid)
+            yield (s_common.int64un(n1nid), verb, s_common.int64un(n2nid))
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
@@ -10195,43 +10171,36 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
-async def tobuid(valu):
+async def toedgenid(valu, core):
 
     if isinstance(valu, Node):
-        return valu.valu.buid
+        nid = valu.valu.nid
+        if nid is None:
+            mesg = f'Node has no nid: {valu.valu.ndef}'
+            raise s_exc.BadArg(mesg=mesg)
+        return nid
 
     if isinstance(valu, s_node.Node):
-        return valu.buid
+        return valu.nid
 
     valu = await toprim(valu)
 
-    if isinstance(valu, str):
-        if not s_common.isbuidhex(valu):
-            mesg = f'Invalid buid string: {valu}'
-            raise s_exc.BadCast(mesg=mesg)
+    if isinstance(valu, int):
+        nid = s_common.int64en(valu)
+        if not core.hasNidNdef(nid):
+            mesg = f'No node with nid: {valu}'
+            raise s_exc.BadArg(mesg=mesg)
+        return nid
 
-        return s_common.uhex(valu)
+    if isinstance(valu, (list, tuple)):
+        nid = core.getNidByNdef(tuple(valu))
+        if nid is None:
+            mesg = f'No node with ndef: {valu}'
+            raise s_exc.BadArg(mesg=mesg)
+        return nid
 
-    if not isinstance(valu, bytes):
-        mesg = f'Invalid buid valu: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
-
-    if len(valu) != 32:
-        mesg = f'Invalid buid valu: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
-
-    return valu
-
-async def tobuidhex(valu, noneok=False):
-
-    if noneok and valu is None:
-        return None
-
-    if isinstance(valu, str) and s_common.isbuidhex(valu):
-        return valu
-
-    buid = await tobuid(valu)
-    return s_common.ehex(buid)
+    mesg = f'Invalid edge dest value: {s_common.trimText(repr(valu))}'
+    raise s_exc.BadArg(mesg=mesg)
 
 async def tonidbyts(valu):
     if isinstance(valu, int):
@@ -10240,15 +10209,12 @@ async def tonidbyts(valu):
     if isinstance(valu, str):
         try:
             valu = s_common.uhex(valu)
-        except:
+        except Exception:
             raise s_exc.BadArg(mesg=f'Invalid nid value: {s_common.trimText(repr(valu))}')
 
     if isinstance(valu, bytes):
         if len(valu) == 8:
             return valu
-
-        if len(valu) == 32 and (nid := s_scope.get('runt').view.core.getNidByBuid(valu)) is not None:
-            return nid
 
     elif isinstance(valu, Node):
         return valu.valu.nid

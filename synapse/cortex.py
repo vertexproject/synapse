@@ -147,16 +147,6 @@ reqValidStormMacro = s_config.getJsValidator({
     ],
 })
 
-def cmprkey_indx(x):
-    return x[1]
-
-def cmprkey_buid(x):
-    return x[1][1]
-
-async def wrap_liftgenr(iden, genr):
-    async for indx, buid, sode in genr:
-        yield iden, (indx, buid), sode
-
 class CortexAxonMixin:
 
     async def prepare(self):
@@ -770,7 +760,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.libroot = (None, {}, {})
         self.stormlibs = []
 
-        self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
+        self.bldgnids = {}  # nid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
         self.jsonstor = None  # type: s_jsonstor.JsonStorApi
@@ -1919,11 +1909,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
         self.nid2ndef = self.v3stor.initdb('nid2ndef')
-        self.nid2buid = self.v3stor.initdb('nid2buid')
-        self.buid2nid = self.v3stor.initdb('buid2nid')
+        self.ndef2nid = self.v3stor.initdb('ndef2nid')
 
         self.nextnid = 0
-        byts = self.v3stor.lastkey(db=self.nid2buid)
+        byts = self.v3stor.lastkey(db=self.nid2ndef)
         if byts is not None:
             self.nextnid = s_common.int64un(byts) + 1
 
@@ -1936,40 +1925,35 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.v3stor.has(nid, db=self.nid2ndef)
 
     def setNidNdef(self, nid, ndef):
-        buid = s_common.buid(ndef)
-        self.v3stor._put(nid, buid, db=self.nid2buid)
-        self.v3stor._put(buid, nid, db=self.buid2nid)
+        ndefhash = s_common.buid(ndef)
+        self.v3stor._put(ndefhash, nid, db=self.ndef2nid)
         self.v3stor._put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         if (nid := s_common.int64un(nid)) >= self.nextnid:
             self.nextnid = nid + 1
 
-    def getBuidByNid(self, nid):
-        return self.v3stor.get(nid, db=self.nid2buid)
-
-    def getNidByBuid(self, buid):
-        return self.v3stor.get(buid, db=self.buid2nid)
+    def getNidByNdef(self, ndef):
+        return self.v3stor.get(s_common.buid(ndef), db=self.ndef2nid)
 
     async def genNdefNid(self, ndef):
-        buid = s_common.buid(ndef)
-        nid = self.v3stor.get(buid, db=self.buid2nid)
+        ndefhash = s_common.buid(ndef)
+        nid = self.v3stor.get(ndefhash, db=self.ndef2nid)
         if nid is not None:
             return nid
         return await self._push('nid:gen', ndef)
 
     @s_nexus.Pusher.onPush('nid:gen')
     async def _genNdefNid(self, ndef):
-        buid = s_common.buid(ndef)
-        nid = self.v3stor.get(buid, db=self.buid2nid)
+        ndefhash = s_common.buid(ndef)
+        nid = self.v3stor.get(ndefhash, db=self.ndef2nid)
         if nid is not None:
             return nid
 
         nid = s_common.int64en(self.nextnid)
         self.nextnid += 1
 
-        self.v3stor._put(nid, buid, db=self.nid2buid)
         self.v3stor._put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
-        self.v3stor._put(buid, nid, db=self.buid2nid)
+        self.v3stor._put(ndefhash, nid, db=self.ndef2nid)
 
         return nid
 
@@ -2052,7 +2036,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         def getRuntPode():
             ndef = ('syn:cmd', cdef.get('name'))
-            buid = s_common.buid(ndef)
 
             props = {
                 'doc': ctor.getCmdBrief()
@@ -2082,7 +2065,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     props['deprecated:mesg'] = mesg
 
             return (ndef, {
-                'iden': s_common.ehex(s_common.buid(ndef)),
                 'props': props,
             })
 
@@ -3766,7 +3748,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.OnceCmd)
         self.addStormCmd(s_storm.TreeCmd)
         self.addStormCmd(s_storm.HelpCmd)
-        self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.BatchCmd)
@@ -4835,13 +4816,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         lnodeedits = []
         async for form, valu, redits in s_coro.pause(rnodeedits):
 
-            buid = s_common.buid((form, valu))
-            if (nid := self.getNidByBuid(buid)) is None:
+            ndef = (form, valu)
+            if (nid := self.getNidByNdef(ndef)) is None:
                 if redits[0][0] != 0:
-                    # If we don't know this buid and the first edit isn't
-                    # a node add, this is an edit to a node we won't have
-                    # and we need to use a nexus event to generate the NID
-                    nid = s_common.int64un(await self.genNdefNid((form, valu)))
+                    nid = s_common.int64un(await self.genNdefNid(ndef))
             else:
                 nid = s_common.int64un(nid)
 
@@ -5437,9 +5415,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         for nid2, pode2 in spooldict.items():
                             await asyncio.sleep(0)
                             tgt_form = pode2[1][0][0]
-                            n2buid = self.getBuidByNid(nid2)
+                            n2ndef = self.getNidNdef(nid2)
                             async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                node_edges[nid1].append((verb, s_common.ehex(n2buid)))
+                                node_edges[nid1].append((verb, n2ndef))
                                 edges_meta[src_form][verb].add(tgt_form)
 
                     edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}

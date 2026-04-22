@@ -1675,17 +1675,6 @@ class Runtime(s_base.Base):
             if node is not None:
                 yield node, self.initPath(node)
 
-        for iden in self.opts.get('idens', ()):
-
-            if not isinstance(iden, str) or not s_common.isbuidhex(iden):
-                raise s_exc.NoSuchIden(mesg='Iden must be 64 hex digits', iden=iden)
-
-            buid = s_common.uhex(iden)
-
-            node = await self.view.getNodeByBuid(buid)
-            if node is not None:
-                yield node, self.initPath(node)
-
         for nid in self.opts.get('nids', ()):
             if (intnid := s_common.intify(nid)) is None:
                 raise s_exc.BadTypeValu(mesg=f'Node IDs must be integers, got: {nid}', valu=nid)
@@ -2521,7 +2510,6 @@ class Cmd:
     @classmethod
     def getRuntPode(cls):
         ndef = ('syn:cmd', cls.name)
-        buid = s_common.buid(ndef)
 
         props = {
             'doc': cls.getCmdBrief()
@@ -2534,7 +2522,6 @@ class Cmd:
             props['package'] = cls.pkgname
 
         return (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
             'props': props,
         })
 
@@ -3285,7 +3272,7 @@ class CopyToCmd(Cmd):
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
                             mesg = f'Cannot overwrite read only property with conflicting ' \
-                                   f'value: {node.iden()} {prop.full} = {valurepr}'
+                                   f'value: {node.ndef} {prop.full} = {valurepr}'
                             await runt.warn(mesg)
                             continue
 
@@ -3623,7 +3610,7 @@ class MergeCmd(Cmd):
                     continue
 
             # the timestamp for the adds/subs of each node merge will match
-            nodeiden = node.iden()
+            nodeiden = node.ndef
             meta['time'] = s_common.now()
 
             sodes = await node.getStorNodes()
@@ -3847,7 +3834,7 @@ class MergeCmd(Cmd):
                     verb = core.getAbrvIndx(abrv)[0]
                     if tomb:
                         if not doapply:
-                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            dest = core.getNidNdef(n2nid)
                             await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
                         else:
                             await protonode.delEdge(verb, n2nid)
@@ -3855,7 +3842,7 @@ class MergeCmd(Cmd):
                                 subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
                     else:
                         if not doapply:
-                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            dest = core.getNidNdef(n2nid)
                             await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
                         else:
                             await protonode.addEdge(verb, n2nid)
@@ -4063,7 +4050,7 @@ class MoveNodesCmd(Cmd):
         async for node, path in genr:
 
             # the timestamp for the adds/subs of each node merge will match
-            nodeiden = node.iden()
+            nodeiden = node.ndef
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
             sodes = {}
@@ -4188,7 +4175,7 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         for layr, sode in sodes.items():
             if (mdict := sode.get('meta')) is None or (valu := mdict.get('created')) is None:
@@ -4216,7 +4203,7 @@ class MoveNodesCmd(Cmd):
         movevals = {}
         virtvals = {}
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         for layr, sode in sodes.items():
 
@@ -4288,7 +4275,7 @@ class MoveNodesCmd(Cmd):
         tagvals = {}
         tagtype = self.runt.model.type('ival')
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         for layr, sode in sodes.items():
 
@@ -4359,7 +4346,7 @@ class MoveNodesCmd(Cmd):
         movevals = {}
         virtvals = {}
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         for layr, sode in sodes.items():
 
@@ -4442,7 +4429,7 @@ class MoveNodesCmd(Cmd):
 
         ecnt = 0
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         async def wrap_liftgenr(lidn, genr):
             async for abrv, tomb in genr:
@@ -4511,7 +4498,7 @@ class MoveNodesCmd(Cmd):
 
         ecnt = 0
         form = node.form.name
-        nodeiden = node.iden()
+        nodeiden = node.ndef
 
         async def wrap_liftgenr(lidn, genr):
             async for abrv, n2nid, tomb in genr:
@@ -4530,7 +4517,7 @@ class MoveNodesCmd(Cmd):
 
             if not layr == self.destlayr:
                 if not self.opts.apply:
-                    dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                    dest = self.core.getNidNdef(n2nid)
                     if tomb:
                         await self.runt.printf(f'{layr} delete tombstone {nodeiden} {form} -({verb})> {dest}')
                     else:
@@ -4552,7 +4539,7 @@ class MoveNodesCmd(Cmd):
                 if tomb:
                     if await self.lyrs[self.destlayr].hasNodeEdge(node.nid, verb, n2nid):
                         if not self.opts.apply:
-                            dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                            dest = self.core.getNidNdef(n2nid)
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} -({verb})> {dest}')
                         else:
                             self.adds.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
@@ -4560,7 +4547,7 @@ class MoveNodesCmd(Cmd):
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
-                            dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                            dest = self.core.getNidNdef(n2nid)
                             await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form} -({verb})> {dest}')
                         else:
                             self.adds.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
@@ -4568,7 +4555,7 @@ class MoveNodesCmd(Cmd):
 
                 else:
                     if not self.opts.apply:
-                        dest = s_common.ehex(self.core.getBuidByNid(n2nid))
+                        dest = self.core.getNidNdef(n2nid)
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} -({verb})> {dest}')
                     else:
                         self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
@@ -5055,50 +5042,6 @@ class CountCmd(Cmd):
             i += 1
 
         await runt.printf(f'Counted {i} nodes.')
-
-class IdenCmd(Cmd):
-    '''
-    Lift nodes by iden.
-
-    Example:
-
-        iden b25bc9eec7e159dce879f9ec85fb791f83b505ac55b346fcb64c3c51e98d1175 | count
-    '''
-    name = 'iden'
-    readonly = True
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        pars.add_argument('iden', nargs='*', type='str', default=[],
-                          help='Iden to lift nodes by. May be specified multiple times.')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        if not self.runtsafe:
-            mesg = 'iden argument must be runtsafe.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
-
-        async for x in genr:
-            yield x
-
-        for iden in self.opts.iden:
-            try:
-                buid = s_common.uhex(iden)
-            except Exception:
-                await asyncio.sleep(0)
-                await runt.warn(f'Failed to decode iden: [{iden}]')
-                continue
-            if len(buid) != 32:
-                await asyncio.sleep(0)
-                await runt.warn(f'iden must be 32 bytes [{iden}]')
-                continue
-
-            node = await runt.view.getNodeByBuid(buid)
-            if node is None:
-                await asyncio.sleep(0)
-                continue
-            yield node, runt.initPath(node)
 
 class SleepCmd(Cmd):
     '''

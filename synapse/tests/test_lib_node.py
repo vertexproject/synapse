@@ -216,9 +216,6 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.ndef(intpode), ('test:int', 1234))
             self.eq(s_node.reprNdef(intpode), ('test:int', '1234'))
 
-            e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
-            self.eq(s_node.iden(strpode), e)
-
             self.true(s_node.tagged(strpode, 'test'))
             self.true(s_node.tagged(strpode, '#test.foo.bar'))
             self.true(s_node.tagged(strpode, 'test.foo.bar.duck'))

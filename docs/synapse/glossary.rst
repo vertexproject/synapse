@@ -1245,7 +1245,7 @@ Queue
 -----
 
 Within Synapse, a queue is a basic first-in, first-out (FIFO) data structure used to store and serve objects in a
-classic pub/sub (publish/subscribe) manner. Any primitive (such as a node iden) can be placed into a queue and then
+classic pub/sub (publish/subscribe) manner. Any primitive (such as a node nid) can be placed into a queue and then
 consumed from it. Queues can be used (for example) to support out-of-band processing by allowing non-critical tasks
 to be executed in the background. Queues are persistent; i.e., if a Cortex is restarted, the queue and any objects
 in the queue are retained.

@@ -1315,18 +1315,6 @@ class CortexApi(s_stormtypes.Lib):
     Library for interacting with the Cortex API.
     '''
     _storm_locals = (
-        {'name': 'getIdenByNid', 'desc': 'Get the iden for a node by its node id in this Cortex.',
-         'type': {'type': 'function', '_funcname': 'getIdenByNid',
-                  'args': (
-                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the node or None if the node id is not found.'}}},
-        {'name': 'getNidByIden', 'desc': 'Get the node id for an iden in this Cortex.',
-         'type': {'type': 'function', '_funcname': 'getNidByIden',
-                  'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
-                  ),
-                  'returns': {'type': 'int', 'desc': 'The node id or None if the iden is not found.'}}},
         {'name': 'getNodeByNid', 'desc': 'Get a node from the current View by its node id in this Cortex.',
          'type': {'type': 'function', '_funcname': 'getNodeByNid',
                   'args': (
@@ -1338,39 +1326,23 @@ class CortexApi(s_stormtypes.Lib):
                   'args': (
                       {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
-        {'name': 'getNdefByIden', 'desc': 'Get the ndef tuple for a node by its iden.',
-         'type': {'type': 'function', '_funcname': 'getNdefByIden',
+                  'returns': {'type': 'list', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
+        {'name': 'getNidByNdef', 'desc': 'Get the node id for an ndef in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNidByNdef',
                   'args': (
-                      {'name': 'iden', 'type': 'int', 'desc': 'The iden of the node.'},
+                      {'name': 'ndef', 'type': 'list', 'desc': 'The ndef tuple (form, valu) of the node.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
+                  'returns': {'type': 'int', 'desc': 'The node id or None if the ndef is not found.'}}},
     )
 
     _storm_lib_path = ('cortex',)
 
     def getObjLocals(self):
         return {
-            'getIdenByNid': self.getIdenByNid,
-            'getNidByIden': self.getNidByIden,
             'getNodeByNid': self.getNodeByNid,
             'getNdefByNid': self.getNdefByNid,
-            'getNdefByIden': self.getNdefByIden,
+            'getNidByNdef': self.getNidByNdef,
         }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def getIdenByNid(self, nid):
-        nid = await s_stormtypes.toint(nid)
-        buid = self.runt.view.core.getBuidByNid(s_common.int64en(nid))
-        if buid is not None:
-            return s_common.ehex(buid)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def getNidByIden(self, iden):
-        buid = await s_stormtypes.tobuidhex(iden)
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
-        if nid is not None:
-            return s_common.int64un(nid)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getNodeByNid(self, nid):
@@ -1383,8 +1355,8 @@ class CortexApi(s_stormtypes.Lib):
         return self.runt.view.core.getNidNdef(s_common.int64en(nid))
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def getNdefByIden(self, iden):
-        buid = await s_stormtypes.tobuidhex(iden)
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
+    async def getNidByNdef(self, ndef):
+        ndef = await s_stormtypes.toprim(ndef)
+        nid = self.runt.view.core.getNidByNdef(tuple(ndef))
         if nid is not None:
-            return self.runt.view.core.getNidNdef(nid)
+            return s_common.int64un(nid)

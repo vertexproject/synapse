@@ -3,7 +3,6 @@ import asyncio
 import decimal
 import fnmatch
 import logging
-import binascii
 import itertools
 import contextlib
 import collections
@@ -685,23 +684,9 @@ class Oper(AstNode):
 
             return
 
-        # buid list -> nodes
-        if isinstance(valu, bytes):
-            if (node := await runt.view.getNodeByBuid(valu)) is not None:
-                yield node
-
-            return
-
-        # iden list -> nodes
-        if isinstance(valu, str):
-            try:
-                buid = s_common.uhex(valu)
-            except binascii.Error:
-                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
-                raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
-
-            node = await runt.view.getNodeByBuid(buid)
-            if node is not None:
+        # ndef tuple -> node (must be (str, valu) form)
+        if isinstance(valu, (tuple, list)) and len(valu) == 2 and isinstance(valu[0], str):
+            if (node := await runt.view.getNodeByNdef(tuple(valu))) is not None:
                 yield node
 
             return
@@ -738,14 +723,14 @@ class Oper(AstNode):
         if isinstance(valu, s_stormtypes.Node):
             valu = valu.valu
             if valu.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
+                mesg = f'Node is not from the current view. Node {valu.ndef} is from {valu.view.iden} expected {viewiden}'
                 raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
             yield valu
             return
 
         if isinstance(valu, s_node.Node):
             if valu.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
+                mesg = f'Node is not from the current view. Node {valu.ndef} is from {valu.view.iden} expected {viewiden}'
                 raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
             yield valu
             return
@@ -760,10 +745,14 @@ class Oper(AstNode):
             async with contextlib.aclosing(valu.nodes()) as genr:
                 async for node in genr:
                     if node.view.iden != viewiden:
-                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.view.iden} expected {viewiden}'
+                        mesg = f'Node is not from the current view. Node {node.ndef} is from {node.view.iden} expected {viewiden}'
                         raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
                     yield node
                 return
+
+        if isinstance(valu, str):
+            mesg = 'Yield does not support string values.'
+            raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
 
 class SubQuery(Oper):
 
