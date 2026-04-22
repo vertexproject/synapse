@@ -42,7 +42,7 @@ class MacroTest(s_test.SynTest):
             self.len(1, await core.nodes('inet:ip | macro.exec hoho'))
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('[ test:str=hehe ] $name=$node.value() | macro.exec $name')
+                await core.nodes('[ test:str=hehe ] $name=$node.value | macro.exec $name')
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('macro.exec newp')
@@ -166,7 +166,7 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('Set macro: data3', msgs)
 
-            q = '[test:str=cat] $val=$node.value() | macro.exec data3'
+            q = '[test:str=cat] $val=$node.value | macro.exec data3'
             nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq({'cat'}, {n.ndef[1] for n in nodes})

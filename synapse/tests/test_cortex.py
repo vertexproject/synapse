@@ -674,7 +674,7 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_rawpivot(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:ip=1.2.3.4] $ip=$node.value() -> { [ inet:dns:a=(woot.com, $ip) ] }')
+            nodes = await core.nodes('[inet:ip=1.2.3.4] $ip=$node.value -> { [ inet:dns:a=(woot.com, $ip) ] }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:dns:a', ('woot.com', (4, 0x01020304))))
 
@@ -1178,7 +1178,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.nodes(text))
 
             text = '''
-                syn:prop=test:int $prop=$node.value() *$prop=10 -syn:prop
+                syn:prop=test:int $prop=$node.value *$prop=10 -syn:prop
             '''
             nodes = await core.nodes(text)
             self.eq(nodes[0].ndef, ('test:int', 10))
@@ -1192,7 +1192,7 @@ class CortexTest(s_t_utils.SynTest):
             text = '''
                 syn:form syn:prop:computed=1 syn:prop:computed=0
 
-                $prop = $node.value()
+                $prop = $node.value
 
                 *$prop?=1.2.3.4
 
@@ -3539,7 +3539,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(mesg['params'].get('text'), 'help ask')
             self.eq(mesg['username'], 'foouser')
 
-            q = '[test:str=hehe] [test:int=$node.value()]'
+            q = '[test:str=hehe] [test:int=$node.value]'
             with self.getLoggerStream('synapse.lib.view') as stream:
                 await alist(core.storm(q, opts=asfoo))
             msgs = stream.jsonlines()
@@ -4121,7 +4121,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin(('inet:asn', 1138), ndefs)
 
             # Runtsafety test
-            q = '[ test:int=1 ]  | graph --degrees $node.value()'
+            q = '[ test:int=1 ]  | graph --degrees $node.value'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             opts = {'vars': {'iden': iden, 'iden2': iden2}}
@@ -4369,11 +4369,11 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
+            nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '1234'))
 
-            nodes = await core.nodes('test:int=1234 [test:str=$node.form()] -test:int')
+            nodes = await core.nodes('test:int=1234 [test:str=$node.form] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test:int'))
 
@@ -4411,55 +4411,55 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ risk:attack=* +(used)> {[ it:dev:str=foo ]} ]')
             await core.nodes('[ risk:attack=* +(used)> {[ it:dev:str=bar ]} ]')
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } = 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } = 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } = 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } = 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } > 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } > 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } > 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } > 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } >= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } >= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } >= 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } >= 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } < 2 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } < 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } < 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } < 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } <= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } <= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } <= 0 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } <= 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(used)> * $valu=$node.value() } != 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value } != 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(used)> * $valu=$node.value() } != 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value } != 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
@@ -4955,7 +4955,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'lulz'}}
-            text = '''[test:str=c] $form=$node.form() switch $form { 'test:str': {[+#known]} *: {[+#unknown]} }'''
+            text = '''[test:str=c] $form=$node.form switch $form { 'test:str': {[+#known]} *: {[+#unknown]} }'''
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             node = nodes[0]
@@ -4963,18 +4963,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(node.getTag('known'))
             self.none(node.getTag('unknown'))
 
-            q = '$valu={[test:str=foo]} switch $valu { foo: {test:str=foo return($node.value()) } }'
+            q = '$valu={[test:str=foo]} switch $valu { foo: {test:str=foo return($node.value) } }'
             self.eq('foo', await core.callStorm(q))
 
             # multi-value switch cases
             q = '''
             [test:str=$inval]
-            switch $node.value() {
-                "foo": { return($node.value()) }
-                ("boo", "bar"): { return($node.value()) }
-                (coo, car): { return($node.value()) }
-                ('doo', 'dar'): { return($node.value()) }
-                ("goo", 'gar', gaz): { return($node.value()) }
+            switch $node.value {
+                "foo": { return($node.value) }
+                ("boo", "bar"): { return($node.value) }
+                (coo, car): { return($node.value) }
+                ('doo', 'dar'): { return($node.value) }
+                ("goo", 'gar', gaz): { return($node.value) }
             }
             $lib.raise(BadArg, `Failed match on {$inval}`)
             '''
@@ -5058,7 +5058,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#timetag'))
 
-            mesgs = await core.stormlist('test:str=foo $var=$node.value() [+#$var=2019] $lib.print(#$var)')
+            mesgs = await core.stormlist('test:str=foo $var=$node.value [+#$var=2019] $lib.print(#$var)')
             self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
@@ -5098,7 +5098,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('tag3'))
 
-            mesgs = await core.stormlist('test:str=foo $var=$node.value() [+?#$var=2019] $lib.print(#$var)')
+            mesgs = await core.stormlist('test:str=foo $var=$node.value [+?#$var=2019] $lib.print(#$var)')
             self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
@@ -5190,7 +5190,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
 
-            q = '''inet:fqdn=nest.com $list=([[$node.form(), $node.value()]])
+            q = '''inet:fqdn=nest.com $list=([[$node.form, $node.value]])
             for ($form, $valu) in $list { [ *$form=$valu ] }
             '''
             nodes = await core.nodes(q)
@@ -5199,7 +5199,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'nest.com'), nodes[1].ndef)
 
             with self.raises(s_exc.StormRuntimeError) as err:
-                await core.nodes('[ it:dev:int=1 ] for $n in $node.value() { }')
+                await core.nodes('[ it:dev:int=1 ] for $n in $node.value { }')
             self.isin("'int' object is not iterable: 1", err.exception.errinfo.get('mesg'))
 
             with self.raises(s_exc.StormRuntimeError) as err:
@@ -5220,7 +5220,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Non Runtsafe test
             q = '''
-            test:int=4 test:int=5 $x=$node.value()
+            test:int=4 test:int=5 $x=$node.value
             while 1 {
                 $x=$($x-1)
                 if $($x=$(2)) {continue}
@@ -5232,7 +5232,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(['3', '4', '3'], prints)
 
             # Non runtsafe yield test
-            q = 'test:int=4 while $node.value() { [test:str=$node.value()] break}'
+            q = 'test:int=4 while $node.value { [test:str=$node.value] break}'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
@@ -5440,7 +5440,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
+            q = 'test:str=test $foo=$node.value $bar=(2018,2019) +#$foo=$bar'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
@@ -5465,49 +5465,49 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.false(nodes[0].hasTag('woot3'))
             self.true(nodes[0].hasTag('nowoot3'))
 
-            q = '[test:int=0 :int2=0] if $(:int2) {[+#woot41]} elif $($node.value()) {[+#woot42]}'
+            q = '[test:int=0 :int2=0] if $(:int2) {[+#woot41]} elif $($node.value) {[+#woot42]}'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot41'))
             self.false(nodes[0].hasTag('woot42'))
 
-            q = '[test:int=0 :int2=1] if $(:int2) {[+#woot51]} elif $($node.value()) {[+#woot52]}'
+            q = '[test:int=0 :int2=1] if $(:int2) {[+#woot51]} elif $($node.value) {[+#woot52]}'
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot51'))
             self.false(nodes[0].hasTag('woot52'))
 
-            q = '[test:int=1 :int2=1] if $(:int2) {[+#woot61]} elif $($node.value()) {[+#woot62]}'
+            q = '[test:int=1 :int2=1] if $(:int2) {[+#woot61]} elif $($node.value) {[+#woot62]}'
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot61'))
             self.false(nodes[0].hasTag('woot62'))
 
-            q = '[test:int=2 :int2=0] if $(:int2) {[+#woot71]} elif $($node.value()) {[+#woot72]}'
+            q = '[test:int=2 :int2=0] if $(:int2) {[+#woot71]} elif $($node.value) {[+#woot72]}'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot71'))
             self.true(nodes[0].hasTag('woot72'))
 
             q = ('[test:int=0 :int2=0] if $(:int2) {[+#woot81]} '
-                 'elif $($node.value()) {[+#woot82]} else {[+#woot83]}')
+                 'elif $($node.value) {[+#woot82]} else {[+#woot83]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot81'))
             self.false(nodes[0].hasTag('woot82'))
             self.true(nodes[0].hasTag('woot83'))
 
             q = ('[test:int=0 :int2=42] if $(:int2) {[+#woot91]} '
-                 'elif $($node.value()){[+#woot92]}else {[+#woot93]}')
+                 'elif $($node.value){[+#woot92]}else {[+#woot93]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot91'))
             self.false(nodes[0].hasTag('woot92'))
             self.false(nodes[0].hasTag('woot93'))
 
             q = ('[test:int=1 :int2=0] if $(:int2){[+#woota1]} '
-                 'elif $($node.value()) {[+#woota2]} else {[+#woota3]}')
+                 'elif $($node.value) {[+#woota2]} else {[+#woota3]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woota1'))
             self.true(nodes[0].hasTag('woota2'))
             self.false(nodes[0].hasTag('woota3'))
 
             q = ('[test:int=1 :int2=1] if $(:int2) {[+#wootb1]} '
-                 'elif $($node.value()) {[+#wootb2]} else{[+#wootb3]}')
+                 'elif $($node.value) {[+#wootb2]} else{[+#wootb3]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('wootb1'))
             self.false(nodes[0].hasTag('wootb2'))
@@ -6122,7 +6122,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     for ($offs, $item) in $q.gets(size=3, wait=12)
                         {
                             [ test:int=$item ]
-                            $lib.print(`made {$node.ndef()}`)
+                            $lib.print(`made {$node.ndef}`)
                             $q.cull($offs)
                         }
                     }, name=viewdmon)
@@ -6148,7 +6148,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.byname(dmon2)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:str=$item ]
-                    $lib.print(`made {$node.ndef()}`)
+                    $lib.print(`made {$node.ndef}`)
                     $q.cull($offs)
                 }
                 '''
@@ -6194,7 +6194,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.byname(dmon)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:int=$item ]
-                    $lib.print(`made {$node.ndef()}`)
+                    $lib.print(`made {$node.ndef}`)
                     $q.cull($offs)
                 }
             '''
