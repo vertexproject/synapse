@@ -509,6 +509,61 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.delEdge(('test:interface', 'matches', None))
 
+    async def test_getLookupHints(self):
+        async with self.getTestCore() as core:
+
+            hints = core.model.getLookupHints()
+            self.isinstance(hints, list)
+            self.gt(len(hints), 0)
+
+            # all entries are (prop_full_name, cmpr) tuples
+            for pname, cmpr in hints:
+                self.isinstance(pname, str)
+                self.isinstance(cmpr, str)
+
+            # known hints from the model are present
+            self.isin(('entity:name', '^='), hints)
+            self.isin(('it:softwarename', '^='), hints)
+            self.isin(('syn:tag:base', '^='), hints)
+
+            # second call returns the cached result
+            hints2 = core.model.getLookupHints()
+            self.true(hints is hints2)
+
+            # cache is invalidated when a form with a lookup hint is added
+            core.model.addType('test:lookupform', 'base:name', {}, {
+                'modes': {'lookup': [{'cmpr': '^='}]},
+                'doc': 'test lookup form',
+            })
+            core.model.addForm('test:lookupform', {}, ())
+            hints3 = core.model.getLookupHints()
+            self.false(hints3 is hints2)
+            self.isin(('test:lookupform', '^='), hints3)
+
+            # hint entries with no cmpr key are skipped for both forms and props
+            core.model.addType('test:nocmprform', 'base:name', {}, {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr form',
+            })
+            core.model.addForm('test:nocmprform', {}, ())
+            core.model.addFormProp('entity:name', 'testnocmpr', ('str', {}), {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr prop',
+            })
+            hints4 = core.model.getLookupHints()
+            self.notin(('test:nocmprform', None), hints4)
+            self.notin(('entity:name:testnocmpr', None), hints4)
+
+            # cache is invalidated when a form is removed
+            core.model.delForm('test:lookupform')
+            hints5 = core.model.getLookupHints()
+            self.notin(('test:lookupform', '^='), hints5)
+
+            # cache is invalidated when a prop with lookup hint is removed
+            core.model.delFormProp('entity:name', 'testnocmpr')
+            hints6 = core.model.getLookupHints()
+            self.false(hints5 is hints6)
+
     async def test_datamodel_locked_subs(self):
 
         async with self.getTestCore() as core:
@@ -875,18 +930,8 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:_ip2'))
 
             # Handling for lift/pivot where children have more restrictive norming
-            core.model.addType('_test:cve', 'meta:id', {'upper': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}, {})
+            core.model.addType('_test:cve', 'base:id', {'upper': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}, {})
             core.model.addForm('_test:cve', {}, ())
-
-            await core.nodes('[ meta:rule=* :id={[ meta:id=foo ]} ]')
-
-            self.len(1, await core.nodes('meta:id=foo'))
-            self.len(1, await core.nodes('meta:id=foo -> meta:rule'))
-            self.len(1, await core.nodes('meta:id=foo -> meta:rule:id'))
-            self.len(1, await core.nodes('meta:rule -> *'))
-            self.len(1, await core.nodes('meta:rule :id -> *'))
-            self.len(1, await core.nodes('meta:rule -> meta:id'))
-            self.len(1, await core.nodes('meta:rule :id -> meta:id'))
 
             core.model.addFormProp('test:str', 'cve', ('_test:cve', {}), {})
             core.model.addFormProp('test:str', 'cves', ('array', {'type': '_test:cve'}), {})
@@ -896,18 +941,13 @@ class DataModelTest(s_t_utils.SynTest):
                 (test:str=bararry :cves=(cve-2020-1234, cve-2021-1234))
             ]''')
 
-            msgs = await core.stormlist('meta:id -> test:str:cve')
+            msgs = await core.stormlist('_test:cve -> test:str:cve')
             self.stormHasNoWarnErr(msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
 
-            msgs = await core.stormlist('meta:id -> test:str:cves')
+            msgs = await core.stormlist('_test:cve -> test:str:cves')
             self.stormHasNoWarnErr(msgs)
             self.len(2, [m for m in msgs if m[0] == 'node'])
-
-            await core.nodes('[ meta:rule=* :id={[ _test:cve=cve-2020-1234 ] }]')
-            msgs = await core.stormlist('meta:rule:id :id -> test:str:cves')
-            self.stormHasNoWarnErr(msgs)
-            self.len(1, [m for m in msgs if m[0] == 'node'])
 
     async def test_datamodel_polyprop(self):
 
@@ -1245,3 +1285,6 @@ class DataModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=foobar')
             s_json.reqjsonsafe(nodes[0].pack(virts=True))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str=asdf :hehe={[tel:mob:mcc=123]}]')

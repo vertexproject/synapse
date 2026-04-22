@@ -121,7 +121,7 @@ modeldefs = (
             )),
             ('mat:item', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the material item.'}),
 
                 ('type', ('mat:item:type:taxonomy', {}), {
@@ -133,7 +133,7 @@ modeldefs = (
 
             ('mat:spec', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the material specification.'}),
 
                 ('type', ('mat:item:type:taxonomy', {}), {

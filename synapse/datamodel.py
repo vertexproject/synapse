@@ -583,6 +583,8 @@ class Model:
 
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
+        self._lookup_hints = None
+
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
             'types': [],
@@ -600,6 +602,43 @@ class Model:
 
         # TODO order props based on score...
         return list(props.values())
+
+    def getLookupHints(self):
+        '''
+        Return a cached list of (prop_full_name, cmpr) tuples for all forms/props
+        that define lookup mode hints in the data model.
+        '''
+        if self._lookup_hints is not None:
+            return self._lookup_hints
+
+        hints = []
+
+        for name, form in self.forms.items():
+            lhints = form.type.info.get('modes', {}).get('lookup')
+            if not lhints:
+                continue
+
+            for hint in lhints:
+                cmpr = hint.get('cmpr')
+                if cmpr is None:
+                    continue
+
+                hints.append((form.name, cmpr))
+
+        for name, prop in self.props.items():
+            lhints = prop.info.get('modes', {}).get('lookup')
+            if not lhints:
+                continue
+
+            for hint in lhints:
+                cmpr = hint.get('cmpr')
+                if cmpr is None:
+                    continue
+
+                hints.append((prop.full, cmpr))
+
+        self._lookup_hints = hints
+        return self._lookup_hints
 
     def getArrayPropsByType(self, name):
         props = self.arraysbytype.get(name, {})
@@ -1329,6 +1368,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self._lookup_hints = None
 
         return form
 
@@ -1413,6 +1453,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self._lookup_hints = None
 
         if parentform:
             self.childforms[parentform.name].remove(formname)
@@ -1507,6 +1548,7 @@ class Model:
                     self.propprevnames[prevfull] = prop.full
 
         self.childpropcache.clear()
+        self._lookup_hints = None
 
         return prop
 
@@ -1618,11 +1660,11 @@ class Model:
         for subname, subinfo in iface.get('interfaces', ()):
 
             if ifaceparents is None:
-                ifaceparents = [name]
+                subparents = [name]
             else:
-                ifaceparents.append(name)
+                subparents = ifaceparents + [name]
 
-            self._addFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
+            self._addFormIface(form, subname, subinfo, ifaceparents=subparents)
 
     def _delFormIface(self, form, name, ifinfo, ifaceparents=None):
 
@@ -1646,11 +1688,11 @@ class Model:
         for subname, subinfo in iface.get('interfaces', ()):
 
             if ifaceparents is None:
-                ifaceparents = [name]
+                subparents = [name]
             else:
-                ifaceparents.append(name)
+                subparents = ifaceparents + [name]
 
-            self._delFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
+            self._delFormIface(form, subname, subinfo, ifaceparents=subparents)
 
     def delTagProp(self, name):
         if (prop := self.tagprops.pop(name, None)) is not None:
@@ -1717,6 +1759,7 @@ class Model:
                 self.delFormProp(kid, propname)
 
         self.childpropcache.clear()
+        self._lookup_hints = None
 
     def type(self, name):
         '''

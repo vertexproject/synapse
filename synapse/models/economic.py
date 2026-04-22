@@ -374,7 +374,7 @@ modeldefs = (
 
             ('econ:fin:exchange', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'A simple name for the exchange.',
                     'ex': 'nasdaq'}),
 

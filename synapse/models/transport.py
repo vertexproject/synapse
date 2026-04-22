@@ -179,12 +179,13 @@ modeldefs = (
                 'interfaces': (
                     ('phys:object', {}),
                     ('meta:havable', {}),
+                    ('biz:manufactured', {}),
                     ('entity:creatable', {}),
                 ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
 
-                    ('model', ('base:name', {}), {
+                    ('model', ('biz:model', {}), {
                         'doc': 'The model of the {title}.'}),
 
                     ('serial', ('base:id', {}), {
@@ -308,7 +309,7 @@ modeldefs = (
 
             ('transport:land:license', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The license ID.'}),
 
                 # TODO type ( drivers license, commercial trucking, etc? )
@@ -329,7 +330,7 @@ modeldefs = (
             )),
             ('transport:land:registration', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The vehicle registration ID or license plate.'}),
 
                 ('contact', ('entity:actor', {}), {
@@ -381,7 +382,7 @@ modeldefs = (
             )),
             ('transport:air:port', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('geo:name', {}), {
                     'doc': 'The name of the airport.'}),
 
                 ('place', ('geo:place', {}), {
@@ -451,10 +452,10 @@ modeldefs = (
                 ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                     'doc': 'The type of vessel.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
-                ('callsign', ('meta:id', {}), {
+                ('callsign', ('base:id', {}), {
                     'doc': 'The callsign of the vessel.'}),
 
                 ('flag', ('iso:3166:alpha2', {}), {
@@ -509,7 +510,7 @@ modeldefs = (
 
             ('transport:rail:train', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID assigned to the train.'}),
             )),
 

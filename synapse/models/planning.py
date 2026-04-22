@@ -48,7 +48,7 @@ modeldefs = (
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
@@ -71,6 +71,16 @@ modeldefs = (
                     'doc': 'The primary URL which documents the planning system.'}),
             )),
             ('plan:phase', {}, (
+
+                ('id', (
+                    ('it:mitre:attack:tactic:id', {}),
+                    ('base:id', {}),
+                ), {
+                    'alts': ('ids',),
+                    'doc': 'The phase ID.'}),
+
+                ('ids', ('array', {'type': (('it:mitre:attack:tactic:id', {}), ('base:id', {}))}), {
+                    'doc': 'An array of alternate IDs for the phase.'}),
 
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',

@@ -106,6 +106,32 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return(({"foo": "bar", "baz": foo}))')
 
+            # float and negative number literals in JSON expressions
+            retn = await core.callStorm('return(([4.5, 5.6]))')
+            self.eq(retn, (4.5, 5.6))
+
+            retn = await core.callStorm('return(([-4, 8]))')
+            self.eq(retn, (-4, 8))
+
+            retn = await core.callStorm('return(([-4.349, 40.435]))')
+            self.eq(retn, (-4.349, 40.435))
+
+            retn = await core.callStorm('return(({"x": 4.5, "y": -5.6}))')
+            self.eq(retn, {'x': 4.5, 'y': -5.6})
+
+            retn = await core.callStorm('return(([0xFF, 0x10]))')
+            self.eq(retn, (255, 16))
+
+            # parenthesized number expressions (dollarexpr) inside JSON collections
+            retn = await core.callStorm('return(([(-4.349), (40.435)]))')
+            self.eq(retn, (-4.349, 40.435))
+
+            # setting a data-typed property with float coordinates
+            async with self.getTestCore() as core2:
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [4.5, 5.6] }) ]')
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [-4, 8] }) ]')
+                await core2.callStorm('[ geo:place=(test,) :geojson=({ "type": "Point", "coordinates": [(-4.349), (40.435)] }) ]')
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
@@ -1257,7 +1283,6 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
             self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[2][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[2][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             self.eq(nodes[3][1]['props']['seen'], ('ival', (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe)))
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
@@ -1280,7 +1305,6 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0][1]['props'].get('seen.duration'))
             self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
             self.eq(nodes[0][1]['props']['polyarry.size'], 2)
-            self.eq(nodes[0][1]['props']['polyarry.type'], ('test:str', 'test:str'))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -1661,12 +1685,12 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr2)
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr2)
 
-            await core.nodes('[ meta:name=test ]')
+            await core.nodes('[ entity:name=test ]')
 
             await core.nodes('''
                 [ entity:contact=*
                     :name=test0
-                    +(refs)> { meta:name=test }
+                    +(refs)> { entity:name=test }
                     +#test1.foo=now
                     +#test2
                     +#test3:score=42
@@ -2176,7 +2200,6 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
             self.eq(2, embeds['gprop::name']['polyarry.size'])
-            self.eq(['test:int', 'test:str'], embeds['gprop::name']['polyarry.type'])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}

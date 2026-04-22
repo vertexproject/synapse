@@ -884,7 +884,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :seen=20220101
             ]''')
             self.propeq(nodes[0], 'desc', 'WootWoot')
-            self.propeq(nodes[0], 'model', 'xps13')
+            self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
             self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'version.semver', 1099513724931)
@@ -2109,34 +2109,59 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('G0100', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=G0100'))
 
             nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
             self.len(1, nodes)
             self.eq('TA0040', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=TA0040'))
 
             nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
             self.len(1, nodes)
             self.eq('T1548.123', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=T1548.123'))
 
             nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
             self.len(1, nodes)
             self.eq('M1036', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=M1036'))
 
             nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
             self.len(1, nodes)
             self.eq('S0154', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=S0154'))
 
             nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
             self.len(1, nodes)
             self.eq('C0028', nodes[0].ndef[1])
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
-            self.len(1, await core.nodes('meta:id=C0028'))
+
+            # Test that MITRE ATT&CK IDs can be set on :id/:ids properties of related forms
+            nodes = await core.nodes('[ risk:threat=* :id=G0100 :ids=(G0101,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'G0100', form='it:mitre:attack:group:id')
+            self.eq((('it:mitre:attack:group:id', 'G0101'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ entity:campaign=* :id=C0028 :ids=(C0029,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'C0028', form='it:mitre:attack:campaign:id')
+            self.eq((('it:mitre:attack:campaign:id', 'C0029'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ risk:tool:software=* :id=S0154 :ids=(S0155,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'S0154', form='it:mitre:attack:software:id')
+            self.eq((('it:mitre:attack:software:id', 'S0155'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ meta:technique=* :id=T1548 :ids=(T1549,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'T1548', form='it:mitre:attack:technique:id')
+            self.eq((('it:mitre:attack:technique:id', 'T1549'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ risk:mitigation=* :id=M1036 :ids=(M1037,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'M1036', form='it:mitre:attack:mitigation:id')
+            self.eq((('it:mitre:attack:mitigation:id', 'M1037'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ plan:phase=* :id=TA0040 :ids=(TA0041,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'TA0040', form='it:mitre:attack:tactic:id')
+            self.eq((('it:mitre:attack:tactic:id', 'TA0041'),), nodes[0].get('ids'))

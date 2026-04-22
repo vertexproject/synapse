@@ -29,7 +29,6 @@ CPPCOMMENT.2: /\/\/[^\n]*/
 // Entry point for an unadorned storm query
 query: "|"? _querystart?
 lookup: looklist [ "|" query ]
-search: looklist [ "|" query ]
 
 _querystart: _querystart "|"? (stormcmd | _oper | _editblock)
     | stormcmd | _oper | _editblock
@@ -371,8 +370,15 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
-exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
+exprdict: "{" ((_jsonexprval | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN))* ","? )? "}"
+exprlist: "[" ((_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN))* ","? )? "]"
+
+// Like _exprvalu, but with JSONNUMBER/JSONHEX/JSONOCT in place of NUMBER/HEXNUMBER/OCTNUMBER.
+// These JSON-specific terminals match float and negative literals without the unquoted-string
+// lookahead restriction. Only used in exprlist/exprdict so the contextual lexer limits their scope.
+_jsonexprval: JSONNUMBER | JSONHEX | JSONOCT | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue | exprvirtpropvalue
+    | exprtagvalu | exprtagvirtvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs | embedquery
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
 _exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue | exprvirtpropvalue
@@ -564,6 +570,22 @@ EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRMODULO.2: "%"
 EXPRPOW.2: "**"
+
+// JSON-specific number terminals used in exprlist/exprdict (via _jsonexprval).
+// These intentionally omit the unquoted-string lookahead of NUMBER/HEXNUMBER/OCTNUMBER because
+// exprlist/exprdict are always delimited by brackets/braces, so there is no ambiguity with
+// unquoted strings. Higher priority (3) ensures they match before EXPRMINUS (2) and NUMBER (1).
+JSONHEX.4: /-?0x[0-9a-fA-F]+/
+JSONOCT.4: /-?0o[0-7]+/
+JSONNUMBER.3: /
+    -?
+    (                                           # start capture group
+        0+\d*(?=\.)                         |   # zero-leading numbers ending with .
+        (?<!\d)[1-9]\d*                     |   # non-zero-leading numbers
+        0+(?![1-9\.])                           # one or more zeroes
+    )                                           # end capture group
+    (\.\d*)?                                    # decimal point and any following digits
+/x
 
 // Each of NUMBER, HEXNUMBER, and OCTNUMBER below have some very gnarly regular expressions. To make
 // them a little more palatable, they've been broken out and commented. All of these regex patterns

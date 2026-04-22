@@ -8,10 +8,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
-import synapse.lib.view as s_view
 import synapse.lib.json as s_json
 import synapse.lib.time as s_time
+import synapse.lib.view as s_view
 import synapse.lib.editor as s_editor
+import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_test
 
@@ -127,40 +128,53 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
-        conf = {'storm:interface:search': False}
-        async with self.getTestCore(conf=conf) as core:
-            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
-            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
-
+        # non-scrapeable text is matched via datamodel lookup hints in lookup mode
         async with self.getTestCore() as core:
-            core.loadStormPkg({
-                'name': 'testsearch',
-                'modules': [
-                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
-                        function search(tokens) {
-                            for $tokn in $tokens {
-                                ou:org:name^=$tokn
-                                emit ((0), $lib.hex.decode($node.iden()))
-                            }
-                        }
-                    '''},
-                ],
-            })
-            await core.nodes('[ ou:org=* :name=apt1 ]')
-            await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'search'})
+            await core.nodes('[ entity:name="Vertex Project" ]')
+            await core.nodes('[ entity:name="APT1 Group" ]')
+            await core.nodes('[ it:softwarename="Synapse Platform" ]')
+
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.propeq(nodes[0], 'name', 'apt1')
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
-            nodes = await core.nodes('', opts={'mode': 'search'})
+            nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)
 
-            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            nodes = await core.nodes('| uniq', opts={'mode': 'lookup', 'idens': [nodeiden]})
             self.len(1, nodes)
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('| $$$$', opts={'mode': 'search'})
+                await core.nodes('| $$$$', opts={'mode': 'lookup'})
+
+            # when the model has no lookup hints, remainder text yields nothing
+            core.model._lookup_hints = []
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(0, nodes)
+            core.model._lookup_hints = None
+
+            # a hint with an unsupported comparator is skipped gracefully
+            core.model._lookup_hints = [('entity:name', '!!='), ('entity:name', '^=')]
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            core.model._lookup_hints = None
+
+            # a scrape match that covers only part of a whitespace-token must not
+            # leave a partial fragment as a remainder for hints-based search
+            # "1.2.3.4Vertex" -> scraper pulls "1.2.3.4" but the whole token is
+            # covered so "Vertex" must not bleed through to the hints path
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
+            nodes = await core.nodes('1.2.3.4Vertex', opts={'mode': 'lookup'})
+            ndefs = {n.ndef for n in nodes}
+            self.notin(('entity:name', 'vertex project'), ndefs)
+
+            # a quoted token containing whitespace must be treated as a single
+            # remainder token, not split on the internal space
+            nodes = await core.nodes('"Vertex Project"', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
     async def test_try_set(self):
         '''
@@ -186,18 +200,8 @@ class AstTest(s_test.SynTest):
             self.propeq(nodes[0], 'tick', 1546300800000000)
 
     async def test_ast_autoadd(self):
-
-        async with self.getTestCore() as core:
-            visi = await core.auth.addUser('visi')
-            with self.raises(s_exc.AuthDeny):
-                opts = {'mode': 'autoadd', 'user': visi.iden}
-                nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            opts = {'mode': 'autoadd'}
-            nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
-            self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
+        with self.raises(s_exc.BadArg):
+            s_parser.parseQuery('inet:ip=1.2.3.4', mode='autoadd')
 
     async def test_ast_lookup(self):
 
@@ -216,18 +220,18 @@ class AstTest(s_test.SynTest):
             opts = {'mode': 'lookup'}
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             # check lookup refang
             q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228 | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
             self.true(all(n.getTag('hehe') is not None for n in nodes))
 
             # AST object passes through inbound genrs
@@ -253,6 +257,27 @@ class AstTest(s_test.SynTest):
                 nodes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, nodes)
                 self.eq(nodes[0][0], ('inet:ip', (4, 0x01020304)))
+
+        # a Storm scrape interface that returns info without match/offset is
+        # handled gracefully (the span is not removed from the remainder)
+        async with self.getTestCore() as core:
+            core.loadStormPkg({
+                'name': 'testscrape',
+                'modules': [
+                    {'name': 'testscrape', 'interfaces': ['scrape'], 'storm': '''
+                        function scrape(text) {
+                            [ inet:fqdn=scrape.test.com ]
+                            return ( (("inet:fqdn", "scrape.test.com", ({"custom": "info"})),) )
+                        }
+                    '''},
+                ],
+            })
+            # use text the built-in scraper won't match so the Storm scrape
+            # interface result (with no match/offset in info) reaches the
+            # remainder computation and exercises the continue branch
+            nodes = await core.nodes('notascrapabletoken', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'scrape.test.com'))
 
     async def test_ast_subq_vars(self):
 
@@ -919,8 +944,8 @@ class AstTest(s_test.SynTest):
             await core.nodes(q)
 
             self.len(3, await core.nodes('it:host=(host,) -> it:host:event'))
-            self.len(6, await core.nodes('it:host=(host,) -> it:host:event:host'))
-            self.len(6, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:event:host'))
+            self.len(3, await core.nodes('it:log:event=(event,) :host -> it:host:event:host'))
 
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns*'))
             self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns:*'))
@@ -1041,8 +1066,8 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('it:host:event'))
             self.len(4, await core.nodes('it:host:event#foo'))
             self.len(4, await core.nodes('it:host:event#foo:score=5'))
-            self.len(6, await core.nodes('it:host:event:host'))
-            self.len(6, await core.nodes('it:host:event:host=(host,)'))
+            self.len(3, await core.nodes('it:host:event:host'))
+            self.len(3, await core.nodes('it:host:event:host=(host,)'))
 
             self.len(4, await core.nodes('.created +it:host:event'))
             self.len(3, await core.nodes('.created +it:host:event:host'))
@@ -2918,9 +2943,6 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('$lib.view.get().fork()', opts={'readonly': True})
-
-            with self.raises(s_exc.IsReadOnly):
-                await core.nodes('vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ip | limit 1 | tee { [+#foo] }', opts={'readonly': True})
