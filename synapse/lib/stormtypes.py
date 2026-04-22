@@ -6876,16 +6876,16 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
         {'name': 'getStorNodes', 'desc': '''
-            Get buid, sode tuples representing the data stored in the layer.
+            Get nid, sode tuples representing the data stored in the layer.
 
             Notes:
                 The storage nodes represent **only** the data stored in the layer
                 and may not represent whole nodes.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of nid, sode values.', }}},
         {'name': 'getStorNodesByForm', 'desc': '''
-            Get buid, sode tuples representing the data stored in the layer for a given form.
+            Get nid, sode tuples representing the data stored in the layer for a given form.
 
             Notes:
                 The storage nodes represent **only** the data stored in the layer
@@ -6896,7 +6896,7 @@ class Layer(Prim):
                       {'name': 'form', 'type': 'str',
                        'desc': 'The name of the form to get storage nodes for.'},
                    ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of nid, sode values.', }}},
         {'name': 'getStorNodesByProp', 'desc': '''
             Get nid, sode tuples representing the data stored in the layer for a given property.
             Notes:
