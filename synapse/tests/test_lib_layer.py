@@ -1366,7 +1366,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
-            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden()) { $lib.print($edge."-1") }'
+            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden) { $lib.print($edge."-1") }'
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
@@ -2767,7 +2767,7 @@ class LayerTest(s_t_utils.SynTest):
             infork00 = {'view': fork00['iden']}
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
-            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden())')
+            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden)')
 
             sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ip'))
             self.len(0, sodes)

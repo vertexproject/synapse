@@ -343,7 +343,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         if $node.props.doc {
             $doc = ` - {$node.props.doc}`
         }
-        $rslt.append(($node.value(), `[tag] {$node.value()}{$doc}`))
+        $rslt.append(($node.value, `[tag] {$node.value}{$doc}`))
         | spin
         | return($rslt)
         '''
