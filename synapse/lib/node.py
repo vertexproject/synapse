@@ -416,9 +416,13 @@ class Node(NodeBase):
             if not prop.type.hasforms:
                 return None
 
-            step = cache.get(valu, s_common.novalu)
+            nid = node.view.core.getNidByNdef(valu)
+            if nid is None:
+                return None
+
+            step = cache.get(nid, s_common.novalu)
             if step is s_common.novalu:
-                step = cache[valu] = await node.view.getNodeByNdef(valu)
+                step = cache[nid] = await node.view.getNodeByNid(nid)
 
             return step
 
