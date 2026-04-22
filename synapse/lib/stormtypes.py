@@ -6530,7 +6530,6 @@ class Node(Prim):
 
         return {'adds': adds, 'dels': dels}
 
-    @stormfunc(readonly=True)
     async def _gtorNodeNid(self):
         if self.valu.nid is None:
             return None
