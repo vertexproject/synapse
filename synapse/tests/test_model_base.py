@@ -428,11 +428,11 @@ class BaseTest(s_t_utils.SynTest):
                     :ids=(" alt-id-1 ", " alt-id-2 ")
                     :name="activity cluster 1"
                     :names=("cluster one", "cluster alpha")
-                    :type=chainalysis.scam
+                    :type=fraud.scam
                     :desc="A cluster of scam-related addresses."
-                    :tag=rep.chainalysis.cluster.1234
+                    :tag=rep.vertex.cluster.1234
                     :reporter=$org
-                    :reporter:name=chainalysis
+                    :reporter:name=vertex
             ]''', opts={'vars': {'org': org0}})
             self.len(1, nodes)
             node = nodes[0]
@@ -440,11 +440,11 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(node.get('ids'), ('alt-id-1', 'alt-id-2'))
             self.eq(node.get('name'), 'activity cluster 1')
             self.eq(node.get('names'), ('cluster alpha', 'cluster one'))
-            self.eq(node.get('type'), 'chainalysis.scam.')
+            self.eq(node.get('type'), 'fraud.scam.')
             self.eq(node.get('desc'), 'A cluster of scam-related addresses.')
-            self.eq(node.get('tag'), 'rep.chainalysis.cluster.1234')
+            self.eq(node.get('tag'), 'rep.vertex.cluster.1234')
             self.eq(node.get('reporter'), org0)
-            self.eq(node.get('reporter:name'), 'chainalysis')
+            self.eq(node.get('reporter:name'), 'vertex')
             self.len(1, await core.nodes('meta:cluster -> meta:cluster:type:taxonomy'))
 
     async def test_model_feed(self):
