@@ -840,6 +840,9 @@ class StormTypesTest(s_test.SynTest):
             tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "foo.baz"), visi, ispart=$lib.true))')
             self.eq(tags, ('visi.foo', 'visi.bar', 'visi.foo.baz'))
 
+            tags = await core.callStorm('return($lib.tags.prefix((null), visi))')
+            self.eq(tags, ())
+
             self.none(await core.callStorm('[inet:user=visi] return($node.data.cacheget(foo))'))
 
             await core.callStorm('inet:user=visi $node.data.cacheset(foo, bar)')
