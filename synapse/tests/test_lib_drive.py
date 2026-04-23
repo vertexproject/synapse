@@ -59,9 +59,8 @@ class DriveTest(s_t_utils.SynTest):
 
     async def test_drive_base(self):
 
-        with self.getTestDir() as dirn:
+        async def tst_drive_basics(dirn):
             async with self.getTestCell(dirn=dirn) as cell:
-
                 with self.raises(s_exc.BadName):
                     s_drive.reqValidName('A' * 512)
 
@@ -189,9 +188,12 @@ class DriveTest(s_t_utils.SynTest):
                 self.eq(data[0]['version'], (1, 1, 1))
                 self.eq(data[1]['stuff'], 3829)
 
-                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+                await self.asyncraises(s_exc.NoSuchIden,
+                                       cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
 
-                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
+                await self.asyncraises(s_exc.BadArg,
+                                       cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'),
+                                                             'my special string'))
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]
                 }
@@ -215,8 +217,6 @@ class DriveTest(s_t_utils.SynTest):
                 self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
-                print(versinfo)
-                print(data)
                 self.eq('woot', data.get('woot'))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
@@ -318,46 +318,58 @@ class DriveTest(s_t_utils.SynTest):
                 s_config._JsValidators.clear()
                 await cell.drive.reqValidData('woot', data)
 
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_basics(dirn)
+
     async def test_drive_perm_migration(self):
-        async with self.getRegrCore('drive-perm-migr') as core:
-            item = await core.getDrivePath('driveitemdefaultperms')
-            self.len(1, item)
-            self.notin('perm', item)
-            self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
+        async def tst_drive_perm_migration():
+            async with self.getRegrCore('drive-perm-migr') as core:
+                item = await core.getDrivePath('driveitemdefaultperms')
+                self.len(1, item)
+                self.notin('perm', item)
+                self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
 
-            ldog = await core.auth.getRoleByName('littledog')
-            bdog = await core.auth.getRoleByName('bigdog')
+                ldog = await core.auth.getRoleByName('littledog')
+                bdog = await core.auth.getRoleByName('bigdog')
 
-            louis = await core.auth.getUserByName('lewis')
-            tim = await core.auth.getUserByName('tim')
-            mj = await core.auth.getUserByName('mj')
+                louis = await core.auth.getUserByName('lewis')
+                tim = await core.auth.getUserByName('tim')
+                mj = await core.auth.getUserByName('mj')
 
-            item = await core.getDrivePath('permfolder/driveitemwithperms')
-            self.len(2, item)
-            self.notin('perm', item[0])
-            self.notin('perm', item[1])
-            self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
-            self.eq(item[1]['permissions'], {
-                'users': {
-                    mj.iden: s_cell.PERM_ADMIN
-                },
-                'roles': {
-                    ldog.iden: s_cell.PERM_READ,
-                    bdog.iden: s_cell.PERM_EDIT,
-                },
-                'default': s_cell.PERM_DENY
-            })
+                item = await core.getDrivePath('permfolder/driveitemwithperms')
+                self.len(2, item)
+                self.notin('perm', item[0])
+                self.notin('perm', item[1])
+                self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
+                self.eq(item[1]['permissions'], {
+                    'users': {
+                        mj.iden: s_cell.PERM_ADMIN
+                    },
+                    'roles': {
+                        ldog.iden: s_cell.PERM_READ,
+                        bdog.iden: s_cell.PERM_EDIT,
+                    },
+                    'default': s_cell.PERM_DENY
+                })
 
-            # make sure it's all good with easy perms
-            self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
-            self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
+                # make sure it's all good with easy perms
+                self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
+                self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
 
-            self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
-            self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
-            self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
+                self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
+                self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
+                self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
+
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_perm_migration()
 
     async def test_drive_backup_sync(self):
-        with self.getTestDir() as dirn:
+
+        async def tst_drive_sync(dirn):
             backdirn = os.path.join(dirn, 'backups')
             celldirn = os.path.join(dirn, 'cell')
 
@@ -372,8 +384,13 @@ class DriveTest(s_t_utils.SynTest):
             drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
             self.true(os.path.isfile(drivepath))
 
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_sync(dirn)
+
     async def test_drive_cell_migration_crash_recovery(self):
-        with self.getTestDir() as dirn:
+        async def tst_drive_migration_recovery(dirn):
             celldirn = s_common.gendir(dirn, 'cell')
             item_iden = s_common.guid()
 
@@ -404,3 +421,8 @@ class DriveTest(s_t_utils.SynTest):
                 items = await cell.getDrivePath('crashtest')
                 self.len(1, items)
                 self.eq(item_iden, items[0]['iden'])
+
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_migration_recovery(dirn)
