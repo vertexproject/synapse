@@ -1654,12 +1654,18 @@ modeldefs = (
                 ('shell', ('file:path', {}), {
                     'ex': '/bin/bash',
                     'doc': "The path to the account's default shell."}),
+
+                ('groups', ('array', {'type': 'it:host:posix:group'}), {
+                    'doc': 'POSIX groups that the account is a member of.'}),
             )),
 
             ('it:host:windows:account', {}, (
 
                 ('id', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the account.'}),
+
+                ('groups', ('array', {'type': 'it:host:windows:group'}), {
+                    'doc': 'Windows groups that the account is a member of.'}),
             )),
 
             ('it:host:group', {}, (
@@ -1688,12 +1694,18 @@ modeldefs = (
                 ('id', ('it:os:posix:id', {}), {
                     'ex': '1001',
                     'doc': 'The POSIX ID of the group.'}),
+
+                ('groups', ('array', {'type': 'it:host:posix:group'}), {
+                    'doc': 'POSIX groups that are a member of this group.'}),
             )),
 
             ('it:host:windows:group', {}, (
 
                 ('id', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
+
+                ('groups', ('array', {'type': 'it:host:windows:group'}), {
+                    'doc': 'Windows groups that are a member of this group.'}),
             )),
             ('it:host:login', {}, (
 

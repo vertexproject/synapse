@@ -635,7 +635,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :desc="the developers group"
                         :host=$host
                         :service:role={[ inet:service:role=* ]}
-                        :groups={[ it:host:group=* ]}
+                        :groups={[ it:host:posix:group=* :id=2001 ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -673,7 +673,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('it:host:group')
             posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:group']
             windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:group']
-            self.len(1, posix)
+            self.len(2, posix)
             self.len(1, windows)
 
             # Verify pivot from child forms works
