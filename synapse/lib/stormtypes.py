@@ -1243,7 +1243,7 @@ class LibBase(Lib):
                 Use values off of a node to format and print string::
 
                     storm> inet:ipv4:asn
-                         $lib.print(`node: {$node.ndef()}, asn: {:asn}`) | spin
+                         $lib.print(`node: {$node.ndef}, asn: {:asn}`) | spin
                     node: ('inet:ipv4', 16909060), asn: 1138
 
             Notes:
@@ -2984,8 +2984,8 @@ class LibTime(Lib):
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
         {'name': 'formats.iso8601', 'desc': 'ISO8601 time format string in UTC timezone (Z).', 'type': 'str'},
         {'name': 'formats.iso8601us', 'desc': 'ISO8601 time format string (with microseconds) in UTC timezone (Z).', 'type': 'str'},
-        {'name': 'formats.rfc2822', 'desc': 'RFC 2822 time format string in UT timezone.', 'type': 'str'},
-        {'name': 'formats.synapse', 'desc': 'Synapse time format string.', 'type': 'str'},
+        {'name': 'formats.rfc2822', 'desc': 'RFC 2822 time format string in UTC timezone (Z).', 'type': 'str'},
+        {'name': 'formats.legacy', 'desc': 'Legacy time format string.', 'type': 'str'},
     )
     _storm_lib_path = ('time',)
 
@@ -3015,7 +3015,7 @@ class LibTime(Lib):
                 'iso8601': '%Y-%m-%dT%H:%M:%SZ',
                 'iso8601us': '%Y-%m-%dT%H:%M:%S.%fZ',
                 'rfc2822': '%d %b %Y %H:%M:%S UT',
-                'synapse': '%Y/%m/%d %H:%M:%S.%f',
+                'legacy': '%Y/%m/%d %H:%M:%S.%f',
             },
         }
 
@@ -6206,13 +6206,13 @@ class Node(Prim):
     '''
     _storm_locals = (
         {'name': 'nid', 'desc': 'Get the node id of the Node.',
-         'type': {'type': 'function', '_funcname': '_methNodeForm',
-                  'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeNid',
+                  'returns': {'type': ['int', 'null'], 'desc': 'The integer node id, or null if the node has no nid.', }}},
         {'name': 'form', 'desc': 'Get the form of the Node.',
-         'type': {'type': 'function', '_funcname': '_methNodeForm',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeForm',
                   'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
         {'name': 'ndef', 'desc': 'Get the form and primary property of the Node.',
-         'type': {'type': 'function', '_funcname': '_methNodeNdef',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeNdef',
                   'returns': {'type': 'list', 'desc': 'A tuple of the form and primary property.', }}},
         {'name': 'pack', 'desc': 'Return the serializable/packed version of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodePack',
@@ -6304,7 +6304,7 @@ class Node(Prim):
                               'type': 'boolean'}}},
 
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
-         'type': {'type': 'function', '_funcname': '_methNodeValue',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
 
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
@@ -6325,6 +6325,14 @@ class Node(Prim):
         self.ctors['data'] = self._ctorNodeData
         self.ctors['props'] = self._ctorNodeProps
 
+        self.gtors |= {
+            'nid': self._gtorNodeNid,
+            'form': self._gtorNodeForm,
+            'iden': self._gtorNodeIden,
+            'ndef': self._gtorNodeNdef,
+            'value': self._gtorNodeValue,
+        }
+
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
@@ -6334,22 +6342,13 @@ class Node(Prim):
         return self
 
     def getObjLocals(self):
-        if self.valu.nid is not None:
-            nid = s_common.int64un(self.valu.nid)
-        else:
-            nid = None
-
         return {
-            'nid': nid,
-            'form': self._methNodeForm,
-            'ndef': self._methNodeNdef,
             'pack': self._methNodePack,
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
             'edges': self._methNodeEdges,
             'addEdge': self._methNodeAddEdge,
             'delEdge': self._methNodeDelEdge,
-            'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
@@ -6516,17 +6515,20 @@ class Node(Prim):
 
         return {'adds': adds, 'dels': dels}
 
-    @stormfunc(readonly=True)
-    async def _methNodeValue(self):
+    async def _gtorNodeNid(self):
+        return self.valu.intnid()
+
+    async def _gtorNodeValue(self):
         return self.valu.ndef[1]
 
-    @stormfunc(readonly=True)
-    async def _methNodeForm(self):
+    async def _gtorNodeForm(self):
         return self.valu.ndef[0]
 
-    @stormfunc(readonly=True)
-    async def _methNodeNdef(self):
+    async def _gtorNodeNdef(self):
         return self.valu.ndef
+
+    async def _gtorNodeIden(self):
+        return self.valu.iden()
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):

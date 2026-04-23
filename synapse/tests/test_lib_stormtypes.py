@@ -1093,7 +1093,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''[test:int=1 test:int=2]
             $currentNode = $node
-            $q=${ [test:str=$currentNode.value()] }
+            $q=${ [test:str=$currentNode.value] }
             yield $q
             '''
             nodes = await core.nodes(q)
@@ -1117,7 +1117,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(2, await core.callStorm(q))
 
             q = '''
-            $q=${ [test:int=1 test:int=2] return($node.value()) }
+            $q=${ [test:int=1 test:int=2] return($node.value) }
             return($q.size())
             '''
             self.eq(0, await core.callStorm(q))
@@ -1690,12 +1690,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(1, await core.callStorm(q))
 
             # Python Tuples can be treated like a List object for accessing via data inside of.
-            q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
+            q = '[ test:comp=(10,lol) ] $x=$node.ndef.index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'lol'))
 
             # sad case - index out of bounds.
-            q = 'test:comp=(10,lol) $x=$node.ndef().index(2)'
+            q = 'test:comp=(10,lol) $x=$node.ndef.index(2)'
             mesgs = await core.stormlist(q)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -2251,7 +2251,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = "test:str " \
                 "$tick=$node.repr(tick) " \
-                "$lib.csv.emit($node.form(), $node.value(), $tick, table=mytable)"
+                "$lib.csv.emit($node.form, $node.value, $tick, table=mytable)"
 
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
@@ -3038,7 +3038,7 @@ class StormTypesTest(s_test.SynTest):
 
                     # The StormHiveDict is safe when computing things
                     q = '''[test:int=1234]
-                    $lib.auth.users.get().vars.someint = $node.value()
+                    $lib.auth.users.get().vars.someint = $node.value
                     [test:str=$lib.auth.users.get().vars.someint]
                     '''
                     mesgs = await uprox.storm(q).list()
@@ -3162,7 +3162,7 @@ class StormTypesTest(s_test.SynTest):
 
             # Out of bounds case for datetime
             query = '''[test:int=253402300800000000]
-            $valu=$lib.time.format($node.value(), '%Y')'''
+            $valu=$lib.time.format($node.value, '%Y')'''
             mesgs = await core.stormlist(query)
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
@@ -3258,7 +3258,7 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.rfc2822))')
             self.eq(valu, '02 Oct 2025 00:00:00 UT')
 
-            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.synapse))')
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.legacy))')
             self.eq(valu, '2025/10/02 00:00:00.000000')
 
     async def test_storm_lib_time_ticker(self):
@@ -3674,13 +3674,13 @@ class StormTypesTest(s_test.SynTest):
             await core.callStorm(q)
             q = '''
             for $work in $lib.lift.byNodeData(laststatus) {
-                if ($work.value() > 5) {
+                if ($work.value > 5) {
                     $work.data.set(laststatus, "running")
                 } else {
                     $work.data.set(laststatus, "done")
                 }
                 $status = $work.data.get(laststatus)
-                $lib.print(`#{$work.value()} status is {$status}`)
+                $lib.print(`#{$work.value} status is {$status}`)
             }
             '''
             msgs = await core.stormlist(q)
@@ -3692,13 +3692,13 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
             for $work in $lib.lift.byNodeData(laststatus) {
-                if ($work.value() = 5) {
+                if ($work.value = 5) {
                     $work.data.pop(laststatus)
                     $status = $work.data.get(laststatus)
-                    $lib.print(`#{$work.value()} work status is {$status}`)
+                    $lib.print(`#{$work.value} work status is {$status}`)
                 } else {
                     $status = $work.data.get(laststatus)
-                    $lib.print(`#{$work.value()} is still {$status}`)
+                    $lib.print(`#{$work.value} is still {$status}`)
                 }
             }
             '''
@@ -6016,6 +6016,28 @@ class StormTypesTest(s_test.SynTest):
             nid = await core.callStorm('[ test:int=10 ] return($node.nid)')
             self.isinstance(nid, int)
 
+            # gtor attributes: $node.form, $node.iden, $node.ndef, $node.value, $node.nid
+            self.eq('test:int', await core.callStorm('[ test:int=42 ] return($node.form)'))
+            self.eq(('test:int', 42), await core.callStorm('[ test:int=42 ] return($node.ndef)'))
+            self.eq(42, await core.callStorm('[ test:int=42 ] return($node.value)'))
+            iden42 = s_common.ehex(s_common.buid(('test:int', 42)))
+            self.eq(iden42, await core.callStorm('[ test:int=42 ] return($node.iden)'))
+
+            # $node.nid returns an integer node id (or null for runt nodes without one)
+            nid42 = await core.callStorm('[ test:int=42 ] return($node.nid)')
+            self.isinstance(nid42, int)
+            self.none(await core.callStorm('syn:form=test:int return($node.nid)'))
+
+            # old method-call form raises — returned value is not callable
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('[ test:int=42 ] return($node.iden())')
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('[ test:int=42 ] return($node.form())')
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('[ test:int=42 ] return($node.ndef())')
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('[ test:int=42 ] return($node.value())')
+
             await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.asn)'))
             props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
@@ -6659,7 +6681,7 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm('$x=$lib.set() $y=({"foo": "1", "bar": "2"}) $x.adds($y) return($x)')
             self.eq({('foo', '1'), ('bar', '2')}, ret)
 
-            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ip}) for $n in $x { yield $n.ndef() }')
+            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ip}) for $n in $x { yield $n.ndef }')
             self.len(2, ret)
 
             ret = await core.callStorm('$x=$lib.set() $x.adds((1,2,3)) return($x)')

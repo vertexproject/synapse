@@ -86,19 +86,17 @@ from the ``inet:whois:rec`` nodes to create the ``inet:whois:recns`` nodes.
 
 .. _meth-node-form:
 
-$node.form()
+$node.form
 ++++++++++++
 
-The ``$node.form()`` method returns the **form** of the current node in the Storm pipeline.
-
-The method takes no arguments.
+The ``$node.form`` attribute returns the **form** of the current node in the Storm pipeline.
 
 **Examples**
 
 - Print the form of an ``inet:dns:a`` node:
 
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.form()) | spin
+.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.form) | spin
     
 
 .. _meth-node-globtags:
@@ -177,19 +175,17 @@ The method takes a single argument of a form name.
 
 .. _meth-node-ndef:
 
-$node.ndef()
+$node.ndef
 ++++++++++++
 
-The ``$node.ndef()`` method returns the :ref:`gloss-ndef` ("node definition") of the current node in the Storm pipeline.
-
-The method takes no arguments.
+The ``$node.ndef`` attribute returns the :ref:`gloss-ndef` ("node definition") of the current node in the Storm pipeline.
 
 **Examples**
 
 - Print the ndef of an ``inet:dns:a`` node:
 
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.ndef()) | spin
+.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.ndef) | spin
 
 .. _meth-node-repr:
 
@@ -273,25 +269,23 @@ See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 
 .. _meth-node-value:
 
-$node.value()
+$node.value
 +++++++++++++
 
-The ``$node.value()`` method returns the raw value of the primary property of the current node in the Storm pipeline.
-
-The method takes no arguments.
+The ``$node.value`` attribute returns the raw value of the primary property of the current node in the Storm pipeline.
 
 See :ref:`meth-node-repr` to return the human-friendly value of a property.
 
 .. NOTE::
 
-  The ``$node.value()`` method is only used to return the primary property value of a node. Secondary
+  The ``$node.value`` attribute is only used to return the primary property value of a node. Secondary
   property values can be accessed via a user-defined variable (i.e., ``$myvar = :<prop>``).
 
 **Examples**
 
 - Print the value of the primary property value of an ``inet:dns:a`` node:
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.value()) | spin
+.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.value) | spin
     
 
 .. _meth-path:

@@ -581,7 +581,7 @@ class AstTest(s_test.SynTest):
             self.nn(nodes[1].getTag('visi'))
             self.none(nodes[0].getTag('visi'))
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value) +#foo ) ]')
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.none(nodes[0].getTag('foo'))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
@@ -1727,7 +1727,7 @@ class AstTest(s_test.SynTest):
                 return ($arg)
             }
             [(test:str=foo) (test:str=bar)]
-            $retn=$echo($node.value())
+            $retn=$echo($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1740,10 +1740,10 @@ class AstTest(s_test.SynTest):
             function echo(arg) {
                 $lib.print(`arg is {$arg}`)
                 [(test:str=1234) (test:str=5678)]
-                return ($node.value())
+                return ($node.value)
             }
             [(test:str=foo) (test:str=bar)]
-            $retn=$echo($node.value())
+            $retn=$echo($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1760,7 +1760,7 @@ class AstTest(s_test.SynTest):
                 }
             }
             [(test:int=0) (test:int=1)]
-            $retn=$cond($node.value())
+            $retn=$cond($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1998,7 +1998,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $test = $lib.import(yieldsforever)
             yield $test.yieldme("yieldsforimports")
-            $lib.print($node.value())
+            $lib.print($node.value)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yieldsforimports', msgs)
@@ -2114,7 +2114,7 @@ class AstTest(s_test.SynTest):
             self.eq(42, await core.callStorm('$val=(42) function x(parm1=$val) { return($parm1) } return($x())'))
 
             # force sleep in iter with ret
-            q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
+            q = 'function x() { [ inet:asn=2 ] if ($node.value = (3)) { return((3)) } } $x()'
             self.len(0, await core.nodes(q))
 
             # test Function.isRuntSafe
@@ -2216,7 +2216,7 @@ class AstTest(s_test.SynTest):
             # non-runtsafe test
             q = '''$dict = ({})
             [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
-            $key=$node.value()
+            $key=$node.value
             $dict.$key=:hehe
             fini {
                 $lib.fire(event, dict=$dict)
@@ -2974,49 +2974,49 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[test:str=QuickBrownFox]'))
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "Brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "(?-i:brown)") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data.lower() ~= "brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "newp") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ^= "Quick") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ^= "quick") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
@@ -3499,7 +3499,7 @@ class AstTest(s_test.SynTest):
             '''
             await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
 
-            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
+            await highlighteq('node.value', '[ test:str=foo test:int=$node.value ]')
 
             await highlighteq('newp', '[ test:str=foo :seen=newp ]')
             await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
@@ -3828,7 +3828,7 @@ class AstTest(s_test.SynTest):
             init {$baz = hehe $lib.print('second init!') }
             $lib.print($baz)
             [test:str=stuff]
-            $stuff = $node.value()
+            $stuff = $node.value
             fini { $lib.print(fini1) }
             fini { $lib.print(`fini {$stuff}`) }
             '''
@@ -4283,7 +4283,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             test:str=test1
-            $test=$node.value()
+            $test=$node.value
             [(test:str=test2 +(refs)> {test:str=$test})]
             '''
             nodes = await core.nodes(q)
@@ -4295,7 +4295,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             test:str=test2
-            $valu=$node.value()
+            $valu=$node.value
             | spin |
             test:str=test1 -> { test:str=$valu }
             '''
@@ -4319,7 +4319,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $q = ${
                 test:str=test1
-                $test=$node.value()
+                $test=$node.value
                 [(test:str=test2 +(refs)> {test:str=$test})]
             }
             $lib.macro.set(test.edge, $q)
@@ -4337,7 +4337,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $q = ${
                 test:str=test2
-                $valu=$node.value()
+                $valu=$node.value
                 | spin |
                 test:str=test1 -> { test:str=$valu }
             }
@@ -4367,10 +4367,10 @@ class AstTest(s_test.SynTest):
     async def test_ast_subq_runtsafety(self):
 
         async with self.getTestCore() as core:
-            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value)} $lib.print($foo)')
             self.stormIsInPrint('foo', msgs)
 
-            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value)})')
             self.stormIsInPrint('foo', msgs)
 
     async def test_ast_path_links(self):

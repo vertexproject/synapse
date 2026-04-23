@@ -1696,7 +1696,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A brief description of the screenshot.'})
             )),
-            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node.value() ]'}}}, (
+            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node.value ]'}}}, (
 
                 ('norm', ('str:lower', {}), {
                     'doc': 'Lower case normalized version of the it:dev:str.'}),

@@ -1215,7 +1215,7 @@ for $i in $values {
 
             # nothing
             q = '''$api = $lib.cortex.httpapi.add(testpath)
-            $api.methods.get = ${ [inet:asn=$request.params.asn ] $request.reply(200, body=$node.value())}
+            $api.methods.get = ${ [inet:asn=$request.params.asn ] $request.reply(200, body=$node.value)}
             return ( ($api.iden) )'''
             iden = await core.callStorm(q)
 
@@ -1235,7 +1235,7 @@ for $i in $values {
                 self.eq(data.get('code'), 'IsReadOnly')
 
                 q = '''$api=$lib.cortex.httpapi.get($iden)
-                $api.methods.get = ${ inet:asn=$request.params.asn $request.reply(200, body=$node.value()) }'''
+                $api.methods.get = ${ inet:asn=$request.params.asn $request.reply(200, body=$node.value) }'''
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
 
@@ -1492,7 +1492,7 @@ for $i in $values {
             ndef = nodes[0].ndef
 
             opts = {'vars': {'nid': nid}}
-            rndef = await core.callStorm('return($lib.cortex.getNodeByNid($nid).ndef())', opts=opts)
+            rndef = await core.callStorm('return($lib.cortex.getNodeByNid($nid).ndef)', opts=opts)
             self.eq(rndef, ('test:str', 'foo'))
 
             opts = {'vars': {'nid': nid}}

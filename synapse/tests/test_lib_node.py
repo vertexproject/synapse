@@ -402,10 +402,10 @@ class NodeTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.nodes('[test:int=1 test:int=2]')
             q = '''test:int
-            $x = $node.value()
+            $x = $node.value
             for $var in (1, 2) { } // The forloop here is used as a node multiplier
             $x = $( $x + 1 )
-            $lib.fire(test, valu=$node.value(), x=$x)
+            $lib.fire(test, valu=$node.value, x=$x)
             -test:int'''
             msgs = await core.stormlist(q)
             data = collections.defaultdict(set)

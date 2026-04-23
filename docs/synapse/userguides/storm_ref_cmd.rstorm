@@ -2294,7 +2294,7 @@ The ``tree`` command recursively performs the specified pivot until no additiona
 - List the full set of tags in the "TTP" tag hierarchy.
 
 .. storm-pre:: [syn:tag=ttp.opsec.anon syn:tag=ttp.se.masq syn:tag=ttp.phish.payload]
-.. storm-cli:: syn:tag=ttp | tree { $node.value() -> syn:tag:up }
+.. storm-cli:: syn:tag=ttp | tree { $node.value -> syn:tag:up }
 
 
 **Usage Notes:**
@@ -2664,7 +2664,7 @@ assignment). The interactive help example demonstrates this behavior:
 ::
 
   // Move some tagged nodes to another view
-  inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+  inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
 
 Here we have ``inet:fqdn`` nodes with the tag ``#foo.bar`` being lifted and their value (not the
 node) is saved into the ``$fqdn`` variable. This variable is later accessible in the ``view.exec``

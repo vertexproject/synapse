@@ -1006,16 +1006,16 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ip=3.87/33]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value]')
 
             self.len(0, await core.nodes('[inet:ip?=foo]'))
             self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value] -test:str'))
 
             q = '''init { $l = () }
             [inet:ip=192.0.0.9 inet:ip=192.0.0.0 inet:ip=192.0.0.255] $l.append(:type)
@@ -1104,16 +1104,16 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ip=foo-bar-duck.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value]')
 
             self.len(0, await core.nodes('[inet:ip?=foo]'))
             self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value] -test:str'))
 
             await core.nodes('[ inet:ip=2a00:: inet:ip=2a00::1 ]')
 

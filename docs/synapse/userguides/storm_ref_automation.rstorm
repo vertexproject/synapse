@@ -976,7 +976,7 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
 the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
-.. storm-pre:: macro.set enrich { +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip) switch $node.form() { ("crypto:hash:md5", "crypto:hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "crypto:hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+.. storm-pre:: macro.set enrich { +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip) switch $node.form { ("crypto:hash:md5", "crypto:hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "crypto:hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
 
 Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
 the full ``<storm_query>`` is provided below for readability.
@@ -993,7 +993,7 @@ The content of the macro (the ``<storm_query>``, with comments):
   +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip)
   
   // Switch statement to handle different forms
-  switch $node.form() {
+  switch $node.form {
     
     ("crypto:hash:md5","crypto:hash:sha1"): {
         { | virustotal.file.enrich | virustotal.file.behavior }
