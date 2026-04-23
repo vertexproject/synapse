@@ -71,7 +71,7 @@ async def unixwait(path):
             return
 
         except (ConnectionRefusedError, FileNotFoundError):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.1)
 
 async def linkfile(mode='wb'):
     '''

@@ -457,6 +457,7 @@ jobs:
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_PROCESS_START: .coveragerc
           COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main --cov-append
+          SYNDEV_CELL_DRIVE_SPAWN: 1
 
     working_directory: ~/repo
 
@@ -475,6 +476,7 @@ jobs:
           COVERAGE_PROCESS_START: .coveragerc
           COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main
           SYNDEV_NEXUS_REPLAY: 1
+          SYNDEV_CELL_DRIVE_SPAWN: 1
 
     working_directory: ~/repo
 
