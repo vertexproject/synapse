@@ -113,7 +113,30 @@ class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
-class BadTypeValu(SynErr): pass
+class BadTypeValu(SynErr):
+
+    @classmethod
+    def init(cls, name, valu, typeset=(), ifaces=(), mesg=None):
+        try:
+            typeset = tuple(sorted(typeset))
+        except TypeError:
+            typeset = tuple(typeset)
+
+        try:
+            ifaces = tuple(sorted(ifaces))
+        except TypeError:
+            ifaces = tuple(ifaces)
+
+        if mesg is None:
+            mesg = f'Value of type {valu} is not allowed for {name}'
+
+            if typeset:
+                mesg += f' types=({", ".join(str(t) for t in typeset)})'
+
+            if ifaces:
+                mesg += f' interfaces=({", ".join(str(i) for i in ifaces)})'
+
+        return cls(mesg=mesg, name=name, valu=valu, types=typeset, interfaces=ifaces)
 class BadJsonText(SynErr): pass
 class BadMsgpackData(SynErr): pass
 class BadDataValu(SynErr):
