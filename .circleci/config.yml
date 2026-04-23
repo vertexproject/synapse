@@ -488,6 +488,7 @@ jobs:
       - image: cimg/python:3.11
         environment:
           PYVERS: 3.11
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
