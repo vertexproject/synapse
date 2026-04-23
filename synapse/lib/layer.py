@@ -5668,7 +5668,10 @@ class Layer(s_nexus.Pusher):
             AsyncIterator[Tuple(nid, valu)]
         '''
         try:
-            indxby = IndxByProp(self, form, prop)
+            if stortype is not None and stortype & STOR_FLAG_POLY:
+                indxby = IndxByPoly(self, form, prop, stortype & STOR_MASK_POLY)
+            else:
+                indxby = IndxByProp(self, form, prop)
 
         except s_exc.NoSuchAbrv:
             return
