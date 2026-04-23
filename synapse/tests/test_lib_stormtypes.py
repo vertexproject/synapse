@@ -840,6 +840,9 @@ class StormTypesTest(s_test.SynTest):
             tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "foo.baz"), visi, ispart=$lib.true))')
             self.eq(tags, ('visi.foo', 'visi.bar', 'visi.foo.baz'))
 
+            tags = await core.callStorm('return($lib.tags.prefix((null), visi))')
+            self.eq(tags, ())
+
             self.none(await core.callStorm('[inet:user=visi] return($node.data.cacheget(foo))'))
 
             await core.callStorm('inet:user=visi $node.data.cacheset(foo, bar)')
@@ -5563,11 +5566,10 @@ class StormTypesTest(s_test.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
-
-            async with self.getTestCoreAndProxy() as (core, prox):
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 mesgs = await core.stormlist('cron.list')
                 self.stormIsInPrint('No cron jobs found', mesgs)

@@ -13,6 +13,22 @@ modeldefs = (
     {
         'types': (
 
+            ('crypto:currency:chain', ('guid', {}), {
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'ex': 'eip155:8453',
+                        'doc': 'An ID for the chain.'}),
+
+                    ('name', ('base:name', {}), {
+                        'ex': 'ethereum',
+                        'doc': 'The name of the chain.'}),
+
+                    ('symbol', ('econ:currency', {}), {
+                        'ex': 'eth',
+                        'doc': 'The symbol associated with the native currency of the chain.'}),
+                ),
+                'doc': 'A crypto currency chain.'}),
+
             ('crypto:currency:transaction', ('guid', {}), {
                 'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
 
@@ -143,6 +159,16 @@ modeldefs = (
                 ),
                 'doc': 'A hex encoded SHA512 hash.'}),
 
+            ('crypto:hash:ssdeep', ('str', {'strip': True,
+                                            'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{1,64}:[A-Za-z0-9+/]{1,64}$'}), {
+                'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                'interfaces': (
+                    ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'title': 'SHA512'}}),
+                ),
+                'doc': 'A fuzzy hash of a file in ssdeep format.',
+            }),
+
             ('crypto:salthash', ('guid', {}), {
                 'interfaces': (
                     ('auth:credential', {}),
@@ -256,6 +282,8 @@ modeldefs = (
         'forms': (
 
             ('crypto:payment:input', {}, (
+                ('index', ('int', {}), {
+                    'doc': 'The index of this input in the array of inputs for the transaction.'}),
                 ('transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'The transaction the payment was input to.'}),
                 ('address', ('crypto:currency:address', {}), {
@@ -264,6 +292,8 @@ modeldefs = (
                     'doc': 'The value of the currency paid into the transaction.'}),
             )),
             ('crypto:payment:output', {}, (
+                ('index', ('int', {}), {
+                    'doc': 'The index of this output in the array of outputs for the transaction.'}),
                 ('transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'The transaction the payment was output from.'}),
                 ('address', ('crypto:currency:address', {}), {
@@ -483,6 +513,9 @@ modeldefs = (
 
                 ('contact', ('entity:contactable', {}), {
                     'doc': 'The primary contact information associated with the crypto currency address.'}),
+
+                ('chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the address is defined.'}),
             )),
 
             ('crypto:algorithm', {}, ()),
@@ -630,6 +663,7 @@ modeldefs = (
             ('crypto:hash:sha256', {}, ()),
             ('crypto:hash:sha384', {}, ()),
             ('crypto:hash:sha512', {}, ()),
+            ('crypto:hash:ssdeep', {}, ()),
 
             ('crypto:salthash', {}, (
 

@@ -23,7 +23,7 @@ if [ "$*" = '' ]; then
     COVFAIL="--cov-fail-under=$COVREQ"
 fi
 
-python -m pytest -v -s --durations 6 -n auto --maxfail 6 -rs $COVFAIL --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $*
+COVERAGE_PROCESS_START=.coveragerc python -m pytest -v -s --durations 6 --dist worksteal -n 8 --maxfail 6 -rs $COVFAIL --cov-config=.coveragerc.main --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $*
 
 if [ $? -eq 0 ]; then
     if [ -e $INDEX ]; then
