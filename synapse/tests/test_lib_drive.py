@@ -318,12 +318,9 @@ class DriveTest(s_t_utils.SynTest):
                 s_config._JsValidators.clear()
                 await cell.drive.reqValidData('woot', data)
 
-        with self.getTestDir() as dirn:
-            await tst_drive_basics(dirn)
-
-        # Run the drive tests with the spawn worker enabled as well if it was disabled previously
-        if s_common.envbool('SYNDEV_CELL_DRIVE_SPAWN'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_SPAWN='false'):
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_basics(dirn)
 
     async def test_drive_perm_migration(self):
@@ -365,11 +362,9 @@ class DriveTest(s_t_utils.SynTest):
                 self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
                 self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
 
-        await tst_drive_perm_migration()
-
-        # Run the drive tests with the spawn worker enabled as well if it was disabled previously
-        if s_common.envbool('SYNDEV_CELL_DRIVE_SPAWN'):
-            with self.setTstEnvars(SYNDEV_CELL_DRIVE_SPAWN='false'):
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_perm_migration()
 
     async def test_drive_backup_sync(self):
@@ -389,12 +384,9 @@ class DriveTest(s_t_utils.SynTest):
             drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
             self.true(os.path.isfile(drivepath))
 
-        with self.getTestDir() as dirn:
-            await tst_drive_sync(dirn)
-
-        # Run the drive tests with the spawn worker enabled as well if it was disabled previously
-        if s_common.envbool('SYNDEV_CELL_DRIVE_SPAWN'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_SPAWN='false'):
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_sync(dirn)
 
     async def test_drive_cell_migration_crash_recovery(self):
@@ -430,10 +422,7 @@ class DriveTest(s_t_utils.SynTest):
                 self.len(1, items)
                 self.eq(item_iden, items[0]['iden'])
 
-        with self.getTestDir() as dirn:
-            await tst_drive_migration_recovery(dirn)
-
-        # Run the drive tests with the spawn worker enabled as well if it was disabled previously
-        if s_common.envbool('SYNDEV_CELL_DRIVE_SPAWN'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_SPAWN='false'):
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_migration_recovery(dirn)
