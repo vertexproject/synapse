@@ -189,9 +189,11 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
+                [ :chain={[ crypto:currency:chain=* :id=ABC-123 :name="Vertex Coin" :symbol=VTX ]} ]
                 [ :seed={[ crypto:key:secret=(asdf,) ]} ]
             ''')
             self.propeq(nodes[0], 'seed', '91a14b40da052cb388bf6b6d7723adee', form='crypto:key:secret')
+            self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:id=ABC-123 +:name="vertex coin" +:symbol=VTX'))
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.propeq(nodes[0], 'coin', 'btc')
@@ -208,12 +210,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
 
-            payors = await core.nodes('[ crypto:payment:input=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payors = await core.nodes('[ crypto:payment:input=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.propeq(payors[0], 'value', '30')
+            self.propeq(payors[0], 'index', 0)
             self.propeq(payors[0], 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
-            payees = await core.nodes('[ crypto:payment:output=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payees = await core.nodes('[ crypto:payment:output=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.propeq(payees[0], 'value', '30')
+            self.propeq(payees[0], 'index', 0)
             self.propeq(payees[0], 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
             payor = payors[0].ndef[1]
@@ -488,6 +492,62 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge2}'))
             self.len(1, await core.nodes(f'crypto:currency:transaction:value={huge3}'))
 
+    async def test_norm_ssdeep(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            t = core.model.type('crypto:hash:ssdeep')
+
+            # Valid hashes norm cleanly; leading/trailing whitespace is stripped and case sensitivity is maintained
+            testvectors = [
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+                ('98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs'),
+                ('24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK',
+                 '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'),
+                ('3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS',
+                 '3:YC/OQWPDJCp2UDXV8JlB3I/eL3Ju3KOS:YCGfVCilaU3AS'),
+                # Leading/trailing whitespace is stripped
+                ('  98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL  ',
+                 '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'),
+                # Spec boundary: hash1 max 64 chars (SPAMSUM_LENGTH)
+                # hash2 max 64 chars (SPAMSUM_LENGTH) when FUZZY_FLAG_NOTRUNC is set,
+                # or 32 chars (SPAMSUM_LENGTH/2) in default truncated mode
+                ('6:' + 'A' * 64 + ':' + 'B' * 32,
+                 '6:' + 'A' * 64 + ':' + 'B' * 32),
+                ('6:' + 'A' * 64 + ':' + 'B' * 64,
+                 '6:' + 'A' * 64 + ':' + 'B' * 64),
+            ]
+
+            for valu, expected in testvectors:
+                norm, subs = await t.norm(valu)
+                self.eq(norm, expected, f'{valu=}')
+
+            # Invalid hashes raise BadTypeValu
+            badvectors = [
+                'notanssdeep',
+                'abc:hash1:hash2',
+                '98304:hash1',
+                '0:PYZd:iglL',
+                '2:PYZd:iglL',
+                # Empty hash segments
+                '3::',
+                '3:A:',
+                '3::A',
+                # Invalid characters in hash segments
+                '98304:PYZd!VAlXLL:iglL',
+                # hash1 exceeds SPAMSUM_LENGTH (64)
+                '98304:' + 'A' * 65 + ':iglL',
+                # hash2 exceeds SPAMSUM_LENGTH (64)
+                '98304:iglL:' + 'A' * 65,
+                # Extra segment
+                '98304:A:B:C',
+            ]
+
+            for valu in badvectors:
+                with self.raises(s_exc.BadTypeValu):
+                    await t.norm(valu)
+
     async def test_forms_crypto_simple(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
@@ -520,6 +580,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('crypto:hash:sha512', TEST_SHA512))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_MD5}})
+
+            ssdeep_hash = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            nodes = await core.nodes('[(crypto:hash:ssdeep=$valu)]', opts={'vars': {'valu': ssdeep_hash}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:hash:ssdeep', ssdeep_hash))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(crypto:hash:ssdeep=$valu)]', opts={'vars': {'valu': 'notanssdeep'}})
 
     async def test_model_x509(self):
 

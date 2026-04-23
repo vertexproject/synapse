@@ -121,7 +121,7 @@ technical discussion.)
 
 ::
   
-  $lib.print($node.ndef())
+  $lib.print($node.ndef)
 
 
 .. _storm-adv-control-flow:
@@ -391,7 +391,7 @@ the node's form).
 
   <inbound nodes>
 
-  switch $node.form() {
+  switch $node.form {
 
       ("crypto:hash:md5", "crypto:hash:sha1", "crypto:hash:sha256"): { | malware.service }
 
@@ -401,7 +401,7 @@ the node's form).
 
       "inet:email": { | whois.service }
 
-      *: { $lib.print(`{$node.form()} is not supported.`) }
+      *: { $lib.print(`{$node.form} is not supported.`) }
   }
 
 The Storm query above:

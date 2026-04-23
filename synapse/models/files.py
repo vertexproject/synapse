@@ -484,6 +484,9 @@ modeldefs = (
                 ('sha512', ('crypto:hash:sha512', {}), {
                     'doc': 'The SHA512 hash of the file.'}),
 
+                ('ssdeeps', ('array', {'type': 'crypto:hash:ssdeep'}), {
+                    'doc': 'The ssdeep fuzzy hashes of the file.'}),
+
                 ('name', ('file:base', {}), {
                     'doc': 'The best known base name for the file.'}),
 

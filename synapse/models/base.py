@@ -249,6 +249,13 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
+            ('meta:rule:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A hierarchical taxonomy of rule status values.'}),
+
             ('meta:rule', ('guid', {}), {
                 'template': {'title': 'rule', 'syntax': ''},
                 'interfaces': (
@@ -783,6 +790,10 @@ modeldefs = (
 
                 ('type', ('meta:rule:type:taxonomy', {}), {
                     'doc': 'The rule type.'}),
+
+                # TODO: 3.0 this moves to the interface
+                ('status', ('meta:rule:status:taxonomy', {}), {
+                    'doc': 'The status of the rule.'}),
 
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the {title}.'}),
