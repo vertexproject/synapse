@@ -6016,12 +6016,10 @@ class StormTypesTest(s_test.SynTest):
             nid = await core.callStorm('[ test:int=10 ] return($node.nid)')
             self.isinstance(nid, int)
 
-            # gtor attributes: $node.form, $node.iden, $node.ndef, $node.value, $node.nid
+            # gtor attributes: $node.form, $node.ndef, $node.value, $node.nid
             self.eq('test:int', await core.callStorm('[ test:int=42 ] return($node.form)'))
             self.eq(('test:int', 42), await core.callStorm('[ test:int=42 ] return($node.ndef)'))
             self.eq(42, await core.callStorm('[ test:int=42 ] return($node.value)'))
-            iden42 = s_common.ehex(s_common.buid(('test:int', 42)))
-            self.eq(iden42, await core.callStorm('[ test:int=42 ] return($node.iden)'))
 
             # $node.nid returns an integer node id (or null for runt nodes without one)
             nid42 = await core.callStorm('[ test:int=42 ] return($node.nid)')
@@ -6029,8 +6027,6 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('syn:form=test:int return($node.nid)'))
 
             # old method-call form raises — returned value is not callable
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('[ test:int=42 ] return($node.iden())')
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('[ test:int=42 ] return($node.form())')
             with self.raises(s_exc.StormRuntimeError):
@@ -7138,7 +7134,7 @@ words\tword\twrd'''
             self.len(0, nodes)
 
             # addEdge/delEdge with an ndef tuple
-            ndef = await core.callStorm('inet:ip=5.6.7.8 return($node.ndef())')
+            ndef = await core.callStorm('inet:ip=5.6.7.8 return($node.ndef)')
             opts = {'vars': {'ndef': ndef}}
             await core.nodes('ou:industry $node.addEdge(refs, $ndef)', opts=opts)
             nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
