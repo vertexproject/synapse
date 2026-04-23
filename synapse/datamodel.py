@@ -329,7 +329,7 @@ class Form:
             self.onAdd(depfunc)
 
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
-            func = s_dyndeps.tryDynLocal(liftfunc)
+            func = s_dyndeps.reqDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
 
     def implements(self, ifname):
@@ -1043,7 +1043,7 @@ class Model:
 
                 typeopts = dict(typedef[1])
                 ctor = typeopts.pop('ctor')
-                item = s_dyndeps.tryDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
+                item = s_dyndeps.reqDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
                 self.types[typename] = item
                 ctors[typename] = ctor
 

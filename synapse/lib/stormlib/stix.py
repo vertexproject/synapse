@@ -198,7 +198,7 @@ _DefaultConfig = {
                 'autonomous-system': {
                     'props': {
                         'name': '+:owner:name return(:owner:name)',
-                        'number': 'return($node.value())',
+                        'number': 'return($node.value)',
                     },
                 }
             },

@@ -2088,7 +2088,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
 
-            q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
+            q = 'test:int $end=$node.value test:str:tick*range=(2015, $end) -test:int'
             nodes = await core.nodes(q)
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})

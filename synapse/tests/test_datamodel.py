@@ -298,7 +298,7 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             q = '''
             syn:type:subof=comp $opts=:opts
-            -> syn:form:type $valu=$node.value()
+            -> syn:form:type $valu=$node.value
             for ($name, $thing) in $opts.fields {
                 $v=`{$valu}:{$name}`  syn:prop=$v
             }
