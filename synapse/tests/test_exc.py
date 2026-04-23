@@ -95,10 +95,15 @@ class ExcTest(s_t_utils.SynTest):
         self.eq(e3.get('mesg'), 'custom')
         self.eq(e3.get('types'), ('a', 'b'))
 
-        # mutually-incomparable fallback: no TypeError, value is a tuple
+        # mutually-incomparable fallback for typeset
         e4 = s_exc.BadTypeValu.init('poly', 'x', typeset=frozenset((1, 'a')))
         self.true(type(e4.get('types')) is tuple)
         self.eq(set(e4.get('types')), {1, 'a'})
+
+        # mutually-incomparable fallback for ifaces
+        e4b = s_exc.BadTypeValu.init('poly', 'x', ifaces=frozenset((1, 'a')))
+        self.true(type(e4b.get('interfaces')) is tuple)
+        self.eq(set(e4b.get('interfaces')), {1, 'a'})
 
         # client-side reconstruction via direct constructor works on already-coerced data
         info = e.items()
