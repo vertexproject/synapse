@@ -551,6 +551,7 @@ jobs:
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_ARGS: --cov synapse --cov-append
           COVERAGE_CORE: sysmon
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
@@ -567,6 +568,7 @@ jobs:
           RUN_SYNTAX: 1
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           SYNDEV_NEXUS_REPLAY: 1
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
@@ -578,6 +580,7 @@ jobs:
       - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
