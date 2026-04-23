@@ -705,17 +705,17 @@ class UserJson(s_stormtypes.Prim):
     async def _storm_contains(self, item):
         item = await s_stormtypes.tostr(item)
         self._confirm('get')
-        return await self.runt.view.core.hasJsonObj(self._fullpath((item,)))
+        return await self.runt.view.core.hasJsonObj(self._fullpath(tuple(item.split('/'))))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         self._confirm('get')
-        return s_msgpack.deepcopy(await self.runt.view.core.getJsonObj(self._fullpath((name,))), use_list=True)
+        return s_msgpack.deepcopy(await self.runt.view.core.getJsonObj(self._fullpath(tuple(name.split('/')))), use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
-        fullpath = self._fullpath((name,))
+        fullpath = self._fullpath(tuple(name.split('/')))
 
         if valu is s_stormtypes.undef:
             self._confirm('del')

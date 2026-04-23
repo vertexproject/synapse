@@ -555,16 +555,17 @@ class StormLibAuthTest(s_test.SynTest):
             await core.callStorm('$lib.auth.users.get().json.hi = ({"foo": "bar", "baz": "faz"})')
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.auth.users.get().json.hi)'))
 
-            # nested read via dict deref on the returned blob
+            # in-blob dict deref on the returned value
             self.eq('bar', await core.callStorm('return($lib.auth.users.get().json.hi.foo)'))
 
-            # set another key
-            await core.callStorm('$lib.auth.users.get().json.bye = ({"zip": "zop", "bip": "bop"})')
-            self.eq({'zip': 'zop', 'bip': 'bop'}, await core.callStorm('return($lib.auth.users.get().json.bye)'))
+            # slash-in-key maps to a multi-level jsonstor path
+            await core.callStorm('$lib.auth.users.get().json."bye/bye" = ({"zip": "zop", "bip": "bop"})')
+            self.eq({'zip': 'zop', 'bip': 'bop'}, await core.callStorm('return($lib.auth.users.get().json."bye/bye")'))
 
-            # containment check via `in` operator
+            # containment checks — both flat and slash-in-key
             self.true(await core.callStorm("return(('hi' in $lib.auth.users.get().json))"))
             self.false(await core.callStorm("return(('missing' in $lib.auth.users.get().json))"))
+            self.true(await core.callStorm("return(('bye/bye' in $lib.auth.users.get().json))"))
 
             # iterate — yields (relative_path, blob) for every stored entry
             items = await core.callStorm('''
@@ -573,14 +574,18 @@ class StormLibAuthTest(s_test.SynTest):
             return($list)
             ''')
             self.eq(items, (
-                (('bye',), {'bip': 'bop', 'zip': 'zop'}),
+                (('bye', 'bye'), {'bip': 'bop', 'zip': 'zop'}),
                 (('hi',), {'baz': 'faz', 'foo': 'bar'}),
             ))
 
-            # delete a key via $lib.undef
+            # delete keys via $lib.undef — flat and slash-in-key
             await core.callStorm('$lib.auth.users.get().json.hi = $lib.undef')
             self.none(await core.callStorm('return($lib.auth.users.get().json.hi)'))
             self.false(await core.callStorm("return(('hi' in $lib.auth.users.get().json))"))
+
+            await core.callStorm('$lib.auth.users.get().json."bye/bye" = $lib.undef')
+            self.none(await core.callStorm('return($lib.auth.users.get().json."bye/bye")'))
+            self.false(await core.callStorm("return(('bye/bye' in $lib.auth.users.get().json))"))
 
             visi = await core.auth.addUser('visi')
             asvisi = {'user': visi.iden}
