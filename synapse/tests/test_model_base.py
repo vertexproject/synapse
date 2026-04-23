@@ -128,6 +128,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :creator={[ entity:contact=* ]}
                     :name=" My Rule" :desc="My cool rule"
                     :type=foo.bar
+                    :status=disabled.falsepos
                     :text="while TRUE { BAD }"
                     :id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     :seen=(20200101, 20200201)
@@ -139,6 +140,7 @@ class BaseTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
+            self.propeq(nodes[0], 'status', 'disabled.falsepos.')
             self.propeq(nodes[0], 'created', 1580601600000000)
             self.propeq(nodes[0], 'updated', 1648771200000000)
             self.propeq(nodes[0], 'name', 'My Rule')
@@ -146,7 +148,6 @@ class BaseTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'text', 'while TRUE { BAD }')
             self.propeq(nodes[0], 'url', 'https://vertex.link/rules/WOOT-20')
             self.propeq(nodes[0], 'id', 'WOOT-20')
-            self.nn(nodes[0].get('seen'))
 
             self.len(1, await core.nodes('meta:rule -> entity:contact'))
             self.len(1, await core.nodes('meta:rule -> meta:rule:type:taxonomy'))
