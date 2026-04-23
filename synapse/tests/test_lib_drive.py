@@ -58,9 +58,8 @@ class DriveTest(s_t_utils.SynTest):
 
     async def test_drive_base(self):
 
-        with self.getTestDir() as dirn:
+        async def tst_drive_basics(dirn):
             async with self.getTestCell(dirn=dirn) as cell:
-
                 with self.raises(s_exc.BadName):
                     s_drive.reqValidName('A' * 512)
 
@@ -188,9 +187,12 @@ class DriveTest(s_t_utils.SynTest):
                 self.eq(data[0]['version'], (1, 1, 1))
                 self.eq(data[1]['stuff'], 3829)
 
-                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+                await self.asyncraises(s_exc.NoSuchIden,
+                                       cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
 
-                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
+                await self.asyncraises(s_exc.BadArg,
+                                       cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'),
+                                                             'my special string'))
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]
                 }
@@ -315,8 +317,14 @@ class DriveTest(s_t_utils.SynTest):
                 s_config._JsValidators.clear()
                 await cell.drive.reqValidData('woot', data)
 
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_basics(dirn)
+
     async def test_drive_backup_sync(self):
-        with self.getTestDir() as dirn:
+
+        async def tst_drive_sync(dirn):
             backdirn = os.path.join(dirn, 'backups')
             celldirn = os.path.join(dirn, 'cell')
 
@@ -330,3 +338,8 @@ class DriveTest(s_t_utils.SynTest):
 
             drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
             self.true(os.path.isfile(drivepath))
+
+        # Run the drive tests with and without a spawn worker
+        for valu in ('true', 'false'):
+            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
+                await tst_drive_sync(dirn)

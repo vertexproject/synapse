@@ -1740,8 +1740,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
         sockpath = s_common.genpath(self.sockdirn, 'drive')
 
-        spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
-        self.drive = await spawner(path)
+        if s_common.envbool('SYNDEV_CELL_DRIVE_NOSPAWN'):
+            self.drive_slab = await self._initSlabFile(path)
+            self.drive = await s_drive.Drive.anit(self.drive_slab, s_drive.CELLDRIVE)
+        else:
+            spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
+            self.drive = await spawner(path)
 
         self.onfini(self.drive.fini)
 

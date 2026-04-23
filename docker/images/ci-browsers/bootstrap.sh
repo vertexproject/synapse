@@ -18,11 +18,12 @@ apt-get install -y \
   libgbm1
 
 # Track node aliases from circlci
-ALIASES=/build/ci-browsers/nodeAliases.txt
+#ALIASES=/build/ci-browsers/nodeAliases.txt
 NODE_SRC=/build/ci-browsers/nnode.tar.zx
-curl -sSL "https://raw.githubusercontent.com/CircleCI-Public/cimg-node/main/ALIASES" -o ${ALIASES}
+#curl -sSL "https://raw.githubusercontent.com/CircleCI-Public/cimg-node/main/ALIASES" -o ${ALIASES}
 
-NODE_VERSION=$(grep "lts" ${ALIASES} | cut -d "=" -f 2-)
+#NODE_VERSION=$(grep "lts" ${ALIASES} | cut -d "=" -f 2-)
+NODE_VERSION=24.14.0
 
 [[ $(uname -m) == "x86_64" ]] && ARCH="x64" || ARCH="arm64"
 
