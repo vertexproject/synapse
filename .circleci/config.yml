@@ -457,6 +457,7 @@ jobs:
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_PROCESS_START: .coveragerc
           COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main --cov-append
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
@@ -475,6 +476,7 @@ jobs:
           COVERAGE_PROCESS_START: .coveragerc
           COVERAGE_ARGS: --cov synapse --cov-config=.coveragerc.main
           SYNDEV_NEXUS_REPLAY: 1
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 
@@ -486,6 +488,7 @@ jobs:
       - image: cimg/python:3.11
         environment:
           PYVERS: 3.11
+          SYNDEV_CELL_DRIVE_NOSPAWN: 1
 
     working_directory: ~/repo
 

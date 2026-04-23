@@ -604,9 +604,11 @@ class Drive(s_base.Base):
     async def reqValidData(self, typename, item):
         return (await self._reqTypeValidator(typename))(item)
 
+CELLDRIVE = 'celldrive'
+
 class FileDrive(Drive, s_spawner.SpawnerMixin):
 
     async def __anit__(self, path):
         slab = await s_lmdbslab.Slab.anit(path)
-        await Drive.__anit__(self, slab, 'celldrive')
+        await Drive.__anit__(self, slab, CELLDRIVE)
         self.onfini(self.slab.fini)
