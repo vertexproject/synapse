@@ -165,10 +165,10 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore() as core:
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)

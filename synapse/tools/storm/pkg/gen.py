@@ -179,7 +179,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             extmod['storm'] = getStormStr(fpth)
         else:
             path = extmod.get('package_path')
-            extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
+            extpkg = s_dyndeps.reqDynMod(extmod.get('package'))
             extmod['storm'] = extpkg.getAssetStr(path)
 
         extname = extmod.get('name')
