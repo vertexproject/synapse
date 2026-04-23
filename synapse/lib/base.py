@@ -476,7 +476,7 @@ class Base:
 
     def schedCoro(self, coro):
         '''
-        Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
+        Schedules a free-running coroutine to run on this base's event loop.
         It does not pend on coroutine completion.
 
         Args:
@@ -485,6 +485,7 @@ class Base:
         Notes:
             This function is *not* threadsafe and must be run on the Base's event loop.
             Tasks created by this function do inherit the synapse.lib.scope Scope from the current task.
+            Raises IsFini if the Base has already been fini'd.
 
         Returns:
             asyncio.Task: An asyncio.Task object.
@@ -494,6 +495,10 @@ class Base:
             assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
+
+        if self.isfini:
+            coro.close()
+            raise s_exc.IsFini(mesg=f'Cannot schedCoro on a fini Base: {self}')
 
         if self._active_tasks is None:
             self._active_tasks = set()
@@ -547,11 +552,18 @@ class Base:
         Notes:
             This method may be run outside the event loop on a different thread.
             This function will break any task scoping done with synapse.lib.scope.
+            If the Base is fini'd before or at the time of dispatch, the coroutine is closed.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual coroutine execution.
         '''
-        return self.loop.call_soon_threadsafe(self.schedCoro, coro)
+        def _safecall():
+            if self.isfini:
+                coro.close()
+                return
+            self.schedCoro(coro)
+
+        return self.loop.call_soon_threadsafe(_safecall)
 
     def schedCoroSafePend(self, coro):
         '''

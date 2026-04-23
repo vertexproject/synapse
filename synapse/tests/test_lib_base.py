@@ -581,6 +581,31 @@ class BaseTest(s_t_utils.SynTest):
         # The scope data set in the task is not present outside of it.
         self.none(s_scope.get('hehe'))
 
+    async def test_base_sched_fini(self):
+
+        ran = []
+
+        async def acoro():
+            ran.append(True)
+
+        base = await s_base.Base.anit()
+        await base.fini()
+
+        # schedCoro raises IsFini and closes the coroutine without scheduling it
+        coro = acoro()
+        with self.raises(s_exc.IsFini):
+            base.schedCoro(coro)
+
+        self.eq(ran, [])
+
+        # schedCoroSafe silently discards when the base is already fini'd
+        coro2 = acoro()
+        base.schedCoroSafe(coro2)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+        self.eq(ran, [])
+
     async def test_base_spawner_fini(self):
 
         # Test proxy fini, base should fini
