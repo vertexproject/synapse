@@ -1,0 +1,5 @@
+---
+desc: Deprecated ``$lib.str.concat()``, ``$lib.str.format()``, and ``$lib.str.join()``.
+prs: []
+type: deprecation
+...

@@ -1468,11 +1468,11 @@ Lift all organizations whose name starts with the word "Acme ":
 
 .. storm-cli:: ou:org:name^='acme '
 
-Filter a set of Internet accounts to those with usernames starting with 'matrix':
+Filter a set of Service accounts to those with usernames starting with 'matrix':
 
-.. storm-pre:: [ inet:web:acct=(twitter.com,matrixmaster) inet:web:acct=(twitter.com,matrixneo) ]
-.. storm-cli:: inet:web:acct:site=twitter.com +:user^=matrix
-
+.. storm-pre:: $twitter={[inet:service:platform=({'name': 'twitter'})]} [ inet:service:account=({'platform': $twitter.value(), 'user': 'matrixmaster'}) inet:service:account=({'platform': $twitter.value(), 'user': 'matrixneo'}) ]
+e:account=({'platform': $twitter.value(), 'user': 'matrixneo'}) ]
+.. storm-cli:: inet:service:account:platform=({'name': 'twitter'}) +:user^=matrix
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator
 ( ``~=``) (see :ref:`lift-regex` and :ref:`filter-regex`).

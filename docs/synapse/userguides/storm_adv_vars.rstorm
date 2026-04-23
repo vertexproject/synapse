@@ -359,11 +359,11 @@ You can assign an explicit, unchanging value to a variable.
 
 You can assign the value of a particular node property (secondary or universal) to a variable.
 
-- **Secondary property:** Assign the ``:user`` property from an Internet-based account (``inet:web:acct``) to
+- **Secondary property:** Assign the ``:user`` property from an Service based account (``inet:service:account``) to
   the variable ``$user``:
 
-.. storm-pre:: [inet:web:acct=(twitter.com,hacks4cats) :email=ron@protonmail.com]
-.. storm-cli:: inet:web:acct=(twitter.com,hacks4cats) $user=:user $lib.print($user)
+.. storm-pre:: $twitter={[inet:service:platform=({'name': 'twitter'})]} [inet:service:account=({'platform': $twitter.value(), 'user': 'hacks4cats', 'email': 'ron@protonmail.com'})]
+.. storm-cli:: inet:service:account:user=hacks4cats $user=:user $lib.print($user)
 
 
 - **Universal property:** Assign the ``.seen`` universal property from a DNS A node to the variable ``$time``:
