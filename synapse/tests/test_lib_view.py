@@ -1300,8 +1300,11 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('test:guid -(_pwns)> *'))
 
-            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
-            self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
+            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe ]'))
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=foo :readable=haha ]')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:ro=foo [ :readable=haha ]')
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
 
@@ -1382,6 +1385,57 @@ class ViewTest(s_t_utils.SynTest):
                 self.false(await newnode.delEdge('_foo', n2nid))
 
             self.len(0, await core.nodes('inet:ip=1.2.3.4 <(*)- *', opts=viewopts2))
+
+    async def test_computed_prop_enforcement(self):
+
+        async with self.getTestCore() as core:
+
+            # computed prop cannot be set via storm during node creation
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=bar :readable=haha ]')
+
+            # computed prop cannot be set via storm post-creation (first write)
+            await core.nodes('[ test:ro=bar ]')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:ro=bar [ :readable=haha ]')
+
+            # computed prop cannot be set via view.addNode props= kwarg
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.view.addNode('test:ro', 'baz', props={'readable': 'haha'})
+
+            # computed prop cannot be set via view.addNodes nodedef props dict
+            view = core.getView()
+            nodes = await alist(view.addNodes([
+                (('test:ro', 'qux'), {'props': {'readable': 'haha'}}),
+            ]))
+            self.len(1, nodes)
+            self.none(nodes[0].get('readable'))
+
+            # writeable prop on same form still works
+            nodes = await core.nodes('[ test:ro=foo :writeable=hehe ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'writeable', 'hehe')
+
+            # computed props on comp forms are derived by ctor and cannot be overwritten
+            nodes = await core.nodes('[ test:comp=(10, "ten") ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:comp=(10, "ten") [ :hehe=99 ]')
+
+            # re-creating the same node does not raise ReadOnlyProp
+            nodes = await core.nodes('[ test:comp=(10, "ten") ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
+
+            # copying nodes with computed props to a fork does not raise ReadOnlyProp
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            msgs = await core.stormlist(f'test:comp=(10, "ten") | copyto {view2_iden}')
+            self.stormHasNoWarnErr(msgs)
+            nodes = await core.nodes('test:comp=(10, "ten")', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
 
     async def test_subs_depth(self):
 
