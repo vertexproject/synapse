@@ -5658,6 +5658,9 @@ class Layer(s_nexus.Pusher):
         '''
         Yields nid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
 
+        If stortype is provided and is a poly flagged stortype, only property values of that specific stortype
+        will be yielded.
+
         Args:
             form (str):  A form name.
             prop (str):  A property name.
@@ -5761,6 +5764,9 @@ class Layer(s_nexus.Pusher):
         if startvalu is not None:
             stortype = indxby.getStorType()
             startbytz = stortype.indx(startvalu)[0]
+
+            if isinstance(indxby, IndxByPoly):
+                startbytz = startbytz[2:]
 
         for key, nid in self.layrslab.scanByPref(abrv, startkey=startbytz, db=indxby.db):
 

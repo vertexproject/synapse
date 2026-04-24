@@ -1741,6 +1741,9 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp, startvalu=('inet:asn', 20)))
+            self.eq((20, 30), tuple(sorted([row[1][1] for row in rows])))
+
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', s_layer.STOR_TYPE_IVAL | s_layer.STOR_FLAG_POLY))
             self.eq((), tuple(sorted([row[1][1] for row in rows])))
 
