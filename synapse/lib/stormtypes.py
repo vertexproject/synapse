@@ -1044,7 +1044,9 @@ class LibTags(Lib):
          ''',
          'type': {'type': 'function', '_funcname': 'prefix',
                   'args': (
-                      {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
+                      {'name': 'names', 'type': 'list',
+                       'desc': 'A list of syn:tag:part values to normalize and prefix. '
+                               'If ``(null)``, this is a no-op and an empty list is returned.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
                       {'name': 'ispart', 'type': 'boolean', 'default': False,
                        'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
@@ -1065,7 +1067,7 @@ class LibTags(Lib):
         tagpart = self.runt.view.core.model.type('syn:tag:part')
 
         retn = []
-        async for part in toiter(names):
+        async for part in toiter(names, noneok=True):
             if not ispart:
                 try:
                     partnorm = (await tagpart.norm(part))[0]
