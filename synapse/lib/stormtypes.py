@@ -9441,7 +9441,10 @@ class LibCron(Lib):
                     raise s_exc.BadTime(mesg=mesg)
             if m:
                 try:
-                    reqs['minute'] = int(m, 10)
+                    if ',' in m:
+                        reqs['minute'] = [int(v, 10) for v in m.split(',')]
+                    else:
+                        reqs['minute'] = int(m, 10)
                 except ValueError:
                     mesg = f'Invalid minute value: {m}'
                     raise s_exc.BadTime(mesg=mesg)
