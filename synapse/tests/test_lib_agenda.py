@@ -797,12 +797,15 @@ class AgendaTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
                     core00.agenda._addTickOff(60 * 60)
+
                     mesgs = []
-                    async for mesg in core00.behold():
-                        mesgs.append(mesg)
-                        core00.agenda._addTickOff(30)
-                        if len(mesgs) == 2:
-                            break
+                    async with core00.beholder() as wind:
+                        core00.agenda._addTickOff(55)
+                        async for mesg in wind:
+                            mesgs.append(mesg)
+                            core00.agenda._addTickOff(30)
+                            if len(mesgs) == 2:
+                                break
 
                     await core01.sync()
 
