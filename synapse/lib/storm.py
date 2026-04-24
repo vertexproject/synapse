@@ -3281,13 +3281,7 @@ class CopyToCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if prop.info.get('computed'):
-                        curv = proto.get(name)
-                        if curv is not None and curv != valu:
-                            valurepr = prop.type.repr(curv)
-                            mesg = f'Cannot copy computed property with conflicting ' \
-                                   f'value: {node.iden()} {prop.full} = {valurepr}'
-                            await runt.warn(mesg)
-                        # computed props are re-derived by the destination ctor; never copy directly
+                        # re-derived by destination ctor; never copy directly
                         continue
 
                     if prop.type.ispoly:
@@ -3725,21 +3719,8 @@ class MergeCmd(Cmd):
                             continue
 
                     if prop.info.get('computed'):
-                        for undr in sodes[1:]:
-                            props = undr.get('props')
-                            if props is not None:
-                                curv = props.get(name)
-                                if curv is not None:
-                                    if curv[0] != valu:
-                                        valurepr = prop.type.repr(curv[0])
-                                        mesg = f'Cannot merge computed property with conflicting ' \
-                                               f'value: {nodeiden} {form}:{name} = {valurepr}'
-                                        await runt.warn(mesg)
-                                    break
-
                         if doapply:
-                            # computed props are re-derived by the destination ctor; skip the set
-                            # but still emit the source-layer deletion to clean up
+                            # re-derived by destination ctor; skip the set but clean up source layer
                             if not self.opts.wipe:
                                 subs.append((s_layer.EDIT_PROP_DEL, (name,)))
                             continue

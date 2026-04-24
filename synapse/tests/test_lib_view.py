@@ -1428,6 +1428,10 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'hehe', 10)
 
+            # computed props cannot be deleted via storm prop-del syntax
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:comp=(10, "ten") [ -:hehe ]')
+
             # copying nodes with computed props to a fork does not raise ReadOnlyProp
             vdef2 = await core.view.fork()
             view2_iden = vdef2.get('iden')
