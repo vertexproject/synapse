@@ -3153,7 +3153,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         conf = {'modules': [('synapse.tests.utils.TestModule', {'key': 'valu'})]}
         with self.raises(s_exc.ModAlreadyLoaded):
             async with self.getTestCore(conf=conf):
-                pass
+                await asyncio.sleep(0)
 
         async with self.getTestCore() as core:
             with self.raises(s_exc.ModAlreadyLoaded):
