@@ -36,6 +36,15 @@ class ExcTest(s_t_utils.SynTest):
         e2 = s_exc.BadTypeValu(mesg='haha')
         self.eq(e2.errname, 'BadTypeValu')
 
+        with self.raises(ValueError):
+            s_exc.SynErr(mesg='bad', foo=frozenset(('a',)))
+
+        with self.raises(ValueError):
+            s_exc.SynErr(mesg='bad', foo=object())
+
+        s_exc.SynErr(mesg='ok', i=1, f=1.0, b=b'x', n=None,
+                     t=(1, 'a'), lst=[1, 'a'], d={'k': 1})
+
     async def test_pickled_synerr(self):
         with self.raises(s_exc.BadSyntax) as cm:
             _ = await s_parser._forkedParseEval('| | | ')

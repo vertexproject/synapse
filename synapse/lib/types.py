@@ -2256,15 +2256,17 @@ class Poly(Type):
         raise s_exc.NoSuchVirt.init(virt, self)
 
     def _raiseBadTypeValu(self, valu):
+        typeset = tuple(sorted(self.typeset))
+        ifaces = tuple(sorted(self.ifaces))
+
         mesg = f'Value of type {valu} is not allowed for {self.name}'
+        if typeset:
+            mesg += f' types=({", ".join(typeset)})'
 
-        if self.typeset is not None:
-            mesg += f' types={self.typeset}'
+        if ifaces:
+            mesg += f' interfaces=({", ".join(ifaces)})'
 
-        if self.ifaces is not None:
-            mesg += f' interfaces={self.ifaces}'
-
-        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=self.typeset, interfaces=self.ifaces)
+        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=typeset, interfaces=ifaces)
 
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
