@@ -979,6 +979,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.axready = asyncio.Event()
         self.axoninfo = {}
 
+        self.nodeeditwindows = set()
+
         self.view = None  # The default/main view
 
         self._cortex_permdefs = []
@@ -1031,7 +1033,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
         await self._initJsonStor()
 
-        self.nodeeditwindows = set()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
