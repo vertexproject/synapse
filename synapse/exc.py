@@ -3,6 +3,22 @@ Exceptions used by synapse, all inheriting from SynErr
 '''
 import sys
 
+def _check_item(key, item):
+    if item is None:
+        return
+    if isinstance(item, (str, int, bytes, float)):
+        return
+    if isinstance(item, (tuple, list)):
+        for i in item:
+            _check_item(key, i)
+        return
+    if isinstance(item, dict):
+        for k, v in item.items():
+            _check_item(key, k)
+            _check_item(key, v)
+        return
+    raise ValueError(f'SynErr got unknown item type: {key=} {type(item)} {item=}')
+
 class SynErr(Exception):
 
     def __init__(self, *args, **info):
@@ -12,6 +28,9 @@ class SynErr(Exception):
 
     def _getExcMsg(self):
         props = sorted(self.errinfo.items())
+        if __debug__:
+            for k, v in props:
+                _check_item(k, v)
         displ = ' '.join(['%s=%r' % (p, v) for (p, v) in props])
         return '%s: %s' % (self.__class__.__name__, displ)
 
@@ -113,30 +132,7 @@ class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
-class BadTypeValu(SynErr):
-
-    @classmethod
-    def init(cls, name, valu, typeset=(), ifaces=(), mesg=None):
-        try:
-            typeset = tuple(sorted(typeset))
-        except TypeError:
-            typeset = tuple(typeset)
-
-        try:
-            ifaces = tuple(sorted(ifaces))
-        except TypeError:
-            ifaces = tuple(ifaces)
-
-        if mesg is None:
-            mesg = f'Value of type {valu} is not allowed for {name}'
-
-            if typeset:
-                mesg += f' types=({", ".join(str(t) for t in typeset)})'
-
-            if ifaces:
-                mesg += f' interfaces=({", ".join(str(i) for i in ifaces)})'
-
-        return cls(mesg=mesg, name=name, valu=valu, types=typeset, interfaces=ifaces)
+class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
 class BadMsgpackData(SynErr): pass
 class BadDataValu(SynErr):
