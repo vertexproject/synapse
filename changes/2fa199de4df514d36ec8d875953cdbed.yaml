@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where scheduling a coroutine on a fini'd Base object could create
+  orphaned asyncio tasks that were never cancelled or awaited.
+desc:literal: false
+prs: []
+type: bug
+...

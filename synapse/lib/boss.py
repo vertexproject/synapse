@@ -97,7 +97,7 @@ class Boss(s_base.Base):
         self.reqNotShut()
         synt = s_task.syntask(task)
 
-        if synt is not None:
+        if synt is not None and not synt.isfini:
 
             if taskiden is not None and synt.iden != taskiden:
                 logger.warning(f'Iden specified for existing task={synt}. Ignored.')
