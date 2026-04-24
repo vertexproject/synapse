@@ -9435,22 +9435,22 @@ class LibCron(Lib):
             h, m = timepart.split(':')
             if h:
                 try:
-                    reqs['hour'] = int(h, 10)
+                    reqs['hour'] = int(h)
                 except ValueError:
                     mesg = f'Invalid hour value: {h}'
                     raise s_exc.BadTime(mesg=mesg)
             if m:
                 try:
                     if ',' in m:
-                        reqs['minute'] = [int(v, 10) for v in m.split(',')]
+                        reqs['minute'] = [int(v) for v in m.split(',')]
                     else:
-                        reqs['minute'] = int(m, 10)
+                        reqs['minute'] = int(m)
                 except ValueError:
                     mesg = f'Invalid minute value: {m}'
                     raise s_exc.BadTime(mesg=mesg)
         else:
             try:
-                reqs['hour'] = int(timepart, 10)
+                reqs['hour'] = int(timepart)
             except ValueError:
                 mesg = f'Invalid hour value: {timepart}'
                 raise s_exc.BadTime(mesg=mesg)
