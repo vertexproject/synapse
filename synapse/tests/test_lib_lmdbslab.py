@@ -81,6 +81,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq([b'hehe', b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb, nodup=True)))
 
                 self.eq(3, await slab.countByPref(b'h', db=dupsdb))
+                self.eq(2, await slab.countByPref(b'h', db=testdb))
 
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
