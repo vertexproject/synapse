@@ -1736,8 +1736,16 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
+            # for poly rows, providing a specific poly flagged stortype will filter by the requested stortype
+            styp = core.model.type('inet:asn').stortype | s_layer.STOR_FLAG_POLY
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp, startvalu=('inet:asn', 20)))
+            self.eq((20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', s_layer.STOR_TYPE_IVAL | s_layer.STOR_FLAG_POLY))
+            self.eq((), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
