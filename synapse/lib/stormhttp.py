@@ -526,8 +526,8 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'history', 'desc': 'A list of response objects representing the history of the response. This is populated when responses are redirected.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorHistory',
                   'returns': {'type': 'list', 'desc': 'A list of ``inet:http:resp`` objects.', }}},
-        {'name': 'getRawHeaders', 'desc': 'Get a dictionary mapping header names to lists of all their values.',
-         'type': {'type': 'function', '_funcname': 'getRawHeaders',
+        {'name': 'getRawResponseHeaders', 'desc': 'Get a dictionary mapping response header names to lists of all their values.',
+         'type': {'type': 'function', '_funcname': 'getRawResponseHeaders',
                   'returns': {'type': 'dict', 'desc': 'A dictionary mapping each header name to a list of values.'}}},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
@@ -562,12 +562,12 @@ class HttpResp(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'getRawHeaders': self.getRawHeaders,
+            'getRawResponseHeaders': self.getRawResponseHeaders,
             'json': self._httpRespJson,
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def getRawHeaders(self):
+    async def getRawResponseHeaders(self):
         retn = {}
         for k, v in self.valu.get('_raw_headers', []):
             retn.setdefault(k, []).append(v)

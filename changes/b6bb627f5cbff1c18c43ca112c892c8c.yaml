@@ -1,6 +1,6 @@
 ---
-desc: Added ``getRawHeaders()`` method to the ``inet:http:resp`` Storm type. This returns
-  a dictionary mapping header names to lists of all their values. It provides access to 
+desc: Added ``getRawResponseHeaders()`` method to the ``inet:http:resp`` Storm type. This returns
+  a dictionary mapping header names to lists of all their values. It provides access to
   multi-value response headers (such as ``Set-Cookie``) that are not fully represented by
   the existing headers attribute, which retains only the last value per key.
 desc:literal: false
