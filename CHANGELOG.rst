@@ -5,6 +5,19 @@
 *****************
 Synapse Changelog
 *****************
+
+v2.240.1 - 2026-04-24
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where cancelled Storm tasks could show up in task list
+  output.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+- Fixed an issue where scheduling a coroutine on a fini'd Base object could
+  create orphaned asyncio tasks that were never cancelled or awaited.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+
 v2.240.0 - 2026-04-21
 =====================
 
