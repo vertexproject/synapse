@@ -983,11 +983,7 @@ class NodeEditor:
 
         protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
-            for p, v in props.items():
-                prop = form.props.get(p)
-                if prop is not None and prop.info.get('computed'):
-                    raise s_exc.ReadOnlyProp(mesg=f'Property is computed and cannot be set by users: {prop.full}.')
-                await protonode.set(p, v)
+            [await protonode.set(p, v) for (p, v) in props.items()]
 
         return protonode
 
