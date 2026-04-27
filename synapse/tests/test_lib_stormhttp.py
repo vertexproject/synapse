@@ -310,14 +310,14 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( ($resp.headers."Set-Cookie", $resp.getRawResponseHeaders()) )
+            return ( ($resp.headers."Set-Cookie", $resp.getRawHeaders()) )
             '''
             lastval, rawheaders = await core.callStorm(q, opts=opts)
 
             # headers dict last-value-wins
             self.eq(lastval, 'cookie_two=value2; Path=/')
 
-            # getRawResponseHeaders returns all values per header name
+            # getRawHeaders returns all values per header name
             cookies = rawheaders.get('Set-Cookie')
             self.len(2, cookies)
             self.isin('cookie_one=value1; Path=/', cookies)
