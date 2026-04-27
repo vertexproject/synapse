@@ -3272,7 +3272,7 @@ class CopyToCmd(Cmd):
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
                             mesg = f'Cannot overwrite read only property with conflicting ' \
-                                   f'value: {node.ndef} {prop.full} = {valurepr}'
+                                   f'value: {node.nid} {prop.full} = {valurepr}'
                             await runt.warn(mesg)
                             continue
 
@@ -3610,7 +3610,7 @@ class MergeCmd(Cmd):
                     continue
 
             # the timestamp for the adds/subs of each node merge will match
-            nodeiden = node.ndef
+            nodeiden = node.nid
             meta['time'] = s_common.now()
 
             sodes = await node.getStorNodes()
@@ -4603,7 +4603,7 @@ class UniqCmd(Cmd):
 
     A relative property or variable may also be specified, which will cause
     this command to only allow through the first node with a given value for
-    that property or value rather than checking the node iden.
+    that property or value rather than checking the node id.
 
     Examples:
 

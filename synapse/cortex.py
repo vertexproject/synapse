@@ -4815,7 +4815,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             ndef = (form, valu)
             if (nid := self.getNidByNdef(ndef)) is None:
                 if redits[0][0] != 0:
-                    # If we don't know this buid and the first edit isn't
+                    # If we don't know this ndef and the first edit isn't
                     # a node add, this is an edit to a node we won't have
                     # and we need to use a nexus event to generate the NID
                     nid = s_common.int64un(await self.genNdefNid(ndef))

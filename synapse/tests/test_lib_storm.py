@@ -993,21 +993,21 @@ class StormTest(s_t_utils.SynTest):
             self.eq(bylayer['tagprops']['foo']['score'], layr)
             self.ne(bylayer['tagprops']['bar']['score'], layr)
 
-            ipndef = str(nodes[0].ndef)
+            ipnid = nodes[0].nid
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
-            self.stormIsInPrint(f'{ipndef} inet:ip:asn = 99', msgs)
-            self.stormIsInPrint(f"{ipndef} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint(f'{ipndef} inet:ip#foo:score = 100', msgs)
-            self.stormIsInPrint(f"{ipndef} inet:ip DATA foo = 'bar'", msgs)
-            self.stormIsInPrint(f'{ipndef} inet:ip +(refs)>', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
-            self.stormIsInPrint(f'{ipndef} inet:ip:asn = 99', msgs)
-            self.stormIsInPrint(f"{ipndef} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint(f'{ipndef} inet:ip#foo:score = 100', msgs)
-            self.stormIsInPrint(f"{ipndef} inet:ip DATA foo = 'bar'", msgs)
-            self.stormIsInPrint(f'{ipndef} inet:ip +(refs)>', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             await core.callStorm('inet:ip=11.22.33.44 | merge --apply', opts=opts)
             nodes = await core.nodes('inet:ip=11.22.33.44')
@@ -1041,15 +1041,15 @@ class StormTest(s_t_utils.SynTest):
 
             waiter = real_layer.layrslab.waiter(1, 'commit')
             nodes = await core.nodes('[ inet:fqdn=mvmnasde.com ]', opts=opts)
-            fqdnndef = str(nodes[0].ndef)
+            fqdnnid = nodes[0].nid
             msgs = await core.stormlist('inet:fqdn=mvmnasde.com | merge', opts=opts)
 
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn = mvmnasde.com', msgs)
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn:host = mvmnasde', msgs)
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn:domain = com', msgs)
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn:issuffix = false', msgs)
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn:iszone = true', msgs)
-            self.stormIsInPrint(f'{fqdnndef} inet:fqdn:zone = mvmnasde.com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn = mvmnasde.com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:host = mvmnasde', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:domain = com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:issuffix = false', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:iszone = true', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:zone = mvmnasde.com', msgs)
 
             # Ensure that the layer has sync()'d to avoid getting data from
             # dirty sodes in the merge --diff tests.

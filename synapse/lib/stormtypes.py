@@ -6265,14 +6265,14 @@ class Node(Prim):
          'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
-                      {'name': 'dest', 'type': 'prim', 'desc': 'The destination node. May be a Node object, ndef tuple, or nid integer.'},
+                      {'name': 'dest', 'type': ['int', 'str', 'bytes'], 'desc': 'The destination node id.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
-                      {'name': 'dest', 'type': 'prim', 'desc': 'The destination node to remove. May be a Node object, ndef tuple, or nid integer.'},
+                      {'name': 'dest', 'type': ['int', 'str', 'bytes'], 'desc': 'The destination node id to remove.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
@@ -6388,54 +6388,23 @@ class Node(Prim):
             async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
                 yield (verb, s_common.int64un(n2nid))
 
-    async def _resolveNid(self, valu):
-
-        if isinstance(valu, Node):
-            nid = valu.valu.nid
-            if nid is None:
-                mesg = f'Node has no nid: {valu.valu.ndef}'
-                raise s_exc.BadArg(mesg=mesg)
-            return nid
-
-        if isinstance(valu, s_node.Node):
-            return valu.nid
-
-        valu = await toprim(valu)
-
-        if isinstance(valu, int):
-            nid = s_common.int64en(valu)
-            if not self.valu.view.core.hasNidNdef(nid):
-                mesg = f'No node with nid: {valu}'
-                raise s_exc.BadArg(mesg=mesg)
-            return nid
-
-        if isinstance(valu, (list, tuple)):
-            nid = self.valu.view.core.getNidByNdef(tuple(valu))
-            if nid is None:
-                mesg = f'No node with ndef: {valu}'
-                raise s_exc.BadArg(mesg=mesg)
-            return nid
-
-        mesg = f'Invalid edge dest value: {s_common.trimText(repr(valu))}'
-        raise s_exc.BadArg(mesg=mesg)
-
     async def _methNodeAddEdge(self, verb, dest):
         verb = await tostr(verb)
+        dest = await tonidbyts(dest)
 
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        nid = await self._resolveNid(dest)
-        await self.valu.addEdge(verb, nid)
+        await self.valu.addEdge(verb, dest)
 
     async def _methNodeDelEdge(self, verb, dest):
         verb = await tostr(verb)
+        dest = await tonidbyts(dest)
 
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        nid = await self._resolveNid(dest)
-        await self.valu.delEdge(verb, nid)
+        await self.valu.delEdge(verb, dest)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):

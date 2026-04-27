@@ -14,11 +14,12 @@ def prepHotfixDesc(txt):
     return lines
 
 hotfixes = ()
+default_vers = (4, 0, 0)
 runtime_fixes_key = 'cortex:runtime:stormfixes'
 
 def getMaxHotFixes():
     if not hotfixes:
-        return (4, 0, 0)
+        return default_vers
     return max([vers for vers, info in hotfixes])
 
 @s_stormtypes.registry.registerLib
@@ -110,7 +111,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(4, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
         for vers, info in hotfixes:
             if vers <= curv:
                 continue
@@ -148,7 +149,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(4, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
 
         dowork = False
         for vers, info in hotfixes:

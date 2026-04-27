@@ -7123,7 +7123,6 @@ words\tword\twrd'''
             with self.raises(s_exc.BadArg):
                 await core.nodes(f'ou:industry $node.delEdge(refs, {fakenid})')
 
-            # addEdge/delEdge with a Node object
             q = 'ou:industry $dest = {[ inet:ip=5.6.7.8 ]} { $node.addEdge(refs, $dest) }'
             await core.nodes(q)
             nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
@@ -7133,21 +7132,6 @@ words\tword\twrd'''
             await core.nodes(q)
             nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
             self.len(0, nodes)
-
-            # addEdge/delEdge with an ndef tuple
-            ndef = await core.callStorm('inet:ip=5.6.7.8 return($node.ndef)')
-            opts = {'vars': {'ndef': ndef}}
-            await core.nodes('ou:industry $node.addEdge(refs, $ndef)', opts=opts)
-            nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
-            self.len(1, nodes)
-
-            await core.nodes('ou:industry $node.delEdge(refs, $ndef)', opts=opts)
-            nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
-            self.len(0, nodes)
-
-            # addEdge with a bad ndef tuple
-            with self.raises(s_exc.BadArg):
-                await core.nodes('ou:industry $node.addEdge(refs, (newp:newp, foo))')
 
     async def test_storm_layer_lift(self):
 
