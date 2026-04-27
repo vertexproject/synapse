@@ -35,6 +35,9 @@ class StormCellTest(s_test.SynTest):
             self.nn(vers)
             self.eq(vers, s_stormlib_cell.getMaxHotFixes())
 
+            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
 
@@ -49,6 +52,12 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getHealthCheck() )', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.cell.hotFixesCheck() )', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.cell.hotFixesApply() )', opts=opts)
 
     async def test_stormlib_cell_uptime(self):
 

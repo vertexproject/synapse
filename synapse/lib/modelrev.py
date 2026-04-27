@@ -136,7 +136,7 @@ class ModelRev:
 
         logger.warning('...model migrations complete!')
 
-    async def _normPropValu(self, layers, propfull):
+    async def _normPropValu(self, layers, propfull):  # pragma: no cover
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
