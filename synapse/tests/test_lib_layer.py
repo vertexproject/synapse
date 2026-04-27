@@ -902,7 +902,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(addq)
             self.len(1, nodes)
-            nodeiden = nodes[0].ndef
+            nodeiden = nodes[0].nid
 
             self.false(await core.callStorm('[ test:str=newp ] return($node.data.has(foodata))'))
 

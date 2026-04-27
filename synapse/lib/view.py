@@ -2766,11 +2766,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             (synapse.lib.node.Node): The Node or None.
         '''
-        nid = self.core.getNidByNdef(ndef)
-        if nid is None:
-            return None
-
-        return await self._joinStorNode(nid, tombs=tombs)
+        if (nid := self.core.getNidByNdef(ndef)) is not None:
+            return await self._joinStorNode(nid, tombs=tombs)
 
     async def _joinStorNode(self, nid, tombs=False):
 

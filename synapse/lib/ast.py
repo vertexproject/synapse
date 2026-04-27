@@ -684,13 +684,6 @@ class Oper(AstNode):
 
             return
 
-        # ndef tuple -> node (must be (str, valu) form)
-        if isinstance(valu, (tuple, list)) and len(valu) == 2 and isinstance(valu[0], str):
-            if (node := await runt.view.getNodeByNdef(tuple(valu))) is not None:
-                yield node
-
-            return
-
         if isinstance(valu, types.AsyncGeneratorType):
             try:
                 async for item in valu:

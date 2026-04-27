@@ -785,7 +785,7 @@ class StormTest(s_t_utils.SynTest):
                         'storm': '''
                             function lol() {
                                 [ ou:org=* ]
-                                return($node.ndef)
+                                return($node.nid)
                             }
                             function dyncall() {
                                 return($lib.queue.list())
@@ -799,7 +799,7 @@ class StormTest(s_t_utils.SynTest):
                     },
                     {
                         'name': 'foo.baz',
-                        'storm': 'function lol() { [ ou:org=* ] return($node.ndef) }',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.nid) }',
                     },
                 )
             }
@@ -1829,7 +1829,7 @@ class StormTest(s_t_utils.SynTest):
             $node.data.set(foo, bar)
             '''
             nodes = await core.nodes(q)
-            nodeiden = nodes[0].ndef
+            nodeiden = nodes[0].nid
 
             msgs = await core.stormlist('ou:org | movenodes', opts=view2)
             self.stormHasNoWarnErr(msgs)
@@ -3929,24 +3929,18 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
 
-            ndef0 = nodes[0].ndef
-            nid0 = nodes[0].nid
-
-            # yield by ndef tuple
-            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': ndef0}})
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+            nid0 = nodes[0].intnid()
 
             # yield by nid
-            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': s_common.int64un(nid0)}})
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': nid0}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             def genr():
-                yield ndef0
+                yield nid0
 
             async def agenr():
-                yield ndef0
+                yield nid0
 
             nodes = await core.nodes('yield $foo', opts={'vars': {'foo': genr()}})
             self.len(1, nodes)
@@ -3998,12 +3992,12 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
             self.stormIsInErr('Node is not from the current view.', msgs)
 
-            # Nodes lifted from another view and referred to by iden() works
+            # Nodes lifted from another view and referred to by nid works
             q = '''
             $nodes = ()
             view.exec $view { inet:ip=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
-                yield $n.ndef
+                yield $n.nid
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
@@ -4013,13 +4007,13 @@ class StormTest(s_t_utils.SynTest):
             $nodes = ()
             view.exec $view { for $x in ${ inet:ip=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
-                yield $n.ndef
+                yield $n.nid
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
-            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.ndef }'
+            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.nid }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 

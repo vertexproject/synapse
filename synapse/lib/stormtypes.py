@@ -6338,7 +6338,7 @@ class Node(Prim):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu.ndef))
+        return hash((self._storm_typename, self.valu.nid))
 
     async def _storm_copy(self):
         return self
@@ -6388,13 +6388,44 @@ class Node(Prim):
             async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
                 yield (verb, s_common.int64un(n2nid))
 
+    async def _resolveNid(self, valu):
+
+        if isinstance(valu, Node):
+            nid = valu.valu.nid
+            if nid is None:
+                mesg = f'Node has no nid: {valu.valu.ndef}'
+                raise s_exc.BadArg(mesg=mesg)
+            return nid
+
+        if isinstance(valu, s_node.Node):
+            return valu.nid
+
+        valu = await toprim(valu)
+
+        if isinstance(valu, int):
+            nid = s_common.int64en(valu)
+            if not self.valu.view.core.hasNidNdef(nid):
+                mesg = f'No node with nid: {valu}'
+                raise s_exc.BadArg(mesg=mesg)
+            return nid
+
+        if isinstance(valu, (list, tuple)):
+            nid = self.valu.view.core.getNidByNdef(tuple(valu))
+            if nid is None:
+                mesg = f'No node with ndef: {valu}'
+                raise s_exc.BadArg(mesg=mesg)
+            return nid
+
+        mesg = f'Invalid edge dest value: {s_common.trimText(repr(valu))}'
+        raise s_exc.BadArg(mesg=mesg)
+
     async def _methNodeAddEdge(self, verb, dest):
         verb = await tostr(verb)
 
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        nid = await toedgenid(dest, self.valu.view.core)
+        nid = await self._resolveNid(dest)
         await self.valu.addEdge(verb, nid)
 
     async def _methNodeDelEdge(self, verb, dest):
@@ -6403,7 +6434,7 @@ class Node(Prim):
         gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        nid = await toedgenid(dest, self.valu.view.core)
+        nid = await self._resolveNid(dest)
         await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
@@ -10174,37 +10205,6 @@ async def torepr(valu, usestr=False):
     if usestr:
         return str(valu)
     return repr(valu)
-
-async def toedgenid(valu, core):
-
-    if isinstance(valu, Node):
-        nid = valu.valu.nid
-        if nid is None:
-            mesg = f'Node has no nid: {valu.valu.ndef}'
-            raise s_exc.BadArg(mesg=mesg)
-        return nid
-
-    if isinstance(valu, s_node.Node):
-        return valu.nid
-
-    valu = await toprim(valu)
-
-    if isinstance(valu, int):
-        nid = s_common.int64en(valu)
-        if not core.hasNidNdef(nid):
-            mesg = f'No node with nid: {valu}'
-            raise s_exc.BadArg(mesg=mesg)
-        return nid
-
-    if isinstance(valu, (list, tuple)):
-        nid = core.getNidByNdef(tuple(valu))
-        if nid is None:
-            mesg = f'No node with ndef: {valu}'
-            raise s_exc.BadArg(mesg=mesg)
-        return nid
-
-    mesg = f'Invalid edge dest value: {s_common.trimText(repr(valu))}'
-    raise s_exc.BadArg(mesg=mesg)
 
 async def tonidbyts(valu):
     if isinstance(valu, int):

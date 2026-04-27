@@ -4050,7 +4050,7 @@ class MoveNodesCmd(Cmd):
         async for node, path in genr:
 
             # the timestamp for the adds/subs of each node merge will match
-            nodeiden = node.ndef
+            nodeiden = node.nid
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
             sodes = {}
@@ -4175,7 +4175,7 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         for layr, sode in sodes.items():
             if (mdict := sode.get('meta')) is None or (valu := mdict.get('created')) is None:
@@ -4203,7 +4203,7 @@ class MoveNodesCmd(Cmd):
         movevals = {}
         virtvals = {}
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         for layr, sode in sodes.items():
 
@@ -4275,7 +4275,7 @@ class MoveNodesCmd(Cmd):
         tagvals = {}
         tagtype = self.runt.model.type('ival')
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         for layr, sode in sodes.items():
 
@@ -4346,7 +4346,7 @@ class MoveNodesCmd(Cmd):
         movevals = {}
         virtvals = {}
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         for layr, sode in sodes.items():
 
@@ -4429,7 +4429,7 @@ class MoveNodesCmd(Cmd):
 
         ecnt = 0
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         async def wrap_liftgenr(lidn, genr):
             async for abrv, tomb in genr:
@@ -4498,7 +4498,7 @@ class MoveNodesCmd(Cmd):
 
         ecnt = 0
         form = node.form.name
-        nodeiden = node.ndef
+        nodeiden = node.nid
 
         async def wrap_liftgenr(lidn, genr):
             async for abrv, n2nid, tomb in genr:
