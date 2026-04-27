@@ -16,6 +16,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
+import synapse.lib.stormbin as s_stormbin
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def loadOpticWorkflows(pkgdef, path):
 
             wdefs[wname] = s_common.yamlload(fullname)
 
-def tryLoadPkgProto(fp, opticdir=None, readonly=False):
+def tryLoadPkgProto(fp, opticdir=None, readonly=False, compiled=False):
     '''
     Try to get a Storm Package prototype from disk with or without inline documentation.
 
@@ -82,16 +83,22 @@ def tryLoadPkgProto(fp, opticdir=None, readonly=False):
         opticdir (str): Path to optional Optic module code to add to the Storm Package.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
                          exception.
+        compiled (bool): If set, pre-compile Storm queries into stormbin binary format.
 
     Returns:
         dict: A Storm package definition.
     '''
     try:
-        return loadPkgProto(fp, opticdir=opticdir, readonly=readonly)
+        return loadPkgProto(fp, opticdir=opticdir, readonly=readonly, compiled=compiled)
     except s_exc.NoSuchFile:
-        return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly)
+        return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly, compiled=compiled)
 
-def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
+def _compileStormField(text, mode='storm'):
+    '''Compile a Storm text field into a base64-encoded stormbin string.'''
+    byts = s_stormbin.compile(text, mode=mode)
+    return s_stormbin.enBase64(byts)
+
+def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False, compiled=False):
     '''
     Get a Storm Package definition from disk.
 
@@ -101,6 +108,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         no_docs (bool): If true, omit inline documentation content if it is not present on disk.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
                          exception.
+        compiled (bool): If set, pre-compile Storm queries into stormbin binary format.
 
     Returns:
         dict: A Storm package definition.
@@ -236,6 +244,29 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef['optic'].setdefault('files', {})
         loadOpticFiles(pkgdef, opticdir)
 
+    if compiled:
+
+        for mod in pkgdef.get('modules', ()):
+            text = mod.get('storm')
+            if text is not None:
+                mod['storm'] = _compileStormField(text)
+
+        for cmd in pkgdef.get('commands', ()):
+            text = cmd.get('storm')
+            if text is not None:
+                cmd['storm'] = _compileStormField(text)
+
+        onload = pkgdef.get('onload')
+        if onload is not None:
+            pkgdef['onload'] = _compileStormField(onload)
+
+        inits = pkgdef.get('inits')
+        if inits is not None:
+            for initdef in inits.get('versions', ()):
+                text = initdef.get('query')
+                if text is not None:
+                    initdef['query'] = _compileStormField(text)
+
     s_schemas.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
@@ -261,6 +292,8 @@ async def main(argv, outp=s_output.stdout):
                       help='Treat pkgfile argument as an already-built package')
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
+    pars.add_argument('--compiled', default=False, action='store_true',
+                      help='Pre-compile Storm queries into stormbin binary format to skip parsing at load time.')
     pars.add_argument('pkgfile', metavar='<pkgfile>',
                       help='Path to a storm package prototype .yaml file, or a completed package .json/.yaml file.')
 
@@ -275,7 +308,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
             return 1
     else:
-        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs, compiled=opts.compiled)
 
     if opts.signas is not None:
 

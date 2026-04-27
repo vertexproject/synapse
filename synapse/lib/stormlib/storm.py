@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
+import synapse.lib.stormbin as s_stormbin
 import synapse.lib.stormtypes as s_stormtypes
 
 evaldesc = '''\
@@ -19,6 +20,18 @@ Run a Storm query and yield the messages output by the Storm interpreter.
 
 Note:
     If Storm logging is enabled, the query being run will be logged separately.
+'''
+
+compiledesc = '''
+Compile a Storm query string into a binary format that can be executed without parsing.
+
+The compiled binary format can be passed anywhere a Storm query string is accepted.
+'''
+
+decompiledesc = '''
+Decompile a compiled Storm binary back into a Storm query string.
+
+The input must be the output of ``$lib.storm.compile()`` (bytes or base64 encoded string).
 '''
 
 stormlogger = logging.getLogger('synapse.storm')
@@ -117,6 +130,20 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
+        {'name': 'compile', 'desc': compiledesc,
+         'type': {'type': 'function', '_funcname': '_compileStorm',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'Storm query text to compile.'},
+                      {'name': 'mode', 'type': 'str', 'desc': 'Parse mode.', 'default': 'storm'},
+                      {'name': 'encode', 'type': 'str', 'desc': 'Encoding: "bytes" or "base64".', 'default': 'bytes'},
+                  ),
+                  'returns': {'type': ['bytes', 'str'], 'desc': 'Compiled binary or base64 string.'}}},
+        {'name': 'decompile', 'desc': decompiledesc,
+         'type': {'type': 'function', '_funcname': '_decompileStorm',
+                  'args': (
+                      {'name': 'byts', 'type': ['bytes', 'str'], 'desc': 'Compiled Storm binary data or base64 string.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The original Storm query text if available, or an empty string.'}}},
     )
     _storm_lib_path = ('storm',)
 
@@ -124,6 +151,8 @@ class LibStorm(s_stormtypes.Lib):
         return {
             'run': self._runStorm,
             'eval': self._evalStorm,
+            'compile': self._compileStorm,
+            'decompile': self._decompileStorm,
         }
 
     async def _runStorm(self, query, opts=None):
@@ -176,3 +205,25 @@ class LibStorm(s_stormtypes.Lib):
             valu, _ = casttype.norm(valu)
 
         return valu
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _compileStorm(self, text, mode='storm', encode='bytes'):
+
+        text = await s_stormtypes.tostr(text)
+        mode = await s_stormtypes.tostr(mode)
+        encode = await s_stormtypes.tostr(encode)
+
+        byts = s_stormbin.compile(text, mode=mode)
+
+        if encode == 'base64':
+            return s_stormbin.enBase64(byts)
+
+        return byts
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _decompileStorm(self, byts):
+
+        byts = await s_stormtypes.toprim(byts)
+
+        query = s_stormbin.decompile(byts)
+        return query.text

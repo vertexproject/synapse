@@ -549,6 +549,9 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
                 }
             }
 
+        The ``query`` field may also be a ``}`` prefixed string containing a compiled
+        Storm binary (stormbin) query. See ``$lib.storm.compile()`` for details.
+
     *Returns*
         The API returns ``{"status": "ok", "result": return_value}`` on success and any failures
         are returned using the previously mentioned REST API convention.

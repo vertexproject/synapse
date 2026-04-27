@@ -45,6 +45,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormbin as s_stormbin
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -6536,6 +6537,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return query
 
     async def getStormQuery(self, text, mode='storm'):
+        if s_stormbin.isCompiled(text):
+            query = s_stormbin.decompile(text)
+            query.init(self)
+            await asyncio.sleep(0)
+            return query
         return await self.querycache.aget((text, mode))
 
     @contextlib.asynccontextmanager

@@ -1,0 +1,11 @@
+---
+desc: Added a compiled binary format (stormbin) for Storm queries that enables pre-compiled
+  queries to skip parsing. Added ``$lib.storm.compile()`` and ``$lib.storm.decompile()``
+  stormlib functions. Compiled queries are accepted anywhere a Storm query string is
+  accepted, including the HTTP API via ``}`` prefix encoding. Added ``--compiled``
+  option to ``synapse.tools.storm.pkg.gen`` (genpkg) to pre-compile Storm queries when
+  building storm packages.
+desc:literal: false
+prs: []
+type: feat
+...
