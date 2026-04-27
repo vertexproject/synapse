@@ -1611,6 +1611,18 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(incunit, 'month')
                 self.eq(incval, 1)
 
+            # test hourly period with multiple minutes
+            msgs = await core.stormlist('cron.add --period hourly@:24,45 { $lib.print(multi_minute) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            multi_min_cron = [c for c in crons if c['query'] == '$lib.print(multi_minute)'][0]
+            self.len(2, multi_min_cron['recs'])
+            minutes = sorted(rec[0]['minute'] for rec in multi_min_cron['recs'])
+            self.eq(minutes, [24, 45])
+            for reqdict, incunit, incval in multi_min_cron['recs']:
+                self.eq(incunit, 'hour')
+                self.eq(incval, 1)
+
             # test hourly@00:MM period is equivalent to hourly@:MM
             msgs = await core.stormlist('cron.add --period hourly@00:25 { $lib.print(ok) }')
             self.stormHasNoWarnErr(msgs)
@@ -1713,6 +1725,7 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period hourly/2 { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add --period hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
                 ('cron.add --period hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add --period hourly@:24,newp { $lib.print(err) }', 'Invalid minute value'),
                 ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
                 ('cron.add --period monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),

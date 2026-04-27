@@ -105,6 +105,7 @@ Notes:
         - HH:MM (24-hour format, e.g., 14:30 for 2:30 PM)
         - HH (hour only, minute defaults to 0)
         - :MM (minute only, for hourly periods)
+        - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
     # Run every day at midnight UTC
@@ -118,6 +119,9 @@ Examples:
 
     # Run every hour at minute 25
     cron.add --period hourly@:25 { $lib.print(hourly) }
+
+    # Run every hour at minute 24 and minute 45
+    cron.add --period hourly@:24,45 { $lib.print(hourly) }
 
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add --period weekly/mon,wed@10:00 { $lib.print(weekly) }
