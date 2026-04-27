@@ -35,6 +35,9 @@ class StormCellTest(s_test.SynTest):
             self.nn(vers)
             self.eq(vers, s_stormlib_cell.getMaxHotFixes())
 
+            msgs = await core.stormlist('$lib.cell.hotFixesCheck()')
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
             msgs = await core.stormlist('$lib.cell.hotFixesApply()')
             self.len(0, [m for m in msgs if m[0] == 'print'])
 
