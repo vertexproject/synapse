@@ -184,10 +184,7 @@ class IPAddr(s_types.Type):
 
     async def _normPyTuple(self, valu, view=None):
 
-        if any((len(valu) != 2,
-                type(valu[0]) is not int,
-                type(valu[1]) is not int)):
-
+        if len(valu) != 2 or type(valu[0]) is not int or type(valu[1]) is not int:
             mesg = f'Invalid IP address tuple: {valu}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
