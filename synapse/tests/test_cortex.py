@@ -8426,7 +8426,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add a cron job and immediately disable it
                 q = '''
                 cron.add hourly@:00 {
-                    $now = $lib.cast(time, now)
+                    $now = $lib.cast(test:time, now)
                     $lib.log.warning(`SAFEMODE CRON: {$now}`)
                     [ test:str=CRON :tick=$now ]
                 } |
