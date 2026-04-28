@@ -695,6 +695,12 @@ modeldefs = (
             ('it:host:windows:group', ('it:host:group', {}), {
                 'doc': 'A Windows group on a host.'}),
 
+            ('it:host:account:member', ('guid', {}), {
+                'doc': 'A host account being a member of a host group during a period.'}),
+
+            ('it:host:group:member', ('guid', {}), {
+                'doc': 'A host group being a member of a parent host group during a period.'}),
+
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
                 'template': {'title': 'login'},
@@ -1632,9 +1638,6 @@ modeldefs = (
 
                 ('home', ('file:path', {}), {
                     'doc': "The path to the account's home directory."}),
-
-                ('groups', ('array', {'type': 'it:host:group'}), {
-                    'doc': 'Groups that the account is a member of.'}),
             )),
 
             ('it:host:posix:account', {}, (
@@ -1653,18 +1656,12 @@ modeldefs = (
                 ('shell', ('file:path', {}), {
                     'ex': '/bin/bash',
                     'doc': "The path to the account's default shell."}),
-
-                ('groups', ('array', {'type': 'it:host:posix:group'}), {
-                    'doc': 'POSIX groups that the account is a member of.'}),
             )),
 
             ('it:host:windows:account', {}, (
 
                 ('id', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the account.'}),
-
-                ('groups', ('array', {'type': 'it:host:windows:group'}), {
-                    'doc': 'Windows groups that the account is a member of.'}),
             )),
 
             ('it:host:group', {}, (
@@ -1683,9 +1680,6 @@ modeldefs = (
 
                 ('service:role', ('inet:service:role', {}), {
                     'doc': 'The optional service role which the local group maps to.'}),
-
-                ('groups', ('array', {'type': 'it:host:group'}), {
-                    'doc': 'Groups that are a member of this group.'}),
             )),
 
             ('it:host:posix:group', {}, (
@@ -1693,19 +1687,38 @@ modeldefs = (
                 ('id', ('it:os:posix:id', {}), {
                     'ex': '1001',
                     'doc': 'The POSIX ID of the group.'}),
-
-                ('groups', ('array', {'type': 'it:host:posix:group'}), {
-                    'doc': 'POSIX groups that are a member of this group.'}),
             )),
 
             ('it:host:windows:group', {}, (
 
                 ('id', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
-
-                ('groups', ('array', {'type': 'it:host:windows:group'}), {
-                    'doc': 'Windows groups that are a member of this group.'}),
             )),
+
+            ('it:host:account:member', {}, (
+
+                ('account', ('it:host:account', {}), {
+                    'doc': 'The account that was a member of the group.'}),
+
+                ('group', ('it:host:group', {}), {
+                    'doc': 'The group that the account was a member of.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period where the account was a member of the group.'}),
+            )),
+
+            ('it:host:group:member', {}, (
+
+                ('member', ('it:host:group', {}), {
+                    'doc': 'The child group that was a member of the parent group.'}),
+
+                ('group', ('it:host:group', {}), {
+                    'doc': 'The parent group.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period where the child group was a member of the parent group.'}),
+            )),
+
             ('it:host:login', {}, (
 
                 ('server:host', ('it:host', {}), {
