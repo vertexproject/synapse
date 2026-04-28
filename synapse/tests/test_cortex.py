@@ -823,13 +823,13 @@ class CortexTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('for $edge in $lib.view.get().getEdges() { $lib.print($edge) }')
             self.stormIsInPrint('refs', msgs)
-            self.stormIsInPrint(ip.iden(), msgs)
-            self.stormIsInPrint(news.iden(), msgs)
+            self.stormIsInPrint(str(ip.intnid()), msgs)
+            self.stormIsInPrint(str(news.intnid()), msgs)
 
             msgs = await core.stormlist('for $edge in $lib.view.get().getEdges(verb=refs) { $lib.print($edge) }')
             self.stormIsInPrint('refs', msgs)
-            self.stormIsInPrint(ip.iden(), msgs)
-            self.stormIsInPrint(news.iden(), msgs)
+            self.stormIsInPrint(str(ip.intnid()), msgs)
+            self.stormIsInPrint(str(news.intnid()), msgs)
 
             # delete an edge that doesn't exist to bounce off the layer
             await core.nodes('test:guid [ -(refs)> { [ inet:ip=5.5.5.5 ] } ]')
@@ -2090,28 +2090,25 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
-            # Seed nodes in the query with idens
-            opts = {'idens': (s_common.ehex(s_common.buid(('test:str', 'foo bar'))),)}
+            # Seed nodes in the query with nids
+            foobar = (await core.nodes('test:str="foo bar"'))[0]
+            opts = {'nids': (foobar.intnid(),)}
             nodes = await core.nodes('', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo bar'))
 
-            # Seed nodes in the query invalid idens
-            opts = {'idens': ('deadb33f',)}
-            with self.raises(s_exc.NoSuchIden):
+            # Seed nodes in the query invalid nids
+            opts = {'nids': ('deadb33f',)}
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('', opts=opts)
 
-            opts = {'idens': (None,)}
-            with self.raises(s_exc.NoSuchIden):
+            opts = {'nids': (None,)}
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('', opts=opts)
 
-            opts = {'idens': (True,)}
-            with self.raises(s_exc.NoSuchIden):
-                await core.nodes('', opts=opts)
-
-            opts = {'idens': (None,)}
+            opts = {'nids': (None,)}
             msgs = await core.stormlist('', opts=opts)
-            self.stormIsInErr('Iden must be 64 hex digits', msgs)
+            self.stormIsInErr('Node IDs must be integers', msgs)
 
             # init / fini messages contain tick/tock/took/count information
             msgs = await core.stormlist('{}')
@@ -2254,14 +2251,14 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantDelNode):
                 await tagnode.delete()
 
-            buid = tstr.buid
+            nid = tstr.intnid()
             await tstr.delete()
 
             self.true(data.get('prop:del'))
             self.true(data.get('node:del'))
 
             self.len(0, await core.nodes('test:str=baz'))
-            self.len(0, await core.nodes('iden $valu', opts={'vars': {'valu': s_common.ehex(buid)}}))
+            self.len(0, await core.nodes('', opts={'nids': (nid,)}))
             self.len(0, await core.nodes('test:str:tick'))
 
     async def test_pivot_inout(self):
@@ -4638,7 +4635,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
             pack = node2.pack()
-            pack[1]['edges'] = (('refs', node1.iden()), )
+            pack[1]['edges'] = (('refs', node1.ndef), )
             podes.append(pack)
 
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
@@ -4695,7 +4692,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
-            data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
+            data = [(('test:str', 'beef'), {'edges': [('badverb', {})]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
@@ -7033,7 +7030,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(2, news[1]['tagprops'])
                 self.eq(news[1]['tagprops'], {'visi': {'file': '/foo/bar/baz'}, 'visi.woot': {'rank': 1}})
                 self.len(1, news[1]['edges'])
-                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+                self.eq(news[1]['edges'][0], ('refs', ('inet:email', 'visi@vertex.link')))
 
                 # concat the bytes and add back to the axon
                 byts = b''.join(s_msgpack.en(p) for p in podes)
@@ -7092,7 +7089,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(email[1]['tags'].get('foo'))
                 self.nn(email[1]['tags'].get('foo.bar'))
                 self.len(1, news[1]['edges'])
-                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+                self.eq(news[1]['edges'][0], ('refs', ('inet:email', 'visi@vertex.link')))
 
                 body = {'query': 'inet:ip=asdfasdf'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)

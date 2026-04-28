@@ -896,6 +896,21 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(node2, node)
             self.nn(node2.get('hehe'))
 
+            # addNodes with an invalid edge verb to an existing n2 node (covers edge error logging)
+            await view.addNode('inet:fqdn', 'vertex.link')
+            ndefs = (
+                (('test:str', 'edgetest1'), {'edges': (('_badverb', ('inet:fqdn', 'vertex.link')),)}),
+            )
+            result = await alist(view.addNodes(ndefs))
+            self.len(1, result)
+
+            # addNodes with an invalid edge verb to a non-existent n2 node (covers n2adds error logging)
+            ndefs = (
+                (('test:str', 'edgetest2'), {'edges': (('_badverb', ('inet:fqdn', 'newp.link')),)}),
+            )
+            result = await alist(view.addNodes(ndefs))
+            self.len(1, result)
+
     async def test_addNodesAuto(self):
         '''
         Secondary props that are forms when set make nodes
@@ -1242,7 +1257,7 @@ class ViewTest(s_t_utils.SynTest):
                 fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
                 news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
-                self.true(s_common.isbuidhex(fqdn.iden()))
+                self.nn(fqdn.ndef)
 
                 self.false(await news.addEdge('refs', fqdn.nid))
                 self.len(0, editor.getNodeEdits())
@@ -1300,6 +1315,16 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('test:guid -(_pwns)> *'))
 
+            # test protonode flushEdits for a new node (node=None path)
+            async with core.view.getEditor() as editor:
+                newnode = await editor.addNode('test:str', 'flushtest')
+                self.none(newnode.node)
+                await newnode.set('tick', '2020')
+                await newnode.flushEdits()
+                self.nn(newnode.node)
+
+            self.len(1, await core.nodes('test:str=flushtest'))
+
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
@@ -1327,7 +1352,7 @@ class ViewTest(s_t_utils.SynTest):
             n2nid = n2node.nid
 
             async with view2.getEditor() as editor:
-                node = await editor.getNodeByBuid(nodes[0].buid)
+                node = await editor.getNodeByNdef(nodes[0].ndef)
                 self.true(await node.delEdge('_foo', n2nid))
                 self.true(await node.addEdge('_foo', n2nid))
                 self.true(await node.delEdge('_foo', n2nid))
@@ -1363,7 +1388,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
             async with view2.getEditor() as editor:
-                node = await editor.getNodeByBuid(nodes[0].buid)
+                node = await editor.getNodeByNdef(nodes[0].ndef)
                 self.false(await node.delEdge('_foo', n2nid))
                 await node.delEdgesN2()
 
@@ -1707,8 +1732,7 @@ class ViewTest(s_t_utils.SynTest):
 
             # Ensure the node is in the view's livenodes cache
             view = core.getView()
-            buid = s_common.buid(('inet:fqdn', 'vertex.link'))
-            nid = core.getNidByBuid(buid)
+            nid = core.getNidByNdef(('inet:fqdn', 'vertex.link'))
             self.nn(nid)
             self.isin(nid, view.livenodes)
 

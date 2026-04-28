@@ -2542,7 +2542,7 @@ class View(s_nexus.Pusher):  # type: ignore
         async with self.getEditor(user=user, transaction=True) as editor:
             node = await editor.addNode(form, valu, props=props, norminfo=norminfo)
 
-        return await self.getNodeByBuid(node.buid)
+        return await self.getNodeByNdef(node.ndef)
 
     async def addNodes(self, nodedefs, user=None):
         '''
@@ -2584,8 +2584,6 @@ class View(s_nexus.Pusher):  # type: ignore
             await asyncio.sleep(0)
 
     async def _addNodeDef(self, nodedefn, user, runt=None):
-
-        n2buids = set()
 
         (formname, formvalu), forminfo = nodedefn
 
@@ -2660,9 +2658,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if (edges := forminfo.get('edges')) is not None:
                 n2adds = []
-                for verb, n2iden in edges:
-                    if isinstance(n2iden, (tuple, list)):
-                        (n2formname, n2valu) = n2iden
+                for verb, n2dest in edges:
+                    if isinstance(n2dest, (tuple, list)):
+                        (n2formname, n2valu) = n2dest
                         n2form = self.core.model.form(n2formname)
                         if n2form is None:
                             continue
@@ -2672,16 +2670,12 @@ class View(s_nexus.Pusher):  # type: ignore
                         except s_exc.BadTypeValu as e:
                             continue
 
-                        n2buid = s_common.buid((n2formname, n2valu))
-                        n2nid = self.core.getNidByBuid(n2buid)
+                        n2ndef = (n2formname, n2valu)
+                        n2nid = self.core.getNidByNdef(n2ndef)
                         if n2nid is None:
-                            n2adds.append((n2iden, verb, n2buid))
+                            n2adds.append((n2ndef, verb))
                             continue
 
-                    elif isinstance(n2iden, str) and s_common.isbuidhex(n2iden):
-                        n2nid = self.core.getNidByBuid(s_common.uhex(n2iden))
-                        if n2nid is None:
-                            continue
                     else:
                         continue
 
@@ -2691,11 +2685,11 @@ class View(s_nexus.Pusher):  # type: ignore
                         if runt is not None:
                             await runt.warn(str(e))
 
-                        logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
+                        logger.exception(f'Error adding edge -({verb})> {n2dest} to node {formname}={formvalu}')
 
                 if n2adds:
                     async with self.getEditor() as n2editor:
-                        for (n2ndef, verb, n2buid) in n2adds:
+                        for (n2ndef, verb) in n2adds:
                             try:
                                 await n2editor.addNode(*n2ndef)
                             except Exception as e:
@@ -2705,17 +2699,17 @@ class View(s_nexus.Pusher):  # type: ignore
                                 n2form, n2valu = n2ndef
                                 logger.exception(f'Error adding node {n2form}={n2valu}')
 
-                    for (n2ndef, verb, n2buid) in n2adds:
-                        if (nid := self.core.getNidByBuid(n2buid)) is not None:
+                    for (n2ndef, verb) in n2adds:
+                        if (nid := self.core.getNidByNdef(n2ndef)) is not None:
                             try:
                                 await protonode.addEdge(verb, nid, n2form=n2ndef[0])
                             except Exception as e:
                                 if runt is not None:
                                     await runt.warn(str(e))
 
-                                logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
+                                logger.exception(f'Error adding edge -({verb})> {n2ndef} to node {formname}={formvalu}')
 
-        return await self.getNodeByBuid(protonode.buid)
+        return await self.getNodeByNdef(protonode.ndef)
 
     async def getPropAltCount(self, prop, valu):
         # valu must be normalized in advance
@@ -2746,11 +2740,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _getTagNode(self, tagnorm):
 
-        tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', tagnorm)))
+        tagnode = await self.getNodeByNdef(('syn:tag', tagnorm))
         if tagnode is not None:
             isnow = tagnode.get('isnow')
             while isnow is not None:
-                tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', isnow[1])))
+                tagnode = await self.getNodeByNdef(('syn:tag', isnow[1]))
                 isnow = tagnode.get('isnow')
 
         if tagnode is None:
@@ -2758,27 +2752,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return tagnode
 
-    async def getNodeByBuid(self, buid, tombs=False):
-        '''
-        Retrieve a node tuple by binary id.
-
-        Args:
-            buid (bytes): The binary ID for the node.
-
-        Returns:
-            Optional[s_node.Node]: The node object or None.
-
-        '''
-        nid = self.core.getNidByBuid(buid)
-        if nid is None:
-            return None
-
-        return await self._joinStorNode(nid, tombs=tombs)
-
     async def getNodeByNid(self, nid, tombs=False):
         return await self._joinStorNode(nid, tombs=tombs)
 
-    async def getNodeByNdef(self, ndef):
+    async def getNodeByNdef(self, ndef, tombs=False):
         '''
         Return a single Node by (form,valu) tuple.
 
@@ -2789,8 +2766,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             (synapse.lib.node.Node): The Node or None.
         '''
-        buid = s_common.buid(ndef)
-        return await self.getNodeByBuid(buid)
+        if (nid := self.core.getNidByNdef(ndef)) is not None:
+            return await self._joinStorNode(nid, tombs=tombs)
 
     async def _joinStorNode(self, nid, tombs=False):
 

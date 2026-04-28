@@ -193,9 +193,6 @@ class Node(NodeBase):
         self.nid = nid
         self.ndef = ndef
 
-        # TODO should we get this from somewhere?
-        self.buid = s_common.buid(ndef)
-
         # must hang on to these to keep the weakrefs alive
         self.soderefs = soderefs
 
@@ -308,9 +305,6 @@ class Node(NodeBase):
             return False
         return True
 
-    def iden(self):
-        return s_common.ehex(self.buid)
-
     def intnid(self):
         return s_common.int64un(self.nid)
 
@@ -329,7 +323,6 @@ class Node(NodeBase):
 
         pode = (self.ndef, {
             'nid': s_common.int64un(self.nid),
-            'iden': self.iden(),
             'meta': self.getMetaDict(),
             'tags': self._getTagsDict(),
             'props': self.getProps(virts=virts),
@@ -423,10 +416,13 @@ class Node(NodeBase):
             if not prop.type.hasforms:
                 return None
 
-            buid = s_common.buid(valu)
-            step = cache.get(buid, s_common.novalu)
+            nid = node.view.core.getNidByNdef(valu)
+            if nid is None:
+                return None
+
+            step = cache.get(nid, s_common.novalu)
             if step is s_common.novalu:
-                step = cache[buid] = await node.view.getNodeByBuid(buid)
+                step = cache[nid] = await node.view.getNodeByNid(nid)
 
             return step
 
@@ -1255,7 +1251,7 @@ class Node(NodeBase):
 
                 async for _ in self.view.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
-                    raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
+                    raise s_exc.CantDelNode(mesg=mesg, form=formname, ndef=self.ndef)
 
             async for refr in self.view.nodesByPropTypeValu(self.form.formtypes[0], formvalu):
 
@@ -1263,7 +1259,7 @@ class Node(NodeBase):
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
-                raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, ndef=self.ndef)
 
             async for edge in self.iterEdgesN2():
 
@@ -1271,7 +1267,7 @@ class Node(NodeBase):
                     continue
 
                 mesg = 'Other nodes still have light edges to this node.'
-                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=formname, ndef=self.ndef)
 
         async with self.view.getNodeEditor(self) as protonode:
             await protonode.delete()
@@ -1309,7 +1305,6 @@ class RuntNode(NodeBase):
         self.view = view
         self.ndef = pode[0]
         self.pode = pode
-        self.buid = s_common.buid(self.ndef)
         self.form = view.core.model.form(self.ndef[0])
 
         self.nid = nid
@@ -1322,9 +1317,6 @@ class RuntNode(NodeBase):
 
     def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
-
-    def iden(self):
-        return s_common.ehex(s_common.buid(self.ndef))
 
     def intnid(self):
         if self.nid is None:
@@ -1617,18 +1609,6 @@ def ndef(pode):
         ((str,obj)):    The (<form>,<valu>) tuple for the node
     '''
     return pode[0]
-
-def iden(pode):
-    '''
-    Return the iden (buid) of the packed node.
-
-    Args:
-        pode (tuple): A packed node.
-
-    Returns:
-        str: The node iden.
-    '''
-    return pode[1].get('iden')
 
 def reprNdef(pode):
     '''

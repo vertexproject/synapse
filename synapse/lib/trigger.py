@@ -145,9 +145,11 @@ class Triggers:
     async def runEdgeAdd(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2ndef[0] if n2ndef else None
-        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+        n2nid = self.view.core.getNidByNdef(n2ndef) if n2ndef else None
+        if n2nid is not None:
+            n2nid = s_common.int64un(n2nid)
 
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2nid': n2nid, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgeaddcache.get(cachekey)
@@ -196,9 +198,11 @@ class Triggers:
     async def runEdgeDel(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2ndef[0] if n2ndef else None
-        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+        n2nid = self.view.core.getNidByNdef(n2ndef) if n2ndef else None
+        if n2nid is not None:
+            n2nid = s_common.int64un(n2nid)
 
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2nid': n2nid, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgedelcache.get(cachekey)

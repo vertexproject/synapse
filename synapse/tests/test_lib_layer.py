@@ -770,6 +770,25 @@ class LayerTest(s_t_utils.SynTest):
             self.nn(etime)
             self.gt(etime, s_time.parse('2020-01-01'))
 
+            # test remoteToLocalEdits with a non-node-add first edit for an unknown node
+            rnodeedits = [
+                ('test:str', 'remotenewp', [(s_layer.EDIT_PROP_SET, ('tick', 0, s_layer.STOR_TYPE_I64, None))]),
+            ]
+            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            self.len(1, ledits)
+            self.nn(ledits[0][0])
+
+            # test remoteToLocalEdits with an edge edit referencing an existing n2 node
+            rnodeedits = [
+                ('test:str', 'remotenewp2', [
+                    (s_layer.EDIT_NODE_ADD, (1, s_layer.STOR_TYPE_UTF8, None)),
+                    (s_layer.EDIT_EDGE_ADD, ('refs', ('test:str', 'foo'))),
+                ]),
+            ]
+            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            self.len(1, ledits)
+            self.len(2, ledits[0][2])
+
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
 
@@ -883,7 +902,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(addq)
             self.len(1, nodes)
-            nodeiden = nodes[0].iden()
+            nodeiden = nodes[0].nid
 
             self.false(await core.callStorm('[ test:str=newp ] return($node.data.has(foodata))'))
 
@@ -1366,7 +1385,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
-            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden) { $lib.print($edge."-1") }'
+            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.nid) { $lib.print($edge."-1") }'
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
@@ -1491,9 +1510,9 @@ class LayerTest(s_t_utils.SynTest):
             self.false(0, await node.hasData('foodata'))
             self.none(await core.callStorm('inet:ip=1.2.3.4 return($node.data.pop(foodata))', opts=viewopts3))
 
-            randbuid = s_common.buid('newp')
-            self.false((await view3.layers[0].hasNodeData(randbuid, 'foodata')))
-            self.false((await view3.layers[0].getNodeData(randbuid, 'foodata'))[0])
+            randnid = s_common.int64en(0xdeadbeefcafe)
+            self.false((await view3.layers[0].hasNodeData(randnid, 'foodata')))
+            self.false((await view3.layers[0].getNodeData(randnid, 'foodata'))[0])
 
             self.len(0, await alist(view3.getEdges()))
             self.len(0, await alist(view3.layers[1].getEdgeVerbs()))
@@ -2625,7 +2644,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:server.ip=127.0.0.4', opts=viewopts2))
             self.len(1, await core.nodes('inet:server.ip=127.0.0.4'))
 
-            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            node = await view2.getNodeByNdef(nodes[0].ndef, tombs=True)
             self.none(node.valu(getr='foo'))
             self.none(node.valuvirts())
 
@@ -2637,7 +2656,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo :seen=now ]', opts=viewopts2)
             await core.nodes('test:str=foo | delnode')
 
-            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            node = await view2.getNodeByNdef(nodes[0].ndef, tombs=True)
             self.none(node.valu(getr='foo'))
 
             with self.raises(s_exc.NoSuchCmpr):
@@ -2775,7 +2794,7 @@ class LayerTest(s_t_utils.SynTest):
             infork00 = {'view': fork00['iden']}
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
-            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden)')
+            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.nid)')
 
             sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ip'))
             self.len(0, sodes)
@@ -2991,7 +3010,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:guid:_custom:risk:severity')
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), testnode00[1]['iden'])
+            self.eq(nodes[0].ndef, testnode00[0])
             self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][1])
             self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'][1])
 

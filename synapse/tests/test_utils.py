@@ -219,8 +219,8 @@ class TestUtils(s_t_utils.SynTest):
             msgs = await core.stormlist('[test:str=1234] | count')
             self.stormIsInPrint('Counted 1 nodes.', msgs)
 
-            msgs = await core.stormlist('iden newp')
-            self.stormIsInWarn('Failed to decode iden', msgs)
+            msgs = await core.stormlist('$lib.warn("test warning message")')
+            self.stormIsInWarn('test warning message', msgs)
 
             msgs = await core.stormlist('[test:str=')
             self.stormIsInErr("Unexpected token 'end of input'", msgs)

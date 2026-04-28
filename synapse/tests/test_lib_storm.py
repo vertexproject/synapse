@@ -785,7 +785,7 @@ class StormTest(s_t_utils.SynTest):
                         'storm': '''
                             function lol() {
                                 [ ou:org=* ]
-                                return($node.iden)
+                                return($node.nid)
                             }
                             function dyncall() {
                                 return($lib.queue.list())
@@ -799,7 +799,7 @@ class StormTest(s_t_utils.SynTest):
                     },
                     {
                         'name': 'foo.baz',
-                        'storm': 'function lol() { [ ou:org=* ] return($node.iden) }',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.nid) }',
                     },
                 )
             }
@@ -993,19 +993,21 @@ class StormTest(s_t_utils.SynTest):
             self.eq(bylayer['tagprops']['foo']['score'], layr)
             self.ne(bylayer['tagprops']['bar']['score'], layr)
 
+            ipnid = nodes[0].nid
+
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
-            self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
-            self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
-            self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
-            self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             await core.callStorm('inet:ip=11.22.33.44 | merge --apply', opts=opts)
             nodes = await core.nodes('inet:ip=11.22.33.44')
@@ -1038,14 +1040,16 @@ class StormTest(s_t_utils.SynTest):
                 await waiter.wait(timeout=12)
 
             waiter = real_layer.layrslab.waiter(1, 'commit')
-            msgs = await core.stormlist('[ inet:fqdn=mvmnasde.com ] | merge', opts=opts)
+            nodes = await core.nodes('[ inet:fqdn=mvmnasde.com ]', opts=opts)
+            fqdnnid = nodes[0].nid
+            msgs = await core.stormlist('inet:fqdn=mvmnasde.com | merge', opts=opts)
 
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn = mvmnasde.com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:host = mvmnasde', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:domain = com', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:issuffix = false', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:iszone = true', msgs)
+            self.stormIsInPrint(f'{fqdnnid} inet:fqdn:zone = mvmnasde.com', msgs)
 
             # Ensure that the layer has sync()'d to avoid getting data from
             # dirty sodes in the merge --diff tests.
@@ -1062,8 +1066,8 @@ class StormTest(s_t_utils.SynTest):
 
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
-                for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
-                    yield $buid
+                for ($nid, $sode) in $lib.view.get().layers.0.getStorNodes() {
+                    yield $nid
                 }
                 | merge --apply
             ''', opts=opts)
@@ -1825,7 +1829,7 @@ class StormTest(s_t_utils.SynTest):
             $node.data.set(foo, bar)
             '''
             nodes = await core.nodes(q)
-            nodeiden = nodes[0].iden()
+            nodeiden = nodes[0].nid
 
             msgs = await core.stormlist('ou:org | movenodes', opts=view2)
             self.stormHasNoWarnErr(msgs)
@@ -2009,6 +2013,14 @@ class StormTest(s_t_utils.SynTest):
             await nodes[0].getEmbeds({'asn::newp': {}})
             await nodes[0].getEmbeds({'newp::newp': {}})
             await nodes[0].getEmbeds({'asn::name::foo': {}})
+
+            # getEmbeds with an ndef that has no nid mapping
+            node = nodes[0]
+            save = node.sodes[0]['props']['asn']
+            node.sodes[0]['props']['asn'] = (('inet:asn', (4, 999)), 0)
+            embd = await node.getEmbeds({'asn': {}})
+            self.eq(embd, {})
+            node.sodes[0]['props']['asn'] = save
 
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('owner:name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
@@ -3279,7 +3291,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('movetag foo.bar duck.knight')
 
             # Runtsafety test
-            q = '[ test:str=hehe ]  | movetag $node.iden haha'
+            q = '[ test:str=hehe ]  | movetag $node.ndef haha'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_spin(self):
@@ -3398,33 +3410,6 @@ class StormTest(s_t_utils.SynTest):
             # but still, no time means if it's ever been done
             self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
             self.len(0, await core.nodes('test:str $node.data.set(once:beep, ({})) | once beep'))
-
-    async def test_storm_iden(self):
-        async with self.getTestCore() as core:
-            q = "[test:str=beep test:str=boop]"
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            idens = [node.iden() for node in nodes]
-
-            iq = ' '.join(idens)
-            # Demonstrate the iden lift does pass through previous nodes in the pipeline
-            nodes = await core.nodes(f'[test:str=hehe] | iden {iq}')
-            self.len(3, nodes)
-
-            with self.getLoggerStream('synapse.lib.storm') as stream:
-
-                self.len(0, await core.nodes('iden newp'))
-                await stream.expect('Failed to decode iden', timeout=1)
-
-                stream.clear()
-
-                self.len(0, await core.nodes('iden deadb33f'))
-                await stream.expect('iden must be 32 bytes', timeout=1)
-
-            # Runtsafety test
-            q = 'test:str=hehe | iden $node.iden'
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes(q)
 
     async def test_minmax(self):
 
@@ -3944,26 +3929,18 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
 
-            buid0 = nodes[0].buid
-            iden0 = s_common.ehex(buid0)
+            nid0 = nodes[0].intnid()
 
-            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
+            # yield by nid
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': nid0}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             def genr():
-                yield iden0
+                yield nid0
 
             async def agenr():
-                yield iden0
-
-            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-
-            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': buid0}})
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+                yield nid0
 
             nodes = await core.nodes('yield $foo', opts={'vars': {'foo': genr()}})
             self.len(1, nodes)
@@ -4015,12 +3992,12 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
             self.stormIsInErr('Node is not from the current view.', msgs)
 
-            # Nodes lifted from another view and referred to by iden() works
+            # Nodes lifted from another view and referred to by nid works
             q = '''
             $nodes = ()
             view.exec $view { inet:ip=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
-                yield $n.iden
+                yield $n.nid
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
@@ -4030,13 +4007,13 @@ class StormTest(s_t_utils.SynTest):
             $nodes = ()
             view.exec $view { for $x in ${ inet:ip=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
-                yield $n.iden
+                yield $n.nid
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
-            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.iden }'
+            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.nid }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
@@ -5683,26 +5660,6 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint(exp, msgs)
 
-            q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [17,]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [2019,]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
-            self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [hostname]', msgs)
-
-            q = 'iden https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q --test=asdf'
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('Failed to decode iden: [https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [--test]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [asdf]', msgs)
-
-            q = 'iden 192[.]foo[.]bar'
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('Failed to decode iden: [192[.]foo[.]bar]', msgs)
-
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
             self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
@@ -5723,10 +5680,6 @@ class StormTest(s_t_utils.SynTest):
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)
-
-            q = 'iden ssl://svcrs:27492?certname=root=bar'
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)
 
             q = "$foo=one $bar=two $lib.print(`{$foo}={$bar}`)"
             msgs = await core.stormlist(q)

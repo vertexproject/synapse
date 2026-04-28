@@ -136,7 +136,7 @@ class ModelRev:
 
         logger.warning('...model migrations complete!')
 
-    async def _normPropValu(self, layers, propfull):
+    async def _normPropValu(self, layers, propfull):  # pragma: no cover
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
@@ -160,9 +160,9 @@ class ModelRev:
                         )),
                     )
                     oldm = e.errinfo.get('mesg')
-                    iden = s_common.ehex(self.core.getBuidByNid(nid))
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                   extra=self.core.getLogExtra(node=iden, layer=layr.iden))
+                    ndef = self.core.getNidNdef(nid)
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {ndef}): {oldm}',
+                                   extra=self.core.getLogExtra(node=ndef, layer=layr.iden))
                     continue
 
                 if norm == propvalu:

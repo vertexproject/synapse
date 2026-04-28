@@ -14,19 +14,19 @@ class SlabOffs:
 
     def get(self, iden):
 
-        buid = s_common.uhex(iden)
+        lkey = s_common.uhex(iden)
 
-        byts = self.slab.get(buid, db=self.db)
+        byts = self.slab.get(lkey, db=self.db)
         if byts is None:
             return 0
 
         return s_common.int64un(byts)
 
     def set(self, iden, offs):
-        buid = s_common.uhex(iden)
+        lkey = s_common.uhex(iden)
         byts = s_common.int64en(offs)
-        self.slab._put(buid, byts, db=self.db)
+        self.slab._put(lkey, byts, db=self.db)
 
     def delete(self, iden):
-        buid = s_common.uhex(iden)
-        self.slab.delete(buid, db=self.db)
+        lkey = s_common.uhex(iden)
+        self.slab.delete(lkey, db=self.db)

@@ -867,13 +867,8 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy(user='lowuser') as proxy:
                     await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
 
-            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
-
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             n1nid = nodes[0].intnid()
-            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(nodes[0]))
-            stormnode = s_stormtypes.Node(nodes[0])
-            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
 
             iden = await core.callStorm('return($lib.view.get().fork().iden)')
             opts = {'view': iden}
@@ -888,7 +883,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2
-                for $i in $lib.layer.get().getEdgesByN1($node.iden) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN1($node.nid) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq(expN1, edges)
@@ -896,7 +891,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2
-                for $i in $lib.layer.get().getEdgesByN1($node.iden, verb=refs) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN1($node.nid, verb=refs) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq(expN1, edges)
@@ -904,7 +899,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2
-                for $i in $lib.layer.get().getEdgesByN1($node.iden, verb=newp) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN1($node.nid, verb=newp) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq([], edges)
@@ -912,7 +907,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 inet:ip=1.2.3.4
-                for $i in $lib.layer.get().getEdgesByN2($node.iden) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN2($node.nid) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq(expN2, edges)
@@ -920,7 +915,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 inet:ip=1.2.3.4
-                for $i in $lib.layer.get().getEdgesByN2($node.iden, verb=refs) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN2($node.nid, verb=refs) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq(expN2, edges)
@@ -928,21 +923,21 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm('''
                 $edges = ([])
                 inet:ip=1.2.3.4
-                for $i in $lib.layer.get().getEdgesByN2($node.iden, verb=newp) { $edges.append($i) }
+                for $i in $lib.layer.get().getEdgesByN2($node.nid, verb=newp) { $edges.append($i) }
                 fini { return($edges) }
             ''')
             self.eq([], edges)
 
             ret = await core.callStorm('''
-                $n1 = { test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden) }
-                $n2 = { inet:ip=1.2.3.4 return($node.iden) }
+                $n1 = { test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.nid) }
+                $n2 = { inet:ip=1.2.3.4 return($node.nid) }
                 return($lib.layer.get().hasEdge($n1, refs, $n2))
             ''')
             self.true(ret)
 
             ret = await core.callStorm('''
-                $n1 = { test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden) }
-                $n2 = { inet:ip=1.2.3.4 return($node.iden) }
+                $n1 = { test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.nid) }
+                $n2 = { inet:ip=1.2.3.4 return($node.nid) }
                 return($lib.layer.get().hasEdge($n1, newp, $n2))
             ''')
             self.false(ret)
@@ -957,7 +952,7 @@ class StormTypesTest(s_test.SynTest):
             data = await core.callStorm('''
                 $data = ({})
                 inet:user=visi
-                for ($name, $valu, $tomb) in $lib.layer.get().getNodeData($node.iden) { $data.$name = $valu }
+                for ($name, $valu, $tomb) in $lib.layer.get().getNodeData($node.nid) { $data.$name = $valu }
                 return($data)
             ''')
             foo = data.get('foo')
@@ -1753,12 +1748,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
-            opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
-            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
-            self.eq(sode['form'], 'inet:ip')
-            self.eq(sode['valu'], ((4, 0x01020304), 26, None))
-
-            opts = {'user': visi.iden, 'vars': {'nid': s_common.int64un(nodes[0].nid)}}
+            opts = {'user': visi.iden, 'vars': {'nid': nodes[0].intnid()}}
             sode = await core.callStorm('return($lib.layer.get().getStorNode($nid))', opts=opts)
             self.eq(sode['form'], 'inet:ip')
             self.eq(sode['valu'], ((4, 0x01020304), 26, None))
@@ -1766,13 +1756,13 @@ class StormTypesTest(s_test.SynTest):
             # check auth deny...
             layriden = await core.callStorm('return($lib.view.get().fork().layers.0.iden)')
 
-            opts = {'user': visi.iden, 'vars': {'layriden': layriden, 'iden': nodes[0].iden()}}
+            opts = {'user': visi.iden, 'vars': {'layriden': layriden, 'nid': nodes[0].intnid()}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
+                await core.callStorm('return($lib.layer.get($layriden).getStorNode($nid))', opts=opts)
 
             # check perms the old way...
             await visi.addRule((True, ('layer', 'read')), gateiden=layriden)
-            await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
+            await core.callStorm('return($lib.layer.get($layriden).getStorNode($nid))', opts=opts)
 
     async def test_storm_layer_getstornodesbyprop(self):
         async with self.getTestCore() as core:
@@ -1870,7 +1860,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].repr(), 'foo')
             self.propeq(nodes[0], 'hehe', 'bar')
 
-            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden, test:str:hehe, baz)')
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.nid, test:str:hehe, baz)')
             self.stormHasNoWarnErr(msgs)
 
             nodes = await core.nodes('test:str')
@@ -1881,13 +1871,13 @@ class StormTypesTest(s_test.SynTest):
             # no test:str:newp prop
             q = '''
                 [ test:str=foobar00 ]
-                $lib.layer.get().setStorNodeProp($node.iden, test:str:newp, bar00)
+                $lib.layer.get().setStorNodeProp($node.nid, test:str:newp, bar00)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('No property named test:str:newp.', msgs)
 
             # Bad type
-            msgs = await core.stormlist('[ test:str=foobar01 ] $lib.layer.get().setStorNodeProp($node.iden, test:str:tick, newp)')
+            msgs = await core.stormlist('[ test:str=foobar01 ] $lib.layer.get().setStorNodeProp($node.nid, test:str:tick, newp)')
             self.stormIsInErr('Unknown time format for newp', msgs)
 
             # insufficient perms
@@ -1896,7 +1886,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 [ test:str=foobar02 ]
-                $lib.layer.get().setStorNodeProp($node.iden, test:str:hehe, baz02)
+                $lib.layer.get().setStorNodeProp($node.nid, test:str:hehe, baz02)
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('setStorNodeProp() requires admin privileges.', msgs)
@@ -1904,7 +1894,7 @@ class StormTypesTest(s_test.SynTest):
             # readonly layer
             layer = core.view.layers[0]
             await layer.setLayerInfo('readonly', True)
-            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden, test:str:hehe, baz)')
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.nid, test:str:hehe, baz)')
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
     async def test_storm_layer_delstornode(self):
@@ -1929,12 +1919,12 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            opts = {'vars': {'iden': nodes[0].iden()}}
+            opts = {'vars': {'nid': nodes[0].intnid()}}
             created = nodes[0].get('.created')
             updated = nodes[0].get('.updated')
             foobar = nodes[0].get('#foo.bar')
 
-            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($nid))', opts=opts)
             self.eq(sode, {
                 'form': 'test:str',
                 'meta': {'created': (created, 21), 'updated': (updated, 11)},
@@ -1955,15 +1945,15 @@ class StormTypesTest(s_test.SynTest):
                 'valu': ('foo', 1, None)
             })
 
-            msgs = await core.stormlist('$lib.layer.get().delStorNode($iden)', opts=opts)
+            msgs = await core.stormlist('$lib.layer.get().delStorNode($nid)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($nid))', opts=opts)
             self.eq(sode, {})
 
             q = '''
                 $data = ([])
-                for $item in $lib.layer.get().getNodeData($iden) {
+                for $item in $lib.layer.get().getNodeData($nid) {
                     $data.append($item)
                 }
                 return($data)
@@ -1973,10 +1963,10 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $edges = ([])
-                for $edge in $lib.layer.get().getEdgesByN1($iden) {
+                for $edge in $lib.layer.get().getEdgesByN1($nid) {
                     $edges.append($edge)
                 }
-                for $edge in $lib.layer.get().getEdgesByN2($iden) {
+                for $edge in $lib.layer.get().getEdgesByN2($nid) {
                     $edges.append($edge)
                 }
                 return($edges)
@@ -1984,7 +1974,7 @@ class StormTypesTest(s_test.SynTest):
             edges = await core.callStorm(q, opts=opts)
             self.len(0, edges)
 
-            self.false(await core.callStorm('return($lib.layer.get().delStorNode($iden))', opts=opts))
+            self.false(await core.callStorm('return($lib.layer.get().delStorNode($nid))', opts=opts))
 
             # insufficient perms
             lowuser = await core.auth.addUser('lowuser')
@@ -1992,7 +1982,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 [ test:str=foobar02 ]
-                $lib.layer.get().delStorNode($node.iden)
+                $lib.layer.get().delStorNode($node.nid)
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('delStorNode() requires admin privileges.', msgs)
@@ -2003,7 +1993,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].repr(), 'foobar')
             layer = core.view.layers[0]
             await layer.setLayerInfo('readonly', True)
-            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($node.iden)')
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($node.nid)')
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
     async def test_storm_layer_delstornodeprop(self):
@@ -2013,7 +2003,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].repr(), 'foo')
             self.propeq(nodes[0], 'hehe', 'bar')
 
-            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden, test:str:hehe)')
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.nid, test:str:hehe)')
             self.stormHasNoWarnErr(msgs)
 
             nodes = await core.nodes('test:str')
@@ -2024,7 +2014,7 @@ class StormTypesTest(s_test.SynTest):
             # no test:str:newp prop
             q = '''
                 [ test:str=foobar00 ]
-                $lib.layer.get().delStorNodeProp($node.iden, test:str:newp)
+                $lib.layer.get().delStorNodeProp($node.nid, test:str:newp)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('No property named test:str:newp.', msgs)
@@ -2035,7 +2025,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 [ test:str=foobar02 ]
-                $lib.layer.get().delStorNodeProp($node.iden, test:str:hehe)
+                $lib.layer.get().delStorNodeProp($node.nid, test:str:hehe)
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('delStorNodeProp() requires admin privileges.', msgs)
@@ -2043,7 +2033,7 @@ class StormTypesTest(s_test.SynTest):
             # Readonly layer
             layer = core.view.layers[0]
             await layer.setLayerInfo('readonly', True)
-            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden, test:str:hehe)')
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.nid, test:str:hehe)')
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
     async def test_storm_layer_delnodedata(self):
@@ -6024,17 +6014,13 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ test:int=10 test:str=$node.iden ] +test:str')
-            iden = s_common.ehex(s_common.buid(('test:int', 10)))
-            self.eq(nodes[0].ndef, ('test:str', iden))
-            self.len(1, nodes)
+            nid = await core.callStorm('[ test:int=10 ] return($node.nid)')
+            self.isinstance(nid, int)
 
-            # gtor attributes: $node.form, $node.iden, $node.ndef, $node.value, $node.nid
+            # gtor attributes: $node.form, $node.ndef, $node.value, $node.nid
             self.eq('test:int', await core.callStorm('[ test:int=42 ] return($node.form)'))
             self.eq(('test:int', 42), await core.callStorm('[ test:int=42 ] return($node.ndef)'))
             self.eq(42, await core.callStorm('[ test:int=42 ] return($node.value)'))
-            iden42 = s_common.ehex(s_common.buid(('test:int', 42)))
-            self.eq(iden42, await core.callStorm('[ test:int=42 ] return($node.iden)'))
 
             # $node.nid returns an integer node id (or null for runt nodes without one)
             nid42 = await core.callStorm('[ test:int=42 ] return($node.nid)')
@@ -6042,8 +6028,6 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('syn:form=test:int return($node.nid)'))
 
             # old method-call form raises — returned value is not callable
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('[ test:int=42 ] return($node.iden())')
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('[ test:int=42 ] return($node.form())')
             with self.raises(s_exc.StormRuntimeError):
@@ -6125,74 +6109,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'foo': 'bar'}, await core.callStorm('$dict = ({}) $dict.foo = bar return($dict)'))
             q = '$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'
             self.eq({'foo': 2}, await core.callStorm(q))
-
-    async def test_stormtypes_tobuid(self):
-        async with self.getTestCore() as core:
-
-            buid = s_common.buid(('test:str', 'foobar'))
-            sode = (
-                buid,
-                {
-                    'ndef': ('test:str', 'foobar'),
-                }
-            )
-
-            node = (await core.nodes('[test:str=foobar]'))[0]
-            snode = s_stormtypes.Node(node)
-
-            self.eq(await s_stormtypes.tobuid(node), buid)
-            self.eq(await s_stormtypes.tobuid(snode), buid)
-
-            self.eq(await s_stormtypes.tobuid(buid.hex()), buid)
-            self.eq(await s_stormtypes.tobuid(buid), buid)
-
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuid('newp')
-            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
-
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuid([])
-            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
-
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuid(b'newp')
-            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
-
-    async def test_stormtypes_tobuidhex(self):
-        async with self.getTestCore() as core:
-
-            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
-
-            buid = s_common.buid(('test:str', 'foobar'))
-            buidhex = s_common.ehex(buid)
-            sode = (
-                buid,
-                {
-                    'ndef': ('test:str', 'foobar'),
-                }
-            )
-
-            node = (await core.nodes('[test:str=foobar]'))[0]
-            snode = s_stormtypes.Node(node)
-
-            self.eq(await s_stormtypes.tobuidhex(node), buidhex)
-            self.eq(await s_stormtypes.tobuidhex(snode), buidhex)
-
-            self.eq(await s_stormtypes.tobuidhex(buidhex), buidhex)
-            self.eq(await s_stormtypes.tobuidhex(buid), buidhex)
-
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuidhex('newp')
-            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
-
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuidhex([])
-            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
-
-            newp = b'newp'
-            with self.raises(s_exc.BadCast) as exc:
-                await s_stormtypes.tobuidhex(newp)
-            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
 
     async def test_print_warn(self):
         async with self.getTestCore() as core:
@@ -6762,7 +6678,7 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm('$x=$lib.set() $y=({"foo": "1", "bar": "2"}) $x.adds($y) return($x)')
             self.eq({('foo', '1'), ('bar', '2')}, ret)
 
-            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ip}) for $n in $x { yield $n.iden }')
+            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ip}) for $n in $x { yield $n }')
             self.len(2, ret)
 
             ret = await core.callStorm('$x=$lib.set() $x.adds((1,2,3)) return($x)')
@@ -7170,98 +7086,108 @@ words\tword\twrd'''
 
         async with self.getTestCore() as core:
 
-            iden = await core.callStorm('[ ou:industry=* ] return($node.iden)')
+            nid = await core.callStorm('[ ou:industry=* ] return($node.nid)')
 
-            opts = {'vars': {'iden': iden}}
+            opts = {'vars': {'nid': nid}}
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.addEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
-            self.eq(nodes[0].iden(), iden)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.addEdge(refs, $nid) -(refs)> ou:industry', opts=opts)
+            self.eq(nodes[0].intnid(), nid)
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $n2nid } }')
             self.len(1, nodes)
             self.eq('inet:ip', nodes[0].ndef[0])
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(0)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2nid) in $node.edges(reverse=(0)) { -> { yield $n2nid } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges(reverse=(1)) { -> { yield $n2nid } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2nid) in $node.edges() { -> { yield $n2nid } }')
             self.len(1, nodes)
             self.eq('ou:industry', nodes[0].ndef[0])
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.delEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.delEdge(refs, $nid) -(refs)> ou:industry', opts=opts)
             self.len(0, nodes)
 
-            with self.raises(s_exc.BadCast):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('ou:industry $node.addEdge(refs, bar)')
 
-            with self.raises(s_exc.BadCast):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('ou:industry $node.delEdge(refs, bar)')
 
-            fakebuid = s_common.ehex(s_common.buid('newp'))
+            fakenid = 0xdeadbeefcafebabe
             with self.raises(s_exc.BadArg):
-                await core.nodes(f'ou:industry $node.addEdge(refs, {fakebuid})')
+                await core.nodes(f'ou:industry $node.addEdge(refs, {fakenid})')
 
             with self.raises(s_exc.BadArg):
-                await core.nodes(f'ou:industry $node.delEdge(refs, {fakebuid})')
+                await core.nodes(f'ou:industry $node.delEdge(refs, {fakenid})')
+
+            q = 'ou:industry $dest = {[ inet:ip=5.6.7.8 ]} { $node.addEdge(refs, $dest) }'
+            await core.nodes(q)
+            nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
+            self.len(1, nodes)
+
+            q = 'ou:industry $dest = {[ inet:ip=5.6.7.8 ]} { $node.delEdge(refs, $dest) }'
+            await core.nodes(q)
+            nodes = await core.nodes('ou:industry -(refs)> inet:ip=5.6.7.8')
+            self.len(0, nodes)
 
     async def test_storm_layer_lift(self):
 
         async with self.getTestCore() as core:
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            q = '[ ou:org=* :name=foobar +#hehe ] $node.data.set(foo, bar) return($node.iden)'
-            basenode = await core.callStorm(q)
+            q = '[ ou:org=* :name=foobar +#hehe ] $node.data.set(foo, bar) return($node.nid)'
+            basenid = await core.callStorm(q)
 
             opts = {'view': viewiden}
-            nodeiden = await core.callStorm('''
+            nodenid = await core.callStorm('''
                 [ ou:org=* :name=foobar +#hehe ]
                 $node.data.set(foo, bar)
-                return($node.iden)
+                return($node.nid)
             ''', opts=opts)
 
-            nodeiden2 = await core.callStorm('[test:str=yup] $node.data.set(foo, yup) return ($node.iden)',
+            nodenid2 = await core.callStorm('[test:str=yup] $node.data.set(foo, yup) return ($node.nid)',
                                              opts=opts)
 
             self.len(2, await core.nodes('ou:org +:name=foobar +#hehe', opts=opts))
 
             nodes = await core.nodes('yield $lib.layer.get().liftByNodeData(foo)', opts=opts)
             self.len(2, nodes)
-            self.eq(set((nodeiden, nodeiden2)), {node.iden() for node in nodes})
+            self.eq(set((nodenid, nodenid2)), {node.intnid() for node in nodes})
 
             nodes = await core.nodes('yield $lib.layer.get().liftByNodeData(foo)')
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), basenode)
+            self.eq(nodes[0].intnid(), basenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foobar)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^=")', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created")', opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created", now, "<=")', opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe, ou:org)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].iden(), nodeiden)
+            self.eq(nodes[0].intnid(), nodenid)
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)

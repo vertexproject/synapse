@@ -150,21 +150,6 @@ portion matching the wildcard; it does not return the "t" character.
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(foo.**)) | spin
     
 
-.. _meth-node-iden:
-
-$node.iden
-++++++++++++
-
-The ``$node.iden`` attribute returns the :ref:`gloss-iden` of the current node in the Storm pipeline.
-
-**Examples**
-
-- Print the iden of an ``inet:dns:a`` node:
-
-
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.iden) | spin
-    
-
 .. _meth-node-isform:
 
 $node.isform()

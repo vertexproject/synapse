@@ -17,12 +17,12 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, editor, buid, form, valu, node, norminfo):
+    def __init__(self, editor, form, valu, node, norminfo):
         self.editor = editor
         self.model = editor.view.core.model
         self.form = form
         self.valu = valu
-        self.buid = buid
+        self.ndef = (form.name, valu)
         self.node = node
         self.virts = norminfo.get('virts') if norminfo is not None else None
 
@@ -50,12 +50,9 @@ class ProtoNode(s_node.NodeBase):
         if node is not None:
             self.nid = node.nid
         else:
-            self.nid = self.editor.view.core.getNidByBuid(buid)
+            self.nid = self.editor.view.core.getNidByNdef(self.ndef)
 
         self.multilayer = len(self.editor.view.layers) > 1
-
-    def iden(self):
-        return s_common.ehex(self.buid)
 
     def istomb(self):
         if self.tombnode:
@@ -191,7 +188,7 @@ class ProtoNode(s_node.NodeBase):
             await self.editor.view.saveNodeEdits((nodeedit,), meta=self.editor.getEditorMeta())
 
             if self.node is None:
-                self.node = await self.editor.view.getNodeByBuid(self.buid)
+                self.node = await self.editor.view.getNodeByNdef(self.ndef)
 
             self.delnode = False
             self.tombnode = False
@@ -925,8 +922,8 @@ class NodeEditor:
             'user': self.user.iden
         }
 
-    async def getNodeByBuid(self, buid):
-        node = await self.view.getNodeByBuid(buid)
+    async def getNodeByNdef(self, ndef):
+        node = await self.view.getNodeByNdef(ndef)
         if node:
             return self.loadNode(node)
 
@@ -1007,19 +1004,17 @@ class NodeEditor:
             if (protonode := self.protonodes.get(ndef)) is not None:
                 break
 
-            buid = s_common.buid(ndef)
-            if (node := await self.view.getNodeByBuid(buid)) is not None:
+            if (node := await self.view.getNodeByNdef(ndef)) is not None:
                 if not (adds or subs):
                     return ()
 
-                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                protonode = ProtoNode(self, node.form, norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
         else:
-            ndef = (form.name, norm)
-            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
-            self.protonodes[ndef] = protonode
+            protonode = ProtoNode(self, form, norm, node, norminfo)
+            self.protonodes[(form.name, norm)] = protonode
 
         ops = []
 
@@ -1044,7 +1039,7 @@ class NodeEditor:
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
             norminfo = node.valuvirts()
-            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node, norminfo)
+            protonode = ProtoNode(self, node.form, node.ndef[1], node, norminfo)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -1055,16 +1050,14 @@ class NodeEditor:
             if (protonode := self.protonodes.get(ndef)) is not None:
                 break
 
-            buid = s_common.buid(ndef)
-            if (node := await self.view.getNodeByBuid(buid, tombs=True)) is not None:
-                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            if (node := await self.view.getNodeByNdef(ndef, tombs=True)) is not None:
+                protonode = ProtoNode(self, node.form, norm, node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
         else:
-            ndef = (form.name, norm)
-            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
-            self.protonodes[ndef] = protonode
+            protonode = ProtoNode(self, form, norm, node, norminfo)
+            self.protonodes[(form.name, norm)] = protonode
 
         ops = collections.deque()
 

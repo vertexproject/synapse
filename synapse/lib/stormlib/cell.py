@@ -13,105 +13,13 @@ def prepHotfixDesc(txt):
     lines = s_autodoc.ljuster(lines)
     return lines
 
-storm_missing_autoadds = '''
-$absoluteOrder = $lib.view.list(deporder=$lib.true)
-
-if $lib.debug {
-    $lib.print('The following Views will be fixed in order:')
-    for $view in $absoluteOrder {
-        $lib.print($view.iden)
-    }
-}
-
-$queries = ( ${ inet:dns:request:query:name:fqdn [inet:fqdn=:query:name:fqdn] },
-${ inet:dns:request:query:name:ipv4 [inet:ipv4=:query:name:ipv4] },
-${ inet:dns:request:query:name:ipv6 [inet:ipv6=:query:name:ipv6] },
-${ inet:dns:query:name:fqdn [inet:fqdn=:name:fqdn] },
-${ inet:dns:query:name:ipv4 [inet:ipv4=:name:ipv4] },
-${ inet:dns:query:name:ipv6 [inet:ipv6=:name:ipv6] },
-${ inet:asnet4:net4:min [inet:ipv4=:net4:min] },
-${ inet:asnet4:net4:max [inet:ipv4=:net4:max] },
-${ inet:asnet6:net6:min [inet:ipv6=:net6:min] },
-${ inet:asnet6:net6:max [inet:ipv6=:net6:max] },
-${ inet:whois:iprec:net4:min [inet:ipv4=:net4:min] },
-${ inet:whois:iprec:net4:max [inet:ipv4=:net4:max] },
-${ inet:whois:iprec:net6:min [inet:ipv6=:net6:min] },
-${ inet:whois:iprec:net6:max [inet:ipv6=:net6:max] },
-${ it:app:snort:hit:src:ipv4 [inet:ipv4=:src:ipv4] },
-${ it:app:snort:hit:src:ipv6 [inet:ipv6=:src:ipv6] },
-${ it:app:snort:hit:dst:ipv4 [inet:ipv4=:dst:ipv4] },
-${ it:app:snort:hit:dst:ipv6 [inet:ipv6=:dst:ipv6] },)
-
-for $view in $absoluteOrder {
-    if $lib.debug { $lib.print(`Fixing autoadd data in view {$view}`) }
-    for $query in $queries {
-        if $lib.debug { $lib.print(`Executing \\{ {$query} \\}`) }
-        view.exec $view.iden $query
-    }
-}
-'''
-
-storm_missing_coins = '''
-    for $view in $lib.view.list(deporder=$lib.true) {
-        view.exec $view.iden {
-            $coins = $lib.set()
-            crypto:currency:address
-            $coins.add(:coin) | spin |
-            for $coin in $coins {[ crypto:currency:coin=$coin ]}
-        }
-    }
-'''
-
-storm_missing_cpe22 = '''
-$views = $lib.view.list(deporder=$lib.true)
-for $view in $views {
-    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value ] }
-}
-'''
-
-storm_migrate_riskhasvuln = '''
-for $view in $lib.view.list(deporder=$lib.true) {
-    view.exec $view.iden {
-        $layer = $lib.layer.get()
-        for ($buid, $sode) in $layer.getStorNodesByForm(risk:hasvuln) {
-            yield $buid
-            $lib.model.migration.s.riskHasVulnToVulnerable($node)
-        }
-    }
-}
-'''
-
-hotfixes = (
-    ((1, 0, 0), {
-        'desc': 'Create nodes for known missing autoadds.',
-        'query': storm_missing_autoadds,
-    }),
-    ((2, 0, 0), {
-        'desc': 'Populate crypto:currency:coin nodes from existing addresses.',
-        'query': storm_missing_coins,
-    }),
-    ((3, 0, 0), {
-        'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
-        'query': storm_missing_cpe22,
-    }),
-    ((4, 0, 0), {
-        'desc': '''
-            Create risk:vulnerable nodes from existing risk:hasvuln nodes.
-
-            This hotfix should only be applied after all logic that would create
-            risk:hasvuln nodes has been updated. The hotfix uses the
-            $lib.model.migration.s.riskHasVulnToVulnerable() function,
-            which can be used directly for testing.
-
-            Tags, tag properties, edges, and node data will all be copied
-            to the risk:vulnerable nodes.
-        ''',
-        'query': storm_migrate_riskhasvuln,
-    }),
-)
+hotfixes = ()
+default_vers = (4, 0, 0)
 runtime_fixes_key = 'cortex:runtime:stormfixes'
 
 def getMaxHotFixes():
+    if not hotfixes:
+        return default_vers
     return max([vers for vers, info in hotfixes])
 
 @s_stormtypes.registry.registerLib
@@ -200,10 +108,10 @@ class CellLib(s_stormtypes.Lib):
 
     async def _hotFixesApply(self):
         if not self.runt.isAdmin():
-            mesg = '$lib.cell.stormFixesApply() requires admin privs.'
+            mesg = '$lib.cell.hotFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
         for vers, info in hotfixes:
             if vers <= curv:
                 continue
@@ -238,10 +146,10 @@ class CellLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _hotFixesCheck(self):
         if not self.runt.isAdmin():
-            mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
+            mesg = '$lib.cell.hotFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
 
         dowork = False
         for vers, info in hotfixes:
