@@ -1,4 +1,7 @@
 import math
+
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.gis as s_gis
@@ -83,6 +86,90 @@ class GisTest(s_t_utils.SynTest):
 
     def test_lib_gis_dms2dec(self):
         self.eqish(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
+
+    def test_lib_gis_parseDMS(self):
+        deg = '°'
+
+        # Standard symbol-based DMS
+        self.eqish(s_gis.parseDMS(f'45{deg}46\'52"N'), 45.78111111111111)
+        self.eqish(s_gis.parseDMS(f'45{deg}46\'52"S'), -45.78111111111111)
+        self.eqish(s_gis.parseDMS(f'13{deg}30\'45"E'), 13.5125)
+        self.eqish(s_gis.parseDMS(f'13{deg}30\'45"W'), -13.5125)
+
+        # Letter-based separators (d for degrees, m for minutes)
+        self.eqish(s_gis.parseDMS('45d46m52N'), 45.78111111111111)
+        self.eqish(s_gis.parseDMS('13d30m45E'), 13.5125)
+
+        # Space-separated
+        self.eqish(s_gis.parseDMS('45 46 52 N'), 45.78111111111111)
+        self.eqish(s_gis.parseDMS('13 30 45 E'), 13.5125)
+
+        # No seconds
+        self.eqish(s_gis.parseDMS(f'45{deg}46\'N'), 45.766666666666666)
+
+        # Negative sign (no direction letter)
+        self.eqish(s_gis.parseDMS(f'-45{deg}46\'52"'), -45.78111111111111)
+
+        # Direction prefix
+        self.eqish(s_gis.parseDMS(f'N45{deg}46\'52"'), 45.78111111111111)
+        self.eqish(s_gis.parseDMS(f'S45{deg}46\'52"'), -45.78111111111111)
+
+        # Zero
+        self.eqish(s_gis.parseDMS(f'0{deg}0\'0"N'), 0.0)
+
+        # Fractional seconds
+        self.eqish(s_gis.parseDMS(f'45{deg}46\'52.5"N'), 45.78125)
+
+        # Error: unparseable
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'not a coordinate')
+
+        # Error: conflicting negative sign and N/E direction
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'-45{deg}46\'52"N')
+
+        # Error: minutes >= 60
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'45{deg}60\'0"N')
+
+        # Error: seconds >= 60
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'45{deg}46\'60"N')
+
+        # Error: conflicting prefix and suffix directions
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'N45{deg}46\'52"S')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, f'E13{deg}30\'45"W')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'N 1 2 3 S')
+        self.raises(s_exc.BadTypeValu, s_gis.parseDMS, 'E 3 4 5 W')
+
+    def test_lib_gis_parseLatLong(self):
+        deg = '°'
+
+        # Comma-separated
+        lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"N, 13{deg}30\'45"E')
+        self.eqish(lat, 45.78111111111111)
+        self.eqish(lon, 13.5125)
+
+        # Comma-separated with S/W directions
+        lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"S, 13{deg}30\'45"W')
+        self.eqish(lat, -45.78111111111111)
+        self.eqish(lon, -13.5125)
+
+        # No comma - split on N/S boundary
+        lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"N 13{deg}30\'45"E')
+        self.eqish(lat, 45.78111111111111)
+        self.eqish(lon, 13.5125)
+
+        # Semicolon separator
+        lat, lon = s_gis.parseLatLong(f'45{deg}46\'52"N; 13{deg}30\'45"E')
+        self.eqish(lat, 45.78111111111111)
+        self.eqish(lon, 13.5125)
+
+        # Error: same direction class in both parts (N/S in lon, or E/W in lat)
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, '1 2 3N, 4 5 6N')
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, '1 2 3E, 4 5 6E')
+
+        # Error: conflicting prefix and suffix in a single part (propagates from parseDMS)
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, 'N 1 2 3S, E 3 4 5W')
+
+        # Error: unparseable
+        self.raises(s_exc.BadTypeValu, s_gis.parseLatLong, 'not a lat long')
 
     def test_lib_gis_bbox(self):
         lbox = s_gis.bbox(gchq[0], gchq[1], 1 * km)

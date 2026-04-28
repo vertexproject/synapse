@@ -357,8 +357,20 @@ class LatLong(s_types.Type):
         return ((cmpr, (latlong, dist), self.stortype),)
 
     async def _normPyStr(self, valu, view=None):
-        valu = tuple(valu.strip().split(','))
-        return await self._normPyTuple(valu)
+        valu = valu.strip()
+
+        parts = valu.split(',')
+        if len(parts) == 2:
+            try:
+                float(parts[0])
+                float(parts[1])
+                return await self._normPyTuple(tuple(parts))
+            except ValueError:
+                pass
+
+        latv, lonv = s_gis.parseLatLong(valu)
+
+        return await self._normPyTuple((latv, lonv))
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
