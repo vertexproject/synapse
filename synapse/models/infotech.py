@@ -1630,6 +1630,9 @@ modeldefs = (
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
+                ('home', ('file:path', {}), {
+                    'doc': "The path to the account's home directory."}),
+
                 ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that the account is a member of.'}),
             )),
@@ -1646,10 +1649,6 @@ modeldefs = (
 
                 ('gecos', ('int', {}), {
                     'doc': 'The GECOS field for the account.'}),
-
-                ('home', ('file:path', {}), {
-                    'ex': '/home/visi',
-                    'doc': "The path to the account's home directory."}),
 
                 ('shell', ('file:path', {}), {
                     'ex': '/bin/bash',
