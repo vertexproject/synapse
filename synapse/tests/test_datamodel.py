@@ -854,10 +854,12 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadPropDef):
                 core.model.addForm('_test:newp', {}, ((1, 2),))
 
-            with self.raises(s_exc.BadPropDef):
-                core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
+            # Subforms can override an inherited prop with any typedef
+            core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
 
-            core.model.addForm('_test:newp', {}, (('name', ('str', {}), {}),))
+            newp = core.model.form('_test:newp')
+            self.eq(newp.prop('name').type.name, 'poly')
+            self.eq(newp.prop('name').type.typeset, frozenset({'int'}))
 
             await core.nodes("$lib.model.ext.addForm(_test:ip, inet:ip, ({}), ({}))")
             await core.nodes("$lib.model.ext.addFormProp(it:host, _ip2, ('_test:ip', ({})), ({}))")

@@ -480,7 +480,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]
 
             opts = {'vars': {'sids': sids}}
-            nodes = await core.nodes('for $sid in $sids {[ it:host:account=* :windows:sid=$sid ]}', opts=opts)
+            nodes = await core.nodes('for $sid in $sids {[ it:host:windows:account=* :id=$sid ]}', opts=opts)
             self.len(88, nodes)
 
             nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login :server:host -> it:host')
@@ -542,6 +542,186 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
             self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
+    async def test_it_host_account_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:posix:account with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:posix:account=*
+                        :user=visi
+                        :host=$host
+                        :id=1001
+                        :gid=1001
+                        :gecos=42
+                        :home=/home/visi
+                        :shell=/bin/bash
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:posix:account')
+            self.propeq(node, 'user', 'visi')
+            self.nn(node.get('host'))
+            self.propeq(node, 'id', 1001, form='it:os:posix:id')
+            self.propeq(node, 'gid', 1001, form='it:os:posix:id')
+            self.propeq(node, 'gecos', 42)
+            self.propeq(node, 'home', '/home/visi')
+            self.propeq(node, 'shell', '/bin/bash')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Test it:host:windows:account with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:windows:account=*
+                        :user=admin
+                        :host=$host
+                        :id=S-1-5-21-0-0-0-500
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=admin@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:windows:account')
+            self.propeq(node, 'user', 'admin')
+            self.nn(node.get('host'))
+            self.propeq(node, 'id', 'S-1-5-21-0-0-0-500', form='it:os:windows:sid')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Test :id on parent it:host:account with base:id value
+            nodes = await core.nodes('[it:host:account=* :id=acct-12345]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'acct-12345', form='base:id')
+
+            # Verify querying it:host:account returns parent and child form nodes
+            nodes = await core.nodes('it:host:account')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:account']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:account']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:posix:account :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:account :host -> it:host'))
+
+            # Test it:host:account:member for account-in-group membership
+            nodes = await core.nodes('''
+                [
+                    it:host:account:member=*
+                        :account={ it:host:posix:account:id=1001 }
+                        :group={[ it:host:posix:group=* :id=1001 ]}
+                        :period=(2024, *)
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:account:member')
+            self.nn(node.get('account'))
+            self.nn(node.get('group'))
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+
+            # Verify pivots through the membership form
+            self.len(1, await core.nodes('it:host:account:member :account -> it:host:account'))
+            self.len(1, await core.nodes('it:host:account:member :group -> it:host:group'))
+
+            # Test negative integer rejected by it:os:posix:id
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:host:posix:account=* :id=-1]')
+
+    async def test_it_host_group_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:posix:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:posix:group=*
+                        :id=1001
+                        :name=developers
+                        :desc="the developers group"
+                        :host=$host
+                        :service:role={[ inet:service:role=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:posix:group')
+            self.propeq(node, 'id', 1001, form='it:os:posix:id')
+            self.propeq(node, 'name', 'developers')
+            self.propeq(node, 'desc', 'the developers group')
+            self.nn(node.get('host'))
+            self.nn(node.get('service:role'))
+
+            # Test it:host:windows:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:windows:group=*
+                        :id=S-1-5-32-544
+                        :name=administrators
+                        :host=$host
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:windows:group')
+            self.propeq(node, 'id', 'S-1-5-32-544', form='it:os:windows:sid')
+            self.propeq(node, 'name', 'administrators')
+            self.nn(node.get('host'))
+
+            # Test :id on parent it:host:group with base:id value
+            nodes = await core.nodes('[it:host:group=* :id=grp-12345]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'grp-12345', form='base:id')
+
+            # Verify querying it:host:group returns parent and child form nodes
+            nodes = await core.nodes('it:host:group')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:group']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:group']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:posix:group :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:group :host -> it:host'))
+
+            # Test it:host:group:member for nested group membership
+            nodes = await core.nodes('''
+                [
+                    it:host:group:member=*
+                        :member={ it:host:posix:group:id=1001 }
+                        :group={[ it:host:posix:group=* :id=3001 ]}
+                        :period=(2024, *)
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:group:member')
+            self.nn(node.get('member'))
+            self.nn(node.get('group'))
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+
+            # Verify pivots through the membership form
+            self.len(1, await core.nodes('it:host:group:member :member -> it:host:group'))
+            self.len(1, await core.nodes('it:host:group:member :group -> it:host:group'))
+
+            # Test negative integer rejected by it:os:posix:id
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:host:posix:group=* :id=-1]')
 
     async def test_it_software(self):
         # Test all prodsoft and prodsoft associated linked forms
