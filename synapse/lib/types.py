@@ -1185,13 +1185,7 @@ class HugeNum(Type):
         return self._norm(huge)
 
     async def _normPyInt(self, valu, view=None):
-        try:
-            huge = s_common.hugenum(valu)
-        except decimal.DecimalException as e:
-            mesg = f'Invalid hugenum: {e}'
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
-
-        return self._norm(huge)
+        return self._norm(s_common.hugenum(valu))
 
     async def _normNumber(self, valu, view=None):
         return self._norm(valu.valu)
