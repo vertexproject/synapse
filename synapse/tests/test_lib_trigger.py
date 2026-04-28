@@ -14,7 +14,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden) }')
 
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
@@ -80,7 +80,7 @@ class TrigTest(s_t_utils.SynTest):
                 await view.finiTrigTask()
 
                 opts = {'view': viewiden}
-                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden) }', opts=opts)
                 nodes = await core.nodes('[ inet:ip=123.123.123.123 ]', opts=opts)
 
                 with self.raises(s_exc.CantMergeView):
@@ -99,7 +99,7 @@ class TrigTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden) }')
 
                 await core00.view.finiTrigTask()
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')

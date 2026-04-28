@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.json as s_json
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
@@ -298,7 +299,7 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             q = '''
             syn:type:subof=comp $opts=:opts
-            -> syn:form:type $valu=$node.value()
+            -> syn:form:type $valu=$node.value
             for ($name, $thing) in $opts.fields {
                 $v=`{$valu}:{$name}`  syn:prop=$v
             }
@@ -1165,6 +1166,16 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes('[test:str=foo :_polyint=1234]')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +test:str:_polyint=haha')
+
+            # _raiseBadTypeValu via virtlift
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('test:str:_polyint.type=test:float')
+
+            self.isinstance(cm.exception.get('types'), tuple)
+            self.isinstance(cm.exception.get('interfaces'), tuple)
+            self.notin('frozenset', str(cm.exception))
+            self.isin('types=(test:comp, test:int)', str(cm.exception))
+            s_msgpack.en(cm.exception.items())
 
             # Poly.getVirtGetr handles self.virts (e.g., .type)
             nodes = await core.nodes('[test:str=foo :bar=vertex.link]')

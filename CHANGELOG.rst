@@ -6,6 +6,79 @@
 Synapse Changelog
 *****************
 
+v2.241.1 - 2026-04-24
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where cancelled Storm tasks could show up in task list
+  output.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+- Fixed an issue where scheduling a coroutine on a fini'd Base object could
+  create orphaned asyncio tasks that were never cancelled or awaited.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+
+v2.240.0 - 2026-04-21
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated cell drive data into a dedicated slab.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added the ``hash:ssdeep`` form and type to allow users to record ssdeep fuzzy
+  hashes as nodes. Added the ``file:bytes:ssdeeps`` array property to allow
+  users to capture one or more ssdeep fuzzy hashes for a given file.
+  (`#4901 <https://github.com/vertexproject/synapse/pull/4901>`_)
+- See :ref:`userguide_model_v2_240_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a dedicated IO worker for the drive subsystem to offload operations
+  into a separate process.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+
+Bugfixes
+--------
+- Fixed a bug in ``Cell.getBackupInfo()`` where ``currduration`` could be a
+  negative value while a backup was in progress, due to operator precedence in
+  the elapsed-time calculation.
+  (`#4898 <https://github.com/vertexproject/synapse/pull/4898>`_)
+
+Improved documentation
+----------------------
+- Updated the documentation for the ``layer.del`` permission to note that it is
+  on the Layer gate and not the Cortex.
+  (`#4892 <https://github.com/vertexproject/synapse/pull/4892>`_)
+
+v2.239.0 - 2026-04-14
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the Synapse logging infrastructure and output formatting.
+  Log output now uses an async pump task so that logging never blocks the
+  asyncio event loop. Structured logging output is now consistently formatted
+  and user provided information cannot overwrite system provided information.
+  The ``SYN_LOG_LEVEL``, ``SYN_LOG_STRUCT``, and ``SYN_LOG_DATEFORMAT``
+  environment variables continue to work as before.
+
+  Administrators can retrieve the last 100 structured log entries or stream
+  live log events via the new ``logs()`` and ``watch()`` admin APIs on
+  Synapse services.
+  (`#4686 <https://github.com/vertexproject/synapse/pull/4686>`_)
+- Updated the Storm ``List.extend()`` method to treat ``(null)`` as a no-op,
+  allowing users to safely extend a list with a value that may be null.
+  (`#4886 <https://github.com/vertexproject/synapse/pull/4886>`_)
+
+Notes
+-----
+- Updated the pinned version of the ``lark`` library to ``1.3.1``.
+  (`#4875 <https://github.com/vertexproject/synapse/pull/4875>`_)
+
 v3.0.0 - 2025-XX-YY
 ===================
 

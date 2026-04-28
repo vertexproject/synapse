@@ -1694,10 +1694,10 @@ regardless of the number of elements (taxons) in the value.
 
 The trailing dot is masked / omitted when displaying the taxonomy value. This difference can be seen when
 displaying the value's representation (display value, using the method ``$node.repr()``) as opposed to its actual
-value (using the method ``$node.value()``):
+value (using the attribute ``$node.value``):
 
 .. storm-pre:: [ entity:goal:type:taxonomy=financial_gain ]
-.. storm-cli:: entity:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
+.. storm-cli:: entity:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value)
 
 
 Parsing

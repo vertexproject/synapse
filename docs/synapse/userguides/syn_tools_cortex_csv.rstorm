@@ -397,14 +397,14 @@ This means we can tell ``$lib.csv.emit()`` to create a CSV file with a list of i
 
 ::
   
-  $lib.csv.emit($node.form(), $node.value())
+  $lib.csv.emit($node.form, $node.value)
 
 So our overall ``stormfile`` to lift and export all of the Vicious Wombat indicators is relatively simple:
 
 ::
   
   #cno.threat.viciouswombat
-  $lib.csv.emit($node.form(), $node.value())
+  $lib.csv.emit($node.form, $node.value)
 
 **Exporting the Data:**
 

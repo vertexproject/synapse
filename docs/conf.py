@@ -30,6 +30,7 @@ WARNINGS_IGNORE = [
     r'The form edge:has is deprecated or using a deprecated type',
     r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
     r'The type [a-z:]+ field [a-z:]+ uses a deprecated type [a-z:]+.',
+    r'Caught SIGTERM, shutting down\.',
 ]
 
 # List of warning patterns to convert to errors

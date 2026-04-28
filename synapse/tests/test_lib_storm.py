@@ -443,7 +443,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
-            msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
+            msgs = await core.stormlist('ou:org $foo=$node.value | intersect $foo')
             self.stormIsInErr('intersect arguments must be runtsafe', msgs)
 
             with self.raises(s_exc.IsReadOnly) as exc:
@@ -695,7 +695,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('$lib.print(newp)', opts={'vars': {123: 'newp'}})
 
             # test that runtsafe vars stay runtsafe
-            msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
+            msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value }')
             self.stormIsInPrint('bar', msgs)
 
             # test storm background command
@@ -785,7 +785,7 @@ class StormTest(s_t_utils.SynTest):
                         'storm': '''
                             function lol() {
                                 [ ou:org=* ]
-                                return($node.iden())
+                                return($node.iden)
                             }
                             function dyncall() {
                                 return($lib.queue.list())
@@ -799,7 +799,7 @@ class StormTest(s_t_utils.SynTest):
                     },
                     {
                         'name': 'foo.baz',
-                        'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.iden) }',
                     },
                 )
             }
@@ -1020,7 +1020,7 @@ class StormTest(s_t_utils.SynTest):
 
             # confirm that we moved node data and light edges
             self.eq('bar', await core.callStorm('inet:ip=11.22.33.44 return($node.data.get(foo))'))
-            self.eq(99, await core.callStorm('inet:ip=11.22.33.44 -(refs)> inet:asn return($node.value())'))
+            self.eq(99, await core.callStorm('inet:ip=11.22.33.44 -(refs)> inet:asn return($node.value)'))
             self.eq(100, await core.callStorm('inet:ip=11.22.33.44 return(#foo:score)'))
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
@@ -1116,7 +1116,7 @@ class StormTest(s_t_utils.SynTest):
                 $iden = c8af8cfbcc36ba5dec9858124f8f014d
                 [ inet:fqdn=vertex.link <(refs)+ {[ meta:source=$iden ]} ]
                 <(refs)- meta:source
-                return($node.value())
+                return($node.value)
             '''))
 
             with self.raises(s_exc.BadArg):
@@ -1128,7 +1128,7 @@ class StormTest(s_t_utils.SynTest):
 
             # test non-runtsafe invalid form deref node add
             with self.raises(s_exc.NoSuchForm):
-                await core.callStorm('[ it:dev:str=hehe:haha ] $form=$node.value() [*$form=lol]')
+                await core.callStorm('[ it:dev:str=hehe:haha ] $form=$node.value [*$form=lol]')
 
             async def sleeper():
                 await asyncio.sleep(2)
@@ -3279,7 +3279,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('movetag foo.bar duck.knight')
 
             # Runtsafety test
-            q = '[ test:str=hehe ]  | movetag $node.iden() haha'
+            q = '[ test:str=hehe ]  | movetag $node.iden haha'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_spin(self):
@@ -3422,7 +3422,7 @@ class StormTest(s_t_utils.SynTest):
                 await stream.expect('iden must be 32 bytes', timeout=1)
 
             # Runtsafety test
-            q = 'test:str=hehe | iden $node.iden()'
+            q = 'test:str=hehe | iden $node.iden'
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(q)
 
@@ -3763,9 +3763,9 @@ class StormTest(s_t_utils.SynTest):
                     {p[0] for p in podes})
 
             # Node variables modified in sub runtimes don't affect parent node path
-            q = '''[test:int=123] $foo=$node.value()
+            q = '''[test:int=123] $foo=$node.value
             | tee --join { $foo=($foo + 1) [test:str=$foo] +test:str } { $foo=($foo + 2) [test:str=$foo] +test:str } |
-            $lib.fire(data, foo=$foo, ndef=$node.ndef()) | spin
+            $lib.fire(data, foo=$foo, ndef=$node.ndef) | spin
             '''
             msgs = await core.stormlist(q)
             datas = [m[1].get('data') for m in msgs if m[0] == 'storm:fire']
@@ -4020,7 +4020,7 @@ class StormTest(s_t_utils.SynTest):
             $nodes = ()
             view.exec $view { inet:ip=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
-                yield $n.iden()
+                yield $n.iden
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
@@ -4030,13 +4030,13 @@ class StormTest(s_t_utils.SynTest):
             $nodes = ()
             view.exec $view { for $x in ${ inet:ip=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
-                yield $n.iden()
+                yield $n.iden
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
-            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.iden() }'
+            q = 'view.exec $view { $x=${inet:ip=1.2.3.4} } | for $n in $x { yield $n.iden }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
@@ -4496,10 +4496,12 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('testcmd', msgs)
             self.stormNotInPrint('view.merge', msgs)
 
-            msgs = await core.stormlist('[test:str=uniq] | help $node.value')
+            # help $node shows node type docs including all attribute descriptions
+            msgs = await core.stormlist('[test:str=uniq] | help $node')
             self.stormIsInPrint('Get the value of the primary property of the Node.', msgs)
 
-            msgs = await core.stormlist('[test:str=uniq] | help $node.value()')
+            # help $node.value evaluates the gtor → returns "uniq" → matches "uniq" command
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value')
             self.stormNotInPrint('Get the value of the primary property of the Node.', msgs)
             self.stormIsInPrint('uniq: Filter nodes by their uniq iden values.', msgs)
 
@@ -4776,7 +4778,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('lift.byverb $v', {'vars': {'v': 'refs'}})
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
-            q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
+            q = '[(test:str=refs) (test:str=foo)] $v=$node.value | lift.byverb $v'
             msgs = await core.stormlist(q, opts={'node:opts': {'links': True}})
             nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(4, nodes)
@@ -4933,7 +4935,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str=refs -(refs)> *'))
             self.len(2, await core.nodes('test:str=_seen -(_seen)> *'))
 
-            await core.nodes('test:str=refs test:str=_seen $v=$node.value() | edges.del $v')
+            await core.nodes('test:str=refs test:str=_seen $v=$node.value | edges.del $v')
 
             self.len(0, await core.nodes('test:str=refs -(refs)> *'))
             self.len(0, await core.nodes('test:str=_seen -(_seen)> *'))
@@ -4944,7 +4946,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str=refs <(refs)- *'))
             self.len(2, await core.nodes('test:str=_seen <(_seen)- *'))
 
-            await core.nodes('test:str=refs test:str=_seen $v=$node.value() | edges.del $v --n2')
+            await core.nodes('test:str=refs test:str=_seen $v=$node.value | edges.del $v --n2')
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=_seen <(_seen)- *'))
@@ -4955,7 +4957,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str=refs <(refs)- *'))
             self.len(2, await core.nodes('test:str=* <(_seen)- *'))
 
-            await core.nodes('test:str=refs test:str=* $v=$node.value() | edges.del $v --n2')
+            await core.nodes('test:str=refs test:str=* $v=$node.value | edges.del $v --n2')
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=* <(_seen)- *'))
@@ -5387,7 +5389,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await  core.nodes('[test:str=runt.safety.two +#runt.safety.two +#runt.child]'))
 
             # Test non-runtsafe usage
-            await core.nodes('test:str | tag.prune $node.value()')
+            await core.nodes('test:str | tag.prune $node.value')
 
             node = (await core.nodes('test:str=runtsafety'))[0]
             self.eq(node.getTagNames(), [])
@@ -5410,7 +5412,7 @@ class StormTest(s_t_utils.SynTest):
                     await asvisi.callStorm('test:str | tag.prune runt.need.perms')
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm('test:str | tag.prune $node.value()')
+                    await asvisi.callStorm('test:str | tag.prune $node.value')
 
             await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
 
@@ -5420,7 +5422,7 @@ class StormTest(s_t_utils.SynTest):
                 node = (await core.nodes('test:str=foo'))[0]
                 self.eq(node.getTagNames(), ['runtsafety'])
 
-                await asvisi.callStorm('test:str=runt.safety.two | tag.prune $node.value()')
+                await asvisi.callStorm('test:str=runt.safety.two | tag.prune $node.value')
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
                 self.eq(node.getTagNames(), ['runt', 'runt.child'])
