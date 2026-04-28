@@ -3051,9 +3051,24 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            # TODO: allow embed lift through virt
-            # self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
-            # self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
+            # liftpropby with embed lift through virt
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn*in=(5,6)'))
+
+            # liftpropvirtby with embed lift through virt
+            await core.nodes('inet:ip=1.2.3.4 [:seen=(2020,2021)]')
+            await core.nodes('inet:ip=5.6.7.8 [:seen=(2022,2023)]')
+
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::seen.min>2020'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::seen.min*in=(2020,2022)'))
+
+            # liftbyarray with embed lift through virt
+            await core.nodes('inet:asn=5 [:owner={[ps:person=* :titles=(analyst,researcher)]}]')
+            await core.nodes('inet:asn=6 [:owner={[ps:person=* :titles=(analyst,engineer)]}]')
+            await core.nodes('inet:asn=7 [:owner={[ps:person=* :titles=(manager,)]}]')
+
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn::owner::titles*[=analyst]'))
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client.ip::asn::owner::titles*[=manager]'))
 
             await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
             await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
