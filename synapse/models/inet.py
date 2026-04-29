@@ -2683,10 +2683,10 @@ modeldefs = (
             ('inet:wifi:ap', {}, (
 
                 ('ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID for the wireless access point.', 'computed': True, }),
+                    'doc': 'The SSID for the wireless access point.'}),
 
                 ('bssid', ('inet:mac', {}), {
-                    'doc': 'The MAC address for the wireless access point.', 'computed': True, }),
+                    'doc': 'The MAC address for the wireless access point.'}),
 
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),

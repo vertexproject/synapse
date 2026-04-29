@@ -1529,11 +1529,15 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('test:str=readonly2', opts=altview)
             self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
-            await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
-            await core.nodes('[ test:ro=bad :readable=bar ]')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
 
-            msgs = await core.stormlist('test:ro | merge', opts=altview)
-            self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
+            # comp-form computed props are shown in diff but not applied directly;
+            # the destination ctor re-derives them
+            await core.nodes('[ test:comp=(55, "fifty-five") ]', opts=altview)
+            msgs = await core.stormlist('test:comp | merge', opts=altview)
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('test:comp:hehe = 55', msgs)
 
             await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1001) {[ test:int=$i ]}}]', opts=altview)
             await core.nodes('test:str=foo -(refs)+> * merge --apply', opts=altview)
@@ -5922,14 +5926,16 @@ class StormTest(s_t_utils.SynTest):
 
             self.propeq(oldn[0], '.created', newn[0].get('.created'))
 
-            await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
-            await core.nodes('[ test:ro=bad :readable=bar ]')
+            # copy a comp form; computed props are re-derived by the destination ctor without errors
+            await core.nodes('[ test:comp=(77, "seventy-seven") ]')
+            msgs = await core.stormlist('test:comp=(77, "seventy-seven") | copyto $view', opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+            nodes = await core.nodes('test:comp=(77, "seventy-seven")', opts=opts)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 77)
 
-            msgs = await core.stormlist('test:ro=bad | copyto $view', opts={'vars': {'view': view}})
-            self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
-
-            nodes = await core.nodes('test:ro=bad', opts=opts)
-            self.propeq(nodes[0], 'readable', 'foo')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
 
     async def test_lib_storm_delnode(self):
         async with self.getTestCore() as core:

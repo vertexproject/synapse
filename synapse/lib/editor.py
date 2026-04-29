@@ -794,9 +794,6 @@ class ProtoNode(s_node.NodeBase):
 
         cval = curv[0]
 
-        if prop.info.get('computed') and cval:
-            raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
-
         if cval is not None and norminfo.get('merge', True):
             valu = prop.type.merge(cval, valu)
 
@@ -810,6 +807,9 @@ class ProtoNode(s_node.NodeBase):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
+
+        if prop.info.get('computed'):
+            raise s_exc.ReadOnlyProp(mesg=f'Property is computed and cannot be set by users: {prop.full}.')
 
         retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
 
@@ -846,7 +846,7 @@ class ProtoNode(s_node.NodeBase):
             return False
 
         if prop.info.get('computed'):
-            raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.', name=prop.full)
+            raise s_exc.ReadOnlyProp(mesg=f'Property is computed and cannot be set by users: {prop.full}.', name=prop.full)
 
         self.props.pop(name, None)
 
