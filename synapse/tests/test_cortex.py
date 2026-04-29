@@ -8789,19 +8789,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core._push('model:set', core._mainlinemdefs)
                 await asyncio.wait_for(task, timeout=5)
 
-            # Second boot (code unchanged): no new model:set event
+                nexus_index = core.nexsroot.nexslog.index()
+
+            # Second boot (code unchanged): nexus log must not grow and hash must still match
             async with self.getTestCore(dirn=dirn) as core:
-                nexus_index_before = core.nexsroot.nexslog.index()
+                self.eq(core.nexsroot.nexslog.index(), nexus_index)
                 stored_hash2 = s_common.guid(s_common.flatten(core.cellinfo.get('cortex:model')))
                 self.eq(stored_hash2, expected_hash)
 
-            # nexus log did not increment on clean restart
-            async with self.getTestCore(dirn=dirn) as core:
-                self.eq(core.nexsroot.nexslog.index(), nexus_index_before)
-
     async def test_cortex_model_nexusify_mirror(self):
         '''
-        Mirror receives model:set from leader and both cells agree on getModelDef() after sync.
+        A new mirror brought online from a older backup connects to the leader and
+        syncs the current model via nexus replay of model:set.
         '''
         with self.getTestDir() as dirn:
 
@@ -8809,24 +8808,82 @@ class CortexBasicTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
+                h1 = s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model')))
+                nexus_index_before = await core00.nexsroot.index()
+
+                # Corrupt the persisted model to simulate code being ahead of persisted
+                good_mdefs = core00.cellinfo.get('cortex:model')
+                core00.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
+
+            # Seed the mirror from the stale leader state
+            s_tools_backup.backup(path00, path01)
+
+            # Reboot the leader: _execCellUpdates detects hash mismatch → fires model:set
+            async with self.getTestCore(dirn=path00) as core00:
+
+                self.gt(await core00.nexsroot.index(), nexus_index_before)
+                self.eq(h1, s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))))
+
+                url = core00.getLocalUrl()
+
+                # Mirror boots from stale backup and replays the corrective model:set
+                async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
+                    await core01.sync()
+
+                    self.eq(h1, s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))))
+                    self.nn(core00.model.forms.get('inet:asn'))
+                    self.nn(core01.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_promote(self):
+        '''
+        Promotion simulation: after a mirror is promoted to leader and reboots with
+        updated code, the old leader (now mirror) receives model:set and updates its model.
+        '''
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            # # Bootstrap the mirror from a backup of the leader
+            async with self.getTestCore(dirn=path00) as core00:
                 pass
 
             s_tools_backup.backup(path00, path01)
 
             async with self.getTestCore(dirn=path00) as core00:
-                url = core00.getLocalUrl()
-                async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
+                url00 = core00.getLocalUrl()
+
+                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
                     await core01.sync()
 
-                    # Both leader and mirror have the same persisted model
-                    self.eq(
-                        s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))),
-                        s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))),
-                    )
+                    h1 = s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model')))
+                    self.eq(h1, s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))))
 
-                    # Both can resolve the same form
-                    self.nn(core00.model.forms.get('inet:asn'))
+                    # Graceful promotion: core01 becomes leader, core00 becomes mirror of core01
+                    url01 = core01.getLocalUrl()
+                    await core00.handoff(url01)
+                    self.true(core01.isactive)
+                    self.false(core00.isactive)
+
+                    # Simulate new code deployed to new leader during the promote window
+                    good_mdefs = core01.cellinfo.get('cortex:model')
+                    core01.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
+                    nexus_index_before = await core01.nexsroot.index()
+
+                # Reboot new leader: _execCellUpdates detects hash mismatch → fires model:set
+                async with await s_cortex.Cortex.anit(path01) as core01:
+                    self.gt(await core01.nexsroot.index(), nexus_index_before)
+
+                    # Old leader (now mirror) reconnects and receives model:set
+                    await asyncio.wait_for(core00.sync(), timeout=12)
+
+                    h2 = s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model')))
+                    self.eq(h2, h1)
+                    self.eq(h2, s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))))
                     self.nn(core01.model.forms.get('inet:asn'))
+                    self.nn(core00.model.forms.get('inet:asn'))
 
     async def test_cortex_model_nexusify_hash_mismatch(self):
         '''
