@@ -3285,13 +3285,8 @@ class CopyToCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if prop.info.get('computed'):
-                        curv = proto.get(name)
-                        if curv is not None and curv != valu:
-                            valurepr = prop.type.repr(curv)
-                            mesg = f'Cannot overwrite read only property with conflicting ' \
-                                   f'value: {node.iden()} {prop.full} = {valurepr}'
-                            await runt.warn(mesg)
-                            continue
+                        # re-derived by destination ctor; never copy directly
+                        continue
 
                     if prop.type.ispoly:
                         valu = s_stormtypes.NodeRef(node.getWithVirts(name))
@@ -3728,20 +3723,10 @@ class MergeCmd(Cmd):
                             continue
 
                     if prop.info.get('computed'):
-                        isset = False
-                        for undr in sodes[1:]:
-                            props = undr.get('props')
-                            if props is not None:
-                                curv = props.get(name)
-                                if curv is not None:
-                                    isset = curv[0] != valu
-                                    break
-
-                        if isset:
-                            valurepr = prop.type.repr(curv[0])
-                            mesg = f'Cannot merge read only property with conflicting ' \
-                                   f'value: {nodeiden} {form}:{name} = {valurepr}'
-                            await runt.warn(mesg)
+                        if doapply:
+                            # re-derived by destination ctor; skip the set but clean up source layer
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_PROP_DEL, (name,)))
                             continue
 
                     if not doapply:
