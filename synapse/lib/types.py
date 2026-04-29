@@ -399,7 +399,7 @@ class Type:
         if func is None:
             raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r.' % (type(valu),))
 
-        return await func(valu, view=None)
+        return await func(valu, view=view)
 
     def repr(self, norm):
         '''
