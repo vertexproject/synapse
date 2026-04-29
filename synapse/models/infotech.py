@@ -695,11 +695,8 @@ modeldefs = (
             ('it:host:windows:group', ('it:host:group', {}), {
                 'doc': 'A Windows group on a host.'}),
 
-            ('it:host:account:member', ('guid', {}), {
-                'doc': 'A host account being a member of a host group during a period.'}),
-
-            ('it:host:group:member', ('guid', {}), {
-                'doc': 'A host group being a member of a parent host group during a period.'}),
+            ('it:host:group:membership', ('guid', {}), {
+                'doc': 'A host account or group being a member of a host group during a period.'}),
 
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
@@ -1695,28 +1692,16 @@ modeldefs = (
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
             )),
 
-            ('it:host:account:member', {}, (
+            ('it:host:group:membership', {}, (
 
-                ('account', ('it:host:account', {}), {
-                    'doc': 'The account that was a member of the group.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group that the account was a member of.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period where the account was a member of the group.'}),
-            )),
-
-            ('it:host:group:member', {}, (
-
-                ('member', ('it:host:group', {}), {
-                    'doc': 'The child group that was a member of the parent group.'}),
+                ('member', (('it:host:account', {}), ('it:host:group', {})), {
+                    'doc': 'The account or group that was a member of the group.'}),
 
                 ('group', ('it:host:group', {}), {
-                    'doc': 'The parent group.'}),
+                    'doc': 'The group which had the member.'}),
 
                 ('period', ('ival', {}), {
-                    'doc': 'The time period where the child group was a member of the parent group.'}),
+                    'doc': 'The time period where the membership was active.'}),
             )),
 
             ('it:host:login', {}, (

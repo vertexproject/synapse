@@ -617,25 +617,25 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:host:posix:account :host -> it:host'))
             self.len(1, await core.nodes('it:host:windows:account :host -> it:host'))
 
-            # Test it:host:account:member for account-in-group membership
+            # Test it:host:group:membership for account-in-group membership
             nodes = await core.nodes('''
                 [
-                    it:host:account:member=*
-                        :account={ it:host:posix:account:id=1001 }
+                    it:host:group:membership=*
+                        :member={ it:host:posix:account:id=1001 }
                         :group={[ it:host:posix:group=* :id=1001 ]}
                         :period=(2024, *)
                 ]
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[0], 'it:host:account:member')
-            self.nn(node.get('account'))
+            self.eq(node.ndef[0], 'it:host:group:membership')
+            self.nn(node.get('member'))
             self.nn(node.get('group'))
             self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
 
             # Verify pivots through the membership form
-            self.len(1, await core.nodes('it:host:account:member :account -> it:host:account'))
-            self.len(1, await core.nodes('it:host:account:member :group -> it:host:group'))
+            self.len(1, await core.nodes('it:host:group:membership :member -> it:host:account'))
+            self.len(1, await core.nodes('it:host:group:membership :group -> it:host:group'))
 
             # Test negative integer rejected by it:os:posix:id
             with self.raises(s_exc.BadTypeValu):
@@ -699,10 +699,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:host:posix:group :host -> it:host'))
             self.len(1, await core.nodes('it:host:windows:group :host -> it:host'))
 
-            # Test it:host:group:member for nested group membership
+            # Test it:host:group:membership for nested group membership
             nodes = await core.nodes('''
                 [
-                    it:host:group:member=*
+                    it:host:group:membership=*
                         :member={ it:host:posix:group:id=1001 }
                         :group={[ it:host:posix:group=* :id=3001 ]}
                         :period=(2024, *)
@@ -710,14 +710,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[0], 'it:host:group:member')
+            self.eq(node.ndef[0], 'it:host:group:membership')
             self.nn(node.get('member'))
             self.nn(node.get('group'))
             self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
 
             # Verify pivots through the membership form
-            self.len(1, await core.nodes('it:host:group:member :member -> it:host:group'))
-            self.len(1, await core.nodes('it:host:group:member :group -> it:host:group'))
+            self.len(1, await core.nodes('it:host:group:membership :member -> it:host:group'))
+            self.len(1, await core.nodes('it:host:group:membership :group -> it:host:group'))
 
             # Test negative integer rejected by it:os:posix:id
             with self.raises(s_exc.BadTypeValu):
