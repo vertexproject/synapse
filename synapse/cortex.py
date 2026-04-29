@@ -458,9 +458,9 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef, verify=verify)
 
-    async def delStormPkg(self, iden):
+    async def delStormPkg(self, name, uninstall=False, keep=None):
         self.user.confirm(('pkg', 'del'))
-        return await self.cell.delStormPkg(iden)
+        return await self.cell.delStormPkg(name, uninstall=uninstall, keep=keep)
 
     @s_cell.adminapi()
     async def getStormPkgs(self):
@@ -746,8 +746,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
-        self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
         self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self._pkgOnloadTasks = {}  # name: asyncio.Task
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -1272,7 +1273,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await view.initMergeTask()
 
             for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
+                name = pkgdef.get('name')
+                uninst = self._getStormPkgStateKV(name).get('uninstalling')
+                if uninst is not None:
+                    self._startPkgUninstall(pkgdef, keep=uninst.get('keep'))
+                else:
+                    self._runStormPkgOnload(pkgdef)
 
             self._migration_evnt.set()
 
@@ -2164,6 +2170,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.BadPkgDef(mesg=mesg)
 
         await self._normStormPkg(pkgdef)
+
+        name = pkgdef.get('name')
+        olddef = self.pkgdefs.get(name)
+        if olddef is not None and self._getStormPkgStateKV(name).get('uninstalling') is not None:
+            mesg = f'Package ({name}) is currently being uninstalled.'
+            raise s_exc.BadArg(mesg=mesg)
+
         return await self._push('pkg:add', pkgdef)
 
     @s_nexus.Pusher.onPush('pkg:add')
@@ -2190,11 +2203,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
         await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
 
-    async def delStormPkg(self, name):
+    validKeepItems = ('variables', 'vaults', 'dmons', 'queues', 'extmodel')
+
+    async def delStormPkg(self, name, uninstall=False, keep=None):
         pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
+
+        if uninstall:
+
+            if self._getStormPkgStateKV(name).get('uninstalling') is not None:
+                mesg = 'Package is already being uninstalled.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if keep is not None:
+                for item in keep:
+                    if item not in self.validKeepItems:
+                        mesg = f'Invalid keep item: {item}. Valid items: {", ".join(sorted(self.validKeepItems))}.'
+                        raise s_exc.BadArg(mesg=mesg)
+
+            return await self._push('pkg:uninstall', name, keep)
+
+        # Cancel any running onload/inits
+        await self._cancelStormPkgOnload(name)
+
+        # Disable any dmons
+        for ddef in pkgdef.get('dmons', ()):
+            await self.disableStormDmon(ddef.get('iden'))
 
         return await self._push('pkg:del', name)
 
@@ -2218,6 +2254,173 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             gates = [p['gate'] for p in pkgperms if p.get('gate') is not None]
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
+
+    @s_nexus.Pusher.onPush('pkg:uninstall')
+    async def _uninstallStormPkg(self, name, keep):
+        pkgdef = self.pkgdefs.get(name)
+        if pkgdef is None:
+            return
+
+        # If the uninstall is already started, don't start it again
+        pkgstate = self._getStormPkgStateKV(name)
+        if pkgstate.get('uninstalling') is not None:
+            return
+
+        pkgstate.set('uninstalling', {'keep': keep, 'time': s_common.now()})
+
+        if self.isactive:
+            await self.feedBeholder('pkg:uninstall:start', {'name': name, 'keep': keep})
+            self._startPkgUninstall(pkgdef, keep=keep)
+
+    def _startPkgUninstall(self, pkgdef, keep=None):
+        name = pkgdef.get('name')
+
+        if self.safemode:
+            logger.warning(f'Skipping uninstall for package {name}: safemode is active')
+            return
+
+        if keep is None:
+            keep = []
+
+        onuninstall = pkgdef.get('onuninstall')
+
+        async def _uninstall():
+            await self.boss.promote('pkg:uninstall', self.auth.rootuser, info={'pkg': name})
+
+            await self._cancelStormPkgOnload(name)
+
+            if onuninstall is not None:
+                # Run the onuninstall callback *before* the rest of the cleanup
+                try:
+                    await self.fire('core:pkg:onuninstall:start', pkg=name)
+
+                    logextra = await self.getLogExtra(pkg=name, vers=pkgdef.get('version'))
+
+                    query = onuninstall['query']
+                    opts = dict(onuninstall.get('queryopts') or {})
+                    opts.setdefault('mirror', False)
+                    opts.setdefault('vars', {})
+                    opts['vars']['keep'] = keep
+
+                    async for mesg in self.storm(query, opts=opts):
+                        if mesg[0] == 'print':
+                            logger.info(f'{name} onuninstall output: {mesg[1].get("mesg")}', extra=logextra)
+                        if mesg[0] == 'warn':
+                            logger.warning(f'{name} onuninstall output: {mesg[1].get("mesg")}', extra=logextra)
+                        if mesg[0] == 'err':
+                            logger.error(f'{name} onuninstall output: {mesg[1]}', extra=logextra)
+                        await asyncio.sleep(0)
+
+                    await self.fire('core:pkg:onuninstall:complete', pkg=name)
+
+                except asyncio.CancelledError:
+                    raise
+
+                except Exception as exc:
+                    # Leave package in uninstalling state for retry on restart
+                    await self.fire('core:pkg:onuninstall:failed', pkg=name)
+                    logextra = await self.getLogExtra(pkg=name, vers=pkgdef.get('version'))
+                    logger.warning(f'onuninstall failed for package: {name}', exc_info=exc, extra=logextra)
+                    return
+
+            await self._cleanupStormPkg(pkgdef, keep)
+
+            await self._push('pkg:del', name)
+
+            await self.fire('core:pkg:uninstall:complete', pkg=name)
+
+        self.runActiveTask(_uninstall())
+
+    async def _cleanupStormPkg(self, pkgdef, keep):
+
+        name = pkgdef.get('name')
+
+        # The ordering here is specific: dmons, queues, vaults, variables, extended model, package state
+
+        if 'dmons' not in keep:
+            for ddef in pkgdef.get('dmons', ()):
+                try:
+                    await self.delStormDmon(ddef.get('iden'))
+                except s_exc.NoSuchIden:
+                    pass
+
+        if 'queues' not in keep:
+            qinfos = []
+            async for qinfo in self.listStormPkgQueues(pkgname=name):
+                qinfos.append(qinfo)
+
+            for qinfo in qinfos:
+                await self.delStormPkgQueue(name, qinfo.get('name'))
+
+        if 'vaults' not in keep:
+            vtypes = list(pkgdef.get('vaults', {}).keys())
+            for vtype in vtypes:
+                for vault in list(self._getVaults()):
+                    if vault.get('type') == vtype:
+                        await self.delVault(vault.get('iden'))
+
+        if 'variables' not in keep:
+            pkgvars = self._getStormPkgVarKV(name)
+            for key in list(pkgvars.keys()):
+                await self.popStormPkgVar(name, key)
+            self.stormpkgvars.pop(name, None)
+
+        if 'extmodel' not in keep:
+            await self._cleanupStormPkgExtModel(pkgdef)
+
+        pkgstate = self._getStormPkgStateKV(name)
+        for key in list(pkgstate.keys()):
+            await self.popStormPkgState(name, key)
+        self.stormpkgstate.pop(name, None)
+
+    async def _cleanupStormPkgExtModel(self, pkgdef):
+
+        extmodel = pkgdef.get('extmodel')
+        if extmodel is None:
+            return
+
+        meta = {'user': self.auth.rootuser.iden, 'time': s_common.now()}
+
+        # Delete property data and definitions
+        for prop, pdef in extmodel.get('props', {}).items():
+            for form in pdef.get('forms', ()):
+                try:
+                    await self._delAllFormProp(form, prop, meta)
+                    await self.delFormProp(form, prop)
+                except s_exc.NoSuchProp:
+                    pass
+
+        # Delete tag property data and definitions
+        for name in extmodel.get('tagprops', {}):
+            try:
+                await self._delAllTagProp(name, meta)
+                await self.delTagProp(name)
+            except s_exc.NoSuchTagProp:
+                pass
+
+        # Delete all nodes for each form, then delete the form definition
+        for formname in extmodel.get('forms', {}):
+            try:
+                for layr in list(self.layers.values()):
+                    genr = layr.iterFormRows(formname)
+                    async for rows in s_coro.chunks(genr):
+                        nodeedits = []
+                        for nid, valu in rows:
+                            nodeedits.append((s_common.int64un(nid), formname, (
+                                (s_layer.EDIT_NODE_DEL, (), ()),
+                            )))
+                        await layr.saveNodeEdits(nodeedits, meta)
+                        await asyncio.sleep(0)
+
+                await self.delForm(formname)
+            except s_exc.NoSuchForm:
+                pass
+
+        for typename in extmodel.get('types', {}):
+            try:
+                await self.delType(typename)
+            except s_exc.NoSuchType:
+                pass
 
     async def getStormPkg(self, name):
         return copy.deepcopy(self.stormpkgs.get(name))
@@ -2379,6 +2582,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
+
+        onuninstall = pkgdef.get('onuninstall')
+        if onuninstall is not None and validstorm:
+            await self.getStormQuery(onuninstall['query'])
+
+        for ddef in pkgdef.get('dmons', ()):
+            if validstorm:
+                await self.getStormQuery(ddef.get('storm'))
 
         if inits is not None:
             lastver = None
@@ -2566,9 +2777,50 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
+                await self._loadStormPkgDmons(pkgdef)
+
                 await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
-            self.runActiveTask(_onload())
+            task = self.runActiveTask(_onload())
+            self._pkgOnloadTasks[name] = task
+
+            def _onTaskDone(t, _name=name):
+                self._pkgOnloadTasks.pop(_name, None)
+
+            task.add_done_callback(_onTaskDone)
+
+    async def _cancelStormPkgOnload(self, name):
+        task = self._pkgOnloadTasks.pop(name, None)
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:
+                logger.warning(f'Exception cancelling onload for package {name}', exc_info=exc)
+
+    async def _loadStormPkgDmons(self, pkgdef):
+
+        name = pkgdef.get('name')
+
+        for ddef in pkgdef.get('dmons', ()):
+
+            diden = ddef.get('iden')
+
+            if await self.getStormDmon(diden) is not None:
+                await self.bumpStormDmon(diden)
+                continue
+
+            dmon = {
+                'iden': diden,
+                'name': ddef.get('name'),
+                'storm': ddef.get('storm'),
+                'user': self.auth.rootuser.iden,
+                'enabled': True,
+                'stormopts': {'view': self.view.iden},
+            }
+            await self.addStormDmon(dmon)
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.

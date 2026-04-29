@@ -753,6 +753,28 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'onuninstall': {
+            'type': 'object',
+            'properties': {
+                'query': {'type': 'string'},
+                'queryopts': {'type': 'object'},
+            },
+            'required': ['query'],
+            'additionalProperties': False,
+        },
+        'dmons': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'iden': {'type': 'string', 'pattern': s_config.re_iden},
+                    'storm': {'type': 'string'},
+                    'name': {'type': 'string'},
+                },
+                'required': ['iden', 'storm', 'name'],
+                'additionalProperties': False,
+            },
+        },
         'inits': {
             'type': 'object',
             'properties': {
@@ -825,7 +847,95 @@ _reqValidPkgdefSchema = {
                 },
             },
             'additionalProperties': False,
-        }
+        },
+        'extmodel': {
+            'type': 'object',
+            'properties': {
+                'types': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^_': {
+                            'type': 'object',
+                            'properties': {
+                                'type': {'type': 'string'},
+                                'typeopts': {'type': 'object'},
+                                'typeinfo': {'type': 'object'},
+                            },
+                            'required': ['type'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'forms': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^_': {
+                            'type': 'object',
+                            'properties': {
+                                'type': {'type': 'string'},
+                                'typeopts': {'type': 'object'},
+                                'typeinfo': {'type': 'object'},
+                            },
+                            'required': ['type'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'props': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^_': {
+                            'type': 'object',
+                            'properties': {
+                                'forms': {
+                                    'type': 'array',
+                                    'items': {'type': 'string'},
+                                },
+                                'typedef': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'string'},
+                                        {'type': 'object'},
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                                'propinfo': {'type': 'object'},
+                            },
+                            'required': ['forms', 'typedef'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'tagprops': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^_': {
+                            'type': 'object',
+                            'properties': {
+                                'typedef': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'string'},
+                                        {'type': 'object'},
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                                'propinfo': {'type': 'object'},
+                            },
+                            'required': ['typedef'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+            },
+            'additionalProperties': False,
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],

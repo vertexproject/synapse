@@ -2133,7 +2133,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
         self.isin(mesg, print_str)
 
-    def stormNotInPrint(self, mesg, mesgs):
+    def stormNotInPrint(self, mesg, mesgs, whitespace=True):
         '''
         Assert a string is not present in all of the print messages from a stream of storm messages.
 
@@ -2142,6 +2142,9 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             mesgs (list): A list of storm messages.
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        if not whitespace:
+            mesg = ' '.join(mesg.split())
+            print_str = ' '.join(print_str.split())
         self.notin(mesg, print_str)
 
     def stormIsInWarn(self, mesg, mesgs):
