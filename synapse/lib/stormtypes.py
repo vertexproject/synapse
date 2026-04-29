@@ -1532,9 +1532,13 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
+        if typeitem.isarray:
+            return await typeitem.tostorm(norm)
+
         if typeitem.ispoly:
             return NodeRef((norm, info.get('virts')))
-        return fromprim(norm, basetypes=False)
+
+        return NodeRef(((typeitem.name, norm), info.get('virts')))
 
     @stormfunc(readonly=True)
     async def trycast(self, name, valu):
@@ -1545,9 +1549,14 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
+            if typeitem.isarray:
+                return True, await typeitem.tostorm(norm)
+
             if typeitem.ispoly:
-                return (True, NodeRef((norm, info.get('virts'))))
-            return (True, fromprim(norm, basetypes=False))
+                return True, NodeRef((norm, info.get('virts')))
+
+            return True, NodeRef(((typeitem.name, norm), info.get('virts')))
+
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
 
@@ -5525,17 +5534,16 @@ class Number(Prim):
         return float(self.value())
 
     def __hash__(self):
-        return hash((self._storm_typename, self.value()))
+        return hash(self.value())
 
     def __eq__(self, othr):
         if isinstance(othr, float):
             othr = s_common.hugenum(othr)
             return self.value() == othr
-        elif isinstance(othr, (int, decimal.Decimal)):
-            return self.value() == othr
         elif isinstance(othr, Number):
             return self.value() == othr.value()
-        return False
+
+        return self.value() == othr
 
     def __lt__(self, othr):
         if isinstance(othr, float):
@@ -10140,6 +10148,9 @@ async def tonumber(valu, noneok=False):
 
     if isinstance(valu, Number):
         return valu
+
+    if isinstance(valu, NodeRef):
+        return Number(valu.valu[1])
 
     if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
         return Number(valu)
