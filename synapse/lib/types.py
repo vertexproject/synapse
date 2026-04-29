@@ -2432,7 +2432,7 @@ class Poly(Type):
         if form is not None:
             if valu.exists:
                 return valu.valu, {'skipadd': True, 'virts': valu.virts}
-            elif await view.getNodeByNdef(valu.valu) is not None:
+            elif view is not None and await view.getNodeByNdef(valu.valu) is not None:
                 valu.exists = True
                 return valu.valu, {'skipadd': True, 'virts': valu.virts}
 
