@@ -8818,7 +8818,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Seed the mirror from the stale leader state
             s_tools_backup.backup(path00, path01)
 
-            # Reboot the leader: _execCellUpdates detects hash mismatch → fires model:set
+            # Reboot the leader: _execCellUpdates detects hash mismatch and fires model:set
             async with self.getTestCore(dirn=path00) as core00:
 
                 self.gt(await core00.nexsroot.index(), nexus_index_before)
@@ -8837,15 +8837,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_model_nexusify_promote(self):
         '''
-        Promotion simulation: after a mirror is promoted to leader and reboots with
-        updated code, the old leader (now mirror) receives model:set and updates its model.
+        Promotion simulation: a mirror with a stale persisted model is promoted to
+        leader. The promotion triggers _execCellUpdates which fires model:set, and
+        the old leader (now mirror) receives the update.
         '''
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
 
-            # # Bootstrap the mirror from a backup of the leader
+            # Bootstrap the mirror from a backup of the leader
             async with self.getTestCore(dirn=path00) as core00:
                 pass
 
@@ -8861,22 +8862,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                     h1 = s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model')))
                     self.eq(h1, s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))))
 
-                    # Graceful promotion: core01 becomes leader, core00 becomes mirror of core01
+                    # Simulate new code deployed to the mirror before promotion:
+                    # corrupt its persisted model so the hash differs from the code.
+                    good_mdefs = core01.cellinfo.get('cortex:model')
+                    core01.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
+
+                    nexus_index_before = await core01.nexsroot.index()
+
+                    # Promote: setCellActive(True) triggers _execCellUpdates which
+                    # detects the hash mismatch and fires model:set.
                     url01 = core01.getLocalUrl()
                     await core00.handoff(url01)
                     self.true(core01.isactive)
                     self.false(core00.isactive)
 
-                    # Simulate new code deployed to new leader during the promote window
-                    good_mdefs = core01.cellinfo.get('cortex:model')
-                    core01.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
-                    nexus_index_before = await core01.nexsroot.index()
-
-                # Reboot new leader: _execCellUpdates detects hash mismatch → fires model:set
-                async with await s_cortex.Cortex.anit(path01) as core01:
+                    # model:set fired during promotion
                     self.gt(await core01.nexsroot.index(), nexus_index_before)
 
-                    # Old leader (now mirror) reconnects and receives model:set
+                    # Old leader (now mirror) syncs the model:set from the new leader
                     await asyncio.wait_for(core00.sync(), timeout=12)
 
                     h2 = s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model')))
@@ -8884,32 +8887,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(h2, s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))))
                     self.nn(core01.model.forms.get('inet:asn'))
                     self.nn(core00.model.forms.get('inet:asn'))
-
-    async def test_cortex_model_nexusify_hash_mismatch(self):
-        '''
-        When the persisted model hash differs from the code-derived hash on boot
-        (mirror with stale persisted model), _loadModels loads from the persisted
-        dict rather than from local code. _execCellUpdates then re-fires model:set.
-        '''
-        with self.getTestDir() as dirn:
-            async with self.getTestCore(dirn=dirn) as core:
-                good_mdefs = core.cellinfo.get('cortex:model')
-                self.nn(good_mdefs)
-
-                # Append an empty sentinel module so the stored hash differs from the
-                # code-derived hash, simulating a mirror with a stale persisted model.
-                # The empty dict is a no-op to addModelDefs, keeping the model intact.
-                core.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
-
-            # On reboot: _loadModels detects hash mismatch and loads from persisted.
-            # _execCellUpdates then fires model:set to correct the persisted model.
-            async with self.getTestCore(dirn=dirn) as core:
-                restored = core.cellinfo.get('cortex:model')
-                self.eq(
-                    s_common.guid(s_common.flatten(restored)),
-                    s_common.guid(s_common.flatten(good_mdefs)),
-                )
-                self.nn(core.model.forms.get('inet:asn'))
 
     async def test_cortex_model_nexusify_ext_resilience(self):
         '''
