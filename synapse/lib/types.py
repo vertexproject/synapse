@@ -3176,8 +3176,8 @@ class Time(IntBase):
     async def _normNumber(self, valu, prec=None, view=None):
         return await self._normPyInt(int(valu.valu), prec=prec)
 
-    async def _normStormNodeRef(self, ndef, prec=None, view=None):
-        return await self._normPyInt(ndef.valu[1], prec=prec)
+    async def _normStormNodeRef(self, nref, prec=None, view=None):
+        return await self._normPyInt(nref.valu[1], prec=prec)
 
     async def norm(self, valu, prec=None, view=None):
         func = self._type_norms.get(type(valu))
