@@ -233,6 +233,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin/blockchain of the block which records this transaction.'}),
                     ('block:offset', ('int', {}), {
                         'doc': 'The offset of the block which records this transaction.'}),
+                    ('block:chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the transaction is recorded.'}),
 
                     ('success', ('bool', {}), {
                         'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
@@ -283,6 +285,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address which mined the block.'}),
                     ('time', ('time', {}), {
                         'doc': 'Time timestamp embedded in the block by the miner.'}),
+                    ('chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the block is recorded.'}),
                 )),
 
                 ('crypto:smart:contract', {}, (
