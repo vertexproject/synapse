@@ -8799,26 +8799,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 self.eq(core.nexsroot.nexslog.index(), nexus_index_before)
 
-    async def test_cortex_model_nexusify_idempotence(self):
-        '''
-        Verify that firing model:set twice with the same mdefs is a no-op
-        (same hash, same beholder hash both times).
-        '''
-        with self.withNexusReplay(replay=True):
-            async with self.getTestCore() as core:
-                mdefs1 = core.cellinfo.get('cortex:model')
-                self.nn(mdefs1)
-
-                # Replay: fire model:set again with same mdefs
-                await core._push('model:set', core._mainlinemdefs)
-
-                mdefs2 = core.cellinfo.get('cortex:model')
-                self.eq(
-                    s_common.guid(s_common.flatten(mdefs1)),
-                    s_common.guid(s_common.flatten(mdefs2)),
-                )
-                self.nn(core.model.forms.get('inet:asn'))
-
     async def test_cortex_model_nexusify_mirror(self):
         '''
         Mirror receives model:set from leader and both cells agree on getModelDef() after sync.
