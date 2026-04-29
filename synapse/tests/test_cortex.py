@@ -8761,7 +8761,7 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_model_nexusify(self):
         '''
         Test that mainline model changes are routed through the nexus (model:set event).
-        Covers: first-boot seed, hash-stable no-op, idempotence, beholder event, mirror sync.
+        Covers: first-boot seed, hash-stable no-op, idempotence, beholder event.
         '''
         with self.getTestDir() as dirn:
 
@@ -8800,7 +8800,7 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_model_nexusify_mirror(self):
         '''
         A new mirror brought online from a older backup connects to the leader and
-        syncs the current model via nexus replay of model:set.
+        syncs the current model via nexus model:set event.
         '''
         with self.getTestDir() as dirn:
 
@@ -8826,7 +8826,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                # Mirror boots from stale backup and replays the corrective model:set
+                # Mirror boots from stale backup and receives the corrective model:set
                 async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
                     await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
                     await core01.sync()
