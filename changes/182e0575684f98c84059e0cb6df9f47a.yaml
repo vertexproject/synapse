@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where the Storm ``cron.add`` command did not support comma-separated
+  minutes in the hourly ``--period`` time specification (e.g., hourly@:24,45).
+desc:literal: false
+prs: []
+type: bug
+...
