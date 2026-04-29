@@ -1297,7 +1297,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await super()._execCellUpdates()
 
         newhash = s_common.guid(s_common.flatten(self._mainlinemdefs))
-        oldhash = self.cellinfo.get('cortex:model:hash')
+        persisted = self.cellinfo.get('cortex:model')
+        oldhash = s_common.guid(s_common.flatten(persisted)) if persisted is not None else None
 
         if newhash != oldhash:
             await self._push('model:set', self._mainlinemdefs)
@@ -2968,17 +2969,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mdefs.extend(defs)
 
         self._mainlinemdefs = mdefs
-        self.model.addModelDefs(mdefs)
 
-        # If a persisted model exists and differs from the code-derived one, rebuild
-        # self.model from the persisted version. Mirrors hold the cluster's current model
-        # until the leader issues model:set after a code change. The hash is stored separately.
+        # If a persisted model exists and its hash differs from the code-derived one,
+        # load from persisted. Mirrors hold the cluster's current model until the leader
+        # issues model:set after a code change.
         if (persisted := self.cellinfo.get('cortex:model')) is not None:
             newhash = s_common.guid(s_common.flatten(mdefs))
-            oldhash = self.cellinfo.get('cortex:model:hash')
+            oldhash = s_common.guid(s_common.flatten(persisted))
             if newhash != oldhash:
-                self.model = s_datamodel.Model(core=self)
                 self.model.addModelDefs(persisted)
+                return
+
+        self.model.addModelDefs(mdefs)
 
     async def _addModelDefs(self, mods):
         self.model.addModelDefs(mods)
@@ -2994,10 +2996,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             model.addModelDefs(localmods)
         self._applyExtModel(model)
         self.model = model
-        modelhash = s_common.guid(s_common.flatten(mdefs))
-        self.cellinfo.set('cortex:model:hash', modelhash)
         self.cellinfo.set('cortex:model', mdefs)
         await self._initDeprLocks()
+        modelhash = s_common.guid(s_common.flatten(mdefs))
         await self.feedBeholder('model:set', {'hash': modelhash})
 
     async def _loadExtModel(self):

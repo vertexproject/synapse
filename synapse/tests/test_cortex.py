@@ -8767,35 +8767,33 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # First boot: model:set fires and cellinfo is seeded
             async with self.getTestCore(dirn=dirn) as core:
-                stored_hash = core.cellinfo.get('cortex:model:hash')
                 stored_mdefs = core.cellinfo.get('cortex:model')
-                self.nn(stored_hash)
                 self.nn(stored_mdefs)
 
-                # Hash must match code-derived model
+                # Hash of persisted mdefs must match code-derived model
                 mdefs = []
                 for path in s_models.modeldefs:
                     if (defs := s_dyndeps.getDynLocal(path)) is not None:
                         mdefs.extend(defs)
 
                 expected_hash = s_common.guid(s_common.flatten(mdefs))
+                stored_hash = s_common.guid(s_common.flatten(stored_mdefs))
                 self.eq(stored_hash, expected_hash)
 
                 # model has the expected forms
                 self.nn(core.model.forms.get('inet:asn'))
 
                 # beholder event fires with the hash
-                events = [{'event': 'model:set', 'info': {'hash': stored_hash}}]
+                events = [{'event': 'model:set', 'info': {'hash': expected_hash}}]
                 task = core.schedCoro(s_t_utils.waitForBehold(core, events))
                 await core._push('model:set', core._mainlinemdefs)
                 await asyncio.wait_for(task, timeout=5)
 
             # Second boot (code unchanged): no new model:set event
-            nexus_index_before = None
             async with self.getTestCore(dirn=dirn) as core:
                 nexus_index_before = core.nexsroot.nexslog.index()
-                # hash should still match; no new model:set
-                self.eq(core.cellinfo.get('cortex:model:hash'), expected_hash)
+                stored_hash2 = s_common.guid(s_common.flatten(core.cellinfo.get('cortex:model')))
+                self.eq(stored_hash2, expected_hash)
 
             # nexus log did not increment on clean restart
             async with self.getTestCore(dirn=dirn) as core:
@@ -8808,14 +8806,17 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         with self.withNexusReplay(replay=True):
             async with self.getTestCore() as core:
-                hash1 = core.cellinfo.get('cortex:model:hash')
-                self.nn(hash1)
+                mdefs1 = core.cellinfo.get('cortex:model')
+                self.nn(mdefs1)
 
                 # Replay: fire model:set again with same mdefs
                 await core._push('model:set', core._mainlinemdefs)
 
-                hash2 = core.cellinfo.get('cortex:model:hash')
-                self.eq(hash1, hash2)
+                mdefs2 = core.cellinfo.get('cortex:model')
+                self.eq(
+                    s_common.guid(s_common.flatten(mdefs1)),
+                    s_common.guid(s_common.flatten(mdefs2)),
+                )
                 self.nn(core.model.forms.get('inet:asn'))
 
     async def test_cortex_model_nexusify_mirror(self):
@@ -8837,10 +8838,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
                     await core01.sync()
 
-                    # Both leader and mirror have the same persisted model hash
+                    # Both leader and mirror have the same persisted model
                     self.eq(
-                        core00.cellinfo.get('cortex:model:hash'),
-                        core01.cellinfo.get('cortex:model:hash'),
+                        s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))),
+                        s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))),
                     )
 
                     # Both can resolve the same form
@@ -8850,21 +8851,27 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_model_nexusify_hash_mismatch(self):
         '''
         When the persisted model hash differs from the code-derived hash on boot
-        (mirror with stale persisted model), _loadModels rebuilds self.model from the
-        persisted dict rather than from local code.
+        (mirror with stale persisted model), _loadModels loads from the persisted
+        dict rather than from local code. _execCellUpdates then re-fires model:set.
         '''
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                good_hash = core.cellinfo.get('cortex:model:hash')
-                self.nn(good_hash)
+                good_mdefs = core.cellinfo.get('cortex:model')
+                self.nn(good_mdefs)
 
-                # Corrupt the stored hash to simulate a mirror whose hash is different
-                # than the cluster's current persisted model.
-                core.cellinfo.set('cortex:model:hash', 'deadbeef')
+                # Append an empty sentinel module so the stored hash differs from the
+                # code-derived hash, simulating a mirror with a stale persisted model.
+                # The empty dict is a no-op to addModelDefs, keeping the model intact.
+                core.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
 
-            # _execCellUpdates then re-fires model:set to correct the hash.
+            # On reboot: _loadModels detects hash mismatch and loads from persisted.
+            # _execCellUpdates then fires model:set to correct the persisted model.
             async with self.getTestCore(dirn=dirn) as core:
-                self.eq(core.cellinfo.get('cortex:model:hash'), good_hash)
+                restored = core.cellinfo.get('cortex:model')
+                self.eq(
+                    s_common.guid(s_common.flatten(restored)),
+                    s_common.guid(s_common.flatten(good_mdefs)),
+                )
                 self.nn(core.model.forms.get('inet:asn'))
 
     async def test_cortex_model_nexusify_ext_resilience(self):
