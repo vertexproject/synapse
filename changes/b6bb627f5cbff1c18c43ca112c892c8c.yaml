@@ -1,0 +1,7 @@
+---
+desc: Added a ``getRawHeaders()`` method to the ``inet:http:resp`` Storm type to allow
+  users to access all values for multi-value HTTP response headers, such as ``Set-Cookie``.
+desc:literal: false
+prs: []
+type: feat
+...
