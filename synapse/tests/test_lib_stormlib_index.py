@@ -23,17 +23,17 @@ class StormIndexTest(s_test.SynTest):
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts = {'view': viewiden}
-            await core.nodes('[ inet:ipv4=1.2.3.0/28 :asn=19 ]')
-            await core.nodes('[ inet:ipv4=1.2.4.0/28 :asn=42 ]', opts=viewopts)
+            await core.nodes('[ inet:ip=1.2.3.0/28 :asn=19 ]')
+            await core.nodes('[ inet:ip=1.2.4.0/28 :asn=42 ]', opts=viewopts)
 
-            msgs = await core.stormlist('index.count.prop inet:ipv4', opts=viewopts)
+            msgs = await core.stormlist('index.count.prop inet:ip', opts=viewopts)
             self.stormIsInPrint(count_prop_00, msgs, deguid=True, whitespace=False)
 
-            msgs = await core.stormlist('index.count.prop inet:ipv4:asn', opts=viewopts)
+            msgs = await core.stormlist('index.count.prop inet:ip:asn', opts=viewopts)
             self.stormIsInPrint(count_prop_00, msgs, deguid=True, whitespace=False)
 
-            msgs = await core.stormlist('index.count.prop inet:ipv4:asn --value 42', opts=viewopts)
+            msgs = await core.stormlist('index.count.prop inet:ip:asn --value 42', opts=viewopts)
             self.stormIsInPrint(count_prop_01, msgs, deguid=True, whitespace=False)
 
-            msgs = await core.stormlist('index.count.prop inet:ipv4:newp', opts=viewopts)
-            self.stormIsInErr('No property named inet:ipv4:newp', msgs)
+            msgs = await core.stormlist('index.count.prop inet:ip:newp', opts=viewopts)
+            self.stormIsInErr('No property named inet:ip:newp', msgs)

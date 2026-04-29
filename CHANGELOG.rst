@@ -79,6 +79,12 @@ Notes
 - Updated the pinned version of the ``lark`` library to ``1.3.1``.
   (`#4875 <https://github.com/vertexproject/synapse/pull/4875>`_)
 
+v3.0.0 - 2025-XX-YY
+===================
+
+Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
+changes.
+
 v2.238.0 - 2026-04-10
 =====================
 
@@ -845,7 +851,6 @@ Deprecations
 ------------
 - Deprecated the ``synapse.cryotank.CryoTank`` Cell.
   (`#4494 <https://github.com/vertexproject/synapse/pull/4494>`_)
-
 
 v2.222.0 - 2025-09-15
 =====================

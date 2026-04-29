@@ -287,7 +287,7 @@ class LinkTest(s_test.SynTest):
 
                 srv_sslctx = certdir.getServerSSLContext(hostname)  # type: ssl.SSLContext
                 # The server context has a default minimum version.
-                self.eq(srv_sslctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+                self.eq(srv_sslctx.minimum_version, ssl.TLSVersion.TLSv1_3)
 
                 # Change the maximum server version to tls 1.1 so that our
                 # link ssl context will not work with it.
@@ -298,10 +298,10 @@ class LinkTest(s_test.SynTest):
 
                 sslctx = certdir.getClientSSLContext()  # type: ssl.SSLContext
                 # The client context has a default minimum version.
-                self.eq(sslctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+                self.eq(sslctx.minimum_version, ssl.TLSVersion.TLSv1_3)
 
                 try:
-                    # Our default does not talk to a TLS server that is lower than TLS 1.2 though.
+                    # Our default does not talk to a TLS server that is lower than TLS 1.3 though.
                     with self.raises(ConnectionResetError):
                         await s_link.connect(hostname, port=port, ssl=sslctx)
                 finally:

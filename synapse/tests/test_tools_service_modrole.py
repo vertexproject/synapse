@@ -29,7 +29,7 @@ class ModRoleTest(s_test.SynTest):
 
             svcurl = core.getLocalUrl()
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
             )
             outp = s_output.OutPutStr()
@@ -37,7 +37,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin('ERROR: Role not found (need --add?): visi', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--add',
                 'visi',
             )
@@ -47,7 +47,7 @@ class ModRoleTest(s_test.SynTest):
             self.nn(await core.auth.getRoleByName('visi'))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--allow', 'foo.bar',
                 '--deny', 'foo.bar.baz',
@@ -62,7 +62,7 @@ class ModRoleTest(s_test.SynTest):
 
             gateiden = core.getLayer().iden
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--allow', 'bar.baz',
                 '--deny', 'bar.baz.faz',
@@ -80,7 +80,7 @@ class ModRoleTest(s_test.SynTest):
                     self.isin((False, ('bar', 'baz', 'faz')), role['rules'])
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
             )
             outp = s_output.OutPutStr()
@@ -88,7 +88,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin(rolelist, s_test.deguidify(str(outp)))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
                 'visi',
             )
@@ -97,7 +97,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin(roleinfo, s_test.deguidify(str(outp)))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--list',
                 'newprole',
             )
@@ -106,7 +106,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin('ERROR: Role not found: newprole', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 'visi',
                 '--gate', 'newp',
             )
@@ -115,7 +115,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin('ERROR: No auth gate found with iden: newp', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--add',
                 '--del',
                 'visi',
@@ -125,7 +125,7 @@ class ModRoleTest(s_test.SynTest):
             self.isin('ERROR: Cannot specify --add and --del together.', str(outp))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--del',
                 'visi',
             )
@@ -135,7 +135,7 @@ class ModRoleTest(s_test.SynTest):
             self.none(await core.auth.getRoleByName('visi'))
 
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
             )
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_modrole.main(argv, outp=outp))

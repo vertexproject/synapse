@@ -37,6 +37,9 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
+            retn = tuple(seqn.iterBack(2))
+            self.eq(retn, ((2, 20), (1, 10), (0, 'foo')))
+
             self.eq(seqn.nextindx(), 3)
 
             await slab.fini()
@@ -155,7 +158,7 @@ class SlabSeqn(s_t_utils.SynTest):
 
                 path = os.path.join(dirn, 'test.lmdb')
                 slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
-
+                base.onfini(slab)
                 seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
 
                 await self.agenlen(0, seqn.aiter(0))

@@ -95,7 +95,7 @@ class MultiSlabSeqn(s_base.Base):
     @staticmethod
     def _setFirstIndx(slab, indx) -> bool:
         db = slab.initdb('info')
-        return slab.put(b'firstindx', s_common.int64en(indx), db=db)
+        return slab._put(b'firstindx', s_common.int64en(indx), db=db)
 
     async def _discoverRanges(self):
         '''

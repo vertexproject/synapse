@@ -227,7 +227,7 @@ class Cli(s_base.Base):
     '''
     A modular / event-driven CLI base object.
     '''
-    histfile = 'cmdr_history'
+    histfile = 'cli_history'
 
     async def __anit__(self, item, outp=None, **locs):
 

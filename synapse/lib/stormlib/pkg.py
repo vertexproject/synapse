@@ -35,7 +35,7 @@ stormcmds = [
 
             $pkgs = $lib.pkg.list()
 
-            if $($pkgs.size() > 0) {
+            if ($pkgs.size() > 0) {
                 $lib.print('Loaded storm packages:')
                 $lib.print($printer.header())
                 for $pkg in $pkgs {
@@ -63,7 +63,7 @@ stormcmds = [
             ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
         ),
         'storm': '''
-            $pdef = $lib.null
+            $pdef = (null)
             for $pkg in $lib.pkg.list() {
                 if $pkg.name.startswith($cmdopts.name) {
                     $pdef = $pkg
@@ -78,8 +78,8 @@ stormcmds = [
                     $lib.print(`Package ({$cmdopts.name}) defines the following permissions:`)
                     for $permdef in $pdef.perms {
                         $defv = $permdef.default
-                        if ( $defv = $lib.null ) {
-                            $defv = $lib.false
+                        if ($defv = null) {
+                            $defv = (false)
                         }
                         $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
@@ -106,19 +106,19 @@ stormcmds = [
                 }
             }
 
-            if $($pkgs.size() = 0) {
+            if ($pkgs.size() = 0) {
 
-                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
+                $lib.print(`No package names match "{$cmdopts.name}". Aborting.`)
 
-            } elif $($pkgs.size() = 1) {
+            } elif ($pkgs.size() = 1) {
 
                 $name = $pkgs.list().index(0)
-                $lib.print('Removing package: {name}', name=$name)
+                $lib.print(`Removing package: {$name}`)
                 $lib.pkg.del($name)
 
             } else {
 
-                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
+                $lib.print(`Multiple package names match "{$cmdopts.name}". Aborting.`)
 
             }
         '''
@@ -130,7 +130,7 @@ stormcmds = [
             ('name', {'help': 'The name (or name prefix) of the package.'}),
         ),
         'storm': '''
-            $pdef = $lib.null
+            $pdef = (null)
             for $pkg in $lib.pkg.list() {
                 if $pkg.name.startswith($cmdopts.name) {
                     $pdef = $pkg
@@ -139,14 +139,14 @@ stormcmds = [
             }
 
             if (not $pdef) {
-                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+                $lib.warn(`Package ({$cmdopts.name}) not found!`)
             } else {
                 if $pdef.docs {
                     for $doc in $pdef.docs {
                         $lib.print($doc.content)
                     }
                 } else {
-                    $lib.print("Package ({name}) contains no documentation.", name=$cmdopts.name)
+                    $lib.print(`Package ({$cmdopts.name}) contains no documentation.`)
                 }
             }
         '''
@@ -165,15 +165,14 @@ stormcmds = [
         ),
         'storm': '''
             init {
-                $ssl = $lib.true
-                if $cmdopts.ssl_noverify { $ssl = $lib.false }
+                $ssl = ({"verify": (not $cmdopts.ssl_noverify)})
 
-                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse)})
 
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
+                $resp = $lib.inet.http.get($cmdopts.url, ssl=$ssl, headers=$headers)
 
                 if ($resp.code != 200) {
-                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
+                    $lib.warn(`pkg.load got HTTP code: {$resp.code} for URL: {$cmdopts.url}`)
                     $lib.exit()
                 }
 
@@ -182,7 +181,7 @@ stormcmds = [
                     $pkg = $reply
                 } else {
                     if ($reply.status != "ok") {
-                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                        $lib.warn(`pkg.load got JSON error: {$reply.code} for URL: {$cmdopts.url}`)
                         $lib.exit()
                     }
 
@@ -191,7 +190,7 @@ stormcmds = [
 
                 $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
 
-                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
+                $lib.print(`Loaded Package: {$pkg.name} @{$pkg.version}`)
             }
         ''',
     },
@@ -256,10 +255,19 @@ class LibPkg(s_stormtypes.Lib):
                        'desc': 'A Storm Package name to access Queues for.', },
                   ),
                   'returns': {'type': 'pkg:queues', 'desc': 'An object for accessing the package Queues.', }}},
+        {'name': 'state',
+         'desc': "Get a read-only dictionary representing the package's persistent state.",
+         'type': {'type': 'function', '_funcname': '_libPkgState',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get state for.'},
+                  ),
+                  'returns': {'type': 'pkg:state',
+                              'desc': 'A read-only dictionary representing the package state.'}}},
     )
     _storm_lib_perms = (
         {'perm': ('power-ups', '<power-up>', 'admin'), 'gate': 'cortex',
-         'desc': 'Controls the ability to interact with the vars or Queues for a Storm Package by name.'},
+         'desc': 'Controls the ability to interact with the vars, state, or Queues for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)
 
@@ -273,18 +281,19 @@ class LibPkg(s_stormtypes.Lib):
             'deps': self._libPkgDeps,
             'vars': self._libPkgVars,
             'queues': self._libPkgQueues,
+            'state': self._libPkgState,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
         self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await s_stormtypes.toprim(pkgdef)
         verify = await s_stormtypes.tobool(verify)
-        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
+        await self.runt.view.core.addStormPkg(pkgdef, verify=verify)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgGet(self, name):
         name = await s_stormtypes.tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        pkgdef = await self.runt.view.core.getStormPkg(name)
         if pkgdef is None:
             return None
 
@@ -293,24 +302,24 @@ class LibPkg(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgHas(self, name):
         name = await s_stormtypes.tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        pkgdef = await self.runt.view.core.getStormPkg(name)
         if pkgdef is None:
             return False
         return True
 
     async def _libPkgDel(self, name):
         self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.snap.core.delStormPkg(name)
+        await self.runt.view.core.delStormPkg(name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgList(self):
-        pkgs = await self.runt.snap.core.getStormPkgs()
+        pkgs = await self.runt.view.core.getStormPkgs()
         return list(sorted(pkgs, key=lambda x: x.get('name')))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgDeps(self, pkgdef):
         pkgdef = await s_stormtypes.toprim(pkgdef)
-        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
+        return await self.runt.view.core.verifyStormPkgDeps(pkgdef)
 
     async def _libPkgVars(self, name):
         name = await s_stormtypes.tostr(name)
@@ -321,6 +330,11 @@ class LibPkg(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
         s_stormtypes.confirm(('power-ups', name, 'admin'))
         return PkgQueues(self.runt, name)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libPkgState(self, name):
+        name = await s_stormtypes.tostr(name)
+        return PkgState(self.runt, name)
 
 @s_stormtypes.registry.registerType
 class PkgVars(s_stormtypes.Prim):
@@ -341,23 +355,46 @@ class PkgVars(s_stormtypes.Prim):
     async def deref(self, name):
         self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getStormPkgVar(self.valu, name)
+        return await self.runt.view.core.getStormPkgVar(self.valu, name)
 
     async def setitem(self, name, valu):
         self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
 
         if valu is s_stormtypes.undef:
-            await self.runt.snap.core.popStormPkgVar(self.valu, name)
+            await self.runt.view.core.popStormPkgVar(self.valu, name)
             return
 
         valu = await s_stormtypes.toprim(valu)
-        await self.runt.snap.core.setStormPkgVar(self.valu, name, valu)
+        await self.runt.view.core.setStormPkgVar(self.valu, name, valu)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def iter(self):
         self._reqPkgAdmin()
-        async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
+        async for name, valu in self.runt.view.core.iterStormPkgVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
+
+@s_stormtypes.registry.registerType
+class PkgState(s_stormtypes.Prim):
+    '''
+    A read-only Storm interface for accessing package state information.
+    '''
+    _storm_typename = 'pkg:state'
+    _ismutable = False
+
+    def __init__(self, runt, valu, path=None):
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def deref(self, name):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.view.core.getStormPkgState(self.valu, name)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def iter(self):
+        async for name, valu in self.runt.view.core.iterStormPkgState(self.valu):
             yield name, valu
             await asyncio.sleep(0)
 
@@ -419,7 +456,7 @@ class PkgQueues(s_stormtypes.Prim):
         self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
 
-        await self.runt.snap.core.addStormPkgQueue(self.valu, name)
+        await self.runt.view.core.addStormPkgQueue(self.valu, name)
         return StormPkgQueue(self.runt, self.valu, name)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -427,7 +464,7 @@ class PkgQueues(s_stormtypes.Prim):
         self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
 
-        await self.runt.snap.core.getStormPkgQueue(self.valu, name)
+        await self.runt.view.core.getStormPkgQueue(self.valu, name)
         return StormPkgQueue(self.runt, self.valu, name)
 
     async def _methPkgQueueGen(self, name):
@@ -440,12 +477,12 @@ class PkgQueues(s_stormtypes.Prim):
         self._reqPkgAdmin()
         name = await s_stormtypes.tostr(name)
 
-        await self.runt.snap.core.delStormPkgQueue(self.valu, name)
+        await self.runt.view.core.delStormPkgQueue(self.valu, name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPkgQueueList(self):
         self._reqPkgAdmin()
-        async for pkginfo in self.runt.snap.core.listStormPkgQueues(pkgname=self.valu):
+        async for pkginfo in self.runt.view.core.listStormPkgQueues(pkgname=self.valu):
             yield pkginfo
 
 @s_stormtypes.registry.registerType
@@ -549,12 +586,12 @@ class StormPkgQueue(s_stormtypes.StormType):
     async def _methPkgQueueCull(self, offs):
         self._reqPkgAdmin()
         offs = await s_stormtypes.toint(offs)
-        await self.runt.snap.core.stormPkgQueueCull(self.pkgname, self.name, offs)
+        await self.runt.view.core.stormPkgQueueCull(self.pkgname, self.name, offs)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPkgQueueSize(self):
         self._reqPkgAdmin()
-        return await self.runt.snap.core.stormPkgQueueSize(self.pkgname, self.name)
+        return await self.runt.view.core.stormPkgQueueSize(self.pkgname, self.name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPkgQueueGets(self, offs=0, wait=True, size=None):
@@ -563,27 +600,27 @@ class StormPkgQueue(s_stormtypes.StormType):
         wait = await s_stormtypes.tobool(wait)
         size = await s_stormtypes.toint(size, noneok=True)
 
-        async for item in self.runt.snap.core.stormPkgQueueGets(self.pkgname, self.name, offs, wait=wait, size=size):
+        async for item in self.runt.view.core.stormPkgQueueGets(self.pkgname, self.name, offs, wait=wait, size=size):
             yield item
 
     async def _methPkgQueuePuts(self, items):
         self._reqPkgAdmin()
         items = await s_stormtypes.toprim(items)
-        return await self.runt.snap.core.stormPkgQueuePuts(self.pkgname, self.name, items)
+        return await self.runt.view.core.stormPkgQueuePuts(self.pkgname, self.name, items)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPkgQueueGet(self, offs=0, wait=True):
         self._reqPkgAdmin()
         offs = await s_stormtypes.toint(offs)
         wait = await s_stormtypes.tobool(wait)
-        return await self.runt.snap.core.stormPkgQueueGet(self.pkgname, self.name, offs, wait=wait)
+        return await self.runt.view.core.stormPkgQueueGet(self.pkgname, self.name, offs, wait=wait)
 
     async def _methPkgQueuePop(self, offs=None, wait=False):
         self._reqPkgAdmin()
         offs = await s_stormtypes.toint(offs, noneok=True)
         wait = await s_stormtypes.tobool(wait)
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
         if offs is None:
             async for item in core.stormPkgQueueGets(self.pkgname, self.name, 0, wait=wait):
                 return await core.stormPkgQueuePop(self.pkgname, self.name, item[0])

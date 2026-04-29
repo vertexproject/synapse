@@ -28,7 +28,6 @@ def _ext_en(item):
 
 _packer_kwargs = {
     'use_bin_type': True,
-    'unicode_errors': 'surrogatepass',
     'default': _ext_en,
 }
 if msgpack.version >= (1, 1, 0):
@@ -50,7 +49,15 @@ unpacker_kwargs = {
     'strict_map_key': False,
     'ext_hook': _ext_un,
     'max_buffer_size': 2**32 - 1,
-    'unicode_errors': 'surrogatepass'
+    'unicode_errors': 'replace',
+}
+
+unpacker_kwargs_strict = {
+    'raw': False,
+    'use_list': False,
+    'strict_map_key': False,
+    'ext_hook': _ext_un,
+    'max_buffer_size': 2**32 - 1,
 }
 
 def en(item):
@@ -61,9 +68,7 @@ def en(item):
         item (obj): The object to serialize
 
     Notes:
-        String objects are encoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow encoding bad input strings.
+        String objects are encoded using utf8 encoding.
 
     Returns:
         bytes: The serialized bytes in msgpack format.
@@ -87,9 +92,7 @@ def _fallback_en(item):
         item (obj): The object to serialize
 
     Notes:
-        String objects are encoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow encoding bad input strings.
+        String objects are encoded using utf8 encoding.
 
     Returns:
         bytes: The serialized bytes in msgpack format.
@@ -107,24 +110,31 @@ def _fallback_en(item):
 if pakr is None:  # pragma: no cover
     en = _fallback_en
 
-def un(byts, use_list=False):
+def un(byts, use_list=False, strict=False):
     '''
     Use msgpack to de-serialize a python object.
 
     Args:
         byts (bytes): The bytes to de-serialize
+        use_list (boolean): Decode arrays as lists rather than tuples.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Returns:
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
-    return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False,
-                         unicode_errors='surrogatepass', ext_hook=_ext_un)
+    if not strict:
+        return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False,
+                             unicode_errors='replace', ext_hook=_ext_un)
+
+    try:
+        return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False, ext_hook=_ext_un)
+    except UnicodeDecodeError as exc:
+        mesg = 'Error decoding string in msgpack data.'
+        raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
 def isok(item):
     '''
@@ -136,62 +146,72 @@ def isok(item):
     except Exception:
         return False
 
-def iterfd(fd):
+def iterfd(fd, strict=False):
     '''
     Generator which unpacks a file object of msgpacked content.
 
     Args:
         fd: File object to consume data from.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Yields:
         Objects from a msgpack stream.
     '''
-    unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
-    for mesg in unpk:
-        yield mesg
+    kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+    unpk = msgpack.Unpacker(fd, **kwargs)
 
-def iterfile(path, since=-1):
+    try:
+        for mesg in unpk:
+            yield mesg
+    except UnicodeDecodeError as exc:
+        mesg = 'Error decoding string in msgpack data.'
+        raise s_exc.BadMsgpackData(mesg=mesg) from exc
+
+def iterfile(path, since=-1, strict=False):
     '''
     Generator which yields msgpack objects from a file path.
 
     Args:
         path: File path to open and consume data from.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Yields:
         Objects from a msgpack stream.
     '''
     with io.open(path, 'rb') as fd:
 
-        unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
+        kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+        unpk = msgpack.Unpacker(fd, **kwargs)
 
-        for i, mesg in enumerate(unpk):
-            if i <= since:
-                continue
+        try:
+            for i, mesg in enumerate(unpk):
+                if i <= since:
+                    continue
 
-            yield mesg
+                yield mesg
+
+        except UnicodeDecodeError as exc:
+            mesg = 'Error decoding string in msgpack data.'
+            raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
 class Unpk:
     '''
     An extension of the msgpack streaming Unpacker which reports sizes.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding. If initialized with strict=True, strings are
+        required to be valid utf8.
     '''
-    def __init__(self):
+    def __init__(self, strict=False):
         self.size = 0
-        self.unpk = msgpack.Unpacker(**unpacker_kwargs)
+        kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+        self.unpk = msgpack.Unpacker(**kwargs)
 
     def feed(self, byts):
         '''
@@ -222,6 +242,10 @@ class Unpk:
 
             except msgpack.exceptions.OutOfData:
                 break
+
+            except UnicodeDecodeError as exc:
+                mesg = 'Error decoding string in msgpack data.'
+                raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
         return retn
 

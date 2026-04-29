@@ -1,0 +1,39 @@
+tee ${ inet:fqdn=01.embed.dupewarn.com } ${ inet:fqdn=01.embed.dupewarn.com }
+|
+tee ${
+    [ inet:fqdn=00.embed.dupewarn.com ]
+}
+${
+
+
+    [ inet:fqdn=00.embed.dupewarn.com ]
+
+
+}
+|
+tee
+${ inet:fqdn=02.embed.dupewarn.com }
+${
+    inet:fqdn=02.embed.dupewarn.com
+}
+// embddups: 1:1, 6:3, 16:15
+|
+tee {
+    [ inet:fqdn=00.argv.dupewarn.com ]
+}
+{
+
+
+    [ inet:fqdn=00.argv.dupewarn.com ]
+
+
+}
+|
+tee { inet:fqdn=01.argv.dupewarn.com } { inet:fqdn=01.argv.dupewarn.com }
+|
+tee
+{ inet:fqdn=02.argv.dupewarn.com }
+{
+    inet:fqdn=02.argv.dupewarn.com
+}
+// argvdups: 24:21, 32:32, 36:35

@@ -222,7 +222,7 @@ class Drive(s_base.Base):
         info = self._reqItemInfo(bidn)
         info['permissions'] = perm
         s_schemas.reqValidDriveInfo(info)
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     async def getPathInfo(self, path, reldir=rootdir):
@@ -496,7 +496,7 @@ class Drive(s_base.Base):
             else:
                 info.update(versinfo)
 
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     def _getLastDataVers(self, bidn):
@@ -553,11 +553,11 @@ class Drive(s_base.Base):
 
         lkey = LKEY_TYPE + typename.encode()
 
-        self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
+        await self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
 
         if vers is not None:
             verskey = LKEY_TYPE_VERS + typename.encode()
-            self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
+            await self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
         if cbfunc is not None:
             async for info in self.getItemsByType(typename):
@@ -567,7 +567,7 @@ class Drive(s_base.Base):
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
                     data = await cbfunc(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv)
                     vtor(data)
-                    self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
+                    await self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
         return True
 

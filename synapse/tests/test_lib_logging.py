@@ -1,6 +1,7 @@
 import gc
 import asyncio
 import logging
+import contextlib
 
 import unittest.mock as mock
 
@@ -55,11 +56,12 @@ class LoggingTest(s_test.SynTest):
         evnt2 = asyncio.Event()
         async def collector():
             evnt0.set()
-            async for m in s_logging.watch(last=0):
-                evnt1.set()
-                msgs.append(m)
-                if m.get('params').get('fini'):
-                    break
+            async with contextlib.aclosing(s_logging.watch(last=0)) as agen:
+                async for m in agen:
+                    evnt1.set()
+                    msgs.append(m)
+                    if m.get('params').get('fini'):
+                        break
             evnt2.set()
             return True
 

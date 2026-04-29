@@ -64,11 +64,11 @@ task
     The task identifier (which can be used for task cancellation).
 
 tick
-    The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
+    The epoch time the query execution started (in microseconds). This value is computed from the host time and may
     be affected by any changes in the host clock.
 
 abstick
-    The relative time that the query execution started (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution started (in microseconds). This value is computed from a monotonic
     clock and can be used as a reference time.
 
 text
@@ -125,7 +125,7 @@ This example is very simple - it does not include repr information, or things re
        'tags': {'aka': (None, None),
                 'aka.beep': (None, None),}}))
 
-For path and repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
+For repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
 
 ping
 ----
@@ -219,15 +219,15 @@ any sort of rollup of messages.
 It includes the following keys:
 
 tock
-    The epoch time the query execution finished (in milliseconds). This value is computed from adding the ``took``
+    The epoch time the query execution finished (in microseconds). This value is computed from adding the ``took``
     value to the ``tick`` value from the ``init`` message.
 
 took
-    The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
+    The amount of time it took for the query to execute (in microseconds). This value is computed from the ``abstick``
     and ``abstock`` values.
 
 abstock
-    The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution finished at (in microseconds). This value is computed from a monotonic
     clock and should always be equal to or greater than the ``abstick`` value from the ``init`` message.
 
 count
@@ -235,7 +235,7 @@ count
 
 Example::
 
-    ('fini', {'count': 1, 'tock': 1539221715240, 'took': 36381})
+    ('fini', {'count': 1, 'tock': 1539221715240000, 'took': 36381000})
 
 .. note::
 
@@ -257,17 +257,17 @@ edits
 
 Example::
 
-    # Nodeedits produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+    # Nodeedits produced by the following query: [(inet:ip=1.2.3.4 :asn=1)]
 
     ('node:edits',
      {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                 'inet:ipv4',
-                 ((0, (16909060, 4), ()),
+                 'inet:ip',
+                 ((0, ((4, 16909060), 26), ()),
                   (2, ('.created', 1662578208195, None, 21), ()),
                   (2, ('type', 'unicast', None, 1), ()))),)})
     ('node:edits',
      {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                 'inet:ipv4',
+                 'inet:ip',
                  ((2, ('asn', 1, None, 9), ()),)),
                 ('371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537',
                  'inet:asn',
@@ -288,7 +288,7 @@ count
 
 Example::
 
-    # counts produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+    # counts produced by the following query: [(inet:ip=1.2.3.4 :asn=1)]
 
     ('node:edits:count', {'count': 3})
     ('node:edits:count', {'count': 3})
@@ -330,8 +330,8 @@ Example::
 
     ('look:miss', {'ndef': ('inet:fqdn', 'hehe.com')})
 
-    # The ipv4 value is presented in system mode.
-    ('look:miss', {'ndef': ('inet:ipv4', 16909060)})
+    # The ip value is presented in system mode.
+    ('look:miss', {'ndef': ('inet:ip', (4, 16909060))})
 
 csv\:row
 --------
@@ -455,7 +455,7 @@ Example:
 keepalive
 ---------
 
-This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streamiing results,
+This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streaming results,
 such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. This may be used with long-running
 Storm queries when behind a network proxy or load balancer which may terminate idle connections.
 
@@ -510,27 +510,20 @@ Example:
 mode
 ----
 
-This is the mode that a Storm query is parsed in. This value can be specified to ``lookup``, ``autoadd``, and
-``search`` modes to get different behaviors.
+This is the mode that a Storm query is parsed in. Specifying ``lookup`` mode enables unified text
+input that combines scraping, lifting, and datamodel hint-based lookups.
 
 Example:
 
     .. code:: python3
 
-        # Using lookup mode, the query text, before switching to command mode with a | character,
-        # will have its text scrapped for simple values such as FQDNs, IP Addresses, and Hashes
-        # and attempt to lift any matching nodes.
+        # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
+        # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
+        # any matching nodes. A look:miss message is fired for any scraped value that is not found
+        # in the current View. Any text that remains after scraping is matched against forms and
+        # properties that define lookup mode hints in the data model (via the modes.lookup info key),
+        # using the comparator specified by each hint (e.g. ^= for prefix matching).
         opts = {'mode': 'lookup'}
-
-        # Using autoadds mode, the query text is scrapped like in lookup mode; and for any
-        # values which we try to lift that do not produce nodes, those nodes will be added
-        # in the current view.
-        opts = {'mode': 'autoadd'}
-
-        # Using search mode, the query will be run through the Storm search interface.
-        # This will lift nodes based on searching, which is enabled by the
-        # Synapse-Search Advanced Power-up.
-        opts = {'mode': 'search'}
 
 ndefs
 -----
@@ -545,7 +538,7 @@ Example:
 
         ndefs = (
             ('inet:fqdn', 'com'),
-            ('inet:ipv4', 134744072),
+            ('inet:ip', (4, 134744072)),
         )
 
         opts = {'ndefs': ndefs}
@@ -587,36 +580,6 @@ Example:
 
         opts = {'mirror': False}
 
-path
-----
-
-.. warning::
-
-    This option is deprecated in Synapse ``v2.230.0`` and will be removed in a future version. The ``links`` option
-    should be used to retrieve this data instead.
-
-If this is set to True, the ``path`` key in the packed nodes will contain a ``nodes`` key, which contains a list of
-the node iden hashes that were used in pivot operations to get to the node.
-
-Example:
-
-.. code:: python3
-
-    opts = {'path': True}
-
-    # A Storm node message with a node path added to it, from the query inet:ipv4 -> inet:asn.
-
-    ('node',
-     (('inet:asn', 1),
-      {'iden': '371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537',
-       'nodedata': {},
-       'path': {'nodes': ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                          '371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537')},
-       'props': {'.created': 1662493825668},
-       'tagprops': {},
-       'tags': {}}))
-
-
 readonly
 --------
 
@@ -644,36 +607,16 @@ Example:
     # A Storm node message with reprs added to it.
 
     ('node',
-     (('inet:ipv4', 134744072),
+     (('inet:ip', (4, 134744072)),
       {'iden': 'ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',
        'nodedata': {},
        'path': {},
        'props': {'.created': 1662491423034, 'type': 'unicast'},
        'repr': '8.8.8.8',
-       'reprs': {'.created': '2022/09/06 19:10:23.034'},
+       'reprs': {'.created': '2022-09-06T19:10:23.034Z'},
        'tagpropreprs': {},
        'tagprops': {},
        'tags': {}}))
-
-
-scrub
------
-
-This is a set of rules that can be provided to the Storm runtime which dictate which data should be included or
-excluded from nodes that are returned in the message stream. Currently the only rule type supported is ``include`` for
-``tags``.
-
-Example:
-
-    .. code:: python3
-
-        # Only include tags which start with cno and rep.foo
-        scrub = {'include': {'tags': ['cno', 'rep.foo',]}}
-        opts = {'scrub': scrub}
-
-        # Do not include any tags in the output
-        scrub = {'include': {'tags': []}}
-        opts = {'scrub': scrub}
 
 
 show
@@ -737,8 +680,7 @@ Example:
 user
 ----
 
-The User iden to run the Storm query as. This allows a user with the permission ``impersonate`` to run a Storm
-query as another user.
+The User iden to run the Storm query as. This allows a global admin to run a Storm query as another user.
 
 Example:
 

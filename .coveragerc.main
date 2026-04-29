@@ -1,6 +1,0 @@
-[report]
-omit =
-    */synapse/tests/test_*
-
-[run]
-sigterm = True

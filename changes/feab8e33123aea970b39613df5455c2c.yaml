@@ -1,0 +1,8 @@
+---
+desc: Add ``$lib.pkg.state()`` Storm library for read-only access to package state. Package
+  state is a storage mechanism for internal package metadata such as ``storage:version``,
+  writable only by the Cortex and readable from Storm.
+desc:literal: false
+prs: []
+type: feat
+...

@@ -172,7 +172,7 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.InconsistentStorage):
                 await auth.addAuthGate(core.view.iden, 'newp')
 
-    async def test_hive_tele_auth(self):
+    async def test_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
         # work using telepath remotes and property synchronize.
@@ -432,6 +432,10 @@ class AuthTest(s_test.SynTest):
                 await core.auth.allrole.setRules([(True, )])
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, '')])
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.addRule((True, ('hehe', 'haha', '.newp')))
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.setRules([(True, ('hehe', 'haha', '.newp'))])
 
     async def test_auth_archived_locked_interaction(self):
 
@@ -452,14 +456,6 @@ class AuthTest(s_test.SynTest):
             self.eq(exc.exception.get('mesg'), 'Cannot unlock archived user.')
             self.eq(exc.exception.get('user'), useriden)
             self.eq(exc.exception.get('username'), 'lowuser')
-
-        # Check our cell migration that locks archived users
-        async with self.getRegrCore('unlocked-archived-users') as core:
-            for ii in range(10):
-                user = await core.getUserDefByName(f'lowuser{ii:02d}')
-                self.nn(user)
-                self.true(user.get('archived'))
-                self.true(user.get('locked'))
 
         # Check behavior of upgraded mirrors and non-upgraded leader
         async with self.getTestAha() as aha:
@@ -832,7 +828,7 @@ class AuthTest(s_test.SynTest):
                 self.false(await user.tryPasswd('newp'))
                 self.true(await user.tryPasswd('yupp!!'))
 
-    async def test_hive_auth_deepdeny(self):
+    async def test_auth_deepdeny(self):
         async with self.getTestCore() as core:
 
             # Create an authgate we can later test against
@@ -1151,3 +1147,26 @@ class AuthTest(s_test.SynTest):
                     'rules': (),
                 },
             ], key=lambda x: x.get('iden'))
+
+    async def test_auth_profile_perms(self):
+
+        async with self.getTestCore() as core:
+
+            auth = core.auth
+            user = await auth.addUser('visi')
+
+            self.false(user.allowed(('auth', 'user', 'profile', 'get', 'fullname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'set', 'fullname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'del', 'fullname')))
+
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'get', 'fullname')))
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'set', 'fullname')))
+            await core.addUserRule(user.iden, (True, ('auth', 'user', 'profile', 'del', 'fullname')))
+
+            self.true(user.allowed(('auth', 'user', 'profile', 'get', 'fullname')))
+            self.true(user.allowed(('auth', 'user', 'profile', 'set', 'fullname')))
+            self.true(user.allowed(('auth', 'user', 'profile', 'del', 'fullname')))
+
+            self.false(user.allowed(('auth', 'user', 'profile', 'get', 'nickname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'set', 'nickname')))
+            self.false(user.allowed(('auth', 'user', 'profile', 'del', 'nickname')))

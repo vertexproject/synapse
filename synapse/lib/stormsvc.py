@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -19,7 +20,7 @@ stormcmds = (
         'cmdconf': {},
         'storm': '''
             $sdef = $lib.service.add($cmdopts.name, $cmdopts.url)
-            $lib.print("added {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+            $lib.print(`added {$sdef.iden} ({$sdef.name}): {$sdef.url}`)
         ''',
     },
     {
@@ -43,11 +44,11 @@ stormcmds = (
             if $( $count = 1 ) {
                 $sdef = $svcs.index(0)
                 $lib.service.del($sdef.iden)
-                $lib.print("removed {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+                $lib.print(`removed {$sdef.iden} ({$sdef.name}): {$sdef.url}`)
             } elif $( $count = 0 ) {
-                $lib.print("No service found by iden: {iden}", iden=$cmdopts.iden)
+                $lib.print(`No service found by iden: {$cmdopts.iden}`)
             } else {
-                $lib.print('Multiple matches found for {iden}.  Aborting delete.', iden=$cmdopts.iden)
+                $lib.print(`Multiple matches found for {$cmdopts.iden}.  Aborting delete.`)
             }
         ''',
     },
@@ -72,12 +73,11 @@ stormcmds = (
                 } else {
                     $svers = 'Unknown'
                 }
-                $mesg="    {iden} {ready} ({name}) ({sname} @ {svers}): {url}"
-                $lib.print(mesg=$mesg, iden=$iden, ready=$ready, name=$name, sname=$sname, svers=$svers, url=$url)
+                $lib.print(`    {$iden} {$ready} ({$name}) ({$sname} @ {$svers}): {$url}`)
                 $count = $( $count + 1 )
             }
             $lib.print("")
-            $lib.print("{count} services", count=$count)
+            $lib.print(`{$count} services`)
         ''',
     }
 )
@@ -173,9 +173,6 @@ class StormSvcClient(s_base.Base):
                 # push the svciden in the package metadata for later reference.
                 await self.core._addStormPkg(pdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
             except Exception:
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
@@ -190,18 +187,12 @@ class StormSvcClient(s_base.Base):
             if evts is not None:
                 self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
 
         try:
             if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
@@ -211,6 +202,13 @@ class StormSvcClient(s_base.Base):
         clss = proxy._getClasses()
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
+
+        if 'CellApi' in names:
+            cellinfo = await proxy.getCellInfo()
+            if (cellvers := cellinfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Service {self.name} ({self.iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
 
         if 'StormSvc' in names:
             self.info = await proxy.getStormSvcInfo()

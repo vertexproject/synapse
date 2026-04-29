@@ -151,7 +151,7 @@ class MsgPackTest(s_t_utils.SynTest):
 
     def checkTypes(self, enfunc):
         # This is a future-proofing test for msgpack to ensure that we have stability with msgpack-python
-        buf = b'\x92\xa4hehe\x8b\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12\xabalmostlarge\xcf\xff\xff\xff\xff\xff\xff\xff\xfe\xb1extlargeThreshold\xcf\xff\xff\xff\xff\xff\xff\xff\xff\xa8extlarge\xc7\t\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\xabalmostsmall\xd3\x80\x00\x00\x00\x00\x00\x00\x01\xb4almostsmallThreshold\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xa8extsmall\xc7\t\x01\xff\x7f\xff\xff\xff\xff\xff\xff\xff'
+        buf = b'\x92\xa4hehe\x8a\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xabalmostlarge\xcf\xff\xff\xff\xff\xff\xff\xff\xfe\xb1extlargeThreshold\xcf\xff\xff\xff\xff\xff\xff\xff\xff\xa8extlarge\xc7\t\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\xabalmostsmall\xd3\x80\x00\x00\x00\x00\x00\x00\x01\xb4almostsmallThreshold\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xa8extsmall\xc7\t\x01\xff\x7f\xff\xff\xff\xff\xff\xff\xff'
         struct = (
             'hehe',
             {
@@ -159,7 +159,6 @@ class MsgPackTest(s_t_utils.SynTest):
                 'int': 1234,
                 'float': 12.34,
                 'bin': b'1234',
-                'realworld': '\u01cb\ufffd\ud842\ufffd\u0012',
                 'almostlarge': 0xffffffffffffffff - 1,
                 'extlargeThreshold': 0xffffffffffffffff,
                 # extlarge is handled with our custom extension type
@@ -187,7 +186,7 @@ class MsgPackTest(s_t_utils.SynTest):
         unpk = s_msgpack.Unpk()
         objs = unpk.feed(buf)
         self.len(1, objs)
-        self.eq(objs[0], (212, struct))
+        self.eq(objs[0], (189, struct))
 
         # Generic isok helper
         self.true(s_msgpack.isok(1))
@@ -259,11 +258,17 @@ class MsgPackTest(s_t_utils.SynTest):
 
     def checkSurrogates(self, enfunc):
         bads = '\u01cb\ufffd\ud842\ufffd\u0012'
-        obyts = enfunc(bads)
-        self.isinstance(obyts, bytes)
+        obyts = b'\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
+        replstr = 'ǋ�����\x12'
+
+        with self.raises(s_exc.NotMsgpackSafe):
+            enfunc(bads)
 
         outs = s_msgpack.un(obyts)
-        self.eq(outs, bads)
+        self.eq(outs, replstr)
+
+        with self.raises(s_exc.BadMsgpackData):
+            s_msgpack.un(obyts, strict=True)
 
         with self.getTestDir() as fdir:
             fd = s_common.genfile(fdir, 'test.mpk')
@@ -275,14 +280,35 @@ class MsgPackTest(s_t_utils.SynTest):
 
             items = [obj for obj in gen]
             self.len(1, items)
-            self.eq(outs, bads)
+            self.eq(items[0], replstr)
+
+            fd = s_common.genfile(fdir, 'test.mpk')
+            with self.raises(s_exc.BadMsgpackData):
+                gen = s_msgpack.iterfd(fd, strict=True)
+                items = [obj for obj in gen]
 
             fd.close()
+
+            path = s_common.genpath(fdir, 'test.mpk')
+            gen = s_msgpack.iterfile(path)
+            items = [obj for obj in gen]
+            self.len(1, items)
+            self.eq(items[0], replstr)
+
+            path = s_common.genpath(fdir, 'test.mpk')
+            with self.raises(s_exc.BadMsgpackData):
+                gen = s_msgpack.iterfile(path, strict=True)
+                items = [obj for obj in gen]
 
         unpk = s_msgpack.Unpk()
         ret = unpk.feed(obyts)
         self.len(1, ret)
-        self.eq([(13, bads)], ret)
+        self.eq([(13, replstr)], ret)
+
+        unpk = s_msgpack.Unpk(strict=True)
+        with self.raises(s_exc.BadMsgpackData):
+            ret = unpk.feed(obyts)
+            self.len(1, ret)
 
     def test_msgpack_surrogates(self):
         self.checkSurrogates(s_msgpack.en)

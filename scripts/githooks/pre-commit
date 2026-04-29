@@ -21,7 +21,27 @@ def system(*args, **kwargs):
     return proc.returncode, proc.stdout, proc.stderr
 
 def main():
+    regen_datamodel()
     lint_python()
+
+def regen_datamodel():
+    files = system('git', 'diff', '--cached', '--name-only').decode('utf-8')
+    model_paths = ('synapse/models/', 'synapse/datamodel.py')
+    if not any(f.strip().startswith(p) for f in files.split('\n') for p in model_paths):
+        return
+
+    print('Regenerating docs/datamodel.md...')
+    result = subprocess.run(
+        [sys.executable, '-m', 'synapse.tools.cortex.docmodel', '--save', 'docs/datamodel.md'],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print('ERROR: Failed to regenerate data model documentation.')
+        print(result.stderr)
+        sys.exit(1)
+
+    system('git', 'add', 'docs/datamodel.md')
+    print('docs/datamodel.md updated and staged.')
 
 def lint_python():
     gitdir = system('git', 'rev-parse', '--show-toplevel')[1].strip()

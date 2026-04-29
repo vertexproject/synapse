@@ -80,7 +80,7 @@ async def spawn(todo, timeout=None, ctx=None, logconf=None):
 
         coro = s_coro.executor(execspawn)
 
-        retn = await s_common.wait_for(coro, timeout=timeout)
+        retn = await asyncio.wait_for(coro, timeout=timeout)
         if isinstance(retn, Exception):
             raise retn
 
