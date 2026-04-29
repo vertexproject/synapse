@@ -947,6 +947,9 @@ class InetModelTest(s_t_utils.SynTest):
                 await t.norm((7, 1))
 
             with self.raises(s_exc.BadTypeValu):
+                await t.norm((1,))
+
+            with self.raises(s_exc.BadTypeValu):
                 t.repr((7, 1))
 
             # Form Tests ======================================================
