@@ -1,0 +1,7 @@
+---
+desc: Updated the ``risk:threat -(uses)> inet:service:app`` edge definition to ``risk:threat
+  -(uses)> inet:service:platform`` as ``inet:service:app`` has been deprecated.
+desc:literal: false
+prs: []
+type: model
+...
