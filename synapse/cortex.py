@@ -1755,22 +1755,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if __debug__:
                     self._migration_evnt.set()
 
-        async def _runAutomation():
-            if self.safemode:
-                return
-
-            for view in self.views.values():
-                await view.initTrigTask()
-                await view.initMergeTask()
-
-            for layer in self.layers.values():
-                await layer.initLayerActive()
-
-            for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
-
         self.runActiveTask(_runMigrations())
-        self.runActiveTask(_runAutomation())
+
+        if self.safemode:
+            return
+
+        for view in self.views.values():
+            await view.initTrigTask()
+            await view.initMergeTask()
+
+        for layer in self.layers.values():
+            await layer.initLayerActive()
+
+        for pkgdef in list(self.stormpkgs.values()):
+            self._runStormPkgOnload(pkgdef)
 
     async def initServicePassive(self):
 
