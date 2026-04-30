@@ -1,0 +1,9 @@
+---
+desc: Cortex view triggers, view merges, layer mirror and upstream sync loops, and
+  Storm package onloads now start concurrently with live model migrations on cortex
+  startup or mirror promotion, so customer automation is no longer silently disabled
+  while migrations run.
+desc:literal: false
+prs: []
+type: bug
+...
