@@ -1739,11 +1739,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.initStormPool()
 
         async def _runMigrations():
-            if self.safemode:
-                if __debug__:
-                    self._migration_evnt.set()
-                return
-
             await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
 
             # Run migrations when this cortex becomes active. This is to prevent
@@ -1755,9 +1750,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if __debug__:
                     self._migration_evnt.set()
 
-        self.runActiveTask(_runMigrations())
-
         if self.safemode:
+            if __debug__:
+                self._migration_evnt.set()
             return
 
         for view in self.views.values():
@@ -1769,6 +1764,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for pkgdef in list(self.stormpkgs.values()):
             self._runStormPkgOnload(pkgdef)
+
+        self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
 
