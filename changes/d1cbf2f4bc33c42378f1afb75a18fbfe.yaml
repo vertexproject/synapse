@@ -1,8 +1,0 @@
----
-desc: Marked the ``risk:threat -(uses)> inet:service:app`` edge definition as deprecated,
-  and added the ``risk:threat -(uses)> inet:service:platform`` edge definition to
-  replace it.
-desc:literal: false
-prs: [ 4930, ]
-type: model
-...
