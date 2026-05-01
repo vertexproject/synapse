@@ -142,7 +142,11 @@ class PasswdTest(s_t_utils.SynTest):
         badkey = key1 + ' '
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
-        self.eq(valu, 'Excess data after padding')
+        # TODO: remove this version check once CI Python is >= 3.14.4 (SYN-10581)
+        if s_common.version >= (3, 14, 4):
+            self.eq(valu, 'Only base64 data is allowed')
+        else:
+            self.eq(valu, 'Excess data after padding')
 
         badkey = key1 + 'newp'
         isok, valu = s_passwd.parseApiKey(badkey)
