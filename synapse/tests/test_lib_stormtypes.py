@@ -2746,7 +2746,7 @@ class StormTypesTest(s_test.SynTest):
             $lib.print(`There are {$lib.len($set)} items in the set`)
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('There are 13 items in the set', msgs)
+            self.stormIsInPrint('There are 10 items in the set', msgs)
 
     async def test_storm_path(self):
         async with self.getTestCore() as core:

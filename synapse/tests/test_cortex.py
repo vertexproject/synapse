@@ -13,6 +13,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.models as s_models
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -23,6 +24,7 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
@@ -8426,7 +8428,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add a cron job and immediately disable it
                 q = '''
                 cron.add hourly@:00 {
-                    $now = $lib.cast(time, now)
+                    $now = $lib.cast(test:time, now)
                     $lib.log.warning(`SAFEMODE CRON: {$now}`)
                     [ test:str=CRON :tick=$now ]
                 } |
@@ -8755,3 +8757,151 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid=(d0,) $node.props.raw.list.rem(listval0)')
             self.len(1, nodes)
             self.propeq(nodes[0], 'raw', data)
+
+    async def test_cortex_model_nexusify(self):
+        '''
+        Test that mainline model changes are routed through the nexus (model:set event).
+        Covers: first-boot seed, hash-stable no-op, idempotence, beholder event.
+        '''
+        with self.getTestDir() as dirn:
+
+            # First boot: model:set fires and cellinfo is seeded
+            async with self.getTestCore(dirn=dirn) as core:
+                stored_mdefs = core.cellinfo.get('cortex:model')
+                self.nn(stored_mdefs)
+
+                # Hash of persisted mdefs must match code-derived model
+                mdefs = []
+                for path in s_models.modeldefs:
+                    if (defs := s_dyndeps.getDynLocal(path)) is not None:
+                        mdefs.extend(defs)
+
+                expected_hash = s_common.guid(s_common.flatten(mdefs))
+                stored_hash = s_common.guid(s_common.flatten(stored_mdefs))
+                self.eq(stored_hash, expected_hash)
+
+                # model has the expected forms
+                self.nn(core.model.forms.get('inet:asn'))
+
+                # beholder event fires with the hash
+                events = [{'event': 'model:set', 'info': {'hash': expected_hash}}]
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                await core._push('model:set', core._mainlinemdefs)
+                await asyncio.wait_for(task, timeout=5)
+
+                nexus_index = core.nexsroot.nexslog.index()
+
+            # Second boot (code unchanged): nexus log must not grow and hash must still match
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(core.nexsroot.nexslog.index(), nexus_index)
+                stored_hash2 = s_common.guid(s_common.flatten(core.cellinfo.get('cortex:model')))
+                self.eq(stored_hash2, expected_hash)
+
+    async def test_cortex_model_nexusify_mirror(self):
+        '''
+        A new mirror brought online from a older backup connects to the leader and
+        syncs the current model via nexus model:set event.
+        '''
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                h1 = s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model')))
+                nexus_index_before = await core00.nexsroot.index()
+
+                # Corrupt the persisted model to simulate code being ahead of persisted
+                good_mdefs = core00.cellinfo.get('cortex:model')
+                core00.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
+
+            # Seed the mirror from the stale leader state
+            s_tools_backup.backup(path00, path01)
+
+            # Reboot the leader: _execCellUpdates detects hash mismatch and fires model:set
+            async with self.getTestCore(dirn=path00) as core00:
+
+                self.gt(await core00.nexsroot.index(), nexus_index_before)
+                self.eq(h1, s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))))
+
+                url = core00.getLocalUrl()
+
+                # Mirror boots from stale backup and receives the corrective model:set
+                async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
+                    await core01.sync()
+
+                    self.eq(h1, s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))))
+                    self.nn(core00.model.forms.get('inet:asn'))
+                    self.nn(core01.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_promote(self):
+        '''
+        Promotion simulation: a mirror with a stale persisted model is promoted to
+        leader. The promotion triggers _execCellUpdates which fires model:set, and
+        the old leader (now mirror) receives the update.
+        '''
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            # Bootstrap the mirror from a backup of the leader
+            async with self.getTestCore(dirn=path00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+                url00 = core00.getLocalUrl()
+
+                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
+                    await core01.sync()
+
+                    h1 = s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model')))
+                    self.eq(h1, s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model'))))
+
+                    # Simulate new code deployed to the mirror before promotion:
+                    # corrupt its persisted model so the hash differs from the code.
+                    good_mdefs = core01.cellinfo.get('cortex:model')
+                    core01.cellinfo.set('cortex:model', list(good_mdefs) + [{}])
+
+                    nexus_index_before = await core01.nexsroot.index()
+
+                    # Promote: setCellActive(True) triggers _execCellUpdates which
+                    # detects the hash mismatch and fires model:set.
+                    url01 = core01.getLocalUrl()
+                    await core00.handoff(url01)
+                    self.true(core01.isactive)
+                    self.false(core00.isactive)
+
+                    # model:set fired during promotion
+                    self.gt(await core01.nexsroot.index(), nexus_index_before)
+
+                    # Old leader (now mirror) syncs the model:set from the new leader
+                    await asyncio.wait_for(core00.sync(), timeout=12)
+
+                    h2 = s_common.guid(s_common.flatten(core01.cellinfo.get('cortex:model')))
+                    self.eq(h2, h1)
+                    self.eq(h2, s_common.guid(s_common.flatten(core00.cellinfo.get('cortex:model'))))
+                    self.nn(core01.model.forms.get('inet:asn'))
+                    self.nn(core00.model.forms.get('inet:asn'))
+
+    async def test_cortex_model_nexusify_ext_resilience(self):
+        '''
+        A broken extended model definition (ext prop referencing a nonexistent form)
+        must not wedge boot — _applyExtModel logs a warning and skips the bad entry.
+        '''
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                # Inject a bad extprop directly into storage: form does not exist.
+                core.extprops.set('noexist:form:_test:extprop',
+                                  ('noexist:form', '_test:extprop', ('str', {}), {}))
+
+            with self.getLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    # Boot must succeed and the valid model must be intact.
+                    self.nn(core.model.forms.get('inet:asn'))
+
+                await stream.expect('ext prop (noexist:form:_test:extprop) error')

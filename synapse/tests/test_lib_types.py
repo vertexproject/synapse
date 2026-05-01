@@ -129,6 +129,9 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, (await huge.norm(big2))[0])
 
+        with self.raises(s_exc.BadTypeValu):
+            await huge.norm('1e+99999999999999999999999999999')
+
     async def test_taxonomy(self):
 
         model = s_datamodel.getBaseModel()
@@ -1112,6 +1115,13 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
             self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
+
+            valu = await core.callStorm('return($lib.cast(test:arrayprop:ints, (1, 2, 3)))')
+            self.eq(valu, (1, 2, 3))
+
+            ok, valu = await core.callStorm('return($lib.trycast(test:arrayprop:ints, (1, 2, 3)))')
+            self.true(ok)
+            self.eq(valu, (1, 2, 3))
 
     async def test_ival(self):
         model = s_datamodel.getBaseModel()
