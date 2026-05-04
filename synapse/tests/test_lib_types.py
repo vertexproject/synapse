@@ -2106,6 +2106,9 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=e :tick=? :tick=2024]')
             self.propeq(nodes[0], 'tick', 1704067200000000)
 
+            retn = await core.callStorm('test:str=a return($lib.trycast(time, :tick))')
+            self.eq(retn, (True, 1388534400000000))
+
     async def test_types_long_indx(self):
 
         aaaa = 'A' * 200
