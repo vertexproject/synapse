@@ -488,14 +488,6 @@ class HttpApiTest(s_tests.SynTest):
                     newcookie = resp.headers.get('Set-Cookie')
                     self.isin('sess=""', newcookie)
 
-                # session no longer works
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]'}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
-                    self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
-                    self.eq('NotAuthenticated', item.get('code'))
-
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                     item = await resp.json()
@@ -656,11 +648,6 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', data=b'asdf') as resp:
-                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
-                    item = await resp.json()
-                    self.eq('SchemaViolation', item.get('code'))
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', data=b'asdf') as resp:
                     self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     item = await resp.json()
                     self.eq('SchemaViolation', item.get('code'))
@@ -853,7 +840,7 @@ class HttpApiTest(s_tests.SynTest):
             newpuser = s_common.guid()
 
             await visi.setPasswd('secret')
-            await visi.addRule((True, ('impersonate',)))
+            await visi.setAdmin(True)
 
             opts = {'user': core.auth.rootuser.iden}
 
@@ -863,31 +850,8 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
 
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': opts}
-
-                podes = []
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        podes.append(s_json.loads(byts))
-
-                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
-
-                # NoSuchUser precondition failure
-                data = {'query': '.created', 'opts': {'user': newpuser}}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
-                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
-                    data = await resp.json()
-                    self.eq(data, {'status': 'err', 'code': 'NoSuchUser',
-                                   'mesg': f'No user found with iden: {newpuser}'})
-
                 msgs = []
-                data = {'query': '[ inet:ipv4=5.5.5.5 ]', 'opts': opts}
+                data = {'query': '[ inet:ip=5.5.5.5 ]', 'opts': opts}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
@@ -898,7 +862,7 @@ class HttpApiTest(s_tests.SynTest):
 
                         msgs.append(s_json.loads(byts))
                 podes = [m[1] for m in msgs if m[0] == 'node']
-                self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
+                self.eq(podes[0][0], ('inet:ip', (4, 0x05050505)))
 
                 # NoSuchUser precondition failure
                 opts['user'] = newpuser
@@ -982,13 +946,13 @@ class HttpApiTest(s_tests.SynTest):
                 self.len(1, core.sessions)  # We still have one session since the cookie was reused
 
                 # Norm via GET
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-                    self.eq(0x01020304, retn['result']['norm'])
-                    self.eq('unicast', retn['result']['info']['subs']['type'])
+                    self.eq((4, 0x01020304), retn['result']['norm'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'][1])
 
                 body = {'prop': 'fake:prop', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -1016,13 +980,13 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq([3, 'foobar'], retn['result']['norm'])
 
                 # Norm via POST
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-                    self.eq(0x01020304, retn['result']['norm'])
-                    self.eq('unicast', retn['result']['info']['subs']['type'])
+                    self.eq((4, 0x01020304), retn['result']['norm'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'][1])
 
             # Auth failures
             conn = aiohttp.TCPConnector(ssl=False)
@@ -1032,7 +996,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                     self.eq('err', retn.get('status'))
 
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
@@ -1081,7 +1045,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'synapse_version': '>=2.50.0,<3.0.0',
+                    'synapse_version': '>=3.0.0,<4.0.0',
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),
@@ -1143,19 +1107,18 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(info['creator'], root.iden)
                     self.eq(info['iden'], view)
 
-                    cdef = await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30).pack())')
+                    cdef = await core.callStorm('return($lib.cron.add("hourly@:30", "{meta:note=*}"))')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
                     opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}
                     await core.callStorm('$lib.view.get($view).set(name, "a really okay view")', opts=opts)
                     await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
-                    await core.callStorm('cron.move $cron $view', opts=opts)
-                    await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.mod $cron --storm {[test:guid=*]} --view $view', opts=opts)
                     await core.callStorm('cron.mod $cron --period daily@10:00', opts=opts)
-                    await core.callStorm('cron.disable $cron', opts=opts)
-                    await core.callStorm('cron.enable $cron', opts=opts)
-                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
-                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("doc", "some docs")', opts=opts)
+                    await core.callStorm('cron.mod $cron --enabled (false)', opts=opts)
+                    await core.callStorm('cron.mod $cron --enabled (true)', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.name = "neato cron"', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.doc = "some docs"', opts=opts)
                     await core.callStorm('cron.del $cron', opts=opts)
 
                     await core.addStormPkg(spkg)
@@ -1180,13 +1143,12 @@ class HttpApiTest(s_tests.SynTest):
                         'layer:add',
                         'view:set',
                         'layer:set',
-                        'cron:move',
-                        'cron:edit:query',
-                        'cron:edit:period',
-                        'cron:disable',
-                        'cron:enable',
-                        'cron:edit:name',
-                        'cron:edit:doc',
+                        'cron:edit',
+                        'cron:edit',
+                        'cron:edit',
+                        'cron:edit',
+                        'cron:edit',
+                        'cron:edit',
                         'cron:del',
                         'pkg:add',
                         'svc:add',
@@ -1208,10 +1170,6 @@ class HttpApiTest(s_tests.SynTest):
                         self.nn(data['info'])
                         self.ge(len(data['info']), 1)
                         self.eq(event, data['event'])
-
-                        if not event.startswith('svc'):
-                            self.nn(data['gates'])
-                            self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
                             self.nn(data['perms'])
@@ -1355,20 +1313,18 @@ class HttpApiTest(s_tests.SynTest):
                     base = data['offset']
 
                     # rule add to a user
-                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar" --gate cortex')
+                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar"')
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['iden'], visi.iden)
                     self.eq(data['info']['name'], 'rule:add')
                     self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
-                    self.len(1, data['gates'])
-                    self.eq(data['gates'][0]['iden'], 'cortex')
 
                     # rule del from a user
                     mesgs = await core.callStorm('''
                         $rule = $lib.auth.ruleFromText("!power-ups.foo.bar")
-                        $lib.auth.users.byname(visi).delRule($rule, gateiden=cortex)
+                        $lib.auth.users.byname(visi).delRule($rule)
                     ''')
                     mesg = await sock.receive_json()
                     data = mesg['data']
@@ -1376,8 +1332,6 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['iden'], visi.iden)
                     self.eq(data['info']['name'], 'rule:del')
                     self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
-                    self.len(1, data['gates'])
-                    self.eq(data['gates'][0]['iden'], 'cortex')
 
                     deflayr, defview = await core.callStorm('''
                         $view = $lib.view.get()
@@ -1537,14 +1491,8 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
-                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                body = {'query': 'inet:ip', 'opts': {'user': core.auth.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
-                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
-
-                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                     item = await resp.json()
                     self.eq('AuthDeny', item.get('code'))
@@ -1557,7 +1505,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('SchemaViolation', item.get('code'))
 
                 node = None
-                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                body = {'query': '[ inet:ip=1.2.3.4 ]'}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
@@ -1572,7 +1520,7 @@ class HttpApiTest(s_tests.SynTest):
                             node = mesg[1]
 
                     self.nn(node)
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
@@ -1586,56 +1534,9 @@ class HttpApiTest(s_tests.SynTest):
                         if mesg[0] == 'node':
                             node = mesg[1]
 
-                    self.eq(0x01020304, node[0][1])
-
-                node = None
-                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        node = s_json.loads(byts)
-
-                    self.eq(0x01020304, node[0][1])
-
-                async with sess.post(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        node = s_json.loads(byts)
-
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 body['stream'] = 'jsonlines'
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    bufr = b''
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        bufr += byts
-                        for jstr in bufr.split(b'\n'):
-                            if not jstr:
-                                bufr = b''
-                                break
-
-                            try:
-                                node = s_json.loads(byts)
-                            except s_exc.BadJsonText:
-                                bufr = jstr
-                                break
-
-                    self.eq(0x01020304, node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
@@ -1660,7 +1561,7 @@ class HttpApiTest(s_tests.SynTest):
                             if mesg[0] == 'node':
                                 node = mesg[1]
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 # Task cancellation during long running storm queries works as intended
                 body = {'query': '.created | sleep 10'}
@@ -1682,29 +1583,8 @@ class HttpApiTest(s_tests.SynTest):
                 self.true(await task.waitfini(6))
                 self.len(0, core.boss.tasks)
 
-                task = None
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        mesg = s_json.loads(byts)
-                        self.len(2, mesg)  # Is if roughly shaped like a node?
-                        task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
-                        break
-
-                self.nn(task)
-                self.true(await task.waitfini(6))
-                self.len(0, core.boss.tasks)
-
                 fork = await core.callStorm('return($lib.view.get().fork().iden)')
                 lowuser = await core.auth.addUser('lowuser')
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes',
-                                    json={'query': '.created', 'opts': {'view': s_common.guid()}}) as resp:
-                    self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm',
                                     json={'query': '.created', 'opts': {'view': s_common.guid()}}) as resp:
@@ -1726,10 +1606,9 @@ class HttpApiTest(s_tests.SynTest):
                 tvs = (
                     ('test:str=test', {}, 'ok'),
                     ('1.2.3.4 | spin', {'mode': 'lookup'}, 'ok'),
-                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'ok'),
                     ('1.2.3.4', {}, 'err'),
                     ('| 1.2.3.4 ', {'mode': 'lookup'}, 'err'),
-                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'err'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'err'),
                 )
                 url = f'https://localhost:{port}/api/v1/reqvalidstorm'
                 for (query, opts, rcode) in tvs:
@@ -1753,10 +1632,9 @@ class HttpApiTest(s_tests.SynTest):
                 tvs = (
                     ('test:str=test', {}, True),
                     ('1.2.3.4 | spin', {'mode': 'lookup'}, True),
-                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, True),
                     ('1.2.3.4', {}, 'BadSyntax'),
                     ('| 1.2.3.4 ', {'mode': 'lookup'}, 'BadSyntax'),
-                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'BadSyntax'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'BadArg'),
                     (12345678, {}, 'TypeError'),
                 )
                 url = f'https://localhost:{port}/api/v1/isvalidstorm'
@@ -1793,19 +1671,8 @@ class HttpApiTest(s_tests.SynTest):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
-            with self.raises(ssl.SSLError):
+            with self.raises((ssl.SSLError, ConnectionResetError)):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('ADH-AES256-SHA')
-                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
-
-            with self.raises(ssl.SSLError):
-                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('AES256-GCM-SHA384')
-                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
-
-            with self.raises(ssl.SSLError):
-                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
-                sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
     async def test_healthcheck(self):
@@ -1953,6 +1820,7 @@ class HttpApiTest(s_tests.SynTest):
         async with self.getTestCore() as core:
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}
 
             root = core.auth.rootuser
             visi = await core.auth.addUser('visi')
@@ -1961,7 +1829,7 @@ class HttpApiTest(s_tests.SynTest):
             await root.setPasswd('secret')
 
             async with self.getHttpSess(port=port) as sess:
-                body = {'items': [(('inet:ipv4', 0x05050505), {})]}
+                body = {'items': [(('inet:ip', (4, 0x05050505)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NotAuthenticated', (await resp.json())['code'])
 
@@ -1975,23 +1843,23 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 self.eq('NoSuchView', (await resp.json())['code'])
 
-                body = {'name': 'asdf'}
-                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
-                self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
-                self.eq('NoSuchFunc', (await resp.json())['code'])
-
-                body = {'items': [(('inet:ipv4', 0x05050505), {'tags': {'hehe': (None, None)}})]}
+                body = {'items': [meta, (('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq('ok', (await resp.json())['status'])
-                self.len(1, await core.nodes('inet:ipv4=5.5.5.5 +#hehe'))
+                self.len(1, await core.nodes('inet:ip=5.5.5.5 +#hehe'))
 
             async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
-                body = {'items': [(('inet:ipv4', 0x01020304), {})]}
+                body = {'items': [meta, (('inet:ip', (4, 0x01020304)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
-                self.eq('AuthDeny', (await resp.json())['code'])
-                self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+                data = await resp.json()
+                self.eq('AuthDeny', data['code'])
+                self.isin(s_tests.deguidify(data['mesg']),
+                        "User 'visi' (********************************) must have permission " +
+                        'node.add.inet:ip on object ******************************** (view).'
+                )
+                self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
     async def test_http_sess_mirror(self):
 
@@ -2317,7 +2185,7 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, http.HTTPStatus.OK)
 
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': {'user': visi.iden}}
+                data = {'query': '[ inet:ip=1.2.3.4 ]', 'opts': {'user': visi.iden}}
                 async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
@@ -2329,7 +2197,7 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
 
-                data = {'query': '[ inet:ipv4=5.6.7.8 ]', 'opts': {'user': visi.iden}}
+                data = {'query': '[ inet:ip=5.6.7.8 ]', 'opts': {'user': visi.iden}}
                 async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
                     item = await resp.json()
                     self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)

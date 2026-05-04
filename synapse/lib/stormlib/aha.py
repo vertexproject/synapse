@@ -140,28 +140,28 @@ class AhaLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methAhaList(self):
         self.runt.reqAdmin()
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         async for info in proxy.getAhaSvcs():
             yield info
 
     async def _methAhaDel(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(svcname)
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service for {svcname=}')
         if svc.get('services'):  # It is an AHA Pool!
             mesg = f'Cannot use $lib.aha.del() to remove an AHA Pool. Use $lib.aha.pool.del(); {svcname=}'
             raise s_exc.BadArg(mesg=mesg)
-        return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
+        return await proxy.delAhaSvc(svc.get('name'))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methAhaGet(self, svcname, filters=None):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
         filters = await s_stormtypes.toprim(filters)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         return await proxy.getAhaSvc(svcname, filters=filters)
 
     async def _methCallPeerApi(self, svcname, todo, timeout=None, skiprun=None):
@@ -179,7 +179,7 @@ class AhaLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(svcname)
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
@@ -207,7 +207,7 @@ class AhaLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(svcname)
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
@@ -277,7 +277,7 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def _methPoolAdd(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPool(name, poolinfo)
         return AhaPool(self.runt, poolinfo)
@@ -285,14 +285,14 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def _methPoolDel(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         return await proxy.delAhaPool(name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPoolGet(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         poolinfo = await proxy.getAhaPool(name)
         if poolinfo is not None:
             return AhaPool(self.runt, poolinfo)
@@ -300,13 +300,13 @@ class AhaPoolLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPoolList(self):
         self.runt.reqAdmin()
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
         async for poolinfo in proxy.getAhaPools():
             yield AhaPool(self.runt, poolinfo)
 
 @s_stormtypes.registry.registerType
-class AhaPool(s_stormtypes.StormType):
+class AhaPool(s_stormtypes.Prim):
     '''
     Implements the Storm API for an AHA pool.
     '''
@@ -343,9 +343,8 @@ class AhaPool(s_stormtypes.StormType):
     _storm_typename = 'aha:pool'
 
     def __init__(self, runt, poolinfo):
-        s_stormtypes.StormType.__init__(self)
+        s_stormtypes.Prim.__init__(self, poolinfo)
         self.runt = runt
-        self.poolinfo = poolinfo
 
         self.locls.update({
             'add': self._methPoolSvcAdd,
@@ -353,43 +352,43 @@ class AhaPool(s_stormtypes.StormType):
         })
 
     async def stormrepr(self):
-        return f'{self._storm_typename}: {self.poolinfo.get("name")}'
+        return f'{self._storm_typename}: {self.valu.get("name")}'
 
     async def _derefGet(self, name):
-        return self.poolinfo.get(name)
+        return self.valu.get(name)
 
     async def _methPoolSvcAdd(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
 
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPoolSvc(poolname, svcname, poolinfo)
 
-        self.poolinfo.update(poolinfo)
+        self.valu.update(poolinfo)
 
     async def _methPoolSvcDel(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
         newinfo = await proxy.delAhaPoolSvc(poolname, svcname)
 
         tname = svcname
         if tname.endswith('...'):
             tname = tname[:-2]
         deleted_service = None
-        deleted_services = [svc for svc in self.poolinfo.get('services').keys()
+        deleted_services = [svc for svc in self.valu.get('services').keys()
                             if svc not in newinfo.get('services') and svc.startswith(tname)]
         if deleted_services:
             deleted_service = deleted_services[0]
 
-        self.poolinfo = newinfo
+        self.valu = newinfo
 
         return deleted_service
 
@@ -492,7 +491,7 @@ The ready value indicates that a service has entered into the realtime change wi
             try {
                 $_prox = $lib.telepath.open($_url)
                 $_info = $_prox.getCellInfo()
-                return ( $_info.cell.nexsindx )
+                return ( $_info.cell.nexus.indx )
             } catch * as _err {
                 $_emsg = $_err.mesg
                 if ($_emsg = null ) {
@@ -603,10 +602,8 @@ The ready column indicates that a service has entered into the realtime change w
             $leaders = $lib.set()
             for $info in $svcs {
                 $svcinfo = $info.svcinfo
-                if $svcinfo {
-                    if ($info.svcname = $svcinfo.leader) {
-                        $leaders.add($svcinfo.run)
-                    }
+                if $info.svcinfo.isleader {
+                    $leaders.add($svcinfo.run)
                 }
             }
 
@@ -787,6 +784,7 @@ The ready column indicates that a service has entered into the realtime change w
                 )
                 $lib.print($printer.row($row))
             }
+            return()
         }
 
         $virtual_services = ({})

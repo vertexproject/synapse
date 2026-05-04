@@ -1,0 +1,11 @@
+---
+desc: Simplified permissions for model administration, telepath connections, and
+  service access. The granular ``model.type.*``, ``model.form.*``, ``model.prop.*``,
+  ``model.tagprop.*``, and ``model.edge.*`` permissions have been replaced with a
+  single ``model.admin`` permission. The ``telepath.open.<scheme>`` permission has
+  been simplified to ``telepath.open``. The ``service.get.<iden>`` permission has
+  been simplified to ``service.get``.
+desc:literal: false
+prs: []
+type: feat
+...

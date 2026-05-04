@@ -1,0 +1,6 @@
+---
+desc: Removed the ``protocols`` feature from the data model.
+desc:literal: false
+prs: []
+type: feat
+...

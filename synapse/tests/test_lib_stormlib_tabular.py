@@ -193,13 +193,13 @@ class TabularTest(s_test.SynTest):
 
                 $lib.print($printer.row(($lib.null,)))
                 $lib.print($printer.row((({"bar": "baz"}),)))
-                $lib.print($printer.row((${ps:name=cool},)))
+                $lib.print($printer.row((${entity:name=cool},)))
             ''', opts=opts)
             self.stormHasNoWarnErr(mesgs)
             self.eq([
                 "                      ",
                 " {'bar': 'baz'}       ",
-                " ps:name=cool         ",
+                " entity:name=cool     ",
             ], printlines(mesgs))
 
             # sad

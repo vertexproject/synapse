@@ -4,3 +4,4 @@ function foo() {
 }
 yield $foo()
 yield $foo()
+// lines: 1, 2, 3, 5, 6

@@ -1,0 +1,9 @@
+$x = foo
+switch $x {
+    "foo": { [ inet:fqdn=foo.com ] }
+    *: { [ inet:fqdn=def.com ] }
+}
+// lines: 1, 2, 3, 4
+// coverage: 1, 2, 3
+// arcs: (-1,1), (1,2), (2,3), (2,4), (3,-1), (4,-1)
+// arcs_hit: (-1,1), (1,2), (2,3), (3,-1)

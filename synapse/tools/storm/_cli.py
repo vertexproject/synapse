@@ -12,16 +12,13 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
-import synapse.lib.node as s_node
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
 
-logger = logging.getLogger(__name__)
+import synapse.tools.storm._printer as s_printer
 
-ERROR_COLOR = '#ff0066'
-WARNING_COLOR = '#f4e842'
-NODEEDIT_COLOR = "lightblue"
+logger = logging.getLogger(__name__)
 
 welcome = '''
 Welcome to the Storm interpreter!
@@ -54,7 +51,7 @@ class HelpCmd(s_cli.CmdHelp):
 
 class StormCliCmd(s_cli.Cmd):
 
-    # cut the Cmd instance over to using argparser and cmdrargv split
+    # cut the Cmd instance over to using argparser and cmdargv split
 
     def getArgParser(self):
         desc = self.getCmdDoc()
@@ -63,7 +60,7 @@ class StormCliCmd(s_cli.Cmd):
 
     def getCmdOpts(self, text):
         pars = self.getArgParser()
-        argv = s_parser.Parser(text).cmdrargs()
+        argv = s_parser.Parser(text).cmdargs()
         return pars.parse_args(argv[1:])
 
 class RunFileCmd(StormCliCmd):
@@ -133,7 +130,7 @@ class PushFileCmd(StormCliCmd):
             'name': os.path.basename(opts.filepath),
         }}
 
-        return await self._cmd_cli.storm('[ file:bytes=$sha256 ] { -:name [:name=$name] }', opts=opts)
+        return await self._cmd_cli.storm('[ file:bytes=({"sha256": $sha256}) ] { -:name [:name=$name] }', opts=opts)
 
 class PullFileCmd(StormCliCmd):
     '''
@@ -189,8 +186,6 @@ class ExportCmd(StormCliCmd):
         pars = StormCliCmd.getArgParser(self)
         pars.add_argument('filepath', help='The file path to save the export to.')
         pars.add_argument('query', help='The Storm query to export nodes from.')
-        pars.add_argument('--include-tags', nargs='*', help='Only include the specified tags in output.')
-        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not include any tags on exported nodes.')
         return pars
 
     async def runCmdOpts(self, opts):
@@ -198,11 +193,6 @@ class ExportCmd(StormCliCmd):
         self.printf('exporting nodes')
 
         queryopts = copy.deepcopy(self._cmd_cli.stormopts)
-        if opts.include_tags:
-            queryopts['scrub'] = {'include': {'tags': opts.include_tags}}
-
-        if opts.no_tags:
-            queryopts['scrub'] = {'include': {'tags': []}}
 
         try:
             with s_common.genfile(opts.filepath) as fd:
@@ -342,7 +332,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         else:
             depth = prefix.count('.') + 1
 
-        q = '''
+        q = r'''
         $rslt = ()
         if ($prefix != '') { syn:tag=$lib.regex.replace("\\.$", '', $prefix) }
         syn:tag^=$prefix
@@ -353,7 +343,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         if $node.props.doc {
             $doc = ` - {$node.props.doc}`
         }
-        $rslt.append(($node.value(), `[tag] {$node.value()}{$doc}`))
+        $rslt.append(($node.value, `[tag] {$node.value}{$doc}`))
         | spin
         | return($rslt)
         '''
@@ -419,7 +409,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         for item in completions:
             yield item
 
-class StormCli(s_cli.Cli):
+class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
     histfile = 'storm_history'
 
@@ -427,10 +417,13 @@ class StormCli(s_cli.Cli):
 
         await s_cli.Cli.__anit__(self, item, outp=outp)
 
+        self.hidetags = False
+        self.hideprops = False
+
         self.indented = False
         self.cmdprompt = 'storm> '
 
-        self.stormopts = {'repr': True}
+        self.stormopts = {'node:opts': {'repr': True}}
 
         if opts is not None:
 
@@ -446,8 +439,6 @@ class StormCli(s_cli.Cli):
             if opts.view:
                 self.stormopts['view'] = opts.view
 
-        self.hidetags = False
-        self.hideprops = False
         self._print_skips = []
 
     def initCmdClasses(self):
@@ -465,42 +456,17 @@ class StormCli(s_cli.Cli):
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
     async def runCmdLine(self, line, opts=None):
-        if self.echoline:
-            self.outp.printf(f'{self.cmdprompt}{line}')
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
+        if self.echoline:
+            self.printf(f'{self.cmdprompt}{line}')
+
         return await self.storm(line, opts=opts)
 
     async def handleErr(self, mesg):
-        err = mesg[1]
-        if err[0] == 'BadSyntax':
-            pos = err[1].get('at', None)
-            text = err[1].get('text', None)
-            tlen = len(text)
-            mesg = err[1].get('mesg', None)
-            if pos is not None and text is not None and mesg is not None:
-                text = text.replace('\n', ' ')
-                # Handle too-long text
-                if tlen > 60:
-                    text = text[max(0, pos - 30):pos + 30]
-                    if pos < tlen - 30:
-                        text += '...'
-                    if pos > 30:
-                        text = '...' + text
-                        pos = 33
-
-                self.printf(text)
-                self.printf(f'{" " * pos}^')
-                self.printf(f'Syntax Error: {mesg}', color=ERROR_COLOR)
-                return
-
-        text = err[1].get('mesg', err[0])
-        self.printf(f'ERROR: {text}', color=ERROR_COLOR)
-
-    def _printNodeProp(self, name, valu):
-        self.printf(f'        {name} = {valu}')
+        self.printErr(mesg)
 
     async def storm(self, text, opts=None):
 
@@ -518,95 +484,18 @@ class StormCli(s_cli.Cli):
             if mtyp in self._print_skips:
                 continue
 
-            if mtyp == 'node':
-
-                node = mesg[1]
-                formname, formvalu = s_node.reprNdef(node)
-
-                self.printf(f'{formname}={formvalu}')
-
-                if not self.hideprops:
-
-                    props = []
-                    extns = []
-                    univs = []
-
-                    for name in s_node.props(node).keys():
-
-                        if name.startswith('.'):
-                            univs.append(name)
-                            continue
-
-                        if name.startswith('_'):
-                            extns.append(name)
-                            continue
-
-                        props.append(name)
-
-                    props.sort()
-                    extns.sort()
-                    univs.sort()
-
-                    for name in props:
-                        valu = s_node.reprProp(node, name)
-                        name = ':' + name
-                        self._printNodeProp(name, valu)
-
-                    for name in extns:
-                        valu = s_node.reprProp(node, name)
-                        name = ':' + name
-                        self._printNodeProp(name, valu)
-
-                    for name in univs:
-                        valu = s_node.reprProp(node, name)
-                        self._printNodeProp(name, valu)
-
-                if not self.hidetags:
-
-                    for tag in sorted(s_node.tagsnice(node)):
-
-                        valu = s_node.reprTag(node, tag)
-                        tprops = s_node.reprTagProps(node, tag)
-                        printed = False
-                        if valu:
-                            self.printf(f'        #{tag} = {valu}')
-                            printed = True
-
-                        if tprops:
-                            for prop, pval in tprops:
-                                self.printf(f'        #{tag}:{prop} = {pval}')
-                            printed = True
-
-                        if not printed:
-                            self.printf(f'        #{tag}')
-
-            elif mtyp == 'node:edits':
+            if mtyp == 'node:edits':
                 edit = mesg[1]
                 count = sum(len(e[2]) for e in edit.get('edits', ()))
-                s_cli.Cli.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+                s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
                 self.indented = True
-
-            elif mtyp == 'fini':
-                took = mesg[1].get('took')
-                took = max(took, 1)
-                count = mesg[1].get('count')
-                pers = float(count) / float(took / 1000)
-                self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
-
-            elif mtyp == 'print':
-                self.printf(mesg[1].get('mesg'))
-
-            elif mtyp == 'warn':
-                info = mesg[1]
-                warn = info.pop('mesg', '')
-                xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
-                if xtra:
-                    warn = ' '.join([warn, xtra])
-                self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
             elif mtyp == 'err':
                 await self.handleErr(mesg)
                 ret = False
+
+            else:
+                self.printMesg(mesg)
 
         return ret
 
@@ -618,6 +507,20 @@ def getArgParser(outp):
     pars.add_argument('--optsfile', default=None, help='A JSON/YAML file which contains storm runtime options.')
     return pars
 
+async def runItemStorm(prox, outp=None, color=True, opts=None):
+
+    async with await StormCli.anit(prox, outp=outp, opts=opts) as cli:
+
+        completer = StormCompleter(cli)
+        cli.completer = completer
+        await completer.load()
+
+        cli.colorsenabled = color
+        cli.printf(welcome)
+
+        await cli.addSignalHandlers()
+        await cli.runCmdLoop()
+
 async def main(argv, outp=s_output.stdout):
 
     pars = getArgParser(outp=outp)
@@ -627,21 +530,14 @@ async def main(argv, outp=s_output.stdout):
 
         async with await s_telepath.openurl(opts.cortex) as proxy:
 
-            async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
-
-                if opts.onecmd:
+            if opts.onecmd:
+                async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
                     if await cli.runCmdLine(opts.onecmd) is False:
                         return 1
                     return 0
 
-                else:  # pragma: no cover
+            else:  # pragma: no cover
+                await runItemStorm(proxy, outp=outp, opts=opts)
 
-                    completer = StormCompleter(cli)
-                    cli.completer = completer
-                    await completer.load()
-
-                    cli.colorsenabled = True
-                    cli.printf(welcome)
-
-                    await cli.addSignalHandlers()
-                    await cli.runCmdLoop()
+if __name__ == '__main__':  # pragma: no cover
+    s_cmd.exitmain(main)

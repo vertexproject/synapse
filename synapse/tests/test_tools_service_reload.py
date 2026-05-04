@@ -9,7 +9,7 @@ class ReloadToolTest(s_test.SynTest):
 
         async with self.getTestCell(s_test.ReloadCell) as cell:  # type: s_test.ReloadCell
             url = cell.getLocalUrl()
-            argb = ('--svcurl', url)
+            argb = ('--url', url)
 
             argv = argb + ('list',)
             ret = await s_t_reload.main(argv, outp)

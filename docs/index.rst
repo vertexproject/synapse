@@ -13,7 +13,7 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
-   synapse/quickstart
+   synapse/getting_started
 
    synapse/userguide
    synapse/adminguide
@@ -34,6 +34,7 @@ Welcome to the Synapse documentation!
 
    synapse/support
 
+   synapse/300_changes
    synapse/changelog
 
 Indices and tables

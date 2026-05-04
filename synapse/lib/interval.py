@@ -43,7 +43,7 @@ def parsetime(text):
         text (str): A time interval string
 
     Returns:
-        ((int,int)):    A epoch millis epoch time string
+        ((int,int)):    A epoch micros epoch time string
 
     '''
     mins, maxs = text.split('-', 1)

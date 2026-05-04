@@ -24,7 +24,7 @@ class AhaLibTest(s_test.SynTest):
                 replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
                 nevents = 10 if replay else 5
 
-                waiter = aha.waiter(nevents, 'aha:svcadd')
+                waiter = aha.waiter(nevents, 'aha:svc:add')
 
                 cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                 cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
@@ -136,7 +136,7 @@ Member:     00.cell.synapse'''
 
                 # Shut down a service
                 nevents = 2 if replay else 1
-                waiter = aha.waiter(nevents, 'aha:svcdown')
+                waiter = aha.waiter(nevents, 'aha:svc:down')
                 await cell01.fini()
                 self.len(nevents, await waiter.wait(timeout=12))
 
@@ -144,8 +144,7 @@ Member:     00.cell.synapse'''
                 self.stormIsInPrint('01.cell.synapse false  false  false', msgs, whitespace=False)
 
                 # Fake a record
-                await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}},
-                                    network='synapse')
+                await aha.addAhaSvc('00.newp...', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}})
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
                 emsg = '00.newp.synapse                      null   false  null  0.0.0.0         3030  <offline>'
@@ -157,12 +156,12 @@ Member:     00.cell.synapse'''
 
                 # Fake a online record
                 guid = s_common.guid()
-                await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp',
+                await aha.addAhaSvc('00.newp...', info={'urlinfo': {'scheme': 'tcp',
                                                                  'host': '0.0.0.0',
                                                                  'port': '3030'},
                                                      'online': guid,
-                                                     },
-                                    network='synapse')
+                                                     })
+
                 msgs = await core00.stormlist('aha.svc.list --nexus')
                 emsg = '00.newp.synapse null   true   null  0.0.0.0         3030  ' \
                        'Failed to connect to Telepath service: "aha://00.newp.synapse/" error:'
@@ -206,7 +205,7 @@ Connection information:
                 dirn01 = s_common.genpath(dirn, 'cell01')
                 dirn02 = s_common.genpath(dirn, 'cell02')
 
-                async with aha.waiter(3, 'aha:svcadd', timeout=10):
+                async with aha.waiter(3, 'aha:svc:add', timeout=10):
 
                     cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                     cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
@@ -248,7 +247,7 @@ Connection information:
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
-                    $lib.aha.callPeerGenr(null, $todo)
+                    for $info in $lib.aha.callPeerGenr(null, $todo) {}
                 '''))
 
                 # PeerApi
@@ -297,12 +296,12 @@ Connection information:
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(newp..., $todo)
+                    for $info in $lib.aha.callPeerApi(newp..., $todo) {}
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(null, $todo)
+                    for $info in $lib.aha.callPeerApi(null, $todo) {}
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
@@ -315,17 +314,17 @@ Connection information:
                     }
                 '''))
 
-                await aha.addAhaSvc('noiden.cell', info={'urlinfo': {'scheme': 'tcp',
+                await aha.addAhaSvc('noiden.cell...', info={'urlinfo': {'scheme': 'tcp',
                                                                      'host': '0.0.0.0',
-                                                                     'port': '3030'}},
-                                  network='synapse')
+                                                                     'port': '3030'}})
+
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
-                    $lib.aha.callPeerGenr(noiden.cell..., $todo)
+                    for $info in $lib.aha.callPeerGenr(noiden.cell..., $todo) {}
                 '''))
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(noiden.cell..., $todo)
+                    for $info in $lib.aha.callPeerApi(noiden.cell..., $todo) {}
                 '''))
 
                 msgs = await core00.stormlist('aha.svc.mirror')
@@ -382,6 +381,6 @@ Connection information:
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormIsInPrint('follower', msgs)
 
-                await aha.delAhaSvc('00.cell', network='synapse')
+                await aha.delAhaSvc('00.cell...')
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormNotInPrint('Service Mirror Groups:', msgs)

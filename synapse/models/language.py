@@ -1,104 +1,105 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    {
 
-class LangModule(s_module.CoreModule):
+        'interfaces': (
+            ('lang:transcript', {
+                'doc': 'An interface which applies to forms containing speech.',
+            }),
+        ),
 
-    def getModelDefs(self):
+        'types': (
 
-        modldef = ('lang', {
+            ('lang:phrase', ('text', {}), {
+                'doc': 'A small group of words which stand together as a concept.'}),
 
-            "types": (
+            ('lang:code', ('str', {'lower': True, 'regex': '^[a-z]{2}(.[a-z]{2})?$'}), {
+                'ex': 'pt.br',
+                'doc': 'An optionally 2 part language code.'}),
 
-                ('lang:idiom', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use lang:translation.'}),
+            ('lang:idiom', ('guid', {}), {
+                'doc': 'An idiomatic use of a phrase.'}),
 
-                ('lang:phrase', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A small group of words which stand together as a concept.'}),
+            ('lang:hashtag', ('str', {'lower': True, 'regex': r'^#[^\p{Z}#]+$'}), {
+                # regex explanation:
+                # - starts with pound
+                # - one or more non-whitespace/non-pound character
+                # The minimum hashtag is a pound with a single non-whitespace character
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'hashtag'}}),
+                ),
+                'doc': 'A hashtag used in written text.'}),
 
-                ('lang:trans', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use lang:translation.'}),
+            ('lang:name', ('base:name', {}), {
+                'doc': 'A name used to refer to a language.'}),
 
-                ('lang:code', ('str', {'lower': True, 'regex': '^[a-z]{2}(.[a-z]{2})?$'}), {
-                    'ex': 'pt.br',
-                    'doc': 'An optionally 2 part language code.'}),
+            ('lang:translation', ('guid', {}), {
+                'doc': 'A translation of text from one language to another.'}),
 
-                ('lang:translation', ('guid', {}), {
-                    'doc': 'A translation of text from one language to another.'}),
+            ('lang:language', ('guid', {}), {
+                'interfaces': (
+                    ('edu:learnable', {}),
+                ),
+                'doc': 'A specific written or spoken language.'}),
 
-                ('lang:name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A name used to refer to a language.'}),
+        ),
+        'forms': (
 
-                ('lang:language', ('guid', {}), {
-                    'doc': 'A specific written or spoken language.'}),
-            ),
-            'forms': (
+            ('lang:name', {}, ()),
+            ('lang:phrase', {}, ()),
+            ('lang:hashtag', {}, ()),
 
-                ('lang:phrase', {}, ()),
-                ('lang:idiom', {}, (
+            ('lang:idiom', {}, (
 
-                    ('url', ('inet:url', {}), {
-                        'doc': 'Authoritative URL for the idiom.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the meaning and origin of the idiom.'}),
 
-                    ('desc:en', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'English description.'}),
-                )),
+                ('phrase', ('lang:phrase', {}), {
+                    'doc': 'The text of the idiom.'}),
+            )),
 
-                ('lang:trans', {}, (
+            ('lang:translation', {}, (
 
-                    ('text:en', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'English translation.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time when the translation was completed.'}),
 
-                    ('desc:en', ('str', {}), {
-                        'doc': 'English description.',
-                        'disp': {'hint': 'text'}}),
-                )),
+                ('input', ('text', {}), {
+                    'ex': 'hola',
+                    'doc': 'The input text.'}),
 
-                ('lang:translation', {}, (
+                ('input:lang', ('lang:language', {}), {
+                    'doc': 'The input language.'}),
 
-                    ('input', ('str', {}), {
-                        'ex': 'hola',
-                        'doc': 'The input text.'}),
+                ('output', ('text', {}), {
+                    'ex': 'hi',
+                    'doc': 'The output text.'}),
 
-                    ('input:lang', ('lang:code', {}), {
-                        'doc': 'The input language code.'}),
+                ('output:lang', ('lang:language', {}), {
+                    'doc': 'The output language.'}),
 
-                    ('output', ('str', {}), {
-                        'ex': 'hi',
-                        'doc': 'The output text.'}),
+                ('desc', ('text', {}), {
+                    'ex': 'A standard greeting',
+                    'doc': 'A description of the meaning of the output.'}),
 
-                    ('output:lang', ('lang:code', {}), {
-                        'doc': 'The output language code.'}),
+                ('engine', ('it:software', {}), {
+                    'doc': 'The translation engine version used.'}),
 
-                    ('desc', ('str', {}), {
-                        'ex': 'A standard greeting',
-                        'doc': 'A description of the meaning of the output.'}),
+                ('translator', ('entity:actor', {}), {
+                    'doc': 'The entity who translated the input.'}),
+            )),
 
-                    ('engine', ('it:prod:softver', {}), {
-                        'doc': 'The translation engine version used.'}),
-                )),
+            ('lang:language', {}, (
 
-                ('lang:name', {}, ()),
+                ('code', ('lang:code', {}), {
+                    'doc': 'The language code for this language.'}),
 
-                ('lang:language', {}, (
+                ('name', ('lang:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The primary name of the language.'}),
 
-                    ('code', ('lang:code', {}), {
-                        'doc': 'The language code for this language.'}),
+                ('names', ('array', {'type': 'lang:name'}), {
+                    'doc': 'An array of alternative names for the language.'}),
+            )),
+        ),
 
-                    ('name', ('lang:name', {}), {
-                        'doc': 'The primary name of the language.'}),
-
-                    ('names', ('array', {'type': 'lang:name', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of alternative names for the language.'}),
-
-                    ('skill', ('ps:skill', {}), {
-                        'doc': 'The skill used to annotate proficiency in the language.'}),
-                )),
-
-            ),
-
-        })
-
-        return (modldef, )
+    },
+)

@@ -33,7 +33,7 @@ class StormLibPkgTest(s_test.SynTest):
             msgs = await core.stormlist('pkg.list --verbose')
             self.stormIsInPrint('not available', msgs)
 
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000000}}
             await core.addStormPkg(pkg2)
             self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
             msgs = await core.stormlist('pkg.list --verbose')
@@ -205,7 +205,7 @@ class StormLibPkgTest(s_test.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
+            'onload': f'[ entity:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -251,7 +251,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
-            self.len(1, await core.nodes(f'ps:contact={cont}'))
+            self.len(1, await core.nodes(f'entity:contact={cont}'))
 
             evnts = await waiter.wait(timeout=4)
             exp = [
@@ -453,3 +453,61 @@ class StormLibPkgTest(s_test.SynTest):
 
                 self.eq((4, '11'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop(4))'))
                 self.none(await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
+
+    async def test_stormlib_pkg_state(self):
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                lowuser = await core.addUser('lowuser')
+                aslow = {'user': lowuser.get('iden')}
+                await core.callStorm('auth.user.addrule lowuser node')
+
+                # basic read
+
+                self.none(await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq([], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                # set state internally (not via Storm)
+                await core.setStormPkgState('pkg0', 'bar', 'cat')
+                await core.setStormPkgState('pkg0', 'baz', 'dog')
+                await core.setStormPkgState('pkg1', 'bar', 'emu')
+                await core.setStormPkgState('pkg1', 'baz', 'groot')
+
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
+
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                # state is read-only from Storm: assignment must raise an error
+                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval'))
+
+                # perms: any user can get the state object, deref, and iter
+                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.state(pkg0))', opts=aslow))
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)', opts=aslow))
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.state(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                ''', opts=aslow))
+
+                # state write is still denied from Storm
+                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval', opts=aslow))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # data persists
+                self.eq('cat', await core.callStorm('return($lib.pkg.state(pkg0).bar)'))
+                self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))

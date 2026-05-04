@@ -1,12 +1,12 @@
 '''
 Timezones are defined per RFC822 5.1 (plus GMT and UTC),
-with values representing offsets from UTC in milliseconds.
+with values representing offsets from UTC in microseconds.
 '''
 import types
 
 import synapse.exc as s_exc
 
-_onehour = 3600000
+_onehour = 3600000000
 
 _timezones = types.MappingProxyType({
     'A': -1 * _onehour,
@@ -35,7 +35,7 @@ def getTzNames():
 
 def getTzOffset(name, defval=None):
     '''
-    Return tuple of the UTC offset in milliseconds and an info dict.
+    Return tuple of the UTC offset in microseconds and an info dict.
     '''
     try:
         return _timezones.get(name.upper(), defval), {}

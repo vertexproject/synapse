@@ -148,7 +148,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extensions = ({"pkce": true})
 
                         // Optionally disable SSL verification
-                        $conf.ssl_verify = (false)
+                        $conf.ssl = ({"verify": false})
 
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
@@ -181,7 +181,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extensions = ({"pkce": true})
 
                         // Optionally disable SSL verification
-                        $conf.ssl_verify = (false)
+                        $conf.ssl = ({"verify": false})
 
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
@@ -218,7 +218,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         // Example callback
                         $callbackQuery = ${
                             $url = `{$baseurl}/api/oauth/getAssertion`
-                            $resp = $lib.inet.http.get($url, ssl_verify=$ssl_verify)
+                            $resp = $lib.inet.http.get($url, ssl=$ssl)
                             if ($resp.code = 200) {
                                 $resp = ([true, {'token': $resp.json().assertion}])
                             } else {
@@ -230,7 +230,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         // Specify any variables that need to be provided to $callbackQuery
                         $myCallbackVars = ({
                             'baseurl': 'https://local.assertion.provider.corp',
-                            'ssl_verify': true,
+                            'ssl': ({"verify": true}),
                         })
 
                         // Specify the view the callback is run in.
@@ -367,27 +367,27 @@ class OAuthV2Lib(s_stormtypes.Lib):
             raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         conf = await s_stormtypes.toprim(conf)
-        await self.runt.snap.core.addOAuthProvider(conf)
+        await self.runt.view.core.addOAuthProvider(conf)
 
     async def _delProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.delOAuthProvider(iden)
+        return await self.runt.view.core.delOAuthProvider(iden)
 
     async def _getProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.getOAuthProvider(iden)
+        return await self.runt.view.core.getOAuthProvider(iden)
 
     async def _listProviders(self):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.listOAuthProviders()
+        return await self.runt.view.core.listOAuthProviders()
 
     async def _setUserAuthCode(self, iden, authcode, code_verifier=None):
         iden = await s_stormtypes.tostr(iden)
@@ -395,12 +395,12 @@ class OAuthV2Lib(s_stormtypes.Lib):
         code_verifier = await s_stormtypes.tostr(code_verifier, True)
 
         useriden = self.runt.user.iden
-        await self.runt.snap.core.setOAuthAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
+        await self.runt.view.core.setOAuthAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
 
     async def _getUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.getOAuthAccessToken(iden, self.runt.user.iden)
+        return await self.runt.view.core.getOAuthAccessToken(iden, self.runt.user.iden)
 
     async def _clearUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.clearOAuthAccessToken(iden, self.runt.user.iden)
+        return await self.runt.view.core.clearOAuthAccessToken(iden, self.runt.user.iden)

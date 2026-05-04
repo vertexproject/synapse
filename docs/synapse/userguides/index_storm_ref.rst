@@ -4,8 +4,12 @@
 Storm Reference
 ###############
 
-Synapse uses the Storm Query language to do lifting and modification of data in the graph. Basic Storm usage is
-documented in the following sections.
+**Storm** is the query language used to interact with data in Synapse. With Storm, you can create, select
+(lift), filter, and navigate Synapse's knowledge graph. Storm allows you to ask and answer any analytical
+question, even over large and diverse data sets. Storm allows you to start with the basics and learn as you
+go, adjusting your level of knowledge to meet your analytical needs.
+
+Storm usage is documented in the following sections.
 
 .. toctree::
     :titlesonly:

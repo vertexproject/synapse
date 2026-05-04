@@ -4,19 +4,20 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTest is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing. There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
-
+Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
+we have overridden.
 '''
+import gc
 import io
 import os
 import sys
@@ -46,15 +47,12 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.cmdr as s_cmdr
-import synapse.lib.hive as s_hive
 import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
@@ -62,14 +60,12 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -82,6 +78,16 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
+
+# Number of times to sleep when tearing down tests with active bg tasks, in order to
+# allow background tasks to tear down cleanly.
+_SYNDEV_TASK_BG_ITER = int(os.getenv('SYNDEV_BG_TASK_ITER', 12))
+assert _SYNDEV_TASK_BG_ITER >= 0, f'SYNDEV_BG_TASK_ITER must be >=0, got {_SYNDEV_TASK_BG_ITER}'
 
 async def alist(coro):
     return [x async for x in coro]
@@ -237,331 +243,409 @@ class TestType(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         return valu.lower(), {}
 
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
 
-    def norm(self, valu):
-        return 3, {'subs': {'three': 3}}
+    async def norm(self, valu, view=None):
+        typehash = self.modl.type('int').typehash
+        return 3, {'subs': {'three': (typehash, 3, {})}}
 
     def repr(self, valu):
         return '3'
 
-class TestSubType(s_types.Type):
+testmodel = (
+    {
 
-    stortype = s_layer.STOR_TYPE_U32
+        'interfaces': (
+            ('test:interface', {
+                'doc': 'test interface',
+                'props': (
+                    ('size', ('int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('names', ('array', {'type': 'str'}), {}),
+                ),
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
+            }),
+            ('test:virtarray', {
+                'doc': 'test interface',
+                'props': (
+                    ('server', ('inet:server', {}), {'alts': ('servers',)}),
+                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                )
+            }),
+            ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
+        ),
+        'types': (
+            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {}),
+            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {}),
+            ('test:ctoronstorm', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
+            ('test:type10', ('test:type', {}), {
+                'doc': 'A fake type.'}),
 
-    def norm(self, valu):
-        valu = int(valu)
-        return valu, {'subs': {'isbig': valu >= 1000}}
+            ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lowstr', ('str', {'lower': True}), {}),
 
-    def repr(self, norm):
-        return str(norm)
+            ('test:time', ('time', {}), {}),
 
-class TestRunt:
+            ('test:ro', ('str', {}), {}),
+            ('test:int', ('int', {}), {}),
+            ('test:float', ('float', {}), {}),
+            ('test:float:closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('test:float:open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+            ('test:str', ('str', {}), {}),
+            ('test:str2', ('test:str', {}), {}),
+            ('test:inhstr', ('str', {}), {}),
+            ('test:inhstr2', ('test:inhstr', {}), {}),
+            ('test:inhstr3', ('test:inhstr2', {}), {}),
+            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
+            ('test:migr', ('str', {}), {}),
+            ('test:auto', ('str', {}), {}),
+            ('test:guid', ('guid', {}), {}),
+            ('test:guidchild', ('test:guid', {}), {}),
+            ('test:data', ('data', {}), {}),
+            ('test:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                )
+            }),
+            ('test:hugenum', ('hugenum', {}), {}),
 
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.props = kwargs
-        self.props.setdefault('.created', s_common.now())
+            ('test:arrayprop', ('guid', {}), {}),
 
-    def getStorNode(self, form):
+            ('test:comp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('haha', 'test:lower'))
+            }), {'doc': 'A fake comp type.'}),
+            ('test:compcomp', ('comp', {'fields': (
+                ('comp1', 'test:comp'),
+                ('comp2', 'test:comp'))
+            }), {}),
+            ('test:complexcomp', ('comp', {'fields': (
+                ('foo', 'test:int'),
+                ('bar', ('str', {'lower': True}),),
+            )}), {'doc': 'A complex comp type.'}),
+            ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+            ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+            ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+            ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+            ('test:pivtarg', ('str', {}), {}),
+            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+            ('test:haspivcomp', ('int', {}), {}),
 
-        pnorms = {}
-        for prop, valu in self.props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
+            ('test:cycle0', ('str', {}), {}),
+            ('test:cycle1', ('str', {}), {}),
 
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
 
-testmodel = {
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
+            ('test:onstorm', ('guid', {}), {}),
+            ('test:onstorm2', ('guid', {}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
+        ),
+        'forms': (
 
-    'ctors': (
-        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-    ),
-    'interfaces': (
-        ('test:interface', {
-            'doc': 'test interface',
-            'props': (
-                ('size', ('int', {}), {}),
-                ('names', ('array', {'type': 'str'}), {}),
-            ),
-            'interfaces': ('inet:proto:request',)
-        }),
-    ),
-    'types': (
-        ('test:type10', ('test:type', {'foo': 10}), {
-            'doc': 'A fake type.'}),
+            ('test:lowstr', {}, ()),
+            ('test:arrayprop', {}, (
+                ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                ('children', ('array', {'type': 'test:arrayprop'}), {}),
+                ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
+                ('multivirt', ('array', {'type': (
+                    ('file:path', {}),
+                    ('inet:server', {})
+                ), 'uniq': False}), {}),
+                ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
+            )),
+            ('test:taxonomy', {}, ()),
+            ('test:type10', {}, (
 
-        ('test:lower', ('str', {'lower': True}), {}),
+                ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+                ('int2', ('int', {}), {}),
+                ('strprop', ('test:lower', {}), {}),
+                ('guidprop', ('guid', {}), {}),
+                ('locprop', ('loc', {}), {}),
+            )),
 
-        ('test:time', ('time', {}), {}),
+            ('test:cycle0', {}, (
+                ('cycle1', ('test:cycle1', {}), {}),
+            )),
 
-        ('test:ival', ('ival', {}), {}),
+            ('test:cycle1', {}, (
+                ('cycle0', ('test:cycle0', {}), {}),
+            )),
 
-        ('test:ro', ('str', {}), {}),
-        ('test:int', ('int', {}), {}),
-        ('test:float', ('float', {}), {}),
-        ('test:str', ('str', {}), {}),
-        ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
-        ('test:migr', ('str', {}), {}),
-        ('test:auto', ('str', {}), {}),
-        ('test:edge', ('edge', {}), {}),
-        ('test:guid', ('guid', {}), {}),
-        ('test:data', ('data', {}), {}),
-        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
-        ('test:hugenum', ('hugenum', {}), {}),
+            ('test:type', {}, ()),
 
-        ('test:arrayprop', ('guid', {}), {}),
-        ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:comp', {}, (
+                ('hehe', ('test:int', {}), {'computed': True}),
+                ('haha', ('test:lower', {}), {'computed': True}),
+                ('seen', ('ival', {}), {}),
+            )),
 
-        ('test:comp', ('comp', {'fields': (
-            ('hehe', 'test:int'),
-            ('haha', 'test:lower'))
-        }), {'doc': 'A fake comp type.'}),
-        ('test:compcomp', ('comp', {'fields': (
-            ('comp1', 'test:comp'),
-            ('comp2', 'test:comp'))
-        }), {}),
-        ('test:complexcomp', ('comp', {'fields': (
-            ('foo', 'test:int'),
-            ('bar', ('str', {'lower': True}),),
-        )}), {'doc': 'A complex comp type.'}),
-        ('test:mutcomp', ('comp', {'fields': (
-            ('str', 'str'),
-            ('list', 'array'))
-        }), {'doc': 'A mutable comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
+            ('test:compcomp', {}, (
+                ('comp1', ('test:comp', {}), {'computed': True}),
+                ('comp2', ('test:comp', {}), {'computed': True}),
+            )),
 
-        ('test:pivtarg', ('str', {}), {}),
-        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
-        ('test:haspivcomp', ('int', {}), {}),
+            ('test:complexcomp', {}, (
+                ('foo', ('test:int', {}), {'computed': True}),
+                ('bar', ('str', {'lower': 1}), {'computed': True})
+            )),
 
-        ('test:cycle0', ('str', {}), {}),
-        ('test:cycle1', ('str', {}), {}),
+            ('test:int', {}, (
+                ('loc', ('loc', {}), {}),
+                ('int2', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('type', ('test:str', {}), {'alts': ('types',)}),
+                ('types', ('array', {'type': 'test:str'}), {}),
+            )),
 
-        ('test:ndef', ('ndef', {}), {}),
-        ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ipv4', 'inet:ipv6')
-        }), {}),
-        ('test:ndef:formfilter2', ('ndef', {
-            'interfaces': ('meta:taxonomy',)
-        }), {}),
-        ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ipv4',),
-            'interfaces': ('file:mime:msoffice',)
-        }), {}),
+            ('test:float', {}, (
+                ('closed', ('test:float:closed', {}), {}),
+                ('open', ('test:float:open', {}), {}),
+            )),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
-        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-    ),
+            ('test:guid', {}, (
+                ('name', ('test:str', {}), {}),
+                ('size', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('comp', ('test:comp', {}), {}),
+                ('server', ('inet:server', {}), {}),
+                ('raw', ('data', {}), {}),
+                ('iden', ('guid', {}), {}),
+            )),
 
-    'univs': (
-        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-    ),
+            ('test:guidchild', {}, ()),
 
-    'forms': (
+            ('test:data', {}, (
+                ('data', ('test:data', {}), {}),
+            )),
 
-        ('test:arrayprop', {}, (
-            ('ints', ('array', {'type': 'test:int'}), {}),
-            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-            ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
-        )),
-        ('test:arrayform', {}, (
-        )),
-        ('test:taxonomy', {}, ()),
-        ('test:type10', {}, (
+            ('test:hugenum', {}, (
+                ('huge', ('test:hugenum', {}), {}),
+            )),
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
-            ('int2', ('int', {}), {}),
-            ('strprop', ('str', {'lower': 1}), {}),
-            ('guidprop', ('guid', {'lower': 1}), {}),
-            ('locprop', ('loc', {}), {}),
-        )),
+            ('test:str', {}, (
+                ('bar', (
+                    ('test:str', {}),
+                    ('test:int', {}),
+                    ('test:comp', {}),
+                    ('test:auto', {}),
+                    ('test:guid', {}),
+                    ('test:virtiface', {}),
+                    ('test:ro', {}),
+                    ('inet:ip', {}),
+                    ('inet:fqdn', {}),
+                    ('meta:source', {}),
+                    ('ps:person', {})
+                ), {}),
+                ('tick', ('test:time', {}), {}),
+                ('hehe', ('str', {}), {}),
+                ('net', ('inet:net', {}), {}),
+                ('somestr', ('test:str', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('pivvirt', ('test:virtiface', {}), {}),
+                ('gprop', ('test:guid', {}), {}),
+                ('inhstr', ('test:inhstr', {}), {}),
+                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                ('poly', (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                ), {}),
+                ('polyarry', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {}),
+                    ('it:dev:int', {}),
+                    ('it:dev:str', {})
+                )}), {}),
+                ('polyarry2', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:guid', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {})
+                )}), {}),
+                ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                )}), {}),
+                ('polyint', ('test:interface', {}), {}),
+                ('polyempty', ('test:unused:iface', {}), {}),
+            )),
 
-        ('test:cycle0', {}, (
-            ('cycle1', ('test:cycle1', {}), {}),
-        )),
+            ('test:str2', {}, ()),
 
-        ('test:cycle1', {}, (
-            ('cycle0', ('test:cycle0', {}), {}),
-        )),
+            ('test:inhstr', {}, (
+                ('name', ('str', {}), {}),
+            )),
 
-        ('test:type', {}, ()),
+            ('test:inhstr2', {}, (
+                ('child1', ('str', {}), {}),
+            )),
 
-        ('test:comp', {}, (
-            ('hehe', ('test:int', {}), {'ro': True}),
-            ('haha', ('test:lower', {}), {'ro': True}),
-        )),
+            ('test:inhstr3', {}, (
+                ('child2', ('str', {}), {}),
+            )),
 
-        ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {'ro': True}),
-            ('comp2', ('test:comp', {}), {'ro': True}),
-        )),
+            ('test:strregex', {}, ()),
 
-        ('test:complexcomp', {}, (
-            ('foo', ('test:int', {}), {'ro': True}),
-            ('bar', ('str', {'lower': 1}), {'ro': True})
-        )),
+            ('test:migr', {}, (
+                ('tick', ('test:time', {}), {}),
+            )),
 
-        ('test:mutcomp', {}, (
-            ('str', ('str', {}), {'ro': True}),
-            ('list', ('array', {'type': 'int'}), {'ro': True}),
-        )),
+            ('test:threetype', {}, (
+                ('three', ('int', {}), {}),
+            )),
+            ('test:auto', {}, ()),
+            ('test:hexa', {}, ()),
+            ('test:hex4', {}, ()),
+            ('test:zeropad', {}, ()),
+            ('test:pivtarg', {}, (
+                ('name', ('str', {}), {}),
+                ('seen', ('ival', {}), {}),
+            )),
 
-        ('test:int', {}, (
-            ('loc', ('loc', {}), {}),
-            ('int2', ('int', {}), {}),
-        )),
+            ('test:pivcomp', {}, (
+                ('targ', ('test:pivtarg', {}), {'computed': True}),
+                ('lulz', ('test:str', {}), {'computed': True}),
+                ('tick', ('time', {}), {}),
+                ('size', ('test:int', {}), {}),
+                ('width', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
+            )),
 
-        ('test:float', {}, (
-            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-        )),
+            ('test:haspivcomp', {}, (
+                ('have', ('test:pivcomp', {}), {}),
+            )),
 
-        ('test:edge', {}, (
-            ('n1', ('ndef', {}), {'ro': True}),
-            ('n1:form', ('str', {}), {'ro': True}),
-            ('n2', ('ndef', {}), {'ro': True}),
-            ('n2:form', ('str', {}), {'ro': True}),
-        )),
+            ('test:ro', {}, (
+                ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+                ('readable', ('str', {}), {'doc': 'computed property.', 'computed': True}),
+            )),
 
-        ('test:guid', {}, (
-            ('size', ('test:int', {}), {}),
-            ('name', ('test:str', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('data', ('data', {}), {}),
-            ('comp', ('test:comp', {}), {}),
-            ('mutcomp', ('test:mutcomp', {}), {}),
-            ('posneg', ('test:sub', {}), {}),
-            ('posneg:isbig', ('bool', {}), {}),
-        )),
+            ('test:hasiface', {}, ()),
+            ('test:hasiface2', {}, ()),
+            ('test:virtiface', {}, ()),
+            ('test:virtiface2', {}, ()),
 
-        ('test:data', {}, (
-            ('data', ('test:data', {}), {}),
-        )),
+            ('test:enums:int', {}, ()),
+            ('test:enums:str', {}, ()),
 
-        ('test:hugenum', {}, (
-            ('huge', ('test:hugenum', {}), {}),
-        )),
+            ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
+                ('tick', ('time', {}), {}),
+                ('name', ('str', {}), {
+                    'on': {'set': {'q': '[ :hehe=$node.props.name ]'}},
+                }),
+                ('hehe', ('str', {}), {}),
+                ('ondelprop', ('str', {}), {
+                    'on': {'del': {'q': '[ :hehe="deleted" ]'}},
+                }),
+            )),
+        ),
+        'edges': (
+            (('test:interface', 'matches', None), {
+                'doc': 'The node matched on the target node.'}),
+            ((None, 'test', None), {'doc': 'Test edge'}),
+        ),
+    },
+)
 
-        ('test:str', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('hehe', ('str', {}), {}),
-            ('ndefs', ('array', {'type': 'ndef'}), {}),
-            ('somestr', ('test:str', {}), {}),
-            ('gprop', ('test:guid', {}), {}),
-        )),
-        ('test:strregex', {}, ()),
-
-        ('test:migr', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-        )),
-
-        ('test:threetype', {}, (
-            ('three', ('int', {}), {}),
-        )),
-        ('test:auto', {}, ()),
-        ('test:hexa', {}, ()),
-        ('test:hex4', {}, ()),
-        ('test:zeropad', {}, ()),
-        ('test:ival', {}, (
-            ('interval', ('ival', {}), {}),
-        )),
-
-        ('test:pivtarg', {}, (
-            ('name', ('str', {}), {}),
-        )),
-
-        ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {'ro': True}),
-            ('lulz', ('test:str', {}), {'ro': True}),
-            ('tick', ('time', {}), {}),
-            ('size', ('test:int', {}), {}),
-            ('width', ('test:int', {}), {}),
-        )),
-
-        ('test:haspivcomp', {}, (
-            ('have', ('test:pivcomp', {}), {}),
-        )),
-
-        ('test:ndef', {}, (
-            ('form', ('str', {}), {'ro': True}),
-        )),
-
-        ('test:runt', {'runt': True}, (
-            ('tick', ('time', {}), {'ro': True}),
-            ('lulz', ('str', {}), {}),
-            ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
-        )),
-
-        ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
-        )),
-
-        ('test:hasiface', {}, ()),
-        ('test:hasiface2', {}, ()),
-
-    ),
-}
-
-deprmodel = {
-    'types': (
-        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
-        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-        ('test:deprform', ('test:str', {}), {}),
-        ('test:deprndef', ('ndef', {}), {}),
-        ('test:deprsub', ('str', {}), {}),
-        ('test:range', ('range', {}), {}),
-        ('test:deprsub2', ('comp', {'fields': (
-            ('name', 'test:str'),
-            ('range', 'test:range'))
-        }), {}),
-    ),
-    'forms': (
-        ('test:deprprop', {}, ()),
-        ('test:deprform', {}, (
-            ('ndefprop', ('test:deprndef', {}), {}),
-            ('deprprop', ('test:deprarray', {}), {}),
-            ('okayprop', ('str', {}), {}),
-        )),
-        ('test:deprsub', {}, (
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {'deprecated': True}),
-            ('range:max', ('int', {}), {}),
-        )),
-        ('test:deprsub2', {}, (
-            ('name', ('str', {}), {}),
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {}),
-            ('range:max', ('int', {}), {'deprecated': True}),
-        )),
-    ),
-
-}
+deprmodel = (
+    {
+        'interfaces': (
+            ('test:deprinterface', {
+                'doc': 'test interface',
+                'props': (
+                    ('pdep', ('str', {}), {'deprecated': True}),
+                ),
+            }),
+        ),
+        'types': (
+            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {'deprecated': True}),
+            ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
+            ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
+            ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
+            ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+            ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+            ('test:deprform', ('test:str', {}), {}),
+            ('test:deprform2', ('test:str', {}), {'deprecated': True}),
+            ('test:deprsub', ('str', {}), {}),
+            ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
+            ('test:range', ('range', {}), {}),
+            ('test:deprsub2', ('comp', {'fields': (
+                ('name', 'test:str'),
+                ('range', 'test:range'))
+            }), {}),
+        ),
+        'forms': (
+            ('test:deprprop', {}, ()),
+            ('test:deprform', {}, (
+                ('deprprop', ('test:deprarray', {}), {}),
+                ('okayprop', ('str', {}), {}),
+                ('deprprop2', ('test:str', {}), {'deprecated': True}),
+            )),
+            ('test:deprform2', {}, ()),
+            ('test:deprsub', {}, (
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {'deprecated': True}),
+                ('range:max', ('int', {}), {}),
+            )),
+            ('test:deprsub2', {}, (
+                ('name', ('str', {}), {}),
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {}),
+                ('range:max', ('int', {}), {'deprecated': True}),
+            )),
+            ('test:dep:easy', {'deprecated': True}, (
+                ('guid', ('test:guid', {}), {'deprecated': True}),
+                ('array', ('test:dep:array', {}), {}),
+                ('comp', ('test:dep:comp', {}), {}),
+            )),
+            ('test:dep:str', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
+            ('test:depriface', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
+        ),
+    },
+)
 
 class TestCmd(s_storm.Cmd):
     '''
@@ -572,13 +656,13 @@ class TestCmd(s_storm.Cmd):
     forms = {
         'input': [
             'test:str',
-            'inet:ipv6',
+            'inet:ip',
         ],
         'output': [
             'inet:fqdn',
         ],
         'nodedata': [
-            ('foo', 'inet:ipv4'),
+            ('foo', 'inet:ip'),
             ('bar', 'inet:fqdn'),
         ],
     }
@@ -591,129 +675,6 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
-
-class DeprModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('depr', deprmodel),
-        )
-
-
-class TestModule(s_module.CoreModule):
-    testguid = '8f1401de15918358d5247e21ca29a814'
-
-    async def initCoreModule(self):
-
-        self.core.setFeedFunc('com.test.record', self.addTestRecords)
-
-        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
-
-        self.core.addStormLib(('test',), LibTst)
-
-        self.healthy = True
-        self.core.addHealthFunc(self._testModHealth)
-
-        form = self.model.form('test:runt')
-        self.core.addRuntLift(form.full, self._testRuntLift)
-
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
-
-        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
-
-    async def _testModHealth(self, health):
-        if self.healthy:
-            health.update(self.getModName(), 'nominal',
-                          'Test module is healthy', data={'beep': 0})
-        else:
-            health.update(self.getModName(), 'failed',
-                          'Test module is unhealthy', data={'beep': 1})
-
-    async def addTestRecords(self, snap, items):
-        for name in items:
-            await snap.addNode('test:str', name)
-
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
-
-        now = s_common.now()
-        modl = self.core.model
-
-        runtdefs = [
-            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-            ('woah', {}),
-        ]
-
-        runts = {}
-        for name, props in runtdefs:
-            runts[name] = TestRunt(name, **props)
-
-        genr = runts.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
-
-    async def _testRuntPropSetLulz(self, node, prop, valu):
-        curv = node.get(prop.name)
-        valu, _ = prop.type.norm(valu)
-        if curv == valu:
-            return False
-        if not valu.endswith('.sys'):
-            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
-                                    valu=valu, name=prop.full)
-        node.props[prop.name] = valu
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.props.pop(prop.name, s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
-
-    def getStormCmds(self):
-        return (TestCmd,
-                )
 
 class TstEnv:
 
@@ -835,7 +796,7 @@ class LoggerStream(io.StringIO):
         '''
         try:
             coro = self._expect(text, count=count, escape=escape)
-            await s_common.wait_for(coro, timeout=timeout)
+            await asyncio.wait_for(coro, timeout=timeout)
         except TimeoutError:
             logger.warning(f'Pattern [{text}] not found in...')
             [logger.warning(f'    {line}') for line in self._lines]
@@ -941,7 +902,7 @@ async def _doubleapply(self, indx, item):
         assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
         s_task.varset('applynest', item)
 
-        nexsiden, event, args, kwargs, _ = item
+        nexsiden, event, args, kwargs, meta, tick = item
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -1035,21 +996,61 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
+class SynTest(unittest.IsolatedAsyncioTestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated.
+    Synapse test base class.
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
+    This is a subclass of unittest.IsolatedAsyncioTestCase.
+
+    For performance reasons, the ioloop used to execute tests is not run in debug mode
+    by default. A test runner or implementor can use regular Python asyncio environment
+    variables or command line switches to enable asyncio debug mode.
     '''
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG, loop_factory=self.loop_factory)
+        self._asyncioRunner = runner
 
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+    async def _syn_task_check(self):
+        '''
+        Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
+        These messages likely indicate unclosed resources from test methods.
+        '''
+        # We may have bg_tasks that are tearing down. If so, give them a few cycles to run before checking
+        # and reporting on them. The most common task here would be Telepath.Proxy._finiAllLinks.
+        if s_coro.bgtasks:
+            for _ in range(_SYNDEV_TASK_BG_ITER):
+                await asyncio.sleep(0)
+        all_tasks = asyncio.all_tasks()
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
+            if task in all_tasks:
+                all_tasks.remove(task)
+        for task in all_tasks:
+            if getattr(task.get_coro(), '__name__', '') == '_syn_task_check':
+                continue
+            logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
+
+    def setUp(self):
+        '''
+        Test setup method. This is called prior to asyncSetUp.
+
+        This registers a cleanup handler to clear any cached data about IOLoop references.
+        This registers an async cleanup handler to warn about unfinished asyncio tasks.
+
+        Implementors who define their own ``setUp`` method should also call this first via ``super()``.
+
+        Examples:
+
+            Setup a custom synchronous resource::
+
+                def teardown():
+                    super().setUp()
+                    self.my_sync_resource = Foo()
+        '''
+        self.addAsyncCleanup(self._syn_task_check)
+        self.addCleanup(s_glob._clearGlobals)
+        self.addCleanup(gc.collect)
 
     def tearDown(self):
         s_logging.reset()
@@ -1057,9 +1058,9 @@ class SynTest(unittest.TestCase):
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
-        [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
+        [self.propeq(node, k, v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
@@ -1266,19 +1267,6 @@ class SynTest(unittest.TestCase):
                     yield axon
 
     @contextlib.contextmanager
-    def withTestCmdr(self, cmdg):
-
-        getItemCmdr = s_cmdr.getItemCmdr
-
-        async def getTestCmdr(*a, **k):
-            cli = await getItemCmdr(*a, **k)
-            cli.prompt = cmdg
-            return cli
-
-        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
-            yield
-
-    @contextlib.contextmanager
     def withCliPromptMockExtendOutp(self, outp):
         '''
         Context manager to mock our use of Prompt Toolkit's print_formatted_text function and
@@ -1431,17 +1419,22 @@ class SynTest(unittest.TestCase):
         '''
         conf = self.getCellConf(conf=conf)
 
-        mods = list(conf.get('modules', ()))
-        conf['modules'] = mods
-
-        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
-
         with self.withNexusReplay():
 
             with self.mayTestDir(dirn) as dirn:
 
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    yield core
+                orig = s_cortex.Cortex._loadModels
+
+                async def _loadTestModel(self):
+                    await orig(self)
+
+                    if not hasattr(self, 'patched'):
+                        self.patched = True
+                        await self._addModelDefs(testmodel)
+
+                with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
@@ -1472,33 +1465,6 @@ class SynTest(unittest.TestCase):
             with self.getTestDir() as dirn:
                 async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
                     yield jsonstor
-
-    @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn=None, conf=None):
-        '''
-        Get a simple test Cryocell as an async context manager.
-
-        Returns:
-            s_cryotank.CryoCell: Test cryocell.
-        '''
-        conf = self.getCellConf(conf=conf)
-
-        with self.withNexusReplay():
-            with self.mayTestDir(dirn) as dirn:
-                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                    yield cryo
-
-    @contextlib.asynccontextmanager
-    async def getTestCryoAndProxy(self, dirn=None):
-        '''
-        Get a test Cryocell and the Telepath Proxy to it.
-
-        Returns:
-            (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
-        '''
-        async with self.getTestCryo(dirn=dirn) as cryo:
-            async with cryo.getLocalProxy() as prox:
-                yield cryo, prox
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
@@ -1641,11 +1607,10 @@ class SynTest(unittest.TestCase):
         conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
         with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.true(await waiter.wait(timeout=12))
+                await aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
                 yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
@@ -1967,6 +1932,45 @@ class SynTest(unittest.TestCase):
             with mock.patch('synapse.lib.certdir.certdir', certdir):
                 yield certdir
 
+    def propeq(self, n, prop, valu, form=None, repr=False, msg=None):
+        '''
+        Assert a node property is equal to valu.
+        '''
+        pval = n.repr(prop) if repr else n.get(prop)
+        parts = prop.split('.')
+
+        if parts[0]:
+            ptyp = n.form.reqProp(parts[0]).type
+        else:
+            ptyp = n.form.type
+
+        if len(parts) > 1:
+            if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
+                ptyp = mtyp
+            else:
+                ptyp = ptyp.getVirtType(parts[1])
+
+        if valu is not None and pval is not None:
+            if ptyp.ispoly:
+                if form is not None:
+                    self.eq(pval, (form, valu), msg=msg)
+                    return
+
+                if not repr:
+                    pval = pval[1]
+
+                self.eq(pval, valu, msg=msg)
+                return
+
+            if ptyp.isarray:
+                if form is None:
+                    pval = [aval[1] for aval in pval]
+                    self.sorteq(pval, valu, msg=msg)
+                    return
+
+        ft = self.sorteq if ptyp.isarray else self.eq
+        ft(valu, pval, msg=msg)
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y
@@ -2090,7 +2094,6 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-            s_coro.GenrHelp,
             s_telepath.Genr,
             s_telepath.GenrIter,
             types.GeneratorType)
@@ -2240,7 +2243,6 @@ class SynTest(unittest.TestCase):
             (True, ('node', 'add')),
             (True, ('node', 'prop', 'set')),
             (True, ('node', 'tag', 'add')),
-            (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
@@ -2257,23 +2259,6 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
-
-    @contextlib.asynccontextmanager
-    async def getTestHive(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveFromDirn(self, dirn):
-
-        import synapse.lib.const as s_const
-        map_size = s_const.gibibyte
-
-        async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
-
-            async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
 
     async def runCoreNodes(self, core, query, opts=None):
         '''

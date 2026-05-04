@@ -25,14 +25,14 @@ class PromoteToolTest(s_t_utils.SynTest):
                     await cell01.sync()
 
                     outp = self.getTestOutp()
-                    argv = ['--svcurl', cell00.getLocalUrl()]
+                    argv = ['--url', cell00.getLocalUrl()]
                     ret = await s_tools_promote.main(argv, outp=outp)
                     self.eq(1, ret)
                     outp.expect('Failed to promote service')
                     outp.expect('promote() called on non-mirror')
 
                     outp.clear()
-                    argv = ['--svcurl', cell01.getLocalUrl()]
+                    argv = ['--url', cell01.getLocalUrl()]
                     ret = await s_tools_promote.main(argv, outp=outp)
                     self.eq(0, ret)
                     self.false(cell00.isactive)
@@ -59,7 +59,7 @@ class PromoteToolTest(s_t_utils.SynTest):
                     await cell02.sync()
 
                     outp = self.getTestOutp()
-                    argv = ['--svcurl', cell02.getLocalUrl()]
+                    argv = ['--url', cell02.getLocalUrl()]
                     ret = await s_tools_promote.main(argv, outp=outp)
                     self.eq(1, ret)
                     outp.expect('Failed to promote service')

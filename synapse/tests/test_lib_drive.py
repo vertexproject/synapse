@@ -6,7 +6,6 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.drive as s_drive
 import synapse.lib.config as s_config
-import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -323,50 +322,6 @@ class DriveTest(s_t_utils.SynTest):
             with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_basics(dirn)
 
-    async def test_drive_perm_migration(self):
-        async def tst_drive_perm_migration():
-            async with self.getRegrCore('drive-perm-migr') as core:
-                item = await core.getDrivePath('driveitemdefaultperms')
-                self.len(1, item)
-                self.notin('perm', item)
-                self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
-
-                ldog = await core.auth.getRoleByName('littledog')
-                bdog = await core.auth.getRoleByName('bigdog')
-
-                louis = await core.auth.getUserByName('lewis')
-                tim = await core.auth.getUserByName('tim')
-                mj = await core.auth.getUserByName('mj')
-
-                item = await core.getDrivePath('permfolder/driveitemwithperms')
-                self.len(2, item)
-                self.notin('perm', item[0])
-                self.notin('perm', item[1])
-                self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
-                self.eq(item[1]['permissions'], {
-                    'users': {
-                        mj.iden: s_cell.PERM_ADMIN
-                    },
-                    'roles': {
-                        ldog.iden: s_cell.PERM_READ,
-                        bdog.iden: s_cell.PERM_EDIT,
-                    },
-                    'default': s_cell.PERM_DENY
-                })
-
-                # make sure it's all good with easy perms
-                self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
-                self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
-
-                self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
-                self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
-                self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
-
-        # Run the drive tests with and without a spawn worker
-        for valu in ('true', 'false'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
-                await tst_drive_perm_migration()
-
     async def test_drive_backup_sync(self):
 
         async def tst_drive_sync(dirn):
@@ -388,41 +343,3 @@ class DriveTest(s_t_utils.SynTest):
         for valu in ('true', 'false'):
             with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
                 await tst_drive_sync(dirn)
-
-    async def test_drive_cell_migration_crash_recovery(self):
-        async def tst_drive_migration_recovery(dirn):
-            celldirn = s_common.gendir(dirn, 'cell')
-            item_iden = s_common.guid()
-
-            async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
-                rootuser_iden = cell.auth.rootuser.iden
-
-            drivepath = s_common.genpath(celldirn, 'slabs', 'drive.lmdb')
-            cellslabpath = s_common.genpath(celldirn, 'slabs', 'cell.lmdb')
-
-            self.true(os.path.isdir(drivepath))
-
-            # Rollback version, simulate pre-crash state
-            async with await s_lmdbslab.Slab.anit(cellslabpath) as slab:
-                slab.getSafeKeyVal('cell:vers').set('drive:storage', 1)
-
-                olddrive = await s_drive.Drive.anit(slab, 'celldrive')
-                await olddrive.addItemInfo({
-                    'name': 'crashtest',
-                    'iden': item_iden,
-                    'created': s_common.now(),
-                    'creator': rootuser_iden,
-                })
-                await olddrive.fini()
-
-            # retry _driveCellMigration
-            async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
-                self.eq(2, cell.cellvers.get('drive:storage'))
-                items = await cell.getDrivePath('crashtest')
-                self.len(1, items)
-                self.eq(item_iden, items[0]['iden'])
-
-        # Run the drive tests with and without a spawn worker
-        for valu in ('true', 'false'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
-                await tst_drive_migration_recovery(dirn)

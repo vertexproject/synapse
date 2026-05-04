@@ -1,12 +1,9 @@
-import asyncio
 import logging
 
 import regex
 
-import synapse.common as s_common
 
 import synapse.lib.scrape as s_scrape
-import synapse.lib.spooled as s_spooled
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.processpool as s_processpool
 
@@ -69,7 +66,7 @@ class LibScrape(s_stormtypes.Lib):
             A scrape implementation with a regex that matches name keys in text::
 
                 $re="(Name\\:\\s)(?P<valu>[a-z0-9]+)\\s"
-                $form="ps:name"
+                $form="entity:name"
 
                 function scrape(text, form) {
                         $ret = ()
@@ -103,31 +100,11 @@ class LibScrape(s_stormtypes.Lib):
             'genMatches': self._methGenMatches,
         }
 
-    async def __call__(self, text, ptype=None, refang=True, unique=True):
-        text = await s_stormtypes.tostr(text)
-        form = await s_stormtypes.tostr(ptype, noneok=True)
-        refang = await s_stormtypes.tobool(refang)
-        unique = await s_stormtypes.tobool(unique)
-        # Remove this in 3.0.0 since it is deprecated.
-        s_common.deprecated('Directly calling $lib.scrape()')
-        await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
-
-        core = self.runt.snap.core
-        async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as items:  # type: s_spooled.Set
-            async for item in s_scrape.scrapeAsync(text, ptype=form, refang=refang, first=False):
-                if unique:
-                    if item in items:
-                        continue
-                    await items.add(item)
-
-                yield item
-                await asyncio.sleep(0)
-
     @s_stormtypes.stormfunc(readonly=True)
     async def _methContext(self, text):
         text = await s_stormtypes.tostr(text)
 
-        genr = self.runt.snap.view.scrapeIface(text)
+        genr = self.runt.view.scrapeIface(text)
         async for (form, valu, info) in genr:
             yield (form, valu, info)
 
@@ -135,7 +112,7 @@ class LibScrape(s_stormtypes.Lib):
     async def _methNdefs(self, text):
         text = await s_stormtypes.tostr(text)
 
-        genr = self.runt.snap.view.scrapeIface(text, unique=True)
+        genr = self.runt.view.scrapeIface(text, unique=True)
         async for (form, valu, _) in genr:
             yield (form, valu)
 

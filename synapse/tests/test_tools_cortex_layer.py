@@ -225,7 +225,7 @@ class LayerTest(s_test.SynTest):
 
                 # Verify layr01 is empty
                 opts = {'view': view01.get('iden')}
-                nodes = await core.nodes('inet:ipv4', opts=opts)
+                nodes = await core.nodes('test:int', opts=opts)
                 self.len(0, nodes)
 
                 files = [os.path.join(dirn, k) for k in os.listdir(dirn) if k.endswith('.nodeedits')]
@@ -248,7 +248,7 @@ class LayerTest(s_test.SynTest):
 
                 # Verify layr01 is empty
                 opts = {'view': view01.get('iden')}
-                nodes = await core.nodes('inet:ipv4', opts=opts)
+                nodes = await core.nodes('test:int', opts=opts)
                 self.len(0, nodes)
 
                 # Import to layr01

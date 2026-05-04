@@ -31,8 +31,8 @@ exbibyte = 1024 * pebibyte
 zebibyte = 1024 * exbibyte
 yobibyte = 1024 * zebibyte
 
-# time (in millis) constants
-second = 1000
+# time (in micros) constants
+second = 1000000
 minute = second * 60
 hour = minute * 60
 day = hour * 24

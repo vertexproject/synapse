@@ -52,6 +52,7 @@ The alias is always `s_` followed by the last segment of the module path.
 - **Is-None**: Use `if foo is None:` rather than `if foo:` for checking for None
 - **Cond-Space**: Add a line of white space after a conditional block
 - **Import-Order**: Standard library imports come first, then synapse imports. They **MUST** be ordered from shortest to longest and use alphanumeric sorting to break ties.
+- **No-Unicode-Arrows**: Do **not** use unicode arrow characters (e.g. `→`, `←`, `⇒`) in code or comments.
 
 ### Naming Conventions
 

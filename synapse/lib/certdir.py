@@ -35,8 +35,8 @@ NSCERTTYPE_CLIENT = b'\x03\x02\x07\x80'   # client
 NSCERTTYPE_SERVER = b'\x03\x02\x06@'      # server
 NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
-TEN_YEARS = 10 * s_const.year  # 10 years in milliseconds
-TEN_YEARS_TD = datetime.timedelta(milliseconds=TEN_YEARS)
+TEN_YEARS = 10 * s_const.year  # 10 years in microseconds
+TEN_YEARS_TD = datetime.timedelta(microseconds=TEN_YEARS)
 
 StrOrNone = Union[str | None]
 BytesOrNone = Union[bytes | None]
@@ -57,37 +57,24 @@ def iterFqdnUp(fqdn):
     for i in range(len(levs)):
         yield '.'.join(levs[i:])
 
-def _initTLSServerCiphers():
+def _checkTLS13Support():
     '''
-    Create a cipher string that supports TLS 1.2 and TLS 1.3 ciphers which do not use RSA.
+    Verify that TLS 1.3 ciphers are available in this Python installation.
 
     Note:
-        The results of this may be dynamic depending on the interpreter version and OpenSSL library in use.
-        For Python 3.8 and below, the cipher list is a subset of the normal default ciphers which commonly available.
-        For Python 3.10+, the changes should be negligible.
-
-        The resulting string is cached in the module global TLS_SERVER_CIPHERS and called at import time.
-
-    Returns:
-        str: A OpenSSL Cipher string.
+        This check runs at import time to fail fast if the environment
+        does not support TLS 1.3.
     '''
     ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)  # type: ssl.SSLContext
     _ciphers = []
     for cipher in ctx.get_ciphers():  # pragma: no cover
-        if cipher.get('protocol') not in ('TLSv1.2', 'TLSv1.3'):
-            continue
-        if cipher.get('kea') == 'kx-rsa':  # pragma: no cover
-            continue
-        _ciphers.append(cipher)
+        if cipher.get('protocol') == 'TLSv1.3':
+            _ciphers.append(cipher)
 
     if len(_ciphers) == 0:  # pragma: no cover
-        raise s_exc.SynErr(mesg='No valid TLS ciphers are available for this Python installation.')
+        raise s_exc.SynErr(mesg='No TLS 1.3 ciphers are available for this Python installation.')
 
-    ciphers = ':'.join([c.get('name') for c in _ciphers])
-
-    return ciphers
-
-TLS_SERVER_CIPHERS = _initTLSServerCiphers()
+_checkTLS13Support()
 
 def _verifyCertSignature(cert, cacert):
     '''
@@ -181,7 +168,7 @@ def getServerSSLContext() -> ssl.SSLContext:
     '''
     Get a server SSLContext object.
 
-    This object has a minimum TLS version of 1.2, a subset of ciphers in use, and disabled client renegotiation.
+    This object has a minimum TLS version of 1.3.
 
     This object has no certificates loaded in it.
 
@@ -190,10 +177,7 @@ def getServerSSLContext() -> ssl.SSLContext:
     '''
     sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
-    sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    sslctx.set_ciphers(TLS_SERVER_CIPHERS)
-    # Disable client renegotiation if available.
-    sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+    sslctx.minimum_version = ssl.TLSVersion.TLSv1_3
     return sslctx
 
 class CertDir:
@@ -1441,7 +1425,7 @@ class CertDir:
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
-        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx.minimum_version = ssl.TLSVersion.TLSv1_3
         self._loadCasIntoSSLContext(sslctx)
 
         if certname is not None:

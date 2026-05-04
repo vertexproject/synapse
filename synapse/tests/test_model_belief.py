@@ -19,26 +19,9 @@ class BeliefModelTest(s_test.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), 'woot woot')
-            self.eq(nodes[0].get('desc'), 'Lulz Gronk')
-            self.eq(nodes[0].get('type'), 'hehe.haha.')
-            self.eq(nodes[0].get('began'), 1675900800000)
+            self.propeq(nodes[0], 'name', 'woot woot')
+            self.propeq(nodes[0], 'desc', 'Lulz Gronk')
+            self.propeq(nodes[0], 'type', 'hehe.haha.')
+            self.propeq(nodes[0], 'began', 1675900800000000)
 
             self.len(2, await core.nodes('belief:system -(has)> belief:tenet +:desc=Lol'))
-
-            nodes = await core.nodes('''[
-                belief:subscriber=*
-                    :contact={[ ps:contact=* :name=visi ]}
-                    :system={ belief:system:type=hehe.haha }
-                    :began=20230209
-                    :ended=20230210
-                    +(follows)> { belief:tenet:name="zip zop" }
-            ]''')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('system'))
-            self.nn(nodes[0].get('contact'))
-
-            self.eq(nodes[0].get('began'), 1675900800000)
-            self.eq(nodes[0].get('ended'), 1675987200000)
-
-            self.len(1, await core.nodes('belief:subscriber -(follows)> belief:tenet'))
