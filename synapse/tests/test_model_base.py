@@ -1,3 +1,4 @@
+import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
@@ -219,6 +220,37 @@ class BaseTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'type', 'bottles.')
             self.propeq(nodes[0], 'time', 1706832000000000)
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
+
+    async def test_model_cluster(self):
+
+        async with self.getTestCore() as core:
+
+            org0 = s_common.guid()
+
+            nodes = await core.nodes('''[
+                meta:cluster=*
+                    :id=" 1234-5678 "
+                    :ids=(" alt-id-1 ", " alt-id-2 ")
+                    :name="activity cluster 1"
+                    :names=("cluster one", "cluster alpha")
+                    :type=fraud.scam
+                    :desc="A cluster of scam-related addresses."
+                    :tag=rep.vertex.cluster.1234
+                    :reporter=$org
+                    :reporter:name=vertex
+            ]''', opts={'vars': {'org': org0}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'id', '1234-5678')
+            self.propeq(node, 'ids', ('alt-id-1', 'alt-id-2'))
+            self.propeq(node, 'name', 'activity cluster 1')
+            self.propeq(node, 'names', ('cluster alpha', 'cluster one'))
+            self.propeq(node, 'type', 'fraud.scam.')
+            self.propeq(node, 'desc', 'A cluster of scam-related addresses.')
+            self.propeq(node, 'tag', 'rep.vertex.cluster.1234')
+            self.propeq(node, 'reporter', org0)
+            self.propeq(node, 'reporter:name', 'vertex')
+            self.len(1, await core.nodes('meta:cluster -> meta:cluster:type:taxonomy'))
 
     async def test_model_feed(self):
 

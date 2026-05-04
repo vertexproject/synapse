@@ -2242,6 +2242,9 @@ modeldefs = (
                 ('parent', ('it:software', {}), {
                     'doc': 'The parent software version or family.'}),
 
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes that are associated with the software.'}),
+
                 ('name', ('it:softwarename', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),

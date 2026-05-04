@@ -741,7 +741,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
-        self._migration_evnt = asyncio.Event()
+        if __debug__:
+            self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1258,6 +1259,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
+        await self.initStormPool()
 
         async def _runMigrations():
             await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
@@ -1265,25 +1267,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
-            await self._checkLayerModels()
+            try:
+                await self._checkLayerModels()
+            finally:
+                if __debug__:
+                    self._migration_evnt.set()
 
-            # Once migrations are complete, start the view and layer tasks.
-            for view in self.views.values():
-                await view.initTrigTask()
-                await view.initMergeTask()
+        if self.safemode:
+            if __debug__:
+                self._migration_evnt.set()
+            return
 
-            for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
+        for view in self.views.values():
+            await view.initTrigTask()
+            await view.initMergeTask()
 
-            self._migration_evnt.set()
-
-        await self.initStormPool()
+        for pkgdef in list(self.stormpkgs.values()):
+            self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
 
-        self._migration_evnt.clear()
+        if __debug__:
+            self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 

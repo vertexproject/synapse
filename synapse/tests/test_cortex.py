@@ -7418,6 +7418,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.true(await core01.isCellActive())
 
+                    # automation tasks start concurrently with the migration
+                    self.nn(core01.view.trigtask)
+
                     emesg = 'Task cortex:migration:layers is protected.'
 
                     # cannot kill through exposed Storm APIs
@@ -7445,6 +7448,37 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.nn(rtask := core01.boss.get(task['iden']))
                     await rtask.kill(safe=False)
                     self.none(core01.boss.get(task['iden']))
+
+    async def test_cortex_automation_during_migration(self):
+
+        evnt = asyncio.Event()
+
+        async def dummy(self):
+            await evnt.wait()
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core00:
+                tdef = {'cond': 'node:add', 'form': 'inet:fqdn', 'storm': '[test:str=triggered]'}
+                await core00.view.addTrigger(tdef)
+                await self.waitForActiveMigration(core00)
+
+            with mock.patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
+                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
+
+                    await core01.promote(graceful=False)
+                    await asyncio.sleep(0)
+
+                    # trigger fires during migration (not silently dropped)
+                    await core01.nodes('[inet:fqdn=vertex.link]')
+                    self.len(1, await core01.nodes('test:str=triggered'))
+
+                    # trigger task is alive while migration is blocked
+                    self.nn(core01.view.trigtask)
+
+                    evnt.set()
+                    await self.waitForActiveMigration(core01)
 
     async def test_cortex_vaults(self):
         '''
