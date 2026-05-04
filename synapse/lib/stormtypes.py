@@ -6338,7 +6338,6 @@ class Node(Prim):
         self.gtors |= {
             'nid': self._gtorNodeNid,
             'form': self._gtorNodeForm,
-            'iden': self._gtorNodeIden,
             'ndef': self._gtorNodeNdef,
             'value': self._gtorNodeValue,
         }
@@ -6536,9 +6535,6 @@ class Node(Prim):
 
     async def _gtorNodeNdef(self):
         return self.valu.ndef
-
-    async def _gtorNodeIden(self):
-        return self.valu.iden()
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):

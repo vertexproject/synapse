@@ -741,11 +741,17 @@ class Oper(AstNode):
                         mesg = f'Node is not from the current view. Node {node.ndef} is from {node.view.iden} expected {viewiden}'
                         raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
                     yield node
-                return
+            return
 
         if isinstance(valu, str):
-            mesg = 'Yield does not support string values.'
-            raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+            try:
+                valu = int(valu, 0)
+            except ValueError as e:
+                mesg = 'Failed to make an integer from {s_common.trimtext(valu)}.'
+                raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+
+            if (node := await runt.view.getNodeByNid(s_common.int64en(valu))) is not None:
+                yield node
 
 class SubQuery(Oper):
 

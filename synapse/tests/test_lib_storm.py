@@ -3958,6 +3958,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': str(nodes[0].intnid())}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+
             nodes = await core.nodes('yield $foo', opts={'vars': {'foo': None}})
             self.len(0, nodes)
 
