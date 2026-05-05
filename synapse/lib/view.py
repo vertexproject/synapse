@@ -96,7 +96,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
-        self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=core.readonly)
         self.viewslab.addResizeCallback(core.checkFreeSpace)
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
@@ -1611,7 +1611,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagAdd(self, node, tag, valu, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         # Run any trigger handlers
@@ -1619,21 +1619,21 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagDel(self, node, tag, valu, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runTagDel(node, tag, useriden)
 
     async def runNodeAdd(self, node, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runNodeAdd(node, useriden)
 
     async def runNodeDel(self, node, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runNodeDel(node, useriden)
@@ -1642,21 +1642,21 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runPropSet(node, prop, oldv, useriden)
 
     async def runEdgeAdd(self, n1, edge, n2, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runEdgeAdd(n1, edge, n2, useriden)
 
     async def runEdgeDel(self, n1, edge, n2, useriden):
 
-        if self.core.safemode:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runEdgeDel(n1, edge, n2, useriden)

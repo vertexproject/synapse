@@ -122,7 +122,7 @@ class NexsRoot(s_base.Base):
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
-        self.nexsslab = await cell._initSlabFile(path)
+        self.nexsslab = await cell._initSlabFile(path, readonly=cell.readonly)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
@@ -136,14 +136,15 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell, readonly=cell.readonly)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
         hotindx = self.nexshot.get('nexs:indx')
         maxindx = max(logindx, hotindx)
 
-        self.nexshot.set('nexs:indx', maxindx)
+        if not cell.readonly:
+            self.nexshot.set('nexs:indx', maxindx)
         self.nexslog.setIndex(maxindx)
 
         async def fini():
@@ -281,6 +282,9 @@ class NexsRoot(s_base.Base):
             replaying the last action that (might have) already happened is harmless.
         '''
         if not self.donexslog:  # pragma: no cover
+            return
+
+        if self.cell.readonly:
             return
 
         indxitem = await self.nexslog.last()

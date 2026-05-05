@@ -156,6 +156,8 @@ class Auth(s_nexus.Pusher):
 
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
+            if slab.readonly:
+                raise s_exc.NeedConfValu(mesg='Auth not initialized. Boot in write mode first.')
             # initialize the role of which all users are a member
             guid = s_common.guid((seed, 'auth', 'role', 'all'))
             await self._addRole(guid, 'all')
@@ -164,12 +166,15 @@ class Auth(s_nexus.Pusher):
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
+            if slab.readonly:
+                raise s_exc.NeedConfValu(mesg='Auth not initialized. Boot in write mode first.')
             guid = s_common.guid((seed, 'auth', 'user', 'root'))
             await self._addUser(guid, 'root')
             self.rootuser = self.user(guid)
 
-        await self.rootuser.setAdmin(True, logged=False)
-        await self.rootuser.setLocked(False, logged=False)
+        if not slab.readonly:
+            await self.rootuser.setAdmin(True, logged=False)
+            await self.rootuser.setLocked(False, logged=False)
 
     def users(self):
         for useriden in self.useridenbyname.values():
