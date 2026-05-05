@@ -122,6 +122,9 @@ Examples:
     # Run every hour at minute 24 and minute 45
     cron.add hourly@:24,45 { $lib.print(hourly) }
 
+    # Run every hour at minute 24 and minute 45
+    cron.add --period hourly@:24,45 { $lib.print(hourly) }
+
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
 

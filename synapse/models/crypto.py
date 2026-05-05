@@ -308,6 +308,8 @@ modeldefs = (
                     'doc': 'An analyst specified description of the transaction.'}),
                 ('block', ('crypto:currency:block', {}), {
                     'doc': 'The block which records the transaction.'}),
+                ('block:chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the transaction is recorded.'}),
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
                 ('status:code', ('int', {}), {
@@ -358,6 +360,9 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'Time timestamp embedded in the block by the miner.'}),
+
+                ('chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the block is recorded.'}),
             )),
 
             ('crypto:smart:contract', {}, (

@@ -729,6 +729,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 it:software=*
                     :id="Foo "
+                    :tag=cno.mal.cobaltstrike
                     :name="Balloon Maker"
                     :names=("clowns inc",)
                     :type=hehe.haha
@@ -744,6 +745,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'id', 'Foo')
+            self.propeq(node, 'tag', 'cno.mal.cobaltstrike')
             self.propeq(node, 'name', 'balloon maker')
             self.propeq(node, 'desc', "Pennywise's patented balloon blower upper")
             self.propeq(node, 'url', 'https://vertex.link/products/balloonmaker')

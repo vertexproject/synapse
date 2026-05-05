@@ -3207,6 +3207,9 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            # Wait for migration event so we're not counting anything happening in there
+            await self.waitForActiveMigration(core)
+
             evtl = asyncio.get_event_loop()
             beforecount = len(evtl._asyncgens)
 

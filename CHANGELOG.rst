@@ -6,7 +6,38 @@
 Synapse Changelog
 *****************
 
-v2.241.1 - 2026-04-24
+v2.241.0 - 2026-05-01
+=====================
+
+Model Changes
+-------------
+- Marked the ``risk:threat -(uses)> inet:service:app`` edge definition as
+  deprecated, and added the ``risk:threat -(uses)> inet:service:platform`` edge
+  definition to replace it.
+  (`#4930 <https://github.com/vertexproject/synapse/pull/4930>`_)
+  (`#4933 <https://github.com/vertexproject/synapse/pull/4933>`_)
+- See :ref:`userguide_model_v2_241_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a ``getRawHeaders()`` method to the ``inet:http:resp`` Storm type to
+  allow users to access all values for multi-value HTTP response headers, such
+  as ``Set-Cookie``.
+  (`#4925 <https://github.com/vertexproject/synapse/pull/4925>`_)
+- Cortex view triggers, view merges, layer mirror and upstream sync loops, and
+  Storm package onloads now start concurrently with live model migrations on
+  cortex startup or mirror promotion, so automation is no longer silently
+  disabled while migrations run.
+  (`#4932 <https://github.com/vertexproject/synapse/pull/4932>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the Storm ``cron.add`` command did not support comma-
+  separated minutes in the hourly ``--period`` time specification (e.g.,
+  hourly@:24,45).
+  (`#4926 <https://github.com/vertexproject/synapse/pull/4926>`_)
+
+v2.240.1 - 2026-04-24
 =====================
 
 Bugfixes
