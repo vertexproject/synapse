@@ -1,0 +1,7 @@
+$pipe = $lib.pipe.gen(${
+    $pipe.put((1))
+    $pipe.put((2))
+})
+for $chunk in $pipe.slices() {
+    for $v in $chunk { $lib.print($v) }
+}

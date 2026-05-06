@@ -61,7 +61,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                                    f'be reported on first instance in {pname} at line {pline + 1}')
                     continue
 
-                self.subq_map[subg] = (path, subq.meta.line - 1)
+                self.subq_map[subg] = (path, node.children[0].line - 1)
 
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
