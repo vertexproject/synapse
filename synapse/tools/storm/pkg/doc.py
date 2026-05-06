@@ -115,10 +115,11 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
             _ = fd.write(buf.encode())
 
         logger.info(f'Converting {builtrst} to markdown')
-        if name == 'stormpackage.rst':
-            args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
-        else:
-            args = ['pandoc', '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
+        # Apply the filter to every RST. The DefinitionList fixup is a no-op
+        # for files without a DefinitionList, and the filter also rewrites RST
+        # tables as raw pipe-table markdown so we get a consistent table shape
+        # across packages.
+        args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
 
         r = subprocess.run(args, capture_output=True)
 

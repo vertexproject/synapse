@@ -1,0 +1,7 @@
+---
+desc: Update ``synapse.tools.storm.pkg._pandoc_filter`` to render RST tables as pipe-table
+  markdown and apply the filter to every package doc.
+desc:literal: false
+prs: []
+type: feat
+...

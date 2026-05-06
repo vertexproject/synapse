@@ -24,6 +24,174 @@ def walk(elem):
             yield from walk(v)
         return
 
+
+def _inlines_to_md(inlines):
+    '''
+    Render a list of pandoc Inline AST nodes back to markdown source text. Only
+    the inline kinds that show up inside RST table cells in our docs are
+    handled; anything unexpected falls back to its ``Str``-equivalent text so
+    the cell still renders something sensible.
+    '''
+    out = []
+    for node in inlines or ():
+        t = node.get('t')
+        c = node.get('c')
+
+        if t == 'Str':
+            out.append(c)
+        elif t in ('Space', 'SoftBreak'):
+            out.append(' ')
+        elif t == 'LineBreak':
+            out.append(' ')
+        elif t == 'Code':
+            # c is [(id, classes, kvs), text]
+            out.append(f'`{c[1]}`')
+        elif t == 'Strong':
+            out.append('**' + _inlines_to_md(c) + '**')
+        elif t == 'Emph':
+            out.append('*' + _inlines_to_md(c) + '*')
+        elif t == 'Link':
+            # c is [(id, classes, kvs), inlines, (url, title)]
+            text = _inlines_to_md(c[1])
+            url = c[2][0]
+            out.append(f'[{text}]({url})')
+        elif t == 'RawInline':
+            # c is [format, text] -- pass markdown through verbatim
+            fmt, text = c
+            if fmt in ('markdown', 'html'):
+                out.append(text)
+        elif t == 'Quoted':
+            # c is [QuoteType, inlines]
+            qt = c[0].get('t') if isinstance(c[0], dict) else c[0]
+            quote = "'" if qt == 'SingleQuote' else '"'
+            out.append(quote + _inlines_to_md(c[1]) + quote)
+        elif t == 'Span':
+            # c is [(id, classes, kvs), inlines] -- pass content through
+            out.append(_inlines_to_md(c[1]))
+        else:
+            # Best-effort fallback: try to render any nested inlines.
+            if isinstance(c, list):
+                out.append(_inlines_to_md(c))
+
+    return ''.join(out)
+
+
+def _cell_to_md(cell):
+    '''
+    Render a pandoc table Cell (``[attrs, align, rowSpan, colSpan, blocks]``)
+    to a single line of markdown source suitable for inclusion inside a pipe
+    table cell. Pipes inside the rendered content are escaped so the cell does
+    not appear to span columns.
+    '''
+    blocks = cell[4] if len(cell) >= 5 else []
+    parts = []
+    for block in blocks:
+        t = block.get('t')
+        c = block.get('c')
+        if t in ('Plain', 'Para'):
+            parts.append(_inlines_to_md(c))
+        elif t == 'LineBlock':
+            for line in c or ():
+                parts.append(_inlines_to_md(line))
+        else:
+            # Best-effort: try to flatten any inlines we find.
+            if isinstance(c, list):
+                parts.append(_inlines_to_md(c))
+
+    text = ' '.join(p for p in parts if p)
+    text = text.replace('\n', ' ').strip()
+    out = []
+    prev = ''
+    for ch in text:
+        if ch == '|' and prev != '\\':
+            out.append('\\|')
+        else:
+            out.append(ch)
+        prev = ch
+
+    return ''.join(out)
+
+
+def _table_to_pipe_md(table_content):
+    '''
+    Convert a pandoc Table node's ``c`` payload into a tightly-formatted
+    markdown pipe table. Returns the markdown source as a string. Tables that
+    span multiple body sections are flattened into a single body.
+    '''
+    # Table c layout: [attrs, caption, colspecs, head, bodies, foot]
+    _attrs, _caption, colspecs, head, bodies, _foot = table_content
+
+    def rows_of(section_rows):
+        # Each row is [attrs, [cells]]; cells are the 5-tuple Cell nodes.
+        out = []
+        for row in section_rows or ():
+            cells = row[1] if len(row) >= 2 else []
+            out.append([_cell_to_md(cell) for cell in cells])
+
+        return out
+
+    head_rows = rows_of(head[1] if head and len(head) >= 2 else [])
+
+    body_rows = []
+    for body in bodies or ():
+        # Body layout: [attrs, rowHeadColumns, intermediate_head_rows, body_rows]
+        if len(body) >= 4:
+            body_rows.extend(rows_of(body[2]))
+            body_rows.extend(rows_of(body[3]))
+
+    if head_rows:
+        header = head_rows[0]
+    elif body_rows:
+        header = body_rows.pop(0)
+    else:
+        header = ['' for _ in colspecs or ()]
+
+    ncols = max(len(header), max((len(r) for r in body_rows), default=0))
+    header = header + [''] * (ncols - len(header))
+
+    lines = ['| ' + ' | '.join(header) + ' |']
+    lines.append('|' + '|'.join('---' for _ in range(ncols)) + '|')
+    for row in body_rows:
+        row = row + [''] * (ncols - len(row))
+        lines.append('| ' + ' | '.join(row) + ' |')
+
+    return '\n'.join(lines)
+
+
+def _rewrite_tables(blocks):
+    '''
+    Walk a list of top-level blocks in place, replacing Table nodes with a
+    RawBlock ``markdown`` containing a tight pipe-table rendering. Recurses
+    into block containers (Div, BlockQuote, list items, etc.) so nested tables
+    are picked up too.
+    '''
+    for i, block in enumerate(blocks):
+        if not isinstance(block, dict):
+            continue
+
+        t = block.get('t')
+        if t == 'Table':
+            md = _table_to_pipe_md(block['c'])
+            blocks[i] = {'t': 'RawBlock', 'c': ['markdown', md]}
+            continue
+
+        c = block.get('c')
+        if t in ('Div', 'BlockQuote'):
+            # c is [attrs, blocks] for Div, [blocks] for BlockQuote.
+            inner = c[1] if t == 'Div' else c
+            _rewrite_tables(inner)
+        elif t in ('OrderedList', 'BulletList'):
+            # OrderedList: [listAttributes, [[blocks], ...]]
+            # BulletList:  [[[blocks], ...]]
+            items = c[1] if t == 'OrderedList' else c
+            for item in items or ():
+                _rewrite_tables(item)
+        elif t == 'DefinitionList':
+            for term, defs in c or ():
+                for def_ in defs or ():
+                    _rewrite_tables(def_)
+
+
 def main():
     '''
     A pandoc filter reads the intermediate JSON-formatted AST generated from the source, makes any modifications,
@@ -70,6 +238,11 @@ def main():
 
             defs.clear()
             defs.extend(newdefs)
+
+    # Replace every Table with a RawBlock holding a tight pipe-table
+    # rendering. Pandoc's markdown writer otherwise emits multiline / simple /
+    # grid tables that downstream consumers (e.g. Optic) cannot parse.
+    _rewrite_tables(ast['blocks'])
 
     sys.stdout.write(json.dumps(ast))
 
