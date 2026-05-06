@@ -147,14 +147,8 @@ class TestUtilsStormcov(s_utils.SynTest):
             with mock.patch('synapse.lib.ast.Const.compute', compute):
                 await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
 
-    async def test_pipegen_subquery_offset(self):
-        # Verify that line numbers for AST nodes inside a $lib.pipe.gen(${...})
-        # are correctly mapped back to the source file.
-        opts = {"storm_dirs": "synapse/tests/files/stormcov"}
-        plugin = s_stormcov.StormPlugin(opts)
-
-        async with self.getTestCore() as core:
-            orig = s_ast.Const.compute
+            # Verify that line numbers for AST nodes inside a $lib.pipe.gen(${...})
+            # are correctly mapped back to the source file.
             results = []
 
             async def compute(self, runt, path):
