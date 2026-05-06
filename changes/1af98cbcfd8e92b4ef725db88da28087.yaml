@@ -1,6 +1,6 @@
 ---
 desc: Update ``synapse.tools.storm.pkg.doc`` to emit pipe-table markdown for any RST
-  table and apply the pandoc filter to every package doc.
+  table when converting package docs.
 desc:literal: false
 prs: []
 type: feat

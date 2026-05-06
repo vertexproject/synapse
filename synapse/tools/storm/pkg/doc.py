@@ -120,12 +120,13 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
         # not valid markdown for downstream consumers (e.g. Optic).
         # ``simple_tables`` does not fire for our content (cells contain
         # inline markup pandoc considers too rich for the simple form), so
-        # leaving it enabled is harmless. ``tex_math_dollars`` is disabled so
-        # a literal ``$var`` does not get escaped to ``\$var``. The filter is
-        # applied to every RST -- the DefinitionList fixup is a no-op for
-        # files that have none.
+        # leaving it enabled is harmless. ``tex_math_dollars`` is disabled
+        # so a literal ``$var`` does not get escaped to ``\$var``.
         target = 'markdown-multiline_tables-grid_tables-tex_math_dollars'
-        args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
+        if name == 'stormpackage.rst':
+            args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
+        else:
+            args = ['pandoc', '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
 
         r = subprocess.run(args, capture_output=True)
 
