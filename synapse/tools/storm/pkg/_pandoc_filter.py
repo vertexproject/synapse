@@ -85,18 +85,36 @@ def _cell_to_md(cell):
     '''
     blocks = cell[4] if len(cell) >= 5 else []
     parts = []
-    for block in blocks:
+
+    def render_block(block):
+        if not isinstance(block, dict):
+            return ''
+
         t = block.get('t')
         c = block.get('c')
         if t in ('Plain', 'Para'):
-            parts.append(_inlines_to_md(c))
-        elif t == 'LineBlock':
-            for line in c or ():
-                parts.append(_inlines_to_md(line))
-        else:
-            # Best-effort: try to flatten any inlines we find.
-            if isinstance(c, list):
-                parts.append(_inlines_to_md(c))
+            return _inlines_to_md(c)
+
+        if t == 'LineBlock':
+            return ' '.join(_inlines_to_md(line) for line in c or ())
+
+        # Container blocks (BlockQuote, Div, list items, ...) hold inner
+        # blocks. Recurse so cells that pandoc wrapped in a BlockQuote
+        # render their inline content rather than crashing the inline
+        # walker on a list of blocks.
+        if t == 'BlockQuote':
+            return ' '.join(render_block(b) for b in c or ())
+
+        if t == 'Div':
+            inner = c[1] if isinstance(c, list) and len(c) >= 2 else []
+            return ' '.join(render_block(b) for b in inner)
+
+        return ''
+
+    for block in blocks:
+        rendered = render_block(block)
+        if rendered:
+            parts.append(rendered)
 
     text = ' '.join(p for p in parts if p)
     text = text.replace('\n', ' ').strip()

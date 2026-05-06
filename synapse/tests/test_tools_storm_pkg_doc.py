@@ -47,6 +47,23 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.isin(':   baz (str): The baz.', text)
             self.isin(':   Baz the bam:\n\n        yield $lib.import(apimod).search(bam)', text)
 
+            # Verify the ``_pandoc_filter`` table rewrite path: every RST
+            # table in the source becomes a tight pipe-table whose cells
+            # preserve code spans, bold runs, escaped literal pipes,
+            # anonymous hyperlinks, and the array-suffix link decoration.
+            text = s_common.getbytes(os.path.join(builddir, 'tables.md')).decode()
+            self.isin('| Property | Type | Required | Default | Description |\n'
+                      '|---|---|---|---|---|\n'
+                      '| `name` | `string` | **-** |  | The name. |\n'
+                      '| `mode` | `a` \\| `b` \\| `c` |  | `a` | One of `a`, `b` or `c`. |\n'
+                      '| `target` | [Foo](#foo) |  |  | See [Foo](#foo) for details. |\n'
+                      '| `targets` | [Foo](#foo)[] |  |  | An array of [Foo](#foo)[] entries. |\n',
+                      text)
+            # The filter rewrite means no grid-table separators should
+            # survive into the markdown output.
+            self.notin('+----', text)
+            self.notin('====+', text)
+
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
             self.true(os.path.isfile(testpkgfp))
