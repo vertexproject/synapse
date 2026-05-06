@@ -115,11 +115,17 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
             _ = fd.write(buf.encode())
 
         logger.info(f'Converting {builtrst} to markdown')
-        # Apply the filter to every RST. The DefinitionList fixup is a no-op
-        # for files without a DefinitionList, and the filter also rewrites RST
-        # tables as raw pipe-table markdown so we get a consistent table shape
-        # across packages.
-        args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
+        # Force pandoc's markdown writer to emit pipe tables for every RST
+        # table by disabling the multiline / grid table flavors -- those are
+        # not valid markdown for downstream consumers (e.g. Optic).
+        # ``simple_tables`` does not fire for our content (cells contain
+        # inline markup pandoc considers too rich for the simple form), so
+        # leaving it enabled is harmless. ``tex_math_dollars`` is disabled so
+        # a literal ``$var`` does not get escaped to ``\$var``. The filter is
+        # applied to every RST -- the DefinitionList fixup is a no-op for
+        # files that have none.
+        target = 'markdown-multiline_tables-grid_tables-tex_math_dollars'
+        args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
 
         r = subprocess.run(args, capture_output=True)
 

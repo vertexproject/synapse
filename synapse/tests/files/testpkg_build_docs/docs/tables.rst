@@ -3,10 +3,9 @@
 Tables
 ======
 
-Exercises the ``_pandoc_filter`` table rewrite path. The filter walks every
-``Table`` node in the AST and replaces it with a ``RawBlock`` markdown that
-emits a tight pipe-table preserving code spans, bold runs, literal pipes,
-anonymous hyperlinks, and the array-suffix link decoration.
+Exercises the rst -> md conversion path. ``buildPkgDocs`` disables pandoc's
+multiline / grid table writers so the writer falls through to a pipe table,
+which is the only flavor downstream markdown consumers (e.g. Optic) accept.
 
 +-------------+-----------------------+----------+---------+-------------------------------------------+
 | Property    | Type                  | Required | Default | Description                               |

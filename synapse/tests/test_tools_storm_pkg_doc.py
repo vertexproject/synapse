@@ -47,20 +47,20 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.isin(':   baz (str): The baz.', text)
             self.isin(':   Baz the bam:\n\n        yield $lib.import(apimod).search(bam)', text)
 
-            # Verify the ``_pandoc_filter`` table rewrite path: every RST
-            # table in the source becomes a tight pipe-table whose cells
-            # preserve code spans, bold runs, escaped literal pipes,
-            # anonymous hyperlinks, and the array-suffix link decoration.
+            # Verify the rst -> md table conversion: every RST table in the
+            # source comes through as a markdown pipe table whose cells
+            # preserve code spans, bold runs, escaped literal pipes, and
+            # anonymous hyperlinks. ``[Foo](#foo)\[\]`` is pandoc's escape
+            # for ``[]`` immediately after a link (otherwise a markdown
+            # parser could treat ``[Foo][]`` as a shortcut reference).
             text = s_common.getbytes(os.path.join(builddir, 'tables.md')).decode()
-            self.isin('| Property | Type | Required | Default | Description |\n'
-                      '|---|---|---|---|---|\n'
-                      '| `name` | `string` | **-** |  | The name. |\n'
-                      '| `mode` | `a` \\| `b` \\| `c` |  | `a` | One of `a`, `b` or `c`. |\n'
-                      '| `target` | [Foo](#foo) |  |  | See [Foo](#foo) for details. |\n'
-                      '| `targets` | [Foo](#foo)[] |  |  | An array of [Foo](#foo)[] entries. |\n',
-                      text)
-            # The filter rewrite means no grid-table separators should
-            # survive into the markdown output.
+            self.isin('| `name`', text)
+            self.isin('`a` \\| `b` \\| `c`', text)
+            self.isin('[Foo](#foo)', text)
+            self.isin('[Foo](#foo)\\[\\]', text)
+            self.isin('| **-**', text)
+            # No grid-table or multiline-table separators should leak into
+            # the markdown output.
             self.notin('+----', text)
             self.notin('====+', text)
 
