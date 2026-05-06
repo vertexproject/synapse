@@ -633,6 +633,10 @@ class Node:
 
         '''
 
+        if self.snap.readonly:
+            mesg = 'The snapshot is in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         formname, formvalu = self.ndef
 
         if self.form.isrunt:

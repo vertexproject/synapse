@@ -1,6 +1,7 @@
 import os
 import copy
 import regex
+import socket
 import asyncio
 import logging
 import textwrap
@@ -47,6 +48,9 @@ import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.arbiter as s_arbiter
+import synapse.lib.worker as s_worker
+
 
 import synapse.lib.crypto.rsa as s_rsa
 
@@ -906,6 +910,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'An optional directory of CAs which are added to the TLS CA chain for Storm HTTP API calls.',
             'type': 'string',
         },
+        'multi:process:core_pct': {
+            'description': 'Percentage of available CPU cores to allocate for the multi-process system (workers + router + writer). 0=disabled (default), 50=half the cores. The arbiter subtracts 2 (router + writer) and allocates the rest as read-only workers.',
+            'type': 'integer',
+            'default': 0,
+            'minimum': 0,
+            'maximum': 100,
+        },
     }
 
     cellapi = CoreApi
@@ -925,9 +936,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.inaugural:
             self.cellinfo.set('cortex:version', s_version.version)
 
+        if not self.readonly:
+            self.cellinfo.set('cortex:version', s_version.version)
+
         corevers = self.cellinfo.get('cortex:version')
-        s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
-                             mesg='cortex version in storage is incompatible with running software')
+        if corevers is not None:
+            s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
+                                 mesg='cortex version in storage is incompatible with running software')
 
         self.viewmeta = self.slab.initdb('view:meta')
 
@@ -969,6 +984,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormpool = None
         self.stormpoolurl = None
         self.stormpoolopts = None
+
+
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1716,6 +1733,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
+    def _lmdbReaderCheck(self):
+        '''Clear stale LMDB reader slots from crashed reader processes.'''
+        stale = 0
+        stale += self.slab.lenv.reader_check()
+        for layr in self.layers.values():
+            stale += layr.layrslab.lenv.reader_check()
+        if stale:
+            logger.info('Cleared %d stale LMDB reader slot(s)', stale)
+        return stale
+
+    async def _lmdbReaderCheckLoop(self):
+        while not self.isfini:
+            await self.waitfini(timeout=60)
+            if not self.isfini:
+                await s_coro.executor(self._lmdbReaderCheck)
+
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
@@ -1727,7 +1760,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
 
+        self.addActiveCoro(self._lmdbReaderCheckLoop)
+
         await self._initStormSvcs()
+
+        self._forkinfo = None
+        pct = self.conf.get('multi:process:core_pct', 0)
+        # Backward compat: accept old key name with deprecation warning
+        if not pct:
+            pct = self.conf.get('multi:process:readers', 0)
+            if pct:
+                logger.warning('Config key "multi:process:readers" is deprecated. Use "multi:process:core_pct" instead.')
+        if pct and not self.readonly:
+            await self._initForkMode(pct)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -1810,6 +1855,70 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         except Exception as e:  # pragma: no cover
             logger.exception(f'Error starting stormpool, it will not be available: {e}')
+
+    async def _initForkMode(self, pct):
+        '''Set up fork-mode config. Socket lookup and UDS listener happen later
+        in _prepareFork(), after initServiceNetwork has created the TCP listener.
+        '''
+        cores = os.cpu_count() or 1
+        count = max(1, int(cores * pct / 100))
+
+        self._forkinfo = {
+            'count': count,
+            'uds_path': os.path.join(self.dirn, 'worker.sock'),
+            'datadir': self.dirn,
+        }
+        logger.info('Fork mode: configured for %d worker(s)',
+                    count)
+
+    async def prepareFork(self):
+        '''Finalize fork setup after all init phases complete.
+
+        Starts the UDS listener and resolves the TCP listening socket fd.
+        Returns the fork info dict, or None if fork mode is not active.
+        '''
+        if self._forkinfo is None:
+            return None
+
+        # Start UDS endpoint for workers to forward writes
+        uds_path = self._forkinfo['uds_path']
+        await self.dmon.listen(f'unix://{uds_path}')
+        logger.info('Fork mode: UDS listener at %s', uds_path)
+
+        # Find the main TCP/SSL listening socket from the dmon
+        listen_sock = None
+        for server in self.dmon.listenservers:
+            for sock in server.sockets:
+                if sock.family in (socket.AF_INET, socket.AF_INET6):
+                    listen_sock = sock
+                    break
+            if listen_sock is not None:
+                break
+
+        if listen_sock is None:
+            logger.error('Fork mode: no TCP listening socket found, cannot fork')
+            self._forkinfo = None
+            return None
+
+        self._forkinfo['listen_fd'] = listen_sock.fileno()
+
+        # Create a separate listen socket for the thick router
+        thick_port = 27493
+        thick_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        thick_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        thick_sock.bind(('0.0.0.0', thick_port))
+        thick_sock.listen(128)
+        thick_sock.setblocking(False)
+        self._forkinfo['thick_listen_fd'] = thick_sock.fileno()
+        # Prevent GC from closing the socket
+        self._thick_listen_sock = thick_sock
+        logger.info('Fork mode: thick router listen socket on port %d', thick_port)
+
+        return self._forkinfo
+
+    def getForkInfo(self):
+        '''Return fork config dict if fork mode is active, else None.'''
+        return getattr(self, '_forkinfo', None)
 
     async def finiStormPool(self):
 
@@ -2393,7 +2502,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path)
+        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
@@ -2402,7 +2511,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _initStormGraphs(self):
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path)
+        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.onfini(slab.fini)
 
         self.pkggraphs = {}
@@ -4634,13 +4743,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 with open(idenpath, 'r') as fd:
                     existiden = fd.read()
 
-                if jsoniden != existiden:
+                if jsoniden != existiden and not self.readonly:
                     with open(idenpath, 'w') as fd:
                         fd.write(jsoniden)
 
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
-            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self, readonly=self.readonly)
 
     async def getJsonObj(self, path):
         if self.jsonurl is not None:
@@ -4725,7 +4834,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cadir is not None:
                 conf['tls:ca:dir'] = cadir
 
-            self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
+            self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self, readonly=self.readonly)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon

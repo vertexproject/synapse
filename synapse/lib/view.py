@@ -96,7 +96,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
-        self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=core.readonly)
         self.viewslab.addResizeCallback(core.checkFreeSpace)
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')

@@ -368,9 +368,11 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None, linkcls=Li
     reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
     return await linkcls.anit(reader, writer, info=info)
 
-async def listen(host, port, onlink, ssl=None, linkcls=Link):
+async def listen(host, port, onlink, ssl=None, linkcls=Link, sock=None):
     '''
     Listen on the given host/port and fire onlink(<linkcls>).
+
+    If sock is provided, use it directly instead of binding host/port.
 
     Returns a server object that contains the listening sockets
     '''
@@ -381,5 +383,8 @@ async def listen(host, port, onlink, ssl=None, linkcls=Link):
         link = await linkcls.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
 
-    server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
+    if sock is not None:
+        server = await asyncio.start_server(onconn, sock=sock, ssl=ssl)
+    else:
+        server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
     return server

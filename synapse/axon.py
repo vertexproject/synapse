@@ -811,8 +811,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path)
+        if self.readonly:
+            path = s_common.genpath(self.dirn, 'axon.lmdb')
+        else:
+            path = s_common.gendir(self.dirn, 'axon.lmdb')
+        self.axonslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -908,9 +911,12 @@ class Axon(s_cell.Cell):
 
         self.byterange = True
 
-        path = s_common.gendir(self.dirn, 'blob.lmdb')
+        if self.readonly:
+            path = s_common.genpath(self.dirn, 'blob.lmdb')
+        else:
+            path = s_common.gendir(self.dirn, 'blob.lmdb')
 
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.blobs = self.blobslab.initdb('blobs')
         self.offsets = self.blobslab.initdb('offsets')
         self.metadata = self.blobslab.initdb('metadata')

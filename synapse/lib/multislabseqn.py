@@ -33,12 +33,14 @@ class MultiSlabSeqn(s_base.Base):
                        dirn: str,
                        opts: Optional[Dict] = None,
                        slabopts: Optional[Dict] = None,
-                       cell=None):
+                       cell=None,
+                       readonly: bool = False):
         '''
         Args:
             dirn (str):  directory where to store the slabs
             opts (Optional[Dict]):  options for this multislab
             slabopts (Optional[Dict]):  options to pass through to the slab creation
+            readonly (bool):  open all slabs in readonly mode
 
         '''
 
@@ -47,12 +49,15 @@ class MultiSlabSeqn(s_base.Base):
         if opts is None:
             opts = {}
 
+        self.readonly = readonly
+
         self.offsevents: List[Tuple[int, int, asyncio.Event]] = []  # as a heap
         self._waitcounter = 0
 
         self.cell = cell
         self.dirn: str = dirn
-        s_common.gendir(self.dirn)
+        if not readonly:
+            s_common.gendir(self.dirn)
         self.slabopts: Dict[str, Any] = {} if slabopts is None else slabopts
 
         # The last/current slab
@@ -135,7 +140,7 @@ class MultiSlabSeqn(s_base.Base):
                 if fnstartidx != lastidx + 1:
                     logger.debug(f'Multislab:  gap in indices at {fn}.  Previous last index is {lastidx}.')
 
-            async with await s_lmdbslab.Slab.anit(fn, **self.slabopts) as slab:
+            async with await s_lmdbslab.Slab.anit(fn, readonly=self.readonly, **self.slabopts) as slab:
                 self.firstindx = self._getFirstIndx(slab)
                 # We use the old name of the sequence to ease migration from the old system
                 seqn = slab.getSeqn('nexuslog')
@@ -176,9 +181,13 @@ class MultiSlabSeqn(s_base.Base):
         self.tailslab, self.tailseqn = await self._makeSlab(indx)
 
         if not self.tailslab.dbexists('info'):
-            self._setFirstIndx(self.tailslab, self.firstindx)
-            self.tailseqn.indx = indx
-            self._ranges.append(indx)
+            if self.readonly:
+                self.tailseqn.indx = indx
+                self._ranges.append(indx)
+            else:
+                self._setFirstIndx(self.tailslab, self.firstindx)
+                self.tailseqn.indx = indx
+                self._ranges.append(indx)
 
         return indx
 
@@ -282,7 +291,7 @@ class MultiSlabSeqn(s_base.Base):
 
             fn = self.slabFilename(self.dirn, startidx)
 
-            slab = await s_lmdbslab.Slab.anit(fn, **self.slabopts)
+            slab = await s_lmdbslab.Slab.anit(fn, readonly=self.readonly, **self.slabopts)
             if self.cell is not None:
                 slab.addResizeCallback(self.cell.checkFreeSpace)
 
