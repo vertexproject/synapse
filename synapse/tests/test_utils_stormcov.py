@@ -168,4 +168,4 @@ class TestUtilsStormcov(s_utils.SynTest):
                 await core.stormlist(s_files.getAssetStr('stormcov/pipegen.storm'))
 
             self.isin((2, 2), results)
-            self.assertNotIn((4, 4), results)
+            self.notin((4, 4), results)
