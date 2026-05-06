@@ -62,7 +62,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                     continue
 
                 if rule == 'embedquery':
-                    self.subq_map[subg] = (path, node.children[0].line - 1)
+                    self.subq_map[subg] = (path, node.meta.line - 1)
                 else:
                     self.subq_map[subg] = (path, subq.meta.line - 1)
 

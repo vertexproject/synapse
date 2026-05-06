@@ -163,3 +163,19 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             self.isin((2, 2), results)
             self.notin((4, 4), results)
+
+            # Verify that line numbers for AST nodes inside a tee { ... } (argvquery)
+            # are correctly mapped back to the source file.
+            teeresults = []
+
+            async def compute(self, runt, path):
+                frame = inspect.currentframe()
+                fname = plugin.dynamic_source_filename(None, frame)
+                if fname is not None and 'teearg.storm' in fname:
+                    teeresults.append(plugin.line_number_range(frame))
+                return await orig(self, runt, path)
+
+            with mock.patch('synapse.lib.ast.Const.compute', compute):
+                await core.stormlist(s_files.getAssetStr('stormcov/teearg.storm'))
+
+            self.isin((4, 4), teeresults)
