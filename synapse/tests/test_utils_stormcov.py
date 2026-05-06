@@ -146,3 +146,36 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             with mock.patch('synapse.lib.ast.Const.compute', compute):
                 await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
+
+            # Verify that line numbers for AST nodes inside a $lib.pipe.gen(${...})
+            # are correctly mapped back to the source file.
+            results = []
+
+            async def compute(self, runt, path):
+                frame = inspect.currentframe()
+                fname = plugin.dynamic_source_filename(None, frame)
+                if fname is not None and 'pipegen.storm' in fname:
+                    results.append(plugin.line_number_range(frame))
+                return await orig(self, runt, path)
+
+            with mock.patch('synapse.lib.ast.Const.compute', compute):
+                await core.stormlist(s_files.getAssetStr('stormcov/pipegen.storm'))
+
+            self.isin((2, 2), results)
+            self.notin((4, 4), results)
+
+            # Verify that line numbers for AST nodes inside a tee { ... } (argvquery)
+            # are correctly mapped back to the source file.
+            teeresults = []
+
+            async def compute(self, runt, path):
+                frame = inspect.currentframe()
+                fname = plugin.dynamic_source_filename(None, frame)
+                if fname is not None and 'teearg.storm' in fname:
+                    teeresults.append(plugin.line_number_range(frame))
+                return await orig(self, runt, path)
+
+            with mock.patch('synapse.lib.ast.Const.compute', compute):
+                await core.stormlist(s_files.getAssetStr('stormcov/teearg.storm'))
+
+            self.isin((4, 4), teeresults)

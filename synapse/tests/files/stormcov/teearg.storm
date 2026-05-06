@@ -1,0 +1,7 @@
+function foo() {
+    [ test:str=teetest ]
+    tee {
+        $lib.print((2))
+    } {}
+}
+yield $foo()
