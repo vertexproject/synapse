@@ -267,7 +267,7 @@ class Auth(s_nexus.Pusher):
 
     async def getUserIdenByEmail(self, email):
         for useriden in self.useridenbyname.values():
-            if (udef := self.userdefs.get(useriden)) is not None and udef.get('email') == email:
+            if (user := self.user(useriden)) is not None and user.info.get('email') == email:
                 return useriden
 
             await asyncio.sleep(0)
