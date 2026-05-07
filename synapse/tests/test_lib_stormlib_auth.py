@@ -1206,6 +1206,8 @@ class StormLibAuthTest(s_test.SynTest):
             udef = await core.callStorm('return($lib.auth.users.byemail(visi@vertex.link))')
             self.eq(udef['email'], 'visi@vertex.link')
 
+            self.none(await core.callStorm('return($lib.auth.users.byemail(newp))'))
+
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
             self.len(3, await core.callStorm('return($lib.auth.users.list())'))
