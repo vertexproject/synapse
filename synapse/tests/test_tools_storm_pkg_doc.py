@@ -47,6 +47,23 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.isin(':   baz (str): The baz.', text)
             self.isin(':   Baz the bam:\n\n        yield $lib.import(apimod).search(bam)', text)
 
+            # Verify the rst -> md table conversion: every RST table in the
+            # source comes through as a markdown pipe table whose cells
+            # preserve code spans, bold runs, escaped literal pipes, and
+            # anonymous hyperlinks. ``[Foo](#foo)\[\]`` is pandoc's escape
+            # for ``[]`` immediately after a link (otherwise a markdown
+            # parser could treat ``[Foo][]`` as a shortcut reference).
+            text = s_common.getbytes(os.path.join(builddir, 'tables.md')).decode()
+            self.isin('| `name`', text)
+            self.isin('`a` \\| `b` \\| `c`', text)
+            self.isin('[Foo](#foo)', text)
+            self.isin('[Foo](#foo)\\[\\]', text)
+            self.isin('| **-**', text)
+            # No grid-table or multiline-table separators should leak into
+            # the markdown output.
+            self.notin('+----', text)
+            self.notin('====+', text)
+
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
             self.true(os.path.isfile(testpkgfp))
