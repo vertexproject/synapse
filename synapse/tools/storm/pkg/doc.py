@@ -115,14 +115,12 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
             _ = fd.write(buf.encode())
 
         logger.info(f'Converting {builtrst} to markdown')
-        # Force pandoc's markdown writer to emit pipe tables for every RST
-        # table by disabling the multiline / grid table flavors -- those are
-        # not valid markdown for downstream consumers (e.g. Optic).
-        # ``simple_tables`` does not fire for our content (cells contain
-        # inline markup pandoc considers too rich for the simple form), so
-        # leaving it enabled is harmless. ``tex_math_dollars`` is disabled
-        # so a literal ``$var`` does not get escaped to ``\$var``.
-        target = 'markdown-multiline_tables-grid_tables-tex_math_dollars'
+        # Target GFM (the spec downstream consumers like Optic implement) and
+        # add pandoc's ``definition_lists`` extension for the term/def syntax
+        # used by stormpackage docs. Plain ``gfm`` emits pipe tables, leaves
+        # ``$var`` unescaped, and avoids the spurious ``\-`` / ``\'`` escaping
+        # the broader ``markdown`` writer produces.
+        target = 'gfm+definition_lists'
         if name == 'stormpackage.rst':
             args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
         else:
