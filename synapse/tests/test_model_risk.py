@@ -457,6 +457,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
             self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
 
+            self.len(1, await core.nodes('risk:threat:name=vtx-apt1 [ +(uses)> { [ inet:service:platform=* ] } ]'))
+            self.len(1, await core.nodes('risk:threat:name=vtx-apt1 -(uses)> inet:service:platform'))
+
             self.len(1, nodes := await core.nodes('[ risk:threat=({"org:name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 

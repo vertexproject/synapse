@@ -130,6 +130,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :hash=0x01020304
                         :desc="Woot Woot"
                         :block=(BTC, 998877)
+                        :block:chain={[ crypto:currency:chain=* :name=bitcoin ]}
                         :success=1
                         :status:code=10
                         :status:message=success
@@ -152,6 +153,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('block'), ('btc', 998877))
             self.eq(node.get('block:coin'), 'btc')
             self.eq(node.get('block:offset'), 998877)
+            self.nn(node.get('block:chain'))
             self.eq(node.get('success'), True)
             self.eq(node.get('status:code'), 10)
             self.eq(node.get('status:message'), 'success')
@@ -181,6 +183,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :hash=0x01020304
                         :minedby = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :time=20211130
+                        :chain={[ crypto:currency:chain=* :name=btcmain ]}
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -188,6 +191,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('offset'), 12345)
             self.eq(node.get('hash'), '01020304')
             self.eq(node.get('time'), 1638230400000)
+            self.nn(node.get('chain'))
 
             nodes = await core.nodes('''
                 [

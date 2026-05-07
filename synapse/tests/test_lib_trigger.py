@@ -399,8 +399,8 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('bar'))
             self.nn(nodes[0].getTag('faz'))
 
-            # coverage for migration mode
-            await core.nodes('[inet:fqdn=vertex.link +#foo]') # for additional migration mode trigger tests below
+            # triggers fire normally even when enterMigrationMode() is active
+            await core.nodes('[inet:fqdn=vertex.link +#foo]')
             async with core.enterMigrationMode():
                 await core.nodes('inet:fqdn=vertex.link [ +#bar -#foo ]')
 
@@ -813,7 +813,7 @@ class TrigTest(s_t_utils.SynTest):
             async with core.enterMigrationMode():
                 nodes = await core.nodes('[test:int=123 +(foo:beep:boop)> { [test:str=neato] }]')
                 self.len(1, nodes)
-                self.notin('foo', nodes[0].tags)
+                self.isin('foo', nodes[0].tags)
 
             nodes = await core.nodes('[test:int=123 +(foo:bar:baz)> { [test:str=neato] }]')
             self.len(1, nodes)
@@ -873,7 +873,7 @@ class TrigTest(s_t_utils.SynTest):
             async with core.enterMigrationMode():
                 nodes = await core.nodes('test:int=123 | [ -(foo:beep:boop)> { test:str=neato } ]')
                 self.len(1, nodes)
-                self.notin('del.none', nodes[0].tags)
+                self.isin('del.none', nodes[0].tags)
 
             nodes = await core.nodes('test:int=123 | [ -(foo:bar:baz)> { test:str=neato } ]')
             self.len(1, nodes)
