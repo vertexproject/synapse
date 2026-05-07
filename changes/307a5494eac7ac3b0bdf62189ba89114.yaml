@@ -1,5 +1,5 @@
 ---
-desc: Added ``$lib.auth.users.byemail()`` Storm API to retrieve a user by email (OP-4502).
+desc: Added ``$lib.auth.users.byemail()`` Storm API to retrieve a user by email.
 desc:literal: false
 prs: []
 type: feat

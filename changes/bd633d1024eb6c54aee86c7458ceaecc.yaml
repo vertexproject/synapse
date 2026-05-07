@@ -1,6 +1,6 @@
 ---
 desc: Adjusted ``$lib.auth`` Storm APIs to avoid retrieving full user definitions when not
-  necessary (SYN-10657).
+  necessary.
 desc:literal: false
 prs: []
 type: feat
