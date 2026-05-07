@@ -1,8 +1,0 @@
----
-desc: Use the gfm+definition_lists pandoc target when converting RST to markdown via
-  synapse.tools.storm.pkg.doc. The output is GFM-spec aligned and avoids spurious
-  escaping of em-dashes and apostrophes.
-desc:literal: false
-prs: []
-type: doc
-...

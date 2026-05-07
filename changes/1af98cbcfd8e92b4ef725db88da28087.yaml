@@ -1,7 +1,7 @@
 ---
-desc: Update ``synapse.tools.storm.pkg.doc`` to emit pipe-table markdown for any RST
-  table when converting package docs.
+desc: Updated ``synapse.tools.storm.pkg.doc`` so package docs are now emitted as
+  GitHub flavored markdown.
 desc:literal: false
 prs: []
-type: feat
+type: note
 ...
