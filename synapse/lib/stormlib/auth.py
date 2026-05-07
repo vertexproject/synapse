@@ -1189,11 +1189,17 @@ class User(s_stormtypes.Prim):
         await self.runt.snap.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=False)
         return udef.get(name, s_common.novalu)
 
     async def _methUserGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        name = await s_stormtypes.tostr(name)
+
+        packroles = False
+        if name == 'roles':
+            packroles = True
+
+        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=packroles)
         return udef.get(name)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1207,8 +1213,8 @@ class User(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserRoles(self):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
-        return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
+        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=False)
+        return [Role(self.runt, roleiden) for roleiden in udef.get('roles')]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserAllowed(self, permname, gateiden=None, default=False):
@@ -1899,6 +1905,13 @@ class LibUsers(s_stormtypes.Lib):
                   ),
                   'returns': {'type': ['null', 'auth:user'],
                               'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
+        {'name': 'byemail', 'desc': 'Get a specific user by email.',
+         'type': {'type': 'function', '_funcname': '_methUsersByEmail',
+                  'args': (
+                      {'name': 'email', 'type': 'str', 'desc': 'The email of the user to retrieve.'},
+                  ),
+                  'returns': {'type': ['null', 'auth:user'],
+                              'desc': 'The ``auth:user`` object, or none if the user does not exist.'}}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
@@ -1987,25 +2000,34 @@ class LibUsers(s_stormtypes.Lib):
             'list': self._methUsersList,
             'get': self._methUsersGet,
             'byname': self._methUsersByName,
+            'byemail': self._methUsersByEmail,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersList(self):
-        return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
+        return [User(self.runt, useriden) async for useriden in self.runt.snap.core.getUserIdens()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersGet(self, iden=None):
         if iden is None:
             iden = self.runt.user.iden
-        udef = await self.runt.snap.core.getUserDef(iden)
-        if udef is not None:
-            return User(self.runt, udef['iden'])
+
+        if self.runt.snap.core.hasUserIden(iden):
+            return User(self.runt, iden)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersByName(self, name):
-        udef = await self.runt.snap.core.getUserDefByName(name)
-        if udef is not None:
-            return User(self.runt, udef['iden'])
+        name = await s_stormtypes.tostr(name)
+        useriden = await self.runt.snap.core.getUserIdenByName(name)
+        if useriden is not None:
+            return User(self.runt, useriden)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methUsersByEmail(self, email):
+        email = await s_stormtypes.tostr(email)
+        useriden = await self.runt.snap.core.getUserIdenByEmail(email)
+        if useriden is not None:
+            return User(self.runt, useriden)
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
         if not self.runt.allowed(('auth', 'user', 'add')):
@@ -2078,19 +2100,19 @@ class LibRoles(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesList(self):
-        return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
+        return [Role(self.runt, roleiden) async for roleiden in self.runt.snap.core.getRoleIdens()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
-        rdef = await self.runt.snap.core.getRoleDef(iden)
-        if rdef is not None:
-            return Role(self.runt, rdef['iden'])
+        if self.runt.snap.core.hasRoleIden(iden):
+            return Role(self.runt, iden)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesByName(self, name):
-        rdef = await self.runt.snap.core.getRoleDefByName(name)
-        if rdef is not None:
-            return Role(self.runt, rdef['iden'])
+        name = await s_stormtypes.tostr(name)
+        roleiden = await self.runt.snap.core.getRoleIdenByName(name)
+        if roleiden is not None:
+            return Role(self.runt, roleiden)
 
     async def _methRolesAdd(self, name, iden=None):
         if not self.runt.allowed(('auth', 'role', 'add')):
