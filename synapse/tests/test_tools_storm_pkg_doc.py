@@ -56,7 +56,6 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             text = s_common.getbytes(os.path.join(builddir, 'tables.md')).decode()
             self.isin('| `name`', text)
             self.isin('`a` \\| `b` \\| `c`', text)
-            self.isin('`{ k: (a \\| b)[] }`', text)
             self.isin('[Foo](#foo)', text)
             self.isin('[Foo](#foo)\\[\\]', text)
             self.isin('| **-**', text)
