@@ -1213,8 +1213,7 @@ class User(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserRoles(self):
-        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=False)
-        return [Role(self.runt, roleiden) for roleiden in udef.get('roles')]
+        return [Role(self.runt, role.iden) async for role in self.runt.snap.core.getUserRoles(self.valu)]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserAllowed(self, permname, gateiden=None, default=False):
@@ -1897,21 +1896,21 @@ class LibUsers(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve. Returns the current user if not specified.', 'default': None},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
+                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific user by name.',
          'type': {'type': 'function', '_funcname': '_methUsersByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
-        {'name': 'byemail', 'desc': 'Get a specific user by email.',
+                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
+        {'name': 'byemail', 'desc': 'Get the first user with a specific email.',
          'type': {'type': 'function', '_funcname': '_methUsersByEmail',
                   'args': (
-                      {'name': 'email', 'type': 'str', 'desc': 'The email of the user to retrieve.'},
+                      {'name': 'email', 'type': 'str', 'desc': 'The email to search for.'},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or none if the user does not exist.'}}},
+                              'desc': 'The ``auth:user`` object, or null if no user exists.'}}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
