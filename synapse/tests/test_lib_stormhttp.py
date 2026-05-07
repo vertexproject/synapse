@@ -51,6 +51,12 @@ class HttpGiantHeader(s_httpapi.Handler):
         self.set_header('Giant', 'x' * 64_000)
         self.write('test')
 
+class HttpMultiCookie(s_httpapi.Handler):
+    async def get(self):
+        self.add_header('Set-Cookie', 'cookie_one=value1; Path=/')
+        self.add_header('Set-Cookie', 'cookie_two=value2; Path=/')
+        self.write('ok')
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -159,6 +165,8 @@ class StormHttpTest(s_test.SynTest):
             '''
             with self.raises(s_exc.BadJsonText) as cm:
                 resp = await core.callStorm(q, opts=badopts)
+            self.isin('Unable to decode HTTP response as json', cm.exception.get('mesg'))
+            self.eq(cm.exception.get('text'), "{'not':'json!'}")
 
             # params as a urlencoded string
             q = '''
@@ -287,6 +295,32 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=giantopts)
             self.eq(resp['body'], b'test')
             self.len(64_000, resp['headers'].get('Giant'))
+
+    async def test_storm_http_multi_value_headers(self):
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            core.addHttpApi('/api/v0/multicookie', HttpMultiCookie, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/multicookie'
+            opts = {'vars': {'url': url}}
+
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
+            return ( ($resp.headers."Set-Cookie", $resp.getRawHeaders()) )
+            '''
+            lastval, rawheaders = await core.callStorm(q, opts=opts)
+
+            # headers dict last-value-wins
+            self.eq(lastval, 'cookie_two=value2; Path=/')
+
+            # getRawHeaders returns all values per header name
+            cookies = rawheaders.get('Set-Cookie')
+            self.len(2, cookies)
+            self.isin('cookie_one=value1; Path=/', cookies)
+            self.isin('cookie_two=value2; Path=/', cookies)
 
     async def test_storm_http_inject_ca(self):
 

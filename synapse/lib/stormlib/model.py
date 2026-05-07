@@ -27,7 +27,7 @@ stormcmds = [
         'storm': '''
             init {
                 if $cmdopts.unlock {
-                    $lib.print("Unlocking: {name}", name=$cmdopts.name)
+                    $lib.print(`Unlocking: {$cmdopts.name}`)
                     $lib.model.deprecated.lock($cmdopts.name, $lib.false)
                 } else {
                     if ($cmdopts.name = "*") {
@@ -36,7 +36,7 @@ stormcmds = [
                             if (not $locked) { $lib.model.deprecated.lock($name, $lib.true) }
                         }
                     } else {
-                        $lib.print("Locking: {name}", name=$cmdopts.name)
+                        $lib.print(`Locking: {$cmdopts.name}`)
                         $lib.model.deprecated.lock($cmdopts.name, $lib.true)
                     }
                 }
@@ -51,7 +51,7 @@ stormcmds = [
             if $locks {
                 $lib.print("Lock status for deprecated forms/props:")
                 for ($name, $locked) in $lib.sorted($locks) {
-                    $lib.print("{name}: {locked}", name=$name, locked=$locked)
+                    $lib.print(`{$name}: {$locked}`)
                 }
             } else {
                 $lib.print("No deprecated locks found.")
@@ -72,9 +72,9 @@ stormcmds = [
                 $lib.print("Checking deprecated model locks:")
                 for ($name, $locked) in $locks {
                     if $locked {
-                        $lib.print("{name} is locked", name=$name)
+                        $lib.print(`{$name} is locked`)
                     } else {
-                        $lib.warn("{name} is not yet locked", name=$name)
+                        $lib.warn(`{$name} is not yet locked`)
                         $ok = $lib.false
                     }
 
@@ -83,11 +83,11 @@ stormcmds = [
                 $lib.print("Checking for existence of deprecated model elements:")
                 for ($name, $locked) in $locks {
 
-                    $lib.print("{name}...", name=$name)
+                    $lib.print(`{$name}...`)
 
                     for $layr in $lib.layer.list() {
                         if $layr.getPropCount($name) {
-                            $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
+                            $lib.warn(`Layer {$layr.iden} still contains {$name}`)
                             $ok = $lib.false
                         }
                     }
@@ -387,12 +387,9 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'form', 'desc': 'Get the Form for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
                   'returns': {'type': ['model:form', 'null']}}},
-        {'name': 'type', 'desc': 'Get the Type for the Property.',
-         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
-                  'returns': {'type': 'model:type'}}},
-        {'name': 'allowedforms', 'desc': 'Get Forms which may be used as values for the Property.',
-         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropAllowedForms',
-                  'returns': {'type': 'list', 'desc': 'A list of ``model:form`` objects for the forms allowed in the property.'}}},
+        {'name': 'types', 'desc': 'Get the types allowed for the property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropTypes',
+                  'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
     )
     _storm_typename = 'model:property'
     def __init__(self, prop, path=None):
@@ -401,31 +398,28 @@ class ModelProp(s_stormtypes.Prim):
 
         self.ctors.update({
             'form': self._ctorPropForm,
-            'type': self._ctorPropType,
-            'allowedforms': self._ctorPropAllowedForms,
+            'types': self._ctorPropTypes,
         })
 
         self.locls['name'] = self.valu.name
         self.locls['full'] = self.valu.full
 
-    def _ctorPropType(self, path=None):
-        return ModelType(self.valu.type, path=path)
+    def _ctorPropTypes(self, path=None):
+        ptyp = self.valu.type
+
+        if self.valu.isform:
+            return (ModelType(ptyp),)
+
+        if ptyp.isarray:
+            ptyp = ptyp.arraytype
+
+        return tuple(ModelType(tobj) for tobj in ptyp.getTypeSet())
 
     def _ctorPropForm(self, path=None):
         if self.valu.form is None:
             return None
 
         return ModelForm(self.valu.form, path=path)
-
-    def _ctorPropAllowedForms(self, path=None):
-        ptyp = self.valu.type
-        if ptyp.isarray:
-            ptyp = ptyp.arraytype
-
-        if not ptyp.ispoly:
-            return ()
-
-        return tuple(ModelForm(form) for form in ptyp.getFormSet())
 
     def value(self):
         return self.valu.pack()
@@ -659,7 +653,7 @@ class MigrationEditorMixin:
 
         form = src.form
 
-        for name, valu in src.getProps().items():
+        for name, valu in src.getNodeRefProps().items():
             prop = form.props.get(name)
             if not prop.isext:
                 continue

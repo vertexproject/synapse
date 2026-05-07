@@ -803,6 +803,21 @@ class LayerTest(s_t_utils.SynTest):
                 sode = layer0.getStorNode(s_common.int64en(nid))
                 self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
 
+            user = await core0.auth.addUser('lowuser')
+            url = core0.getLocalUrl(user='lowuser', share='*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEdits(nodeedits)
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEditsNoLift(nodeedits)
+
+                await user.addRule((True, ('layer', 'write')), gateiden=layer0.iden)
+
+                await layrprox.storNodeEdits(nodeedits)
+                await layrprox.storNodeEditsNoLift(nodeedits)
+
     async def test_layer_tombstone(self):
 
         async with self.getTestCore() as core:
@@ -1351,7 +1366,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
-            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden()) { $lib.print($edge."-1") }'
+            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden) { $lib.print($edge."-1") }'
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
@@ -1634,7 +1649,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr.getStorNode(nid)
             self.eq('foo', sode['valu'][0])
-            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0][1])
 
             s_common.gendir(layr.dirn, 'adir')
 
@@ -1647,7 +1662,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = copylayr.getStorNode(nid)
             self.eq('foo', sode['valu'][0])
-            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0])
+            self.eq((1420070400000000, 1451606400000000, 31536000000000), sode['props']['seen'][0][1])
 
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
@@ -1721,8 +1736,16 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
+            # for poly rows, providing a specific poly flagged stortype will filter by the requested stortype
+            styp = core.model.type('inet:asn').stortype | s_layer.STOR_FLAG_POLY
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp, startvalu=('inet:asn', 20)))
+            self.eq((20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', s_layer.STOR_TYPE_IVAL | s_layer.STOR_FLAG_POLY))
+            self.eq((), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
@@ -2332,21 +2355,21 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str:poly={[test:str=newp]}'))
 
-            self.len(1, await core.nodes('test:str:poly.form=test:int'))
-            self.len(1, await core.nodes('test:str:poly.form=inet:fqdn'))
-            self.len(0, await core.nodes('test:str:poly.form=test:str'))
+            self.len(1, await core.nodes('test:str:poly.type=test:int'))
+            self.len(1, await core.nodes('test:str:poly.type=inet:fqdn'))
+            self.len(0, await core.nodes('test:str:poly.type=test:str'))
 
-            self.len(2, await core.nodes('test:str.created +:poly.form'))
-            self.len(1, await core.nodes('test:str.created +:poly.form=inet:fqdn'))
+            self.len(2, await core.nodes('test:str.created +:poly.type'))
+            self.len(1, await core.nodes('test:str.created +:poly.type=inet:fqdn'))
 
-            self.len(2, await core.nodes('test:str:polyarry*[.form=test:int]'))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=inet:fqdn]'))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=test:str]'))
+            self.len(2, await core.nodes('test:str:polyarry*[.type=test:int]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=inet:fqdn]'))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
-            self.len(1, await core.nodes('test:str.created +:polyarry*[.form=inet:fqdn]'))
+            self.len(1, await core.nodes('test:str.created +:polyarry*[.type=inet:fqdn]'))
 
-            with self.raises(s_exc.NoSuchForm):
-                await core.nodes('test:str:poly.form=newp')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:poly.type=newp')
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp=newp')
@@ -2417,162 +2440,8 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:str=serv :poly={[ inet:server=1.2.3.4:80 ]} ]')
 
-            indxby = s_layer.IndxByPolyVirt(layr, 'test:str', 'poly', ['port'], s_layer.STOR_TYPE_I64)
+            indxby = s_layer.IndxByPolyVirt(layr, 'test:str', 'poly', 'port', s_layer.STOR_TYPE_I64)
             self.eq(str(indxby), 'IndxByPolyVirt: test:str:poly.port')
-
-    async def test_layer_nodeprop_indexes(self):
-
-        async with self.getTestCore() as core:
-
-            self.len(0, await core.nodes('test:str:baz.prop=test:int:type'))
-            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:int:type]'))
-
-            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
-            view2 = core.getView(viewiden2)
-            viewopts2 = {'view': viewiden2}
-
-            await core.nodes('[ test:int=1 :type=one test:int=2 (test:str=hehe :hehe=cool) ]', opts=viewopts2)
-            await core.nodes('[ test:str=foo :baz=(test:int:type, one) ]', opts=viewopts2)
-            await core.nodes('[ test:str=bar :baz=(test:int:type, two) ]', opts=viewopts2)
-            await core.nodes('[ test:str=baz :baz=(test:str:hehe, newp) ]', opts=viewopts2)
-            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one), (test:str:hehe, cool)) ]', opts=viewopts2)
-
-            await core.nodes('[ test:str=foo :baz=(test:int:type, one) ]')
-
-            nodes = await core.nodes('test:str:baz=(test:int:type, one)', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
-            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'foo'))
-            self.eq(nodes[1].ndef, ('test:str', 'faz'))
-
-            nodes = await core.nodes('test:str=foo -> *', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-
-            nodes = await core.nodes('test:str=foo :baz -> *', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-
-            nodes = await core.nodes('test:str=faz -> *', opts=viewopts2)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
-
-            nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
-
-            nodes = await core.nodes('test:str:baz.prop=test:int:type', opts=viewopts2)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'bar'))
-            self.eq(nodes[1].ndef, ('test:str', 'foo'))
-
-            nodes = await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
-
-            self.len(0, await core.nodes('test:str:baz=(test:str:somestr, newp)'))
-            self.len(0, await core.nodes('test:str:baz.prop=test:str:somestr'))
-
-            await core.nodes('[ test:str=foo :baz=(test:int:type, three) ]', opts=viewopts2)
-
-            self.len(0, await core.nodes('test:str:baz=(test:int:type, one)', opts=viewopts2))
-            nodes = await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'foo'))
-
-            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
-
-            await core.nodes('[ test:str=foo -:baz ]', opts=viewopts2)
-            self.len(0, await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2))
-
-            await core.nodes('[ test:str=layr1 :baz=(test:int:type, one) ]')
-
-            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
-            self.eq(nodes[1].ndef, ('test:str', 'layr1'))
-
-            await core.nodes('[ test:str=layr1 :baz=(test:int:type, three) ]')
-            await core.nodes('[ test:str=faz :pdefs=((test:str:hehe, cool),) ]', opts=viewopts2)
-            nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
-            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
-
-            await core.nodes('[ test:str=faz -:pdefs]', opts=viewopts2)
-            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2))
-            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
-
-            q = '''[ test:str=faz :pdefs=(
-                (test:int:type, one),
-                (test:int:type, one),
-                (test:str:hehe, cool),
-                (test:int:type, one))
-            ]'''
-            await core.nodes(q, opts=viewopts2)
-            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one),) ]')
-
-            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
-            self.eq(nodes[1].ndef, ('test:str', 'faz'))
-            self.eq(nodes[2].ndef, ('test:str', 'faz'))
-
-            self.len(4, await core.nodes('test:str=faz -> *', opts=viewopts2))
-            self.len(4, await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2))
-
-            await core.nodes('[ test:int=3 (test:str=ndef1 test:str=ndef2 :baz=(test:int, 3)) ]')
-            nodes = await core.nodes('test:int=3 <- *')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
-            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
-
-            nodes = await core.nodes('test:int=3 -> test:str:baz')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
-            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
-
-            nodes = await core.nodes('test:str=ndef1 -> test:int')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 3))
-
-            nodes = await core.nodes('test:str=ndef1 :baz -> test:int')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 3))
-
-            await core.nodes('[ test:str=ndefarry1 test:str=ndefarry2 :pdefs=((test:int, 3),) ]')
-
-            nodes = await core.nodes('test:int=3 -> test:str:pdefs')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'ndefarry1'))
-            self.eq(nodes[1].ndef, ('test:str', 'ndefarry2'))
-
-            nodes = await core.nodes('test:int=3 -> test:str')
-            self.len(4, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
-            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
-            self.eq(nodes[2].ndef, ('test:str', 'ndefarry1'))
-            self.eq(nodes[3].ndef, ('test:str', 'ndefarry2'))
-
-            nodes = await core.nodes('test:str=ndefarry1 -> test:int')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 3))
-
-            nodes = await core.nodes('test:str=ndefarry1 :pdefs -> test:int')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 3))
-
-            await core.nodes('[ test:str=proparray :pdefs=((test:str:somestr, foo), (test:str:somestr, foo)) ]')
-            await core.nodes('[ test:str=proparray :pdefs=((test:int:int2, 3),) ]', opts=viewopts2)
-
-            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:str:somestr]', opts=viewopts2))
 
     async def test_layer_virt_indexes(self):
 
@@ -2724,6 +2593,17 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
             self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
+            # repr with poly prop virt where prop is not set returns None
+            nodes = await core.nodes('[ test:guid=* ]')
+            self.none(nodes[0].repr('server.ip'))
+
+            # getWithLayer with getr
+            nodes = await core.nodes('inet:http:request:server.ip=127.0.0.4')
+            prop = core.model.prop('inet:http:request:server')
+            getr = prop.type.getVirtGetr('ip')
+            valu, layr = nodes[0].getWithLayer('server', getr=getr)
+            self.nn(valu)
+
             await core.nodes('inet:http:request:server.ip | [ -:server ]')
             self.len(0, await core.nodes('inet:http:request:server.ip'))
 
@@ -2746,7 +2626,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:server.ip=127.0.0.4'))
 
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
-            self.none(node.valu(virts='foo'))
+            self.none(node.valu(getr='foo'))
             self.none(node.valuvirts())
 
             await core.nodes('[ inet:server=tcp://127.0.0.4:12344 +(refs)> { inet:server=tcp://127.0.0.4:12344 }]', opts=viewopts2)
@@ -2758,21 +2638,21 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:str=foo | delnode')
 
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
-            self.none(node.valu(virts='foo'))
+            self.none(node.valu(getr='foo'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('inet:server +.ip*newp=newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.newp.ip')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.ip.newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server.newp.ip=127.0.0.1')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('inet:server +.ip.newp=127.0.0.1')
 
             await core.nodes('inet:server.ip | delnode')
@@ -2802,7 +2682,7 @@ class LayerTest(s_t_utils.SynTest):
             # with self.raises(s_exc.NoSuchVirt):
             #    await core.nodes('test:guid +test:guid:server.newp*newp=newp')
 
-            with self.raises(s_exc.NoSuchVirt):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:guid +.created.newp*newp=newp')
 
             with self.raises(s_exc.NoSuchProp):
@@ -2831,14 +2711,24 @@ class LayerTest(s_t_utils.SynTest):
 
             self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
 
+            # getVirtIndx with invalid virt name
+            ival = core.model.type('ival')
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtIndx('newp')
+
+            # RuntNode.valu with getr
+            nodes = await core.nodes('syn:form=inet:server')
+            runtnode = nodes[0]
+            self.eq(runtnode.valu(getr=lambda x: x[0]), 'inet:server')
+
             layr = core.getLayer()
-            indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', 'ip')
             self.eq(str(indxby), 'IndxByVirt: inet:http:request:server.ip')
 
-            indxby = s_layer.IndxByVirt(layr, 'test:guid', 'server', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'test:guid', 'server', 'ip')
             self.eq(str(indxby), 'IndxByVirt: test:guid:server.ip')
 
-            indxby = s_layer.IndxByVirt(layr, 'test:virtiface', 'servers', ['ip'])
+            indxby = s_layer.IndxByVirt(layr, 'test:virtiface', 'servers', 'ip')
             self.eq(str(indxby), 'IndxByVirt: test:virtiface:servers.ip')
 
             indxby = s_layer.IndxByProp(layr, 'test:guid', 'server')
@@ -2885,7 +2775,7 @@ class LayerTest(s_t_utils.SynTest):
             infork00 = {'view': fork00['iden']}
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
-            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden())')
+            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden)')
 
             sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ip'))
             self.len(0, sodes)
@@ -3010,11 +2900,14 @@ class LayerTest(s_t_utils.SynTest):
             infork = {'view': fork00['iden']}
 
             await core.nodes('''
+                $typeopts = ({'enums': [[10, "low"], [20, "medium"], [30, "high"]]})
+                $lib.model.ext.addType('_custom:risk:level', 'int', $typeopts, ({}))
+
                 for $prop in (_custom:risk:level, _custom:risk:severity) {
                     $lib.model.ext.addFormProp(
                         test:guid,
                         $prop,
-                        (["int", {"enums": [[10, "low"], [20, "medium"], [30, "high"]]}]),
+                        (["_custom:risk:level", {}]),
                         ({"doc": "hey now"}),
                     )
                 }
@@ -3079,7 +2972,7 @@ class LayerTest(s_t_utils.SynTest):
                 for $layer in $lib.layer.list() {
                     for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
                         $oldv = $sode.props."_custom:risk:level"
-                        $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0)
+                        $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0.1)
                         $layer.delStorNodeProp($nid, $fullprop)
 
                         $layer.delNodeData($nid, foo)
@@ -3100,7 +2993,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].iden(), testnode00[1]['iden'])
             self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][1])
-            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'])
+            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'][1])
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
             inview = {'view': view00}
@@ -3137,8 +3030,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
-            self.len(1, await core.nodes('[test:str=virts :ndefs={[test:str=foo1 test:int=3 test:str=foo1]}]'))
-            self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
+            self.len(1, await core.nodes('[test:str=virts :polyarry={[test:str=foo1 test:int=3]}]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:str]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts2 = {'view': viewiden2, 'vars': {'long': 'a' * 500}}
@@ -3156,9 +3049,9 @@ class LayerTest(s_t_utils.SynTest):
             # Bad data test coverage
             nodes = await core.nodes('test:str=virts')
             sode = nodes[0].sodes[0]
-            sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
-            self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
-            self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
+            sode['props']['polyarry'] = ((('test:int', 3),), *sode['props']['polyarry'][1:])
+            self.len(0, await core.nodes('test:str:polyarry*[.type=test:str]'))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=test:int]'))
 
             forkview = core.getView(viewiden2)
             await core.nodes('[ test:arrayprop=(0,) :strs=($long, $long) ]', opts=viewopts2)
@@ -3184,7 +3077,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:arrayprop=(2,) :plainstr=(v4,) ]', opts=viewopts2)
 
             # Invalid array index coverage
-            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'plainstr', ('a' * 500,))
+            forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'plainstr', (('str', 'a' * 500),))
 
             self.len(0, await core.nodes('test:arrayprop:plainstr*[=$long]', opts=viewopts2))
             self.len(0, await core.nodes('test:arrayprop:plainstr*[=v3]', opts=viewopts2))
@@ -3202,22 +3095,22 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes(q)
 
             self.len(2, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
-            self.len(3, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(3, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry [ :polyarry={ inet:server=tcp://1.2.3.4:90 } ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(1, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(1, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(1, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry [ -:polyarry ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             await core.nodes('test:str=iparry | delnode', opts=viewopts2)
             self.len(0, await core.nodes('test:str:polyarry*[.port=80]', opts=viewopts2))
             self.len(0, await core.nodes('test:str:polyarry*[.port=90]', opts=viewopts2))
-            self.len(0, await core.nodes('test:str:polyarry*[.form=inet:server]', opts=viewopts2))
+            self.len(0, await core.nodes('test:str:polyarry*[.type=inet:server]', opts=viewopts2))
 
             viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
             viewopts3 = {'view': viewiden3}
@@ -3273,4 +3166,4 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
 
             nodes = await core.nodes('[ test:str=empty ]')
-            self.eq(((None, None), None), nodes[0].getRawWithLayer('polyarry'))
+            self.eq(((None, None, None), None), nodes[0].getRawWithLayer('polyarry'))

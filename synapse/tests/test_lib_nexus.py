@@ -656,7 +656,7 @@ class NexusTest(s_t_utils.SynTest):
 
                             # After promotion we should not have any stray connect timeouts
                             await core01.promote(graceful=True)
-                            await asyncio.sleep(0.1)
+                            await asyncio.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)
                             self.false(core01.nexsroot.readonly)

@@ -216,7 +216,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, stype, vvals) = parms
+                    (name, valu, stype, vprops) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
@@ -228,22 +228,31 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if fireedits is not None:
                         virts = {}
+                        stype &= s_layer.STOR_MASK_POLY
+
                         if stype & s_layer.STOR_FLAG_ARRAY:
-                            if vvals is not None:
-                                virts = dict(vvals)
+                            if vprops is not None:
+                                virts = {}
+                                for key, vvals in vprops.items():
+                                    if key[0] == '_':
+                                        continue
+                                    virts[key] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
 
                             virts['size'] = len(valu)
-                            if (svirts := s_node.storvirts.get(stype & 0x7fff)) is not None:
+
+                            if (svirts := s_node.storvirts.get(stype & s_layer.STOR_MASK_ARRAY)) is not None:
                                 for vname, getr in svirts.items():
                                     virts[vname] = [getr(v) for v in valu]
                         else:
-                            if vvals is not None:
-                                for vname, vval in vvals.items():
+                            virts['type'] = valu[0]
+
+                            if vprops is not None:
+                                for vname, vval in vprops.items():
                                     virts[vname] = vval[0]
 
                             if (svirts := s_node.storvirts.get(stype)) is not None:
                                 for vname, getr in svirts.items():
-                                    virts[vname] = getr(valu)
+                                    virts[vname] = getr(valu[1])
 
                         editset.append((etyp, (name, valu, stype, virts)))
                     continue
@@ -844,7 +853,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
                     nextprog += 1000
 
-            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
+            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
             await self.core.delViewWithLayer(self.iden)
@@ -1457,94 +1466,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def getNdefRefs(self, ndef):
-
-        async def wrapgenr(lidx, genr):
-            async for item in genr:
-                yield item, lidx
-
-        last = None
-        buid = s_common.buid(ndef)
-        genrs = []
-
-        for lidx, layr in enumerate(self.layers):
-            genr = layr.getNdefRefs(buid)
-            genrs.append(wrapgenr(lidx, genr))
-
-        async for item, lidx in s_common.merggenr2(genrs):
-            if item == last:
-                continue
-
-            (refsnid, refsabrv) = last = item
-
-            node = await self.getNodeByNid(refsnid)
-            refsinfo = self.core.getAbrvIndx(refsabrv)
-
-            if len(refsinfo) == 2:
-                propname = refsinfo[1]
-                (valu, valulayr) = node.getWithLayer(propname)
-
-                if lidx == valulayr:
-                    info = {'type': 'prop', 'prop': propname, 'reverse': True}
-                    if isinstance(valu[0], str):
-                        yield node, info
-                        continue
-
-                    for _ in range(valu.count(ndef)):
-                        yield node, info
-                        await asyncio.sleep(0)
-
-            else:
-                _, tagname, propname = refsinfo
-                (valu, valulayr) = node.getTagPropWithLayer(tagname, propname)
-
-                if lidx == valulayr:
-                    yield node, {'type': 'tagprop', 'prop': propname, 'reverse': True}
-
-    async def getNodePropRefs(self, pdef):
-
-        async def wrapgenr(lidx, genr):
-            async for item in genr:
-                yield item, lidx
-
-        last = None
-        buid = s_common.buid(pdef)
-        genrs = []
-
-        for lidx, layr in enumerate(self.layers):
-            genr = layr.getNodePropRefs(buid)
-            genrs.append(wrapgenr(lidx, genr))
-
-        async for item, lidx in s_common.merggenr2(genrs):
-            if item == last:
-                continue
-
-            (refsnid, refsabrv) = last = item
-
-            node = await self.getNodeByNid(refsnid)
-            refsinfo = self.core.getAbrvIndx(refsabrv)
-
-            if len(refsinfo) == 2:
-                propname = refsinfo[1]
-                (valu, valulayr) = node.getWithLayer(propname)
-
-                if lidx == valulayr:
-                    info = {'type': 'prop', 'prop': propname, 'reverse': True}
-                    if isinstance(valu[0], str):
-                        yield node, info
-                        continue
-
-                    for _ in range(valu.count(pdef)):
-                        yield node, info
-                        await asyncio.sleep(0)
-
-            else:
-                _, tagname, propname = refsinfo
-                (valu, valulayr) = node.getTagPropWithLayer(tagname, propname)
-
-                if lidx == valulayr:
-                    yield node, {'type': 'tagprop', 'tag': tagname, 'prop': propname, 'reverse': True}
-
     async def getTagPropRefs(self, propname, valu, norm=True):
 
         prop = self.core.model.reqTagProp(propname)
@@ -1657,6 +1578,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
             yield self.core.getAbrvIndx(abrv)[0]
 
+    async def getTagsByPref(self, pref, depth=0):
+
+        genrs = [layr.getTagsByPref(pref, depth=depth) for layr in self.layers]
+
+        lastvalu = None
+        async for valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+            yield valu
+
     async def _initViewLayers(self):
 
         self.layers = []
@@ -1706,37 +1639,37 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
-        try:
+        with s_scope.enter({'user': user}):
+            try:
 
-            async for item in self.eval(text, opts=opts):
-                await asyncio.sleep(0)  # pragma: no cover
+                async for item in self.eval(text, opts=opts):
+                    await asyncio.sleep(0)  # pragma: no cover
 
-        except s_stormctrl.StormReturn as e:
-            # Catch return( ... ) values and return the
-            # primitive version of that item.
-            return await s_stormtypes.toprim(e.item)
+            except s_stormctrl.StormReturn as e:
+                # Catch return( ... ) values and return the
+                # primitive version of that item.
+                return await s_stormtypes.toprim(e.item)
 
-        except asyncio.CancelledError:
-            logger.warning('callStorm cancelled',
-                           extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise
+            except asyncio.CancelledError:
+                extra = self.core.getLogExtra(text=text)
+                logger.warning('callStorm cancelled', extra=extra)
+                raise
 
-        except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
-            if isinstance(e, s_stormctrl.StormLoopCtrl):
-                mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
-            else:
-                mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
-            logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-            logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
+            except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
+                if isinstance(e, s_stormctrl.StormLoopCtrl):
+                    mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+                else:
+                    mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+                logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
+                logger.exception(logmesg, extra=self.core.getLogExtra(text=text))
+                raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
-        except Exception:
-            logger.exception(f'Error during callStorm execution for {{ {text} }}',
-                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
-            raise
-
-        # Any other exceptions will be raised to
-        # callers as expected.
+            except Exception:
+                logger.exception(f'Error during callStorm execution for {{ {text} }}',
+                                 extra=self.core.getLogExtra(text=text, view=self.iden))
+                # Any other exceptions will be raised to
+                # callers as expected.
+                raise
 
     async def nodes(self, text, opts=None):
         '''
@@ -1803,37 +1736,35 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                with s_scope.enter({'user': user}):
+                async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
 
-                    async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
+                    if keepalive:
+                        runt.schedCoro(runt.keepalive(keepalive))
 
-                        if keepalive:
-                            runt.schedCoro(runt.keepalive(keepalive))
+                    if not show:
+                        runt.bus.link(chan.put)
 
-                        if not show:
-                            runt.bus.link(chan.put)
+                    else:
+                        [runt.bus.on(n, chan.put) for n in show]
 
-                        else:
-                            [runt.bus.on(n, chan.put) for n in show]
+                    if shownode:
+                        async for pode in runt.iterStormPodes():
+                            await chan.put(('node', pode))
+                            count += 1
 
-                        if shownode:
-                            async for pode in runt.iterStormPodes():
-                                await chan.put(('node', pode))
-                                count += 1
-
-                        else:
-                            info = opts.get('_loginfo', {})
-                            info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                            self.core._logStormQuery(text, user, info=info)
-                            async for item in runt.execute():
-                                count += 1
+                    else:
+                        info = opts.get('_loginfo', {})
+                        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                        self.core._logStormQuery(text, user, info=info)
+                        async for item in runt.execute():
+                            count += 1
 
             except s_stormctrl.StormExit:
                 pass
 
             except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.',
-                               extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                extra = self.core.getLogExtra(text=text)
+                logger.warning('Storm runtime cancelled.', extra=extra)
                 cancelled = True
                 raise
 
@@ -1848,7 +1779,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 logmesg = f'Error during storm execution for {{ {text} }}'
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
-                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+
+                logger.exception(logmesg, extra=self.core.getLogExtra(text=text, view=self.iden))
+
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
@@ -1861,39 +1794,41 @@ class View(s_nexus.Pusher):  # type: ignore
                     tock = tick + abstook
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
-        await synt.worker(runStorm(), name='runstorm')
+        with s_scope.enter({'user': user}):
 
-        editformat = opts.get('editformat', 'nodeedits')
+            await synt.worker(runStorm(), name='runstorm')
 
-        while True:
+            editformat = opts.get('editformat', 'nodeedits')
 
-            mesg = await chan.get()
-            kind = mesg[0]
+            while True:
 
-            if kind == 'node':
-                yield mesg
-                continue
+                mesg = await chan.get()
+                kind = mesg[0]
 
-            if kind == 'node:edits':
-
-                if editformat == 'nodeedits':
+                if kind == 'node':
                     yield mesg
                     continue
 
-                if editformat == 'none':
+                if kind == 'node:edits':
+
+                    if editformat == 'nodeedits':
+                        yield mesg
+                        continue
+
+                    if editformat == 'none':
+                        continue
+
+                    assert editformat == 'count'
+
+                    mesg = ('node:edits:count', {'count': mesg[1].get('count')})
+                    yield mesg
                     continue
 
-                assert editformat == 'count'
+                if kind == 'fini':
+                    yield mesg
+                    break
 
-                mesg = ('node:edits:count', {'count': mesg[1].get('count')})
                 yield mesg
-                continue
-
-            if kind == 'fini':
-                yield mesg
-                break
-
-            yield mesg
 
     async def iterStormPodes(self, text, opts=None):
 
@@ -2439,7 +2374,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagAdd(self, node, tag, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         # Run any trigger handlers
@@ -2447,21 +2382,21 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagDel(self, node, tag, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runTagDel(node, tag, useriden)
 
     async def runNodeAdd(self, node, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runNodeAdd(node, useriden)
 
     async def runNodeDel(self, node, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runNodeDel(node, useriden)
@@ -2470,21 +2405,21 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runPropSet(node, prop, useriden)
 
     async def runEdgeAdd(self, n1, edge, n2ndef, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runEdgeAdd(n1, edge, n2ndef, useriden)
 
     async def runEdgeDel(self, n1, edge, n2ndef, useriden):
 
-        if self.core.migration or self.core.safemode:
+        if self.core.safemode:
             return
 
         await self.triggers.runEdgeDel(n1, edge, n2ndef, useriden)
@@ -2785,22 +2720,22 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getPropAltCount(self, prop, valu):
         # valu must be normalized in advance
         count = 0
-        proptype = prop.type
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 count += await self.getPropArrayCount(prop.full, valu=valu, norm=False)
             else:
                 count += await self.getPropCount(prop.full, valu=valu, norm=False)
         return count
 
-    async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
-        proptype = prop.type
+    async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virt=None):
+        prophash = prop.type.typehash
         for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virts=virts):
+            if prop.type.isarray and prop.type.arraytype.typehash is prophash:
+                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virt=virt):
                     yield node
             else:
-                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts):
+                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virt=virt):
                     yield node
 
     async def getTagNode(self, name):
@@ -3037,7 +2972,12 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getRuntPodes(self, prop, cmprvalu=None):
         liftfunc = self.core.getRuntLift(prop.form.name)
         if liftfunc is not None:
+            proptypes = {name: proptype.type.opts['default_types'][0] for name, proptype in prop.form.props.items()}
+
             async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
+                if (props := pode[1].get('props')):
+                    for name, valu in props.items():
+                        props[name] = (proptypes[name], valu)
                 yield pode
 
     async def getDeletedRuntNode(self, nid):
@@ -3045,7 +2985,12 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
 
         sodes = await self.getStorNodes(nid)
-        props = {'nid': s_common.int64un(nid), 'form': ndef[0], 'value': ndef[1], 'sodes': sodes}
+        props = {
+            'nid': ('int', s_common.int64un(nid)),
+            'form': ('str', ndef[0]),
+            'value': ('data', ndef[1]),
+            'sodes': ('data', sodes)
+        }
         pode = (('syn:deleted', ndef), {'props': props})
 
         return s_node.RuntNode(self, pode, nid=nid)
@@ -3119,22 +3064,22 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def liftByFormValu(self, form, cmprvals, reverse=False, virts=None):
+    async def liftByFormValu(self, form, cmprvals, reverse=False, virt=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse, virts=virts):
+            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse, virt=virt):
                 yield nid, [sref]
             return
 
         for cval in cmprvals:
-            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
+            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse, virt=virt) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, reverse=reverse):
                 yield item
 
-    async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virts=None):
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virt=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse, virts=virts):
+            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse, virt=virt):
                 yield nid, [sref]
             return
 
@@ -3148,7 +3093,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
+            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse, virt=virt) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -3217,10 +3162,10 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False, virts=None):
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False, virt=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse, virts=virts):
+            async for _, nid, sref in self.wlyr.liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse, virt=virt):
                 yield nid, [sref]
             return
 
@@ -3238,14 +3183,14 @@ class View(s_nexus.Pusher):  # type: ignore
             return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
+            genrs = [layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse, virt=virt) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
-    async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virts=None):
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virt=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse, virts=virts):
+            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse, virt=virt):
                 yield nid, [sref]
             return
 
@@ -3262,7 +3207,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
+            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse, virt=virt) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -3353,7 +3298,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
-    async def nodesByProp(self, full, reverse=False, virts=None):
+    async def nodesByProp(self, full, reverse=False, virt=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3366,8 +3311,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         indx = None
-        if virts is not None:
-            indx = prop.type.getVirtIndx(virts)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         if prop.isform:
             genr = self.liftByProp(prop.name, None, reverse=reverse, indx=indx)
@@ -3379,15 +3324,15 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
+    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True, virt=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if norm or virts is not None:
-            cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
+        if norm or virt is not None:
+            cmprvals = await prop.type.getStorCmprs(cmpr, valu, virt=virt)
             # an empty return probably means ?= with invalid value
             if not cmprvals:
                 return
@@ -3401,29 +3346,29 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         if prop.isform:
-            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse, virts=virts)
+            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse, virt=virt)
         else:
-            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse, virt=virt)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None, reverse=False, virts=None):
+    async def nodesByTag(self, tag, form=None, reverse=False, virt=None):
 
         indx = None
-        if virts is not None:
-            indx = self.core.model.type('ival').getTagVirtIndx(virts)
+        if virt is not None:
+            indx = self.core.model.type('ival').getTagVirtIndx(virt)
 
         async for nid, srefs in self.liftByTag(tag, form=form, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False, virts=None):
+    async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False, virt=None):
 
-        cmprvals = await self.core.model.type('ival').getStorCmprs(cmpr, valu, virts=virts)
+        cmprvals = await self.core.model.type('ival').getStorCmprs(cmpr, valu, virt=virt)
         async for nid, srefs in self.liftByTagValu(tag, cmprvals, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
@@ -3453,15 +3398,17 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for node in self.nodesByPropArray(prop.full, cmpr, nref):
                             yield node
         else:
+            nref = s_stormtypes.NodeRef(((name, norm), info.get('virts')))
+
             for prop in self.core.model.getPropsByType(name):
-                async for node in self.nodesByPropValu(prop.full, cmpr, norm, norm=False):
+                async for node in self.nodesByPropValu(prop.full, cmpr, nref):
                     yield node
 
             for prop in self.core.model.getArrayPropsByType(name):
-                async for node in self.nodesByPropArray(prop.full, cmpr, norm, norm=False):
+                async for node in self.nodesByPropArray(prop.full, cmpr, nref):
                     yield node
 
-    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
+    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virt=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3472,13 +3419,13 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if norm or virts is not None:
-            cmprvals = await prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
+        if norm or virt is not None:
+            cmprvals = await prop.type.arraytype.getStorCmprs(cmpr, valu, virt=virt)
         else:
             cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)
 
-        if prop.type.isuniq and not virts:
-            genr = self.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+        if prop.type.isuniq and not virt:
+            genr = self.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virt=virt)
 
             async for nid, srefs in genr:
                 node = await self._joinSodes(nid, srefs)
@@ -3490,41 +3437,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for indx, nid, _ in genr:
                 yield indx, nid, lidx
 
-        if not virts and not prop.type.arraytype.ispoly:
-            last = None
-            genrs = []
-            stortype = self.layers[0].stortypes[cmprvals[0][-1]]
-
-            for lidx, layr in enumerate(self.layers):
-                genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
-                genrs.append(wrapgenr(lidx, genr))
-
-            async for indx, nid, lidx in s_common.merggenr2(genrs):
-                if (indx, nid) == last:
-                    continue
-
-                last = (indx, nid)
-
-                if (node := await self.getNodeByNid(nid)) is None:
-                    continue
-
-                (valu, valulayr) = node.getWithLayer(prop.name)
-                if lidx != valulayr:
-                    continue
-
-                if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                    for sval in valu:
-                        if stortype.indx(sval)[0] == indx:
-                            aval = sval
-                            break
-                    else:
-                        continue
-
-                for _ in range(valu.count(aval)):
-                    yield node
-                    await asyncio.sleep(0)
-
-        elif not virts:
+        if not virt:
             for cmprval in cmprvals:
                 last = None
                 genrs = []
@@ -3536,7 +3449,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     realtype = self.layers[0].stortypes[stortype]
 
                 for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virts=virts)
+                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
                     genrs.append(wrapgenr(lidx, genr))
 
                 async for indx, nid, lidx in s_common.merggenr2(genrs):
@@ -3584,84 +3497,23 @@ class View(s_nexus.Pusher):  # type: ignore
                             yield node
                             await asyncio.sleep(0)
 
-        elif prop.type.arraytype.ispoly:
-            for cmprval in cmprvals:
-                last = None
-                genrs = []
-                stortype = cmprval[-1]
+            return
 
-                vgetr = None
-                if (vinfo := prop.type.arraytype.virts.get(virts[0])) is not None:
-                    vgetr = vinfo[1]
-                    stortype = self.layers[0].polytype
-                else:
-                    realtype = stortype & s_layer.STOR_MASK_POLY
-                    stortype = self.layers[0].stortypes[realtype]
-
-                for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virts=virts)
-                    genrs.append(wrapgenr(lidx, genr))
-
-                async for indx, nid, lidx in s_common.merggenr2(genrs):
-                    if (indx, nid) == last:
-                        continue
-
-                    last = (indx, nid)
-
-                    if (node := await self.getNodeByNid(nid)) is None:
-                        continue
-
-                    if vgetr is not None:
-                        pvalu, valulayr = node.getWithLayer(prop.name)
-                        if lidx != valulayr:
-                            continue
-
-                        # currently form is the only liftable poly virt and is always decodable
-                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
-                            for vval in pvalu:
-                                if stortype.indx(vval)[0] == indx:
-                                    aval = vval
-                                    break
-                            else:
-                                continue
-
-                        vcnt = pvalu.count(aval)
-
-                    else:
-                        (pvalu, valulayr) = node.getRawWithLayer(prop.name)
-                        if lidx != valulayr:
-                            continue
-
-                        if (vinfo := pvalu[2].get(virts[0])) is None:
-                            continue
-
-                        if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
-                            for (vval, vtyp) in vinfo:
-                                if stortype.indx(vval)[0] == indx:
-                                    aval = vval
-                                    break
-                            else:
-                                continue
-
-                        if (vcnt := vinfo.get((aval, realtype))) is None:
-                            continue
-
-                    for _ in range(vcnt):
-                        yield node
-                        await asyncio.sleep(0)
-
-        else:
+        for cmprval in cmprvals:
             last = None
             genrs = []
-            realtype = cmprvals[0][-1]
-            stortype = self.layers[0].stortypes[realtype]
+            stortype = cmprval[-1]
 
             vgetr = None
-            if not isinstance(prop.type.arraytype.virtindx.get(virts[0]), str):
-                vgetr = prop.type.arraytype.getVirtGetr(virts)
+            if (vinfo := prop.type.arraytype.virts.get(virt)) is not None:
+                vgetr = vinfo[1]
+                stortype = self.layers[0].polytype
+            else:
+                realtype = stortype & s_layer.STOR_MASK_POLY
+                stortype = self.layers[0].stortypes[realtype]
 
             for lidx, layr in enumerate(self.layers):
-                genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
+                genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
                 genrs.append(wrapgenr(lidx, genr))
 
             async for indx, nid, lidx in s_common.merggenr2(genrs):
@@ -3674,11 +3526,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
                 if vgetr is not None:
-                    (pvalu, valulayr) = node.getWithLayer(prop.name)
+                    pvalu, valulayr = node.getWithLayer(prop.name)
                     if lidx != valulayr:
                         continue
 
-                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
+                    # currently form is the only liftable poly virt and is always decodable
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
                         for vval in pvalu:
                             if stortype.indx(vval)[0] == indx:
                                 aval = vval
@@ -3689,15 +3542,14 @@ class View(s_nexus.Pusher):  # type: ignore
                     vcnt = pvalu.count(aval)
 
                 else:
-                    (valu, valulayr) = node.getRawWithLayer(prop.name)
+                    (pvalu, valulayr) = node.getRawWithLayer(prop.name)
                     if lidx != valulayr:
                         continue
 
-                    if (vinfo := valu[2].get(virts[0])) is None:
+                    if (vinfo := pvalu[2].get(virt)) is None:
                         continue
 
-                    # currently there are no non-poly virts that can fail to decode
-                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:  # pragma: no cover
+                    if (aval := stortype.decodeIndx(indx)) is s_common.novalu:
                         for (vval, vtyp) in vinfo:
                             if stortype.indx(vval)[0] == indx:
                                 aval = vval
@@ -3712,27 +3564,27 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield node
                     await asyncio.sleep(0)
 
-    async def nodesByTagProp(self, form, tag, name, reverse=False, virts=None):
+    async def nodesByTagProp(self, form, tag, name, reverse=False, virt=None):
         prop = self.core.model.reqTagProp(name)
         indx = None
-        if virts is not None:
-            indx = prop.type.getVirtIndx(virts)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         async for nid, srefs in self.liftByTagProp(form, tag, name, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False, virts=None):
+    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False, virt=None):
 
         prop = self.core.model.reqTagProp(name)
 
-        cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
+        cmprvals = await prop.type.getStorCmprs(cmpr, valu, virt=virt)
         # an empty return probably means ?= with invalid value
         if not cmprvals:
             return
 
-        async for nid, srefs in self.liftByTagPropValu(form, tag, name, cmprvals, reverse=reverse, virts=virts):
+        async for nid, srefs in self.liftByTagPropValu(form, tag, name, cmprvals, reverse=reverse, virt=virt):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
@@ -3745,16 +3597,17 @@ class View(s_nexus.Pusher):  # type: ignore
         if cmprvalu is not None:
 
             cmpr, valu = cmprvalu
+            if cmpr == 'ndef=':
+                cmpr = '='
+                valu = valu[1]
+                cmprvalu = (cmpr, valu)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 mesg = f'Bad comparison ({cmpr}) for type {prop.type.name}.'
-                raise s_exc.BadCmprType(mesg=mesg, cmpr=cmpr)
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, cmpr=cmpr)
 
             filt = await ctor(valu)
-            if filt is None:
-                mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
-                raise s_exc.BadCmprValu(mesg=mesg, cmpr=cmpr)
 
         async for pode in self.getRuntPodes(prop, cmprvalu=cmprvalu):
 

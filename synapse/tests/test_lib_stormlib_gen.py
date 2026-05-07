@@ -212,6 +212,9 @@ class StormLibGenTest(s_test.SynTest):
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].getProps(), nodes01[0].getProps())
 
+            self.len(1, nodes := await core.nodes('risk:tool:software:name=blackcat [ :seen=(20230101, 20230601) ]'))
+            self.nn(nodes[0].get('seen'))
+
             self.len(1, nodes := await core.nodes('risk:tool:software:name=blackcat :reporter -> ou:org'))
             self.eq(vtxguid, nodes[0].ndef[1])
 

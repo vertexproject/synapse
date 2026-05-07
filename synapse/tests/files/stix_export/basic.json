@@ -53,7 +53,10 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "inet:ip",
-            [4, 16909060]
+            [
+              4,
+              16909060
+            ]
           ]
         }
       },
@@ -78,7 +81,10 @@
           "extension_type": "property-extension",
           "synapse_ndef": [
             "inet:ip",
-            [6, 255]
+            [
+              6,
+              255
+            ]
           ]
         }
       },
@@ -129,23 +135,6 @@
       "value": "visi@vertex.link"
     },
     {
-      "account_login": "salthash pass",
-      "credential": "saltvalu",
-      "extensions": {
-        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
-          "extension_type": "property-extension",
-          "synapse_ndef": [
-            "inet:service:account",
-            "4c97b4dd4d10b67b79f5f6a7ca8ec959"
-          ]
-        }
-      },
-      "id": "user-account--2217918b-3aba-5bb0-8695-ec80d36e8b8c",
-      "spec_version": "2.1",
-      "type": "user-account",
-      "user_id": "saltpass"
-    },
-    {
       "account_created": "2010-01-01T00:00:00.000Z",
       "account_first_login": "2010-01-01T00:00:00.000Z",
       "account_last_login": "2021-01-01T00:00:00.000Z",
@@ -165,6 +154,23 @@
       "spec_version": "2.1",
       "type": "user-account",
       "user_id": "invisig0th"
+    },
+    {
+      "account_login": "salthash pass",
+      "credential": "saltvalu",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:service:account",
+            "4c97b4dd4d10b67b79f5f6a7ca8ec959"
+          ]
+        }
+      },
+      "id": "user-account--2217918b-3aba-5bb0-8695-ec80d36e8b8c",
+      "spec_version": "2.1",
+      "type": "user-account",
+      "user_id": "saltpass"
     },
     {
       "created": "2021-04-29T17:34:49.364Z",
@@ -272,9 +278,6 @@
           ]
         }
       },
-      "goals": [
-        "pwning"
-      ],
       "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "modified": "2021-04-29T17:34:49.338Z",
       "name": "attacker",
@@ -337,16 +340,6 @@
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
       "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
-      "type": "relationship"
-    },
-    {
-      "created": "2021-04-29T17:34:50.863Z",
-      "id": "relationship--685ec144-2804-4156-86a3-ed6dc9d2f622",
-      "modified": "2021-04-29T17:34:50.863Z",
-      "relationship_type": "targets",
-      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
-      "spec_version": "2.1",
-      "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "type": "relationship"
     },
     {
@@ -459,7 +452,7 @@
       "pattern_type": "yara",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-04-29T17:34:49.353Z"
+      "valid_from": "2026-04-09T18:53:14.632Z"
     },
     {
       "created": "2021-04-29T17:34:49.356Z",
@@ -480,7 +473,7 @@
       "pattern_type": "snort",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-04-29T17:34:49.356Z"
+      "valid_from": "2026-04-09T18:53:14.633Z"
     },
     {
       "created": "2021-04-29T17:34:49.374Z",

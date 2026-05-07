@@ -184,10 +184,7 @@ class IPAddr(s_types.Type):
 
     async def _normPyTuple(self, valu, view=None):
 
-        if any((len(valu) != 2,
-                type(valu[0]) is not int,
-                type(valu[1]) is not int)):
-
+        if len(valu) != 2 or type(valu[0]) is not int or type(valu[1]) is not int:
             mesg = f'Invalid IP address tuple: {valu}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
@@ -389,7 +386,7 @@ class SockAddr(s_types.Str):
 
         self.iptype = self.modl.type('inet:ip')
         self.porttype = self.modl.type('inet:port')
-        self.prototype = self.modl.type('str').clone({'lower': True})
+        self.prototype = self.modl.type('str:lower')
 
         self.defport = self.opts.get('defport')
         self.defproto = self.opts.get('defproto')
@@ -464,18 +461,16 @@ class SockAddr(s_types.Str):
 
                 ipv6, norminfo = await self.iptype.norm(ipv6)
                 host = self.iptype.repr(ipv6)
-                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+                adds = (('inet:ip', ipv6, norminfo),)
                 virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
                     port, norminfo = await self.porttype.norm(port)
-                    subs['port'] = (self.porttype.typehash, port, norminfo)
                     virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
                 elif self.defport:
-                    subs['port'] = (self.porttype.typehash, self.defport, {})
                     virts['port'] = (self.defport, self.porttype.stortype)
                     portstr = f':{self.defport}'
 
@@ -483,7 +478,7 @@ class SockAddr(s_types.Str):
                     mesg = f'Protocol {proto} does not allow specifying ports.'
                     raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
-                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
+                return f'{proto}://[{host}]{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
@@ -491,20 +486,18 @@ class SockAddr(s_types.Str):
         elif valu.count(':') >= 2:
             ipv6, norminfo = await self.iptype.norm(valu)
             host = self.iptype.repr(ipv6)
-            subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
+            adds = (('inet:ip', ipv6, norminfo),)
             virts['ip'] = (ipv6, self.iptype.stortype)
 
             if self.defport:
-                subs['port'] = (self.porttype.typehash, self.defport, {})
                 virts['port'] = (self.defport, self.porttype.stortype)
-                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
+                return f'{proto}://[{host}]:{self.defport}', {'adds': adds, 'subs': subs, 'virts': virts}
 
-            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
+            return f'{proto}://[{host}]', {'adds': adds, 'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
         valu, port, pstr = await self._normPort(valu)
         if port:
-            subs['port'] = (self.porttype.typehash, port, {})
             virts['port'] = (port, self.porttype.stortype)
 
         if port and proto in self.noports:
@@ -513,28 +506,29 @@ class SockAddr(s_types.Str):
 
         ipv4, norminfo = await self.iptype.norm(valu)
         ipv4_repr = self.iptype.repr(ipv4)
-        subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
+        adds = (('inet:ip', ipv4, norminfo),)
         virts['ip'] = (ipv4, self.iptype.stortype)
 
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
+        return f'{proto}://{ipv4_repr}{pstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
     async def _normPyTuple(self, valu, view=None):
         ipaddr, norminfo = await self.iptype.norm(valu)
 
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
-        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
+        adds = (('inet:ip', ipaddr, norminfo),)
+        subs = {'proto': (self.prototype.typehash, proto, {})}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
 
+        portstr = ''
         if self.defport:
-            subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
-            if ipaddr[0] == 6:
-                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
-            else:
-                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
+            portstr = f':{self.defport}'
 
-        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
+        if ipaddr[0] == 6:
+            return f'{proto}://[{ip_repr}]{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
+        else:
+            return f'{proto}://{ip_repr}{portstr}', {'adds': adds, 'subs': subs, 'virts': virts}
 
 class Email(s_types.Str):
 
@@ -735,14 +729,14 @@ class Fqdn(s_types.Type):
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain[1])
 
-            if parent.get('issuffix'):
+            if (pval := parent.get('issuffix')) is not None and pval[1]:
                 await protonode.set('iszone', True)
                 await protonode.set('zone', node.ndef[1])
                 return
 
             await protonode.set('iszone', False)
 
-            if parent.get('iszone'):
+            if (pval := parent.get('iszone')) is not None and pval[1]:
                 await protonode.set('zone', domain[1])
                 return
 
@@ -753,13 +747,18 @@ class Fqdn(s_types.Type):
     async def _onSetIsSuffix(self, node):
 
         fqdn = node.ndef[1]
-        issuffix = node.get('issuffix')
+
+        if (issuffix := node.get('issuffix')) is not None:
+            issuffix = issuffix[1]
 
         async with node.view.getEditor() as editor:
             async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
-                if child.get('iszone') == issuffix:
+                if (cval := child.get('iszone')) is not None:
+                    cval = cval[1]
+
+                if cval == issuffix:
                     continue
 
                 protonode = editor.loadNode(child)
@@ -767,8 +766,7 @@ class Fqdn(s_types.Type):
 
     async def _onSetIsZone(self, node):
 
-        iszone = node.get('iszone')
-        if iszone:
+        if (iszone := node.get('iszone')) is not None and iszone[1]:
             await node.set('zone', node.ndef[1])
             return
 
@@ -797,7 +795,7 @@ class Fqdn(s_types.Type):
                 async for child in node.view.nodesByPropValu('inet:fqdn:domain', 'ndef=', fqdn, norm=False):
                     await asyncio.sleep(0)
 
-                    if child.get('iszone') or child.get('zone') == zone:
+                    if ((cval := child.get('iszone')) is not None and cval[1]) or child.get('zone') == zone:
                         continue
 
                     protonode = editor.loadNode(child)
@@ -996,7 +994,7 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-        self.metatype = self.modl.type('meta:name')
+        self.nametype = self.modl.type('base:name')
         self.emailtype = self.modl.type('inet:email')
 
     async def _normPyStr(self, valu, view=None):
@@ -1020,7 +1018,7 @@ class Rfc2822Addr(s_types.Str):
 
         subs = {}
         if name:
-            subs['name'] = (self.metatype.typehash, name, {})
+            subs['name'] = (self.nametype.typehash, name, {})
 
         try:
             mail, norminfo = await self.emailtype.norm(addr)
@@ -1170,11 +1168,8 @@ class Url(s_types.Str):
                     valu, port = match.groups()
 
                 ipv6, norminfo = await self.iptype.norm(valu)
-                host = self.iptype.repr(ipv6)
+                host = f'[{self.iptype.repr(ipv6)}]'
                 subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
-
-                if match:
-                    host = f'[{host}]'
 
             except Exception:
                 pass
@@ -1247,93 +1242,7 @@ class Url(s_types.Str):
         return norm, {'subs': subs}
 
 modeldefs = (
-    ('inet', {
-        'ctors': (
-
-            ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'IP address'}}),
-                    ('geo:locatable', {'template': {'title': 'IP address'}}),
-                ),
-                'ex': '1.2.3.4',
-                'doc': 'An IPv4 or IPv6 address.'}),
-
-            ('inet:net', 'synapse.models.inet.IPRange', {}, {
-                'ex': '1.2.3.4-1.2.3.8',
-                'virts': (
-                    ('mask', ('int', {}), {
-                        'computed': True,
-                        'doc': 'The mask if the range can be represented in CIDR notation.'}),
-
-                    ('size', ('int', {}), {
-                        'computed': True,
-                        'doc': 'The number of addresses in the range.'}),
-                ),
-                'doc': 'An IPv4 or IPv6 address range.'}),
-
-            ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
-                'ex': 'tcp://1.2.3.4:80',
-                'virts': (
-                    ('ip', ('inet:ip', {}), {
-                        'computed': True,
-                        'doc': 'The IP address contained in the socket address URL.'}),
-
-                    ('port', ('inet:port', {}), {
-                        'computed': True,
-                        'doc': 'The port contained in the socket address URL.'}),
-                ),
-                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
-
-            ('inet:email', 'synapse.models.inet.Email', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'email address'}}),
-                ),
-                'doc': 'An email address.'}),
-
-            ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'FQDN'}}),
-                ),
-                'props': (
-                    ('domain', ('inet:fqdn', {}), {
-                        'computed': True,
-                        'doc': 'The parent domain for the FQDN.'}),
-
-                    ('host', ('str', {'lower': True}), {
-                        'computed': True,
-                        'doc': 'The host part of the FQDN.'}),
-
-                    ('issuffix', ('bool', {}), {
-                        'doc': 'True if the FQDN is considered a suffix.'}),
-
-                    ('iszone', ('bool', {}), {
-                        'doc': 'True if the FQDN is considered a zone.'}),
-
-                    ('zone', ('inet:fqdn', {}), {
-                        'doc': 'The zone level parent for this FQDN.'}),
-                ),
-                'ex': 'vertex.link',
-                'doc': 'A Fully Qualified Domain Name (FQDN).'}),
-
-            ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'RFC 2822 address'}}),
-                ),
-                'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                'doc': 'An RFC 2822 Address field.'}),
-
-            ('inet:url', 'synapse.models.inet.Url', {}, {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'URL'}}),
-                ),
-                'ex': 'http://www.woot.com/files/index.html',
-                'doc': 'A Universal Resource Locator (URL).'}),
-
-            ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
-                'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
-                'doc': 'An individual HTTP cookie string.'}),
-        ),
-
+    {
         'edges': (
             (('inet:whois:iprecord', 'has', 'inet:ip'), {
                 'doc': 'The IP whois record describes the IP address.'}),
@@ -1349,6 +1258,89 @@ modeldefs = (
         ),
 
         'types': (
+
+            ('inet:ip', (None, {'ctor': 'synapse.models.inet.IPAddr'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IP address'}}),
+                    ('geo:locatable', {'template': {'title': 'IP address'}}),
+                ),
+                'ex': '1.2.3.4',
+                'doc': 'An IPv4 or IPv6 address.'}),
+
+            ('inet:net', (None, {'ctor': 'synapse.models.inet.IPRange'}), {
+                'ex': '1.2.3.4-1.2.3.8',
+                'virts': (
+                    ('mask', ('int', {}), {
+                        'computed': True,
+                        'doc': 'The mask if the range can be represented in CIDR notation.'}),
+
+                    ('size', ('int', {}), {
+                        'computed': True,
+                        'doc': 'The number of addresses in the range.'}),
+                ),
+                'doc': 'An IPv4 or IPv6 address range.'}),
+
+            ('inet:sockaddr', (None, {'ctor': 'synapse.models.inet.SockAddr'}), {
+                'ex': 'tcp://1.2.3.4:80',
+                'virts': (
+                    ('ip', ('inet:ip', {}), {
+                        'computed': True,
+                        'doc': 'The IP address contained in the socket address URL.'}),
+
+                    ('port', ('inet:port', {}), {
+                        'computed': True,
+                        'doc': 'The port contained in the socket address URL.'}),
+                ),
+                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
+
+            ('inet:email', (None, {'ctor': 'synapse.models.inet.Email'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'email address'}}),
+                ),
+                'doc': 'An email address.'}),
+
+            ('inet:fqdn', (None, {'ctor': 'synapse.models.inet.Fqdn'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'FQDN'}}),
+                ),
+                'props': (
+                    ('domain', ('inet:fqdn', {}), {
+                        'computed': True,
+                        'doc': 'The parent domain for the FQDN.'}),
+
+                    ('host', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The host part of the FQDN.'}),
+
+                    ('issuffix', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a suffix.'}),
+
+                    ('iszone', ('bool', {}), {
+                        'doc': 'True if the FQDN is considered a zone.'}),
+
+                    ('zone', ('inet:fqdn', {}), {
+                        'doc': 'The zone level parent for this FQDN.'}),
+                ),
+                'ex': 'vertex.link',
+                'doc': 'A Fully Qualified Domain Name (FQDN).'}),
+
+            ('inet:rfc2822:addr', (None, {'ctor': 'synapse.models.inet.Rfc2822Addr'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'RFC 2822 address'}}),
+                ),
+                'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                'doc': 'An RFC 2822 Address field.'}),
+
+            ('inet:url', (None, {'ctor': 'synapse.models.inet.Url'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'URL'}}),
+                ),
+                'ex': 'http://www.woot.com/files/index.html',
+                'doc': 'A Universal Resource Locator (URL).'}),
+
+            ('inet:http:cookie', (None, {'ctor': 'synapse.models.inet.HttpCookie'}), {
+                'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
+                'doc': 'An individual HTTP cookie string.'}),
 
             ('inet:ipv4', ('inet:ip', {'version': 4}), {
                 'doc': 'An IPv4 address.'}),
@@ -1386,6 +1378,13 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
+                    ('risk:exploitable', {}),
+                ),
+                'props': (
+                    ('proto', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The network protocol of the client.'
+                    }),
                 ),
                 'doc': 'A network client address.'}),
 
@@ -1393,8 +1392,10 @@ modeldefs = (
                 'doc': 'An instance of a file downloaded from a server.'}),
 
             ('inet:flow', ('guid', {}), {
+                'template': {'title': 'network flow'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'flow'}}),
+                    ('base:activity', {}),
+                    ('inet:proto:link', {}),
                 ),
                 'doc': 'A network connection between a client and server.'}),
 
@@ -1472,6 +1473,13 @@ modeldefs = (
                 ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
+                    ('risk:exploitable', {}),
+                ),
+                'props': (
+                    ('proto', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The network protocol of the server.'
+                    }),
                 ),
                 'doc': 'A network server address.'}),
 
@@ -1592,11 +1600,13 @@ modeldefs = (
             ('inet:service:platform', ('guid', {}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'platform'}}),
+                    ('risk:exploitable', {}),
                 ),
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:agent', ('guid', {}), {
                 'interfaces': (
+                    ('entity:actor', {}),
                     ('inet:service:object', {}),
                 ),
                 'template': {'service:base': 'agent'},
@@ -1609,6 +1619,7 @@ modeldefs = (
             ('inet:service:account', ('guid', {}), {
                 'template': {'title': 'service account'},
                 'interfaces': (
+                    ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
                     ('econ:pay:instrument', {}),
@@ -1839,67 +1850,79 @@ modeldefs = (
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                 'doc': 'An x509 certificate sent by a client for TLS.'}),
 
+            ('inet:ipscope', ('str', {'enums': scopes_enum}), {
+                'doc': 'An IP address scope.'}),
+
+            ('inet:ipversion', ('int', {'enums': ((4, '4'), (6, '6'))}), {
+                'doc': 'An IP protocol version.'}),
+
+            ('inet:jarm:ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
+                'doc': 'A JARM cipher string.'}),
+
+            ('inet:jarm:extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
+                'doc': 'A JARM extensions string.'}),
+
+            ('inet:svcaccess:type', ('int', {'enums': svcaccesstypes}), {
+                'doc': 'A service access type.'}),
+
         ),
 
         'interfaces': (
 
             ('inet:proto:link', {
 
-                'doc': 'Properties common to network protocol requests and transports.',
-                'template': {'link': 'link'},
+                'template': {'title': 'link'},
                 'props': (
-
-                    ('flow', ('inet:flow', {}), {
-                        'doc': 'The network flow which contained the {link}.'}),
 
                     ('client', ('inet:client', {}), {
                         'doc': 'The socket address of the client.'}),
 
                     ('client:host', ('it:host', {}), {
-                        'doc': 'The client host which initiated the {link}.'}),
+                        'doc': 'The client host which initiated the {title}.'}),
 
                     ('client:proc', ('it:exec:proc', {}), {
-                        'doc': 'The client process which initiated the {link}.'}),
+                        'doc': 'The client process which initiated the {title}.'}),
 
                     ('client:exe', ('file:bytes', {}), {
-                        'doc': 'The client executable which initiated the {link}.'}),
+                        'doc': 'The client executable which initiated the {title}.'}),
 
                     ('server', ('inet:server', {}), {
                         'doc': 'The socket address of the server.'}),
 
                     ('server:host', ('it:host', {}), {
-                        'doc': 'The server host which received the {link}.'}),
+                        'doc': 'The server host which received the {title}.'}),
 
                     ('server:proc', ('it:exec:proc', {}), {
-                        'doc': 'The server process which received the {link}.'}),
+                        'doc': 'The server process which received the {title}.'}),
 
                     ('server:exe', ('file:bytes', {}), {
-                        'doc': 'The server executable which received the {link}.'}),
+                        'doc': 'The server executable which received the {title}.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
-            }),
+                'doc': 'Properties common to network protocol requests and transports.'}),
 
             ('inet:proto:request', {
 
-                'doc': 'Properties common to network protocol requests and responses.',
+                'template': {'title': 'request'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'request'}}),
+                    ('base:event', {}),
+                    ('inet:proto:link', {}),
                 ),
-
                 'props': (
-                    ('time', ('time', {}), {
-                        'doc': 'The time the request was sent.'}),
+
+                    ('flow', ('inet:flow', {}), {
+                        'doc': 'The network flow which contained the {title}.'}),
                 ),
-            }),
+                'doc': 'Properties common to network protocol requests and responses.'}),
 
             ('inet:service:base', {
                 'doc': 'Properties common to most forms within a service platform.',
                 'template': {'title': 'node'},
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A platform specific ID which identifies the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -1942,7 +1965,7 @@ modeldefs = (
                 'template': {'title': 'subscriber'},
                 'interfaces': (
                     ('entity:actor', {}),
-                    ('entity:abstract', {}),
+                    ('entity:resolvable', {}),
                     ('inet:service:object', {}),
                 ),
                 'props': (
@@ -2024,7 +2047,7 @@ modeldefs = (
 
             ('inet:email:message', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID parsed from the "message-id" header.'}),
 
                 ('to', ('inet:email', {}), {
@@ -2135,21 +2158,6 @@ modeldefs = (
                     'doc': 'The last IP address in the network range.'}),
             )),
 
-            ('inet:client', {}, (
-                ('proto', ('str', {'lower': True}), {
-                    'computed': True,
-                    'doc': 'The network protocol of the client.'
-                }),
-                ('ip', ('inet:ip', {}), {
-                    'computed': True,
-                    'doc': 'The IP of the client.',
-                    'prevnames': ('ipv4', 'ipv6')}),
-
-                ('port', ('inet:port', {}), {
-                    'doc': 'The client tcp/udp port.'
-                }),
-            )),
-
             ('inet:email', {}, (
 
                 ('user', ('inet:user', {}), {
@@ -2160,7 +2168,7 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The domain of the email address.'}),
 
-                ('plus', ('str', {'lower': True}), {
+                ('plus', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The optional email address "tag".'}),
 
@@ -2170,9 +2178,6 @@ modeldefs = (
             )),
 
             ('inet:flow', {}, (
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period when the flow was active.'}),
 
                 ('server:txfiles', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files sent by the server.'}),
@@ -2204,16 +2209,16 @@ modeldefs = (
                 ('tot:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent in both directions.'}),
 
-                ('server:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                ('server:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the server.'}),
 
-                ('server:softnames', ('array', {'type': 'meta:name'}), {
+                ('server:software:names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'An array of software names identified on the server.'}),
 
-                ('client:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                ('client:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the client.'}),
 
-                ('client:softnames', ('array', {'type': 'meta:name'}), {
+                ('client:software:names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'An array of software names identified on the client.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
@@ -2282,7 +2287,7 @@ modeldefs = (
 
             ('inet:http:param', {}, (
 
-                ('name', ('str', {'lower': True}), {'computed': True,
+                ('name', ('str:lower', {}), {'computed': True,
                     'doc': 'The name of the HTTP query parameter.'}),
 
                 ('value', ('str', {}), {'computed': True,
@@ -2416,10 +2421,10 @@ modeldefs = (
                 ('dns:rev', ('inet:fqdn', {}), {
                     'doc': 'The most current DNS reverse lookup for the IP.'}),
 
-                ('scope', ('str', {'enums': scopes_enum}), {
+                ('scope', ('inet:ipscope', {}), {
                     'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
 
-                ('version', ('int', {'enums': ((4, '4'), (6, '6'))}), {
+                ('version', ('inet:ipversion', {}), {
                     'doc': 'The IP version of the address.'}),
             )),
 
@@ -2441,21 +2446,6 @@ modeldefs = (
                 ('email', ('inet:email', {}), {
                     'computed': True,
                     'doc': 'The email field parsed from an RFC 2822 address string.'
-                }),
-            )),
-
-            ('inet:server', {}, (
-                ('proto', ('str', {'lower': True}), {
-                    'computed': True,
-                    'doc': 'The network protocol of the server.'
-                }),
-                ('ip', ('inet:ip', {}), {
-                    'computed': True,
-                    'doc': 'The IP of the server.',
-                    'prevnames': ('ipv4', 'ipv6')}),
-
-                ('port', ('inet:port', {}), {
-                    'doc': 'The server tcp/udp port.'
                 }),
             )),
 
@@ -2500,7 +2490,7 @@ modeldefs = (
                     'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                            'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
 
-                ('proto', ('str', {'lower': True}), {
+                ('proto', ('str:lower', {}), {
                     'computed': True,
                     'doc': 'The protocol in the URL.'}),
 
@@ -2578,7 +2568,7 @@ modeldefs = (
                 ('query', ('inet:search:query', {}), {
                     'doc': 'The search query that produced the result.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('str:lower', {}), {
                     'doc': 'The title of the matching web page.'}),
 
                 ('rank', ('int', {}), {
@@ -2587,7 +2577,7 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL hosting the matching content.'}),
 
-                ('text', ('str', {'lower': True}), {
+                ('text', ('str:lower', {}), {
                     'doc': 'Extracted/matched text from the matched content.'}),
             )),
 
@@ -2596,7 +2586,7 @@ modeldefs = (
                 ('fqdn', ('inet:fqdn', {}), {
                     'doc': 'The domain associated with the whois record.'}),
 
-                ('text', ('text', {'lower': True}), {
+                ('text', ('text:lower', {}), {
                     'doc': 'The full text of the whois record.'}),
 
                 ('created', ('time', {}), {
@@ -2659,28 +2649,28 @@ modeldefs = (
                 ('updated', ('time', {}), {
                     'doc': 'The "last updated" time from the record.'}),
 
-                ('text', ('text', {'lower': True}), {
+                ('text', ('text:lower', {}), {
                     'doc': 'The full text of the record.'}),
 
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The associated Autonomous System Number (ASN).'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
 
-                ('parentid', ('meta:id', {}), {
+                ('parentid', ('base:id', {}), {
                     'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
 
-                ('name', ('meta:id', {}), {
+                ('name', ('base:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
                 ('country', ('iso:3166:alpha2', {}), {
                     'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
-                ('status', ('str', {'lower': True}), {
+                ('status', ('str:lower', {}), {
                     'doc': 'The state of the registered network.'}),
 
-                ('type', ('str', {'lower': True}), {
+                ('type', ('str:lower', {}), {
                     'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
                 ('links', ('array', {'type': 'inet:url'}), {
@@ -2693,29 +2683,25 @@ modeldefs = (
             ('inet:wifi:ap', {}, (
 
                 ('ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID for the wireless access point.', 'computed': True, }),
+                    'doc': 'The SSID for the wireless access point.'}),
 
                 ('bssid', ('inet:mac', {}), {
-                    'doc': 'The MAC address for the wireless access point.', 'computed': True, }),
+                    'doc': 'The MAC address for the wireless access point.'}),
 
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str', {'lower': True}), {
+                ('encryption', ('base:name', {}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                # FIXME ownable interface? currently has :owner via meta:havable
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization that owns/operates the access point.'}),
             )),
 
             ('inet:wifi:ssid', {}, ()),
 
             ('inet:tls:jarmhash', {}, (
-                ('ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
+                ('ciphers', ('inet:jarm:ciphers', {}), {
                     'computed': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
-                ('extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
+                ('extensions', ('inet:jarm:extensions', {}), {
                     'computed': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
@@ -2758,7 +2744,7 @@ modeldefs = (
                 ('client:hostname', ('it:hostname', {}), {
                     'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
 
-                ('client:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                ('client:keyboard:layout', ('base:name', {}), {
                     'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
             )),
 
@@ -2842,7 +2828,7 @@ modeldefs = (
             ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An ID which identifies the platform.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2860,12 +2846,12 @@ modeldefs = (
                 ('zones', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'An array of alternate zones for the platform.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'twitter',
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2874,7 +2860,7 @@ modeldefs = (
                 ('type', ('inet:service:platform:type:taxonomy', {}), {
                     'doc': 'The type of service platform.'}),
 
-                ('family', ('str', {'onespace': True, 'lower': True}), {
+                ('family', ('base:name', {}), {
                     'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
 
                 ('parent', ('inet:service:platform', {}), {
@@ -2905,11 +2891,11 @@ modeldefs = (
 
             ('inet:service:agent', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('base:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the service agent instance.'}),
 
-                ('names', ('array', {'type': 'str', 'typeopts': {'onespace': True, 'lower': True}}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'An array of alternate names for the service agent instance.'}),
 
                 ('desc', ('str', {}), {
@@ -2961,7 +2947,7 @@ modeldefs = (
 
             ('inet:service:permission', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the permission.'}),
 
                 ('type', ('inet:service:permission:type:taxonomy', {}), {
@@ -2980,7 +2966,10 @@ modeldefs = (
                 ('object', ('inet:service:object', {}), {
                     'doc': 'The object that the permission controls access to.'}),
 
-                ('grantee', (('inet:service:account', 'inet:service:role'), {}), {
+                ('grantee', (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    ), {
                     'doc': 'The user or role which is granted the permission.'}),
             )),
 
@@ -3033,7 +3022,7 @@ modeldefs = (
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the message is publicly visible.'}),
 
-                ('title', ('str', {'lower': True, 'onespace': True}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The message title.'}),
 
                 ('text', ('text', {}), {
@@ -3060,13 +3049,13 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the message was sent from.'}),
 
-                ('place:name', ('meta:name', {}), {
+                ('place:name', ('geo:name', {}), {
                     'doc': 'The name of the place that the message was sent from.'}),
 
                 ('client:software', ('it:software', {}), {
                     'doc': 'The client software version used to send the message.'}),
 
-                ('client:software:name', ('meta:name', {}), {
+                ('client:software:name', ('it:softwarename', {}), {
                     'doc': 'The name of the client software used to send the message.'}),
 
                 ('file', ('file:bytes', {}), {
@@ -3075,7 +3064,10 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': ('inet:service:account', 'inet:service:role')}), {
+                ('mentions', ('array', {'type': (
+                        ('inet:service:account', {}),
+                        ('inet:service:role', {})
+                    )}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
@@ -3091,7 +3083,7 @@ modeldefs = (
 
             ('inet:service:channel', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the channel.'}),
 
                 ('period', ('ival', {}), {
@@ -3106,7 +3098,7 @@ modeldefs = (
 
             ('inet:service:thread', {}, (
 
-                ('title', ('str', {'lower': True, 'onespace': True}), {
+                ('title', ('base:name', {}), {
                     'doc': 'The title of the thread.'}),
 
                 ('channel', ('inet:service:channel', {}), {
@@ -3131,7 +3123,7 @@ modeldefs = (
             ('inet:service:resource:type:taxonomy', {}, {}),
             ('inet:service:resource', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
 
                 ('desc', ('text', {}), {
@@ -3146,7 +3138,7 @@ modeldefs = (
 
             ('inet:service:bucket', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service resource.'}),
             )),
 
@@ -3170,7 +3162,7 @@ modeldefs = (
                 ('resource', ('inet:service:resource', {}), {
                     'doc': 'The resource which the account attempted to access.'}),
 
-                ('type', ('int', {'enums': svcaccesstypes}), {
+                ('type', ('inet:svcaccess:type', {}), {
                     'doc': 'The type of access requested.'}),
             )),
 
@@ -3190,5 +3182,5 @@ modeldefs = (
                     'doc': 'The subscriber who owns the subscription.'}),
             )),
         ),
-    }),
+    },
 )

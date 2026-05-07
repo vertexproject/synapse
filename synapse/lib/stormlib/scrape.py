@@ -66,7 +66,7 @@ class LibScrape(s_stormtypes.Lib):
             A scrape implementation with a regex that matches name keys in text::
 
                 $re="(Name\\:\\s)(?P<valu>[a-z0-9]+)\\s"
-                $form="meta:name"
+                $form="entity:name"
 
                 function scrape(text, form) {
                         $ret = ()

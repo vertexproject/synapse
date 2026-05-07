@@ -35,7 +35,9 @@ def loads(s: str | bytes) -> Any:
     try:
         return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
     except (ValueError, TypeError) as exc:
-        raise s_exc.BadJsonText(mesg=str(exc))
+        import synapse.common as s_common  # Avoid circular import
+        text = s if isinstance(s, str) else s.decode('utf-8', errors='replace')
+        raise s_exc.BadJsonText(mesg=str(exc), text=s_common.trimText(text))
 
 def load(fp: BinaryIO) -> Any:
     '''

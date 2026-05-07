@@ -1451,8 +1451,7 @@ class User(Ruler):
                 if expires >= s_common.now():
                     if await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
-                        logger.debug(f'Used one time password for {self.name}',
-                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
+                        logger.debug(f'Used one time password for {self.name}')
                         return True
 
         shadow = self.info.get('passwd')
@@ -1476,15 +1475,15 @@ class User(Ruler):
 
                     if self.iden == self.auth.rootuser.iden:
                         mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}),. Cannot lock {self.name} user.'
-                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, }}
-                        logger.error(mesg, extra=extra)
+                        logger.error(mesg, extra=self.auth.nexsroot.cell.getLogExtra(target_user=self.iden, target_username=self.name))
                         return False
 
                     await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
 
-                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
-                    extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
-                    logger.warning(mesg, extra=extra)
+                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locked their account.'
+                    logger.warning(mesg, extra=self.auth.nexsroot.cell.getLogExtra(target_user=self.iden,
+                                                                                  target_username=self.name,
+                                                                                  status='MODIFY'))
 
                 return False
 

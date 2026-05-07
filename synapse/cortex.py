@@ -36,6 +36,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
@@ -214,8 +215,8 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDefs(self):
-        return await self.cell.getModelDefs()
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
 
     def getCoreInfo(self):
         '''
@@ -333,6 +334,19 @@ class CoreApi(s_cell.CellApi):
             BadSyntaxError: If the query is invalid.
         '''
         return await self.cell.reqValidStorm(text, opts)
+
+    async def isValidStorm(self, text, *, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        return await self.cell.isValidStorm(text, opts=opts)
 
     async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
@@ -521,7 +535,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -539,7 +553,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -556,7 +570,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
@@ -575,7 +589,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(nid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        self.user.confirm(('layer', 'read'), gateiden=layriden)
         async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
                                                     startvalu=startvalu):
             yield item
@@ -674,11 +688,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
-        'storm:interface:search': {
-            'default': True,
-            'description': 'Enable Storm search interfaces for lookup mode.',
-            'type': 'boolean',
-        },
         'storm:interface:scrape': {
             'default': True,
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
@@ -732,11 +741,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
+        if __debug__:
+            self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
-        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
+        self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -772,7 +784,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 
@@ -785,7 +797,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initStormLibs()
 
         self.modsbyiface = {}
-        self.stormiface_search = self.conf.get('storm:interface:search')
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
@@ -795,6 +806,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model(core=self)
+        self._localmodeldefs = []
 
         await self._loadModels()
         await self._loadExtModel()
@@ -817,6 +829,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+        await self._initStormDmons()
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -1067,12 +1080,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls all layer permissions.'},
             {'perm': ('layer', 'add'), 'gate': 'cortex',
              'desc': 'Controls the ability to add Layers to the cortex.'},
-            {'perm': ('layer', 'del'), 'gate': 'cortex',
-             'desc': 'Controls the ability to remove Layers from the cortex.'},
+            {'perm': ('layer', 'del'), 'gate': 'layer',
+             'desc': 'Controls the ability to delete a Layer.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
-            {'perm': ('layer', 'read', '<layer>'), 'gate': 'cortex',
-             'desc': 'Controls the ability to read/lift from a specific Layer.'},
 
             {'perm': ('layer', 'set'), 'gate': 'layer',
              'desc': 'Controls setting any layer property.'},
@@ -1085,8 +1096,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('layer', 'write'), 'gate': 'layer',
              'desc': 'Controls the ability to write to a Layer.'},
-            {'perm': ('layer', 'write', '<layer>'), 'gate': 'cortex',
-             'desc': 'Controls the ability to write to a specific Layer.'},
 
             {'perm': ('model', 'admin'), 'gate': 'cortex',
              'desc': 'Controls the ability to modify the extended data model.'},
@@ -1237,13 +1246,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        if self.isactive:
-            await self._checkLayerModels()
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
-
-        await self._initStormDmons()
 
         await self._initStormSvcs()
 
@@ -1254,26 +1259,38 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
+        await self.initStormPool()
 
         async def _runMigrations():
+            await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
+
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
-            await self._checkLayerModels()
+            try:
+                await self._checkLayerModels()
+            finally:
+                if __debug__:
+                    self._migration_evnt.set()
 
-            # Once migrations are complete, start the view and layer tasks.
-            for view in self.views.values():
-                await view.initTrigTask()
-                await view.initMergeTask()
+        if self.safemode:
+            if __debug__:
+                self._migration_evnt.set()
+            return
 
-            for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
+        for view in self.views.values():
+            await view.initTrigTask()
+            await view.initMergeTask()
 
-        await self.initStormPool()
+        for pkgdef in list(self.stormpkgs.values()):
+            self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
+
+        if __debug__:
+            self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -1282,6 +1299,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.finiMergeTask()
 
         await self.finiStormPool()
+
+    async def _execCellUpdates(self):
+        await super()._execCellUpdates()
+
+        newhash = s_common.guid(s_common.flatten(self._mainlinemdefs))
+        persisted = self.cellinfo.get('cortex:model')
+        oldhash = s_common.guid(s_common.flatten(persisted)) if persisted is not None else None
+
+        if newhash != oldhash:
+            await self._push('model:set', self._mainlinemdefs)
 
     async def initStormPool(self):
 
@@ -2472,19 +2499,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 await self.fire('core:pkg:onload:start', pkg=name)
 
-                logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
+                logextra = self.getLogExtra(pkg=name, vers=pkgvers)
 
                 verskey = 'storage:version'
 
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgState(name, verskey) is None:
+                        await self.setStormPkgState(name, verskey, -1)
 
                 else:
                     inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
+                    curvers = await self.getStormPkgState(name, verskey)
                     if curvers is None:
                         inaugural = True
                         curvers = -1
@@ -2498,10 +2525,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgState(name, verskey, vers)
                             continue
 
-                        logextra['synapse']['initvers'] = vers
+                        logextra['params']['initvers'] = vers
 
                         logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
 
@@ -2535,9 +2562,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        curvers = max(vers, stored := await self.getStormPkgState(name, verskey, default=-1))
                         if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                            await self.setStormPkgState(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2827,6 +2854,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in pkgvars.items():
             yield item
 
+    # Storm package state APIs
+
+    def _getStormPkgStateKV(self, name):
+        if (pkgstate := self.stormpkgstate.get(name)) is None:
+            self.stormpkgstate[name] = pkgstate = self.cortexdata.getSubKeyVal(f'stormpkg:state:{name}:')
+        return pkgstate
+
+    async def getStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:pop')
+    async def popStormPkgState(self, name, key, default=None):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:state:set')
+    async def setStormPkgState(self, name, key, valu):
+        pkgstate = self._getStormPkgStateKV(name)
+        return pkgstate.set(key, valu)
+
+    async def iterStormPkgState(self, name):
+        pkgstate = self._getStormPkgStateKV(name)
+        for item in pkgstate.items():
+            yield item
+
     async def addStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -2922,12 +2975,38 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (defs := s_dyndeps.getDynLocal(path)) is not None:
                 mdefs.extend(defs)
 
-        self.model.addDataModels(mdefs)
+        self._mainlinemdefs = mdefs
 
-    async def _addDataModels(self, mods):
-        self.model.addDataModels(mods)
+        # If a persisted model exists and its hash differs from the code-derived one,
+        # load from persisted. Mirrors hold the cluster's current model until the leader
+        # issues model:set after a code change.
+        if (persisted := self.cellinfo.get('cortex:model')) is not None:
+            newhash = s_common.guid(s_common.flatten(mdefs))
+            oldhash = s_common.guid(s_common.flatten(persisted))
+            if newhash != oldhash:
+                self.model.addModelDefs(persisted)
+                return
+
+        self.model.addModelDefs(mdefs)
+
+    async def _addModelDefs(self, mods):
+        self.model.addModelDefs(mods)
+        self._localmodeldefs.append(mods)
         await self._initDeprLocks()
         await self._warnDeprLocks()
+
+    @s_nexus.Pusher.onPush('model:set')
+    async def _setModel(self, mdefs):
+        model = s_datamodel.Model(core=self)
+        model.addModelDefs(mdefs)
+        for localmods in self._localmodeldefs:
+            model.addModelDefs(localmods)
+        self._applyExtModel(model)
+        self.model = model
+        self.cellinfo.set('cortex:model', mdefs)
+        await self._initDeprLocks()
+        modelhash = s_common.guid(s_common.flatten(mdefs))
+        await self.feedBeholder('model:set', {'hash': modelhash})
 
     async def _loadExtModel(self):
 
@@ -2937,9 +3016,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
+        self._applyExtModel(self.model)
+
+    def _applyExtModel(self, model):
+        '''Apply persisted extended model elements to the given DataModel instance.'''
+
         for typename, basetype, typeopts, typeinfo in self.exttypes.values():
             try:
-                self.model.addType(typename, basetype, typeopts, typeinfo)
+                model.addType(typename, basetype, typeopts, typeinfo)
             except Exception as e:
                 logger.warning(f'Extended type ({typename}) error: {e}')
 
@@ -2948,12 +3032,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def addForms(infos):
             for formname, basetype, typeopts, typeinfo in infos:
                 try:
-                    if self.model.type(basetype) is None:
+                    if model.type(basetype) is None:
                         formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
                         continue
 
-                    self.model.addType(formname, basetype, typeopts, typeinfo)
-                    form = self.model.addForm(formname, {}, ())
+                    model.addType(formname, basetype, typeopts, typeinfo)
+                    form = model.addForm(formname, {}, ())
 
                     if (cinfos := formchildren.pop(formname, None)) is not None:
                         addForms(cinfos)
@@ -2970,7 +3054,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for form, prop, tdef, info in self.extprops.values():
             try:
-                prop = self.model.addFormProp(form, prop, tdef, info)
+                prop = model.addFormProp(form, prop, tdef, info)
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
             else:
@@ -2981,13 +3065,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for prop, tdef, info in self.exttagprops.values():
             try:
-                self.model.addTagProp(prop, tdef, info)
+                model.addTagProp(prop, tdef, info)
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
         for edge, info in self.extedges.values():
             try:
-                self.model.addEdge(edge, info)
+                model.addEdge(edge, info)
             except Exception as e:
                 logger.warning(f'ext edge ({edge}) error: {e}')
 
@@ -3286,18 +3370,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # TODO: do we actually want to auto-convert to poly props?
-        typename, typeinfo = tdef
-        if not typeinfo:
-            if typename in self.model.ifaces or ((forminfo := self.model.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-                typename = (typename,)
-
-        if isinstance(typename, tuple):
-            typeinfo = dict(typeinfo)
-            typeinfo['forms'] = tuple(tname for tname in typename if tname in self.model.forminfos)
-            typeinfo['interfaces'] = tuple(tname for tname in typename if tname in self.model.ifaces)
-            typename = 'poly'
-            tdef = (typename, typeinfo)
+        tdef = self.model.convertTypedef(tdef)
 
         self.model.getTypeClone(tdef)
 
@@ -3837,6 +3910,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+        self.addHttpApi('/api/v1/isvalidstorm', s_httpapi.IsValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
@@ -4048,8 +4122,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getModelDict(self):
         return self.model.getModelDict()
 
-    async def getModelDefs(self):
-        return self.model.getModelDefs()
+    async def getModelDef(self):
+        return self.model.getModelDef()
 
     async def getFormCounts(self):
         '''
@@ -4564,6 +4638,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             newlayers[oldlayers.index(oldiden)] = newiden
 
             await view._setLayerIdens(newlayers)
+            view.clearCache()
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):
@@ -5258,7 +5333,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5326,21 +5401,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return proxy
 
                 mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                logger.warning(mesg, extra=self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
 
             except s_exc.ShuttingDown:
                 mesg = f'Proxy for pool mirror [{proxyname}] is shutting down. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except s_exc.IsFini:
                 mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
             except TimeoutError:
                 mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
 
-        logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
+        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
         return None
 
     async def storm(self, text, opts=None):
@@ -5352,7 +5427,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5386,7 +5461,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5416,7 +5491,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5603,8 +5678,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormEval(self, text):
         try:
             astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{text}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         astvalu.init(self)
@@ -5613,8 +5688,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         try:
             query = copy.deepcopy(await s_parser.querycache.aget(args))
-        except s_exc.FatalErr:
-            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+        except s_exc.FatalErr: # pragma: no cover
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
             await self.fini()
             raise
         query.init(self)
@@ -5663,6 +5738,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
+    async def isValidStorm(self, text, opts=None):
+        '''
+        Check if a Storm query is valid without raising an exception.
+
+        Args:
+            text (str): The text of the Storm query to check.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            (bool, info): A tuple of (True, {}) if valid, or (False, err) if not.
+        '''
+        try:
+            await self.reqValidStorm(text, opts)
+            return (True, {})
+        except Exception as e:
+            return s_common.retnexc(e)
+
     def _logStormQuery(self, text, user, info=None):
         '''
         Log a storm query.
@@ -5671,11 +5763,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if info is None:
                 info = {}
             info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
             info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+                            extra=self.getLogExtra(**info))
 
     async def getCoreInfoV2(self):
         return {
@@ -6587,7 +6677,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self.reqVault(iden)
 
         if not isinstance(valu, dict):
-            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=short)
 
         try:
             s_msgpack.en(valu)
@@ -6618,7 +6709,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self.reqVault(iden)
 
         if not isinstance(valu, dict):
-            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=short)
 
         try:
             s_msgpack.en(valu)

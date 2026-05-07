@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 34)
+maxvers = (0, 2, 35)
 
 class ModelRev:
 
@@ -162,7 +162,7 @@ class ModelRev:
                     oldm = e.errinfo.get('mesg')
                     iden = s_common.ehex(self.core.getBuidByNid(nid))
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
-                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                                   extra=self.core.getLogExtra(node=iden, layer=layr.iden))
                     continue
 
                 if norm == propvalu:

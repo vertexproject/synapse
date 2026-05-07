@@ -25,13 +25,11 @@ import copy
 import math
 import types
 import shutil
-import typing
 import asyncio
 import inspect
 import logging
 import tempfile
 import unittest
-import threading
 import contextlib
 import collections
 
@@ -65,11 +63,11 @@ import synapse.lib.types as s_types
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tools.storm.pkg.gen as s_genpkg
@@ -260,12 +258,8 @@ class ThreeType(s_types.Type):
         return '3'
 
 testmodel = (
-    ('test', {
+    {
 
-        'ctors': (
-            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-        ),
         'interfaces': (
             ('test:interface', {
                 'doc': 'test interface',
@@ -285,8 +279,17 @@ testmodel = (
                     ('servers', ('array', {'type': 'inet:server'}), {}),
                 )
             }),
+            ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
         ),
         'types': (
+            ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {}),
+            ('test:threetype', (None, {'ctor': 'synapse.tests.utils.ThreeType'}), {}),
+            ('test:ctoronstorm', (None, {'ctor': 'synapse.tests.utils.TestType'}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
             ('test:type10', ('test:type', {}), {
                 'doc': 'A fake type.'}),
 
@@ -298,6 +301,8 @@ testmodel = (
             ('test:ro', ('str', {}), {}),
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
+            ('test:float:closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('test:float:open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
             ('test:str', ('str', {}), {}),
             ('test:str2', ('test:str', {}), {}),
             ('test:inhstr', ('str', {}), {}),
@@ -330,11 +335,6 @@ testmodel = (
                 ('foo', 'test:int'),
                 ('bar', ('str', {'lower': True}),),
             )}), {'doc': 'A complex comp type.'}),
-            ('test:ndefcomp', ('comp', {'fields': (
-                ('hehe', 'test:int'),
-                ('ndef', 'test:ndef'))
-            }), {'doc': 'A comp type with an ndef.'}),
-
             ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
             ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
             ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -347,10 +347,6 @@ testmodel = (
             ('test:cycle0', ('str', {}), {}),
             ('test:cycle1', ('str', {}), {}),
 
-            ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
-            ('test:ndef:formfilter2', ('ndef', {'interface': 'meta:taxonomy'}), {}),
-
             ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
             ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
             ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
@@ -358,8 +354,13 @@ testmodel = (
 
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
-            ('test:protocol', ('int', {}), {}),
             ('test:onstorm', ('guid', {}), {}),
+            ('test:onstorm2', ('guid', {}), {
+                'on': {'add': {'q': '[ :tick=2025 ]'}},
+                'props': (
+                    ('tick', ('time', {}), {}),
+                ),
+            }),
         ),
         'forms': (
 
@@ -371,7 +372,10 @@ testmodel = (
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
                 ('children', ('array', {'type': 'test:arrayprop'}), {}),
                 ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
-                ('multivirt', ('array', {'type': ('file:path', 'inet:server'), 'uniq': False}), {}),
+                ('multivirt', ('array', {'type': (
+                    ('file:path', {}),
+                    ('inet:server', {})
+                ), 'uniq': False}), {}),
                 ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
             )),
             ('test:taxonomy', {}, ()),
@@ -379,7 +383,7 @@ testmodel = (
 
                 ('intprop', ('int', {'min': 20, 'max': 30}), {}),
                 ('int2', ('int', {}), {}),
-                ('strprop', ('str', {'lower': 1}), {}),
+                ('strprop', ('test:lower', {}), {}),
                 ('guidprop', ('guid', {}), {}),
                 ('locprop', ('loc', {}), {}),
             )),
@@ -410,11 +414,6 @@ testmodel = (
                 ('bar', ('str', {'lower': 1}), {'computed': True})
             )),
 
-            ('test:ndefcomp', {}, (
-                ('hehe', ('test:int', {}), {'computed': True}),
-                ('ndef', ('test:ndef', {}), {'computed': True}),
-            )),
-
             ('test:int', {}, (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
@@ -424,8 +423,8 @@ testmodel = (
             )),
 
             ('test:float', {}, (
-                ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-                ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+                ('closed', ('test:float:closed', {}), {}),
+                ('open', ('test:float:open', {}), {}),
             )),
 
             ('test:guid', {}, (
@@ -450,12 +449,21 @@ testmodel = (
             )),
 
             ('test:str', {}, (
-                ('bar', ('ndef', {}), {}),
-                ('baz', ('nodeprop', {}), {}),
+                ('bar', (
+                    ('test:str', {}),
+                    ('test:int', {}),
+                    ('test:comp', {}),
+                    ('test:auto', {}),
+                    ('test:guid', {}),
+                    ('test:virtiface', {}),
+                    ('test:ro', {}),
+                    ('inet:ip', {}),
+                    ('inet:fqdn', {}),
+                    ('meta:source', {}),
+                    ('ps:person', {})
+                ), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
-                ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -463,17 +471,42 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
                 ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
-                ('poly', (('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'), {
-                    'default_forms': ('test:int', 'test:str')}), {}),
-                ('polyarry', ('array', {
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
-                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
-                ('polynonuniq', ('array', {
-                    'uniq': False,
-                    'sorted': False,
-                    'type': ('test:str', 'test:int', 'test:lowstr', 'test:interface', 'inet:server', 'inet:fqdn'),
-                    'typeopts': {'default_forms': ('test:int', 'test:str')}}), {}),
+                ('poly', (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                ), {}),
+                ('polyarry', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {}),
+                    ('it:dev:int', {}),
+                    ('it:dev:str', {})
+                )}), {}),
+                ('polyarry2', ('array', {'type': (
+                    ('test:int', {}),
+                    ('test:guid', {}),
+                    ('test:auto', {}),
+                    ('test:ro', {})
+                )}), {}),
+                ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
+                    ('test:int', {}),
+                    ('test:str', {}),
+                    ('test:lowstr', {}),
+                    ('test:interface', {}),
+                    ('inet:server', {}),
+                    ('inet:fqdn', {})
+                )}), {}),
                 ('polyint', ('test:interface', {}), {}),
+                ('polyempty', ('test:unused:iface', {}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -493,8 +526,6 @@ testmodel = (
             ('test:strregex', {}, ()),
 
             ('test:migr', {}, (
-                ('bar', ('ndef', {}), {}),
-                ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
             )),
 
@@ -523,10 +554,6 @@ testmodel = (
                 ('have', ('test:pivcomp', {}), {}),
             )),
 
-            ('test:ndef', {}, (
-                ('form', ('str', {}), {'computed': True}),
-            )),
-
             ('test:ro', {}, (
                 ('writeable', ('str', {}), {'doc': 'writeable property.'}),
                 ('readable', ('str', {}), {'doc': 'computed property.', 'computed': True}),
@@ -539,25 +566,6 @@ testmodel = (
 
             ('test:enums:int', {}, ()),
             ('test:enums:str', {}, ()),
-
-            ('test:protocol', {
-                'protocols': {
-                    'test:adjustable': {'vars': {
-                        'time': {'type': 'prop', 'name': 'time'},
-                        'currency': {'type': 'prop', 'name': 'currency'}}},
-                },
-                'doc': 'An adjustable form value.',
-              }, (
-                ('time', ('time', {}), {}),
-                ('currency', ('str', {}), {}),
-                ('otherval', ('int', {}), {
-                    'protocols': {
-                        'another:adjustable': {'vars': {
-                            'time': {'type': 'prop', 'name': 'time'},
-                            'currency': {'type': 'prop', 'name': 'currency'}}},
-                    },
-                    'doc': 'Another value adjustable in a different way.'}),
-            )),
 
             ('test:onstorm', {'on': {'add': {'q': '[ :tick=2025 ]'}}}, (
                 ('tick', ('time', {}), {}),
@@ -575,14 +583,11 @@ testmodel = (
                 'doc': 'The node matched on the target node.'}),
             ((None, 'test', None), {'doc': 'Test edge'}),
         ),
-    }),
+    },
 )
 
 deprmodel = (
-    ('depr', {
-        'ctors': (
-            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-        ),
+    {
         'interfaces': (
             ('test:deprinterface', {
                 'doc': 'test interface',
@@ -592,13 +597,13 @@ deprmodel = (
             }),
         ),
         'types': (
+            ('test:dep:str', (None, {'ctor': 'synapse.lib.types.Str', 'strip': True}), {'deprecated': True}),
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
             ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
             ('test:deprprop', ('test:str', {}), {'deprecated': True}),
             ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
             ('test:deprform', ('test:str', {}), {}),
-            ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
             ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
@@ -611,7 +616,6 @@ deprmodel = (
         'forms': (
             ('test:deprprop', {}, ()),
             ('test:deprform', {}, (
-                ('ndefprop', ('test:deprndef', {}), {}),
                 ('deprprop', ('test:deprarray', {}), {}),
                 ('okayprop', ('str', {}), {}),
                 ('deprprop2', ('test:str', {}), {'deprecated': True}),
@@ -640,7 +644,7 @@ deprmodel = (
                 ('beep', ('test:dep:str', {}), {}),
             )),
         ),
-    }),
+    },
 )
 
 class TestCmd(s_storm.Cmd):
@@ -757,93 +761,73 @@ class CmdGenerator:
 
         return retn
 
-class _StreamIOMixin(io.StringIO):
+class LoggerStream(io.StringIO):
+    '''
+    A stream of log output.
+    '''
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
+        self._lines = []
+        self._event = asyncio.Event()
 
-    def setMesg(self, mesg):
-        '''
-        Clear the internal event and set a new message that is used to set the event.
-
-        Args:
-            mesg (str): The string to monitor for.
-
-        Returns:
-            None
-        '''
-        self.mesg = mesg
-        self.clear()
-
-    def __str__(self):
-        return self.getvalue()
+    def clear(self):
+        self._lines.clear()
+        self.seek(0)
+        self.truncate()
+        self._event.clear()
 
     def write(self, s):
         io.StringIO.write(self, s)
-        if self.mesg and self.mesg in s:
-            self.set()
+        self._lines.append(s)
+        self._event.set()
 
-    def jsonlines(self) -> typing.List[dict]:
-        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
-        return jsonlines(self.getvalue())
-
-    def expect(self, substr: str):
+    async def expect(self, text, count=1, timeout=6, escape=True):
         '''
-        Check if a string is present in the messages captured by StreamEvent.
+        Expect a string to be present in the logged text.
 
         Args:
-            substr (str): String to check for the existence of.
+            text: String to search the logs for.
+            count: Number of occurances of the entry.
+            timeout: Amount of time to wait for the text to be logged.
+            escape: re.escape() the provided text; to to false is text is a regular expression.
+
+        Returns:
+            True if the text is found.
         '''
-        valu = self.getvalue()
-        if valu.find(substr) == -1:
-            mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
-            raise s_exc.SynErr(mesg=mesg)
+        try:
+            coro = self._expect(text, count=count, escape=escape)
+            await asyncio.wait_for(coro, timeout=timeout)
+        except TimeoutError:
+            logger.warning(f'Pattern [{text}] not found in...')
+            [logger.warning(f'    {line}') for line in self._lines]
+            raise AssertionError(f'Pattern [{text}] not found!')
 
-    def noexpect(self, substr: str):
-        valu = self.getvalue()
-        if valu.find(substr) != -1:
-            mesg = '%s.noexpect(%s) in %s' % (self.__class__.__name__, substr, valu)
-            raise s_exc.SynErr(mesg=mesg)
+    async def _expect(self, text, count=1, escape=True):
 
-class StreamEvent(_StreamIOMixin, threading.Event):
-    '''
-    A combination of a io.StringIO object and a threading.Event object.
-    '''
-    def __init__(self, *args, **kwargs):
-        _StreamIOMixin.__init__(self, *args, **kwargs)
-        threading.Event.__init__(self)
-        self.mesg = ''
+        if escape:
+            text = regex.escape(text)
 
-    def __repr__(self):
-        cls = self.__class__
-        status = 'set' if self._flag else 'unset'
-        if valu := str(self):
-            valu = s_common.trimText(valu).strip()
-            status = f'{status}, valu: {valu}'
-        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
+        regx = regex.compile(text)
 
-class AsyncStreamEvent(_StreamIOMixin, asyncio.Event):
-    '''
-    A combination of a io.StringIO object and an asyncio.Event object.
-    '''
-    def __init__(self, *args, **kwargs):
-        _StreamIOMixin.__init__(self, *args, **kwargs)
-        asyncio.Event.__init__(self)
-        self.mesg = ''
+        while True:
 
-    def __repr__(self):
-        cls = self.__class__
-        status = 'set' if self._value else 'unset'
-        if self._waiters:
-            status = f'{status}, waiters:{len(self._waiters)}'
-        if valu := str(self):
-            valu = s_common.trimText(valu).strip()
-            status = f'{status}, valu: {valu}'
-        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
+            offs = 0
+            tally = 0
 
-    async def wait(self, timeout=None):
-        if timeout is None:
-            return await asyncio.Event.wait(self)
-        return await s_coro.event_wait(self, timeout=timeout)
+            for line in self._lines[offs:]:
+                offs += 1
+
+                if regx.search(line) is not None:
+                    tally += 1
+
+                if tally >= count:
+                    return True
+
+            await self._event.wait()
+            self._event.clear()
+
+    def jsonlines(self):
+        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -1068,6 +1052,9 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(s_glob._clearGlobals)
         self.addCleanup(gc.collect)
 
+    def tearDown(self):
+        s_logging.reset()
+
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
@@ -1111,6 +1098,12 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         with self.getTestDir(copyfrom=dirn) as regrdir:
             yield regrdir
 
+    async def waitForActiveMigration(self, core):
+        '''
+        Wait for any tasks that may occur after anit() returns the object.
+        '''
+        self.true(await s_coro.event_wait(core._migration_evnt, timeout=30))
+
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
@@ -1125,9 +1118,13 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
                         async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            if not core.conf.get('mirror'):
+                                await self.waitForActiveMigration(core)
                             yield core
                 else:
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        if not core.conf.get('mirror'):
+                            await self.waitForActiveMigration(core)
                         yield core
 
     @contextlib.asynccontextmanager
@@ -1303,12 +1300,12 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     @contextlib.asynccontextmanager
     async def withSetLoggingMock(self):
         '''
-        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+        Context manager to mock calls to the logging setup function to avoid unittests calling logging.basicconfig.
 
         Returns:
             mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        with mock.patch('synapse.common.setlogging',
+        with mock.patch('synapse.lib.logging.setup',
                         PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
@@ -1433,7 +1430,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     if not hasattr(self, 'patched'):
                         self.patched = True
-                        await self._addDataModels(testmodel)
+                        await self._addModelDefs(testmodel)
 
                 with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
@@ -1707,162 +1704,29 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
-    def getLoggerStream(self, logname, mesg=''):
-        '''
-        Get a logger and attach a io.StringIO object to the logger to capture log messages.
+    def getLoggerStream(self, name, struct=True):
 
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message
-            containing the string is written to the log.
-
-        Examples:
-            Do an action and get the stream of log messages to check against::
-
-                with self.getLoggerStream('synapse.foo.bar') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-            Do an action and wait for a specific log message to be written::
-
-                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-                    stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-            You can also reset the message and wait for another message to occur::
-
-                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-                    stream.wait(timeout=10)
-                    stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
-                    stream.wait(timeout=10)
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-        Notes:
-            This **only** captures logs for the current process.
-
-        Yields:
-            StreamEvent: A StreamEvent object
-        '''
-        stream = StreamEvent()
-        stream.setMesg(mesg)
+        stream = LoggerStream()
+        logger = logging.getLogger(name)
         handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
+
+        oldlevel = logger.level
+
+        fmtclass = s_logging.JsonFormatter
+        if not struct:
+            fmtclass = s_logging.TextFormatter
+
+        handler.setFormatter(fmtclass())
+        logger.setLevel(logging.DEBUG)
+
+        logger.addHandler(handler)
         try:
             yield stream
-        except Exception:  # pragma: no cover
+        except Exception: # pragma: no cover
             raise
         finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
-    @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
-        '''
-        Async version of getLoggerStream.
-
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
-
-        Notes:
-            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
-            This requires the user to await the Event specific calls as neccesary.
-
-        Examples:
-            Do an action and wait for a specific log message to be written::
-
-                with self.getAsyncLoggerStream('synapse.foo.bar',
-                                               'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    await doSomething()
-                    # Wait for the mesg to be written to the stream
-                    await stream.wait(timeout=10)
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-        Returns:
-            AsyncStreamEvent: An AsyncStreamEvent object.
-        '''
-        stream = AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
-    @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
-        '''
-        Async version of getLoggerStream which uses structured logging.
-
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
-
-        Notes:
-            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
-            This requires the user to await the Event specific calls as needed.
-            The messages written to the stream will be JSON lines.
-
-        Examples:
-            Do an action and wait for a specific log message to be written::
-
-                with self.getStructuredAsyncLoggerStream('synapse.foo.bar',
-                                                         '"some JSON string"') as stream:
-                    # Do something that triggers a log message
-                    await doSomething()
-                    # Wait for the mesg to be written to the stream
-                    await stream.wait(timeout=10)
-
-                msgs = stream.jsonlines()
-                # Do something with messages
-
-        Returns:
-            AsyncStreamEvent: An AsyncStreamEvent object.
-        '''
-        stream = AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        formatter = s_structlog.JsonFormatter()
-        handler.setFormatter(formatter)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
+            logger.setLevel(oldlevel)
+            logger.removeHandler(handler)
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
@@ -2084,7 +1948,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             if (mtyp := n.view.core.model.metatypes.get(parts[1])) is not None:
                 ptyp = mtyp
             else:
-                ptyp = ptyp.getVirtType(parts[1:])
+                ptyp = ptyp.getVirtType(parts[1])
 
         if valu is not None and pval is not None:
             if ptyp.ispoly:
@@ -2092,10 +1956,13 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                     self.eq(pval, (form, valu), msg=msg)
                     return
 
-                self.eq(pval[1], valu, msg=msg)
+                if not repr:
+                    pval = pval[1]
+
+                self.eq(pval, valu, msg=msg)
                 return
 
-            if ptyp.isarray and ptyp.arraytype.ispoly:
+            if ptyp.isarray:
                 if form is None:
                     pval = [aval[1] for aval in pval]
                     self.sorteq(pval, valu, msg=msg)

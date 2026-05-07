@@ -38,7 +38,7 @@ stormcmds = [
         ),
         'storm': '''
             $lib.macro.del($cmdopts.name)
-            $lib.print('Removed macro: {name}', name=$cmdopts.name)
+            $lib.print(`Removed macro: {$cmdopts.name}`)
         ''',
     },
     {
@@ -50,7 +50,7 @@ stormcmds = [
         ),
         'storm': '''
             $lib.macro.set($cmdopts.name, $cmdopts.storm)
-            $lib.print('Set macro: {name}', name=$cmdopts.name)
+            $lib.print(`Set macro: {$cmdopts.name}`)
         ''',
     },
     {
@@ -64,7 +64,7 @@ stormcmds = [
             if $mdef {
                 $lib.print($mdef.storm)
             } else {
-                $lib.print('Macro not found: {name}', name=$cmdopts.name)
+                $lib.print(`Macro not found: {$cmdopts.name}`)
             }
         ''',
     },
@@ -81,10 +81,10 @@ stormcmds = [
                 } else {
                     $username = $user.name
                 }
-                $lib.print('{name} (owner: {user})', name=$name.ljust(20), user=$username)
+                $lib.print(`{$name.ljust(20)} (owner: {$username})`)
                 $count = $($count + 1)
             }
-            $lib.print('{count} macros found', count=$count)
+            $lib.print(`{$count} macros found`)
         ''',
     },
 ]

@@ -193,7 +193,7 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:type', 'comp'), node.ndef)
             self.none(node.get('subof'))
-            self.eq({'sepr': None, 'fields': ()}, node.get('opts'))
+            self.propeq(node, 'opts', {'sepr': None, 'fields': ()})
             self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
             self.propeq(node, 'doc', 'The base type for compound node fields.')
 
@@ -201,8 +201,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:type', 'test:comp'), node.ndef)
-            self.eq({'fields': (('hehe', 'test:int'), ('haha', 'test:lower')), 'sepr': None},
-                    node.get('opts'))
+            self.propeq(node, 'opts', {'fields': (('hehe', 'test:int'), ('haha', 'test:lower')), 'sepr': None})
             self.propeq(node, 'subof', 'comp')
             self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
             self.propeq(node, 'doc', 'A fake comp type.')
@@ -224,7 +223,7 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:form', 'test:comp'), node.ndef)
             self.nn(node.get('runt'))
-            self.false(node.get('runt'))
+            self.propeq(node, 'runt', False)
             self.propeq(node, 'type', 'test:comp')
             self.propeq(node, 'doc', 'A fake comp type.')
 
@@ -255,19 +254,19 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
             self.nn(node.get('computed'))
-            self.false(node.get('computed'))
-            self.propeq(node, 'type', 'int')
+            self.propeq(node, 'computed', 0)
+            self.propeq(node, 'type', 'poly')
             self.propeq(node, 'form', 'test:type10')
             self.propeq(node, 'doc', '')
             self.propeq(node, 'relname', 'intprop')
             self.propeq(node, 'base', 'intprop')
-            self.false(node.get('extmodel'))
+            self.propeq(node, 'extmodel', False)
 
             # Ensure that extmodel formprops are seen
             nodes = await core.nodes('syn:prop="test:str:_twiddle"')
             self.len(1, nodes)
             node = nodes[0]
-            self.true(node.get('extmodel'))
+            self.propeq(node, 'extmodel', True)
 
             # A deeper nested prop will have different base and relname values
             nodes = await core.nodes('syn:prop="inet:flow:server:host"')
@@ -369,7 +368,7 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:form=syn:tag')
                 self.len(1, nodes)
 
-                await core._addDataModels(s_t_utils.testmodel)
+                await core._addModelDefs(s_t_utils.testmodel)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
@@ -631,7 +630,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(('inet:ip', (4, 16909060)), node.valu())
                 self.gt(node.intnid(), 0)
                 self.propeq(node, 'nid', node.intnid())
-                sodes = node.get('sodes')
+                sodes = node.get('sodes')[1]
                 self.len(2, sodes)
                 self.true(sodes[0]['antivalu'])
                 self.eq('inet:ip', sodes[0]['form'])

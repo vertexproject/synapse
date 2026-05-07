@@ -294,7 +294,7 @@ Deprecated Properties
         with self.getTestDir() as dirn:
             cdir = s_common.gendir(s_common.genpath(dirn, 'changes'))
             outp = self.getTestOutp()
-            argv = ['gen', '--cdir', cdir, '--verbose', '--type', 'feat', 'I am a mighty feature!']
+            argv = ['gen', '--cdir', cdir, '--verbose', '--type', 'feat', 'I am a mighty feature!', '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             modl_dirn = s_common.gendir(s_common.genpath(dirn, 'model'))
@@ -321,7 +321,7 @@ Deprecated Properties
     async def test_changelog_model_save_compare(self):
         with self.getTestDir() as dirn:
             outp = self.getTestOutp()
-            argv = ['model', '--cdir', dirn, '--save',]
+            argv = ['model', '--cdir', dirn, '--save', '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
             modelrefs_dirn = s_common.genpath(dirn, 'modelrefs')
 
@@ -355,49 +355,49 @@ Deprecated Properties
     async def test_changelog_gen_format(self):
         with self.getTestDir() as dirn:
             outp = self.getTestOutp()
-            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1234', 'I am a feature.']
+            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1234', 'I am a feature.', '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp = self.getTestOutp()
-            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1230', 'I am a earlier feature.']
+            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1230', 'I am a earlier feature.', '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = '''I am a bug which has quite a large amount of text in it. The amount of text will span across'''\
                 ''' multiple lines after being formatted by the changelog tool.'''
-            argv = ['gen', '--cdir', dirn, '--type', 'bug', desc]
+            argv = ['gen', '--cdir', dirn, '--type', 'bug', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = 'I am a fancy note.'
-            argv = ['gen', '--cdir', dirn, '--type', 'note', desc]
+            argv = ['gen', '--cdir', dirn, '--type', 'note', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = 'For widget maker has been deprecated in favor of the new acme corp laser cannons.'
-            argv = ['gen', '--cdir', dirn, '--type', 'deprecation', desc,]
+            argv = ['gen', '--cdir', dirn, '--type', 'deprecation', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = 'Documented the lasers.'
-            argv = ['gen', '--cdir', dirn, '--type', 'doc', desc]
+            argv = ['gen', '--cdir', dirn, '--type', 'doc', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = 'Migrated the widget storage to use acme lasers.'
-            argv = ['gen', '--cdir', dirn, '--type', 'migration', desc]
+            argv = ['gen', '--cdir', dirn, '--type', 'migration', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
             desc = 'Added lasers to the sci model.'
-            argv = ['gen', '--cdir', dirn, '--type', 'model', desc]
+            argv = ['gen', '--cdir', dirn, '--type', 'model', desc, '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             with s_common.genfile(dirn, f'{s_common.guid()}.yaml') as fd:
                 fd.write(multiline_feature.encode())
 
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git', '--disable-git-dir-check']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             self.eq(str(outp).strip(), changelog_format_output.strip())
@@ -410,7 +410,7 @@ Deprecated Properties
             with s_common.genfile(fp) as fd:
                 fd.write('hello world'.encode())
 
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--disable-git-dir-check']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('Error running')
 
@@ -418,7 +418,7 @@ Deprecated Properties
                 fd.truncate(0)
                 fd.write(s_common.buid())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--disable-git-dir-check']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('No files passed validation')
 
@@ -430,7 +430,7 @@ desc: |
 type: feat
 '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git', '--disable-git-dir-check']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 0 must start with "- "')
 
@@ -443,7 +443,7 @@ desc: |
 type: feat
             '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git', '--disable-git-dir-check']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 1 must start with "  "')
 
@@ -455,6 +455,6 @@ desc: |
 type: feat
             '''.encode())
             outp.clear()
-            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git']
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03', '--no-prs-from-git', '--disable-git-dir-check']
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('desc line 0 is too long, 79 > 79')

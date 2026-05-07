@@ -10,8 +10,24 @@ x509vers = (
 )
 
 modeldefs = (
-    ('crypto', {
+    {
         'types': (
+
+            ('crypto:currency:chain', ('guid', {}), {
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'ex': 'eip155:8453',
+                        'doc': 'An ID for the chain.'}),
+
+                    ('name', ('base:name', {}), {
+                        'ex': 'ethereum',
+                        'doc': 'The name of the chain.'}),
+
+                    ('symbol', ('econ:currency', {}), {
+                        'ex': 'eth',
+                        'doc': 'The symbol associated with the native currency of the chain.'}),
+                ),
+                'doc': 'A crypto currency chain.'}),
 
             ('crypto:currency:transaction', ('guid', {}), {
                 'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
@@ -143,6 +159,16 @@ modeldefs = (
                 ),
                 'doc': 'A hex encoded SHA512 hash.'}),
 
+            ('crypto:hash:ssdeep', ('str', {'strip': True,
+                                            'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{1,64}:[A-Za-z0-9+/]{1,64}$'}), {
+                'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                'interfaces': (
+                    ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'title': 'SHA512'}}),
+                ),
+                'doc': 'A fuzzy hash of a file in ssdeep format.',
+            }),
+
             ('crypto:salthash', ('guid', {}), {
                 'interfaces': (
                     ('auth:credential', {}),
@@ -199,6 +225,9 @@ modeldefs = (
                 ),
                 'doc': 'A unique X.509 certificate.'}),
 
+            ('crypto:x509:serial', ('hex', {'zeropad': 40}), {
+                'doc': 'A certificate serial number as a big endian hex value.'}),
+
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
                 'doc': 'An X.509 Subject Alternative Name (SAN).'}),
 
@@ -210,13 +239,16 @@ modeldefs = (
 
             ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
                 'doc': 'A digital signature relationship between an X.509 certificate and a file.'}),
+
+            ('crypto:x509:version', ('int', {'enums': x509vers}), {
+                'doc': 'An X.509 certificate version.'}),
         ),
 
         'interfaces': (
 
             ('crypto:key', {
                 'props': (
-                    ('bits', ('int', {'min': 1}), {
+                    ('bits', ('int:min1', {}), {
                         'doc': 'The number of bits of key material.'}),
 
                     ('algorithm', ('crypto:algorithm', {}), {
@@ -250,6 +282,8 @@ modeldefs = (
         'forms': (
 
             ('crypto:payment:input', {}, (
+                ('index', ('int', {}), {
+                    'doc': 'The index of this input in the array of inputs for the transaction.'}),
                 ('transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'The transaction the payment was input to.'}),
                 ('address', ('crypto:currency:address', {}), {
@@ -258,6 +292,8 @@ modeldefs = (
                     'doc': 'The value of the currency paid into the transaction.'}),
             )),
             ('crypto:payment:output', {}, (
+                ('index', ('int', {}), {
+                    'doc': 'The index of this output in the array of outputs for the transaction.'}),
                 ('transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'The transaction the payment was output from.'}),
                 ('address', ('crypto:currency:address', {}), {
@@ -272,11 +308,8 @@ modeldefs = (
                     'doc': 'An analyst specified description of the transaction.'}),
                 ('block', ('crypto:currency:block', {}), {
                     'doc': 'The block which records the transaction.'}),
-                ('block:coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain of the block which records this transaction.'}),
-                ('block:offset', ('int', {}), {
-                    'doc': 'The offset of the block which records this transaction.'}),
-
+                ('block:chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the transaction is recorded.'}),
                 ('success', ('bool', {}), {
                     'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
                 ('status:code', ('int', {}), {
@@ -310,16 +343,26 @@ modeldefs = (
             )),
 
             ('crypto:currency:block', {}, (
+
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain this block resides on.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The coin/blockchain this block resides on.'}),
+
                 ('offset', ('int', {}), {
-                    'doc': 'The index of this block.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The index of this block.'}),
+
                 ('hash', ('hex', {}), {
                     'doc': 'The unique hash for the block.'}),
+
                 ('minedby', ('crypto:currency:address', {}), {
                     'doc': 'The address which mined the block.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'Time timestamp embedded in the block by the miner.'}),
+
+                ('chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the block is recorded.'}),
             )),
 
             ('crypto:smart:contract', {}, (
@@ -460,19 +503,24 @@ modeldefs = (
             ('crypto:currency:address', {}, (
 
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The crypto coin to which the address belongs.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The crypto coin to which the address belongs.'}),
 
                 ('seed', ('crypto:key', {}), {
                     'doc': 'The cryptographic key and or password used to generate the address.'}),
 
                 ('iden', ('str', {}), {
-                    'doc': 'The coin specific address identifier.', 'computed': True, }),
+                    'computed': True,
+                    'doc': 'The coin specific address identifier.'}),
 
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the address.'}),
 
                 ('contact', ('entity:contactable', {}), {
                     'doc': 'The primary contact information associated with the crypto currency address.'}),
+
+                ('chain', ('crypto:currency:chain', {}), {
+                    'doc': 'The chain where the address is defined.'}),
             )),
 
             ('crypto:algorithm', {}, ()),
@@ -544,7 +592,7 @@ modeldefs = (
             )),
 
             ('crypto:key:ecdsa', {}, (
-                ('curve', ('str', {'lower': True, 'onespace': True}), {
+                ('curve', ('base:name', {}), {
                     'doc': 'The curve standard in use.'}),
 
                 ('public', ('hex', {}), {
@@ -592,7 +640,7 @@ modeldefs = (
                 ('iv', ('hex', {}), {
                     'doc': 'The hex encoded initialization vector.'}),
 
-                ('mode', ('str', {'lower': True, 'onespace': True}), {
+                ('mode', ('base:name', {}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
                 ('value', ('hex', {}), {
@@ -620,6 +668,7 @@ modeldefs = (
             ('crypto:hash:sha256', {}, ()),
             ('crypto:hash:sha384', {}, ()),
             ('crypto:hash:sha512', {}, ()),
+            ('crypto:hash:ssdeep', {}, ()),
 
             ('crypto:salthash', {}, (
 
@@ -656,7 +705,10 @@ modeldefs = (
 
             ('crypto:x509:cert', {}, (
 
-                ('key', (('crypto:key:rsa', 'crypto:key:dsa'), {}), {
+                ('key', (
+                        ('crypto:key:rsa', {}),
+                        ('crypto:key:dsa', {})
+                    ), {
                     'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {
@@ -675,11 +727,11 @@ modeldefs = (
                     'doc': 'The certificate used by the issuer to sign this certificate.',
                 }),
 
-                ('serial', ('hex', {'zeropad': 40}), {
+                ('serial', ('crypto:x509:serial', {}), {
                     'doc': 'The certificate serial number as a big endian hex value.',
                 }),
 
-                ('version', ('int', {'enums': x509vers}), {
+                ('version', ('crypto:x509:version', {}), {
                     'doc': 'The version integer in the certificate. (ex. 2 == v3 ).',
                 }),
 
@@ -749,5 +801,5 @@ modeldefs = (
 
             )),
         )
-    }),
+    },
 )

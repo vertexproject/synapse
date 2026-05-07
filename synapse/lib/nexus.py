@@ -409,6 +409,10 @@ class NexsRoot(s_base.Base):
             item = (nexsiden, event, args, kwargs, meta, etime)
             self.applytask = asyncio.create_task(self._eat(item))
 
+            # Clone the current scope to the applytask, so that log events in the scope
+            # would have access to any user / sess values which have been set.
+            s_scope.clone(self.applytask)
+
         except:
             self.cell.nexslock.release()
             raise
@@ -533,7 +537,8 @@ class NexsRoot(s_base.Base):
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
 
             async def fini():
-                self._linkmirrors.remove(wind)
+                if wind in self._linkmirrors:
+                    self._linkmirrors.remove(wind)
 
             wind.onfini(fini)
 

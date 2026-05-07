@@ -216,8 +216,8 @@ class StatsTest(s_test.SynTest):
                     [ test:comp=($valu, $name) ]
                 }
 
-                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
-                $lib.print('tally.len()={v}', v=$lib.len($tally))
+                $lib.print(`tally: foo={$tally.get(foo)} baz={$tally.get(baz)}`)
+                $lib.print(`tally.len()={$lib.len($tally)}`)
             '''
             mesgs = await core.stormlist(q)
             nodes = [m[1] for m in mesgs if m[0] == 'node']

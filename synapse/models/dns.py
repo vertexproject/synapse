@@ -90,18 +90,13 @@ class DnsName(s_types.Str):
         return norm, {'subs': subs}
 
 modeldefs = (
-    ('inet:dns', {
-
-        'ctors': (
-
-            ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
-                'doc': 'A DNS query name string. Likely an FQDN but not always.',
-                'ex': 'vertex.link',
-            }),
-
-        ),
+    {
 
         'types': (
+
+            ('inet:dns:name', (None, {'ctor': 'synapse.models.dns.DnsName'}), {
+                'ex': 'vertex.link',
+                'doc': 'A DNS query name string. Likely an FQDN but not always.'}),
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
                 'interfaces': (
@@ -195,6 +190,9 @@ modeldefs = (
                     ('meta:observable', {'template': {'title': 'dynamic DNS registration'}}),
                 ),
                 'doc': 'A dynamic DNS registration.'}),
+
+            ('dns:reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                'doc': 'A DNS reply code.'}),
 
         ),
 
@@ -299,7 +297,7 @@ modeldefs = (
                 ('query:type', ('int', {}), {
                     'doc': 'The type of record requested in the query.'}),
 
-                ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
+                ('reply:code', ('dns:reply:code', {}), {
                     'doc': 'The DNS server response code.'}),
             )),
 
@@ -311,16 +309,16 @@ modeldefs = (
                 ('request', ('inet:dns:request', {}), {
                     'doc': 'The DNS request that was answered.'}),
 
-                ('record', ((
-                        'inet:dns:a',
-                        'inet:dns:aaaa',
-                        'inet:dns:cname',
-                        'inet:dns:mx',
-                        'inet:dns:ns',
-                        'inet:dns:rev',
-                        'inet:dns:soa',
-                        'inet:dns:txt',
-                    ), {}), {
+                ('record', (
+                        ('inet:dns:a', {}),
+                        ('inet:dns:aaaa', {}),
+                        ('inet:dns:cname', {}),
+                        ('inet:dns:mx', {}),
+                        ('inet:dns:ns', {}),
+                        ('inet:dns:rev', {}),
+                        ('inet:dns:soa', {}),
+                        ('inet:dns:txt', {}),
+                    ), {
                     'doc': 'The DNS record returned by the lookup.',
                     'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 
@@ -371,5 +369,5 @@ modeldefs = (
                     'doc': 'The network client address used to register the dynamic FQDN.'}),
             )),
         )
-    }),
+    },
 )

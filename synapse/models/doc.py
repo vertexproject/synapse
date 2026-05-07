@@ -1,14 +1,20 @@
 modeldefs = (
-    ('doc', {
+    {
         'interfaces': (
 
             ('doc:authorable', {
-                'doc': 'Properties common to authorable forms.',
                 'template': {'title': 'document'},
+                'interfaces': (
+                    ('entity:creatable', {}),
+                ),
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
+                        'alts': ('ids',),
                         'doc': 'The {title} ID.'}),
+
+                    ('ids', ('array', {'type': 'base:id'}), {
+                        'doc': 'An array of alternate IDs for the {title}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the {title} is available.'}),
@@ -16,17 +22,8 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {title}.'}),
 
-                    ('created', ('time', {}), {
-                        'doc': 'The time that the {title} was created.'}),
-
                     ('updated', ('time', {}), {
                         'doc': 'The time that the {title} was last updated.'}),
-
-                    ('author', ('entity:actor', {}), {
-                        'doc': 'The contact information of the primary author.'}),
-
-                    ('contributors', ('array', {'type': 'entity:actor'}), {
-                        'doc': 'An array of contacts which contributed to the {title}.'}),
 
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
@@ -34,22 +31,16 @@ modeldefs = (
                     ('supersedes', ('array', {'type': '{$self}'}), {
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
-            }),
-            ('doc:document', {
+                'doc': 'Properties common to authorable forms.'}),
 
-                'doc': 'A common interface for documents.',
+            ('doc:document', {
+                'template': {'title': 'document', 'syntax': ''},
                 'interfaces': (
                     ('doc:authorable', {}),
                 ),
-
-                'template': {
-                    'type': '{$self}:type:taxonomy',
-                    'syntax': '',
-                    'document': 'document'},
-
                 'props': (
 
-                    ('type', ('{type}', {}), {
+                    ('type', ('{$self}:type:taxonomy', {}), {
                         'doc': 'The type of {title}.'}),
 
                     ('body', ('text', {}), {
@@ -64,8 +55,39 @@ modeldefs = (
 
                     ('file:name', ('file:base', {}), {
                         'doc': 'The name of the file containing the {title} contents.'}),
+
+                    ('file:captured', ('time', {}), {
+                        'doc': 'The time when the file content was captured.'}),
                 ),
-            }),
+                'doc': 'A common interface for documents.'}),
+
+            ('doc:published', {
+                'template': {'title': 'report'},
+                'props': (
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the {title} is publicly available.'}),
+
+                    ('published', ('time', {}), {
+                        'doc': 'The time the {title} was published.'}),
+
+                    ('publisher', ('entity:actor', {}), {
+                        'doc': 'The entity which published the {title}.'}),
+
+                    ('publisher:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which published the {title}.'}),
+
+                    ('topics', ('array', {'type': 'meta:topic'}), {
+                        'doc': 'The topics discussed in the {title}.'}),
+                ),
+                'doc': 'Properties common to published documents.'}),
+
+            ('doc:signable', {
+                'template': {'title': 'document'},
+                'props': (
+                    ('signed', ('time', {}), {
+                        'doc': 'The date that the {title} signing was complete.'}),
+                ),
+                'doc': 'An interface implemented by documents which can be signed by actors.'}),
         ),
         'types': (
 
@@ -76,12 +98,9 @@ modeldefs = (
                 'doc': 'A taxonomy of policy types.'}),
 
             ('doc:policy', ('guid', {}), {
+                'template': {'title': 'policy'},
                 'interfaces': (
-                    ('doc:document', {
-                        'template': {
-                            'title': 'policy',
-                            'type': 'doc:policy:type:taxonomy'},
-                    }),
+                    ('doc:document', {}),
                 ),
                 'doc': 'Guiding principles used to reach a set of goals.'}),
 
@@ -92,17 +111,16 @@ modeldefs = (
                 'doc': 'A taxonomy of standard types.'}),
 
             ('doc:standard', ('guid', {}), {
+                'template': {'title': 'standard'},
                 'interfaces': (
-                    ('doc:document', {
-                        'template': {
-                            'title': 'standard',
-                            'type': 'doc:standard:type:taxonomy'}}),
+                    ('doc:document', {}),
                 ),
                 'doc': 'A group of requirements which define how to implement a policy or goal.'}),
 
             ('doc:requirement', ('guid', {}), {
+                'template': {'title': 'requirement'},
                 'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'requirement'}}),
+                    ('doc:authorable', {}),
                 ),
                 'doc': 'A single requirement, often defined by a standard.'}),
 
@@ -113,11 +131,9 @@ modeldefs = (
                 'doc': 'A taxonomy of resume types.'}),
 
             ('doc:resume', ('guid', {}), {
+                'template': {'title': 'resume'},
                 'interfaces': (
-                    ('doc:document', {
-                        'template': {
-                            'title': 'resume',
-                            'type': 'doc:resume:type:taxonomy'}}),
+                    ('doc:document', {}),
                 ),
                 'doc': 'A CV/resume document.'}),
 
@@ -127,21 +143,22 @@ modeldefs = (
 
             ('doc:report', ('guid', {}), {
                 'prevnames': ('media:news',),
+                'template': {'title': 'report', 'syntax': 'markdown'},
                 'interfaces': (
-                    ('doc:document', {'template': {
-                        'title': 'report',
-                        'syntax': 'markdown',
-                        'type': 'doc:report:type:taxonomy'}}),
+                    ('doc:document', {}),
+                    ('doc:published', {}),
                 ),
                 'doc': 'A report.'}),
 
             ('doc:contract', ('guid', {}), {
                 'prevnames': ('ou:contract',),
+                'template': {'title': 'contract'},
                 'interfaces': (
-                    ('doc:document', {'template': {
-                        'title': 'contract',
-                        'type': 'doc:contract:type:taxonomy'}}),
+                    ('doc:document', {}),
+                    ('doc:signable', {}),
+                    ('entity:activity', {}),
                 ),
+                'props': (),
                 'doc': 'A contract between multiple entities.'}),
 
             ('doc:contract:type:taxonomy', ('taxonomy', {}), {
@@ -149,6 +166,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
             ('doc:reference', ('guid', {}), {
@@ -203,10 +221,10 @@ modeldefs = (
                 ('workhist', ('array', {'type': 'ps:workhist'}), {
                     'doc': 'Work history described in the resume.'}),
 
-                ('education', ('array', {'type': 'ps:education'}), {
+                ('education', ('array', {'type': 'entity:studied'}), {
                     'doc': 'Education experience described in the resume.'}),
 
-                ('achievements', ('array', {'type': 'ps:achievement'}), {
+                ('achievements', ('array', {'type': 'entity:achieved'}), {
                     'doc': 'Achievements described in the resume.'}),
 
             )),
@@ -227,45 +245,22 @@ modeldefs = (
 
                 ('topics', ('array', {'type': 'meta:topic'}), {
                     'doc': 'The topics discussed in the report.'}),
-            )),
 
-            ('doc:contract:type:taxonomy', {}, ()),
-            ('doc:contract', {}, (
-
-                ('issuer', ('entity:actor', {}), {
-                    'prevnames': ('sponsor',),
-                    'doc': 'The contract sponsor.'}),
-
-                ('parties', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The entities bound by the contract.'}),
-
-                ('signers', ('array', {'type': 'entity:individual'}), {
-                    'doc': 'The individuals who signed the contract.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the contract is in effect.'}),
-
-                ('signed', ('time', {}), {
-                    'doc': 'The date that the contract signing was complete.'}),
-
-                ('completed', ('time', {}), {
-                    'doc': 'The date that the contract was completed.'}),
-
-                ('terminated', ('time', {}), {
-                    'doc': 'The date that the contract was terminated.'}),
+                ('file:captured', ('time', {}), {
+                    'doc': 'The time when the file content was captured.'}),
             )),
 
             ('doc:reference', {}, (
 
-                ('source', ((
-                        'doc:report',
-                        'risk:vuln',
-                        'risk:tool:software',
-                        'risk:threat',
-                        'entity:campaign',
-                        'meta:technique',
-                        'plan:phase'
-                    ), {}), {
+                ('source', (
+                        ('doc:report', {}),
+                        ('risk:vuln', {}),
+                        ('risk:tool:software', {}),
+                        ('risk:threat', {}),
+                        ('entity:campaign', {}),
+                        ('meta:technique', {}),
+                        ('plan:phase', {}),
+                    ), {
                     'doc': 'The source which contains the reference.'}),
 
                 ('text', ('str', {}), {
@@ -278,5 +273,5 @@ modeldefs = (
                     'doc': 'A URL for the reference.'}),
             )),
         ),
-    }),
+    },
 )

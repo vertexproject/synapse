@@ -10,7 +10,7 @@ class StormScrapeTest(s_test.SynTest):
             'modules': [
                 {'name': 'scrapename',
                  'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
-                             'form': 'meta:name',
+                             'form': 'entity:name',
                              },
                  'interfaces': ['scrape'],
                  'storm': '''
@@ -81,7 +81,7 @@ class StormScrapeTest(s_test.SynTest):
         Homepage: hzzps[:]\\giggles.com/mallory.html
         '''
         q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
-                        $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
+                        $lib.print(`{$form}={$valu} {$info}`)
                     }'''
 
         async with self.getTestCore() as core:
@@ -98,7 +98,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormIsInPrint('meta:name=alice', msgs)
+            self.stormIsInPrint('entity:name=alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
@@ -122,9 +122,9 @@ class StormScrapeTest(s_test.SynTest):
                             ('inet:fqdn', 'newp.net'),
                             ('inet:fqdn', 'giggles.com'),
                             ('inet:fqdn', 'newpers.net'),
-                            ('meta:name', 'billy'),
-                            ('meta:name', 'alice'),
-                            ('meta:name', 'mallory'),
+                            ('entity:name', 'billy'),
+                            ('entity:name', 'alice'),
+                            ('entity:name', 'mallory'),
                             ('inet:url', 'https://giggles.com/mallory.html')))
 
         conf = {'storm:interface:scrape': False, }
@@ -137,7 +137,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormNotInPrint('meta:name=alice', msgs)
+            self.stormNotInPrint('entity:name=alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
 
@@ -148,7 +148,7 @@ class StormScrapeTest(s_test.SynTest):
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
             query = '''for ($form, $ndef) in $lib.scrape.ndefs($text)
-            { $lib.print('{f}={n}', f=$form, n=$ndef) }
+            { $lib.print(`{$form}={$ndef}`) }
             '''
             varz = {'text': text}
             msgs = await core.stormlist(query, opts={'vars': varz})

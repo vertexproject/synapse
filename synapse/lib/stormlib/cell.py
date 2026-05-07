@@ -43,9 +43,9 @@ ${ it:app:snort:hit:dst:ipv4 [inet:ipv4=:dst:ipv4] },
 ${ it:app:snort:hit:dst:ipv6 [inet:ipv6=:dst:ipv6] },)
 
 for $view in $absoluteOrder {
-    if $lib.debug { $lib.print('Fixing autoadd data in view {v}', v=$view) }
+    if $lib.debug { $lib.print(`Fixing autoadd data in view {$view}`) }
     for $query in $queries {
-        if $lib.debug { $lib.print('Executing { {q} }', q=$query) }
+        if $lib.debug { $lib.print(`Executing \\{ {$query} \\}`) }
         view.exec $view.iden $query
     }
 }
@@ -65,7 +65,7 @@ storm_missing_coins = '''
 storm_missing_cpe22 = '''
 $views = $lib.view.list(deporder=$lib.true)
 for $view in $views {
-    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value() ] }
+    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value ] }
 }
 '''
 

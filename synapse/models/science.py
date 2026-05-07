@@ -1,5 +1,5 @@
 modeldefs = (
-    ('sci', {
+    {
         'types': (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -8,6 +8,9 @@ modeldefs = (
                 'doc': 'A taxonomy of hypothesis types.'}),
 
             ('sci:hypothesis', ('guid', {}), {
+                'interfaces': (
+                    ('meta:believable', {}),
+                ),
                 'doc': 'A hypothesis or theory.'}),
 
             # TODO link experiment to eventual procedure node
@@ -18,9 +21,15 @@ modeldefs = (
                 'doc': 'A taxonomy of experiment types.'}),
 
             ('sci:experiment', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
                 'doc': 'An instance of running an experiment.'}),
 
             ('sci:observation', ('guid', {}), {
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
                 'doc': 'An observation which may have resulted from an experiment.'}),
 
             ('sci:evidence', ('guid', {}), {
@@ -44,7 +53,7 @@ modeldefs = (
             ('sci:hypothesis:type:taxonomy', {}, {}),
             ('sci:hypothesis', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the hypothesis.'}),
 
                 ('type', ('sci:hypothesis:type:taxonomy', {}), {
@@ -58,7 +67,7 @@ modeldefs = (
             ('sci:experiment:type:taxonomy', {}, {}),
             ('sci:experiment', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the experiment.'}),
 
                 ('desc', ('text', {}), {
@@ -87,7 +96,7 @@ modeldefs = (
 
             ('sci:evidence', {}, (
 
-                ('hypothesis', ('sci:experiment', {}), {
+                ('hypothesis', ('sci:hypothesis', {}), {
                     'doc': 'The hypothesis which the evidence supports or refutes.'}),
 
                 ('observation', ('sci:observation', {}), {
@@ -100,5 +109,5 @@ modeldefs = (
                     'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),
             )),
         ),
-    }),
+    },
 )

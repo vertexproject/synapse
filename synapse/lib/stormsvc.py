@@ -20,7 +20,7 @@ stormcmds = (
         'cmdconf': {},
         'storm': '''
             $sdef = $lib.service.add($cmdopts.name, $cmdopts.url)
-            $lib.print("added {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+            $lib.print(`added {$sdef.iden} ({$sdef.name}): {$sdef.url}`)
         ''',
     },
     {
@@ -44,11 +44,11 @@ stormcmds = (
             if $( $count = 1 ) {
                 $sdef = $svcs.index(0)
                 $lib.service.del($sdef.iden)
-                $lib.print("removed {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+                $lib.print(`removed {$sdef.iden} ({$sdef.name}): {$sdef.url}`)
             } elif $( $count = 0 ) {
-                $lib.print("No service found by iden: {iden}", iden=$cmdopts.iden)
+                $lib.print(`No service found by iden: {$cmdopts.iden}`)
             } else {
-                $lib.print('Multiple matches found for {iden}.  Aborting delete.', iden=$cmdopts.iden)
+                $lib.print(`Multiple matches found for {$cmdopts.iden}.  Aborting delete.`)
             }
         ''',
     },
@@ -73,12 +73,11 @@ stormcmds = (
                 } else {
                     $svers = 'Unknown'
                 }
-                $mesg="    {iden} {ready} ({name}) ({sname} @ {svers}): {url}"
-                $lib.print(mesg=$mesg, iden=$iden, ready=$ready, name=$name, sname=$sname, svers=$svers, url=$url)
+                $lib.print(`    {$iden} {$ready} ({$name}) ({$sname} @ {$svers}): {$url}`)
                 $count = $( $count + 1 )
             }
             $lib.print("")
-            $lib.print("{count} services", count=$count)
+            $lib.print(`{$count} services`)
         ''',
     }
 )

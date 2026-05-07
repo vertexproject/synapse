@@ -165,10 +165,10 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore() as core:
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
@@ -211,6 +211,12 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+
+                # invalid loglevel
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT',
+                        'storm': '$lib.print(hehe)', 'loglevel': 'nope',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(s_exc.SchemaViolation, agenda.add(cdef))
 
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
@@ -319,7 +325,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # Test that isrunning updated, cancelling works
                 cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ip=([4, 1]) ] | sleep 120',
-                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
+                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1,
+                        'loglevel': 'CRITICAL'}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
@@ -329,6 +336,7 @@ class AgendaTest(s_t_utils.SynTest):
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
                 self.eq(core.view.iden, appt.task.info.get('view'))
+                self.eq(appt.loglevel, 'CRITICAL')
 
                 self.true(await core._killCronTask(guid))
 
@@ -395,17 +403,17 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Ensure structured logging captures the cron iden value
                 core.stormlog = True
-                with self.getStructuredAsyncLoggerStream('synapse.storm') as stream:
+                with self.getLoggerStream('synapse.storm') as stream:
                     unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16,
                                                  tzinfo=tz.utc).timestamp()
                     self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
                 core.stormlog = False
 
                 msgs = stream.jsonlines()
-                msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
+                msgs = [m for m in msgs if m['params']['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
-                    self.eq(m.get('cron'), appt.iden)
+                    self.eq(m['params'].get('cron'), appt.iden)
 
                 self.eq(1, appt.startcount)
 
@@ -419,14 +427,15 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await visi.setLocked(True)
 
-                with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
+                with self.getLoggerStream('synapse.lib.agenda') as stream:
                     unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
 
                     # pump the ioloop via sleep(0) until the log message appears
-                    while not stream.wait(0.1):
+                    while 'locked' not in stream.getvalue():
                         await asyncio.sleep(0)
 
-                    await core.nexsroot.waitOffs(strt + 4)
+                    while not await core.nexsroot.waitOffs(strt + 4):
+                        await asyncio.sleep(0)
 
                     self.eq(2, appt.startcount)
 
@@ -754,16 +763,16 @@ class AgendaTest(s_t_utils.SynTest):
 
             # Force the cron to run.
 
-            with self.getAsyncLoggerStream('synapse.lib.agenda', 'Agenda error running appointment ') as stream:
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
                 core.agenda._addTickOff(60 * 60)
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('Agenda error running appointment', timeout=12)
 
             await core.addUserRule(user, (True, ('log',)))
             await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
 
-            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 core.agenda._addTickOff(60 * 60)
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('I am a cron job', timeout=12)
 
     async def test_agenda_mirror_realtime(self):
         with self.getTestDir() as dirn:
@@ -788,12 +797,15 @@ class AgendaTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
                     core00.agenda._addTickOff(60 * 60)
+
                     mesgs = []
-                    async for mesg in core00.behold():
-                        mesgs.append(mesg)
-                        core00.agenda._addTickOff(30)
-                        if len(mesgs) == 2:
-                            break
+                    async with core00.beholder() as wind:
+                        core00.agenda._addTickOff(55)
+                        async for mesg in wind:
+                            mesgs.append(mesg)
+                            core00.agenda._addTickOff(30)
+                            if len(mesgs) == 2:
+                                break
 
                     await core01.sync()
 
@@ -916,16 +928,16 @@ class AgendaTest(s_t_utils.SynTest):
                     tasks01 = await core01.ps(core01.auth.rootuser)
                     self.len(0, tasks01)
 
-                    with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
+                    with self.getLoggerStream('synapse.lib.agenda') as stream:
                         # Promote and inspect cortex status
                         await core01.promote(graceful=True)
                         self.false(core00.isactive)
                         self.true(core01.isactive)
+                        await stream.expect('name=CRON99', timeout=6)
 
-                    stream.seek(0)
-                    data = stream.read()
+                    data = stream.getvalue()
                     for ii in range(NUMJOBS):
-                        self.isin(f' name=CRON{ii} with result "cancelled" took ', data)
+                        self.isin(f' name=CRON{ii} with result \\"cancelled\\" took ', data)
 
                     # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
                     await core00.sync()
@@ -1109,11 +1121,11 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_agenda_warnings(self):
 
         async with self.getTestCore() as core:
-            with self.getAsyncLoggerStream('synapse.lib.agenda', 'issued warning: oh hai') as stream:
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
                 q = '$lib.warn("oh hai")'
                 msgs = await core.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
                 self.stormHasNoWarnErr(msgs)
-                self.true(await stream.wait(timeout=6))
+                await stream.expect('issued warning: oh hai', timeout=6)
 
     async def test_agenda_graceful_promotion_with_running_cron(self):
 
@@ -1145,8 +1157,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(conf=conf01) as core01:
 
-                    with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR LOG MESSAGE') as stream:
-                        self.true(await stream.wait(timeout=6))
+                    with self.getLoggerStream('synapse.storm.log') as stream:
+                        await stream.expect('I AM A ERROR LOG MESSAGE', timeout=6)
 
                     cron = await core00.callStorm('return($lib.cron.list())')
                     self.len(1, cron)
@@ -1263,9 +1275,9 @@ class AgendaTest(s_t_utils.SynTest):
                 msgs = await core00.stormlist('cron.at --minute +1 { $lib.log.info(cronran) }')
                 await core01.sync()
 
-                with self.getAsyncLoggerStream('synapse.storm.log', 'cronran') as stream:
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     core00.agenda._addTickOff(60)
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('cronran', timeout=12)
 
                 await core01.sync()
 
@@ -1313,19 +1325,19 @@ class AgendaTest(s_t_utils.SynTest):
                 core00.agenda.apptdefs.set(guid, apptdef)
                 core01.agenda.apptdefs.set(guid, apptdef)
 
-                with self.getAsyncLoggerStream('synapse.lib.agenda', 'This appointment will be removed') as stream:
+                with self.getLoggerStream('synapse.lib.agenda') as stream:
                     await core01.fini()
                     core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('This appointment will be removed', timeout=12)
 
                 # Mirror warns about the invalid appointment but does not remove it
                 self.nn(core01.agenda.apptdefs.get(guid))
                 self.nn(await core01.getAuthGate(guid))
 
-                with self.getAsyncLoggerStream('synapse.lib.agenda', 'Removing invalid appointment') as stream:
+                with self.getLoggerStream('synapse.lib.agenda') as stream:
                     await core00.fini()
                     core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('Removing invalid appointment', timeout=12)
 
                 await core01.sync()
 
@@ -1353,23 +1365,24 @@ class AgendaTest(s_t_utils.SynTest):
                 core00.agenda.apptdefs.set(guid, apptdef)
                 core01.agenda.apptdefs.set(guid, apptdef)
 
-                with self.getAsyncLoggerStream('synapse.lib.agenda', 'Removing invalid appointment') as stream:
+                with self.getLoggerStream('synapse.lib.agenda') as stream:
+
                     await core00.fini()
                     core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
 
                     await core01.fini()
                     core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('Removing invalid appointment', timeout=12)
 
                 await core01.sync()
 
                 self.none(core00.agenda.apptdefs.get(guid))
                 self.none(core01.agenda.apptdefs.get(guid))
 
-                with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR') as stream:
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     q = "cron.at --now ${ while((true)) { $lib.log.error('I AM A ERROR') $lib.time.sleep(6) }  }"
                     await core00.nodes(q)
-                    self.true(await stream.wait(timeout=12))
+                    await stream.expect('I AM A ERROR', timeout=12)
                 await core01.sync()
 
                 await core01.promote(graceful=True)
@@ -1607,6 +1620,18 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(incunit, 'month')
                 self.eq(incval, 1)
 
+            # test hourly period with multiple minutes
+            msgs = await core.stormlist('cron.add hourly@:24,45 { $lib.print(multi_minute) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            multi_min_cron = [c for c in crons if c['storm'] == '$lib.print(multi_minute)'][0]
+            self.len(2, multi_min_cron['recs'])
+            minutes = sorted(rec[0]['minute'] for rec in multi_min_cron['recs'])
+            self.eq(minutes, [24, 45])
+            for reqdict, incunit, incval in multi_min_cron['recs']:
+                self.eq(incunit, 'hour')
+                self.eq(incval, 1)
+
             # test hourly@00:MM period is equivalent to hourly@:MM
             msgs = await core.stormlist('cron.add hourly@00:25 { $lib.print(ok) }')
             self.stormHasNoWarnErr(msgs)
@@ -1709,6 +1734,7 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add hourly/2 { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
                 ('cron.add hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add hourly@:24,newp { $lib.print(err) }', 'Invalid minute value'),
                 ('cron.add daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),
                 ('cron.add yearly/badmonth-01 { $lib.print(err) }', 'Invalid month-day value for yearly period'),
@@ -2005,7 +2031,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # Create a cron with affinity pointing to a non-existent service
             # It should fall back to local execution
-            with self.getAsyncLoggerStream('synapse.lib.agenda', 'unavailable for cron') as stream:
+            with self.getLoggerStream('synapse.lib.agenda',) as stream:
                 cdef = {
                     'user': core.auth.rootuser.iden,
                     'creator': core.auth.rootuser.iden,
@@ -2015,7 +2041,7 @@ class AgendaTest(s_t_utils.SynTest):
                 }
                 await core.addCronJob(cdef)
 
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('unavailable for cron', timeout=12)
 
             # Verify the query ran locally (fallback)
             q = 'return($lib.queue.gen(afftest).get((0), wait=(true)))'

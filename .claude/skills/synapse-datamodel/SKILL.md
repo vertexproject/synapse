@@ -4,7 +4,10 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 
 ## Instructions
 
-1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), and all light edges.
+1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), light edges, tag properties, and interfaces.
+
+   For focused lookups, use the targeted flag instead of loading the entire model:
+   - `--find <name>` — auto-detects whether the name is a form, interface, form property, interface property, or tag property, and outputs detailed docs for it. Form output includes base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation). Interface output includes properties, implementing forms, and Referenced Types. Property output includes the type, doc, and parent form/interface/tag context.
 
 2. Read the generated output thoroughly to understand the available forms, properties, types, and edges before answering the user's question.
 
@@ -23,7 +26,7 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 ## Example Invocation
 
 ```bash
-# Generate model docs from a temporary Cortex (default/base model)
+# Generate full model docs from a temporary Cortex (default/base model)
 python -m synapse.tools.cortex.docmodel
 
 # Generate model docs from a live Cortex (includes extended model from packages)
@@ -31,4 +34,19 @@ python -m synapse.tools.cortex.docmodel --cortex tcp://cortex:27492
 
 # Save to a file for reference
 python -m synapse.tools.cortex.docmodel --save /tmp/datamodel.md
+
+# Detailed docs for a specific form (properties, Referenced Types, edges)
+python -m synapse.tools.cortex.docmodel --find inet:fqdn
+
+# Detailed docs for a specific interface (properties, implementing forms)
+python -m synapse.tools.cortex.docmodel --find meta:observable
+
+# Detailed docs for a specific form property
+python -m synapse.tools.cortex.docmodel --find inet:fqdn:domain
+
+# Detailed docs for a specific interface property
+python -m synapse.tools.cortex.docmodel --find meta:observable:seen
+
+# Single form from a live Cortex
+python -m synapse.tools.cortex.docmodel --cortex aha://00.cortex... --find risk:attack
 ```

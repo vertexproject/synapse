@@ -30,38 +30,16 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('ps:person -> entity:name'))
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
 
-            nodes = await core.nodes('''[
-                ps:achievement=*
-                    :award=*
-                    :awardee={[ entity:contact=* ]}
-                    :awarded=20200202
-                    :expires=20210202
-                    :revoked=20201130
-            ]''')
-            self.len(1, nodes)
-            achv = nodes[0].ndef[1]
-
             nodes = await core.nodes('''
-                ou:award [ :name="Bachelors of Science" :type=degree :org=* ]
+                [ meta:award=* :name="Bachelors of Science" :type=degree :issuer={[ ou:org=* ]} ]
             ''')
-            self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('issuer'))
             self.propeq(nodes[0], 'name', 'bachelors of science')
             self.propeq(nodes[0], 'type', 'degree.')
 
-            opts = {'vars': {'achv': achv}}
-            nodes = await core.nodes('''[
-                ps:education=*
-                    :student={[ entity:contact=* ]}
-                    :institution={[ entity:contact=* ]}
-                    :period=(20200202, 20210202)
-                    :achievement = $achv
-
-                    +(included)> {[ edu:class=* ]}
-            ]''', opts=opts)
-
             nodes = await core.nodes('''
-                edu:class
                 [
+                    edu:class=*
                     :course=*
                     :instructor={[ entity:contact=* ]}
                     :assistants={[ entity:contact=* ]}
@@ -69,7 +47,6 @@ class PsModelTest(s_t_utils.SynTest):
                     :isvirtual=1
                     :virtual:url=https://vertex.edu/chem101
                     :virtual:provider={[ entity:contact=* ]}
-                    :place=*
                 ]
             ''')
             self.len(1, nodes)
@@ -83,7 +60,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :id=chem101
                     :name="Data Structure Analysis"
                     :desc="A brief description here"
-                    :institution={[ entity:contact=* ]}
+                    :institution={[ ou:org=* ]}
                     :prereqs = (*,)
                 ]
             ''', opts=opts)
@@ -103,7 +80,6 @@ class PsModelTest(s_t_utils.SynTest):
                     :title = "Python Developer"
                     :period=(20210731, 20220731)
                     :pay = 200000
-                    :pay:currency = usd
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'org:name', 'wootcorp')
@@ -114,7 +90,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'title', 'python developer')
             self.propeq(nodes[0], 'period', (1627689600000000, 1659225600000000, 31536000000000))
             self.propeq(nodes[0], 'pay', '200000')
-            self.propeq(nodes[0], 'pay:currency', 'usd')
 
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('contact'))
@@ -142,7 +117,6 @@ class PsModelTest(s_t_utils.SynTest):
                 [ ps:vitals=*
                     :time=20220815
                     :individual={[ ps:person=* ]}
-                    :econ:currency=usd
                     :econ:net:worth=100
                     :econ:annual:income=1000
                     :phys:mass=100lbs
@@ -156,7 +130,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'phys:height', 1828)
             self.propeq(nodes[0], 'phys:mass', '45359.2')
 
-            self.propeq(nodes[0], 'econ:currency', 'usd')
             self.propeq(nodes[0], 'econ:net:worth', '100')
             self.propeq(nodes[0], 'econ:annual:income', '1000')
 
@@ -167,14 +140,14 @@ class PsModelTest(s_t_utils.SynTest):
     async def test_ps_skillz(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ ps:proficiency=*
-                    :contact = {[ entity:contact=* :name=visi ]}
+                [ entity:proficiency=*
+                    :actor = {[ entity:contact=* :name=visi ]}
                     :skill = {[ ps:skill=* :type=hungry :name="Wanting Pizza" ]}
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('skill'))
-            self.nn(nodes[0].get('contact'))
-            self.len(1, await core.nodes('ps:proficiency -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('ps:proficiency -> ps:skill +:name="wanting pizza"'))
-            self.len(1, await core.nodes('ps:proficiency -> ps:skill -> ps:skill:type:taxonomy'))
+            self.nn(nodes[0].get('actor'))
+            self.len(1, await core.nodes('entity:proficiency -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('entity:proficiency -> ps:skill +:name="wanting pizza"'))
+            self.len(1, await core.nodes('entity:proficiency -> ps:skill -> ps:skill:type:taxonomy'))

@@ -64,17 +64,15 @@ class TestAutoDoc(s_t_utils.SynTest):
             # IP property
             self.isin('''* - ``:asn``
         - | :ref:`dm-type-poly`
-          | forms: ``(\'inet:asn\',)``
-          | interfaces: ``()``
+          | types: ``(\'inet:asn\',)``
         - The ASN to which the IP address is currently assigned.''', s)
 
             # Readonly inet:form:password:md5 value
             self.isin('''* - ``:md5``
         - | :ref:`dm-type-poly`
-          | forms: ``(\'crypto:hash:md5\',)``
-          | interfaces: ``()``
+          | types: ``(\'crypto:hash:md5\',)``
         - The MD5 hash of the password.
-        - | Computed: ``True``''', s)
+        - Computed: ``True``''', s)
 
             # Refs edges def
             self.isin('''      * - ``*``
@@ -247,10 +245,9 @@ class TestAutoDoc(s_t_utils.SynTest):
                 libbuf = fd.read()
             libtext = libbuf.decode()
 
-            self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg, \\*\\*kwargs)\n============================',
+            self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg)\n================',
                       libtext)
             self.isin('Print a message to the runtime.', libtext)
-            self.isin('\\*\\*kwargs (any): Keyword arguments to substitute into the mesg.', libtext)
             self.isin('.. _stormlibs-lib-time:\n\n*********\n$lib.time\n*********', libtext)
             self.isin('A Storm Library for interacting with timestamps.', libtext)
 

@@ -104,6 +104,7 @@ Notes:
         - HH:MM (24-hour format, e.g., 14:30 for 2:30 PM)
         - HH (hour only, minute defaults to 0)
         - :MM (minute only, for hourly periods)
+        - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
     # Run every day at midnight UTC
@@ -117,6 +118,12 @@ Examples:
 
     # Run every hour at minute 25
     cron.add hourly@:25 { $lib.print(hourly) }
+
+    # Run every hour at minute 24 and minute 45
+    cron.add hourly@:24,45 { $lib.print(hourly) }
+
+    # Run every hour at minute 24 and minute 45
+    cron.add --period hourly@:24,45 { $lib.print(hourly) }
 
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
@@ -293,7 +300,7 @@ stormcmds = (
                 if $info.name { $name = $info.name.ljust(20) }
                 else { $name = '                    ' }
 
-                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
+                $lib.print(`    {$info.iden}:  ({$name}): {$info.status}`)
             }
         ''',
     },
@@ -337,7 +344,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.layer.del($cmdopts.iden)
-            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Layer deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -377,7 +384,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPull($cmdopts.src, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer pull added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer pull added: {$pdef.iden}`)
             }
         ''',
     },
@@ -456,7 +463,7 @@ stormcmds = (
             $layr = $lib.layer.get($cmdopts.layr)
             $pdef = $layr.addPush($cmdopts.dest, $cmdopts.offset)
             if $pdef {
-                $lib.print("Layer push added: {iden}", iden=$pdef.iden)
+                $lib.print(`Layer push added: {$pdef.iden}`)
             }
         ''',
     },
@@ -562,7 +569,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.view.del($cmdopts.iden)
-            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View deleted: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -590,7 +597,7 @@ stormcmds = (
         'storm': '''
             $forkview = $lib.view.get($cmdopts.iden).fork(name=$cmdopts.name)
             $lib.print($forkview.repr())
-            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+            $lib.print(`View {$cmdopts.iden} forked to new view: {$forkview.iden}`)
         ''',
     },
     {
@@ -637,7 +644,7 @@ stormcmds = (
             } else {
                 $view.swapLayer()
             }
-            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+            $lib.print(`View merged: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -665,7 +672,7 @@ stormcmds = (
             $opts.help = $lib.undef
             $opts.disabled = $lib.undef
             $trig = $lib.trigger.add($opts)
-            $lib.print("Added trigger: {iden}", iden=$trig.iden)
+            $lib.print(`Added trigger: {$trig.iden}`)
         ''',
     },
     {
@@ -676,7 +683,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.del($cmdopts.iden)
-            $lib.print("Deleted trigger: {iden}", iden=$iden)
+            $lib.print(`Deleted trigger: {$iden}`)
         ''',
     },
     {
@@ -812,7 +819,7 @@ stormcmds = (
                                   doc=$cmdopts.doc,
                                   name=$cmdopts.name)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -841,7 +848,7 @@ stormcmds = (
                                  view=$cmdopts.view,
                                  affinity=$cmdopts.affinity)
 
-            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+            $lib.print(`Created cron job: {$cron.iden}`)
         ''',
     },
     {
@@ -852,7 +859,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.cron.del($cmdopts.iden)
-            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+            $lib.print(`Deleted cron job: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -896,7 +903,7 @@ stormcmds = (
                     }
                 }
             }
-            $lib.print("{count} cron/at jobs deleted.", count=$count)
+            $lib.print(`{$count} cron/at jobs deleted.`)
         ''',
     },
 
@@ -960,24 +967,24 @@ stormcmds = (
             if $cron {
                 $job = $cron.pprint()
 
-                $lib.print('iden:            {iden}', iden=$job.iden)
-                $lib.print('creator:         {creator}', creator=$job.creator)
-                $lib.print('user:            {user}', user=$job.user)
-                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`iden:            {$job.iden}`)
+                $lib.print(`creator:         {$job.creator}`)
+                $lib.print(`user:            {$job.user}`)
+                $lib.print(`enabled:         {$job.enabled}`)
                 $lib.print(`pool:            {$job.pool}`)
                 $lib.print(`affinity:        {$job.affinity}`)
-                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
-                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
-                $lib.print('# errors:        {errcount}', errcount=$job.errcount)
-                $lib.print('last start time: {laststart}', laststart=$job.laststart)
-                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
-                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
-                $lib.print('query:           {query}', query=$job.query)
+                $lib.print(`recurring:       {$job.isrecur}`)
+                $lib.print(`# starts:        {$job.startcount}`)
+                $lib.print(`# errors:        {$job.errcount}`)
+                $lib.print(`last start time: {$job.laststart}`)
+                $lib.print(`last end time:   {$job.lastend}`)
+                $lib.print(`last result:     {$job.lastresult}`)
+                $lib.print(`query:           {$job.query}`)
 
                 if $lib.len($job.lasterrs) {
                     $lib.print('most recent errors:')
                     for $err in $job.lasterrs {
-                        $lib.print('                 {err}', err=$err)
+                        $lib.print(`                 {$err}`)
                     }
                 }
 
@@ -988,8 +995,7 @@ stormcmds = (
                         $incunit = (`{$rec.incunit}`).ljust(10)
                         $incval = (`{$rec.incval}`).ljust(6)
 
-                        $lib.print('                 {incunit} {incval} {reqdict}',
-                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                        $lib.print(`                 {$incunit} {$incval} {$rec.reqdict}`)
                     }
                 } else {
                     $lib.print('entries:         <None>')
@@ -1032,11 +1038,11 @@ stormcmds = (
             if $cmdopts.urls {
                 $urls = $cmdopts.urls
             } else {
-                if ($node.form() != "inet:url") {
+                if ($node.form != "inet:url") {
                     $lib.warn("wget can only take inet:url nodes as input without args.")
                     $lib.exit()
                 }
-                $urls = ($node.value(),)
+                $urls = ($node.value,)
             }
             for $url in $urls {
                 -> { yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout) }
@@ -1069,7 +1075,7 @@ stormcmds = (
                     }
                     yield $lib.feed.genr($nodes, (true))
                 } else {
-                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
+                    $lib.exit(`nodes.import got HTTP error code: {$resp.code} for {$url}`)
                 }
             }
         }
@@ -1078,10 +1084,10 @@ stormcmds = (
 
         if $node {
             $count = ($count + 1)
-            if ($node.form() != "inet:url") {
+            if ($node.form != "inet:url") {
                 $lib.exit("nodes.import can only take inet:url nodes as input without args")
             }
-            $inurls = ($node.value(),)
+            $inurls = ($node.value,)
             for $url in $inurls {
                 -> { yield $fetchnodes($url, $ssl) }
             }
@@ -1140,7 +1146,7 @@ stormcmds = (
             $resp = $lib.cell.uptime(name=$cmdopts.name)
             $uptime = $lib.model.type(duration).repr($resp.uptime)
             $starttime = $lib.time.format($resp.starttime, "%Y-%m-%d %H:%M:%S")
-            $lib.print("up {uptime} (since {since})", uptime=$uptime, since=$starttime)
+            $lib.print(`up {$uptime} (since {$starttime})`)
         ''',
     },
 )
@@ -1262,16 +1268,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
-        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopping Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
         if self.task is not None:
             self.task.cancel()
         self.task = None
-        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
         if self.task:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
-                               iden=self.iden)
+                               extra=self.core.getLogExtra(iden=self.iden))
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1293,7 +1299,7 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
-        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
@@ -1316,26 +1322,26 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
                 logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             try:
@@ -1351,7 +1357,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
+                    logger.warning(f'Dmon query exited: {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
                     self.status = 'sleeping'
 
@@ -1364,7 +1370,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
+                logger.exception(f'Dmon error ({self.iden})', extra=self.core.getLogExtra(iden=self.iden))
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
@@ -1403,8 +1409,6 @@ class Runtime(s_base.Base):
         self.funcscope = False
 
         self.query = query
-
-        self.spawn_log_conf = await self.view.core._getSpawnLogConf()
 
         self.readonly = opts.get('readonly', False)
         self.model = view.core.getDataModel()
@@ -2011,7 +2015,7 @@ class Parser:
             root = self
 
         if model is None:
-            model = s_datamodel.Model()
+            model = s_datamodel.getBaseModel()
         self.model = model
 
         self.prog = prog
@@ -3284,13 +3288,8 @@ class CopyToCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if prop.info.get('computed'):
-                        curv = proto.get(name)
-                        if curv is not None and curv != valu:
-                            valurepr = prop.type.repr(curv)
-                            mesg = f'Cannot overwrite read only property with conflicting ' \
-                                   f'value: {node.iden()} {prop.full} = {valurepr}'
-                            await runt.warn(mesg)
-                            continue
+                        # re-derived by destination ctor; never copy directly
+                        continue
 
                     if prop.type.ispoly:
                         valu = s_stormtypes.NodeRef(node.getWithVirts(name))
@@ -3727,20 +3726,10 @@ class MergeCmd(Cmd):
                             continue
 
                     if prop.info.get('computed'):
-                        isset = False
-                        for undr in sodes[1:]:
-                            props = undr.get('props')
-                            if props is not None:
-                                curv = props.get(name)
-                                if curv is not None:
-                                    isset = curv[0] != valu
-                                    break
-
-                        if isset:
-                            valurepr = prop.type.repr(curv[0])
-                            mesg = f'Cannot merge read only property with conflicting ' \
-                                   f'value: {nodeiden} {form}:{name} = {valurepr}'
-                            await runt.warn(mesg)
+                        if doapply:
+                            # re-derived by destination ctor; skip the set but clean up source layer
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_PROP_DEL, (name,)))
                             continue
 
                     if not doapply:
@@ -4042,6 +4031,10 @@ class MoveNodesCmd(Cmd):
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                if layr not in layrlist:
+                    mesg = f'Layer {layr} in precedence is not in the set of source/destination layers.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, layr=layr)
+
                 layrlist.remove(layr)
 
             if len(layrlist) > 0:
@@ -4674,7 +4667,7 @@ class MaxCmd(Cmd):
         file:bytes#foo.bar +:seen ($tick, $tock) = :seen | max $tick
 
         // Yield the it:dev:str node with the longest length
-        it:dev:str | max $lib.len($node.value())
+        it:dev:str | max $lib.len($node.value)
 
     '''
 
@@ -4728,7 +4721,7 @@ class MinCmd(Cmd):
         file:bytes#foo.bar +:seen ($tick, $tock) = :seen | min $tick
 
         // Yield the it:dev:str node with the shortest length
-        it:dev:str | min $lib.len($node.value())
+        it:dev:str | min $lib.len($node.value)
 
     '''
     name = 'min'
@@ -4947,17 +4940,17 @@ class MoveTagCmd(Cmd):
 
             newnode = await view.addNode('syn:tag', newtag)
 
-            olddoc = node.get('doc')
-            if olddoc is not None:
-                await newnode.set('doc', olddoc)
+            olddoc = node.getWithVirts('doc')
+            if olddoc[0] is not None:
+                await newnode.set('doc', s_stormtypes.NodeRef(olddoc))
 
-            olddocurl = node.get('doc:url')
-            if olddocurl is not None:
-                await newnode.set('doc:url', olddocurl[1])
+            olddocurl = node.getWithVirts('doc:url')
+            if olddocurl[0] is not None:
+                await newnode.set('doc:url', s_stormtypes.NodeRef(olddocurl))
 
-            oldtitle = node.get('title')
-            if oldtitle is not None:
-                await newnode.set('title', oldtitle)
+            oldtitle = node.getWithVirts('title')
+            if oldtitle[0] is not None:
+                await newnode.set('title', s_stormtypes.NodeRef(oldtitle))
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.getTags():
@@ -5236,7 +5229,7 @@ class ViewExecCmd(Cmd):
     Examples:
 
         // Move some tagged nodes to another view
-        inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+        inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
     '''
 
     name = 'view.exec'

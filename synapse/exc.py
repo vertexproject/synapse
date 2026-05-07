@@ -3,6 +3,22 @@ Exceptions used by synapse, all inheriting from SynErr
 '''
 import sys
 
+def _check_item(key, item):
+    if item is None:
+        return
+    if isinstance(item, (str, int, bytes, float)):
+        return
+    if isinstance(item, (tuple, list)):
+        for i in item:
+            _check_item(key, i)
+        return
+    if isinstance(item, dict):
+        for k, v in item.items():
+            _check_item(key, k)
+            _check_item(key, v)
+        return
+    raise ValueError(f'SynErr got unknown item type: {key=} {type(item)} {item=}')
+
 class SynErr(Exception):
 
     def __init__(self, *args, **info):
@@ -12,6 +28,9 @@ class SynErr(Exception):
 
     def _getExcMsg(self):
         props = sorted(self.errinfo.items())
+        if __debug__:
+            for k, v in props:
+                _check_item(k, v)
         displ = ' '.join(['%s=%r' % (p, v) for (p, v) in props])
         return '%s: %s' % (self.__class__.__name__, displ)
 
