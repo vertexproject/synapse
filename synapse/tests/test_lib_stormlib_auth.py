@@ -1134,6 +1134,10 @@ class StormLibAuthTest(s_test.SynTest):
                 }
             '''))
 
+            roles = await core.callStorm('return($lib.auth.users.byname(visi).get(roles))')
+            self.len(1, roles)
+            self.true(isinstance(roles[0], dict))
+
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
             self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.true, (foo, bar))))'))
@@ -1198,6 +1202,9 @@ class StormLibAuthTest(s_test.SynTest):
             q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'
             self.nn(await core.callStorm(q))
             self.nn(await core.callStorm('return($lib.auth.roles.byname(all))'))
+
+            udef = await core.callStorm('return($lib.auth.users.byemail(visi@vertex.link))')
+            self.eq(udef['email'], 'visi@vertex.link')
 
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
@@ -1469,6 +1476,9 @@ class StormLibAuthTest(s_test.SynTest):
             self.notin('newp', rdef.get('authgates'))
             q = '$r = $lib.auth.roles.byname(all) return ( $lib.dict.has($r.authgates, newp) )'
             self.false(await core.callStorm(q))
+
+            q = '$user = $lib.auth.users.add(gone) $lib.auth.users.del($user.iden) return($user.roles())'
+            self.eq((), await core.callStorm(q))
 
     async def test_stormlib_auth_gateadmin(self):
 
