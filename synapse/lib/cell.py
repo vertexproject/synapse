@@ -3332,9 +3332,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for role in user.getRoles():
             yield role
 
-    async def getUserIdenByEmail(self, email):
-        return await self.auth.getUserIdenByEmail(email)
-
     async def getRoleDefByName(self, name):
         role = await self.auth.getRoleByName(name)
         if role is not None:

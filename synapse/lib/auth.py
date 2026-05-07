@@ -1,5 +1,4 @@
 import string
-import asyncio
 import logging
 import dataclasses
 
@@ -264,13 +263,6 @@ class Auth(s_nexus.Pusher):
 
     def _getUserIden(self, name):
         return self.useridenbyname.get(name)
-
-    async def getUserIdenByEmail(self, email):
-        for useriden in self.useridenbyname.values():
-            if (user := self.user(useriden)) is not None and user.info.get('email') == email:
-                return useriden
-
-            await asyncio.sleep(0)
 
     async def getRoleByName(self, name):
         roleiden = self.roleidenbynamecache.get(name)

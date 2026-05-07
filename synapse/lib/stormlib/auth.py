@@ -1904,13 +1904,6 @@ class LibUsers(s_stormtypes.Lib):
                   ),
                   'returns': {'type': ['null', 'auth:user'],
                               'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
-        {'name': 'byemail', 'desc': 'Get the first user with a specific email.',
-         'type': {'type': 'function', '_funcname': '_methUsersByEmail',
-                  'args': (
-                      {'name': 'email', 'type': 'str', 'desc': 'The email to search for.'},
-                  ),
-                  'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or null if no user exists.'}}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
@@ -1999,7 +1992,6 @@ class LibUsers(s_stormtypes.Lib):
             'list': self._methUsersList,
             'get': self._methUsersGet,
             'byname': self._methUsersByName,
-            'byemail': self._methUsersByEmail,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -2018,13 +2010,6 @@ class LibUsers(s_stormtypes.Lib):
     async def _methUsersByName(self, name):
         name = await s_stormtypes.tostr(name)
         useriden = await self.runt.snap.core.getUserIdenByName(name)
-        if useriden is not None:
-            return User(self.runt, useriden)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methUsersByEmail(self, email):
-        email = await s_stormtypes.tostr(email)
-        useriden = await self.runt.snap.core.getUserIdenByEmail(email)
         if useriden is not None:
             return User(self.runt, useriden)
 
