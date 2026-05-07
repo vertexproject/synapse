@@ -23,6 +23,38 @@ PANDOC_FILTER = os.path.join(_TOOLDIR, '_pandoc_filter.py')
 re_sphinx_metadata_fields = re.compile(r'^:(tocdepth|nocomments|orphan|nosearch):( \w+)?\n\n',
                                        flags=re.MULTILINE)
 
+def _escape_pipes_in_table_code_spans(line):
+    # Pandoc emits inline code spans verbatim in markdown pipe tables, so a
+    # ``|`` inside one (e.g. ``(onnodes | onvars)[]``) is mis-parsed as a
+    # column boundary by strict GFM consumers like Optic. Walk each table-row
+    # line and replace bare ``|`` with ``\|`` inside any backtick-fenced span.
+    if not line.startswith('|'):
+        return line
+
+    out = []
+    i = 0
+    while i < len(line):
+        if line[i] != '`':
+            out.append(line[i])
+            i += 1
+            continue
+
+        n = 0
+        while i + n < len(line) and line[i + n] == '`':
+            n += 1
+        fence = '`' * n
+        close = line.find(fence, i + n)
+        if close == -1:
+            out.append(line[i:])
+            break
+
+        inner = line[i + n:close]
+        inner = re.sub(r'(?<!\\)\|', r'\\|', inner)
+        out.append(fence + inner + fence)
+        i = close + n
+
+    return ''.join(out)
+
 def hasPandoc():
     if os.system('pandoc --version') == 0:
         return True
@@ -147,6 +179,8 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
 
         # Remove lines which only have a single `:` left in them
         nlines1 = [line for line in lines if line.strip() != ':']
+
+        nlines1 = [_escape_pipes_in_table_code_spans(line) for line in nlines1]
 
         buf = ''.join(nlines1)
 

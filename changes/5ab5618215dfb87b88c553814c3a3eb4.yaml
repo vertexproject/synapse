@@ -1,0 +1,7 @@
+---
+desc: Escape ``|`` inside inline code spans on markdown pipe-table rows when converting
+  RST to markdown via ``synapse.tools.storm.pkg.doc``.
+desc:literal: false
+prs: []
+type: bug
+...
