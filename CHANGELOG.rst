@@ -31,7 +31,6 @@ Notes
   GitHub flavored markdown.
   (`#4940 <https://github.com/vertexproject/synapse/pull/4940>`_)
 
-
 v2.241.0 - 2026-05-01
 =====================
 
