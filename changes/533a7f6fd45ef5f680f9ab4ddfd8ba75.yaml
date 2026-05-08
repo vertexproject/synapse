@@ -1,8 +1,0 @@
----
-desc: Fixed an issue in the ``synapse.utils.stormcov`` plugin where AST nodes
-  inside ``$lib.pipe.gen(${...})`` blocks were mapped to incorrect line numbers,
-  causing those lines to never appear as covered.
-desc:literal: false
-prs: []
-type: bug
-...

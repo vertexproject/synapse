@@ -1,7 +1,0 @@
----
-desc: Updated ``synapse.tools.storm.pkg.doc`` so package docs are now emitted as
-  GitHub flavored markdown.
-desc:literal: false
-prs: []
-type: note
-...

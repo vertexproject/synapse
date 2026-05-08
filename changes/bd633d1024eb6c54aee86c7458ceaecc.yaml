@@ -1,7 +1,0 @@
----
-desc: Adjusted ``$lib.auth`` Storm APIs to avoid retrieving full user definitions when not
-  necessary.
-desc:literal: false
-prs: []
-type: feat
-...
