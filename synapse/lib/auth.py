@@ -176,10 +176,18 @@ class Auth(s_nexus.Pusher):
             userinfo = self.userdefs.get(useriden)
             yield User(userinfo, self)
 
+    def useridens(self):
+        for useriden in self.useridenbyname.values():
+            yield useriden
+
     def roles(self):
         for roleiden in self.roleidenbyname.values():
             roleinfo = self.roledefs.get(roleiden)
             yield Role(roleinfo, self)
+
+    def roleidens(self):
+        for roleiden in self.roleidenbyname.values():
+            yield roleiden
 
     def role(self, iden):
         return self.rolebyidencache.get(iden)

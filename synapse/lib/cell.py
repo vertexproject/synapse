@@ -3319,16 +3319,48 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is not None:
             return user.pack(packroles=True)
 
+    async def getUserIdenByName(self, name):
+        user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.iden
+
+    async def getUserRoles(self, iden):
+        user = self.auth.user(iden)
+        if user is None:
+            return
+
+        for role in user.getRoles():
+            yield role
+
     async def getRoleDefByName(self, name):
         role = await self.auth.getRoleByName(name)
         if role is not None:
             return role.pack()
 
+    async def getRoleIdenByName(self, name):
+        role = await self.auth.getRoleByName(name)
+        if role is not None:
+            return role.iden
+
     async def getUserDefs(self):
         return [u.pack(packroles=True) for u in self.auth.users()]
 
+    def hasUserIden(self, iden):
+        return self.auth.user(iden) is not None
+
+    async def getUserIdens(self):
+        for useriden in self.auth.useridens():
+            yield useriden
+
     async def getRoleDefs(self):
         return [r.pack() for r in self.auth.roles()]
+
+    def hasRoleIden(self, iden):
+        return self.auth.role(iden) is not None
+
+    async def getRoleIdens(self):
+        for roleiden in self.auth.roleidens():
+            yield roleiden
 
     async def getAuthUsers(self, archived=False):
         return [u.pack() for u in self.auth.users() if archived or not u.info.get('archived')]
