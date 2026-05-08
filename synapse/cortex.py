@@ -3173,8 +3173,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    await self.setStormPkgVar(name, verskey, -1)
 
                 else:
                     if (key := inits.get('key')) is not None:
@@ -3234,9 +3233,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
-                        if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                        curvers = max(vers, await self.getStormPkgVar(name, verskey, default=-1))
+                        await self.setStormPkgVar(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -3515,13 +3513,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.get(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:var:pop')
     async def popStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        if pkgvars.get(key, defv=s_common.novalu) is s_common.novalu:
+            return default
+
+        return await self._push('storm:pkg:var:pop', name, key, default)
+
+    @s_nexus.Pusher.onPush('storm:pkg:var:pop')
+    async def _popStormPkgVar(self, name, key, default=None):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.pop(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:var:set')
     async def setStormPkgVar(self, name, key, valu):
+        pkgvars = self._getStormPkgVarKV(name)
+        if pkgvars.get(key, defv=s_common.novalu) == valu:
+            return
+
+        return await self._push('storm:pkg:var:set', name, key, valu)
+
+    @s_nexus.Pusher.onPush('storm:pkg:var:set')
+    async def _setStormPkgVar(self, name, key, valu):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.set(key, valu)
 

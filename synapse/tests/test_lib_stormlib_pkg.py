@@ -359,6 +359,37 @@ class StormLibPkgTest(s_test.SynTest):
                     return($kvs)
                 '''))
 
+    async def test_storm_pkg_var_no_op_nexus(self):
+
+        async with self.getTestCore() as core:
+
+            ind = core.nexsroot.nexslog.index()
+
+            # new set emits one nexus entry
+            await core.setStormPkgVar('pkg0', 'key', 1)
+            self.eq(ind + 1, core.nexsroot.nexslog.index())
+
+            # identical set is a no-op — no nexus entry
+            await core.setStormPkgVar('pkg0', 'key', 1)
+            self.eq(ind + 1, core.nexsroot.nexslog.index())
+
+            # changed value emits an entry
+            await core.setStormPkgVar('pkg0', 'key', 2)
+            self.eq(ind + 2, core.nexsroot.nexslog.index())
+
+            # pop on an absent key is a no-op — no nexus entry
+            await core.popStormPkgVar('pkg0', 'missing')
+            self.eq(ind + 2, core.nexsroot.nexslog.index())
+
+            # pop on a present key emits an entry
+            await core.popStormPkgVar('pkg0', 'key')
+            self.eq(ind + 3, core.nexsroot.nexslog.index())
+
+            # pop returns the default when key is absent
+            retn = await core.popStormPkgVar('pkg0', 'missing', default='fallback')
+            self.eq('fallback', retn)
+            self.eq(ind + 3, core.nexsroot.nexslog.index())
+
     async def test_stormlib_pkg_queues(self):
         with self.getTestDir() as dirn:
 

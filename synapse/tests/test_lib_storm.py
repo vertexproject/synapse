@@ -2985,9 +2985,11 @@ class StormTest(s_t_utils.SynTest):
                 'version': '0.1.0',
             }
 
+            ind = core.nexsroot.nexslog.index()
             await loadPkg(core, pkg)
 
             self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
+            self.eq(ind + 2, core.nexsroot.nexslog.index())
 
         with self.getTestDir() as dirn:
 
