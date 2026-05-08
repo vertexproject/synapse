@@ -6,6 +6,31 @@
 Synapse Changelog
 *****************
 
+v2.242.0 - 2026-05-08
+=====================
+
+Features and Enhancements
+-------------------------
+- Adjusted ``$lib.auth`` Storm APIs to avoid retrieving full user definitions
+  when not necessary.
+  (`#4941 <https://github.com/vertexproject/synapse/pull/4941>`_)
+
+Bugfixes
+--------
+- Fixed an issue in the ``synapse.utils.stormcov`` plugin where AST nodes
+  inside ``$lib.pipe.gen(${...})`` blocks were mapped to incorrect line
+  numbers, causing those lines to never appear as covered.
+  (`#4939 <https://github.com/vertexproject/synapse/pull/4939>`_)
+
+Notes
+-----
+- Updated the allowed versions of the ``cryptography`` and ``xxhash``
+  libraries.
+  (`#4927 <https://github.com/vertexproject/synapse/pull/4927>`_)
+- Updated ``synapse.tools.storm.pkg.doc`` so package docs are now emitted as
+  GitHub flavored markdown.
+  (`#4940 <https://github.com/vertexproject/synapse/pull/4940>`_)
+
 v2.241.0 - 2026-05-01
 =====================
 
